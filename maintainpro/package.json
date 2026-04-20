@@ -1,0 +1,25 @@
+{
+  "name": "maintainpro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MaintainPro CMMS monorepo",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev --workspace @maintainpro/api\" \"npm run dev --workspace @maintainpro/web\"",
+    "dev:api": "npm run dev --workspace @maintainpro/api",
+    "dev:web": "npm run dev --workspace @maintainpro/web",
+    "build": "npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/api && npm run build --workspace @maintainpro/web",
+    "lint": "npm run lint --workspace @maintainpro/api && npm run lint --workspace @maintainpro/web",
+    "typecheck": "npm run typecheck --workspace @maintainpro/api && npm run typecheck --workspace @maintainpro/web",
+    "start:api": "npm run start --workspace @maintainpro/api",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
