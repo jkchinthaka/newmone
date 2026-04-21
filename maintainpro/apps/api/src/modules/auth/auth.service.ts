@@ -1,159 +1,209 @@
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
+import { RoleName } from "@prisma/client";
+import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
-import bcrypt from "bcryptjs";
-import QRCode from "qrcode";
-import speakeasy from "speakeasy";
+import { PrismaService } from "../../database/prisma.service";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { LoginDto } from "./dto/login.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { RegisterDto } from "./dto/register.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import type { AuthTokens, JwtPayload } from "./auth.types";
 
-import { AppError } from "../../common/errors/AppError";
-import { createTokenPair } from "../../common/utils/jwt";
-import { comparePassword, hashPassword } from "../../common/utils/passwords";
+@Injectable()
+export class AuthService {
+  private readonly refreshTokenStore = new Map<string, { userId: string; expiresAt: number }>();
+  private readonly resetTokenStore = new Map<string, string>();
 
-interface StoredUser {
-  id: string;
-  email: string;
-  fullName: string;
-  role: "admin" | "manager" | "technician";
-  passwordHash: string;
-  mfaSecret?: string;
-}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService
+  ) {}
 
-export interface PublicUser {
-  id: string;
-  email: string;
-  fullName: string;
-  role: "admin" | "manager" | "technician";
-}
+  private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>("JWT_ACCESS_SECRET"),
+      expiresIn: this.configService.get<string>("JWT_ACCESS_EXPIRES", "15m")
+    });
 
-const usersStore = new Map<string, StoredUser>();
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>("JWT_REFRESH_SECRET"),
+      expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES", "7d")
+    });
 
-const seedUser: StoredUser = {
-  id: "seed-admin",
-  email: "admin@maintainpro.local",
-  fullName: "MaintainPro Administrator",
-  role: "admin",
-  passwordHash: bcrypt.hashSync("Admin@1234", 10)
-};
+    this.refreshTokenStore.set(refreshToken, {
+      userId: payload.sub,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+    });
 
-usersStore.set(seedUser.email, seedUser);
+    return { accessToken, refreshToken };
+  }
 
-const toPublicUser = (user: StoredUser): PublicUser => ({
-  id: user.id,
-  email: user.email,
-  fullName: user.fullName,
-  role: user.role
-});
-
-export interface RegisterInput {
-  email: string;
-  fullName: string;
-  password: string;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
-}
-
-export const authService = {
-  async register(input: RegisterInput): Promise<{ user: PublicUser; accessToken: string; refreshToken: string }> {
-    const existing = usersStore.get(input.email);
+  async register(dto: RegisterDto) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
     if (existing) {
-      throw new AppError("A user with this email already exists", 409);
+      throw new BadRequestException("Email already in use");
     }
 
-    const passwordHash = await hashPassword(input.password);
+    const technicianRole = await this.prisma.role.findFirst({ where: { name: RoleName.TECHNICIAN } });
 
-    const created: StoredUser = {
-      id: randomUUID(),
-      email: input.email,
-      fullName: input.fullName,
-      role: "technician",
-      passwordHash
-    };
+    if (!technicianRole) {
+      throw new NotFoundException("Default role not found. Run seed first.");
+    }
 
-    usersStore.set(created.email, created);
+    const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const tokenPair = createTokenPair({
-      sub: created.id,
-      email: created.email,
-      role: created.role
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        roleId: technicianRole.id
+      },
+      include: {
+        role: true
+      }
+    });
+
+    const tokens = await this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role.name
     });
 
     return {
-      user: toPublicUser(created),
-      ...tokenPair
+      data: {
+        user,
+        ...tokens
+      },
+      message: "Registration successful"
     };
-  },
+  }
 
-  async login(input: LoginInput): Promise<{ user: PublicUser; accessToken: string; refreshToken: string }> {
-    const existing = usersStore.get(input.email);
-
-    if (!existing) {
-      throw new AppError("Invalid email or password", 401);
-    }
-
-    const isValid = await comparePassword(input.password, existing.passwordHash);
-
-    if (!isValid) {
-      throw new AppError("Invalid email or password", 401);
-    }
-
-    const tokenPair = createTokenPair({
-      sub: existing.id,
-      email: existing.email,
-      role: existing.role
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: { role: true }
     });
-
-    return {
-      user: toPublicUser(existing),
-      ...tokenPair
-    };
-  },
-
-  async setupMfa(email: string): Promise<{ secret: string; qrCodeDataUrl: string }> {
-    const user = usersStore.get(email);
 
     if (!user) {
-      throw new AppError("User not found", 404);
+      throw new UnauthorizedException("Invalid credentials");
     }
 
-    const secret = speakeasy.generateSecret({
-      name: `MaintainPro (${email})`
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+
+    if (!valid) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
     });
 
-    user.mfaSecret = secret.base32;
-    usersStore.set(user.email, user);
-
-    const qrCodeDataUrl = await QRCode.toDataURL(secret.otpauth_url ?? "");
+    const tokens = await this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role.name
+    });
 
     return {
-      secret: secret.base32,
-      qrCodeDataUrl
+      data: {
+        user,
+        ...tokens
+      },
+      message: "Login successful"
     };
-  },
+  }
 
-  verifyMfa(email: string, token: string): boolean {
-    const user = usersStore.get(email);
+  async refresh(dto: RefreshTokenDto) {
+    const tokenInStore = this.refreshTokenStore.get(dto.refreshToken);
 
-    if (!user?.mfaSecret) {
-      throw new AppError("MFA is not configured for this user", 400);
+    if (!tokenInStore || tokenInStore.expiresAt < Date.now()) {
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
-    return speakeasy.totp.verify({
-      secret: user.mfaSecret,
-      encoding: "base32",
-      token,
-      window: 1
+    const decoded = await this.jwtService.verifyAsync<JwtPayload>(dto.refreshToken, {
+      secret: this.configService.get<string>("JWT_REFRESH_SECRET")
     });
-  },
 
-  getPublicUsers(): PublicUser[] {
-    return Array.from(usersStore.values()).map(toPublicUser);
-  },
+    const tokens = await this.generateTokens(decoded);
 
-  getById(id: string): PublicUser | null {
-    const found = Array.from(usersStore.values()).find((user) => user.id === id);
-    return found ? toPublicUser(found) : null;
+    return {
+      data: tokens,
+      message: "Token refreshed"
+    };
   }
-};
+
+  async logout(dto: RefreshTokenDto) {
+    this.refreshTokenStore.delete(dto.refreshToken);
+
+    return {
+      data: { loggedOut: true },
+      message: "Logout successful"
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+
+    if (!user) {
+      return {
+        data: { accepted: true },
+        message: "If the email exists, a reset link will be sent"
+      };
+    }
+
+    const token = randomUUID();
+    this.resetTokenStore.set(token, user.id);
+
+    return {
+      data: { token },
+      message: "Password reset token generated"
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const userId = this.resetTokenStore.get(dto.token);
+
+    if (!userId) {
+      throw new BadRequestException("Invalid reset token");
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash }
+    });
+
+    this.resetTokenStore.delete(dto.token);
+
+    return {
+      data: { changed: true },
+      message: "Password reset successful"
+    };
+  }
+
+  async me(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    return {
+      data: user,
+      message: "Profile fetched"
+    };
+  }
+}

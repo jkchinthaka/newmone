@@ -1,28 +1,49 @@
-import type { RequestHandler } from "express";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { AppError } from "../../common/errors/AppError";
-import { sendSuccess } from "../../common/utils/response";
-import { usersService } from "./users.service";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { UsersService } from "./users.service";
 
-const list: RequestHandler = (_req, res) => {
-  return sendSuccess(res, usersService.listUsers(), "Users fetched");
-};
+@ApiTags("Users")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("users")
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
 
-const me: RequestHandler = (req, res, next) => {
-  if (!req.user) {
-    return next(new AppError("User context missing", 401));
+  @Get()
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async findAll() {
+    const users = await this.usersService.findAll();
+    return { data: users, message: "Users fetched" };
   }
 
-  const profile = usersService.getById(req.user.sub);
-
-  if (!profile) {
-    return next(new AppError("User not found", 404));
+  @Get(":id")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async findOne(@Param("id") id: string) {
+    const user = await this.usersService.findOne(id);
+    return { data: user, message: "User fetched" };
   }
 
-  return sendSuccess(res, profile, "Profile fetched");
-};
+  @Post()
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async create(@Body() body: { email: string; passwordHash: string; firstName: string; lastName: string; roleId: string; phone?: string }) {
+    const user = await this.usersService.create(body);
+    return { data: user, message: "User created" };
+  }
 
-export const usersController = {
-  list,
-  me
-};
+  @Patch(":id")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async update(@Param("id") id: string, @Body() body: Partial<{ firstName: string; lastName: string; phone: string; roleId: string }>) {
+    const user = await this.usersService.update(id, body);
+    return { data: user, message: "User updated" };
+  }
+
+  @Delete(":id")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async remove(@Param("id") id: string) {
+    const deleted = await this.usersService.remove(id);
+    return { data: deleted, message: "User deleted" };
+  }
+}

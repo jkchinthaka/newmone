@@ -1,42 +1,83 @@
-import type { RequestHandler } from "express";
-import { z } from "zod";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { AppError } from "../../common/errors/AppError";
-import { asyncHandler } from "../../common/utils/async-handler";
-import { sendSuccess } from "../../common/utils/response";
-import { assetsService } from "./assets.service";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AssetsService } from "./assets.service";
 
-const createAssetBodySchema = z.object({
-  code: z.string().min(2),
-  name: z.string().min(2),
-  location: z.string().min(2),
-  status: z.enum(["active", "inactive", "maintenance"]),
-  imageUrl: z.string().url().optional()
-});
+@ApiTags("Assets")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("assets")
+export class AssetsController {
+  constructor(private readonly assetsService: AssetsService) {}
 
-const list: RequestHandler = (_req, res) => {
-  return sendSuccess(res, assetsService.listAssets(), "Assets fetched");
-};
-
-const create: RequestHandler = asyncHandler(async (req, res) => {
-  const payload = createAssetBodySchema.parse(req.body);
-  const created = assetsService.createAsset(payload);
-
-  return sendSuccess(res, created, "Asset created", 201);
-});
-
-const uploadImage: RequestHandler = asyncHandler(async (req, res) => {
-  if (!req.file) {
-    throw new AppError("File is required", 400);
+  @Get()
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  async findAll(@Query() query: { category?: string; status?: string; location?: string; page?: number; limit?: number }) {
+    const data = await this.assetsService.findAll(query);
+    return { data, message: "Assets fetched" };
   }
 
-  const imageUrl = await assetsService.uploadAssetImage(req.file.buffer, req.file.originalname);
+  @Post()
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  async create(
+    @Body()
+    body: {
+      assetTag: string;
+      name: string;
+      category: "MACHINE" | "TOOL" | "INFRASTRUCTURE" | "EQUIPMENT" | "VEHICLE" | "OTHER";
+      status?: "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED";
+      description?: string;
+      location?: string;
+    }
+  ) {
+    const data = await this.assetsService.create(body);
+    return { data, message: "Asset created" };
+  }
 
-  return sendSuccess(res, { imageUrl }, "Asset image uploaded");
-});
+  @Get(":id")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async findOne(@Param("id") id: string) {
+    const data = await this.assetsService.findOne(id);
+    return { data, message: "Asset fetched" };
+  }
 
-export const assetsController = {
-  list,
-  create,
-  uploadImage
-};
+  @Patch(":id")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  async update(
+    @Param("id") id: string,
+    @Body() body: Partial<{ name: string; description: string; status: "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED"; location: string; disposalReason: string }>
+  ) {
+    const data = await this.assetsService.update(id, body);
+    return { data, message: "Asset updated" };
+  }
+
+  @Delete(":id")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async remove(@Param("id") id: string) {
+    const data = await this.assetsService.remove(id);
+    return { data, message: "Asset deleted" };
+  }
+
+  @Get(":id/qr-code")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  async getQrCode(@Param("id") id: string) {
+    const data = await this.assetsService.getQrCode(id);
+    return { data, message: "Asset QR fetched" };
+  }
+
+  @Get(":id/maintenance-history")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  async maintenanceHistory(@Param("id") id: string) {
+    const data = await this.assetsService.maintenanceHistory(id);
+    return { data, message: "Maintenance history fetched" };
+  }
+
+  @Post("bulk-import")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  async bulkImport(@Body() body: { items: Array<{ assetTag: string; name: string; category: "MACHINE" | "TOOL" | "INFRASTRUCTURE" | "EQUIPMENT" | "VEHICLE" | "OTHER"; location?: string }> }) {
+    const data = await this.assetsService.bulkImport(body.items ?? []);
+    return { data, message: "Bulk import complete" };
+  }
+}

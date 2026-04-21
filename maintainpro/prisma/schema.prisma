@@ -1,0 +1,689 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id         String       @id @default(cuid())
+  name       String
+  slug       String       @unique
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  users      User[]
+  roles      Role[]
+  assets     Asset[]
+  vehicles   Vehicle[]
+  drivers    Driver[]
+  workOrders WorkOrder[]
+  spareParts SparePart[]
+  suppliers  Supplier[]
+  meters     UtilityMeter[]
+  bills      UtilityBill[]
+  audits     AuditLog[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  entity     String
+  entityId   String
+  action     AuditAction
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  beforeData Json?
+  afterData  Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([tenantId])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles       Role[]
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  tenantId           String?
+  tenant             Tenant?        @relation(fields: [tenantId], references: [id])
+  email              String         @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  avatar             String?
+  roleId             String
+  role               Role           @relation(fields: [roleId], references: [id])
+  isActive           Boolean        @default(true)
+  lastLogin          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  assignedWorkOrders WorkOrder[]    @relation("TechnicianWorkOrders")
+  createdWorkOrders  WorkOrder[]    @relation("CreatorWorkOrders")
+  notifications      Notification[]
+  auditEvents        AuditLog[]
+  driverProfile      Driver?
+
+  @@index([tenantId])
+  @@index([roleId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  tenantId    String?
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  name        RoleName
+  permissions Permission[]
+  users       User[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  TECHNICIAN
+  DRIVER
+  VIEWER
+}
+
+model Asset {
+  id               String          @id @default(cuid())
+  tenantId         String?
+  tenant           Tenant?         @relation(fields: [tenantId], references: [id])
+  assetTag         String          @unique
+  name             String
+  description      String?
+  category         AssetCategory
+  status           AssetStatus     @default(ACTIVE)
+  purchaseDate     DateTime?
+  purchasePrice    Decimal?
+  currentValue     Decimal?
+  location         String?
+  manufacturer     String?
+  model            String?
+  serialNumber     String?
+  warrantyExpiry   DateTime?
+  disposalDate     DateTime?
+  disposalReason   String?
+  images           String[]
+  documents        String[]
+  qrCodeUrl        String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  maintenanceLogs  MaintenanceLog[]
+  maintenanceSchedules MaintenanceSchedule[]
+  workOrders       WorkOrder[]
+  predictiveLogs   PredictiveLog[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([category])
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+  DISPOSED
+  RETIRED
+}
+
+enum AssetCategory {
+  MACHINE
+  TOOL
+  INFRASTRUCTURE
+  EQUIPMENT
+  VEHICLE
+  OTHER
+}
+
+model Vehicle {
+  id                  String            @id @default(cuid())
+  tenantId            String?
+  tenant              Tenant?           @relation(fields: [tenantId], references: [id])
+  registrationNo      String            @unique
+  make                String
+  vehicleModel        String
+  year                Int
+  type                VehicleType
+  status              VehicleStatus     @default(AVAILABLE)
+  color               String?
+  vin                 String?           @unique
+  engineNo            String?
+  fuelType            FuelType
+  fuelCapacity        Decimal?
+  currentMileage      Decimal           @default(0)
+  insuranceExpiry     DateTime?
+  roadTaxExpiry       DateTime?
+  lastServiceDate     DateTime?
+  nextServiceDate     DateTime?
+  nextServiceMileage  Decimal?
+  gpsDeviceId         String?
+  images              String[]
+  driverId            String?
+  driver              Driver?           @relation(fields: [driverId], references: [id])
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  fuelLogs            FuelLog[]
+  tripLogs            TripLog[]
+  maintenanceSchedules MaintenanceSchedule[]
+  maintenanceLogs     MaintenanceLog[]
+  workOrders          WorkOrder[]
+  gpsLocations        GpsLocation[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([driverId])
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  TRUCK
+  VAN
+  BUS
+  HEAVY_EQUIPMENT
+  OTHER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  DISPOSED
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  CNG
+  LPG
+}
+
+model Driver {
+  id             String     @id @default(cuid())
+  tenantId       String?
+  tenant         Tenant?    @relation(fields: [tenantId], references: [id])
+  userId         String     @unique
+  user           User       @relation(fields: [userId], references: [id])
+  licenseNumber  String     @unique
+  licenseClass   String
+  licenseExpiry  DateTime
+  isAvailable    Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  vehicles       Vehicle[]
+  tripLogs       TripLog[]
+
+  @@index([tenantId])
+}
+
+model FuelLog {
+  id            String    @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id])
+  date          DateTime
+  liters        Decimal
+  costPerLiter  Decimal
+  totalCost     Decimal
+  mileageAtFuel Decimal
+  fuelStation   String?
+  receiptUrl    String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  @@index([vehicleId, date])
+}
+
+model TripLog {
+  id            String      @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle     @relation(fields: [vehicleId], references: [id])
+  driverId      String
+  driver        Driver      @relation(fields: [driverId], references: [id])
+  startLocation String
+  endLocation   String
+  startMileage  Decimal
+  endMileage    Decimal
+  distance      Decimal
+  startTime     DateTime
+  endTime       DateTime?
+  purpose       String?
+  status        TripStatus  @default(IN_PROGRESS)
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  @@index([vehicleId, startTime])
+  @@index([driverId, startTime])
+}
+
+enum TripStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model GpsLocation {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  latitude    Decimal
+  longitude   Decimal
+  speed       Decimal?
+  heading     Decimal?
+  timestamp   DateTime  @default(now())
+
+  @@index([vehicleId, timestamp])
+}
+
+model MaintenanceSchedule {
+  id              String                @id @default(cuid())
+  name            String
+  description     String?
+  type            MaintenanceType
+  frequency       MaintenanceFrequency
+  intervalDays    Int?
+  intervalMileage Decimal?
+  assetId         String?
+  asset           Asset?                @relation(fields: [assetId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?              @relation(fields: [vehicleId], references: [id])
+  nextDueDate     DateTime?
+  nextDueMileage  Decimal?
+  isActive        Boolean               @default(true)
+  estimatedCost   Decimal?
+  estimatedHours  Decimal?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  maintenanceLogs MaintenanceLog[]
+  workOrders      WorkOrder[]
+
+  @@index([assetId])
+  @@index([vehicleId])
+  @@index([nextDueDate])
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  PREDICTIVE
+  CORRECTIVE
+  INSPECTION
+}
+
+enum MaintenanceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  BIANNUAL
+  ANNUAL
+  MILEAGE_BASED
+  CUSTOM
+}
+
+model MaintenanceLog {
+  id            String               @id @default(cuid())
+  scheduleId    String?
+  schedule      MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
+  assetId       String?
+  asset         Asset?               @relation(fields: [assetId], references: [id])
+  vehicleId     String?
+  vehicle       Vehicle?             @relation(fields: [vehicleId], references: [id])
+  workOrderId   String?
+  workOrder     WorkOrder?           @relation(fields: [workOrderId], references: [id])
+  description   String
+  performedBy   String
+  performedAt   DateTime
+  cost          Decimal?
+  notes         String?
+  attachments   String[]
+  createdAt     DateTime             @default(now())
+
+  @@index([scheduleId])
+  @@index([assetId])
+  @@index([vehicleId])
+  @@index([performedAt])
+}
+
+model WorkOrder {
+  id              String          @id @default(cuid())
+  tenantId        String?
+  tenant          Tenant?         @relation(fields: [tenantId], references: [id])
+  woNumber        String          @unique
+  title           String
+  description     String
+  priority        Priority        @default(MEDIUM)
+  status          WorkOrderStatus @default(OPEN)
+  type            WorkOrderType
+  assetId         String?
+  asset           Asset?          @relation(fields: [assetId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?        @relation(fields: [vehicleId], references: [id])
+  scheduleId      String?
+  schedule        MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
+  createdById     String
+  createdBy       User            @relation("CreatorWorkOrders", fields: [createdById], references: [id])
+  technicianId    String?
+  technician      User?           @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
+  dueDate         DateTime?
+  startDate       DateTime?
+  completedDate   DateTime?
+  estimatedCost   Decimal?
+  actualCost      Decimal?
+  estimatedHours  Decimal?
+  actualHours     Decimal?
+  slaDeadline     DateTime?
+  slaBreached     Boolean         @default(false)
+  notes           String?
+  attachments     String[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  maintenanceLogs MaintenanceLog[]
+  parts           WorkOrderPart[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([priority])
+  @@index([technicianId])
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum WorkOrderType {
+  PREVENTIVE
+  CORRECTIVE
+  EMERGENCY
+  INSPECTION
+  INSTALLATION
+}
+
+model SparePart {
+  id              String          @id @default(cuid())
+  tenantId        String?
+  tenant          Tenant?         @relation(fields: [tenantId], references: [id])
+  partNumber      String          @unique
+  name            String
+  description     String?
+  category        String
+  unit            String          @default("pcs")
+  quantityInStock Int             @default(0)
+  minimumStock    Int             @default(0)
+  reorderPoint    Int             @default(0)
+  unitCost        Decimal
+  location        String?
+  supplierId      String?
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id])
+  images          String[]
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  stockMovements  StockMovement[]
+  workOrderParts  WorkOrderPart[]
+
+  @@index([tenantId])
+  @@index([supplierId])
+}
+
+model StockMovement {
+  id          String         @id @default(cuid())
+  partId      String
+  part        SparePart      @relation(fields: [partId], references: [id])
+  type        MovementType
+  quantity    Int
+  reference   String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([partId, createdAt])
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  RETURN
+}
+
+model WorkOrderPart {
+  id          String      @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id])
+  partId      String
+  part        SparePart   @relation(fields: [partId], references: [id])
+  quantity    Int
+  unitCost    Decimal
+  totalCost   Decimal
+
+  @@index([workOrderId])
+  @@index([partId])
+}
+
+model Supplier {
+  id            String         @id @default(cuid())
+  tenantId      String?
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
+  name          String
+  contactName   String?
+  email         String?
+  phone         String?
+  address       String?
+  website       String?
+  taxNumber     String?
+  isActive      Boolean        @default(true)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  spareParts    SparePart[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([tenantId])
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  poNumber     String    @unique
+  supplierId   String
+  supplier     Supplier  @relation(fields: [supplierId], references: [id])
+  status       POStatus  @default(PENDING)
+  orderDate    DateTime
+  expectedDate DateTime?
+  receivedDate DateTime?
+  totalAmount  Decimal
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([supplierId])
+}
+
+enum POStatus {
+  PENDING
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model UtilityMeter {
+  id          String       @id @default(cuid())
+  tenantId    String?
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  meterNumber String       @unique
+  type        UtilityType
+  location    String
+  description String?
+  unit        String
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  readings    MeterReading[]
+  bills       UtilityBill[]
+
+  @@index([tenantId])
+}
+
+enum UtilityType {
+  ELECTRICITY
+  WATER
+  GAS
+}
+
+model MeterReading {
+  id           String       @id @default(cuid())
+  meterId       String
+  meter         UtilityMeter @relation(fields: [meterId], references: [id])
+  readingDate   DateTime
+  readingValue  Decimal
+  consumption   Decimal?
+  images        String[]
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  @@index([meterId, readingDate])
+}
+
+model UtilityBill {
+  id                 String       @id @default(cuid())
+  tenantId           String?
+  tenant             Tenant?      @relation(fields: [tenantId], references: [id])
+  meterId            String
+  meter              UtilityMeter @relation(fields: [meterId], references: [id])
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  totalConsumption   Decimal
+  ratePerUnit        Decimal
+  baseCharge         Decimal?
+  taxAmount          Decimal?
+  totalAmount        Decimal
+  dueDate            DateTime?
+  paidDate           DateTime?
+  status             BillStatus   @default(UNPAID)
+  invoiceUrl         String?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([meterId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+enum BillStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  DISPUTED
+}
+
+model Notification {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id])
+  title          String
+  message        String
+  type           NotificationType
+  channel        NotificationChannel @default(IN_APP)
+  isRead         Boolean             @default(false)
+  referenceId    String?
+  referenceType  String?
+  sentAt         DateTime?
+  dedupeKey      String?
+  createdAt      DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([dedupeKey])
+}
+
+enum NotificationType {
+  MAINTENANCE_DUE
+  WORK_ORDER_ASSIGNED
+  WORK_ORDER_UPDATED
+  LOW_STOCK
+  VEHICLE_SERVICE_DUE
+  LICENSE_EXPIRY
+  INSURANCE_EXPIRY
+  UTILITY_BILL_DUE
+  SLA_BREACH_WARNING
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+model PredictiveLog {
+  id              String    @id @default(cuid())
+  assetId         String?
+  asset           Asset?    @relation(fields: [assetId], references: [id])
+  prediction      String
+  confidence      Decimal
+  suggestedAction String
+  riskLevel       RiskLevel
+  analyzedAt      DateTime  @default(now())
+  acknowledged    Boolean   @default(false)
+
+  @@index([assetId, analyzedAt])
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}

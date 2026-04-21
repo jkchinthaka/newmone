@@ -6,6 +6,8 @@ node_modules/
 dist/
 build/
 coverage/
+apps/web/.next/
+*.tsbuildinfo
 
 # Environment files
 .env

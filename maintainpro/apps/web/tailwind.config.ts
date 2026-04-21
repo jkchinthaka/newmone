@@ -1,34 +1,27 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./lib/**/*.{ts,tsx}",
+    "./hooks/**/*.{ts,tsx}"
+  ],
   theme: {
     extend: {
       colors: {
         brand: {
-          50: "#eefcf8",
-          100: "#d5f7ee",
-          200: "#acefdc",
-          300: "#79e1c7",
-          400: "#47c8ad",
-          500: "#1ea88d",
-          600: "#0f866f",
-          700: "#0f6b5a",
-          800: "#0f5548",
-          900: "#0e473e"
+          50: "#eef7ff",
+          100: "#d9edff",
+          200: "#bce0ff",
+          300: "#8eccff",
+          400: "#5ab0ff",
+          500: "#2c92f2",
+          600: "#1476d6",
+          700: "#115ea8",
+          800: "#134f87",
+          900: "#16456f"
         }
-      },
-      boxShadow: {
-        panel: "0 8px 24px rgba(15, 118, 110, 0.12)"
-      },
-      keyframes: {
-        "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" }
-        }
-      },
-      animation: {
-        "fade-up": "fade-up 0.5s ease forwards"
       }
     }
   },

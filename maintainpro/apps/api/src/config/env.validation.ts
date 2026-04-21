@@ -1,0 +1,32 @@
+import Joi from "joi";
+
+export const envValidationSchema = Joi.object({
+  NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
+  PORT: Joi.number().default(3000),
+  CORS_ORIGIN: Joi.string().required(),
+  FRONTEND_URL: Joi.string().uri().required(),
+  DATABASE_URL: Joi.string().required(),
+  REDIS_URL: Joi.string().required(),
+  JWT_ACCESS_SECRET: Joi.string().required(),
+  JWT_REFRESH_SECRET: Joi.string().required(),
+  JWT_ACCESS_EXPIRES: Joi.string().default("15m"),
+  JWT_REFRESH_EXPIRES: Joi.string().default("7d"),
+  GOOGLE_CLIENT_ID: Joi.string().allow(""),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow(""),
+  GOOGLE_CALLBACK_URL: Joi.string().allow(""),
+  SENDGRID_API_KEY: Joi.string().allow(""),
+  SMTP_HOST: Joi.string().required(),
+  SMTP_PORT: Joi.number().required(),
+  SMTP_USER: Joi.string().required(),
+  SMTP_PASS: Joi.string().required(),
+  SMTP_FROM: Joi.string().required(),
+  TWILIO_ACCOUNT_SID: Joi.string().allow(""),
+  TWILIO_AUTH_TOKEN: Joi.string().allow(""),
+  TWILIO_PHONE_NUMBER: Joi.string().allow(""),
+  MINIO_ENDPOINT: Joi.string().required(),
+  MINIO_PORT: Joi.number().required(),
+  MINIO_USE_SSL: Joi.boolean().default(false),
+  MINIO_ACCESS_KEY: Joi.string().required(),
+  MINIO_SECRET_KEY: Joi.string().required(),
+  MINIO_BUCKET: Joi.string().required()
+});

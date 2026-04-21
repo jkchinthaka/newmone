@@ -1,36 +1,63 @@
-import type { RequestHandler } from "express";
-import { z } from "zod";
+import { Controller, Get, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { asyncHandler } from "../../common/utils/async-handler";
-import { sendSuccess } from "../../common/utils/response";
-import { reportsService } from "./reports.service";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { ReportsService } from "./reports.service";
 
-const queueReportSchema = z.object({
-  reportType: z.enum(["work-orders", "assets", "inventory"]),
-  dateFrom: z.string().date(),
-  dateTo: z.string().date(),
-  requestedBy: z.string().email()
-});
+@ApiTags("Reports")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("reports")
+export class ReportsController {
+  constructor(private readonly reportsService: ReportsService) {}
 
-const aiSummarySchema = z.object({
-  context: z.string().min(10)
-});
+  @Get("dashboard")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async dashboard() {
+    const data = await this.reportsService.dashboard();
+    return { data, message: "Dashboard report fetched" };
+  }
 
-const queueReport: RequestHandler = asyncHandler(async (req, res) => {
-  const payload = queueReportSchema.parse(req.body);
-  const result = await reportsService.queueReport(payload);
+  @Get("maintenance-cost")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async maintenanceCost() {
+    const data = await this.reportsService.maintenanceCost();
+    return { data, message: "Maintenance cost report fetched" };
+  }
 
-  return sendSuccess(res, result, "Report generation queued", 202);
-});
+  @Get("fleet-efficiency")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async fleetEfficiency() {
+    const data = await this.reportsService.fleetEfficiency();
+    return { data, message: "Fleet efficiency report fetched" };
+  }
 
-const aiSummary: RequestHandler = asyncHandler(async (req, res) => {
-  const payload = aiSummarySchema.parse(req.body);
-  const result = await reportsService.suggestSummary(payload.context);
+  @Get("downtime")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async downtime() {
+    const data = await this.reportsService.downtime();
+    return { data, message: "Downtime report fetched" };
+  }
 
-  return sendSuccess(res, result, "AI report summary generated");
-});
+  @Get("work-orders")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async workOrders() {
+    const data = await this.reportsService.workOrders();
+    return { data, message: "Work order report fetched" };
+  }
 
-export const reportsController = {
-  queueReport,
-  aiSummary
-};
+  @Get("inventory")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async inventory() {
+    const data = await this.reportsService.inventory();
+    return { data, message: "Inventory report fetched" };
+  }
+
+  @Get("utilities")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  async utilities() {
+    const data = await this.reportsService.utilities();
+    return { data, message: "Utilities report fetched" };
+  }
+}

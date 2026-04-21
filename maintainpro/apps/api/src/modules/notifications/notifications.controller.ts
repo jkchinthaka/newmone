@@ -1,24 +1,46 @@
-import type { RequestHandler } from "express";
-import { z } from "zod";
+import { Body, Controller, Get, Param, Patch, Req, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { asyncHandler } from "../../common/utils/async-handler";
-import { sendSuccess } from "../../common/utils/response";
-import { notificationsService } from "./notifications.service";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { NotificationsService } from "./notifications.service";
 
-const sendNotificationSchema = z.object({
-  channel: z.enum(["email", "push", "whatsapp"]),
-  recipient: z.string().min(2),
-  title: z.string().min(2),
-  message: z.string().min(2)
-});
+@ApiTags("Notifications")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("notifications")
+export class NotificationsController {
+  constructor(private readonly notificationsService: NotificationsService) {}
 
-const send: RequestHandler = asyncHandler(async (req, res) => {
-  const payload = sendNotificationSchema.parse(req.body);
-  const result = await notificationsService.send(payload);
+  @Get()
+  async findAll(@Req() req: { user: { sub: string } }) {
+    const data = await this.notificationsService.findAll(req.user.sub);
+    return { data, message: "Notifications fetched" };
+  }
 
-  return sendSuccess(res, result, "Notification processed");
-});
+  @Patch(":id/read")
+  async markRead(@Param("id") id: string) {
+    const data = await this.notificationsService.markRead(id);
+    return { data, message: "Notification marked as read" };
+  }
 
-export const notificationsController = {
-  send
-};
+  @Patch("mark-all-read")
+  async markAllRead(@Req() req: { user: { sub: string } }) {
+    const data = await this.notificationsService.markAllRead(req.user.sub);
+    return { data, message: "All notifications marked as read" };
+  }
+
+  @Get("preferences")
+  async preferences(@Req() req: { user: { sub: string } }) {
+    const data = this.notificationsService.getPreferences(req.user.sub);
+    return { data, message: "Notification preferences fetched" };
+  }
+
+  @Patch("preferences")
+  async updatePreferences(
+    @Req() req: { user: { sub: string } },
+    @Body() body: Partial<{ inApp: boolean; email: boolean; sms: boolean; whatsapp: boolean; push: boolean }>
+  ) {
+    const data = this.notificationsService.updatePreferences(req.user.sub, body);
+    return { data, message: "Notification preferences updated" };
+  }
+}

@@ -1,41 +1,78 @@
-import type { RequestHandler } from "express";
+import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { AuthGuard } from "@nestjs/passport";
 
-import { AppError } from "../../common/errors/AppError";
-import { asyncHandler } from "../../common/utils/async-handler";
-import { sendSuccess } from "../../common/utils/response";
-import { authService } from "./auth.service";
+import { Public } from "../../common/decorators/public.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AuthService } from "./auth.service";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { LoginDto } from "./dto/login.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { RegisterDto } from "./dto/register.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 
-const register: RequestHandler = asyncHandler(async (req, res) => {
-  const result = await authService.register(req.body);
-  return sendSuccess(res, result, "User registered", 201);
-});
+@ApiTags("Auth")
+@Controller("auth")
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
 
-const login: RequestHandler = asyncHandler(async (req, res) => {
-  const result = await authService.login(req.body);
-  return sendSuccess(res, result, "Login successful");
-});
-
-const setupMfa: RequestHandler = asyncHandler(async (req, res) => {
-  const { email } = req.body as { email: string };
-  const result = await authService.setupMfa(email);
-
-  return sendSuccess(res, result, "MFA setup generated");
-});
-
-const verifyMfa: RequestHandler = asyncHandler(async (req, res) => {
-  const { email, token } = req.body as { email: string; token: string };
-  const verified = authService.verifyMfa(email, token);
-
-  if (!verified) {
-    throw new AppError("Invalid MFA token", 401);
+  @Public()
+  @Post("register")
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
-  return sendSuccess(res, { verified }, "MFA verified");
-});
+  @Public()
+  @Post("login")
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
 
-export const authController = {
-  register,
-  login,
-  setupMfa,
-  verifyMfa
-};
+  @Public()
+  @Post("refresh")
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto);
+  }
+
+  @Public()
+  @Post("logout")
+  logout(@Body() dto: RefreshTokenDto) {
+    return this.authService.logout(dto);
+  }
+
+  @Public()
+  @Post("forgot-password")
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post("reset-password")
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get("me")
+  me(@Req() req: { user: { sub: string } }) {
+    return this.authService.me(req.user.sub);
+  }
+
+  @Public()
+  @Get("google")
+  @UseGuards(AuthGuard("google"))
+  googleAuth() {
+    return { data: { initiated: true }, message: "Redirecting to Google OAuth" };
+  }
+
+  @Public()
+  @Get("google/callback")
+  @UseGuards(AuthGuard("google"))
+  googleAuthCallback(@Req() req: { user: unknown }) {
+    return {
+      data: req.user,
+      message: "Google OAuth callback successful"
+    };
+  }
+}

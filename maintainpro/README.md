@@ -1,85 +1,196 @@
-# MaintainPro Monorepo
+# MaintainPro Enterprise Platform
 
-MaintainPro is a CMMS platform structured as a production-ready monorepo with API, web, mobile, and shared type packages.
+MaintainPro is an enterprise-grade, multi-module operations platform for asset management, fleet operations, maintenance execution, inventory control, utility tracking, reporting, and predictive analytics.
 
-## Stack
+## Technology Stack
 
-- API: Node.js + Express + TypeScript + Prisma
-- Web: React 18 + Vite + TypeScript + TailwindCSS + shadcn-style UI patterns
-- Mobile: Flutter (iOS + Android structure)
-- Shared package: TypeScript domain contracts used by API and web
-- Dev infra: Docker Compose (API, worker, PostgreSQL, Redis, pgAdmin)
+- Backend: NestJS + TypeScript + Prisma + PostgreSQL + Redis + Bull + WebSockets + Swagger
+- Frontend: Next.js App Router + TailwindCSS + Recharts + Leaflet
+- Mobile: Flutter + Riverpod + Dio + Hive offline queue + QR scanner
+- Shared packages: workspace libraries under `packages/`
+- Infrastructure: Docker Compose (dev and production), MinIO object storage, nginx reverse proxy
+- CI/CD: GitHub Actions for PR validation, Docker build checks, and develop branch staging pipeline
 
-## Monorepo Layout
+## Architecture
+
+```mermaid
+flowchart LR
+  Web[Next.js Web App] --> Nginx[nginx Reverse Proxy]
+  Mobile[Flutter App] --> API[NestJS API]
+  Nginx --> API
+  Nginx --> Web
+  API --> Postgres[(PostgreSQL)]
+  API --> Redis[(Redis)]
+  API --> MinIO[(MinIO Object Storage)]
+  API --> Queue[Bull Queues]
+  Queue --> API
+  API --> WS[WebSocket Gateways]
+  WS --> Web
+```
+
+## Repository Layout
 
 ```text
 maintainpro/
 ├── apps/
-│   ├── api/
-│   ├── web/
-│   └── mobile/
+│   ├── api/          # NestJS backend
+│   ├── web/          # Next.js web dashboard
+│   └── mobile/       # Flutter mobile app
 ├── packages/
-│   └── shared-types/
+│   ├── shared-types/
+│   └── ui-components/
+├── prisma/
+│   └── schema.prisma
+├── infra/
+│   └── nginx/default.conf
 ├── docker-compose.yml
-├── .env.example
-├── .github/workflows/ci.yml
-└── README.md
+├── docker-compose.dev.yml
+└── .github/workflows/
 ```
 
-## Quick Start
+## RBAC Matrix
 
-1. Copy environment template:
+- SUPER_ADMIN: full platform access including tenant-level administration
+- ADMIN: operational admin access across modules
+- MANAGER: planning, assignment, approvals, and reporting
+- TECHNICIAN: maintenance and work-order execution
+- DRIVER: fleet usage, trip, and vehicle updates
+- VIEWER: read-only analytics and operational visibility
 
-   ```bash
-   cp .env.example .env
-   ```
+## API Modules
 
-2. Install monorepo dependencies:
+All API routes are prefixed with `/api`.
 
-   ```bash
-   npm install
-   ```
+- Health: `/health`
+- Auth: `/auth`
+- Users: `/users`
+- Roles: `/roles`
+- Assets: `/assets`
+- Vehicles: `/vehicles`
+- Fleet: `/fleet`
+- Drivers: `/drivers`
+- Maintenance: `/maintenance`
+- Work Orders: `/work-orders`
+- Inventory: `/inventory`
+- Suppliers: `/suppliers`
+- Fuel: `/fuel`
+- Trips: `/trips`
+- Utilities: `/utilities`
+- Notifications: `/notifications`
+- Reports: `/reports`
+- Predictive AI: `/predictive-ai`
 
-3. Start backend and infrastructure with Docker:
+Swagger docs: `http://localhost:3000/api/docs` (local API direct) or `http://localhost/api/docs` (via nginx in production compose).
 
-   ```bash
-   docker compose up --build
-   ```
+## Local Setup (Node)
 
-4. Run web and api in local Node mode (optional alternative to Docker API):
+1. Copy environment template.
 
-   ```bash
-   npm run dev
-   ```
+```bash
+cp .env.example .env
+```
 
-## Key Commands
+1. Install dependencies.
 
-- `npm run dev` runs API and web in parallel.
-- `npm run build` builds shared-types, API, and web.
-- `npm run typecheck` runs strict type checks for API and web.
-- `npm run docker:up` starts local services from compose.
-- `npm run docker:down` stops local services.
+```bash
+npm install
+```
 
-## API Endpoints (starter)
+1. Generate Prisma client.
 
-- Health: `GET /health`
-- Swagger docs: `GET /api-docs`
-- Auth: `/api/v1/auth/*`
-- Assets: `/api/v1/assets`
-- Work Orders: `/api/v1/work-orders`
-- Inventory: `/api/v1/inventory`
-- Dashboard: `/api/v1/dashboard/overview`
-- Notifications: `/api/v1/notifications/send`
-- Reports: `/api/v1/reports/*`
+```bash
+npm run db:generate
+```
 
-## Local Demo Credentials
+1. Run API + web.
 
-- Email: `admin@maintainpro.local`
-- Password: `Admin@1234`
+```bash
+npm run dev
+```
 
-## Notes
+1. Optional test and build validation.
 
-- The API validates all required environment variables at startup via Zod.
-- Redis and PostgreSQL health checks are enforced in Docker Compose.
-- Worker service consumes BullMQ queues from Redis and runs report/email jobs.
-- `packages/shared-types` is imported by API/web through workspace dependency links.
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+## Docker Workflows
+
+Development stack:
+
+```bash
+npm run docker:up:dev
+```
+
+Production-like stack:
+
+```bash
+npm run docker:up
+```
+
+Stop stacks:
+
+```bash
+npm run docker:down:dev
+npm run docker:down
+```
+
+Production stack includes nginx, API, web, PostgreSQL, Redis, and MinIO.
+
+## Environment Reference
+
+See `.env.example` for all variables.
+
+Critical required keys for backend startup:
+
+- `CORS_ORIGIN`, `FRONTEND_URL`
+- `DATABASE_URL`, `REDIS_URL`
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`
+
+Frontend runtime keys:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_API_ORIGIN`
+
+## Database and Seed
+
+- Prisma schema: `prisma/schema.prisma`
+- Generate client: `npm run db:generate`
+- Run migration (local): `npm run db:migrate`
+- Seed data: `npm run db:seed`
+
+Seed includes baseline roles, permissions, admin users, and sample domain entities across assets, vehicles, inventory, work orders, and utilities.
+
+## CI/CD
+
+GitHub workflows:
+
+- `ci.yml`: PR validation (typecheck, build, tests)
+- `docker-build-check.yml`: verifies Docker images and compose config
+- `develop-staging-deploy.yml`: develop-branch staging build/deploy placeholder
+
+Configure repository secrets for staging deploy automation:
+
+- `STAGING_HOST`
+- `STAGING_USER`
+- `STAGING_SSH_KEY`
+
+## Contribution Guide
+
+1. Create a feature branch from `develop`.
+2. Keep changes modular by app/package.
+3. Run `npm run typecheck`, `npm run test`, and `npm run build` before opening PR.
+4. Update docs and `.env.example` whenever env or architecture changes.
+5. Open a PR to `develop` and ensure all workflows pass.
+
+## Security Notes
+
+- Global request validation is enabled in NestJS.
+- JWT guard + role guard enforce route access.
+- Response envelope and exception filter standardize API behavior.
+- Rate limiting is enabled with Nest throttler.
+- Use strong secrets and rotate credentials for non-local environments.

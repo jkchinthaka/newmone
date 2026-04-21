@@ -1,61 +1,98 @@
-import { enqueueEmailJob } from "../../jobs/queues/email.queue";
-import { sendWhatsAppMessage } from "../../integrations/whatsapp/whatsapp.client";
-import { firebaseMessaging } from "../../config/firebase";
+import { Injectable } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bull";
+import { Queue } from "bull";
 
-export type NotificationChannel = "email" | "push" | "whatsapp";
+import { PrismaService } from "../../database/prisma.service";
+import { NotificationsGateway } from "./notifications.gateway";
 
-export interface NotificationInput {
-  channel: NotificationChannel;
-  recipient: string;
-  title: string;
-  message: string;
+export interface NotificationPreference {
+  inApp: boolean;
+  email: boolean;
+  sms: boolean;
+  whatsapp: boolean;
+  push: boolean;
 }
 
-export const notificationsService = {
-  async send(input: NotificationInput): Promise<{ channel: NotificationChannel; status: string }> {
-    if (input.channel === "email") {
-      await enqueueEmailJob({
-        to: input.recipient,
-        subject: input.title,
-        html: `<p>${input.message}</p>`
-      });
+@Injectable()
+export class NotificationsService {
+  private readonly preferenceStore = new Map<string, NotificationPreference>();
 
-      return {
-        channel: "email",
-        status: "queued"
-      };
-    }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsGateway: NotificationsGateway,
+    @InjectQueue("notifications") private readonly notificationsQueue: Queue
+  ) {}
 
-    if (input.channel === "whatsapp") {
-      await sendWhatsAppMessage({
-        to: input.recipient,
-        text: `${input.title}: ${input.message}`
-      });
+  findAll(userId: string) {
+    return this.prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" }
+    });
+  }
 
-      return {
-        channel: "whatsapp",
-        status: "sent"
-      };
-    }
-
-    if (!firebaseMessaging) {
-      return {
-        channel: "push",
-        status: "skipped (firebase not configured)"
-      };
-    }
-
-    await firebaseMessaging.send({
-      token: input.recipient,
-      notification: {
-        title: input.title,
-        body: input.message
+  async markRead(id: string) {
+    const notification = await this.prisma.notification.update({
+      where: { id },
+      data: {
+        isRead: true
       }
     });
 
-    return {
-      channel: "push",
-      status: "sent"
-    };
+    this.notificationsGateway.emitMarkRead(notification.userId, notification);
+
+    await this.notificationsQueue.add("send", {
+      channel: "IN_APP",
+      userId: notification.userId,
+      message: `Notification ${notification.id} marked as read`
+    });
+
+    return notification;
   }
-};
+
+  async markAllRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: {
+        userId,
+        isRead: false
+      },
+      data: {
+        isRead: true
+      }
+    });
+
+    this.notificationsGateway.emitMarkRead(userId, { markAllRead: true });
+
+    await this.notificationsQueue.add("send", {
+      channel: "IN_APP",
+      userId,
+      message: "All notifications marked as read"
+    });
+
+    return { updated: true };
+  }
+
+  getPreferences(userId: string): NotificationPreference {
+    return (
+      this.preferenceStore.get(userId) ?? {
+        inApp: true,
+        email: true,
+        sms: false,
+        whatsapp: false,
+        push: true
+      }
+    );
+  }
+
+  updatePreferences(userId: string, data: Partial<NotificationPreference>) {
+    const current = this.getPreferences(userId);
+
+    const merged = {
+      ...current,
+      ...data
+    };
+
+    this.preferenceStore.set(userId, merged);
+
+    return merged;
+  }
+}

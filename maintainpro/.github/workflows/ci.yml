@@ -1,8 +1,6 @@
-name: MaintainPro CI
+name: PR Validation
 
 on:
-  push:
-    branches: ["main", "develop"]
   pull_request:
     branches: ["main", "develop"]
 
@@ -21,10 +19,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build all workspaces
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
         run: npm run build
 
-      - name: Typecheck API and Web
-        run: npm run typecheck
+      - name: Test
+        run: npm run test

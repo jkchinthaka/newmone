@@ -1,0 +1,38 @@
+name: Develop Staging Deploy
+
+on:
+  push:
+    branches: ["develop"]
+
+jobs:
+  staging-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Build monorepo
+        run: npm run build
+
+      - name: Build docker images
+        run: |
+          docker build -f apps/api/Dockerfile --target production -t maintainpro-api:staging .
+          docker build -f apps/web/Dockerfile --target production -t maintainpro-web:staging .
+
+      - name: Staging deploy placeholder
+        run: |
+          echo "Build completed for develop branch."
+          echo "Configure repo secrets STAGING_HOST, STAGING_USER, and STAGING_SSH_KEY before enabling real deploy commands."
