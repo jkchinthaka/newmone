@@ -24,12 +24,17 @@ export default function CleaningVisitsPage() {
   const [rows, setRows] = useState<VisitRow[]>([]);
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     apiClient
       .get("/cleaning/visits", { params: status ? { status } : {} })
       .then((res) => setRows(res.data?.data ?? res.data ?? []))
+      .then(() => setError(null))
+      .catch((err: { response?: { data?: { message?: string } } }) => {
+        setError(err?.response?.data?.message ?? "Failed to load visits");
+      })
       .finally(() => setLoading(false));
   }, [status]);
 
@@ -52,6 +57,12 @@ export default function CleaningVisitsPage() {
           <option value="REJECTED">Rejected</option>
         </select>
       </div>
+
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="min-w-full divide-y divide-slate-200 text-sm">

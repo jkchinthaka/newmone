@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException
@@ -34,7 +35,7 @@ import {
 export class CleaningService {
   private readonly logger = new Logger(CleaningService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   // ---------- Locations ----------
 

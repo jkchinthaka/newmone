@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import { FleetGateway } from "./fleet.gateway";
@@ -6,7 +6,9 @@ import { FleetGateway } from "./fleet.gateway";
 @Injectable()
 export class FleetService {
   constructor(
+    @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    @Inject(FleetGateway)
     private readonly fleetGateway: FleetGateway
   ) {}
 
@@ -30,7 +32,22 @@ export class FleetService {
     const latestByVehicle = await this.prisma.gpsLocation.findMany({
       distinct: ["vehicleId"],
       orderBy: [{ vehicleId: "asc" }, { timestamp: "desc" }],
-      include: { vehicle: true }
+      include: {
+        vehicle: {
+          include: {
+            driver: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
 
     return latestByVehicle;

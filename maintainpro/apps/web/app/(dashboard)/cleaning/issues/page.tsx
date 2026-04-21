@@ -26,9 +26,21 @@ export default function FacilityIssuesPage() {
   const [rows, setRows] = useState<IssueRow[]>([]);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    apiClient.get("/cleaning/issues").then((res) => setRows(res.data?.data ?? res.data ?? []));
+    setLoading(true);
+    apiClient
+      .get("/cleaning/issues")
+      .then((res) => {
+        setRows(res.data?.data ?? res.data ?? []);
+        setError(null);
+      })
+      .catch((err: { response?: { data?: { message?: string } } }) => {
+        setError(err?.response?.data?.message ?? "Failed to load issues");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -39,6 +51,7 @@ export default function FacilityIssuesPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setSubmitting(true);
+    setError(null);
     try {
       await apiClient.post("/cleaning/issues", {
         title: String(fd.get("title") ?? ""),
@@ -48,14 +61,22 @@ export default function FacilityIssuesPage() {
       setOpen(false);
       (e.target as HTMLFormElement).reset();
       load();
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e?.response?.data?.message ?? "Failed to submit issue");
     } finally {
       setSubmitting(false);
     }
   };
 
   const updateStatus = async (id: string, status: IssueRow["status"]) => {
-    await apiClient.patch(`/cleaning/issues/${id}`, { status });
-    load();
+    try {
+      await apiClient.patch(`/cleaning/issues/${id}`, { status });
+      load();
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e?.response?.data?.message ?? "Failed to update issue");
+    }
   };
 
   return (
@@ -72,6 +93,12 @@ export default function FacilityIssuesPage() {
           {open ? "Cancel" : "+ Report issue"}
         </button>
       </div>
+
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       {open ? (
         <form
@@ -126,7 +153,13 @@ export default function FacilityIssuesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                  Loading...
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   No issues reported.

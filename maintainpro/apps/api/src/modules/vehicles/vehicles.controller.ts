@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -10,7 +10,7 @@ import { VehiclesService } from "./vehicles.service";
 @UseGuards(JwtAuthGuard)
 @Controller("vehicles")
 export class VehiclesController {
-  constructor(private readonly vehiclesService: VehiclesService) {}
+  constructor(@Inject(VehiclesService) private readonly vehiclesService: VehiclesService) {}
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")

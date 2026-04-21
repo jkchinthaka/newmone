@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -41,7 +42,7 @@ interface AuthedRequest extends Request {
 @UseGuards(JwtAuthGuard)
 @Controller("cleaning")
 export class CleaningController {
-  constructor(private readonly cleaning: CleaningService) {}
+  constructor(@Inject(CleaningService) private readonly cleaning: CleaningService) {}
 
   // ---------- Locations ----------
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AssetStatus, Prisma } from "@prisma/client";
 import QRCode from "qrcode";
 
@@ -6,7 +6,7 @@ import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
 export class AssetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   findAll(query: {
     category?: string;
@@ -15,8 +15,11 @@ export class AssetsService {
     page?: number;
     limit?: number;
   }) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const rawPage = typeof query.page === "string" ? Number(query.page) : query.page;
+    const rawLimit = typeof query.limit === "string" ? Number(query.limit) : query.limit;
+
+    const page = Number.isFinite(rawPage) && Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const limit = Number.isFinite(rawLimit) && Number(rawLimit) > 0 ? Number(rawLimit) : 20;
 
     return this.prisma.asset.findMany({
       where: {

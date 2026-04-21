@@ -19,12 +19,21 @@ export default function CleaningLocationsPage() {
   const [rows, setRows] = useState<LocationRow[]>([]);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    setLoading(true);
     apiClient
       .get("/cleaning/locations")
-      .then((res) => setRows(res.data?.data ?? res.data ?? []));
+      .then((res) => {
+        setRows(res.data?.data ?? res.data ?? []);
+        setError(null);
+      })
+      .catch((err: { response?: { data?: { message?: string } } }) => {
+        setError(err?.response?.data?.message ?? "Failed to load cleaning locations");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -134,7 +143,11 @@ export default function CleaningLocationsPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.length === 0 ? (
+        {loading ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 sm:col-span-2 lg:col-span-3">
+            Loading locations...
+          </div>
+        ) : rows.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 sm:col-span-2 lg:col-span-3">
             No locations yet.
           </div>

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { VehicleStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -7,8 +7,8 @@ import { FleetService } from "../fleet/fleet.service";
 @Injectable()
 export class VehiclesService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly fleetService: FleetService
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(FleetService) private readonly fleetService: FleetService
   ) {}
 
   findAll() {

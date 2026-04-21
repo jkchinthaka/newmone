@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -10,7 +10,7 @@ import { AssetsService } from "./assets.service";
 @UseGuards(JwtAuthGuard)
 @Controller("assets")
 export class AssetsController {
-  constructor(private readonly assetsService: AssetsService) {}
+  constructor(@Inject(AssetsService) private readonly assetsService: AssetsService) {}
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")

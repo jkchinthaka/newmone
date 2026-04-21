@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { RiskLevel } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
 export class MaintenanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService
+  ) {}
 
   schedules() {
     return this.prisma.maintenanceSchedule.findMany({

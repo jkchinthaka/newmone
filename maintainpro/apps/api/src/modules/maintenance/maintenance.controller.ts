@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -10,7 +10,10 @@ import { MaintenanceService } from "./maintenance.service";
 @UseGuards(JwtAuthGuard)
 @Controller("maintenance")
 export class MaintenanceController {
-  constructor(private readonly maintenanceService: MaintenanceService) {}
+  constructor(
+    @Inject(MaintenanceService)
+    private readonly maintenanceService: MaintenanceService
+  ) {}
 
   @Get("schedules")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
