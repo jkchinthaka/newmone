@@ -14,11 +14,29 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true
   });
 
+  const configuredOrigins = [process.env.CORS_ORIGIN, process.env.FRONTEND_URL]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = Array.from(
+    new Set(["http://localhost:3001", "http://localhost:5173", ...configuredOrigins])
+  );
+
   app.use(helmet());
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(",").map((value) => value.trim()) ?? ["http://localhost:3001"],
-    credentials: true
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
   });
 
   app.setGlobalPrefix("api");

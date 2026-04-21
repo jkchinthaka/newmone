@@ -1,11 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { apiClient } from "@/lib/api-client";
+import { getAccessToken } from "@/lib/auth-storage";
 
 export default function DashboardLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    async function validateSession() {
+      const token = getAccessToken();
+
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      try {
+        await apiClient.get("/auth/me");
+        setReady(true);
+      } catch {
+        router.replace("/login");
+      }
+    }
+
+    validateSession();
+  }, [router]);
+
+  if (!ready) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600">
+        Verifying session...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="flex min-h-screen">
