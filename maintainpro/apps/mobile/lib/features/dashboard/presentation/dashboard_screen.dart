@@ -7,9 +7,9 @@ import '../../profile/presentation/profile_screen.dart';
 import '../../work_orders/presentation/work_orders_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.role});
+  const DashboardScreen({super.key, required this.user});
 
-  final UserRole role;
+  final AppUser user;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -20,16 +20,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final role = widget.user.role;
+
     final pages = [
-      WorkOrdersScreen(role: widget.role),
+      WorkOrdersScreen(role: role),
       const AssetScannerScreen(),
       const NotificationsScreen(),
-      ProfileScreen(role: widget.role),
+      ProfileScreen(user: widget.user),
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('MaintainPro - ${widget.role.name.toUpperCase()}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('MaintainPro - ${role.name.toUpperCase()}'),
+            Text(
+              widget.user.displayName,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
       body: pages[_index],
       bottomNavigationBar: NavigationBar(

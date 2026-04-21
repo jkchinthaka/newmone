@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../shared/models/app_user.dart';
-import '../../dashboard/presentation/dashboard_screen.dart';
+import 'providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,8 +14,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController =
       TextEditingController(text: 'admin@maintainpro.local');
   final TextEditingController _passwordController =
-      TextEditingController(text: 'MaintainPro@2026');
-  UserRole _selectedRole = UserRole.technician;
+      TextEditingController(text: 'Admin@1234');
 
   @override
   void dispose() {
@@ -27,6 +25,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authStateProvider, (previous, next) {
+      if (next is AuthError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.message)),
+        );
+      }
+    });
+
+    final authState = ref.watch(authStateProvider);
+    final isLoading = authState is AuthLoading;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -46,49 +55,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 8),
-                      const Text('Sign in and access role-based modules.'),
+                      const Text('Sign in with your MaintainPro credentials.'),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.username],
                         decoration: const InputDecoration(labelText: 'Email'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _passwordController,
                         obscureText: true,
+                        autofillHints: const [AutofillHints.password],
                         decoration:
                             const InputDecoration(labelText: 'Password'),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<UserRole>(
-                        initialValue: _selectedRole,
-                        decoration:
-                            const InputDecoration(labelText: 'Role (demo)'),
-                        items: UserRole.values
-                            .map(
-                              (role) => DropdownMenuItem(
-                                value: role,
-                                child: Text(role.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _selectedRole = value);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 20),
                       FilledButton(
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  DashboardScreen(role: _selectedRole),
-                            ),
-                          );
-                        },
-                        child: const Text('Sign In'),
+                        onPressed: isLoading ? null : _submit,
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Sign In'),
                       ),
                     ],
                   ),
@@ -99,5 +92,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email and password are required.')),
+      );
+      return;
+    }
+
+    await ref
+        .read(authStateProvider.notifier)
+        .login(email: email, password: password);
   }
 }
