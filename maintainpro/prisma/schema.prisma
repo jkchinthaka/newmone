@@ -26,6 +26,9 @@ model Tenant {
   meters     UtilityMeter[]
   bills      UtilityBill[]
   audits     AuditLog[]
+  cleaningLocations CleaningLocation[]
+  cleaningVisits    CleaningVisit[]
+  facilityIssues    FacilityIssue[]
 }
 
 model AuditLog {
@@ -83,6 +86,10 @@ model User {
   notifications      Notification[]
   auditEvents        AuditLog[]
   driverProfile      Driver?
+  cleaningVisits     CleaningVisit[]   @relation("CleanerVisits")
+  signedOffVisits    CleaningVisit[]   @relation("SupervisorSignOffs")
+  reportedIssues     FacilityIssue[]   @relation("ReportedFacilityIssues")
+  resolvedIssues     FacilityIssue[]   @relation("ResolvedFacilityIssues")
 
   @@index([tenantId])
   @@index([roleId])
@@ -107,6 +114,11 @@ enum RoleName {
   ADMIN
   MANAGER
   TECHNICIAN
+  MECHANIC
+  ASSET_MANAGER
+  INVENTORY_KEEPER
+  SUPERVISOR
+  CLEANER
   DRIVER
   VIEWER
 }
@@ -657,6 +669,11 @@ enum NotificationType {
   UTILITY_BILL_DUE
   SLA_BREACH_WARNING
   SYSTEM_ALERT
+  CLEANING_VISIT_SUBMITTED
+  CLEANING_SIGN_OFF
+  CLEANING_REJECTED
+  FACILITY_ISSUE_REPORTED
+  CLEANING_MISSED
 }
 
 enum NotificationChannel {
@@ -686,4 +703,140 @@ enum RiskLevel {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+
+// ============================================================
+// CLEANING MANAGEMENT MODULE
+// Toilet/washroom cleaning with QR scan logging, scheduled
+// checklists, photo upload, supervisor sign-off, and issue
+// reporting. CLEANER and SUPERVISOR roles operate this module.
+// ============================================================
+
+model CleaningLocation {
+  id           String              @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?             @relation(fields: [tenantId], references: [id])
+  name         String
+  area         String
+  building     String?
+  floor        String?
+  description  String?
+  qrCode       String              @unique
+  qrCodeUrl    String?
+  scheduleCron String?
+  shiftWindow  String?
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  visits             CleaningVisit[]
+  checklistTemplates CleaningChecklistTemplate[]
+  issues             FacilityIssue[]
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model CleaningChecklistTemplate {
+  id          String           @id @default(cuid())
+  locationId  String
+  location    CleaningLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name        String
+  items       Json
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([locationId])
+}
+
+model CleaningVisit {
+  id              String              @id @default(cuid())
+  tenantId        String?
+  tenant          Tenant?             @relation(fields: [tenantId], references: [id])
+  locationId      String
+  location        CleaningLocation    @relation(fields: [locationId], references: [id])
+  cleanerId       String
+  cleaner         User                @relation("CleanerVisits", fields: [cleanerId], references: [id])
+  scannedAt       DateTime            @default(now())
+  completedAt     DateTime?
+  latitude        Decimal?
+  longitude       Decimal?
+  beforePhotos    String[]
+  afterPhotos     String[]
+  status          CleaningVisitStatus @default(IN_PROGRESS)
+  notes           String?
+  signedOffById   String?
+  signedOffBy     User?               @relation("SupervisorSignOffs", fields: [signedOffById], references: [id])
+  signedOffAt     DateTime?
+  signOffNotes    String?
+  rejectionReason String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  checklist CleaningChecklist?
+
+  @@index([tenantId])
+  @@index([locationId, scannedAt])
+  @@index([cleanerId, scannedAt])
+  @@index([status])
+}
+
+enum CleaningVisitStatus {
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model CleaningChecklist {
+  id          String        @id @default(cuid())
+  visitId     String        @unique
+  visit       CleaningVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  items       Json
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model FacilityIssue {
+  id           String                @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?               @relation(fields: [tenantId], references: [id])
+  locationId   String?
+  location     CleaningLocation?     @relation(fields: [locationId], references: [id])
+  reportedById String
+  reportedBy   User                  @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
+  title        String
+  description  String
+  severity     IssueSeverity         @default(MEDIUM)
+  status       FacilityIssueStatus   @default(OPEN)
+  photos       String[]
+  resolvedById String?
+  resolvedBy   User?                 @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+  resolution   String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@index([locationId])
+  @@index([reportedById])
+  @@index([status])
+  @@index([severity])
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FacilityIssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }

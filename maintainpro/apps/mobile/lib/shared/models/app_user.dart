@@ -3,6 +3,11 @@ enum UserRole {
   admin,
   manager,
   technician,
+  mechanic,
+  assetManager,
+  inventoryKeeper,
+  supervisor,
+  cleaner,
   driver,
   viewer,
 }
@@ -20,12 +25,22 @@ extension UserRoleParser on UserRole {
         return UserRole.manager;
       case 'TECHNICIAN':
         return UserRole.technician;
+      case 'MECHANIC':
+        return UserRole.mechanic;
+      case 'ASSET_MANAGER':
+        return UserRole.assetManager;
+      case 'INVENTORY_KEEPER':
+        return UserRole.inventoryKeeper;
+      case 'SUPERVISOR':
+        return UserRole.supervisor;
+      case 'CLEANER':
+        return UserRole.cleaner;
       case 'DRIVER':
         return UserRole.driver;
       case 'VIEWER':
         return UserRole.viewer;
       default:
-        return UserRole.technician;
+        return UserRole.viewer;
     }
   }
 }

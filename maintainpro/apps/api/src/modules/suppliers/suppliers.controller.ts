@@ -13,28 +13,28 @@ export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async findAll() {
     const data = await this.suppliersService.findAll();
     return { data, message: "Suppliers fetched" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async create(@Body() body: { name: string; contactName?: string; email?: string; phone?: string; address?: string; website?: string; taxNumber?: string; notes?: string }) {
     const data = await this.suppliersService.create(body);
     return { data, message: "Supplier created" };
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async findOne(@Param("id") id: string) {
     const data = await this.suppliersService.findOne(id);
     return { data, message: "Supplier fetched" };
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async update(@Param("id") id: string, @Body() body: Partial<{ name: string; contactName: string; email: string; phone: string; address: string; website: string; taxNumber: string; notes: string; isActive: boolean }>) {
     const data = await this.suppliersService.update(id, body);
     return { data, message: "Supplier updated" };

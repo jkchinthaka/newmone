@@ -13,7 +13,7 @@ export class TripsController {
   constructor(private readonly tripsService: TripsService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "DRIVER", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER", "SUPERVISOR")
   async allTrips() {
     const data = await this.tripsService.allTrips();
     return { data, message: "Trips fetched" };

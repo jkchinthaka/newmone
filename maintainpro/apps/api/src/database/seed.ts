@@ -16,7 +16,11 @@ const permissionCatalog = [
   "inventory.manage",
   "reports.view",
   "utilities.manage",
-  "system.configure"
+  "system.configure",
+  "cleaning.manage",
+  "cleaning.log_visit",
+  "cleaning.sign_off",
+  "cleaning.report_issue"
 ];
 
 const rolePermissions: Record<RoleName, string[]> = {
@@ -32,9 +36,26 @@ const rolePermissions: Record<RoleName, string[]> = {
     "fleet.log_fuel_trip",
     "inventory.manage",
     "reports.view",
-    "utilities.manage"
+    "utilities.manage",
+    "cleaning.manage"
   ],
   TECHNICIAN: ["work_orders.update_status", "work_orders.view_own", "inventory.manage"],
+  MECHANIC: ["work_orders.update_status", "work_orders.view_own", "inventory.manage"],
+  ASSET_MANAGER: [
+    "assets.manage",
+    "work_orders.manage",
+    "work_orders.update_status",
+    "reports.view"
+  ],
+  INVENTORY_KEEPER: ["inventory.manage", "reports.view"],
+  SUPERVISOR: [
+    "modules.view_all",
+    "cleaning.manage",
+    "cleaning.sign_off",
+    "cleaning.report_issue",
+    "reports.view"
+  ],
+  CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
   DRIVER: ["fleet.log_fuel_trip"],
   VIEWER: ["modules.view_all", "reports.view"]
 };

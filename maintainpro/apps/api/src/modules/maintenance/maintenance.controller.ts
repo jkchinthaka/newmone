@@ -13,14 +13,14 @@ export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Get("schedules")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async schedules() {
     const data = await this.maintenanceService.schedules();
     return { data, message: "Schedules fetched" };
   }
 
   @Post("schedules")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async createSchedule(
     @Body()
     body: {
@@ -43,14 +43,14 @@ export class MaintenanceController {
   }
 
   @Get("schedules/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async schedule(@Param("id") id: string) {
     const data = await this.maintenanceService.schedule(id);
     return { data, message: "Schedule fetched" };
   }
 
   @Patch("schedules/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async updateSchedule(
     @Param("id") id: string,
     @Body()
@@ -73,21 +73,21 @@ export class MaintenanceController {
   }
 
   @Delete("schedules/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async removeSchedule(@Param("id") id: string) {
     const data = await this.maintenanceService.removeSchedule(id);
     return { data, message: "Schedule deleted" };
   }
 
   @Get("logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async logs() {
     const data = await this.maintenanceService.logs();
     return { data, message: "Logs fetched" };
   }
 
   @Post("logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async createLog(
     @Body()
     body: {
@@ -108,21 +108,21 @@ export class MaintenanceController {
   }
 
   @Get("calendar")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
   async calendar() {
     const data = await this.maintenanceService.calendar();
     return { data, message: "Maintenance calendar fetched" };
   }
 
   @Get("predictive-alerts")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async predictiveAlerts() {
     const data = await this.maintenanceService.predictiveAlerts();
     return { data, message: "Predictive alerts fetched" };
   }
 
   @Post("predictive-alerts/:id/acknowledge")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async acknowledgePredictive(@Param("id") id: string) {
     const data = await this.maintenanceService.acknowledgePredictiveAlert(id);
     return { data, message: "Predictive alert acknowledged" };

@@ -13,14 +13,14 @@ export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async findAll(@Query() query: { category?: string; status?: string; location?: string; page?: number; limit?: number }) {
     const data = await this.assetsService.findAll(query);
     return { data, message: "Assets fetched" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async create(
     @Body()
     body: {
@@ -37,14 +37,14 @@ export class AssetsController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
   async findOne(@Param("id") id: string) {
     const data = await this.assetsService.findOne(id);
     return { data, message: "Asset fetched" };
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async update(
     @Param("id") id: string,
     @Body() body: Partial<{ name: string; description: string; status: "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED"; location: string; disposalReason: string }>
@@ -61,21 +61,21 @@ export class AssetsController {
   }
 
   @Get(":id/qr-code")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
   async getQrCode(@Param("id") id: string) {
     const data = await this.assetsService.getQrCode(id);
     return { data, message: "Asset QR fetched" };
   }
 
   @Get(":id/maintenance-history")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
   async maintenanceHistory(@Param("id") id: string) {
     const data = await this.assetsService.maintenanceHistory(id);
     return { data, message: "Maintenance history fetched" };
   }
 
   @Post("bulk-import")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async bulkImport(@Body() body: { items: Array<{ assetTag: string; name: string; category: "MACHINE" | "TOOL" | "INFRASTRUCTURE" | "EQUIPMENT" | "VEHICLE" | "OTHER"; location?: string }> }) {
     const data = await this.assetsService.bulkImport(body.items ?? []);
     return { data, message: "Bulk import complete" };

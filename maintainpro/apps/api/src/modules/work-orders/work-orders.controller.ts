@@ -14,14 +14,14 @@ export class WorkOrdersController {
   constructor(private readonly workOrdersService: WorkOrdersService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async findAll() {
     const data = await this.workOrdersService.findAll();
     return { data, message: "Work orders fetched" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async create(
     @Body()
     body: {
@@ -41,14 +41,14 @@ export class WorkOrdersController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async findOne(@Param("id") id: string) {
     const data = await this.workOrdersService.findOne(id);
     return { data, message: "Work order fetched" };
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async update(
     @Param("id") id: string,
     @Body() body: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>
@@ -65,14 +65,14 @@ export class WorkOrdersController {
   }
 
   @Post(":id/assign")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async assign(@Param("id") id: string, @Body() body: { technicianId: string }) {
     const data = await this.workOrdersService.assign(id, body.technicianId);
     return { data, message: "Work order assigned" };
   }
 
   @Patch(":id/status")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async updateStatus(
     @Param("id") id: string,
     @Body() body: { status: WorkOrderStatus; actualCost?: number; actualHours?: number }
@@ -82,28 +82,28 @@ export class WorkOrdersController {
   }
 
   @Post(":id/parts")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async addPart(@Param("id") id: string, @Body() body: { partId: string; quantity: number; unitCost: number }) {
     const data = await this.workOrdersService.addPart(id, body);
     return { data, message: "Part added to work order" };
   }
 
   @Get(":id/parts")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async parts(@Param("id") id: string) {
     const data = await this.workOrdersService.parts(id);
     return { data, message: "Work order parts fetched" };
   }
 
   @Post(":id/notes")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async notes(@Param("id") id: string, @Body() body: { note: string }) {
     const data = await this.workOrdersService.addNote(id, body.note);
     return { data, message: "Work order note added" };
   }
 
   @Post(":id/attachments")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   async attachments(@Param("id") id: string, @Body() body: { attachmentUrl: string }) {
     const data = await this.workOrdersService.addAttachment(id, body.attachmentUrl);
     return { data, message: "Work order attachment added" };

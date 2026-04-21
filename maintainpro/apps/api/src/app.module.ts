@@ -12,6 +12,7 @@ import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
@@ -72,7 +73,8 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     NotificationsModule,
     ReportsModule,
     UtilitiesModule,
-    PredictiveAiModule
+    PredictiveAiModule,
+    CleaningModule
   ],
   providers: [
     {

@@ -13,7 +13,7 @@ export class FleetController {
   constructor(private readonly fleetService: FleetService) {}
 
   @Get("live-map")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
   async liveMap() {
     const data = await this.fleetService.liveMap();
     return { data, message: "Live fleet map fetched" };

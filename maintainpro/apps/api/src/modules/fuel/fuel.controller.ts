@@ -13,7 +13,7 @@ export class FuelController {
   constructor(private readonly fuelService: FuelService) {}
 
   @Get("logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "DRIVER", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER", "SUPERVISOR")
   async logs() {
     const data = await this.fuelService.allLogs();
     return { data, message: "Fuel logs fetched" };

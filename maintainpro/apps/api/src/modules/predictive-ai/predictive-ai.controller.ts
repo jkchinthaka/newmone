@@ -13,7 +13,7 @@ export class PredictiveAiController {
   constructor(private readonly predictiveAiService: PredictiveAiService) {}
 
   @Get("logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
   async logs() {
     const data = await this.predictiveAiService.logs();
     return { data, message: "Predictive logs fetched" };

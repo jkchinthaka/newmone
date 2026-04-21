@@ -13,21 +13,21 @@ export class DriversController {
   constructor(private readonly driversService: DriversService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async findAll() {
     const data = await this.driversService.findAll();
     return { data, message: "Drivers fetched" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async create(@Body() body: { userId: string; licenseNumber: string; licenseClass: string; licenseExpiry: string }) {
     const data = await this.driversService.create(body);
     return { data, message: "Driver created" };
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async findOne(@Param("id") id: string) {
     const data = await this.driversService.findOne(id);
     return { data, message: "Driver fetched" };

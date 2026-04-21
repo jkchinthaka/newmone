@@ -41,8 +41,14 @@ async function bootstrap(): Promise<void> {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api/docs", app, document);
+  try {
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api/docs", app, document);
+  } catch (err) {
+    // Don't let Swagger introspection errors crash the API at boot.
+    // eslint-disable-next-line no-console
+    console.warn("[Swagger] Skipped doc generation:", (err as Error).message);
+  }
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
