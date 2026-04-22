@@ -154,6 +154,9 @@ Critical required keys for backend startup:
 Optional backend integrations:
 
 - `RAPIDAPI_GOOGLE_MAP_PLACES_KEY` enables Street View previews in the fleet map.
+- `RAPIDAPI_COPILOT_API_KEY`, `RAPIDAPI_COPILOT_HOST` enable the predictive copilot provider.
+- `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
+- `RAPIDAPI_QR_CODE_COLOR`, `RAPIDAPI_QR_CODE_BG_COLOR` customize provider-generated QR colors when the RapidAPI QR provider is enabled.
 
 Frontend runtime keys:
 

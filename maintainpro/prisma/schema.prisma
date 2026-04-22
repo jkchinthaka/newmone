@@ -131,17 +131,25 @@ model Asset {
   name             String
   description      String?
   category         AssetCategory
+  condition        AssetCondition  @default(GOOD)
   status           AssetStatus     @default(ACTIVE)
   purchaseDate     DateTime?
   purchasePrice    Decimal?
+  supplier         String?
+  department       String?
+  ownerName        String?
   currentValue     Decimal?
   location         String?
   manufacturer     String?
   model            String?
   serialNumber     String?
+  meterReading     Decimal?
+  lastServiceDate  DateTime?
+  nextServiceDate  DateTime?
   warrantyExpiry   DateTime?
   disposalDate     DateTime?
   disposalReason   String?
+  archivedAt       DateTime?
   images           String[]
   documents        String[]
   qrCodeUrl        String?
@@ -156,6 +164,9 @@ model Asset {
   @@index([tenantId])
   @@index([status])
   @@index([category])
+  @@index([condition])
+  @@index([archivedAt])
+  @@index([nextServiceDate])
 }
 
 enum AssetStatus {
@@ -173,6 +184,14 @@ enum AssetCategory {
   EQUIPMENT
   VEHICLE
   OTHER
+}
+
+enum AssetCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  CRITICAL
 }
 
 model Vehicle {

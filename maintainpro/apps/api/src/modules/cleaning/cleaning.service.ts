@@ -16,8 +16,8 @@ import {
 } from "@prisma/client";
 import ExcelJS from "exceljs";
 import { randomUUID } from "node:crypto";
-import * as QRCode from "qrcode";
 
+import { QrCodeService } from "../../common/services/qr-code.service";
 import { PrismaService } from "../../database/prisma.service";
 
 import {
@@ -54,7 +54,8 @@ export class CleaningService {
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(ConfigService) private readonly configService: ConfigService
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(QrCodeService) private readonly qrCodeService: QrCodeService
   ) {}
 
   async createLocation(actorTenantId: string | null, dto: CreateCleaningLocationDto) {
@@ -162,11 +163,10 @@ export class CleaningService {
     }
 
     const scanUrl = this.getScanUrlForLocation(location.qrCode, location.qrCodeUrl);
-    const buffer = await QRCode.toBuffer(scanUrl, {
+    const buffer = await this.qrCodeService.toBuffer(scanUrl, {
       errorCorrectionLevel: "H",
       margin: 1,
-      scale: 8,
-      type: "png"
+      scale: 8
     });
 
     return {

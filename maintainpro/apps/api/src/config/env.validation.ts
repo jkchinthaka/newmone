@@ -26,6 +26,12 @@ export const envValidationSchema = Joi.object({
   TWILIO_PHONE_NUMBER: Joi.string().allow(""),
   RAPIDAPI_COPILOT_API_KEY: Joi.string().allow(""),
   RAPIDAPI_COPILOT_HOST: Joi.string().default("copilot5.p.rapidapi.com"),
+  RAPIDAPI_QR_CODE_API_KEY: Joi.string().allow(""),
+  RAPIDAPI_QR_CODE_HOST: Joi.string().default(
+    "simple-qr-code-generator-cheap-and-efficient.p.rapidapi.com"
+  ),
+  RAPIDAPI_QR_CODE_COLOR: Joi.string().allow(""),
+  RAPIDAPI_QR_CODE_BG_COLOR: Joi.string().allow(""),
   MINIO_ENDPOINT: Joi.string().required(),
   MINIO_PORT: Joi.number().required(),
   MINIO_USE_SSL: Joi.boolean().default(false),
