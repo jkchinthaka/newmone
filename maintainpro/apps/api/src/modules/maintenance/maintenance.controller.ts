@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -84,8 +84,16 @@ export class MaintenanceController {
 
   @Get("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  async logs() {
-    const data = await this.maintenanceService.logs();
+  async logs(
+    @Query("vehicleId") vehicleId?: string,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string
+  ) {
+    const data = await this.maintenanceService.logs({
+      vehicleId,
+      page: this.toPositiveInt(pageRaw, 1),
+      pageSize: this.toPositiveInt(pageSizeRaw, 10)
+    });
     return { data, message: "Logs fetched" };
   }
 
@@ -129,5 +137,18 @@ export class MaintenanceController {
   async acknowledgePredictive(@Param("id") id: string) {
     const data = await this.maintenanceService.acknowledgePredictiveAlert(id);
     return { data, message: "Predictive alert acknowledged" };
+  }
+
+  private toPositiveInt(value: string | undefined, fallback: number) {
+    if (!value) {
+      return fallback;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+
+    return Math.floor(parsed);
   }
 }

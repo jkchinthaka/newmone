@@ -22,6 +22,7 @@ const assetSortFields = [
   "updatedAt",
   "name",
   "assetTag",
+  "category",
   "location",
   "status",
   "condition",

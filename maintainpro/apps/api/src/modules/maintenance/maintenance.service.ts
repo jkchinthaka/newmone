@@ -1,7 +1,16 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { RiskLevel } from "@prisma/client";
+import { Prisma, RiskLevel } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+
+interface MaintenanceLogQuery {
+  vehicleId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+const DEFAULT_LOG_PAGE_SIZE = 10;
+const MAX_LOG_PAGE_SIZE = 100;
 
 @Injectable()
 export class MaintenanceService {
@@ -81,16 +90,43 @@ export class MaintenanceService {
     return this.prisma.maintenanceSchedule.delete({ where: { id } });
   }
 
-  logs() {
-    return this.prisma.maintenanceLog.findMany({
-      include: {
-        asset: true,
-        vehicle: true,
-        schedule: true,
-        workOrder: true
-      },
-      orderBy: { performedAt: "desc" }
-    });
+  async logs(query: MaintenanceLogQuery = {}) {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(MAX_LOG_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_LOG_PAGE_SIZE));
+
+    const where: Prisma.MaintenanceLogWhereInput = {};
+    if (query.vehicleId) {
+      where.vehicleId = query.vehicleId;
+    }
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.maintenanceLog.count({ where }),
+      this.prisma.maintenanceLog.findMany({
+        where,
+        include: {
+          asset: true,
+          vehicle: true,
+          schedule: true,
+          workOrder: true
+        },
+        orderBy: { performedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return {
+      items,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages
+      }
+    };
   }
 
   createLog(data: {

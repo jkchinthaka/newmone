@@ -1,8 +1,38 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { VehicleStatus } from "@prisma/client";
+import { Prisma, VehicleStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import { FleetService } from "../fleet/fleet.service";
+
+type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
+
+interface VehicleListQuery {
+  q?: string;
+  status?: VehicleStatus[];
+  sortBy?: VehicleListSortBy;
+  sortDir?: Prisma.SortOrder;
+  page?: number;
+  pageSize?: number;
+}
+
+export type VehicleAlertType = "UPCOMING_SERVICE" | "OVERDUE_MAINTENANCE" | "STATUS_CHANGE";
+export type VehicleAlertSeverity = "info" | "warning" | "critical";
+
+export interface VehicleAlert {
+  id: string;
+  type: VehicleAlertType;
+  severity: VehicleAlertSeverity;
+  vehicleId: string;
+  registrationNo: string;
+  title: string;
+  message: string;
+  status: VehicleStatus;
+  dueAt: Date | null;
+  createdAt: Date;
+}
+
+const DEFAULT_LIST_PAGE_SIZE = 12;
+const MAX_LIST_PAGE_SIZE = 100;
 
 @Injectable()
 export class VehiclesService {
@@ -11,8 +41,268 @@ export class VehiclesService {
     @Inject(FleetService) private readonly fleetService: FleetService
   ) {}
 
-  findAll() {
-    return this.prisma.vehicle.findMany({ include: { driver: { include: { user: true } } }, orderBy: { createdAt: "desc" } });
+  async findAll(query: VehicleListQuery = {}) {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(MAX_LIST_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_LIST_PAGE_SIZE));
+    const q = query.q?.trim() ?? "";
+    const sortBy = query.sortBy ?? "createdAt";
+    const sortDir = query.sortDir ?? "desc";
+
+    const where: Prisma.VehicleWhereInput = {};
+
+    if (q) {
+      where.OR = [
+        { registrationNo: { contains: q, mode: "insensitive" } },
+        { vehicleModel: { contains: q, mode: "insensitive" } }
+      ];
+    }
+
+    if (query.status && query.status.length > 0) {
+      where.status = { in: query.status };
+    }
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.vehicle.count({ where }),
+      this.prisma.vehicle.findMany({
+        where,
+        include: { driver: { include: { user: true } } },
+        orderBy: this.resolveListOrderBy(sortBy, sortDir),
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return {
+      items,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages
+      },
+      sorting: {
+        sortBy,
+        sortDir
+      }
+    };
+  }
+
+  async summary(upcomingDays = 14) {
+    const now = new Date();
+    const upcomingLimit = new Date(now.getTime() + upcomingDays * 24 * 60 * 60 * 1000);
+
+    const [totalVehicles, groupedByStatus, upcomingServices, overdueMaintenance] = await this.prisma.$transaction([
+      this.prisma.vehicle.count(),
+      this.prisma.vehicle.groupBy({
+        by: ["status"],
+        orderBy: {
+          status: "asc"
+        },
+        _count: {
+          _all: true
+        }
+      }),
+      this.prisma.vehicle.count({
+        where: {
+          nextServiceDate: {
+            gte: now,
+            lte: upcomingLimit
+          },
+          status: {
+            not: VehicleStatus.DISPOSED
+          }
+        }
+      }),
+      this.prisma.vehicle.count({
+        where: {
+          nextServiceDate: {
+            lt: now
+          },
+          status: {
+            notIn: [VehicleStatus.DISPOSED]
+          }
+        }
+      })
+    ]);
+
+    const statusCount = groupedByStatus.reduce<Record<VehicleStatus, number>>((acc, row) => {
+      const count =
+        typeof row._count === "object" &&
+        row._count !== null &&
+        "_all" in row._count &&
+        typeof row._count._all === "number"
+          ? row._count._all
+          : 0;
+
+      acc[row.status] = count;
+      return acc;
+    }, {
+      AVAILABLE: 0,
+      IN_USE: 0,
+      UNDER_MAINTENANCE: 0,
+      OUT_OF_SERVICE: 0,
+      DISPOSED: 0
+    });
+
+    return {
+      totalVehicles,
+      availableVehicles: statusCount.AVAILABLE,
+      vehiclesUnderMaintenance: statusCount.UNDER_MAINTENANCE,
+      vehiclesInUse: statusCount.IN_USE,
+      vehiclesOutOfService: statusCount.OUT_OF_SERVICE,
+      disposedVehicles: statusCount.DISPOSED,
+      upcomingServices,
+      overdueMaintenance
+    };
+  }
+
+  async alerts(options: { upcomingDays?: number; limit?: number } = {}) {
+    const now = new Date();
+    const upcomingDays = Math.max(1, options.upcomingDays ?? 14);
+    const limit = Math.min(50, Math.max(1, options.limit ?? 12));
+    const upcomingLimit = new Date(now.getTime() + upcomingDays * 24 * 60 * 60 * 1000);
+
+    const [upcoming, overdue, statusAttention] = await this.prisma.$transaction([
+      this.prisma.vehicle.findMany({
+        where: {
+          nextServiceDate: {
+            gte: now,
+            lte: upcomingLimit
+          },
+          status: {
+            notIn: [VehicleStatus.DISPOSED]
+          }
+        },
+        select: {
+          id: true,
+          registrationNo: true,
+          status: true,
+          nextServiceDate: true,
+          updatedAt: true
+        },
+        orderBy: {
+          nextServiceDate: "asc"
+        },
+        take: limit
+      }),
+      this.prisma.vehicle.findMany({
+        where: {
+          nextServiceDate: {
+            lt: now
+          },
+          status: {
+            notIn: [VehicleStatus.DISPOSED]
+          }
+        },
+        select: {
+          id: true,
+          registrationNo: true,
+          status: true,
+          nextServiceDate: true,
+          updatedAt: true
+        },
+        orderBy: {
+          nextServiceDate: "asc"
+        },
+        take: limit
+      }),
+      this.prisma.vehicle.findMany({
+        where: {
+          status: {
+            in: [VehicleStatus.UNDER_MAINTENANCE, VehicleStatus.OUT_OF_SERVICE, VehicleStatus.IN_USE]
+          }
+        },
+        select: {
+          id: true,
+          registrationNo: true,
+          status: true,
+          nextServiceDate: true,
+          updatedAt: true
+        },
+        orderBy: {
+          updatedAt: "desc"
+        },
+        take: limit
+      })
+    ]);
+
+    const overdueAlerts: VehicleAlert[] = overdue.map((vehicle) => ({
+      id: `overdue-${vehicle.id}`,
+      type: "OVERDUE_MAINTENANCE",
+      severity: "critical",
+      vehicleId: vehicle.id,
+      registrationNo: vehicle.registrationNo,
+      title: "Overdue maintenance",
+      message: `${vehicle.registrationNo} is past its next service date.`,
+      status: vehicle.status,
+      dueAt: vehicle.nextServiceDate,
+      createdAt: vehicle.updatedAt
+    }));
+
+    const upcomingAlerts: VehicleAlert[] = upcoming.map((vehicle) => ({
+      id: `upcoming-${vehicle.id}`,
+      type: "UPCOMING_SERVICE",
+      severity: "warning",
+      vehicleId: vehicle.id,
+      registrationNo: vehicle.registrationNo,
+      title: "Upcoming service",
+      message: `${vehicle.registrationNo} requires scheduled service soon.`,
+      status: vehicle.status,
+      dueAt: vehicle.nextServiceDate,
+      createdAt: vehicle.updatedAt
+    }));
+
+    const statusAlerts: VehicleAlert[] = statusAttention.map((vehicle) => ({
+      id: `status-${vehicle.id}`,
+      type: "STATUS_CHANGE",
+      severity: vehicle.status === VehicleStatus.OUT_OF_SERVICE ? "critical" : "info",
+      vehicleId: vehicle.id,
+      registrationNo: vehicle.registrationNo,
+      title: "Vehicle status update",
+      message: `${vehicle.registrationNo} is currently ${vehicle.status.replaceAll("_", " ").toLowerCase()}.`,
+      status: vehicle.status,
+      dueAt: vehicle.nextServiceDate,
+      createdAt: vehicle.updatedAt
+    }));
+
+    const severityOrder: Record<VehicleAlertSeverity, number> = {
+      critical: 3,
+      warning: 2,
+      info: 1
+    };
+
+    return [...overdueAlerts, ...upcomingAlerts, ...statusAlerts]
+      .sort((a, b) => {
+        const severityDiff = severityOrder[b.severity] - severityOrder[a.severity];
+        if (severityDiff !== 0) {
+          return severityDiff;
+        }
+
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      })
+      .slice(0, limit);
+  }
+
+  private resolveListOrderBy(
+    sortBy: VehicleListSortBy,
+    sortDir: Prisma.SortOrder
+  ): Prisma.VehicleOrderByWithRelationInput | Prisma.VehicleOrderByWithRelationInput[] {
+    if (sortBy === "createdAt") {
+      return { createdAt: sortDir };
+    }
+
+    if (sortBy === "mileage") {
+      return [{ currentMileage: sortDir }, { createdAt: "desc" }];
+    }
+
+    if (sortBy === "nextServiceDate") {
+      return [{ nextServiceDate: sortDir }, { createdAt: "desc" }];
+    }
+
+    return [{ year: sortDir }, { createdAt: "desc" }];
   }
 
   async findOne(id: string) {

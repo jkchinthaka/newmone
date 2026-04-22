@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -14,9 +14,41 @@ export class VehiclesController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async findAll() {
-    const data = await this.vehiclesService.findAll();
+  async findAll(
+    @Query("q") q?: string,
+    @Query("status") statusRaw?: string | string[],
+    @Query("sortBy") sortByRaw?: string,
+    @Query("sortDir") sortDirRaw?: string,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string
+  ) {
+    const data = await this.vehiclesService.findAll({
+      q,
+      status: this.parseStatuses(statusRaw),
+      sortBy: this.parseSortBy(sortByRaw),
+      sortDir: sortDirRaw === "asc" ? "asc" : "desc",
+      page: this.toPositiveInt(pageRaw, 1),
+      pageSize: this.toPositiveInt(pageSizeRaw, 12)
+    });
+
     return { data, message: "Vehicles fetched" };
+  }
+
+  @Get("summary")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  async summary(@Query("upcomingDays") upcomingDaysRaw?: string) {
+    const data = await this.vehiclesService.summary(this.toPositiveInt(upcomingDaysRaw, 14));
+    return { data, message: "Vehicle summary fetched" };
+  }
+
+  @Get("alerts")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  async alerts(@Query("upcomingDays") upcomingDaysRaw?: string, @Query("limit") limitRaw?: string) {
+    const data = await this.vehiclesService.alerts({
+      upcomingDays: this.toPositiveInt(upcomingDaysRaw, 14),
+      limit: this.toPositiveInt(limitRaw, 12)
+    });
+    return { data, message: "Vehicle alerts fetched" };
   }
 
   @Post()
@@ -118,5 +150,43 @@ export class VehiclesController {
   async gpsUpdate(@Param("id") id: string, @Body() body: { latitude: number; longitude: number; speed?: number; heading?: number }) {
     const data = await this.vehiclesService.gpsUpdate(id, body);
     return { data, message: "GPS updated" };
+  }
+
+  private parseStatuses(statusRaw?: string | string[]) {
+    if (!statusRaw) {
+      return undefined;
+    }
+
+    const values = Array.isArray(statusRaw) ? statusRaw : [statusRaw];
+    const parsed = values
+      .flatMap((value) => value.split(","))
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((value): value is "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED" =>
+        ["AVAILABLE", "IN_USE", "UNDER_MAINTENANCE", "OUT_OF_SERVICE", "DISPOSED"].includes(value)
+      );
+
+    return parsed.length > 0 ? parsed : undefined;
+  }
+
+  private parseSortBy(sortByRaw?: string): "mileage" | "nextServiceDate" | "year" | "createdAt" {
+    if (sortByRaw === "mileage" || sortByRaw === "nextServiceDate" || sortByRaw === "year") {
+      return sortByRaw;
+    }
+
+    return "createdAt";
+  }
+
+  private toPositiveInt(value: string | undefined, fallback: number) {
+    if (!value) {
+      return fallback;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+
+    return Math.floor(parsed);
   }
 }

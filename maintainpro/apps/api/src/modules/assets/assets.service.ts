@@ -76,8 +76,8 @@ export class AssetsService {
   ) {}
 
   async findAll(tenantId: string | null | undefined, query: AssetListQueryDto) {
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const limit = query.limit && query.limit > 0 ? query.limit : 20;
+    const page = this.toPositiveInt(query.page, 1);
+    const limit = this.toPositiveInt(query.limit, 20);
     const where = this.buildWhere(tenantId, query);
     const orderBy = this.buildOrderBy(query);
 
@@ -1442,6 +1442,15 @@ export class AssetsService {
       return null;
     }
     return value;
+  }
+
+  private toPositiveInt(value: unknown, fallback: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+
+    return Math.floor(parsed);
   }
 
   private toAuditJson(value: unknown) {

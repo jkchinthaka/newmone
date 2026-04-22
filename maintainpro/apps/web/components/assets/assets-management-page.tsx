@@ -1,78 +1,73 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import {
   AlertTriangle,
-  Archive,
-  ArrowDownUp,
-  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Download,
+  Ellipsis,
+  Eye,
   FileDown,
   FileSpreadsheet,
   FileUp,
-  HardDrive,
+  Filter,
   Loader2,
   Pencil,
   Plus,
+  Printer,
   QrCode,
   RefreshCw,
   Search,
-  ShieldAlert,
   Trash2,
-  Undo2,
   Upload,
   Wrench,
   X
 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { USER_KEY } from "@/lib/auth-storage";
+import {
+  hasActiveFilters,
+  useAssetPageStore,
+  type AssetCategoryFilter,
+  type AssetColumnKey,
+  type AssetSortField,
+  type AssetStatusFilter
+} from "./use-asset-page-store";
 
-type AssetCategory =
-  | "MACHINE"
-  | "TOOL"
-  | "INFRASTRUCTURE"
-  | "EQUIPMENT"
-  | "VEHICLE"
-  | "OTHER";
-
-type AssetStatus =
-  | "ACTIVE"
-  | "INACTIVE"
-  | "UNDER_MAINTENANCE"
-  | "DISPOSED"
-  | "RETIRED";
-
+type AssetCategory = "MACHINE" | "TOOL" | "INFRASTRUCTURE" | "EQUIPMENT" | "VEHICLE" | "OTHER";
+type AssetStatus = "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED";
 type AssetCondition = "EXCELLENT" | "GOOD" | "FAIR" | "POOR" | "CRITICAL";
 
-type SortField =
-  | "updatedAt"
-  | "createdAt"
-  | "name"
-  | "assetTag"
-  | "status"
-  | "condition"
-  | "nextServiceDate"
-  | "purchaseDate";
+type RoleTier = "viewer" | "operator" | "manager" | "admin";
+type DrawerTab = "overview" | "history" | "documents" | "workOrders" | "activity";
+type ExportFormat = "csv" | "xlsx" | "pdf";
 
-type ArchivedView = "active" | "all" | "archived";
+type ImportPreviewRow = {
+  rowNumber: number;
+  values: Record<string, string>;
+  payload: Record<string, unknown> | null;
+  errors: string[];
+};
 
-type UserRole =
-  | "SUPER_ADMIN"
-  | "ADMIN"
-  | "MANAGER"
-  | "ASSET_MANAGER"
-  | "SUPERVISOR"
-  | "MECHANIC"
-  | "VIEWER"
-  | string;
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
 interface AssetDocument {
   id: string;
   name: string;
-  storedName?: string;
   mimeType?: string;
   size?: number;
   uploadedAt: string;
@@ -84,35 +79,25 @@ interface AssetListItem {
   id: string;
   assetTag: string;
   name: string;
-  description?: string | null;
   category: AssetCategory;
-  condition: AssetCondition;
   status: AssetStatus;
+  location?: string | null;
+  description?: string | null;
+  condition: AssetCondition;
+  lastServiceDate?: string | null;
+  nextServiceDate?: string | null;
   purchaseDate?: string | null;
-  purchasePrice?: string | null;
-  currentValue?: string | null;
+  warrantyExpiry?: string | null;
   supplier?: string | null;
   department?: string | null;
   ownerName?: string | null;
-  location?: string | null;
-  manufacturer?: string | null;
-  model?: string | null;
-  serialNumber?: string | null;
-  meterReading?: string | null;
-  lastServiceDate?: string | null;
-  nextServiceDate?: string | null;
-  warrantyExpiry?: string | null;
-  disposalDate?: string | null;
-  disposalReason?: string | null;
-  archivedAt?: string | null;
+  meterReading?: string | number | null;
   qrCodeUrl?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  documentCount: number;
-  maintenanceLogCount: number;
-  workOrderCount: number;
   isArchived: boolean;
-  documents: AssetDocument[];
+  workOrderCount: number;
+  openWorkOrderCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface MaintenanceHistoryItem {
@@ -120,10 +105,8 @@ interface MaintenanceHistoryItem {
   description: string;
   performedBy: string;
   performedAt: string;
-  cost?: string | null;
+  cost?: string | number | null;
   notes?: string | null;
-  attachments: string[];
-  workOrderId?: string | null;
 }
 
 interface WorkOrderSummary {
@@ -132,15 +115,8 @@ interface WorkOrderSummary {
   title: string;
   status: string;
   priority: string;
-  type: string;
   dueDate?: string | null;
-  estimatedCost?: string | null;
-  actualCost?: string | null;
   createdAt: string;
-  technician?: {
-    firstName?: string | null;
-    lastName?: string | null;
-  } | null;
 }
 
 interface AssetActivityEvent {
@@ -157,122 +133,110 @@ interface AssetDetail extends AssetListItem {
   workOrders: WorkOrderSummary[];
   activity: AssetActivityEvent[];
   openWorkOrders: number;
-  totalMaintenanceCost?: string | null;
+  documents: AssetDocument[];
+  purchasePrice?: string | null;
+  currentValue?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  disposalDate?: string | null;
+  disposalReason?: string | null;
 }
 
-interface AssetSummary {
-  totalAssets: number;
-  activeAssets: number;
-  underMaintenanceAssets: number;
-  dueSoonAssets: number;
-  criticalAssets: number;
-  archivedAssets: number;
-  byCategory: Array<{ key: AssetCategory; count: number }>;
-  byCondition: Array<{ key: AssetCondition; count: number }>;
+interface AssetListResponse {
+  items: AssetListItem[];
+  meta: PaginationMeta;
 }
 
-interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-interface AssetFilters {
-  search: string;
-  status: AssetStatus | "";
-  category: AssetCategory | "";
-  condition: AssetCondition | "";
-  location: string;
-  department: string;
-  supplier: string;
-  ownerName: string;
-  archivedView: ArchivedView;
-  page: number;
-  limit: number;
-  sortBy: SortField;
-  sortOrder: "asc" | "desc";
+interface StoredUserInfo {
+  id: string | null;
+  roleName: string;
 }
 
 interface AssetFormValues {
   assetTag: string;
   name: string;
-  description: string;
   category: AssetCategory;
-  condition: AssetCondition;
   status: AssetStatus;
+  location: string;
+  description: string;
+  condition: AssetCondition;
   purchaseDate: string;
-  purchasePrice: string;
-  currentValue: string;
+  warrantyExpiry: string;
   supplier: string;
   department: string;
   ownerName: string;
-  location: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  meterReading: string;
   lastServiceDate: string;
   nextServiceDate: string;
-  warrantyExpiry: string;
-  disposalDate: string;
-  disposalReason: string;
+  meterReading: string;
 }
 
-interface RemovalDialogState {
-  asset: AssetListItem | AssetDetail;
-  permanent: boolean;
-}
-
-interface ToastMessage {
-  id: number;
-  tone: "success" | "error" | "info";
-  title: string;
-  description?: string;
-}
-
-const CATEGORY_OPTIONS: AssetCategory[] = [
-  "MACHINE",
-  "TOOL",
-  "INFRASTRUCTURE",
-  "EQUIPMENT",
-  "VEHICLE",
-  "OTHER"
+const STATUS_FILTER_OPTIONS: Array<{ label: string; value: AssetStatusFilter }> = [
+  { label: "All", value: "" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Inactive", value: "INACTIVE" },
+  { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Retired", value: "RETIRED" },
+  { label: "Disposed", value: "DISPOSED" }
 ];
 
-const STATUS_OPTIONS: AssetStatus[] = [
-  "ACTIVE",
-  "INACTIVE",
-  "UNDER_MAINTENANCE",
-  "DISPOSED",
-  "RETIRED"
+const CATEGORY_FILTER_OPTIONS: Array<{ label: string; value: AssetCategoryFilter }> = [
+  { label: "All", value: "" },
+  { label: "Machine", value: "MACHINE" },
+  { label: "Equipment", value: "EQUIPMENT" },
+  { label: "Vehicle", value: "VEHICLE" },
+  { label: "Facility", value: "INFRASTRUCTURE" },
+  { label: "Other", value: "OTHER" }
 ];
 
-const CONDITION_OPTIONS: AssetCondition[] = [
-  "EXCELLENT",
-  "GOOD",
-  "FAIR",
-  "POOR",
-  "CRITICAL"
+const CATEGORY_FORM_OPTIONS: Array<{ label: string; value: AssetCategory }> = [
+  { label: "Machine", value: "MACHINE" },
+  { label: "Equipment", value: "EQUIPMENT" },
+  { label: "Vehicle", value: "VEHICLE" },
+  { label: "Facility", value: "INFRASTRUCTURE" },
+  { label: "Tool", value: "TOOL" },
+  { label: "Other", value: "OTHER" }
 ];
 
-const LIMIT_OPTIONS = [10, 20, 50];
-const READ_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "VIEWER"];
-const WRITE_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER"];
-const DELETE_ROLES = ["SUPER_ADMIN", "ADMIN"];
+const STATUS_FORM_OPTIONS: Array<{ label: string; value: AssetStatus }> = [
+  { label: "Active", value: "ACTIVE" },
+  { label: "Inactive", value: "INACTIVE" },
+  { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Retired", value: "RETIRED" },
+  { label: "Disposed", value: "DISPOSED" }
+];
 
-const inputClassName =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-100";
-const selectClassName =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100";
-const textareaClassName = `${inputClassName} min-h-[120px] resize-y`;
+const QUICK_STATUS_OPTIONS: Array<{ label: string; value: AssetStatus }> = [
+  { label: "Active", value: "ACTIVE" },
+  { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Retired", value: "RETIRED" },
+  { label: "Disposed", value: "DISPOSED" }
+];
+
+const CONDITION_OPTIONS: Array<{ label: string; value: AssetCondition }> = [
+  { label: "Good", value: "GOOD" },
+  { label: "Fair", value: "FAIR" },
+  { label: "Poor", value: "POOR" },
+  { label: "Critical", value: "CRITICAL" }
+];
+
+const SORT_OPTIONS: Array<{ label: string; value: AssetSortField }> = [
+  { label: "Asset Tag", value: "assetTag" },
+  { label: "Name", value: "name" },
+  { label: "Category", value: "category" },
+  { label: "Status", value: "status" },
+  { label: "Created Date", value: "createdAt" },
+  { label: "Location", value: "location" }
+];
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const STATUS_STYLES: Record<AssetStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-200 text-slate-700",
   UNDER_MAINTENANCE: "bg-amber-100 text-amber-800",
-  DISPOSED: "bg-rose-100 text-rose-700",
-  RETIRED: "bg-slate-300 text-slate-700"
+  RETIRED: "bg-slate-300 text-slate-700",
+  DISPOSED: "bg-rose-100 text-rose-700"
 };
 
 const CONDITION_STYLES: Record<AssetCondition, string> = {
@@ -283,21 +247,55 @@ const CONDITION_STYLES: Record<AssetCondition, string> = {
   CRITICAL: "bg-rose-100 text-rose-700"
 };
 
-function formatEnumLabel(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase());
+const COLUMN_OPTIONS: Array<{ key: AssetColumnKey; label: string }> = [
+  { key: "assetTag", label: "Asset Tag" },
+  { key: "name", label: "Name" },
+  { key: "category", label: "Category" },
+  { key: "status", label: "Status" },
+  { key: "location", label: "Location" },
+  { key: "condition", label: "Condition" },
+  { key: "lastServiceDate", label: "Last Service" },
+  { key: "qr", label: "QR" },
+  { key: "actions", label: "Actions" }
+];
+
+const formSchema = z.object({
+  assetTag: z
+    .string()
+    .trim()
+    .min(1, "Asset tag is required")
+    .regex(/^AST-[A-Z0-9]{4,}$/i, "Asset tag must match AST-XXXX format"),
+  name: z.string().trim().min(2, "Name is required"),
+  category: z.enum(["MACHINE", "TOOL", "INFRASTRUCTURE", "EQUIPMENT", "VEHICLE", "OTHER"]),
+  status: z.enum(["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "DISPOSED", "RETIRED"]),
+  location: z.string().trim().min(1, "Location is required"),
+  description: z.string().max(1000).optional().default(""),
+  condition: z.enum(["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"]),
+  purchaseDate: z.string().optional().default(""),
+  warrantyExpiry: z.string().optional().default(""),
+  supplier: z.string().optional().default(""),
+  department: z.string().optional().default(""),
+  ownerName: z.string().optional().default(""),
+  lastServiceDate: z.string().optional().default(""),
+  nextServiceDate: z.string().optional().default(""),
+  meterReading: z.string().optional().default("")
+});
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [value, delay]);
+
+  return debounced;
 }
 
 function formatDate(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "-";
-  }
+  if (Number.isNaN(parsed.getTime())) return "-";
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
     month: "short",
@@ -306,13 +304,9 @@ function formatDate(value?: string | null) {
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "-";
-  }
+  if (Number.isNaN(parsed.getTime())) return "-";
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
     month: "short",
@@ -322,36 +316,13 @@ function formatDateTime(value?: string | null) {
   }).format(parsed);
 }
 
-function formatCurrency(value?: string | number | null) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (Number.isNaN(numeric)) {
-    return String(value);
-  }
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0
-  }).format(numeric);
-}
-
-function formatDocumentSize(value?: number) {
-  if (!value) {
-    return "-";
-  }
-  if (value < 1024) {
-    return `${value} B`;
-  }
-  if (value < 1024 * 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
-  }
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+function formatEnumLabel(value?: string | null) {
+  if (!value) return "-";
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function getErrorMessage(error: unknown) {
-  const responseMessage =
+  const message =
     typeof error === "object" &&
     error !== null &&
     "response" in error &&
@@ -359,187 +330,62 @@ function getErrorMessage(error: unknown) {
       ? (error as { response: { data: { message: string } } }).response.data.message
       : undefined;
 
-  if (responseMessage) {
-    return responseMessage;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
+  if (message) return message;
+  if (error instanceof Error) return error.message;
   return "Something went wrong";
 }
 
-function getStoredRole(): UserRole {
+function getStoredUserInfo(): StoredUserInfo {
   if (typeof window === "undefined") {
-    return "VIEWER";
+    return { id: null, roleName: "VIEWER" };
   }
 
   const raw = window.localStorage.getItem(USER_KEY);
   if (!raw) {
-    return "VIEWER";
+    return { id: null, roleName: "VIEWER" };
   }
 
   try {
     const parsed = JSON.parse(raw) as {
+      id?: string;
       role?: string | { name?: string | null } | null;
     };
-    if (typeof parsed.role === "string") {
-      return parsed.role;
-    }
-    if (parsed.role && typeof parsed.role === "object" && typeof parsed.role.name === "string") {
-      return parsed.role.name;
-    }
+
+    const roleName =
+      typeof parsed.role === "string"
+        ? parsed.role
+        : parsed.role && typeof parsed.role === "object"
+          ? parsed.role.name ?? "VIEWER"
+          : "VIEWER";
+
+    return {
+      id: parsed.id ?? null,
+      roleName
+    };
   } catch {
-    return "VIEWER";
+    return { id: null, roleName: "VIEWER" };
   }
-
-  return "VIEWER";
 }
 
-function emptyAssetForm(): AssetFormValues {
-  return {
-    assetTag: `AST-${Date.now().toString().slice(-6)}`,
-    name: "",
-    description: "",
-    category: "MACHINE",
-    condition: "GOOD",
-    status: "ACTIVE",
-    purchaseDate: "",
-    purchasePrice: "",
-    currentValue: "",
-    supplier: "",
-    department: "",
-    ownerName: "",
-    location: "",
-    manufacturer: "",
-    model: "",
-    serialNumber: "",
-    meterReading: "",
-    lastServiceDate: "",
-    nextServiceDate: "",
-    warrantyExpiry: "",
-    disposalDate: "",
-    disposalReason: ""
-  };
-}
+function mapRoleTier(roleName: string): RoleTier {
+  const normalized = roleName.toUpperCase();
 
-function mapAssetToForm(asset: AssetListItem | AssetDetail): AssetFormValues {
-  return {
-    assetTag: asset.assetTag,
-    name: asset.name,
-    description: asset.description ?? "",
-    category: asset.category,
-    condition: asset.condition,
-    status: asset.status,
-    purchaseDate: toDateInput(asset.purchaseDate),
-    purchasePrice: toInputString(asset.purchasePrice),
-    currentValue: toInputString(asset.currentValue),
-    supplier: asset.supplier ?? "",
-    department: asset.department ?? "",
-    ownerName: asset.ownerName ?? "",
-    location: asset.location ?? "",
-    manufacturer: asset.manufacturer ?? "",
-    model: asset.model ?? "",
-    serialNumber: asset.serialNumber ?? "",
-    meterReading: toInputString(asset.meterReading),
-    lastServiceDate: toDateInput(asset.lastServiceDate),
-    nextServiceDate: toDateInput(asset.nextServiceDate),
-    warrantyExpiry: toDateInput(asset.warrantyExpiry),
-    disposalDate: toDateInput(asset.disposalDate),
-    disposalReason: asset.disposalReason ?? ""
-  };
-}
-
-function toInputString(value?: string | null) {
-  if (value === null || value === undefined) {
-    return "";
+  if (normalized === "ADMIN" || normalized === "SUPER_ADMIN") {
+    return "admin";
   }
-  return String(value);
+  if (normalized === "MANAGER" || normalized === "ASSET_MANAGER") {
+    return "manager";
+  }
+  if (normalized === "SUPERVISOR" || normalized === "MECHANIC" || normalized === "TECHNICIAN") {
+    return "operator";
+  }
+  return "viewer";
 }
 
-function toDateInput(value?: string | null) {
-  if (!value) {
-    return "";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  return parsed.toISOString().slice(0, 10);
-}
-
-function toAssetPayload(form: AssetFormValues) {
-  const payload: Record<string, unknown> = {
-    assetTag: form.assetTag.trim(),
-    name: form.name.trim(),
-    category: form.category,
-    condition: form.condition,
-    status: form.status
-  };
-
-  const stringFields: Array<keyof Pick<AssetFormValues, "description" | "supplier" | "department" | "ownerName" | "location" | "manufacturer" | "model" | "serialNumber" | "disposalReason">> = [
-    "description",
-    "supplier",
-    "department",
-    "ownerName",
-    "location",
-    "manufacturer",
-    "model",
-    "serialNumber",
-    "disposalReason"
-  ];
-
-  stringFields.forEach((field) => {
-    const value = form[field].trim();
-    if (value) {
-      payload[field] = value;
-    }
-  });
-
-  const numericFields: Array<keyof Pick<AssetFormValues, "purchasePrice" | "currentValue" | "meterReading">> = [
-    "purchasePrice",
-    "currentValue",
-    "meterReading"
-  ];
-
-  numericFields.forEach((field) => {
-    const value = form[field].trim();
-    if (value) {
-      const numeric = Number(value);
-      if (!Number.isNaN(numeric)) {
-        payload[field] = numeric;
-      }
-    }
-  });
-
-  const dateFields: Array<keyof Pick<AssetFormValues, "purchaseDate" | "lastServiceDate" | "nextServiceDate" | "warrantyExpiry" | "disposalDate">> = [
-    "purchaseDate",
-    "lastServiceDate",
-    "nextServiceDate",
-    "warrantyExpiry",
-    "disposalDate"
-  ];
-
-  dateFields.forEach((field) => {
-    const value = form[field].trim();
-    if (value) {
-      payload[field] = value;
-    }
-  });
-
-  if (form.status !== "DISPOSED") {
-    delete payload.disposalDate;
-    delete payload.disposalReason;
-  }
-
-  return payload;
-}
-
-function buildQueryParams(filters: AssetFilters) {
-  const params: Record<string, string | number | boolean> = {
+function toQueryParams(filters: ReturnType<typeof useAssetPageStore.getState>["filters"]) {
+  const params: Record<string, string | number> = {
     page: filters.page,
-    limit: filters.limit,
+    limit: filters.pageSize,
     sortBy: filters.sortBy,
     sortOrder: filters.sortOrder
   };
@@ -553,155 +399,22 @@ function buildQueryParams(filters: AssetFilters) {
   if (filters.category) {
     params.category = filters.category;
   }
-  if (filters.condition) {
-    params.condition = filters.condition;
-  }
-  if (filters.location.trim()) {
-    params.location = filters.location.trim();
-  }
-  if (filters.department.trim()) {
-    params.department = filters.department.trim();
-  }
-  if (filters.supplier.trim()) {
-    params.supplier = filters.supplier.trim();
-  }
-  if (filters.ownerName.trim()) {
-    params.ownerName = filters.ownerName.trim();
-  }
-  if (filters.archivedView === "all") {
-    params.includeArchived = true;
-  }
-  if (filters.archivedView === "archived") {
-    params.archivedOnly = true;
+  if (filters.location) {
+    params.location = filters.location;
   }
 
   return params;
 }
 
-function normalizeEnumToken(value: string) {
-  return value.trim().replace(/[\s-]+/g, "_").toUpperCase();
-}
-
-function isAssetCategory(value: string): value is AssetCategory {
-  return CATEGORY_OPTIONS.includes(value as AssetCategory);
-}
-
-function isAssetStatus(value: string): value is AssetStatus {
-  return STATUS_OPTIONS.includes(value as AssetStatus);
-}
-
-function isAssetCondition(value: string): value is AssetCondition {
-  return CONDITION_OPTIONS.includes(value as AssetCondition);
-}
-
-function splitCsvRow(row: string) {
-  return row
-    .split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/)
-    .map((part) => part.trim().replace(/^"(.*)"$/, "$1").replace(/""/g, '"'));
-}
-
-function normalizeCsvHeader(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-function parseImportCsv(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    throw new Error("Provide a header row and at least one asset row.");
+function buildPageNumbers(page: number, totalPages: number) {
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, start + 4);
+  const normalizedStart = Math.max(1, end - 4);
+  const pages: number[] = [];
+  for (let current = normalizedStart; current <= end; current += 1) {
+    pages.push(current);
   }
-
-  const headers = splitCsvRow(lines[0]).map(normalizeCsvHeader);
-
-  return lines.slice(1).map((line, index) => {
-    const values = splitCsvRow(line);
-    const row = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] ?? ""]));
-    const rowNumber = index + 2;
-    const categoryToken = normalizeEnumToken(String(row.category ?? ""));
-    const statusToken = normalizeEnumToken(String(row.status ?? "ACTIVE"));
-    const conditionToken = normalizeEnumToken(String(row.condition ?? "GOOD"));
-
-    if (!row.assettag || !row.name) {
-      throw new Error(`Row ${rowNumber} must include assetTag and name.`);
-    }
-    if (!isAssetCategory(categoryToken)) {
-      throw new Error(`Row ${rowNumber} has an invalid category.`);
-    }
-    if (String(row.status ?? "") && !isAssetStatus(statusToken)) {
-      throw new Error(`Row ${rowNumber} has an invalid status.`);
-    }
-    if (String(row.condition ?? "") && !isAssetCondition(conditionToken)) {
-      throw new Error(`Row ${rowNumber} has an invalid condition.`);
-    }
-
-    const payload: Record<string, unknown> = {
-      assetTag: String(row.assettag).trim(),
-      name: String(row.name).trim(),
-      category: categoryToken,
-      status: statusToken,
-      condition: conditionToken
-    };
-
-    const optionalTextMappings: Array<[string, string]> = [
-      ["description", "description"],
-      ["location", "location"],
-      ["supplier", "supplier"],
-      ["department", "department"],
-      ["ownername", "ownerName"],
-      ["manufacturer", "manufacturer"],
-      ["model", "model"],
-      ["serialnumber", "serialNumber"],
-      ["disposalreason", "disposalReason"]
-    ];
-
-    optionalTextMappings.forEach(([source, target]) => {
-      const value = String(row[source] ?? "").trim();
-      if (value) {
-        payload[target] = value;
-      }
-    });
-
-    const optionalDateMappings: Array<[string, string]> = [
-      ["purchasedate", "purchaseDate"],
-      ["lastservicedate", "lastServiceDate"],
-      ["nextservicedate", "nextServiceDate"],
-      ["warrantyexpiry", "warrantyExpiry"],
-      ["disposaldate", "disposalDate"]
-    ];
-
-    optionalDateMappings.forEach(([source, target]) => {
-      const value = String(row[source] ?? "").trim();
-      if (value) {
-        payload[target] = value;
-      }
-    });
-
-    const optionalNumberMappings: Array<[string, string]> = [
-      ["purchaseprice", "purchasePrice"],
-      ["currentvalue", "currentValue"],
-      ["meterreading", "meterReading"]
-    ];
-
-    optionalNumberMappings.forEach(([source, target]) => {
-      const value = String(row[source] ?? "").trim();
-      if (value) {
-        const numeric = Number(value);
-        if (Number.isNaN(numeric)) {
-          throw new Error(`Row ${rowNumber} has an invalid number for ${target}.`);
-        }
-        payload[target] = numeric;
-      }
-    });
-
-    return payload;
-  });
-}
-
-async function readTextFile(file: File) {
-  return file.text();
+  return pages;
 }
 
 async function downloadBlob(url: string, fallbackName: string, params?: Record<string, unknown>) {
@@ -709,1366 +422,2068 @@ async function downloadBlob(url: string, fallbackName: string, params?: Record<s
     params,
     responseType: "blob"
   });
+
   const blob = new Blob([response.data]);
-  const downloadUrl = window.URL.createObjectURL(blob);
+  const objectUrl = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  anchor.href = downloadUrl;
+  anchor.href = objectUrl;
   anchor.download = fallbackName;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.URL.revokeObjectURL(downloadUrl);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+function emptyFormValues(): AssetFormValues {
+  return {
+    assetTag: `AST-${Date.now().toString().slice(-6)}`,
+    name: "",
+    category: "MACHINE",
+    status: "ACTIVE",
+    location: "",
+    description: "",
+    condition: "GOOD",
+    purchaseDate: "",
+    warrantyExpiry: "",
+    supplier: "",
+    department: "",
+    ownerName: "",
+    lastServiceDate: "",
+    nextServiceDate: "",
+    meterReading: ""
+  };
+}
+
+function mapAssetToForm(asset: AssetListItem | AssetDetail): AssetFormValues {
+  return {
+    assetTag: asset.assetTag,
+    name: asset.name,
+    category: asset.category,
+    status: asset.status,
+    location: asset.location ?? "",
+    description: asset.description ?? "",
+    condition: asset.condition,
+    purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate).toISOString().slice(0, 10) : "",
+    warrantyExpiry: asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toISOString().slice(0, 10) : "",
+    supplier: asset.supplier ?? "",
+    department: asset.department ?? "",
+    ownerName: asset.ownerName ?? "",
+    lastServiceDate: asset.lastServiceDate ? new Date(asset.lastServiceDate).toISOString().slice(0, 10) : "",
+    nextServiceDate: asset.nextServiceDate ? new Date(asset.nextServiceDate).toISOString().slice(0, 10) : "",
+    meterReading: asset.meterReading == null ? "" : String(asset.meterReading)
+  };
+}
+
+function toAssetPayload(values: AssetFormValues) {
+  const payload: Record<string, unknown> = {
+    assetTag: values.assetTag.trim().toUpperCase(),
+    name: values.name.trim(),
+    category: values.category,
+    status: values.status,
+    location: values.location.trim(),
+    condition: values.condition
+  };
+
+  const optionalTextFields: Array<keyof Pick<AssetFormValues, "description" | "supplier" | "department" | "ownerName">> = [
+    "description",
+    "supplier",
+    "department",
+    "ownerName"
+  ];
+
+  optionalTextFields.forEach((field) => {
+    const value = values[field].trim();
+    if (value) payload[field] = value;
+  });
+
+  const optionalDateFields: Array<keyof Pick<AssetFormValues, "purchaseDate" | "warrantyExpiry" | "lastServiceDate" | "nextServiceDate">> = [
+    "purchaseDate",
+    "warrantyExpiry",
+    "lastServiceDate",
+    "nextServiceDate"
+  ];
+
+  optionalDateFields.forEach((field) => {
+    const value = values[field].trim();
+    if (value) payload[field] = value;
+  });
+
+  if (values.meterReading.trim()) {
+    const reading = Number(values.meterReading);
+    if (!Number.isNaN(reading)) {
+      payload.meterReading = reading;
+    }
+  }
+
+  return payload;
+}
+
+function normalizeHeader(header: string) {
+  return header.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeStatusToken(value: string): AssetStatus | null {
+  const token = value.trim().replace(/[\s-]+/g, "_").toUpperCase();
+  if (["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "RETIRED", "DISPOSED"].includes(token)) {
+    return token as AssetStatus;
+  }
+  return null;
+}
+
+function normalizeCategoryToken(value: string): AssetCategory | null {
+  const token = value.trim().toLowerCase();
+  if (!token) return null;
+  if (token === "facility") return "INFRASTRUCTURE";
+
+  const normalized = token.replace(/[\s-]+/g, "_").toUpperCase();
+  if (["MACHINE", "EQUIPMENT", "VEHICLE", "INFRASTRUCTURE", "OTHER", "TOOL"].includes(normalized)) {
+    return normalized as AssetCategory;
+  }
+  return null;
+}
+
+function normalizeConditionToken(value: string): AssetCondition | null {
+  const normalized = value.trim().replace(/[\s-]+/g, "_").toUpperCase();
+  if (["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"].includes(normalized)) {
+    return normalized as AssetCondition;
+  }
+  return null;
+}
+
+function parseImportRows(records: Array<Record<string, unknown>>): ImportPreviewRow[] {
+  return records.map((record, index) => {
+    const rowNumber = index + 2;
+    const normalized = Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [normalizeHeader(key), String(value ?? "").trim()])
+    );
+
+    const errors: string[] = [];
+    const assetTag = String(normalized.assettag ?? "").toUpperCase();
+    const name = String(normalized.name ?? "");
+    const category = normalizeCategoryToken(String(normalized.category ?? ""));
+    const status = normalizeStatusToken(String(normalized.status ?? "ACTIVE")) ?? "ACTIVE";
+    const condition = normalizeConditionToken(String(normalized.condition ?? "GOOD")) ?? "GOOD";
+
+    if (!assetTag) {
+      errors.push("Asset tag is required.");
+    }
+    if (!/^AST-[A-Z0-9]{4,}$/i.test(assetTag)) {
+      errors.push("Asset tag must match AST-XXXX format.");
+    }
+    if (!name) {
+      errors.push("Name is required.");
+    }
+    if (!category) {
+      errors.push("Category is invalid.");
+    }
+
+    const payload: Record<string, unknown> = {
+      assetTag,
+      name,
+      category: category ?? "MACHINE",
+      status,
+      condition,
+      location: String(normalized.location ?? "")
+    };
+
+    const optionalText = ["description", "supplier", "department", "ownername"] as const;
+    optionalText.forEach((field) => {
+      const value = String(normalized[field] ?? "").trim();
+      if (!value) return;
+      if (field === "ownername") {
+        payload.ownerName = value;
+      } else {
+        payload[field] = value;
+      }
+    });
+
+    const optionalDates: Array<[string, string]> = [
+      ["purchasedate", "purchaseDate"],
+      ["warrantyexpiry", "warrantyExpiry"],
+      ["lastservicedate", "lastServiceDate"],
+      ["nextservicedate", "nextServiceDate"]
+    ];
+    optionalDates.forEach(([source, target]) => {
+      const value = String(normalized[source] ?? "").trim();
+      if (value) payload[target] = value;
+    });
+
+    const reading = String(normalized.meterreading ?? "").trim();
+    if (reading) {
+      const numericReading = Number(reading);
+      if (Number.isNaN(numericReading)) {
+        errors.push("Meter reading must be numeric.");
+      } else {
+        payload.meterReading = numericReading;
+      }
+    }
+
+    return {
+      rowNumber,
+      values: Object.fromEntries(Object.entries(normalized).map(([key, value]) => [key, String(value)])),
+      payload: errors.length === 0 ? payload : null,
+      errors
+    };
+  });
+}
+
+async function readImportFile(file: File) {
+  if (file.name.toLowerCase().endsWith(".csv")) {
+    const text = await file.text();
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length <= 1) {
+      throw new Error("CSV must include headers and at least one row.");
+    }
+
+    const headers = lines[0]
+      .split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/)
+      .map((header) => header.trim().replace(/^"|"$/g, ""));
+
+    const rows = lines.slice(1).map((line) => {
+      const values = line
+        .split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/)
+        .map((value) => value.trim().replace(/^"|"$/g, ""));
+      return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
+    });
+
+    return parseImportRows(rows);
+  }
+
+  const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) {
+    throw new Error("Workbook has no sheets.");
+  }
+
+  const sheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  if (rows.length === 0) {
+    throw new Error("Workbook has no data rows.");
+  }
+
+  return parseImportRows(rows);
+}
+
+function createTemplateFile(format: "csv" | "xlsx") {
+  const headers = [
+    "assetTag",
+    "name",
+    "category",
+    "status",
+    "location",
+    "description",
+    "condition",
+    "purchaseDate",
+    "warrantyExpiry",
+    "supplier",
+    "department",
+    "ownerName",
+    "lastServiceDate",
+    "nextServiceDate",
+    "meterReading"
+  ];
+  const sample = [
+    "AST-100001",
+    "Hydraulic Press 01",
+    "Machine",
+    "Active",
+    "Plant A",
+    "Main production press",
+    "Good",
+    "2025-01-01",
+    "2028-01-01",
+    "Prime Tools Ltd",
+    "Production",
+    "Mechanical Team",
+    "2026-03-10",
+    "2026-09-10",
+    "12440"
+  ];
+
+  if (format === "csv") {
+    const csv = `${headers.join(",")}\n${sample.join(",")}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "assets-import-template.csv";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+    return;
+  }
+
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, sample]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Assets");
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "assets-import-template.xlsx";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function summarizeFilters(filters: ReturnType<typeof useAssetPageStore.getState>["filters"]) {
+  const parts: string[] = [];
+  if (filters.search.trim()) parts.push(`search: ${filters.search.trim()}`);
+  if (filters.status) parts.push(`status: ${formatEnumLabel(filters.status)}`);
+  if (filters.category) {
+    parts.push(
+      `category: ${filters.category === "INFRASTRUCTURE" ? "Facility" : formatEnumLabel(filters.category)}`
+    );
+  }
+  if (filters.location) parts.push(`location: ${filters.location}`);
+  return parts.join(" | ") || "No filters";
+}
+
+function collectActivityChanges(event: AssetActivityEvent) {
+  const before =
+    event.beforeData && typeof event.beforeData === "object"
+      ? (event.beforeData as Record<string, unknown>)
+      : {};
+  const after =
+    event.afterData && typeof event.afterData === "object"
+      ? (event.afterData as Record<string, unknown>)
+      : {};
+
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+
+  return keys
+    .filter((key) => {
+      const left = before[key] == null ? "" : String(before[key]);
+      const right = after[key] == null ? "" : String(after[key]);
+      return left !== right;
+    })
+    .slice(0, 8)
+    .map((key) => ({
+      field: key,
+      from: before[key] == null ? "-" : String(before[key]),
+      to: after[key] == null ? "-" : String(after[key])
+    }));
 }
 
 export default function AssetsManagementPage() {
-  const [filters, setFilters] = useState<AssetFilters>({
-    search: "",
-    status: "",
-    category: "",
-    condition: "",
-    location: "",
-    department: "",
-    supplier: "",
-    ownerName: "",
-    archivedView: "active",
-    page: 1,
-    limit: 20,
-    sortBy: "updatedAt",
-    sortOrder: "desc"
-  });
-  const [rows, setRows] = useState<AssetListItem[]>([]);
-  const [summary, setSummary] = useState<AssetSummary | null>(null);
-  const [meta, setMeta] = useState<PaginationMeta>({
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 1
-  });
-  const [loading, setLoading] = useState(true);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [details, setDetails] = useState<AssetDetail | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [showEditor, setShowEditor] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<AssetListItem | AssetDetail | null>(null);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [qrAsset, setQrAsset] = useState<AssetListItem | AssetDetail | null>(null);
-  const [removalDialog, setRemovalDialog] = useState<RemovalDialogState | null>(null);
-  const [mutating, setMutating] = useState<string | null>(null);
-  const [bulkStatus, setBulkStatus] = useState<AssetStatus>("ACTIVE");
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [role, setRole] = useState<UserRole>("VIEWER");
+  const queryClient = useQueryClient();
+  const {
+    filters,
+    setFilters,
+    clearFilters,
+    setPage,
+    setPageSize,
+    selectedIds,
+    clearSelection,
+    toggleSelection,
+    toggleManySelection,
+    visibleColumns,
+    toggleColumn,
+    highlightedRowId,
+    setHighlightedRow
+  } = useAssetPageStore();
 
-  const filterKey = JSON.stringify(filters);
-  const canEdit = WRITE_ROLES.includes(role);
-  const canDelete = DELETE_ROLES.includes(role);
-  const canExport = READ_ROLES.includes(role);
-  const selectedCount = selectedIds.size;
-  const allRowsSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
-  const currentAsset = details ?? (detailsId ? rows.find((row) => row.id === detailsId) ?? null : null);
+  const [searchDraft, setSearchDraft] = useState(filters.search);
+  const debouncedSearch = useDebouncedValue(searchDraft, 300);
+  const [roleTier, setRoleTier] = useState<RoleTier>("viewer");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [detailsAssetId, setDetailsAssetId] = useState<string | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<AssetListItem | AssetDetail | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AssetListItem | null>(null);
+  const [qrTarget, setQrTarget] = useState<AssetListItem | AssetDetail | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  const [statusPrompt, setStatusPrompt] = useState<{
+    assetId: string;
+    status: AssetStatus;
+    reason: string;
+  } | null>(null);
+  const [bulkStatus, setBulkStatus] = useState<AssetStatus>("ACTIVE");
+  const [bulkLocation, setBulkLocation] = useState("");
+  const [bulkCategory, setBulkCategory] = useState<AssetCategory>("MACHINE");
+  const [hiddenRowIds, setHiddenRowIds] = useState<Set<string>>(new Set());
+
+  const columnPickerRef = useRef<HTMLDivElement | null>(null);
+
+  const canCreate = roleTier !== "viewer";
+  const canEditFields = roleTier === "manager" || roleTier === "admin";
+  const canChangeStatus = roleTier === "operator" || roleTier === "manager" || roleTier === "admin";
+  const canBulkEdit = roleTier === "manager" || roleTier === "admin";
+  const canDelete = roleTier === "admin";
+  const canImport = roleTier === "manager" || roleTier === "admin";
+  const canExport = true;
 
   useEffect(() => {
-    setRole(getStoredRole());
+    const stored = getStoredUserInfo();
+    setRoleTier(mapRoleTier(stored.roleName));
+    setCurrentUserId(stored.id);
   }, []);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      setSummaryLoading(true);
-      setError(null);
-      try {
-        const params = buildQueryParams(filters);
-        const [listResponse, summaryResponse] = await Promise.all([
-          apiClient.get("/assets", { params }),
-          apiClient.get("/assets/summary", { params })
-        ]);
-        setRows(listResponse.data?.data ?? []);
-        setMeta(listResponse.data?.meta ?? { page: 1, limit: filters.limit, total: 0, totalPages: 1 });
-        setSummary(summaryResponse.data?.data ?? null);
-      } catch (requestError) {
-        setError(getErrorMessage(requestError));
-      } finally {
-        setLoading(false);
-        setSummaryLoading(false);
-      }
+    if (filters.search !== debouncedSearch) {
+      setFilters({ search: debouncedSearch });
     }
-
-    void loadData();
-  }, [filterKey]);
+  }, [debouncedSearch, filters.search, setFilters]);
 
   useEffect(() => {
-    const requestedAssetId = typeof window !== "undefined"
-      ? new URL(window.location.href).searchParams.get("assetId")
-      : null;
-
-    if (!requestedAssetId || requestedAssetId === detailsId) {
-      return;
-    }
-
-    void openDetails(requestedAssetId, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailsId, rows.length]);
-
-  useEffect(() => {
-    if (toasts.length === 0) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setToasts((current) => current.slice(1));
-    }, 4200);
-
-    return () => window.clearTimeout(timeout);
-  }, [toasts]);
-
-  function pushToast(toast: Omit<ToastMessage, "id">) {
-    setToasts((current) => [...current, { id: Date.now() + Math.random(), ...toast }]);
-  }
-
-  async function refreshData(nextDetailId?: string | null) {
-    const params = buildQueryParams(filters);
-    try {
-      const [listResponse, summaryResponse] = await Promise.all([
-        apiClient.get("/assets", { params }),
-        apiClient.get("/assets/summary", { params })
-      ]);
-      setRows(listResponse.data?.data ?? []);
-      setMeta(listResponse.data?.meta ?? meta);
-      setSummary(summaryResponse.data?.data ?? summary);
-      if (nextDetailId) {
-        await loadDetails(nextDetailId);
+    const onPointerDown = (event: MouseEvent) => {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(event.target as Node)) {
+        setShowColumnPicker(false);
       }
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Refresh failed",
-        description: getErrorMessage(requestError)
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const listQuery = useQuery<AssetListResponse>({
+    queryKey: ["assets-list", filters],
+    queryFn: async () => {
+      const response = await apiClient.get("/assets", {
+        params: toQueryParams(filters)
       });
-    }
-  }
 
-  async function loadDetails(id: string) {
-    setDetailsLoading(true);
-    setDetailsError(null);
-    try {
-      const response = await apiClient.get(`/assets/${id}`);
-      setDetails(response.data?.data ?? null);
-      setDetailsId(id);
-    } catch (requestError) {
-      const message = getErrorMessage(requestError);
-      setDetailsError(message);
-      pushToast({
-        tone: "error",
-        title: "Unable to load asset",
-        description: message
-      });
-    } finally {
-      setDetailsLoading(false);
-    }
-  }
-
-  async function openDetails(id: string, syncUrl = true) {
-    if (syncUrl && typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("assetId", id);
-      window.history.replaceState({}, "", url);
-    }
-    await loadDetails(id);
-  }
-
-  function closeDetails() {
-    setDetailsId(null);
-    setDetails(null);
-    setDetailsError(null);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("assetId");
-      window.history.replaceState({}, "", url);
-    }
-  }
-
-  function toggleSelection(id: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }
-
-  function toggleAllOnPage() {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (allRowsSelected) {
-        rows.forEach((row) => next.delete(row.id));
-      } else {
-        rows.forEach((row) => next.add(row.id));
-      }
-      return next;
-    });
-  }
-
-  function clearSelection() {
-    setSelectedIds(new Set());
-  }
-
-  function updateFilter<K extends keyof AssetFilters>(key: K, value: AssetFilters[K]) {
-    setFilters((current) => ({
-      ...current,
-      [key]: value,
-      page: key === "page" || key === "limit" ? (value as number) || 1 : 1
-    }));
-  }
-
-  function resetFilters() {
-    setFilters({
-      search: "",
-      status: "",
-      category: "",
-      condition: "",
-      location: "",
-      department: "",
-      supplier: "",
-      ownerName: "",
-      archivedView: "active",
-      page: 1,
-      limit: 20,
-      sortBy: "updatedAt",
-      sortOrder: "desc"
-    });
-  }
-
-  async function saveAsset(form: AssetFormValues) {
-    if (!form.assetTag.trim() || !form.name.trim()) {
-      throw new Error("Asset tag and name are required.");
-    }
-
-    const payload = toAssetPayload(form);
-    if (editingAsset) {
-      await apiClient.patch(`/assets/${editingAsset.id}`, payload);
-      pushToast({
-        tone: "success",
-        title: "Asset updated",
-        description: `${form.name.trim()} was updated successfully.`
-      });
-      await refreshData(editingAsset.id);
-      return;
-    }
-
-    const response = await apiClient.post("/assets", payload);
-    const created = response.data?.data as AssetDetail;
-    pushToast({
-      tone: "success",
-      title: "Asset created",
-      description: `${form.name.trim()} is now tracked in the registry.`
-    });
-    await refreshData(created?.id ?? null);
-    if (created?.id) {
-      await openDetails(created.id);
-    }
-  }
-
-  async function runBulkStatusUpdate() {
-    if (selectedCount === 0) {
-      return;
-    }
-
-    setMutating("bulk-status");
-    try {
-      await apiClient.post("/assets/bulk-action", {
-        ids: Array.from(selectedIds),
-        action: "UPDATE_STATUS",
-        status: bulkStatus
-      });
-      pushToast({
-        tone: "success",
-        title: "Bulk update complete",
-        description: `${selectedCount} assets updated to ${formatEnumLabel(bulkStatus)}.`
-      });
-      clearSelection();
-      await refreshData(detailsId);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Bulk update failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
-
-  async function runBulkAction(action: "ARCHIVE" | "RESTORE") {
-    if (selectedCount === 0) {
-      return;
-    }
-
-    setMutating(`bulk-${action.toLowerCase()}`);
-    try {
-      await apiClient.post("/assets/bulk-action", {
-        ids: Array.from(selectedIds),
-        action
-      });
-      pushToast({
-        tone: "success",
-        title: action === "ARCHIVE" ? "Assets archived" : "Assets restored",
-        description: `${selectedCount} assets processed.`
-      });
-      clearSelection();
-      await refreshData(detailsId);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: action === "ARCHIVE" ? "Archive failed" : "Restore failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
-
-  async function exportAssets(ids?: string[]) {
-    setMutating("export");
-    try {
-      const params = buildQueryParams(filters) as Record<string, unknown>;
-      if (ids?.length) {
-        params.ids = ids.join(",");
-      }
-      params.format = "xlsx";
-      await downloadBlob("/assets/export", ids?.length ? "selected-assets.xlsx" : "assets.xlsx", params);
-      pushToast({
-        tone: "success",
-        title: "Export ready",
-        description: ids?.length ? "Selected assets exported." : "Filtered assets exported."
-      });
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Export failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
-
-  async function confirmRemoval() {
-    if (!removalDialog) {
-      return;
-    }
-
-    setMutating(`remove-${removalDialog.asset.id}`);
-    try {
-      await apiClient.delete(`/assets/${removalDialog.asset.id}`, {
-        params: {
-          permanent: removalDialog.permanent
+      return {
+        items: response.data?.data ?? [],
+        meta: response.data?.meta ?? {
+          page: 1,
+          limit: filters.pageSize,
+          total: 0,
+          totalPages: 1
         }
-      });
-      pushToast({
-        tone: "success",
-        title: removalDialog.permanent ? "Asset deleted" : "Asset archived",
-        description: `${removalDialog.asset.name} has been processed.`
-      });
-      setRemovalDialog(null);
-      clearSelection();
-      if (detailsId === removalDialog.asset.id) {
-        closeDetails();
+      };
+    },
+    placeholderData: (previous) => previous
+  });
+
+  const optionsQuery = useQuery<{ locations: string[] }>({
+    queryKey: ["assets-filter-options"],
+    queryFn: async () => {
+      const response = await apiClient.get("/assets/filter-options");
+      return response.data?.data ?? { locations: [] };
+    }
+  });
+
+  const detailsQuery = useQuery<AssetDetail | null>({
+    queryKey: ["asset-detail", detailsAssetId],
+    enabled: Boolean(detailsAssetId),
+    queryFn: async () => {
+      const response = await apiClient.get(`/assets/${detailsAssetId}`);
+      return (response.data?.data ?? null) as AssetDetail | null;
+    }
+  });
+
+  const saveAssetMutation = useMutation({
+    mutationFn: async (input: { values: AssetFormValues; assetId?: string }) => {
+      const payload = toAssetPayload(input.values);
+
+      if (input.assetId) {
+        const response = await apiClient.patch(`/assets/${input.assetId}`, payload);
+        return response.data?.data as AssetDetail;
       }
-      await refreshData();
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: removalDialog.permanent ? "Delete failed" : "Archive failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
 
-  async function restoreAsset(id: string) {
-    setMutating(`restore-${id}`);
-    try {
-      await apiClient.post(`/assets/${id}/restore`);
-      pushToast({
-        tone: "success",
-        title: "Asset restored",
-        description: "The asset is back in the active registry."
-      });
-      await refreshData(id);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Restore failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
+      const response = await apiClient.post("/assets", payload);
+      return response.data?.data as AssetDetail;
+    },
+    onMutate: async (input) => {
+      if (!input.assetId) return;
 
-  async function updateAssetStatus(id: string, status: AssetStatus, disposalReason?: string) {
-    setMutating(`status-${id}`);
-    try {
-      await apiClient.patch(`/assets/${id}/status`, {
-        status,
-        disposalReason: disposalReason?.trim() || undefined,
-        disposalDate: status === "DISPOSED" ? new Date().toISOString().slice(0, 10) : undefined
-      });
-      pushToast({
-        tone: "success",
-        title: "Status updated",
-        description: `Asset moved to ${formatEnumLabel(status)}.`
-      });
-      await refreshData(id);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Status update failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
-    }
-  }
+      queryClient.setQueriesData(
+        { queryKey: ["assets-list"] },
+        (previous: AssetListResponse | undefined) => {
+          if (!previous) return previous;
+          return {
+            ...previous,
+            items: previous.items.map((asset) =>
+              asset.id === input.assetId
+                ? {
+                    ...asset,
+                    ...toAssetPayload(input.values),
+                    name: input.values.name,
+                    location: input.values.location,
+                    category: input.values.category,
+                    status: input.values.status,
+                    condition: input.values.condition,
+                    supplier: input.values.supplier,
+                    department: input.values.department,
+                    ownerName: input.values.ownerName,
+                    lastServiceDate: input.values.lastServiceDate || null,
+                    nextServiceDate: input.values.nextServiceDate || null,
+                    purchaseDate: input.values.purchaseDate || null,
+                    warrantyExpiry: input.values.warrantyExpiry || null,
+                    meterReading: input.values.meterReading || null
+                  }
+                : asset
+            )
+          };
+        }
+      );
+    },
+    onSuccess: (asset, input) => {
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", asset.id] });
 
-  async function uploadDocument(id: string, file: File) {
-    setMutating(`document-${id}`);
-    try {
+      if (input.assetId) {
+        toast.success("Asset updated");
+      } else {
+        toast.success("Asset created");
+      }
+
+      setShowFormModal(false);
+      setEditingAsset(null);
+      setDetailsAssetId(asset.id);
+      setHighlightedRow(asset.id);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+    }
+  });
+
+  const deleteAssetMutation = useMutation({
+    mutationFn: async (asset: AssetListItem) => {
+      await apiClient.delete(`/assets/${asset.id}`);
+      return asset;
+    },
+    onMutate: async (asset) => {
+      setHiddenRowIds((current) => {
+        const next = new Set(current);
+        next.add(asset.id);
+        return next;
+      });
+    },
+    onSuccess: (asset) => {
+      toast.success("Asset deleted");
+      setDeleteTarget(null);
+      if (detailsAssetId === asset.id) {
+        setDetailsAssetId(null);
+      }
+      clearSelection();
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+    },
+    onError: (error, asset) => {
+      setHiddenRowIds((current) => {
+        const next = new Set(current);
+        next.delete(asset.id);
+        return next;
+      });
+      const message = getErrorMessage(error);
+      if (message.toLowerCase().includes("open work orders")) {
+        toast.error("Cannot delete - asset has open work orders.");
+      } else {
+        toast.error(message);
+      }
+    }
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async (input: { assetId: string; status: AssetStatus; reason?: string }) => {
+      const response = await apiClient.patch(`/assets/${input.assetId}/status`, {
+        status: input.status,
+        disposalReason: input.reason,
+        disposalDate: input.status === "DISPOSED" ? new Date().toISOString().slice(0, 10) : undefined
+      });
+      return response.data?.data as AssetDetail;
+    },
+    onSuccess: (asset) => {
+      queryClient.setQueriesData(
+        { queryKey: ["assets-list"] },
+        (previous: AssetListResponse | undefined) => {
+          if (!previous) return previous;
+          return {
+            ...previous,
+            items: previous.items.map((row) =>
+              row.id === asset.id ? { ...row, status: asset.status } : row
+            )
+          };
+        }
+      );
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", asset.id] });
+      toast.success("Status changed");
+      setStatusPrompt(null);
+      setOpenRowMenuId(null);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    }
+  });
+
+  const bulkActionMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      await apiClient.post("/assets/bulk-action", payload);
+    },
+    onSuccess: (_, payload) => {
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+      clearSelection();
+      const action = String(payload.action);
+      if (action === "UPDATE_STATUS") {
+        toast.success("Bulk status updated");
+      } else if (action === "ASSIGN_LOCATION") {
+        toast.success("Bulk location assigned");
+      } else if (action === "ASSIGN_CATEGORY") {
+        toast.success("Bulk category assigned");
+      }
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    }
+  });
+
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async (input: { assetId: string; file: File }) => {
       const formData = new FormData();
-      formData.append("file", file);
-      await apiClient.post(`/assets/${id}/documents`, formData);
-      pushToast({
-        tone: "success",
-        title: "Document uploaded",
-        description: `${file.name} is attached to the asset.`
-      });
-      await refreshData(id);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Upload failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
+      formData.append("file", input.file);
+      await apiClient.post(`/assets/${input.assetId}/documents`, formData);
+    },
+    onSuccess: (_, input) => {
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", input.assetId] });
+      toast.success("Document uploaded");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     }
+  });
+
+  const removeDocumentMutation = useMutation({
+    mutationFn: async (input: { assetId: string; documentId: string }) => {
+      await apiClient.delete(`/assets/${input.assetId}/documents/${input.documentId}`);
+    },
+    onSuccess: (_, input) => {
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", input.assetId] });
+      toast.success("Document removed");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    }
+  });
+
+  const regenerateQrMutation = useMutation({
+    mutationFn: async (assetId: string) => {
+      const response = await apiClient.post(`/assets/${assetId}/qr-code/regenerate`);
+      return response.data?.data as { qrCodeUrl?: string | null };
+    },
+    onSuccess: (_, assetId) => {
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", assetId] });
+      toast.success("QR code regenerated");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    }
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async (items: Array<Record<string, unknown>>) => {
+      const response = await apiClient.post("/assets/bulk-import", { items });
+      return response.data?.data as { createdCount: number; updatedCount: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+      const importedCount = (result?.createdCount ?? 0) + (result?.updatedCount ?? 0);
+      toast.success(`${importedCount} assets imported, 0 errors`);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    }
+  });
+
+  const meta = listQuery.data?.meta ?? {
+    page: 1,
+    limit: filters.pageSize,
+    total: 0,
+    totalPages: 1
+  };
+
+  const rows = useMemo(() => {
+    const source = listQuery.data?.items ?? [];
+    return source.filter((asset) => !hiddenRowIds.has(asset.id));
+  }, [listQuery.data?.items, hiddenRowIds]);
+
+  const selectedCount = selectedIds.length;
+  const allRowsSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
+
+  const summaryCounts = useMemo(() => {
+    return rows.reduce(
+      (accumulator, asset) => {
+        accumulator.total += 1;
+        if (asset.status === "ACTIVE") accumulator.active += 1;
+        if (asset.status === "UNDER_MAINTENANCE") accumulator.maintenance += 1;
+        if (asset.status === "RETIRED") accumulator.retired += 1;
+        if (asset.status === "DISPOSED") accumulator.disposed += 1;
+        return accumulator;
+      },
+      {
+        total: 0,
+        active: 0,
+        maintenance: 0,
+        retired: 0,
+        disposed: 0
+      }
+    );
+  }, [rows]);
+
+  const filterSummary = useMemo(() => summarizeFilters(filters), [filters]);
+  const pageNumbers = useMemo(() => buildPageNumbers(meta.page, meta.totalPages), [meta.page, meta.totalPages]);
+
+  const departmentOptions = useMemo(() => {
+    const options = new Set<string>();
+    rows.forEach((asset) => {
+      if (asset.department) options.add(asset.department);
+    });
+    return Array.from(options).sort((left, right) => left.localeCompare(right));
+  }, [rows]);
+
+  const ownerOptions = useMemo(() => {
+    const options = new Set<string>();
+    rows.forEach((asset) => {
+      if (asset.ownerName) options.add(asset.ownerName);
+    });
+    return Array.from(options).sort((left, right) => left.localeCompare(right));
+  }, [rows]);
+
+  const locationOptions = optionsQuery.data?.locations ?? [];
+
+  const selectedRowIdsOnPage = rows.map((asset) => asset.id);
+
+  const detailsAsset = detailsQuery.data;
+
+  async function handleExport(format: ExportFormat, ids?: string[]) {
+    const exportColumns = Object.entries(visibleColumns)
+      .filter(([column, visible]) => visible && column !== "actions" && column !== "qr")
+      .map(([column]) => column)
+      .join(",");
+
+    const extension = format === "xlsx" ? "xlsx" : format;
+
+    await downloadBlob(
+      "/assets/export",
+      ids?.length ? `selected-assets.${extension}` : `assets.${extension}`,
+      {
+        ...toQueryParams(filters),
+        format,
+        ids: ids?.length ? ids.join(",") : undefined,
+        visibleColumns: exportColumns || undefined
+      }
+    );
   }
 
-  async function downloadDocument(id: string, document: AssetDocument) {
+  async function handleDownloadDocument(assetId: string, document: AssetDocument) {
     try {
       if (document.externalUrl) {
         window.open(document.externalUrl, "_blank", "noopener,noreferrer");
         return;
       }
-      await downloadBlob(`/assets/${id}/documents/${document.id}`, document.name);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Download failed",
-        description: getErrorMessage(requestError)
-      });
+
+      await downloadBlob(`/assets/${assetId}/documents/${document.id}`, document.name);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     }
   }
 
-  async function removeDocument(id: string, documentId: string) {
-    setMutating(`document-remove-${documentId}`);
+  async function handleCreateWorkOrder(asset: AssetListItem | AssetDetail) {
+    if (!currentUserId) {
+      toast.error("Unable to identify current user for work order creation.");
+      return;
+    }
+
     try {
-      await apiClient.delete(`/assets/${id}/documents/${documentId}`);
-      pushToast({
-        tone: "success",
-        title: "Document removed",
-        description: "The file has been removed from the asset record."
+      await apiClient.post("/work-orders", {
+        title: `Work order for ${asset.name}`,
+        description: `Generated from asset ${asset.assetTag}`,
+        priority: "MEDIUM",
+        type: "CORRECTIVE",
+        assetId: asset.id,
+        createdById: currentUserId,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       });
-      await refreshData(id);
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Document removal failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
+      toast.success("Work order created");
+      queryClient.invalidateQueries({ queryKey: ["asset-detail", asset.id] });
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     }
   }
 
-  async function importAssets(items: Array<Record<string, unknown>>) {
-    setMutating("import");
+  async function handleScheduleMaintenance(asset: AssetListItem | AssetDetail) {
     try {
-      const response = await apiClient.post("/assets/bulk-import", { items });
-      const result = response.data?.data as { createdCount: number; updatedCount: number };
-      pushToast({
-        tone: "success",
-        title: "Bulk import complete",
-        description: `${result?.createdCount ?? 0} created, ${result?.updatedCount ?? 0} updated.`
+      await apiClient.post("/maintenance/schedules", {
+        name: `${asset.name} preventive schedule`,
+        description: `Generated from asset ${asset.assetTag}`,
+        type: "PREVENTIVE",
+        frequency: "MONTHLY",
+        assetId: asset.id,
+        nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
-      setShowImportModal(false);
-      clearSelection();
-      await refreshData();
-    } catch (requestError) {
-      pushToast({
-        tone: "error",
-        title: "Import failed",
-        description: getErrorMessage(requestError)
-      });
-    } finally {
-      setMutating(null);
+      toast.success("Maintenance schedule created");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     }
   }
 
-  const categoryShare = useMemo(() => {
-    if (!summary || summary.totalAssets === 0) {
-      return [];
-    }
-    return summary.byCategory.map((item) => ({
-      ...item,
-      percentage: (item.count / summary.totalAssets) * 100
-    }));
-  }, [summary]);
+  function openDetails(assetId: string) {
+    setDetailsAssetId(assetId);
+    setHighlightedRow(assetId);
+  }
 
-  const conditionShare = useMemo(() => {
-    if (!summary || summary.totalAssets === 0) {
-      return [];
+  function handleDeleteClick(asset: AssetListItem) {
+    const openWorkOrderCount = asset.openWorkOrderCount ?? 0;
+    if (openWorkOrderCount > 0) {
+      toast.error("Cannot delete - asset has open work orders.");
+      return;
     }
-    return summary.byCondition.map((item) => ({
-      ...item,
-      percentage: (item.count / summary.totalAssets) * 100
-    }));
-  }, [summary]);
+    setDeleteTarget(asset);
+  }
 
   return (
     <>
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6 shadow-sm">
-          <div className="absolute inset-y-0 right-0 hidden w-72 rounded-full bg-sky-100/60 blur-3xl lg:block" />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Asset Registry</p>
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Assets command center</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Track asset health, ownership, service commitments, documents, and audit history in one operational view.
-                </p>
-              </div>
+        <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">Assets</h2>
+              <p className="mt-1 text-sm text-slate-500">Centralized asset lifecycle and maintenance tracking.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => refreshData(detailsId)}
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+                  if (detailsAssetId) {
+                    queryClient.invalidateQueries({ queryKey: ["asset-detail", detailsAssetId] });
+                  }
+                }}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
               >
                 <RefreshCw size={16} /> Refresh
               </button>
+
               {canExport && (
-                <button
-                  onClick={() => void exportAssets()}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                >
-                  <FileDown size={16} /> Export
-                </button>
-              )}
-              {canEdit && (
-                <>
-                  <button
-                    onClick={() => setShowImportModal(true)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                  >
-                    <FileSpreadsheet size={16} /> Bulk import
-                  </button>
+                <div className="relative">
                   <button
                     onClick={() => {
-                      setEditingAsset(null);
-                      setShowEditor(true);
+                      setShowExportMenu((current) => !current);
+                      setShowColumnPicker(false);
                     }}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
                   >
-                    <Plus size={16} /> New asset
+                    <FileDown size={16} /> Export <ChevronDown size={14} />
                   </button>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[2.1fr,1fr]">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              title="Tracked assets"
-              value={summaryLoading ? "..." : String(summary?.totalAssets ?? 0)}
-              subtitle="Current filtered registry"
-              tone="sky"
-              icon={<HardDrive size={18} />}
-            />
-            <SummaryCard
-              title="Active"
-              value={summaryLoading ? "..." : String(summary?.activeAssets ?? 0)}
-              subtitle="Ready for dispatch"
-              tone="emerald"
-              icon={<CheckCircle2 size={18} />}
-            />
-            <SummaryCard
-              title="Maintenance due"
-              value={summaryLoading ? "..." : String(summary?.dueSoonAssets ?? 0)}
-              subtitle="Within 30 days"
-              tone="amber"
-              icon={<Wrench size={18} />}
-            />
-            <SummaryCard
-              title="Critical condition"
-              value={summaryLoading ? "..." : String(summary?.criticalAssets ?? 0)}
-              subtitle="POOR or CRITICAL"
-              tone="rose"
-              icon={<ShieldAlert size={18} />}
-            />
-          </div>
-
-          <div className="card space-y-4 rounded-[24px] border-slate-200">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Portfolio mix</p>
-                <p className="text-xs text-slate-500">Category and condition distribution</p>
-              </div>
-              {summary && (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                  {summary.archivedAssets} archived
-                </span>
-              )}
-            </div>
-            <div className="space-y-3">
-              {categoryShare.length === 0 ? (
-                <p className="text-sm text-slate-500">Distribution will appear once assets are available.</p>
-              ) : (
-                categoryShare.slice(0, 4).map((item) => (
-                  <MetricBar key={item.key} label={formatEnumLabel(item.key)} value={item.count} percentage={item.percentage} />
-                ))
-              )}
-            </div>
-            <div className="border-t border-slate-100 pt-3">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Condition</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {conditionShare.map((item) => (
-                  <div key={item.key} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${CONDITION_STYLES[item.key]}`}>
-                        {formatEnumLabel(item.key)}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-900">{item.count}</span>
+                  {showExportMenu && (
+                    <div className="absolute right-0 z-20 mt-2 w-44 rounded-2xl border border-slate-200 bg-white p-1 shadow-lg">
+                      <button
+                        onClick={async () => {
+                          setShowExportMenu(false);
+                          try {
+                            await handleExport("csv");
+                            toast.success("Export downloaded");
+                          } catch (error) {
+                            toast.error(getErrorMessage(error));
+                          }
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Export as CSV
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setShowExportMenu(false);
+                          try {
+                            await handleExport("xlsx");
+                            toast.success("Export downloaded");
+                          } catch (error) {
+                            toast.error(getErrorMessage(error));
+                          }
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Export as Excel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setShowExportMenu(false);
+                          try {
+                            await handleExport("pdf");
+                            toast.success("Export downloaded");
+                          } catch (error) {
+                            toast.error(getErrorMessage(error));
+                          }
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Export as PDF
+                      </button>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">{item.percentage.toFixed(0)}% of filtered assets</p>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
+
+              {canImport && (
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <FileUp size={16} /> Import
+                </button>
+              )}
+
+              {canCreate && (
+                <button
+                  onClick={() => {
+                    setEditingAsset(null);
+                    setShowFormModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  <Plus size={16} /> Create Asset
+                </button>
+              )}
             </div>
           </div>
         </section>
 
-        <section className="card space-y-4 rounded-[24px] border-slate-200">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <Search size={16} className="text-slate-400" />
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <MetricCard label="Total assets" value={summaryCounts.total} tone="slate" />
+          <MetricCard label="Active" value={summaryCounts.active} tone="green" />
+          <MetricCard label="Under maintenance" value={summaryCounts.maintenance} tone="amber" />
+          <MetricCard label="Retired" value={summaryCounts.retired} tone="gray" />
+          <MetricCard label="Disposed" value={summaryCounts.disposed} tone="red" />
+        </section>
+
+        <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[1.6fr,1fr,1fr,1fr,1fr,1fr,auto]">
+            <label className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                value={filters.search}
-                onChange={(event) => updateFilter("search", event.target.value)}
-                className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                placeholder="Search asset tag, name, model, supplier, department, owner..."
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                placeholder="Search by tag, name, category, location"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
               />
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="rounded-full bg-slate-100 px-3 py-1">{meta.total} results</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Sorted by {formatEnumLabel(filters.sortBy)}</span>
-            </div>
-          </div>
+            </label>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SelectField label="Status" value={filters.status} onChange={(value) => updateFilter("status", value as AssetStatus | "")}>
-              <option value="">All statuses</option>
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatEnumLabel(option)}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField label="Category" value={filters.category} onChange={(value) => updateFilter("category", value as AssetCategory | "")}>
-              <option value="">All categories</option>
-              {CATEGORY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatEnumLabel(option)}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField label="Condition" value={filters.condition} onChange={(value) => updateFilter("condition", value as AssetCondition | "")}>
-              <option value="">All conditions</option>
-              {CONDITION_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatEnumLabel(option)}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField label="Archive scope" value={filters.archivedView} onChange={(value) => updateFilter("archivedView", value as ArchivedView)}>
-              <option value="active">Active only</option>
-              <option value="all">Include archived</option>
-              <option value="archived">Archived only</option>
-            </SelectField>
-            <InputField label="Location" value={filters.location} onChange={(event) => updateFilter("location", event.target.value)} placeholder="Plant, building, or bay" />
-            <InputField label="Department" value={filters.department} onChange={(event) => updateFilter("department", event.target.value)} placeholder="Production, facilities..." />
-            <InputField label="Supplier" value={filters.supplier} onChange={(event) => updateFilter("supplier", event.target.value)} placeholder="Vendor or partner" />
-            <InputField label="Owner" value={filters.ownerName} onChange={(event) => updateFilter("ownerName", event.target.value)} placeholder="Assigned person or team" />
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-            <div className="flex flex-wrap gap-2">
-              <SortButton current={filters} field="updatedAt" onClick={() => toggleSort("updatedAt")} label="Updated" />
-              <SortButton current={filters} field="name" onClick={() => toggleSort("name")} label="Name" />
-              <SortButton current={filters} field="status" onClick={() => toggleSort("status")} label="Status" />
-              <SortButton current={filters} field="condition" onClick={() => toggleSort("condition")} label="Condition" />
-              <SortButton current={filters} field="nextServiceDate" onClick={() => toggleSort("nextServiceDate")} label="Next service" />
-            </div>
-            <button
-              onClick={resetFilters}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100"
+            <select
+              value={filters.status}
+              onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             >
-              Reset filters
+              {STATUS_FILTER_OPTIONS.map((option) => (
+                <option key={option.value || "ALL"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.category}
+              onChange={(event) => setFilters({ category: event.target.value as AssetCategoryFilter })}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            >
+              {CATEGORY_FILTER_OPTIONS.map((option) => (
+                <option key={option.value || "ALL"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.location}
+              onChange={(event) => setFilters({ location: event.target.value })}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            >
+              <option value="">All locations</option>
+              {locationOptions.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.sortBy}
+              onChange={(event) => setFilters({ sortBy: event.target.value as AssetSortField })}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => setFilters({ sortOrder: filters.sortOrder === "asc" ? "desc" : "asc" })}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+            >
+              {filters.sortOrder === "asc" ? "Asc" : "Desc"}
             </button>
+
+            <div className="flex items-center justify-end">
+              {hasActiveFilters(filters) ? (
+                <button
+                  onClick={() => {
+                    clearFilters();
+                    setSearchDraft("");
+                  }}
+                  className="text-sm font-medium text-brand-700 underline decoration-brand-300 underline-offset-4"
+                >
+                  Clear filters
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400">No active filters</span>
+              )}
+            </div>
           </div>
         </section>
 
-        {selectedCount > 0 && canEdit && (
-          <section className="card flex flex-col gap-3 rounded-[24px] border-brand-200 bg-brand-50/50 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+        {selectedCount > 0 && (
+          <section className="rounded-[24px] border border-brand-200 bg-brand-50 p-4 shadow-sm">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <p className="text-sm font-semibold text-slate-900">{selectedCount} assets selected</p>
-              <p className="text-xs text-slate-500">Run bulk status changes, archive actions, or export the selection.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={bulkStatus}
-                onChange={(event) => setBulkStatus(event.target.value as AssetStatus)}
-                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {formatEnumLabel(option)}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => void runBulkStatusUpdate()}
-                disabled={Boolean(mutating)}
-                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-              >
-                Apply status
-              </button>
-              <button
-                onClick={() => void runBulkAction("ARCHIVE")}
-                disabled={Boolean(mutating)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-              >
-                Archive selected
-              </button>
-              <button
-                onClick={() => void runBulkAction("RESTORE")}
-                disabled={Boolean(mutating)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-              >
-                Restore selected
-              </button>
-              <button
-                onClick={() => void exportAssets(Array.from(selectedIds))}
-                disabled={Boolean(mutating)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-              >
-                Export selected
-              </button>
-              <button
-                onClick={clearSelection}
-                className="rounded-full border border-transparent px-3 py-2 text-sm text-slate-500 transition hover:text-slate-800"
-              >
-                Clear
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {canBulkEdit && (
+                  <>
+                    <select
+                      value={bulkStatus}
+                      onChange={(event) => setBulkStatus(event.target.value as AssetStatus)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                    >
+                      {STATUS_FORM_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        bulkActionMutation.mutate({
+                          ids: selectedIds,
+                          action: "UPDATE_STATUS",
+                          status: bulkStatus
+                        })
+                      }
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Bulk status
+                    </button>
+
+                    <select
+                      value={bulkLocation}
+                      onChange={(event) => setBulkLocation(event.target.value)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                    >
+                      <option value="">Assign location...</option>
+                      {locationOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        bulkActionMutation.mutate({
+                          ids: selectedIds,
+                          action: "ASSIGN_LOCATION",
+                          location: bulkLocation
+                        })
+                      }
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Bulk location
+                    </button>
+
+                    <select
+                      value={bulkCategory}
+                      onChange={(event) => setBulkCategory(event.target.value as AssetCategory)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                    >
+                      {CATEGORY_FORM_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        bulkActionMutation.mutate({
+                          ids: selectedIds,
+                          action: "ASSIGN_CATEGORY",
+                          category: bulkCategory
+                        })
+                      }
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Bulk category
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={async () => {
+                    try {
+                      await handleExport("csv", selectedIds);
+                      toast.success("Export downloaded");
+                    } catch (error) {
+                      toast.error(getErrorMessage(error));
+                    }
+                  }}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                >
+                  Export selected
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="rounded-full border border-transparent px-4 py-2 text-sm text-slate-600 transition hover:text-slate-900"
+                >
+                  Deselect all
+                </button>
+              </div>
             </div>
           </section>
         )}
 
-        <section className="card overflow-hidden rounded-[24px] border-slate-200 p-0">
+        <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Asset register</h3>
-              <p className="text-sm text-slate-500">Sortable registry with document, service, and ownership context.</p>
+              <h3 className="text-lg font-semibold text-slate-900">Asset registry</h3>
+              <p className="text-sm text-slate-500">Server-side search, filtering, sorting, and pagination.</p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <ArrowDownUp size={16} />
-              Page {meta.page} of {meta.totalPages}
-            </div>
-          </div>
-
-          {error && (
-            <div className="m-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center gap-3 px-5 py-12 text-sm text-slate-500">
-              <Loader2 size={18} className="animate-spin" /> Loading assets...
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="grid place-items-center gap-3 px-5 py-16 text-center">
-              <div className="grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-500">
-                <HardDrive size={24} />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-slate-900">No assets matched this view</p>
-                <p className="mt-1 text-sm text-slate-500">Adjust filters or add a new asset to populate the registry.</p>
-              </div>
-              {canEdit && (
-                <div className="flex flex-wrap justify-center gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingAsset(null);
-                      setShowEditor(true);
-                    }}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                  >
-                    Create asset
-                  </button>
-                  <button
-                    onClick={() => setShowImportModal(true)}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Import CSV
-                  </button>
+            <div ref={columnPickerRef} className="relative">
+              <button
+                onClick={() => {
+                  setShowColumnPicker((current) => !current);
+                  setShowExportMenu(false);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              >
+                <Filter size={14} /> Columns
+              </button>
+              {showColumnPicker && (
+                <div className="absolute right-0 z-20 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+                  {COLUMN_OPTIONS.map((option) => (
+                    <label key={option.key} className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns[option.key]}
+                        onChange={() => toggleColumn(option.key)}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3">
-                        <input type="checkbox" checked={allRowsSelected} onChange={toggleAllOnPage} />
-                      </th>
-                      <th className="px-5 py-3">Asset</th>
-                      <th className="px-5 py-3">Condition</th>
-                      <th className="px-5 py-3">Status</th>
-                      <th className="px-5 py-3">Ownership</th>
-                      <th className="px-5 py-3">Service</th>
-                      <th className="px-5 py-3">Value</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((asset) => (
-                      <tr
-                        key={asset.id}
-                        onClick={() => void openDetails(asset.id)}
-                        className="cursor-pointer border-t border-slate-100 transition hover:bg-slate-50"
-                      >
-                        <td className="px-5 py-4" onClick={(event) => event.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(asset.id)}
-                            onChange={() => toggleSelection(asset.id)}
-                          />
-                        </td>
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="font-semibold text-slate-900">{asset.name}</p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{asset.assetTag}</p>
-                            <p className="mt-2 text-xs text-slate-500">
-                              {formatEnumLabel(asset.category)}
-                              {asset.location ? ` • ${asset.location}` : ""}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="space-y-2">
-                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CONDITION_STYLES[asset.condition]}`}>
-                              {formatEnumLabel(asset.condition)}
-                            </span>
-                            <p className="text-xs text-slate-500">{asset.maintenanceLogCount} maintenance logs</p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="space-y-2">
-                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[asset.status]}`}>
-                              {formatEnumLabel(asset.status)}
-                            </span>
-                            <p className="text-xs text-slate-500">{asset.isArchived ? "Archived" : `${asset.workOrderCount} work orders`}</p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-slate-600">
-                          <p>{asset.ownerName || "Unassigned owner"}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {[asset.department, asset.supplier].filter(Boolean).join(" • ") || "No department or supplier"}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-slate-600">
-                          <p>Next: {formatDate(asset.nextServiceDate)}</p>
-                          <p className="mt-1 text-xs text-slate-500">Last: {formatDate(asset.lastServiceDate)}</p>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-slate-600">
-                          <p>{formatCurrency(asset.currentValue)}</p>
-                          <p className="mt-1 text-xs text-slate-500">Purchase {formatCurrency(asset.purchasePrice)}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
-                            <button
-                              onClick={() => setQrAsset(asset)}
-                              className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100"
-                              aria-label="View QR"
-                            >
-                              <QrCode size={15} />
-                            </button>
-                            {canEdit && (
-                              <button
-                                onClick={() => {
-                                  setEditingAsset(asset);
-                                  setShowEditor(true);
-                                }}
-                                className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100"
-                                aria-label="Edit asset"
-                              >
-                                <Pencil size={15} />
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button
-                                onClick={() => setRemovalDialog({ asset, permanent: false })}
-                                className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100"
-                                aria-label="Archive asset"
-                              >
-                                <Archive size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          </div>
 
-              <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <span>
-                    Showing {(meta.page - 1) * meta.limit + 1}-{Math.min(meta.page * meta.limit, meta.total)} of {meta.total}
-                  </span>
-                  <select
-                    value={filters.limit}
-                    onChange={(event) => updateFilter("limit", Number(event.target.value))}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                  >
-                    {LIMIT_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option} / page
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => updateFilter("page", Math.max(1, filters.page - 1))}
-                    disabled={filters.page <= 1}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ChevronLeft size={16} /> Previous
-                  </button>
-                  <button
-                    onClick={() => updateFilter("page", Math.min(meta.totalPages, filters.page + 1))}
-                    disabled={filters.page >= meta.totalPages}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allRowsSelected}
+                      onChange={(event) => toggleManySelection(selectedRowIdsOnPage, event.target.checked)}
+                    />
+                  </th>
+                  {visibleColumns.assetTag && <th className="px-4 py-3">Asset Tag</th>}
+                  {visibleColumns.name && <th className="px-4 py-3">Name</th>}
+                  {visibleColumns.category && <th className="px-4 py-3">Category</th>}
+                  {visibleColumns.status && <th className="px-4 py-3">Status</th>}
+                  {visibleColumns.location && <th className="px-4 py-3">Location</th>}
+                  {visibleColumns.condition && <th className="px-4 py-3">Condition</th>}
+                  {visibleColumns.lastServiceDate && <th className="px-4 py-3">Last Service</th>}
+                  {visibleColumns.qr && <th className="px-4 py-3">QR</th>}
+                  {visibleColumns.actions && <th className="px-4 py-3 text-right">Actions</th>}
+                </tr>
+              </thead>
+
+              <tbody>
+                {listQuery.isLoading ? (
+                  <TableSkeletonRows columnCount={Object.values(visibleColumns).filter(Boolean).length + 1} />
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}>
+                      <div className="grid place-items-center gap-3 px-6 py-16 text-center">
+                        <p className="text-lg font-semibold text-slate-900">No assets matched the current filters</p>
+                        <p className="max-w-2xl text-sm text-slate-500">{filterSummary}</p>
+                        <button
+                          onClick={() => {
+                            clearFilters();
+                            setSearchDraft("");
+                          }}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                        >
+                          Clear filters
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence initial={false}>
+                    {rows.map((asset) => {
+                      const rowIsHighlighted = highlightedRowId === asset.id;
+                      const rowIsSelected = selectedIds.includes(asset.id);
+                      const deleteAllowed = canDelete && (asset.openWorkOrderCount ?? 0) === 0;
+                      const statusPromptForRow = statusPrompt?.assetId === asset.id ? statusPrompt : null;
+
+                      return (
+                        <motion.tr
+                          key={asset.id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8, height: 0 }}
+                          className={`border-t border-slate-100 transition hover:bg-slate-50 ${
+                            rowIsHighlighted ? "bg-sky-50/70" : ""
+                          }`}
+                        >
+                          <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={rowIsSelected}
+                              onChange={() => toggleSelection(asset.id)}
+                            />
+                          </td>
+
+                          {visibleColumns.assetTag && (
+                            <td className="cursor-pointer px-4 py-3 font-medium text-slate-900" onClick={() => openDetails(asset.id)}>
+                              {asset.assetTag}
+                            </td>
+                          )}
+                          {visibleColumns.name && (
+                            <td className="cursor-pointer px-4 py-3 text-slate-800" onClick={() => openDetails(asset.id)}>
+                              {asset.name}
+                            </td>
+                          )}
+                          {visibleColumns.category && (
+                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
+                              {asset.category === "INFRASTRUCTURE" ? "Facility" : formatEnumLabel(asset.category)}
+                            </td>
+                          )}
+                          {visibleColumns.status && (
+                            <td className="cursor-pointer px-4 py-3" onClick={() => openDetails(asset.id)}>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[asset.status]}`}>
+                                {formatEnumLabel(asset.status)}
+                              </span>
+                            </td>
+                          )}
+                          {visibleColumns.location && (
+                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
+                              {asset.location || "-"}
+                            </td>
+                          )}
+                          {visibleColumns.condition && (
+                            <td className="cursor-pointer px-4 py-3" onClick={() => openDetails(asset.id)}>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${CONDITION_STYLES[asset.condition]}`}>
+                                {formatEnumLabel(asset.condition)}
+                              </span>
+                            </td>
+                          )}
+                          {visibleColumns.lastServiceDate && (
+                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
+                              {asset.lastServiceDate ? formatDate(asset.lastServiceDate) : "Never"}
+                            </td>
+                          )}
+                          {visibleColumns.qr && (
+                            <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                              <button
+                                onClick={() => setQrTarget(asset)}
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100"
+                              >
+                                <QrCode size={14} /> View
+                              </button>
+                            </td>
+                          )}
+
+                          {visibleColumns.actions && (
+                            <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
+                              <div className="relative inline-flex justify-end">
+                                <button
+                                  onClick={() => {
+                                    setOpenRowMenuId((current) => (current === asset.id ? null : asset.id));
+                                    setStatusPrompt(null);
+                                  }}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100"
+                                  aria-label="Open row actions"
+                                >
+                                  <Ellipsis size={14} />
+                                </button>
+
+                                {openRowMenuId === asset.id && (
+                                  <div className="absolute right-0 top-10 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
+                                    <button
+                                      onClick={() => {
+                                        openDetails(asset.id);
+                                        setOpenRowMenuId(null);
+                                      }}
+                                      className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                    >
+                                      View details
+                                    </button>
+
+                                    {canEditFields && (
+                                      <button
+                                        onClick={() => {
+                                          setEditingAsset(asset);
+                                          setShowFormModal(true);
+                                          setOpenRowMenuId(null);
+                                        }}
+                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+
+                                    {canChangeStatus && (
+                                      <div className="rounded-xl px-2 py-2">
+                                        <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Change status</p>
+                                        <div className="space-y-1">
+                                          {QUICK_STATUS_OPTIONS.map((option) => (
+                                            <button
+                                              key={option.value}
+                                              onClick={() => {
+                                                setStatusPrompt({
+                                                  assetId: asset.id,
+                                                  status: option.value,
+                                                  reason: ""
+                                                });
+                                              }}
+                                              className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                                            >
+                                              {option.label}
+                                            </button>
+                                          ))}
+                                        </div>
+
+                                        {statusPromptForRow && (
+                                          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-sm text-slate-700">
+                                            <p>Change status to {formatEnumLabel(statusPromptForRow.status)}?</p>
+                                            {statusPromptForRow.status === "DISPOSED" && (
+                                              <input
+                                                value={statusPromptForRow.reason}
+                                                onChange={(event) =>
+                                                  setStatusPrompt((current) =>
+                                                    current
+                                                      ? {
+                                                          ...current,
+                                                          reason: event.target.value
+                                                        }
+                                                      : current
+                                                  )
+                                                }
+                                                placeholder="Disposal reason"
+                                                className="mt-2 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none"
+                                              />
+                                            )}
+                                            <div className="mt-2 flex gap-2">
+                                              <button
+                                                onClick={() => {
+                                                  if (
+                                                    statusPromptForRow.status === "DISPOSED" &&
+                                                    !statusPromptForRow.reason.trim()
+                                                  ) {
+                                                    toast.error("Disposal reason is required.");
+                                                    return;
+                                                  }
+                                                  statusMutation.mutate({
+                                                    assetId: asset.id,
+                                                    status: statusPromptForRow.status,
+                                                    reason: statusPromptForRow.reason
+                                                  });
+                                                }}
+                                                className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+                                              >
+                                                Confirm
+                                              </button>
+                                              <button
+                                                onClick={() => setStatusPrompt(null)}
+                                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                                              >
+                                                Cancel
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {canCreate && (
+                                      <button
+                                        onClick={() => {
+                                          void handleCreateWorkOrder(asset);
+                                          setOpenRowMenuId(null);
+                                        }}
+                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        Create work order
+                                      </button>
+                                    )}
+
+                                    {canCreate && (
+                                      <button
+                                        onClick={() => {
+                                          void handleScheduleMaintenance(asset);
+                                          setOpenRowMenuId(null);
+                                        }}
+                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                      >
+                                        Schedule maintenance
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={() => {
+                                        setQrTarget(asset);
+                                        setOpenRowMenuId(null);
+                                      }}
+                                      className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                                    >
+                                      View QR
+                                    </button>
+
+                                    {deleteAllowed && (
+                                      <button
+                                        onClick={() => {
+                                          handleDeleteClick(asset);
+                                          setOpenRowMenuId(null);
+                                        }}
+                                        className="block w-full rounded-xl px-3 py-2 text-sm text-rose-700 transition hover:bg-rose-50"
+                                      >
+                                        Delete
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+              <span>
+                Showing {meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}-{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} assets
+              </span>
+              <select
+                value={filters.pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size} / page
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(Math.max(1, meta.page - 1))}
+                disabled={meta.page <= 1}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setPage(page)}
+                  className={`h-8 min-w-8 rounded-full border px-2 text-sm ${
+                    page === meta.page
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-700"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setPage(Math.min(meta.totalPages, meta.page + 1))}
+                disabled={meta.page >= meta.totalPages}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
         </section>
       </div>
 
-      <AssetEditorModal
-        open={showEditor}
+      <AssetFormModal
+        open={showFormModal}
         asset={editingAsset}
-        busy={Boolean(mutating)}
+        departmentOptions={departmentOptions}
+        ownerOptions={ownerOptions}
+        busy={saveAssetMutation.isPending}
         onClose={() => {
-          if (mutating) {
-            return;
-          }
-          setShowEditor(false);
+          if (saveAssetMutation.isPending) return;
+          setShowFormModal(false);
           setEditingAsset(null);
         }}
-        onSubmit={async (form) => {
-          setMutating(editingAsset ? `edit-${editingAsset.id}` : "create");
-          try {
-            await saveAsset(form);
-            setShowEditor(false);
-            setEditingAsset(null);
-          } finally {
-            setMutating(null);
-          }
+        onSubmit={(values) =>
+          saveAssetMutation.mutate({
+            values,
+            assetId: editingAsset?.id
+          })
+        }
+      />
+
+      <DeleteConfirmationModal
+        asset={deleteTarget}
+        busy={deleteAssetMutation.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteAssetMutation.mutate(deleteTarget);
         }}
+      />
+
+      <QrModal
+        asset={qrTarget}
+        canRegenerate={canEditFields}
+        busy={regenerateQrMutation.isPending}
+        onClose={() => setQrTarget(null)}
+        onRegenerate={(assetId) => regenerateQrMutation.mutate(assetId)}
       />
 
       <BulkImportModal
         open={showImportModal}
-        busy={mutating === "import"}
+        busy={importMutation.isPending}
         onClose={() => setShowImportModal(false)}
-        onImport={importAssets}
-      />
-
-      <RemovalDialog
-        state={removalDialog}
-        busy={Boolean(mutating)}
-        onClose={() => setRemovalDialog(null)}
-        onConfirm={() => void confirmRemoval()}
-        onTogglePermanent={(permanent) =>
-          setRemovalDialog((current) => (current ? { ...current, permanent } : current))
-        }
-      />
-
-      <QrPreviewModal asset={qrAsset} onClose={() => setQrAsset(null)} />
-
-      <AssetDetailsDrawer
-        open={Boolean(detailsId)}
-        loading={detailsLoading}
-        asset={currentAsset}
-        detail={details}
-        error={detailsError}
-        canEdit={canEdit}
-        canDelete={canDelete}
-        busy={mutating}
-        onClose={closeDetails}
-        onRefresh={() => (detailsId ? refreshData(detailsId) : Promise.resolve())}
-        onEdit={() => {
-          if (!currentAsset) {
-            return;
+        onImport={async (items, errorCount) => {
+          const result = await importMutation.mutateAsync(items);
+          const importedCount = (result.createdCount ?? 0) + (result.updatedCount ?? 0);
+          if (errorCount > 0) {
+            toast.warning(`${importedCount} assets imported, ${errorCount} errors`);
+          } else {
+            toast.success(`${importedCount} assets imported, 0 errors`);
           }
-          setEditingAsset(currentAsset);
-          setShowEditor(true);
+          return result;
         }}
-        onArchive={() => currentAsset && setRemovalDialog({ asset: currentAsset, permanent: false })}
-        onPermanentDelete={() => currentAsset && setRemovalDialog({ asset: currentAsset, permanent: true })}
-        onRestore={() => currentAsset && void restoreAsset(currentAsset.id)}
-        onStatusUpdate={(status, disposalReason) =>
-          currentAsset ? updateAssetStatus(currentAsset.id, status, disposalReason) : Promise.resolve()
-        }
-        onShowQr={() => currentAsset && setQrAsset(currentAsset)}
-        onUploadDocument={(file) =>
-          currentAsset ? uploadDocument(currentAsset.id, file) : Promise.resolve()
-        }
-        onDownloadDocument={(document) =>
-          currentAsset ? downloadDocument(currentAsset.id, document) : Promise.resolve()
-        }
-        onRemoveDocument={(documentId) =>
-          currentAsset ? removeDocument(currentAsset.id, documentId) : Promise.resolve()
-        }
       />
 
-      <ToastViewport toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((item) => item.id !== id))} />
+      <AnimatePresence>
+        {detailsAssetId && (
+          <AssetDetailsDrawer
+            asset={detailsAsset}
+            loading={detailsQuery.isLoading}
+            canEdit={canEditFields}
+            canDelete={canDelete}
+            canCreate={canCreate}
+            onClose={() => setDetailsAssetId(null)}
+            onEdit={() => {
+              if (!detailsAsset) return;
+              setEditingAsset(detailsAsset);
+              setShowFormModal(true);
+            }}
+            onCreateWorkOrder={(asset) => void handleCreateWorkOrder(asset)}
+            onUploadDocument={(assetId, file) => uploadDocumentMutation.mutate({ assetId, file })}
+            onDownloadDocument={handleDownloadDocument}
+            onDeleteDocument={(assetId, documentId) => removeDocumentMutation.mutate({ assetId, documentId })}
+            onShowQr={(asset) => setQrTarget(asset)}
+            onDeleteAsset={(asset) =>
+              setDeleteTarget({
+                ...asset,
+                openWorkOrderCount: asset.openWorkOrders
+              })
+            }
+          />
+        )}
+      </AnimatePresence>
     </>
   );
-
-  function toggleSort(field: SortField) {
-    setFilters((current) => ({
-      ...current,
-      page: 1,
-      sortBy: field,
-      sortOrder:
-        current.sortBy === field ? (current.sortOrder === "asc" ? "desc" : "asc") : "asc"
-    }));
-  }
 }
 
-function SummaryCard({
-  title,
+function MetricCard({
+  label,
   value,
-  subtitle,
-  tone,
-  icon
+  tone
 }: {
-  title: string;
-  value: string;
-  subtitle: string;
-  tone: "sky" | "emerald" | "amber" | "rose";
-  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: "slate" | "green" | "amber" | "gray" | "red";
 }) {
-  const toneStyles: Record<typeof tone, string> = {
-    sky: "from-sky-50 to-white text-sky-700",
-    emerald: "from-emerald-50 to-white text-emerald-700",
-    amber: "from-amber-50 to-white text-amber-700",
-    rose: "from-rose-50 to-white text-rose-700"
-  };
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-200 bg-emerald-50"
+      : tone === "amber"
+        ? "border-amber-200 bg-amber-50"
+        : tone === "gray"
+          ? "border-slate-300 bg-slate-100"
+          : tone === "red"
+            ? "border-rose-200 bg-rose-50"
+            : "border-slate-200 bg-slate-50";
 
   return (
-    <article className={`rounded-[24px] border border-slate-200 bg-gradient-to-br p-5 shadow-sm ${toneStyles[tone]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-4 text-3xl font-semibold text-slate-900">{value}</p>
-        </div>
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/80 shadow-sm">{icon}</div>
-      </div>
-      <p className="mt-4 text-sm text-slate-500">{subtitle}</p>
+    <article className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
     </article>
   );
 }
 
-function MetricBar({ label, value, percentage }: { label: string; value: number; percentage: number }) {
+function TableSkeletonRows({ columnCount }: { columnCount: number }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 text-sm text-slate-600">
-        <span>{label}</span>
-        <span className="font-semibold text-slate-900">{value}</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(8, percentage)}%` }} />
+    <>
+      {Array.from({ length: 8 }).map((_, rowIndex) => (
+        <tr key={`skeleton-${rowIndex}`} className="border-t border-slate-100">
+          <td colSpan={columnCount} className="px-4 py-3">
+            <div className="h-8 animate-pulse rounded-xl bg-slate-100" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function DeleteConfirmationModal({
+  asset,
+  busy,
+  onClose,
+  onConfirm
+}: {
+  asset: AssetListItem | null;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!asset) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[24px] border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-rose-700">
+            <AlertTriangle size={18} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Delete {asset.assetTag}?</h3>
+            <p className="text-sm text-slate-500">This cannot be undone.</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />} Delete
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function SortButton({
-  current,
-  field,
-  label,
-  onClick
+function QrModal({
+  asset,
+  canRegenerate,
+  busy,
+  onClose,
+  onRegenerate
 }: {
-  current: AssetFilters;
-  field: SortField;
-  label: string;
-  onClick: () => void;
+  asset: AssetListItem | AssetDetail | null;
+  canRegenerate: boolean;
+  busy: boolean;
+  onClose: () => void;
+  onRegenerate: (assetId: string) => void;
 }) {
-  const active = current.sortBy === field;
+  const qrQuery = useQuery({
+    queryKey: ["asset-qr", asset?.id],
+    enabled: Boolean(asset?.id),
+    queryFn: async () => {
+      const response = await apiClient.get(`/assets/${asset!.id}/qr-code`);
+      return response.data?.data as {
+        qrCodeUrl?: string | null;
+      };
+    }
+  });
+
+  if (!asset) return null;
+
+  const qrCodeUrl = qrQuery.data?.qrCodeUrl ?? asset.qrCodeUrl;
+
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-sm transition ${
-        active ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-      }`}
-    >
-      {label}
-      {active ? ` • ${current.sortOrder.toUpperCase()}` : ""}
-    </button>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[26px] border border-slate-200 bg-white p-6 shadow-2xl">
+        <style jsx global>{`
+          @media print {
+            body * {
+              visibility: hidden !important;
+            }
+            .qr-print-only,
+            .qr-print-only * {
+              visibility: visible !important;
+            }
+            .qr-print-only {
+              position: absolute;
+              inset: 0;
+              margin: auto;
+              width: fit-content;
+              height: fit-content;
+            }
+          }
+        `}</style>
+
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">Asset QR</p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">{asset.assetTag}</h3>
+            <p className="text-sm text-slate-500">{asset.name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+          <div className="qr-print-only inline-block rounded-xl bg-white p-3 shadow-sm">
+            {qrCodeUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qrCodeUrl} alt={`QR for ${asset.assetTag}`} className="h-52 w-52" />
+            ) : (
+              <div className="grid h-52 w-52 place-items-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
+                QR is missing for this asset.
+              </div>
+            )}
+            <p className="mt-2 text-xs text-slate-500">{asset.assetTag} - {asset.name}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <Printer size={14} /> Print
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                await downloadBlob(`/assets/${asset.id}/qr-code/download`, `${asset.assetTag}-qr.png`, {
+                  format: "png"
+                });
+                toast.info("QR downloaded");
+              } catch (error) {
+                toast.error(getErrorMessage(error));
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <Download size={14} /> PNG
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                await downloadBlob(`/assets/${asset.id}/qr-code/download`, `${asset.assetTag}-qr.svg`, {
+                  format: "svg"
+                });
+                toast.info("QR downloaded");
+              } catch (error) {
+                toast.error(getErrorMessage(error));
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <Download size={14} /> SVG
+          </button>
+
+          {canRegenerate ? (
+            <button
+              onClick={() => onRegenerate(asset.id)}
+              disabled={busy}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {busy && <Loader2 size={14} className="animate-spin" />} Re-generate
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+            >
+              Close
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder
-}: {
-  label: string;
-  value: string;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="space-y-2 text-sm text-slate-600">
-      <span>{label}</span>
-      <input value={value} onChange={onChange} placeholder={placeholder} className={inputClassName} />
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  children
-}: {
-  label: string;
-  value: string | number;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="space-y-2 text-sm text-slate-600">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={selectClassName}>
-        {children}
-      </select>
-    </label>
-  );
-}
-
-function AssetEditorModal({
+function AssetFormModal({
   open,
   asset,
+  departmentOptions,
+  ownerOptions,
   busy,
   onClose,
   onSubmit
 }: {
   open: boolean;
   asset: AssetListItem | AssetDetail | null;
+  departmentOptions: string[];
+  ownerOptions: string[];
   busy: boolean;
   onClose: () => void;
-  onSubmit: (form: AssetFormValues) => Promise<void>;
+  onSubmit: (values: AssetFormValues) => void;
 }) {
-  const [form, setForm] = useState<AssetFormValues>(emptyAssetForm());
-  const [error, setError] = useState<string | null>(null);
+  const isEditing = Boolean(asset);
+
+  const form = useForm<AssetFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: emptyFormValues()
+  });
 
   useEffect(() => {
-    setForm(asset ? mapAssetToForm(asset) : emptyAssetForm());
-    setError(null);
-  }, [asset, open]);
+    form.reset(asset ? mapAssetToForm(asset) : emptyFormValues());
+  }, [asset, open, form]);
 
-  if (!open) {
-    return null;
-  }
+  const watchedTag = form.watch("assetTag");
+  const debouncedTag = useDebouncedValue(watchedTag, 400);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    try {
-      await onSubmit(form);
-    } catch (submitError) {
-      setError(getErrorMessage(submitError));
+  const duplicateTagQuery = useQuery({
+    queryKey: ["asset-tag-check", debouncedTag, asset?.id],
+    enabled: open && debouncedTag.trim().length > 3,
+    queryFn: async () => {
+      const response = await apiClient.get("/assets/validate-tag", {
+        params: {
+          assetTag: debouncedTag,
+          excludeId: asset?.id
+        }
+      });
+      return response.data?.data as { exists: boolean };
     }
-  }
+  });
 
-  function updateField<K extends keyof AssetFormValues>(field: K, value: AssetFormValues[K]) {
-    setForm((current) => ({
-      ...current,
-      [field]: value
-    }));
-  }
+  const duplicateExists = Boolean(duplicateTagQuery.data?.exists && (!asset || asset.id));
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <form onSubmit={handleSubmit} className="mt-8 w-full max-w-5xl rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+      <form
+        onSubmit={form.handleSubmit((values) => {
+          if (duplicateExists && !isEditing) {
+            form.setError("assetTag", {
+              type: "validate",
+              message: "Tag already exists"
+            });
+            return;
+          }
+          onSubmit(values);
+        })}
+        className="mt-8 w-full max-w-4xl rounded-[26px] border border-slate-200 bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">{asset ? "Edit asset" : "New asset"}</p>
-            <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              {asset ? `Update ${asset.name}` : "Create a tracked asset"}
-            </h3>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">{isEditing ? "Edit Asset" : "Create Asset"}</p>
+            <h3 className="mt-1 text-xl font-semibold text-slate-900">{isEditing ? asset?.name : "New asset record"}</h3>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+          >
+            <X size={16} />
           </button>
         </div>
 
-        <div className="max-h-[75vh] space-y-6 overflow-y-auto px-6 py-6">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <FormField label="Asset tag *">
-              <input value={form.assetTag} onChange={(event) => updateField("assetTag", event.target.value)} className={inputClassName} required />
-            </FormField>
-            <FormField label="Asset name *">
-              <input value={form.name} onChange={(event) => updateField("name", event.target.value)} className={inputClassName} required />
-            </FormField>
-            <FormField label="Category">
-              <select value={form.category} onChange={(event) => updateField("category", event.target.value as AssetCategory)} className={selectClassName}>
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {formatEnumLabel(option)}
+        <div className="max-h-[74vh] space-y-5 overflow-y-auto px-5 py-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Asset Tag *" error={form.formState.errors.assetTag?.message}>
+              <input
+                {...form.register("assetTag")}
+                readOnly={isEditing}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+              {duplicateExists && !isEditing && (
+                <p className="mt-1 text-xs text-rose-600">Tag already exists</p>
+              )}
+            </Field>
+
+            <Field label="Name *" error={form.formState.errors.name?.message}>
+              <input
+                {...form.register("name")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Category *" error={form.formState.errors.category?.message}>
+              <select
+                {...form.register("category")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              >
+                {CATEGORY_FORM_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
-            </FormField>
-            <FormField label="Condition">
-              <select value={form.condition} onChange={(event) => updateField("condition", event.target.value as AssetCondition)} className={selectClassName}>
+            </Field>
+
+            <Field label="Status *" error={form.formState.errors.status?.message}>
+              <select
+                {...form.register("status")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              >
+                {STATUS_FORM_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Location *" error={form.formState.errors.location?.message}>
+              <input
+                {...form.register("location")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Condition">
+              <select
+                {...form.register("condition")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              >
                 {CONDITION_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {formatEnumLabel(option)}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
-            </FormField>
-          </section>
+            </Field>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <FormField label="Status">
-              <select value={form.status} onChange={(event) => updateField("status", event.target.value as AssetStatus)} className={selectClassName}>
-                {STATUS_OPTIONS.map((option) => (
+            <Field label="Purchase Date">
+              <input
+                type="date"
+                {...form.register("purchaseDate")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Warranty Expiry">
+              <input
+                type="date"
+                {...form.register("warrantyExpiry")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Supplier / Vendor">
+              <input
+                {...form.register("supplier")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Department / Owner">
+              <select
+                {...form.register("department")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              >
+                <option value="">Select department</option>
+                {departmentOptions.map((option) => (
                   <option key={option} value={option}>
-                    {formatEnumLabel(option)}
+                    {option}
                   </option>
                 ))}
               </select>
-            </FormField>
-            <FormField label="Owner">
-              <input value={form.ownerName} onChange={(event) => updateField("ownerName", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Department">
-              <input value={form.department} onChange={(event) => updateField("department", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Supplier">
-              <input value={form.supplier} onChange={(event) => updateField("supplier", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Location" className="md:col-span-2">
-              <input value={form.location} onChange={(event) => updateField("location", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Manufacturer">
-              <input value={form.manufacturer} onChange={(event) => updateField("manufacturer", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Model">
-              <input value={form.model} onChange={(event) => updateField("model", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Serial number">
-              <input value={form.serialNumber} onChange={(event) => updateField("serialNumber", event.target.value)} className={inputClassName} />
-            </FormField>
-          </section>
+            </Field>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <FormField label="Purchase date">
-              <input type="date" value={form.purchaseDate} onChange={(event) => updateField("purchaseDate", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Purchase price">
-              <input inputMode="decimal" value={form.purchasePrice} onChange={(event) => updateField("purchasePrice", event.target.value)} className={inputClassName} placeholder="12000" />
-            </FormField>
-            <FormField label="Current value">
-              <input inputMode="decimal" value={form.currentValue} onChange={(event) => updateField("currentValue", event.target.value)} className={inputClassName} placeholder="9800" />
-            </FormField>
-            <FormField label="Meter reading">
-              <input inputMode="decimal" value={form.meterReading} onChange={(event) => updateField("meterReading", event.target.value)} className={inputClassName} placeholder="12540" />
-            </FormField>
-            <FormField label="Last service date">
-              <input type="date" value={form.lastServiceDate} onChange={(event) => updateField("lastServiceDate", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Next service date">
-              <input type="date" value={form.nextServiceDate} onChange={(event) => updateField("nextServiceDate", event.target.value)} className={inputClassName} />
-            </FormField>
-            <FormField label="Warranty expiry">
-              <input type="date" value={form.warrantyExpiry} onChange={(event) => updateField("warrantyExpiry", event.target.value)} className={inputClassName} />
-            </FormField>
-            {form.status === "DISPOSED" && (
-              <>
-                <FormField label="Disposal date">
-                  <input type="date" value={form.disposalDate} onChange={(event) => updateField("disposalDate", event.target.value)} className={inputClassName} />
-                </FormField>
-                <FormField label="Disposal reason" className="md:col-span-2 xl:col-span-3">
-                  <input value={form.disposalReason} onChange={(event) => updateField("disposalReason", event.target.value)} className={inputClassName} placeholder="Reason for disposal" />
-                </FormField>
-              </>
-            )}
-          </section>
+            <Field label="Owner">
+              <select
+                {...form.register("ownerName")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              >
+                <option value="">Select owner</option>
+                {ownerOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
-          <FormField label="Description">
-            <textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} className={textareaClassName} placeholder="What is this asset used for, what does the team need to know, and what risks exist?" />
-          </FormField>
+            <Field label="Meter Reading">
+              <input
+                inputMode="decimal"
+                {...form.register("meterReading")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
 
-          {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
+            <Field label="Last Service Date">
+              <input
+                type="date"
+                {...form.register("lastServiceDate")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+
+            <Field label="Next Service Due">
+              <input
+                type="date"
+                {...form.register("nextServiceDate")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              />
+            </Field>
+          </div>
+
+          <Field label="Description">
+            <textarea
+              {...form.register("description")}
+              className="min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+            />
+          </Field>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
             Cancel
           </button>
-          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50">
-            {busy && <Loader2 size={16} className="animate-spin" />}
-            {asset ? "Save changes" : "Create asset"}
+          <button
+            type="submit"
+            disabled={busy || (!isEditing && duplicateExists)}
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {isEditing ? "Save" : "Create"}
           </button>
         </div>
       </form>
@@ -2076,11 +2491,20 @@ function AssetEditorModal({
   );
 }
 
-function FormField({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label className={`space-y-2 text-sm text-slate-600 ${className ?? ""}`}>
+    <label className="space-y-2 text-sm text-slate-600">
       <span>{label}</span>
       {children}
+      {error && <p className="text-xs text-rose-600">{error}</p>}
     </label>
   );
 }
@@ -2094,215 +2518,227 @@ function BulkImportModal({
   open: boolean;
   busy: boolean;
   onClose: () => void;
-  onImport: (items: Array<Record<string, unknown>>) => Promise<void>;
+  onImport: (
+    items: Array<Record<string, unknown>>,
+    errorCount: number
+  ) => Promise<{ createdCount: number; updatedCount: number }>;
 }) {
-  const [csvText, setCsvText] = useState("");
-  const [previewCount, setPreviewCount] = useState(0);
+  const [step, setStep] = useState(1);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
+  const [result, setResult] = useState<{ createdCount: number; updatedCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
-      setCsvText("");
-      setPreviewCount(0);
+      setStep(1);
+      setFileName(null);
+      setPreviewRows([]);
+      setResult(null);
       setError(null);
     }
   }, [open]);
 
-  if (!open) {
-    return null;
-  }
+  if (!open) return null;
 
-  async function handleFileUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    try {
-      const text = await readTextFile(file);
-      setCsvText(text);
-      const parsed = parseImportCsv(text);
-      setPreviewCount(parsed.length);
-      setError(null);
-    } catch (uploadError) {
-      setPreviewCount(0);
-      setError(getErrorMessage(uploadError));
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  function handlePreview() {
-    try {
-      const parsed = parseImportCsv(csvText);
-      setPreviewCount(parsed.length);
-      setError(null);
-    } catch (previewError) {
-      setPreviewCount(0);
-      setError(getErrorMessage(previewError));
-    }
-  }
-
-  async function handleImport() {
-    try {
-      const parsed = parseImportCsv(csvText);
-      setPreviewCount(parsed.length);
-      setError(null);
-      await onImport(parsed);
-    } catch (importError) {
-      setError(getErrorMessage(importError));
-    }
-  }
+  const invalidRows = previewRows.filter((row) => row.errors.length > 0);
+  const validRows = previewRows.filter((row) => row.payload).map((row) => row.payload!) as Array<Record<string, unknown>>;
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="mt-12 w-full max-w-3xl rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="mt-8 w-full max-w-4xl rounded-[26px] border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Bulk import</p>
-            <h3 className="mt-1 text-xl font-semibold text-slate-900">Upload or paste asset rows</h3>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">Bulk Import</p>
+            <h3 className="mt-1 text-xl font-semibold text-slate-900">Import assets in four steps</h3>
           </div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-5 px-6 py-6">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            Use CSV headers like <span className="font-medium text-slate-900">assetTag, name, category, condition, status, location, department, ownerName</span>.
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-              <Upload size={16} /> Upload CSV
-              <input type="file" accept=".csv,text/csv" onChange={handleFileUpload} className="hidden" />
-            </label>
-            <button onClick={handlePreview} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-              Preview rows
-            </button>
-            <span className="text-sm text-slate-500">{previewCount > 0 ? `${previewCount} rows ready` : "No preview yet"}</span>
-          </div>
-
-          <textarea
-            value={csvText}
-            onChange={(event) => setCsvText(event.target.value)}
-            className={`${textareaClassName} min-h-[240px] font-mono text-xs`}
-            placeholder={'assetTag,name,category,condition,status,location\nAST-1001,Hydraulic Press,MACHINE,GOOD,ACTIVE,Plant A'}
-          />
-
-          {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
-          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-            Close
-          </button>
-          <button onClick={() => void handleImport()} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50">
-            {busy && <Loader2 size={16} className="animate-spin" />}
-            Import assets
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RemovalDialog({
-  state,
-  busy,
-  onClose,
-  onConfirm,
-  onTogglePermanent
-}: {
-  state: RemovalDialogState | null;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  onTogglePermanent: (value: boolean) => void;
-}) {
-  if (!state) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
-        <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-100 text-rose-700">
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">Confirm asset removal</h3>
-            <p className="text-sm text-slate-500">{state.asset.name}</p>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-4 text-sm text-slate-600">
-          <p>
-            Default behavior archives the asset and removes it from active views. Permanent delete removes the record and any uploaded documents.
-          </p>
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <input type="checkbox" checked={state.permanent} onChange={(event) => onTogglePermanent(event.target.checked)} />
-            <span>Delete permanently instead of archiving</span>
-          </label>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-            Cancel
-          </button>
-          <button onClick={onConfirm} disabled={busy} className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:opacity-50">
-            {busy && <Loader2 size={16} className="animate-spin" />}
-            {state.permanent ? "Delete permanently" : "Archive asset"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function QrPreviewModal({ asset, onClose }: { asset: AssetListItem | AssetDetail | null; onClose: () => void }) {
-  if (!asset) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-left">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Asset QR</p>
-            <h3 className="mt-1 text-xl font-semibold text-slate-900">{asset.assetTag}</h3>
-          </div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-6">
-          {asset.qrCodeUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={asset.qrCodeUrl} alt={`QR for ${asset.assetTag}`} className="mx-auto h-56 w-56 rounded-2xl bg-white p-3 shadow-sm" />
-          ) : (
-            <div className="grid h-56 place-items-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-500">
-              QR not available for this asset yet.
-            </div>
-          )}
-        </div>
-
-        <div className="mt-5 flex justify-center gap-2">
           <button
-            onClick={() => void downloadBlob(`/assets/${asset.id}/qr-code/download`, `${asset.assetTag}-qr.png`)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
           >
-            <Download size={16} /> Download QR
+            <X size={16} />
           </button>
-          <button onClick={onClose} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
-            Close
-          </button>
+        </div>
+
+        <div className="space-y-5 px-5 py-5">
+          <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+            {[1, 2, 3, 4].map((value) => (
+              <span
+                key={value}
+                className={`rounded-full px-3 py-1 ${
+                  value === step
+                    ? "bg-slate-900 text-white"
+                    : value < step
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                Step {value}
+              </span>
+            ))}
+          </div>
+
+          {step === 1 && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">Download a template in CSV or Excel format.</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => createTemplateFile("csv")}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+                >
+                  <FileSpreadsheet size={16} /> Download CSV template
+                </button>
+                <button
+                  onClick={() => createTemplateFile("xlsx")}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+                >
+                  <FileSpreadsheet size={16} /> Download Excel template
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setStep(2)}
+                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">Upload your completed file.</p>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
+                <Upload size={16} /> Upload file
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    setError(null);
+                    setResult(null);
+                    setFileName(file.name);
+
+                    try {
+                      const parsedRows = await readImportFile(file);
+                      setPreviewRows(parsedRows);
+                      setStep(3);
+                    } catch (readError) {
+                      setError(getErrorMessage(readError));
+                    } finally {
+                      event.target.value = "";
+                    }
+                  }}
+                />
+              </label>
+              {fileName && <p className="text-sm text-slate-500">Selected: {fileName}</p>}
+              {error && <p className="text-sm text-rose-600">{error}</p>}
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setStep(1)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-600">
+                  Preview parsed rows. Valid rows: {validRows.length} | Errors: {invalidRows.length}
+                </p>
+                <button
+                  onClick={async () => {
+                    if (validRows.length === 0) {
+                      setError("No valid rows to import.");
+                      return;
+                    }
+
+                    setError(null);
+                    const importResult = await onImport(validRows, invalidRows.length);
+                    setResult(importResult);
+                    setStep(4);
+                  }}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {busy && <Loader2 size={14} className="animate-spin" />} Confirm import
+                </button>
+              </div>
+
+              <div className="max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Row</th>
+                      <th className="px-3 py-2">Asset Tag</th>
+                      <th className="px-3 py-2">Name</th>
+                      <th className="px-3 py-2">Category</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((row) => (
+                      <tr key={row.rowNumber} className={`border-t ${row.errors.length ? "bg-rose-50" : ""}`}>
+                        <td className="px-3 py-2">{row.rowNumber}</td>
+                        <td className="px-3 py-2">{row.values.assettag || "-"}</td>
+                        <td className="px-3 py-2">{row.values.name || "-"}</td>
+                        <td className="px-3 py-2">{row.values.category || "-"}</td>
+                        <td className="px-3 py-2">{row.values.status || "-"}</td>
+                        <td className="px-3 py-2 text-rose-700">{row.errors.join(" ") || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {error && <p className="text-sm text-rose-600">{error}</p>}
+
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setStep(2)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <p>
+                  Import complete. Created: {result?.createdCount ?? 0}, Updated: {result?.updatedCount ?? 0}, Errors: {invalidRows.length}
+                </p>
+              </div>
+
+              {invalidRows.length > 0 && (
+                <div className="max-h-[220px] overflow-auto rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                  {invalidRows.map((row) => (
+                    <p key={row.rowNumber}>Row {row.rowNumber}: {row.errors.join(" ")}</p>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={onClose}
+                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2310,403 +2746,350 @@ function QrPreviewModal({ asset, onClose }: { asset: AssetListItem | AssetDetail
 }
 
 function AssetDetailsDrawer({
-  open,
-  loading,
   asset,
-  detail,
-  error,
+  loading,
   canEdit,
   canDelete,
-  busy,
+  canCreate,
   onClose,
-  onRefresh,
   onEdit,
-  onArchive,
-  onPermanentDelete,
-  onRestore,
-  onStatusUpdate,
-  onShowQr,
+  onCreateWorkOrder,
   onUploadDocument,
   onDownloadDocument,
-  onRemoveDocument
+  onDeleteDocument,
+  onShowQr,
+  onDeleteAsset
 }: {
-  open: boolean;
+  asset: AssetDetail | null | undefined;
   loading: boolean;
-  asset: AssetListItem | AssetDetail | null;
-  detail: AssetDetail | null;
-  error: string | null;
   canEdit: boolean;
   canDelete: boolean;
-  busy: string | null;
+  canCreate: boolean;
   onClose: () => void;
-  onRefresh: () => Promise<void>;
   onEdit: () => void;
-  onArchive: () => void;
-  onPermanentDelete: () => void;
-  onRestore: () => void;
-  onStatusUpdate: (status: AssetStatus, disposalReason?: string) => Promise<void>;
-  onShowQr: () => void;
-  onUploadDocument: (file: File) => Promise<void>;
-  onDownloadDocument: (document: AssetDocument) => Promise<void>;
-  onRemoveDocument: (documentId: string) => Promise<void>;
+  onCreateWorkOrder: (asset: AssetDetail) => void;
+  onUploadDocument: (assetId: string, file: File) => void;
+  onDownloadDocument: (assetId: string, document: AssetDocument) => Promise<void>;
+  onDeleteDocument: (assetId: string, documentId: string) => void;
+  onShowQr: (asset: AssetDetail) => void;
+  onDeleteAsset: (asset: AssetDetail) => void;
 }) {
-  const [statusDraft, setStatusDraft] = useState<AssetStatus>(detail?.status ?? asset?.status ?? "ACTIVE");
-  const [disposalReason, setDisposalReason] = useState("");
+  const [tab, setTab] = useState<DrawerTab>("overview");
 
   useEffect(() => {
-    setStatusDraft(detail?.status ?? asset?.status ?? "ACTIVE");
-    setDisposalReason(detail?.disposalReason ?? "");
-  }, [asset, detail]);
-
-  if (!open) {
-    return null;
-  }
+    setTab("overview");
+  }, [asset?.id]);
 
   return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-slate-950/20 backdrop-blur-[2px]">
-      <div className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-30 flex justify-end bg-slate-950/30"
+    >
+      <motion.aside
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", stiffness: 280, damping: 30 }}
+        className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl"
+      >
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Asset details</p>
-              <h3 className="mt-1 text-2xl font-semibold text-slate-900">{asset?.name ?? "Loading asset"}</h3>
-              <p className="mt-2 text-sm text-slate-500">{asset?.assetTag ?? "--"}</p>
+              <h3 className="text-xl font-semibold text-slate-900">{asset?.assetTag || "Asset"}</h3>
+              <p className="mt-1 text-sm text-slate-600">{asset?.name || (loading ? "Loading..." : "Unknown asset")}</p>
+              {asset && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[asset.status]}`}>
+                    {formatEnumLabel(asset.status)}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${CONDITION_STYLES[asset.condition]}`}>
+                    {formatEnumLabel(asset.condition)}
+                  </span>
+                </div>
+              )}
             </div>
+
             <div className="flex items-center gap-2">
-              <button onClick={() => void onRefresh()} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-                <RefreshCw size={16} />
-              </button>
-              <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100">
-                <X size={18} />
+              {asset && canEdit && (
+                <button
+                  onClick={onEdit}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                >
+                  <Pencil size={14} /> Edit
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+              >
+                <X size={16} />
               </button>
             </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-3 px-6 py-10 text-sm text-slate-500">
-            <Loader2 size={18} className="animate-spin" /> Loading asset details...
+          <div className="flex items-center gap-2 px-5 py-10 text-sm text-slate-500">
+            <Loader2 size={16} className="animate-spin" /> Loading details...
           </div>
-        ) : error ? (
-          <div className="m-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-        ) : !detail ? (
-          <div className="px-6 py-10 text-sm text-slate-500">Select an asset to inspect its full record.</div>
+        ) : !asset ? (
+          <div className="px-5 py-10 text-sm text-slate-500">No asset selected.</div>
         ) : (
-          <div className="space-y-6 px-6 py-6">
-            <section className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[detail.status]}`}>
-                      {formatEnumLabel(detail.status)}
-                    </span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${CONDITION_STYLES[detail.condition]}`}>
-                      {formatEnumLabel(detail.condition)}
-                    </span>
-                    {detail.isArchived && (
-                      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">Archived</span>
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <MiniMetric label="Open work orders" value={String(detail.openWorkOrders)} />
-                    <MiniMetric label="Maintenance spend" value={formatCurrency(detail.totalMaintenanceCost)} />
-                    <MiniMetric label="Documents" value={String(detail.documents.length)} />
-                    <MiniMetric label="Last updated" value={formatDate(detail.updatedAt)} />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={onShowQr} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-                    <QrCode size={16} /> QR
-                  </button>
-                  {canEdit && (
-                    <button onClick={onEdit} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-                      <Pencil size={16} /> Edit
-                    </button>
-                  )}
-                  {detail.isArchived ? (
-                    canEdit && (
-                      <button onClick={onRestore} disabled={Boolean(busy)} className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50">
-                        <Undo2 size={16} /> Restore
-                      </button>
-                    )
-                  ) : (
-                    canDelete && (
-                      <button onClick={onArchive} className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700">
-                        <Archive size={16} /> Archive
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-            </section>
+          <div className="space-y-5 px-5 py-5">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setTab("overview")}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  tab === "overview" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setTab("history")}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  tab === "history" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                Maintenance History
+              </button>
+              <button
+                onClick={() => setTab("documents")}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  tab === "documents" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                Documents
+              </button>
+              <button
+                onClick={() => setTab("workOrders")}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  tab === "workOrders" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                Work Orders
+              </button>
+              <button
+                onClick={() => setTab("activity")}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  tab === "activity" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                Activity
+              </button>
+            </div>
 
-            {canEdit && !detail.isArchived && (
-              <section className="rounded-[24px] border border-slate-200 p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Quick status change</p>
-                    <p className="text-xs text-slate-500">Move the asset through lifecycle states without opening the edit form.</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select value={statusDraft} onChange={(event) => setStatusDraft(event.target.value as AssetStatus)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {formatEnumLabel(option)}
-                        </option>
-                      ))}
-                    </select>
-                    {statusDraft === "DISPOSED" && (
-                      <input value={disposalReason} onChange={(event) => setDisposalReason(event.target.value)} placeholder="Disposal reason" className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none" />
-                    )}
+            {tab === "overview" && (
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => onShowQr(asset)}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                  >
+                    <QrCode size={14} /> View QR
+                  </button>
+                  {canDelete && asset.openWorkOrders === 0 && (
                     <button
-                      onClick={() => void onStatusUpdate(statusDraft, disposalReason)}
-                      disabled={Boolean(busy)}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+                      onClick={() => onDeleteAsset(asset)}
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
                     >
-                      Apply
+                      <Trash2 size={14} /> Delete
                     </button>
-                  </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <InfoRow label="Asset Tag" value={asset.assetTag} />
+                  <InfoRow label="Name" value={asset.name} />
+                  <InfoRow label="Category" value={asset.category === "INFRASTRUCTURE" ? "Facility" : formatEnumLabel(asset.category)} />
+                  <InfoRow label="Status" value={formatEnumLabel(asset.status)} />
+                  <InfoRow label="Location" value={asset.location || "-"} />
+                  <InfoRow label="Description" value={asset.description || "-"} />
+                  <InfoRow label="Condition" value={formatEnumLabel(asset.condition)} />
+                  <InfoRow label="Purchase Date" value={formatDate(asset.purchaseDate)} />
+                  <InfoRow label="Warranty Expiry" value={formatDate(asset.warrantyExpiry)} />
+                  <InfoRow label="Supplier" value={asset.supplier || "-"} />
+                  <InfoRow label="Department / Owner" value={asset.department || asset.ownerName || "-"} />
+                  <InfoRow label="Last Service Date" value={asset.lastServiceDate ? formatDate(asset.lastServiceDate) : "Never"} />
+                  <InfoRow label="Next Service Due" value={formatDate(asset.nextServiceDate)} />
+                  <InfoRow label="Meter Reading" value={asset.meterReading == null ? "-" : String(asset.meterReading)} />
                 </div>
               </section>
             )}
 
-            <section className="grid gap-4 md:grid-cols-2">
-              <InfoCard title="Ownership">
-                <InfoRow label="Owner" value={detail.ownerName || "-"} />
-                <InfoRow label="Department" value={detail.department || "-"} />
-                <InfoRow label="Supplier" value={detail.supplier || "-"} />
-                <InfoRow label="Location" value={detail.location || "-"} />
-              </InfoCard>
-              <InfoCard title="Technical">
-                <InfoRow label="Manufacturer" value={detail.manufacturer || "-"} />
-                <InfoRow label="Model" value={detail.model || "-"} />
-                <InfoRow label="Serial number" value={detail.serialNumber || "-"} />
-                <InfoRow label="Meter reading" value={detail.meterReading || "-"} />
-              </InfoCard>
-            </section>
-
-            <section className="grid gap-4 md:grid-cols-2">
-              <InfoCard title="Financial and lifecycle">
-                <InfoRow label="Purchase date" value={formatDate(detail.purchaseDate)} />
-                <InfoRow label="Purchase price" value={formatCurrency(detail.purchasePrice)} />
-                <InfoRow label="Current value" value={formatCurrency(detail.currentValue)} />
-                <InfoRow label="Warranty expiry" value={formatDate(detail.warrantyExpiry)} />
-              </InfoCard>
-              <InfoCard title="Service planning">
-                <InfoRow label="Last service" value={formatDate(detail.lastServiceDate)} />
-                <InfoRow label="Next service" value={formatDate(detail.nextServiceDate)} />
-                <InfoRow label="Maintenance logs" value={String(detail.maintenanceLogs.length)} />
-                <InfoRow label="Linked work orders" value={String(detail.workOrders.length)} />
-              </InfoCard>
-            </section>
-
-            <section className="rounded-[24px] border border-slate-200 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Documents</p>
-                  <p className="text-xs text-slate-500">Upload manuals, warranties, invoices, or audit evidence.</p>
-                </div>
-                {canEdit && (
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-                    <Upload size={16} /> Upload file
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) {
-                          void onUploadDocument(file);
-                        }
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-              <div className="mt-4 space-y-3">
-                {detail.documents.length === 0 ? (
-                  <p className="text-sm text-slate-500">No documents attached yet.</p>
+            {tab === "history" && (
+              <section className="rounded-2xl border border-slate-200 p-4">
+                {asset.maintenanceLogs.length === 0 ? (
+                  <p className="text-sm text-slate-500">No maintenance history available.</p>
                 ) : (
-                  detail.documents.map((document) => (
-                    <div key={document.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-medium text-slate-900">{document.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {formatDateTime(document.uploadedAt)} • {formatDocumentSize(document.size)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => void onDownloadDocument(document)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-                          Download
-                        </button>
-                        {canEdit && (
-                          <button onClick={() => void onRemoveDocument(document.id)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Date</th>
+                          <th className="px-3 py-2">Type</th>
+                          <th className="px-3 py-2">Technician</th>
+                          <th className="px-3 py-2">Duration</th>
+                          <th className="px-3 py-2">Cost</th>
+                          <th className="px-3 py-2">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {asset.maintenanceLogs.map((item) => (
+                          <tr key={item.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2">{formatDate(item.performedAt)}</td>
+                            <td className="px-3 py-2">{item.description}</td>
+                            <td className="px-3 py-2">{item.performedBy}</td>
+                            <td className="px-3 py-2">-</td>
+                            <td className="px-3 py-2">{item.cost == null ? "-" : String(item.cost)}</td>
+                            <td className="px-3 py-2">{item.notes || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
 
-            <section className="rounded-[24px] border border-slate-200 p-5">
-              <div className="flex items-center gap-2">
-                <Wrench size={18} className="text-slate-500" />
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Maintenance history</p>
-                  <p className="text-xs text-slate-500">Latest completed work with technician notes and cost.</p>
+            {tab === "documents" && (
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">Asset Documents</p>
+                  {canEdit && (
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+                      <Upload size={14} /> Upload
+                      <input
+                        type="file"
+                        accept="application/pdf,image/jpeg,image/png"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            onUploadDocument(asset.id, file);
+                          }
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                {detail.maintenanceLogs.length === 0 ? (
-                  <p className="text-sm text-slate-500">No maintenance history recorded yet.</p>
-                ) : (
-                  detail.maintenanceLogs.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-medium text-slate-900">{item.description}</p>
-                        <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.cost)}</span>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-500">
-                        {item.performedBy} • {formatDateTime(item.performedAt)}
-                      </p>
-                      {item.notes && <p className="mt-2 text-sm text-slate-600">{item.notes}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
 
-            <section className="rounded-[24px] border border-slate-200 p-5">
-              <div className="flex items-center gap-2">
-                <ClipboardList size={18} className="text-slate-500" />
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Related work orders</p>
-                  <p className="text-xs text-slate-500">Open, historical, and assigned work requests tied to this asset.</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                {detail.workOrders.length === 0 ? (
-                  <p className="text-sm text-slate-500">No work orders linked to this asset yet.</p>
+                {asset.documents.length === 0 ? (
+                  <p className="text-sm text-slate-500">No documents uploaded yet.</p>
                 ) : (
-                  detail.workOrders.map((workOrder) => (
-                    <div key={workOrder.id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-2">
+                    {asset.documents.map((document) => (
+                      <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
                         <div>
-                          <p className="font-medium text-slate-900">{workOrder.title}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{workOrder.woNumber}</p>
+                          <p className="text-sm font-medium text-slate-900">{document.name}</p>
+                          <p className="text-xs text-slate-500">{document.mimeType || "file"} - {formatDate(document.uploadedAt)}</p>
                         </div>
-                        <div className="text-right text-xs text-slate-500">
-                          <p>{formatEnumLabel(workOrder.status)} • {formatEnumLabel(workOrder.priority)}</p>
-                          <p className="mt-1">Due {formatDate(workOrder.dueDate)}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => void onDownloadDocument(asset.id, document)}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                          >
+                            Download
+                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => onDeleteDocument(asset.id, document.id)}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">
-                        {workOrder.technician?.firstName || workOrder.technician?.lastName
-                          ? `Assigned to ${[workOrder.technician?.firstName, workOrder.technician?.lastName].filter(Boolean).join(" ")}`
-                          : "Technician not assigned"}
-                      </p>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
 
-            <section className="rounded-[24px] border border-slate-200 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Audit trail</p>
-                  <p className="text-xs text-slate-500">Chronological activity recorded against the asset.</p>
+            {tab === "workOrders" && (
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">Linked Work Orders</p>
+                  {canCreate && (
+                    <button
+                      onClick={() => onCreateWorkOrder(asset)}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                    >
+                      <Plus size={14} /> Create work order
+                    </button>
+                  )}
                 </div>
-                {canDelete && !detail.isArchived && (
-                  <button onClick={onPermanentDelete} className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700 transition hover:bg-rose-100">
-                    <Trash2 size={16} /> Delete permanently
-                  </button>
-                )}
-              </div>
-              <div className="mt-4 space-y-3">
-                {detail.activity.length === 0 ? (
-                  <p className="text-sm text-slate-500">No activity entries recorded yet.</p>
+                {asset.workOrders.length === 0 ? (
+                  <p className="text-sm text-slate-500">No work orders linked.</p>
                 ) : (
-                  detail.activity.map((event) => (
-                    <div key={event.id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-medium text-slate-900">{formatEnumLabel(event.action)}</p>
-                        <p className="text-xs text-slate-500">{formatDateTime(event.createdAt)}</p>
+                  <div className="space-y-2">
+                    {asset.workOrders.map((workOrder) => (
+                      <div key={workOrder.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{workOrder.title}</p>
+                            <p className="text-xs uppercase tracking-[0.12em] text-slate-400">{workOrder.woNumber}</p>
+                          </div>
+                          <p className="text-xs text-slate-500">{formatEnumLabel(workOrder.status)} - {formatDate(workOrder.dueDate)}</p>
+                        </div>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">Recorded by {event.actorName}</p>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
+
+            {tab === "activity" && (
+              <section className="rounded-2xl border border-slate-200 p-4">
+                {asset.activity.length === 0 ? (
+                  <p className="text-sm text-slate-500">No activity entries yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {asset.activity.map((event) => {
+                      const changes = collectActivityChanges(event);
+                      return (
+                        <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
+                              {formatEnumLabel(event.action)}
+                            </span>
+                            <span className="text-xs text-slate-500">{formatDateTime(event.createdAt)}</span>
+                          </div>
+                          <p className="mt-2 text-sm text-slate-600">{event.actorName}</p>
+                          <div className="mt-2 space-y-1 text-xs text-slate-600">
+                            {changes.length === 0 ? (
+                              <p>No field-level changes captured.</p>
+                            ) : (
+                              changes.map((change) => (
+                                <p key={`${event.id}-${change.field}`}>
+                                  {change.field}: {change.from} {"->"} {change.to}
+                                </p>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-[24px] border border-slate-200 p-5">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
-      <div className="mt-4 space-y-3">{children}</div>
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 text-sm last:border-b-0 last:pb-0">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-medium text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function ToastViewport({
-  toasts,
-  onDismiss
-}: {
-  toasts: ToastMessage[];
-  onDismiss: (id: number) => void;
-}) {
-  return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-3">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-lg ${
-            toast.tone === "success"
-              ? "border-emerald-200 bg-emerald-50"
-              : toast.tone === "error"
-                ? "border-rose-200 bg-rose-50"
-                : "border-slate-200 bg-white"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-medium text-slate-900">{toast.title}</p>
-              {toast.description && <p className="mt-1 text-sm text-slate-600">{toast.description}</p>}
-            </div>
-            <button onClick={() => onDismiss(toast.id)} className="rounded-full p-1 text-slate-400 transition hover:bg-white/80 hover:text-slate-700">
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      ))}
+    <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+      <p className="text-xs uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
     </div>
   );
 }
