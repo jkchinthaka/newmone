@@ -449,7 +449,7 @@ export function LegacyMaintenanceJobsBoard({
 
       <div className="flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs text-slate-400">
         <Cog size={14} className="mt-0.5" />
-        This board mirrors your uploaded maintenance-jobs flow while keeping all mutations inside the existing project studio pipeline.
+        This board mirrors your uploaded maintenance-jobs flow while keeping all mutations inside the existing project studio pipeline Chinthaka Jayaweera.
       </div>
     </div>
   );
