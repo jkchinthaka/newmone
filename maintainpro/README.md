@@ -151,6 +151,10 @@ Critical required keys for backend startup:
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 - `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`
 
+Optional backend integrations:
+
+- `RAPIDAPI_GOOGLE_MAP_PLACES_KEY` enables Street View previews in the fleet map.
+
 Frontend runtime keys:
 
 - `NEXT_PUBLIC_API_BASE_URL`

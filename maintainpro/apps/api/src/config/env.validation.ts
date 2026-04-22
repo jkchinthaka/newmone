@@ -14,6 +14,7 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().allow(""),
   GOOGLE_CLIENT_SECRET: Joi.string().allow(""),
   GOOGLE_CALLBACK_URL: Joi.string().allow(""),
+  RAPIDAPI_GOOGLE_MAP_PLACES_KEY: Joi.string().allow(""),
   SENDGRID_API_KEY: Joi.string().allow(""),
   SMTP_HOST: Joi.string().required(),
   SMTP_PORT: Joi.number().required(),

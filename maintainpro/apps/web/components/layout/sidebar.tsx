@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Bell, ChartColumnBig, ClipboardCheck, ClipboardList, Fuel, Gauge, HardDrive, Home, Layers, QrCode, Settings, SprayCan, Wrench, type LucideIcon } from "lucide-react";
+import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, Fuel, Gauge, HardDrive, Home, Layers, QrCode, Settings, SprayCan, Wrench, type LucideIcon } from "lucide-react";
 
 const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -14,6 +14,7 @@ const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/work-orders", label: "Work Orders", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Layers },
   { href: "/utilities", label: "Utilities", icon: ChartColumnBig },
+  { href: "/predictive-ai" as Route, label: "AI Assistant", icon: Bot },
   { href: "/reports", label: "Reports", icon: ChartColumnBig },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings }

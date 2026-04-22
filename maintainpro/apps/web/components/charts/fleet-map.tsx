@@ -48,6 +48,7 @@ type FleetVehicle = {
   registrationNo: string;
   lat: number;
   lng: number;
+  headingDegrees: number | null;
   speedKph: number | null;
   lastUpdated: string;
   driverName: string;
@@ -68,6 +69,7 @@ type FleetApiLocation = {
   vehicleId?: string;
   latitude?: number | string;
   longitude?: number | string;
+  heading?: number | string | null;
   speed?: number | string | null;
   timestamp?: string;
   vehicle?: FleetApiVehicle;
@@ -124,6 +126,24 @@ const formatTimestamp = (timestamp: string): string => {
   return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
 };
 
+const buildStreetViewPreviewParams = (params: {
+  lat: number;
+  lng: number;
+  heading?: number | null;
+}) => {
+  const query: Record<string, string> = {
+    lat: params.lat.toString(),
+    lng: params.lng.toString(),
+    size: "600x320"
+  };
+
+  if (typeof params.heading === "number" && Number.isFinite(params.heading)) {
+    query.heading = params.heading.toString();
+  }
+
+  return query;
+};
+
 const buildAddress = (tags: OverpassTags): string => {
   const line = [
     tags["addr:housenumber"],
@@ -163,6 +183,7 @@ const toFleetVehicle = (payload: FleetApiLocation): FleetVehicle | null => {
   }
 
   const speedValue = toFiniteNumber(payload.speed);
+  const headingValue = toFiniteNumber(payload.heading);
   const firstName = payload.vehicle?.driver?.user?.firstName?.trim() ?? "";
   const lastName = payload.vehicle?.driver?.user?.lastName?.trim() ?? "";
   const fullName = `${firstName} ${lastName}`.trim();
@@ -173,11 +194,85 @@ const toFleetVehicle = (payload: FleetApiLocation): FleetVehicle | null => {
     registrationNo: payload.vehicle?.registrationNo ?? vehicleId,
     lat,
     lng,
+    headingDegrees: Number.isNaN(headingValue) ? null : headingValue,
     speedKph: Number.isNaN(speedValue) ? null : speedValue,
     lastUpdated: payload.timestamp ?? new Date().toISOString(),
     driverName: fullName || "Unknown Driver"
   };
 };
+
+function StreetViewPreview({
+  lat,
+  lng,
+  heading,
+  label
+}: {
+  lat: number;
+  lng: number;
+  heading?: number | null;
+  label: string;
+}) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+    setImageUrl(null);
+
+    let isActive = true;
+    let objectUrl: string | null = null;
+
+    const loadPreview = async () => {
+      try {
+        const response = await apiClient.get("/fleet/street-view", {
+          params: buildStreetViewPreviewParams({ lat, lng, heading }),
+          responseType: "blob"
+        });
+
+        if (!isActive) {
+          return;
+        }
+
+        objectUrl = URL.createObjectURL(response.data as Blob);
+        setImageUrl(objectUrl);
+      } catch {
+        if (isActive) {
+          setHasError(true);
+        }
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      isActive = false;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [lat, lng, heading]);
+
+  if (hasError) {
+    return <p className="fleet-street-view-fallback">Street View preview unavailable.</p>;
+  }
+
+  if (!imageUrl) {
+    return <p className="fleet-street-view-fallback">Loading Street View preview...</p>;
+  }
+
+  return (
+    <div className="fleet-street-view-shell">
+      <img
+        src={imageUrl}
+        alt={label}
+        loading="lazy"
+        className="fleet-street-view-image"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
+}
 
 export function FleetMap() {
   const mapRef = useRef<LeafletMap | null>(null);
@@ -402,6 +497,7 @@ out center tags;
       next[existingIndex] = {
         ...existing,
         ...mapped,
+        headingDegrees: mapped.headingDegrees ?? existing.headingDegrees,
         registrationNo: mapped.registrationNo === mapped.vehicleId ? existing.registrationNo : mapped.registrationNo,
         driverName: mapped.driverName === "Unknown Driver" ? existing.driverName : mapped.driverName
       };
@@ -520,6 +616,7 @@ out center tags;
                       <p className="fleet-popup-title">{station.name}</p>
                       {station.isNearest ? <span className="fleet-badge">Nearest</span> : null}
                     </div>
+                    <StreetViewPreview lat={station.lat} lng={station.lng} label={`${station.name} street view`} />
                     <p className="fleet-popup-row">{station.address}</p>
                     <p className="fleet-popup-row">Distance: {formatDistance(station.distanceKm)}</p>
                     <p className="fleet-popup-row">Opening Hours: {station.openingHours ?? "Not listed"}</p>
@@ -535,6 +632,7 @@ out center tags;
                 <Popup>
                   <div className="fleet-popup-card">
                     <p className="fleet-popup-title">{garage.name}</p>
+                    <StreetViewPreview lat={garage.lat} lng={garage.lng} label={`${garage.name} street view`} />
                     <p className="fleet-popup-row">{garage.address}</p>
                     <p className="fleet-popup-row">Distance: {formatDistance(garage.distanceKm)}</p>
                     <p className="fleet-popup-row">Rating: {garage.rating ? garage.rating.toFixed(1) : "Not listed"}</p>
@@ -560,6 +658,12 @@ out center tags;
                 <Popup>
                   <div className="fleet-popup-card">
                     <p className="fleet-popup-title">{vehicle.registrationNo}</p>
+                    <StreetViewPreview
+                      lat={vehicle.lat}
+                      lng={vehicle.lng}
+                      heading={vehicle.headingDegrees}
+                      label={`${vehicle.registrationNo} street view`}
+                    />
                     <p className="fleet-popup-row">Vehicle ID: {vehicle.vehicleId}</p>
                     <p className="fleet-popup-row">Driver: {vehicle.driverName}</p>
                     <p className="fleet-popup-row">Speed: {vehicle.speedKph === null ? "N/A" : `${vehicle.speedKph.toFixed(1)} km/h`}</p>
@@ -713,6 +817,31 @@ out center tags;
           flex-direction: column;
           gap: 6px;
           color: #0f172a;
+        }
+
+        .fleet-street-view-shell {
+          overflow: hidden;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #dbeafe, #f8fafc);
+        }
+
+        .fleet-street-view-image {
+          display: block;
+          width: 100%;
+          height: 110px;
+          object-fit: cover;
+          background: #e2e8f0;
+        }
+
+        .fleet-street-view-fallback {
+          margin: 0;
+          border: 1px dashed #cbd5e1;
+          border-radius: 10px;
+          padding: 10px;
+          font-size: 12px;
+          color: #64748b;
+          background: #f8fafc;
         }
 
         .fleet-popup-header {

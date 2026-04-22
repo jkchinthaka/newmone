@@ -29,7 +29,7 @@ export default function CleaningScanPage() {
   const searchParams = useSearchParams();
   const scannerRef = useRef<{
     stop: () => Promise<void>;
-    clear: () => Promise<void>;
+    clear: () => void | Promise<void>;
   } | null>(null);
   const autoProcessedCodeRef = useRef<string | null>(null);
 

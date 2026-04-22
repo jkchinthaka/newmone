@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -11,7 +11,8 @@ import { PredictiveAiService } from "./predictive-ai.service";
 @UseGuards(JwtAuthGuard)
 @Controller("predictive-ai")
 export class PredictiveAiController {
-  constructor(private readonly predictiveAiService: PredictiveAiService) {}
+  @Inject(PredictiveAiService)
+  private readonly predictiveAiService!: PredictiveAiService;
 
   @Post("copilot")
   async copilot(@Body() dto: CopilotChatDto) {
