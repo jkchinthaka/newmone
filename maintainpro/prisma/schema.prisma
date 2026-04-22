@@ -722,7 +722,7 @@ model CleaningLocation {
   building     String?
   floor        String?
   description  String?
-  qrCode       String              @unique
+  qrCode       String              @unique @default(uuid())
   qrCodeUrl    String?
   scheduleCron String?
   shiftWindow  String?
@@ -760,6 +760,7 @@ model CleaningVisit {
   cleanerId       String
   cleaner         User                @relation("CleanerVisits", fields: [cleanerId], references: [id])
   scannedAt       DateTime            @default(now())
+  method          CleaningVisitMethod @default(QR_SCAN)
   completedAt     DateTime?
   latitude        Decimal?
   longitude       Decimal?
@@ -785,9 +786,16 @@ model CleaningVisit {
 
 enum CleaningVisitStatus {
   IN_PROGRESS
+  COMPLETED
+  PENDING_VERIFICATION
   SUBMITTED
   APPROVED
   REJECTED
+}
+
+enum CleaningVisitMethod {
+  QR_SCAN
+  MANUAL
 }
 
 model CleaningChecklist {

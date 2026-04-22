@@ -9,11 +9,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CleaningVisitStatus, FacilityIssueStatus } from "@prisma/client";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -24,6 +25,7 @@ import {
   UpdateCleaningLocationDto
 } from "./dto/cleaning-location.dto";
 import {
+  ScanCleaningVisitDto,
   SignOffVisitDto,
   StartCleaningVisitDto,
   SubmitCleaningVisitDto
@@ -44,20 +46,27 @@ interface AuthedRequest extends Request {
 export class CleaningController {
   constructor(@Inject(CleaningService) private readonly cleaning: CleaningService) {}
 
-  // ---------- Locations ----------
-
   @Get("locations")
-  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
   async listLocations(@Req() req: AuthedRequest) {
     const data = await this.cleaning.listLocations(req.user?.tenantId ?? null);
     return { data, message: "Cleaning locations fetched" };
   }
 
   @Post("locations")
-  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Roles("SUPER_ADMIN", "ADMIN")
   async createLocation(@Req() req: AuthedRequest, @Body() dto: CreateCleaningLocationDto) {
     const data = await this.cleaning.createLocation(req.user?.tenantId ?? null, dto);
     return { data, message: "Cleaning location created" };
+  }
+
+  @Get("locations/:id/qr")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async getLocationQr(@Param("id") id: string, @Res() res: Response) {
+    const qr = await this.cleaning.getLocationQrCode(id);
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Disposition", `attachment; filename="${qr.filename}"`);
+    res.send(qr.buffer);
   }
 
   @Get("locations/:id")
@@ -68,7 +77,7 @@ export class CleaningController {
   }
 
   @Patch("locations/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Roles("SUPER_ADMIN", "ADMIN")
   async updateLocation(@Param("id") id: string, @Body() dto: UpdateCleaningLocationDto) {
     const data = await this.cleaning.updateLocation(id, dto);
     return { data, message: "Cleaning location updated" };
@@ -81,7 +90,15 @@ export class CleaningController {
     return { data, message: "Cleaning location deactivated" };
   }
 
-  // ---------- Visits ----------
+  @Post("scan")
+  @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN")
+  async scanLocation(@Req() req: AuthedRequest, @Body() dto: ScanCleaningVisitDto) {
+    const data = await this.cleaning.scanVisit(req.user!.sub, req.user?.tenantId ?? null, dto);
+    return {
+      data,
+      message: "Cleaning location marked as cleaned"
+    };
+  }
 
   @Post("visits/scan")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN")
@@ -116,24 +133,62 @@ export class CleaningController {
     };
   }
 
+  @Get("visits/export")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  async exportVisits(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Query("status") status?: CleaningVisitStatus,
+    @Query("locationId") locationId?: string,
+    @Query("date") date?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("cleanedBy") cleanedBy?: string
+  ) {
+    const file = await this.cleaning.exportVisits({
+      tenantId: req.user?.tenantId ?? null,
+      cleanedBy,
+      locationId,
+      status,
+      date,
+      from,
+      to
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.send(file.buffer);
+  }
+
   @Get("visits")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER")
   async listVisits(
     @Req() req: AuthedRequest,
     @Query("status") status?: CleaningVisitStatus,
     @Query("locationId") locationId?: string,
+    @Query("date") date?: string,
     @Query("from") from?: string,
-    @Query("to") to?: string
+    @Query("to") to?: string,
+    @Query("cleanedBy") cleanedBy?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
   ) {
     const role = req.user?.role;
-    const cleanerId = role === "CLEANER" ? req.user!.sub : undefined;
+    const viewerCleanerId = role === "CLEANER" ? req.user!.sub : undefined;
     const data = await this.cleaning.listVisits({
       tenantId: req.user?.tenantId ?? null,
-      cleanerId,
+      viewerCleanerId,
+      cleanedBy,
       locationId,
       status,
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined
+      date,
+      from,
+      to,
+      page,
+      pageSize
     });
     return { data, message: "Cleaning visits fetched" };
   }
@@ -145,16 +200,10 @@ export class CleaningController {
     return { data, message: "Cleaning visit fetched" };
   }
 
-  // ---------- Issues ----------
-
   @Post("issues")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN", "ASSET_MANAGER")
   async createIssue(@Req() req: AuthedRequest, @Body() dto: CreateFacilityIssueDto) {
-    const data = await this.cleaning.createIssue(
-      req.user!.sub,
-      req.user?.tenantId ?? null,
-      dto
-    );
+    const data = await this.cleaning.createIssue(req.user!.sub, req.user?.tenantId ?? null, dto);
     return { data, message: "Issue reported" };
   }
 
@@ -176,15 +225,10 @@ export class CleaningController {
     return { data, message: "Issue updated" };
   }
 
-  // ---------- Dashboard ----------
-
   @Get("dashboard")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
   async dashboard(@Req() req: AuthedRequest, @Query("days") days?: string) {
-    const data = await this.cleaning.dashboard(
-      req.user?.tenantId ?? null,
-      days ? Number(days) : 30
-    );
+    const data = await this.cleaning.dashboard(req.user?.tenantId ?? null, days ? Number(days) : 30);
     return { data, message: "Cleaning dashboard fetched" };
   }
 }

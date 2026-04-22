@@ -14,6 +14,13 @@ import {
   ValidateNested
 } from "class-validator";
 
+export class ScanCleaningVisitDto {
+  @ApiProperty({ description: "Raw QR code value or scan URL" })
+  @IsString()
+  @MinLength(4)
+  qrCode!: string;
+}
+
 export class StartCleaningVisitDto {
   @ApiProperty({ description: "QR code value scanned at the location" })
   @IsString()

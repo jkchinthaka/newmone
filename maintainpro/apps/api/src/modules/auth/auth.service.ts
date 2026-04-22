@@ -74,7 +74,8 @@ export class AuthService {
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
-      role: user.role.name
+      role: user.role.name,
+      tenantId: user.tenantId ?? null
     });
 
     return {
@@ -110,7 +111,8 @@ export class AuthService {
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
-      role: user.role.name
+      role: user.role.name,
+      tenantId: user.tenantId ?? null
     });
 
     return {
@@ -133,7 +135,22 @@ export class AuthService {
       secret: this.configService.get<string>("JWT_REFRESH_SECRET")
     });
 
-    const tokens = await this.generateTokens(decoded);
+    const user = await this.prisma.user.findUnique({
+      where: { id: decoded.sub },
+      include: { role: true }
+    });
+
+    if (!user) {
+      this.refreshTokenStore.delete(dto.refreshToken);
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    const tokens = await this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role.name,
+      tenantId: user.tenantId ?? null
+    });
 
     return {
       data: tokens,

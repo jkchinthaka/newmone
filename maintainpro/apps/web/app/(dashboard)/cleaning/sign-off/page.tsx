@@ -28,7 +28,7 @@ export default function SignOffPage() {
   const load = useCallback(() => {
     apiClient
       .get("/cleaning/visits", { params: { status: "SUBMITTED" } })
-      .then((res) => setRows(res.data?.data ?? res.data ?? []));
+      .then((res) => setRows(res.data?.data?.items ?? res.data?.data ?? []));
   }, []);
 
   useEffect(() => {

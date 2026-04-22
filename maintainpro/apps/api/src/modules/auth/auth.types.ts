@@ -4,6 +4,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: RoleName;
+  tenantId?: string | null;
 }
 
 export interface AuthTokens {

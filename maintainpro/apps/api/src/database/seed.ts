@@ -159,6 +159,48 @@ async function main() {
     }
   });
 
+  await prisma.user.upsert({
+    where: { email: "supervisor@maintainpro.local" },
+    update: {
+      firstName: "Cleaning",
+      lastName: "Supervisor",
+      roleId: roles.get(RoleName.SUPERVISOR)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "supervisor@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Cleaning",
+      lastName: "Supervisor",
+      roleId: roles.get(RoleName.SUPERVISOR)!.id,
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "cleaner@maintainpro.local" },
+    update: {
+      firstName: "Kamal",
+      lastName: "Perera",
+      roleId: roles.get(RoleName.CLEANER)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "cleaner@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Kamal",
+      lastName: "Perera",
+      roleId: roles.get(RoleName.CLEANER)!.id,
+      isActive: true
+    }
+  });
+
   const driverUsers = [];
   for (let i = 1; i <= 3; i += 1) {
     const driverUser = await prisma.user.upsert({
@@ -414,6 +456,62 @@ async function main() {
         }
       });
     }
+  }
+
+  const cleaningLocations = [
+    {
+      qrCode: "06b558d1-3352-4924-ae6c-f8df06cdf7cf",
+      name: "Ground Floor - Male Toilet",
+      area: "Lobby Wing",
+      building: "Main Building",
+      floor: "Ground",
+      description: "Primary public restroom near reception"
+    },
+    {
+      qrCode: "e55f9ed2-90d4-4c17-ac4b-cf8599fc6faa",
+      name: "First Floor - Female Toilet",
+      area: "Admin Wing",
+      building: "Main Building",
+      floor: "First",
+      description: "Executive office washroom"
+    },
+    {
+      qrCode: "5f2032a1-7c6f-43f1-a9c9-bec5ef0e6287",
+      name: "Warehouse - Staff Washroom",
+      area: "Warehouse",
+      building: "Operations Block",
+      floor: "Ground",
+      description: "Staff washroom beside the loading bay"
+    }
+  ];
+
+  for (const location of cleaningLocations) {
+    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3001"}/cleaning/scan?code=${location.qrCode}`;
+
+    await prisma.cleaningLocation.upsert({
+      where: { qrCode: location.qrCode },
+      update: {
+        tenantId: tenant.id,
+        name: location.name,
+        area: location.area,
+        building: location.building,
+        floor: location.floor,
+        description: location.description,
+        qrCodeUrl: scanUrl,
+        isActive: true
+      },
+      create: {
+        tenantId: tenant.id,
+        name: location.name,
+        area: location.area,
+        building: location.building,
+        floor: location.floor,
+        description: location.description,
+        qrCode: location.qrCode,
+        qrCodeUrl: scanUrl,
+        isActive: true
+      }
+    });
   }
 
   console.log("Seed complete");

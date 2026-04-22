@@ -52,8 +52,8 @@ export function CleaningOverview() {
       <div className={card + " sm:col-span-2 lg:col-span-4"}>
         <p className="text-xs uppercase tracking-wide text-slate-500">Visit status breakdown</p>
         <div className="mt-3 grid grid-cols-3 gap-4 text-center">
-          <Stat label="Approved" value={data.approved} color="text-emerald-700" />
-          <Stat label="Pending Sign-off" value={data.pending} color="text-amber-700" />
+          <Stat label="Completed / Approved" value={data.approved} color="text-emerald-700" />
+          <Stat label="Pending / In Progress" value={data.pending} color="text-amber-700" />
           <Stat label="Rejected" value={data.rejected} color="text-red-700" />
         </div>
       </div>
