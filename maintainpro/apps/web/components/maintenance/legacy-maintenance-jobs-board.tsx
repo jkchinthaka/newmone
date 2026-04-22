@@ -140,28 +140,28 @@ export function LegacyMaintenanceJobsBoard({
   );
 
   return (
-    <div className="space-y-5 rounded-3xl border border-slate-800 bg-slate-950 p-5 text-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.35)]">
+    <div className="space-y-5 rounded-3xl border border-slate-700/80 bg-gradient-to-br from-[#090f1f] via-[#0d1529] to-[#120f2a] p-5 text-slate-100 shadow-[0_26px_70px_rgba(2,6,23,0.52)]">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Total Jobs</p>
           <p className="mt-2 text-3xl font-semibold text-violet-300">{statValue(jobs)}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">In Progress</p>
           <p className="mt-2 text-3xl font-semibold text-emerald-300">{statValue(jobs, "In-Progress")}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Pending</p>
           <p className="mt-2 text-3xl font-semibold text-amber-300">{statValue(jobs, "Pending")}</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Completed</p>
           <p className="mt-2 text-3xl font-semibold text-sky-300">{statValue(jobs, "Completed")}</p>
         </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)_360px]">
-        <aside className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3">
+        <aside className="rounded-2xl border border-slate-700/80 bg-slate-900/75 p-3 backdrop-blur-sm">
           <p className="px-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modules</p>
           <div className="mt-3 space-y-1.5">
             {(Object.keys(laneConfig) as LegacyBoardLane[]).map((lane) => {
@@ -198,19 +198,19 @@ export function LegacyMaintenanceJobsBoard({
               const Icon = entry.icon;
 
               return (
-              <div
-                key={entry.label}
-                className="flex items-center gap-2.5 rounded-xl border border-transparent px-3 py-2 text-sm text-slate-500"
-              >
-                <Icon size={14} />
-                {entry.label}
-              </div>
+                <div
+                  key={entry.label}
+                  className="flex items-center gap-2.5 rounded-xl border border-slate-800/70 bg-slate-950/40 px-3 py-2 text-sm text-slate-400"
+                >
+                  <Icon size={14} />
+                  {entry.label}
+                </div>
               );
             })}
           </div>
         </aside>
 
-        <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-700/80 bg-slate-900/75 p-4 backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Maintenance Jobs</p>
@@ -303,7 +303,7 @@ export function LegacyMaintenanceJobsBoard({
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-700/80 bg-slate-900/75 p-4 backdrop-blur-sm">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Pending Requests</p>
             <h3 className="mt-1 text-lg font-semibold text-white">{laneConfig[activeLane].label}</h3>

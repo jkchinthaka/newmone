@@ -469,11 +469,34 @@ function normalizeWorkOrders(rows: WorkOrderRow[]) {
   }));
 }
 
-function MetricCard({ icon, label, value, hint, badge }: { icon: ReactNode; label: string; value: string; hint: string; badge?: string }) {
+function MetricCard({
+  icon,
+  label,
+  value,
+  hint,
+  badge,
+  tone = "slate"
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  badge?: string;
+  tone?: "slate" | "sky" | "amber" | "rose" | "emerald";
+}) {
+  const toneMap: Record<"slate" | "sky" | "amber" | "rose" | "emerald", string> = {
+    slate: "from-slate-100/80 via-white to-white",
+    sky: "from-sky-100/80 via-white to-white",
+    amber: "from-amber-100/80 via-white to-white",
+    rose: "from-rose-100/80 via-white to-white",
+    emerald: "from-emerald-100/80 via-white to-white"
+  };
+
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className={`group relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${toneMap[tone]}`}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
       <div className="flex items-start justify-between gap-3">
-        <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">{icon}</div>
+        <div className="rounded-2xl bg-white/80 p-3 text-slate-700 ring-1 ring-slate-200 transition group-hover:ring-slate-300">{icon}</div>
         {badge ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{badge}</span> : null}
       </div>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
@@ -1123,9 +1146,30 @@ export default function MaintenancePage() {
 
   function handleOpenLegacyStudio(jobId: string, step: "ALLOCATION" | "TIMING" | "PARTS" | "COMPLETION") {
     setSelectedWorkOrderId(jobId);
-    setStudioStep(step);
-    setViewMode("integrated");
+    openMaintenanceStudio(step);
   }
+
+  function openMaintenanceStudio(preferredStep: StudioStep = "REQUEST") {
+    const nextStep = selectedWorkOrderId && preferredStep === "REQUEST" ? "ALLOCATION" : preferredStep;
+    setStudioStep(nextStep);
+    setViewMode("integrated");
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        document.getElementById("maintenance-studio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }
+
+  const dueSoonCount = upcomingSchedules.filter((item) => {
+    const delta = daysDelta(item.nextDueDate);
+    return typeof delta === "number" && delta >= 0 && delta <= 7;
+  }).length;
+  const activeJobCount = filteredWorkOrders.filter((order) => order.status === "IN_PROGRESS").length;
+  const elevatedRiskCount = alerts.filter((alert) => ["HIGH", "CRITICAL"].includes(alert.riskLevel)).length;
+  const criticalOpenCount = filteredWorkOrders.filter(
+    (order) => order.priority === "CRITICAL" && !["COMPLETED", "CANCELLED"].includes(order.status)
+  ).length;
 
   if (loading) {
     return (
@@ -1139,54 +1183,82 @@ export default function MaintenancePage() {
 
   if (viewMode === "legacy-board") {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Maintenance Jobs Legacy Board</h1>
-            <p className="mt-2 max-w-4xl text-sm text-slate-600">
-              Your uploaded maintenance-jobs layout is now integrated as a dedicated board view while preserving this
-              project&apos;s current backend-connected workflow.
-            </p>
-          </div>
+      <div className="relative space-y-6">
+        <div className="pointer-events-none absolute -top-14 right-0 h-56 w-56 rounded-full bg-violet-200/45 blur-3xl" />
+        <div className="pointer-events-none absolute -left-10 top-40 h-64 w-64 rounded-full bg-sky-200/45 blur-3xl" />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setViewMode("integrated")}
-                className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-              >
-                Integrated View
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("legacy-board")}
-                className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
-              >
-                Legacy Board
-              </button>
+        <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white via-violet-50/60 to-sky-50/50 p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Maintenance Jobs Legacy Board</h1>
+              <p className="mt-2 max-w-4xl text-sm text-slate-600">
+                Classic board experience with richer hierarchy, faster scannability, and direct jump paths into the
+                integrated studio actions.
+              </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void loadWorkspace()}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100"
-            >
-              <RefreshCw size={15} /> Refresh workspace
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStudioStep("REQUEST");
-                setViewMode("integrated");
-              }}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
-            >
-              <ClipboardCheck size={15} /> New maintenance flow
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("integrated")}
+                  className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  Integrated View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("legacy-board")}
+                  className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  Legacy Board
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void loadWorkspace()}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+              >
+                <RefreshCw size={15} /> Refresh workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => openMaintenanceStudio()}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-100"
+              >
+                <Cog size={15} /> Maintenance Studio
+              </button>
+              <button
+                type="button"
+                onClick={() => openMaintenanceStudio("REQUEST")}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+              >
+                <ClipboardCheck size={15} /> New maintenance flow
+              </button>
+            </div>
           </div>
-        </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Jobs</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{activeJobCount}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pending Intake</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{pendingRequests.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Due In 7 Days</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{dueSoonCount}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">High/Critical Alerts</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{elevatedRiskCount}</p>
+            </div>
+          </div>
+        </section>
 
         {loadError ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{loadError}</div>
@@ -1207,10 +1279,7 @@ export default function MaintenancePage() {
         <LegacyMaintenanceJobsBoard
           jobs={legacyBoardJobs}
           pendingRequests={legacyPendingRequests}
-          onCreateJob={() => {
-            setStudioStep("REQUEST");
-            setViewMode("integrated");
-          }}
+          onCreateJob={() => openMaintenanceStudio("REQUEST")}
           onOpenStudio={handleOpenLegacyStudio}
         />
       </div>
@@ -1218,56 +1287,100 @@ export default function MaintenancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Integrated Maintenance Command Center</h1>
-          <p className="mt-2 max-w-4xl text-sm text-slate-600">
-            Vehicle jobs, machinery jobs, service jobs, pending requests, item requests, costing, scheduling, completion reporting, and alert-driven planning are now unified inside a single maintenance tab.
-          </p>
-        </div>
+    <div className="relative space-y-6">
+      <div className="pointer-events-none absolute -top-14 right-0 h-56 w-56 rounded-full bg-violet-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute -left-12 top-48 h-64 w-64 rounded-full bg-sky-200/45 blur-3xl" />
 
-        <div className="flex flex-wrap gap-2">
-          <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setViewMode("integrated")}
-              className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
-            >
-              Integrated View
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("legacy-board")}
-              className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              Legacy Board
-            </button>
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white via-violet-50/55 to-sky-50/55 p-5 shadow-sm md:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Integrated Maintenance Command Center</h1>
+            <p className="mt-2 max-w-4xl text-sm text-slate-600">
+              Vehicle jobs, machinery jobs, service jobs, pending requests, item requests, costing, scheduling,
+              completion reporting, and alert-driven planning are unified in one workspace.
+            </p>
           </div>
 
-          <button type="button" onClick={() => void loadWorkspace()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100">
-            <RefreshCw size={15} /> Refresh workspace
-          </button>
-          <button type="button" onClick={() => setStudioStep("REQUEST")} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
-            <ClipboardCheck size={15} /> New maintenance flow
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode("integrated")}
+                className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Integrated View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("legacy-board")}
+                className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Legacy Board
+              </button>
+            </div>
+
+            <button type="button" onClick={() => void loadWorkspace()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100">
+              <RefreshCw size={15} /> Refresh workspace
+            </button>
+            <button type="button" onClick={() => openMaintenanceStudio()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-100">
+              <Cog size={15} /> Maintenance Studio
+            </button>
+            <button type="button" onClick={() => openMaintenanceStudio("REQUEST")} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+              <ClipboardCheck size={15} /> New maintenance flow
+            </button>
+          </div>
         </div>
-      </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Jobs</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">{activeJobCount}</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pending Intake</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">{pendingRequests.length}</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Due In 7 Days</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">{dueSoonCount}</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Critical Open Jobs</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">{criticalOpenCount}</p>
+          </div>
+        </div>
+      </section>
 
       {loadError ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{loadError}</div> : null}
       {feedback ? <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${feedback.tone === "success" ? "border border-emerald-200 bg-emerald-50 text-emerald-800" : "border border-rose-200 bg-rose-50 text-rose-800"}`}>{feedback.message}</div> : null}
 
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur">
+        <span className="px-1">Quick Jump</span>
+        {[
+          ["#request-board", "Requests"],
+          ["#schedule-planner", "Schedules"],
+          ["#attention-queue", "Alerts"],
+          ["#job-streams", "Job Streams"],
+          ["#job-report", "Reports"],
+          ["#maintenance-studio", "Studio"]
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] tracking-[0.12em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">
+            {label}
+          </a>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard icon={<ClipboardList size={18} />} label="Pending Requests" value={String(pendingRequests.length)} hint="Open maintenance intake items waiting for action." badge="Legacy queue" />
-        <MetricCard icon={<Wrench size={18} />} label="In Progress" value={String(filteredWorkOrders.filter((order) => order.status === "IN_PROGRESS").length)} hint="Jobs currently being worked across all maintenance lanes." />
-        <MetricCard icon={<CalendarDays size={18} />} label="Due In 7 Days" value={String(upcomingSchedules.filter((item) => { const delta = daysDelta(item.nextDueDate); return typeof delta === "number" && delta >= 0 && delta <= 7; }).length)} hint="Schedules approaching the next maintenance window." />
-        <MetricCard icon={<AlertTriangle size={18} />} label="Overdue" value={String(overdueOrders.length)} hint="Requests already beyond the planned due date." badge={overdueOrders.length > 0 ? "Prioritize now" : "Stable"} />
-        <MetricCard icon={<Boxes size={18} />} label="Item 0 Stock" value={String(zeroStockParts.length)} hint="Zero-stock parts that may block maintenance completion." />
+        <MetricCard icon={<ClipboardList size={18} />} label="Pending Requests" value={String(pendingRequests.length)} hint="Open maintenance intake items waiting for action." badge="Legacy queue" tone="sky" />
+        <MetricCard icon={<Wrench size={18} />} label="In Progress" value={String(activeJobCount)} hint="Jobs currently being worked across all maintenance lanes." tone="emerald" />
+        <MetricCard icon={<CalendarDays size={18} />} label="Due In 7 Days" value={String(dueSoonCount)} hint="Schedules approaching the next maintenance window." tone="amber" />
+        <MetricCard icon={<AlertTriangle size={18} />} label="Overdue" value={String(overdueOrders.length)} hint="Requests already beyond the planned due date." badge={overdueOrders.length > 0 ? "Prioritize now" : "Stable"} tone="rose" />
+        <MetricCard icon={<Boxes size={18} />} label="Item 0 Stock" value={String(zeroStockParts.length)} hint="Zero-stock parts that may block maintenance completion." tone="slate" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr_0.95fr]">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section id="request-board" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Pending Requests</p>
@@ -1320,7 +1433,7 @@ export default function MaintenancePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section id="schedule-planner" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Schedule Maintenance</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">Calendar and due planning</h2>
@@ -1378,7 +1491,7 @@ export default function MaintenancePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section id="attention-queue" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Popup Messages</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">Attention queue</h2>
@@ -1412,7 +1525,7 @@ export default function MaintenancePage() {
         </section>
       </div>
 
-      <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section id="job-streams" className="scroll-mt-24 space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Integrated Job Streams</p>
@@ -1465,7 +1578,7 @@ export default function MaintenancePage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
         <section className="space-y-4">
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article id="job-report" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Selected Job</p>
@@ -1595,7 +1708,7 @@ export default function MaintenancePage() {
           </article>
         </section>
 
-        <section className="overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.35)]">
+        <section id="maintenance-studio" className="scroll-mt-24 overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.35)]">
           <div className="border-b border-slate-800 px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Maintenance Studio</p>
             <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
