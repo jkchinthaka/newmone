@@ -21,6 +21,13 @@ import {
 } from "lucide-react";
 
 import { apiClient } from "@/lib/api-client";
+import {
+  LegacyMaintenanceJobsBoard,
+  type LegacyBoardLane,
+  type LegacyBoardStatus,
+  type LegacyMaintenanceBoardJob,
+  type LegacyMaintenancePendingRequest
+} from "@/components/maintenance/legacy-maintenance-jobs-board";
 
 type JobLane = "VEHICLE" | "MACHINERY" | "SERVICE";
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -49,6 +56,7 @@ type RoleName =
   | "VIEWER"
   | "CLEANER";
 type StudioStep = "REQUEST" | "SCHEDULE" | "ALLOCATION" | "TIMING" | "PARTS" | "COMPLETION";
+type MaintenanceViewMode = "integrated" | "legacy-board";
 type Feedback = { tone: "success" | "error"; message: string };
 
 type CurrentUser = {
@@ -417,6 +425,43 @@ function targetLabel(order: WorkOrderRow) {
   return "Target not linked";
 }
 
+function toLegacyBoardStatus(status: WorkOrderStatus): LegacyBoardStatus {
+  if (status === "COMPLETED") {
+    return "Completed";
+  }
+
+  if (status === "IN_PROGRESS") {
+    return "In-Progress";
+  }
+
+  return "Pending";
+}
+
+function toLegacyBoardLane(lane: JobLane): LegacyBoardLane {
+  if (lane === "MACHINERY") {
+    return "machinery";
+  }
+
+  if (lane === "SERVICE") {
+    return "service";
+  }
+
+  return "vehicle";
+}
+
+function taggedDescriptionValue(text: string | undefined | null, tag: string) {
+  if (!text) {
+    return "";
+  }
+
+  const line = text.split("\n").find((entry) => entry.trim().toLowerCase().startsWith(`${tag.toLowerCase()}:`));
+  if (!line) {
+    return "";
+  }
+
+  return line.slice(line.indexOf(":") + 1).trim();
+}
+
 function normalizeWorkOrders(rows: WorkOrderRow[]) {
   return rows.map((row) => ({
     ...row,
@@ -443,6 +488,7 @@ export default function MaintenancePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<MaintenanceViewMode>("integrated");
 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [schedules, setSchedules] = useState<MaintenanceScheduleRow[]>([]);
@@ -687,6 +733,55 @@ export default function MaintenancePage() {
       return false;
     });
   }, [logs, selectedWorkOrder]);
+
+  const legacyBoardJobs = useMemo<LegacyMaintenanceBoardJob[]>(() => {
+    return workOrders.map((order) => {
+      const lane = getJobLane(order);
+      const primaryTech = order.technician ? [userFullName(order.technician)] : [];
+      const department = taggedDescriptionValue(order.description, "Department") || formatLabel(lane);
+      const narration =
+        taggedDescriptionValue(order.description, "Narration") ||
+        taggedDescriptionValue(order.description, "Fault condition") ||
+        order.notes ||
+        order.description ||
+        "";
+
+      return {
+        id: order.id,
+        code: order.woNumber,
+        lane: toLegacyBoardLane(lane),
+        type: order.title,
+        status: toLegacyBoardStatus(order.status),
+        dueDateLabel: formatDate(order.dueDate),
+        requestDateLabel: formatDate(order.createdAt),
+        targetLabel: targetLabel(order),
+        departmentLabel: department,
+        narration,
+        staff: primaryTech,
+        itemsCount: order.parts.length,
+        estimatedHours: `${toNumber(order.estimatedHours).toFixed(1)} h`,
+        estimatedCost: formatCurrency(order.estimatedCost),
+        actualCost: formatCurrency(order.actualCost)
+      };
+    });
+  }, [workOrders]);
+
+  const legacyPendingRequests = useMemo<LegacyMaintenancePendingRequest[]>(() => {
+    return workOrders
+      .filter((order) => order.status === "OPEN")
+      .map((order) => {
+        const lane = getJobLane(order);
+        const laneLabel = toLegacyBoardLane(lane);
+
+        return {
+          id: order.id,
+          code: order.woNumber,
+          targetLabel: targetLabel(order),
+          dateLabel: formatDate(order.createdAt),
+          typeLabel: laneLabel
+        };
+      });
+  }, [workOrders]);
 
   const costByLane = useMemo(
     () =>
@@ -1026,12 +1121,98 @@ export default function MaintenancePage() {
     }
   }
 
+  function handleOpenLegacyStudio(jobId: string, step: "ALLOCATION" | "TIMING" | "PARTS" | "COMPLETION") {
+    setSelectedWorkOrderId(jobId);
+    setStudioStep(step);
+    setViewMode("integrated");
+  }
+
   if (loading) {
     return (
       <div className="grid min-h-[60vh] place-items-center rounded-3xl border border-slate-200 bg-white text-sm text-slate-600 shadow-sm">
         <div className="inline-flex items-center gap-2">
           <Loader2 size={16} className="animate-spin" /> Loading integrated maintenance workspace...
         </div>
+      </div>
+    );
+  }
+
+  if (viewMode === "legacy-board") {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Maintenance Jobs Legacy Board</h1>
+            <p className="mt-2 max-w-4xl text-sm text-slate-600">
+              Your uploaded maintenance-jobs layout is now integrated as a dedicated board view while preserving this
+              project&apos;s current backend-connected workflow.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode("integrated")}
+                className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Integrated View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("legacy-board")}
+                className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Legacy Board
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void loadWorkspace()}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+            >
+              <RefreshCw size={15} /> Refresh workspace
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStudioStep("REQUEST");
+                setViewMode("integrated");
+              }}
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+            >
+              <ClipboardCheck size={15} /> New maintenance flow
+            </button>
+          </div>
+        </div>
+
+        {loadError ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{loadError}</div>
+        ) : null}
+
+        {feedback ? (
+          <div
+            className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
+              feedback.tone === "success"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border border-rose-200 bg-rose-50 text-rose-800"
+            }`}
+          >
+            {feedback.message}
+          </div>
+        ) : null}
+
+        <LegacyMaintenanceJobsBoard
+          jobs={legacyBoardJobs}
+          pendingRequests={legacyPendingRequests}
+          onCreateJob={() => {
+            setStudioStep("REQUEST");
+            setViewMode("integrated");
+          }}
+          onOpenStudio={handleOpenLegacyStudio}
+        />
       </div>
     );
   }
@@ -1048,6 +1229,23 @@ export default function MaintenancePage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode("integrated")}
+              className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+            >
+              Integrated View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("legacy-board")}
+              className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Legacy Board
+            </button>
+          </div>
+
           <button type="button" onClick={() => void loadWorkspace()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100">
             <RefreshCw size={15} /> Refresh workspace
           </button>
