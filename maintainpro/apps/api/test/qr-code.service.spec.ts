@@ -42,7 +42,7 @@ describe("QrCodeService", () => {
         get: jest.fn().mockReturnValue("image/png")
       },
       arrayBuffer: async () => Uint8Array.from([1, 2, 3, 4]).buffer
-    } as Partial<Response>) as unknown as typeof fetch;
+    } as unknown as Response) as unknown as typeof fetch;
 
     const buffer = await service.toBuffer("https://example.com/assets/123");
 

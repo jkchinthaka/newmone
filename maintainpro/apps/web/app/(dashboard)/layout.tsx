@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
@@ -14,6 +16,17 @@ export default function DashboardLayout({
 }>) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            refetchOnWindowFocus: false
+          }
+        }
+      })
+  );
 
   useEffect(() => {
     async function validateSession() {
@@ -44,14 +57,17 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-slate-100">
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Topbar />
+            <main className="flex-1 p-4 sm:p-6">{children}</main>
+          </div>
         </div>
       </div>
-    </div>
+      <Toaster position="top-right" richColors duration={4_000} />
+    </QueryClientProvider>
   );
 }

@@ -89,6 +89,16 @@ export class AssetsService {
         take: limit,
         orderBy,
         include: {
+          workOrders: {
+            where: {
+              status: {
+                in: [...OPEN_WORK_ORDER_STATUSES]
+              }
+            },
+            select: {
+              id: true
+            }
+          },
           _count: {
             select: {
               maintenanceLogs: true,
@@ -1001,92 +1011,6 @@ export class AssetsService {
     };
   }
 
-  async exportAssets(tenantId: string | null | undefined, query: AssetExportQueryDto) {
-    const selectedIds = query.ids
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const where = this.buildWhere(tenantId, query);
-
-    if (selectedIds?.length) {
-      where.id = {
-        in: selectedIds
-      };
-    }
-
-    const assets = await this.prisma.asset.findMany({
-      where,
-      orderBy: this.buildOrderBy(query)
-    });
-
-    const rows = assets.map((asset) => ({
-      "Asset Tag": asset.assetTag,
-      Name: asset.name,
-      Category: asset.category,
-      Condition: asset.condition,
-      Status: asset.status,
-      Supplier: asset.supplier ?? "",
-      Department: asset.department ?? "",
-      Owner: asset.ownerName ?? "",
-      Location: asset.location ?? "",
-      Manufacturer: asset.manufacturer ?? "",
-      Model: asset.model ?? "",
-      "Serial Number": asset.serialNumber ?? "",
-      "Purchase Date": asset.purchaseDate?.toISOString() ?? "",
-      "Purchase Price": asset.purchasePrice?.toString() ?? "",
-      "Current Value": asset.currentValue?.toString() ?? "",
-      "Next Service Date": asset.nextServiceDate?.toISOString() ?? "",
-      "Warranty Expiry": asset.warrantyExpiry?.toISOString() ?? "",
-      Archived: asset.archivedAt ? "Yes" : "No"
-    }));
-
-    const format = query.format ?? "xlsx";
-    if (format === "csv") {
-      const header = Object.keys(rows[0] ?? {
-        "Asset Tag": "",
-        Name: "",
-        Category: "",
-        Condition: "",
-        Status: ""
-      });
-      const csv = [
-        header.join(","),
-        ...rows.map((row) =>
-          header.map((column) => this.escapeCsv(row[column as keyof typeof row])).join(",")
-        )
-      ].join("\n");
-
-      return {
-        buffer: Buffer.from(csv, "utf8"),
-        contentType: "text/csv; charset=utf-8",
-        filename: `assets-${this.timestampSlug()}.csv`
-      };
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Assets");
-    sheet.columns = Object.keys(rows[0] ?? {
-      "Asset Tag": "",
-      Name: "",
-      Category: "",
-      Condition: "",
-      Status: ""
-    }).map((key) => ({
-      header: key,
-      key,
-      width: Math.max(18, key.length + 4)
-    }));
-    rows.forEach((row) => sheet.addRow(row));
-    sheet.getRow(1).font = { bold: true };
-
-    return {
-      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
-      contentType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      filename: `assets-${this.timestampSlug()}.xlsx`
-    };
-  }
-
   private buildWhere(
     tenantId: string | null | undefined,
     query: Pick<
@@ -1312,6 +1236,11 @@ export class AssetsService {
   private toAssetListItem(
     asset: Prisma.AssetGetPayload<{
       include: {
+        workOrders: {
+          select: {
+            id: true;
+          };
+        };
         _count: {
           select: {
             maintenanceLogs: true;
@@ -1329,7 +1258,8 @@ export class AssetsService {
       isArchived: Boolean(asset.archivedAt),
       documentCount: documents.length,
       maintenanceLogCount: asset._count.maintenanceLogs,
-      workOrderCount: asset._count.workOrders
+      workOrderCount: asset._count.workOrders,
+      openWorkOrderCount: asset.workOrders.length
     };
   }
 
