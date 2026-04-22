@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Boxes,
@@ -11,7 +11,6 @@ import {
   ClipboardList,
   Clock3,
   Cog,
-  DollarSign,
   Factory,
   Loader2,
   PackagePlus,
@@ -58,6 +57,8 @@ type RoleName =
 type StudioStep = "REQUEST" | "SCHEDULE" | "ALLOCATION" | "TIMING" | "PARTS" | "COMPLETION";
 type MaintenanceViewMode = "integrated" | "legacy-board";
 type Feedback = { tone: "success" | "error"; message: string };
+
+const AUTO_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
 type CurrentUser = {
   id: string;
@@ -308,9 +309,9 @@ const RISK_STYLES: Record<PredictiveAlertRow["riskLevel"], string> = {
 };
 
 const studioInputClass =
-  "w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20";
+  "w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-100";
 const studioLabelClass =
-  "space-y-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400";
+  "space-y-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500";
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -485,18 +486,18 @@ function MetricCard({
   tone?: "slate" | "sky" | "amber" | "rose" | "emerald";
 }) {
   const toneMap: Record<"slate" | "sky" | "amber" | "rose" | "emerald", string> = {
-    slate: "from-slate-100/80 via-white to-white",
-    sky: "from-sky-100/80 via-white to-white",
-    amber: "from-amber-100/80 via-white to-white",
-    rose: "from-rose-100/80 via-white to-white",
-    emerald: "from-emerald-100/80 via-white to-white"
+    slate: "from-white via-white to-slate-50",
+    sky: "from-brand-100 via-white to-slate-50",
+    amber: "from-amber-50 via-white to-slate-50",
+    rose: "from-rose-50 via-white to-slate-50",
+    emerald: "from-emerald-50 via-white to-slate-50"
   };
 
   return (
-    <article className={`group relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${toneMap[tone]}`}>
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+    <article className={`group relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_48px_rgba(15,23,42,0.1)] ${toneMap[tone]}`}>
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-300 via-brand-500/70 to-transparent" />
       <div className="flex items-start justify-between gap-3">
-        <div className="rounded-2xl bg-white/80 p-3 text-slate-700 ring-1 ring-slate-200 transition group-hover:ring-slate-300">{icon}</div>
+        <div className="rounded-2xl bg-white/90 p-3 text-brand-700 ring-1 ring-slate-200 transition group-hover:ring-brand-200">{icon}</div>
         {badge ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{badge}</span> : null}
       </div>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
@@ -506,12 +507,37 @@ function MetricCard({
   );
 }
 
+function SyncStatusPills({
+  lastSyncedAt,
+  isBackgroundSyncing
+}: {
+  lastSyncedAt: string | null;
+  isBackgroundSyncing: boolean;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <span className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 font-semibold uppercase tracking-[0.16em] text-brand-700">
+        Auto-sync every 30 min
+      </span>
+      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600 shadow-sm">
+        {isBackgroundSyncing
+          ? "Syncing in background..."
+          : lastSyncedAt
+            ? `Last synced ${formatDateTime(lastSyncedAt)}`
+            : "Preparing first sync..."}
+      </span>
+    </div>
+  );
+}
+
 export default function MaintenancePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<MaintenanceViewMode>("integrated");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [schedules, setSchedules] = useState<MaintenanceScheduleRow[]>([]);
@@ -597,67 +623,87 @@ export default function MaintenancePage() {
     notes: ""
   });
 
-  async function loadWorkspace() {
-    setLoading(true);
+  const loadWorkspace = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    } else {
+      setIsBackgroundSyncing(true);
+    }
+
     setLoadError(null);
 
-    const [meResult, schedulesResult, logsResult, calendarResult, alertsResult, workOrdersResult, vehiclesResult, assetsResult, partsResult, usersResult] =
-      await Promise.allSettled([
-        apiClient.get("/auth/me"),
-        apiClient.get("/maintenance/schedules"),
-        apiClient.get("/maintenance/logs"),
-        apiClient.get("/maintenance/calendar"),
-        apiClient.get("/maintenance/predictive-alerts"),
-        apiClient.get("/work-orders"),
-        apiClient.get("/vehicles"),
-        apiClient.get("/assets", { params: { limit: 200 } }),
-        apiClient.get("/inventory/parts"),
-        apiClient.get("/users")
-      ]);
+    try {
+      const [meResult, schedulesResult, logsResult, calendarResult, alertsResult, workOrdersResult, vehiclesResult, assetsResult, partsResult, usersResult] =
+        await Promise.allSettled([
+          apiClient.get("/auth/me"),
+          apiClient.get("/maintenance/schedules"),
+          apiClient.get("/maintenance/logs"),
+          apiClient.get("/maintenance/calendar"),
+          apiClient.get("/maintenance/predictive-alerts"),
+          apiClient.get("/work-orders"),
+          apiClient.get("/vehicles"),
+          apiClient.get("/assets", { params: { limit: 200 } }),
+          apiClient.get("/inventory/parts"),
+          apiClient.get("/users")
+        ]);
 
-    if (meResult.status !== "fulfilled") {
-      setLoadError("Unable to load the maintenance workspace for the current session.");
-      setLoading(false);
-      return;
+      if (meResult.status !== "fulfilled") {
+        setLoadError("Unable to load the maintenance workspace for the current session.");
+        return;
+      }
+
+      const me = (meResult.value.data?.data ?? null) as CurrentUser | null;
+      setCurrentUser(me);
+      setSchedules(schedulesResult.status === "fulfilled" ? ((schedulesResult.value.data?.data ?? []) as MaintenanceScheduleRow[]) : []);
+      setLogs(logsResult.status === "fulfilled" ? ((logsResult.value.data?.data ?? []) as MaintenanceLogRow[]) : []);
+      setCalendarRows(calendarResult.status === "fulfilled" ? ((calendarResult.value.data?.data ?? []) as CalendarRow[]) : []);
+      setAlerts(alertsResult.status === "fulfilled" ? ((alertsResult.value.data?.data ?? []) as PredictiveAlertRow[]) : []);
+      setWorkOrders(
+        workOrdersResult.status === "fulfilled"
+          ? normalizeWorkOrders((workOrdersResult.value.data?.data ?? []) as WorkOrderRow[])
+          : []
+      );
+      setVehicles(vehiclesResult.status === "fulfilled" ? ((vehiclesResult.value.data?.data ?? []) as VehicleRow[]) : []);
+      setAssets(assetsResult.status === "fulfilled" ? ((assetsResult.value.data?.data ?? []) as AssetRow[]) : []);
+      setParts(partsResult.status === "fulfilled" ? ((partsResult.value.data?.data ?? []) as PartRow[]) : []);
+      setUsers(usersResult.status === "fulfilled" ? ((usersResult.value.data?.data ?? []) as CurrentUser[]) : me ? [me] : []);
+      setLastSyncedAt(new Date().toISOString());
+
+      const failedEndpoints = [
+        schedulesResult,
+        logsResult,
+        calendarResult,
+        alertsResult,
+        workOrdersResult,
+        vehiclesResult,
+        assetsResult,
+        partsResult
+      ].filter((result) => result.status === "rejected");
+
+      if (failedEndpoints.length > 0) {
+        setLoadError("Some maintenance data could not be loaded. The workspace is partially available.");
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+      if (silent) {
+        setIsBackgroundSyncing(false);
+      }
     }
-
-    const me = (meResult.value.data?.data ?? null) as CurrentUser | null;
-    setCurrentUser(me);
-    setSchedules(schedulesResult.status === "fulfilled" ? ((schedulesResult.value.data?.data ?? []) as MaintenanceScheduleRow[]) : []);
-    setLogs(logsResult.status === "fulfilled" ? ((logsResult.value.data?.data ?? []) as MaintenanceLogRow[]) : []);
-    setCalendarRows(calendarResult.status === "fulfilled" ? ((calendarResult.value.data?.data ?? []) as CalendarRow[]) : []);
-    setAlerts(alertsResult.status === "fulfilled" ? ((alertsResult.value.data?.data ?? []) as PredictiveAlertRow[]) : []);
-    setWorkOrders(
-      workOrdersResult.status === "fulfilled"
-        ? normalizeWorkOrders((workOrdersResult.value.data?.data ?? []) as WorkOrderRow[])
-        : []
-    );
-    setVehicles(vehiclesResult.status === "fulfilled" ? ((vehiclesResult.value.data?.data ?? []) as VehicleRow[]) : []);
-    setAssets(assetsResult.status === "fulfilled" ? ((assetsResult.value.data?.data ?? []) as AssetRow[]) : []);
-    setParts(partsResult.status === "fulfilled" ? ((partsResult.value.data?.data ?? []) as PartRow[]) : []);
-    setUsers(usersResult.status === "fulfilled" ? ((usersResult.value.data?.data ?? []) as CurrentUser[]) : me ? [me] : []);
-
-    const failedEndpoints = [
-      schedulesResult,
-      logsResult,
-      calendarResult,
-      alertsResult,
-      workOrdersResult,
-      vehiclesResult,
-      assetsResult,
-      partsResult
-    ].filter((result) => result.status === "rejected");
-
-    if (failedEndpoints.length > 0) {
-      setLoadError("Some maintenance data could not be loaded. The workspace is partially available.");
-    }
-
-    setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
     void loadWorkspace();
-  }, []);
+  }, [loadWorkspace]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void loadWorkspace({ silent: true });
+    }, AUTO_SYNC_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadWorkspace]);
 
   useEffect(() => {
     if (workOrders.length === 0) {
@@ -701,15 +747,6 @@ export default function MaintenancePage() {
     });
   }, [laneFilter, search, workOrders]);
 
-  const workOrdersByLane = useMemo(
-    () => ({
-      VEHICLE: filteredWorkOrders.filter((order) => getJobLane(order) === "VEHICLE"),
-      MACHINERY: filteredWorkOrders.filter((order) => getJobLane(order) === "MACHINERY"),
-      SERVICE: filteredWorkOrders.filter((order) => getJobLane(order) === "SERVICE")
-    }),
-    [filteredWorkOrders]
-  );
-
   const pendingRequests = useMemo(() => filteredWorkOrders.filter((order) => order.status === "OPEN"), [filteredWorkOrders]);
   const overdueOrders = useMemo(
     () =>
@@ -720,7 +757,6 @@ export default function MaintenancePage() {
     [filteredWorkOrders]
   );
   const zeroStockParts = useMemo(() => parts.filter((part) => toNumber(part.quantityInStock) <= 0), [parts]);
-  const lowStockParts = useMemo(() => parts.filter((part) => toNumber(part.quantityInStock) <= toNumber(part.reorderPoint)), [parts]);
   const upcomingSchedules = useMemo(
     () =>
       [...schedules]
@@ -805,24 +841,6 @@ export default function MaintenancePage() {
         };
       });
   }, [workOrders]);
-
-  const costByLane = useMemo(
-    () =>
-      (["VEHICLE", "MACHINERY", "SERVICE"] as JobLane[]).map((lane) => {
-        const laneOrders = workOrders.filter((order) => getJobLane(order) === lane);
-        return {
-          lane,
-          count: laneOrders.length,
-          estimated: laneOrders.reduce((sum, order) => sum + toNumber(order.estimatedCost), 0),
-          actual: laneOrders.reduce((sum, order) => sum + toNumber(order.actualCost), 0),
-          parts: laneOrders.reduce(
-            (sum, order) => sum + order.parts.reduce((partTotal, part) => partTotal + toNumber(part.totalCost), 0),
-            0
-          )
-        };
-      }),
-    [workOrders]
-  );
 
   const partCategories = useMemo(() => Array.from(new Set(parts.map((part) => part.category))).sort(), [parts]);
   const visibleParts = useMemo(() => parts.filter((part) => !partForm.category || part.category === partForm.category), [partForm.category, parts]);
@@ -1196,6 +1214,7 @@ export default function MaintenancePage() {
                 Classic board experience with richer hierarchy, faster scannability, and direct jump paths into the
                 integrated studio actions.
               </p>
+              <SyncStatusPills lastSyncedAt={lastSyncedAt} isBackgroundSyncing={isBackgroundSyncing} />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1288,142 +1307,131 @@ export default function MaintenancePage() {
 
   return (
     <div className="relative space-y-6">
-      <div className="pointer-events-none absolute -top-14 right-0 h-56 w-56 rounded-full bg-violet-200/45 blur-3xl" />
-      <div className="pointer-events-none absolute -left-12 top-48 h-64 w-64 rounded-full bg-sky-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-brand-50 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute -top-12 right-0 h-56 w-56 rounded-full bg-brand-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -left-10 top-36 h-64 w-64 rounded-full bg-sky-100/60 blur-3xl" />
 
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white via-violet-50/55 to-sky-50/55 p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">Maintenance</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Integrated Maintenance Command Center</h1>
-            <p className="mt-2 max-w-4xl text-sm text-slate-600">
-              Vehicle jobs, machinery jobs, service jobs, pending requests, item requests, costing, scheduling,
-              completion reporting, and alert-driven planning are unified in one workspace.
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Integrated Maintenance Workspace</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              A cleaner workspace for intake, planning, alerts, and studio actions. The page now focuses on the
+              maintenance items that need attention instead of spreading work across too many panels.
             </p>
+            <SyncStatusPills lastSyncedAt={lastSyncedAt} isBackgroundSyncing={isBackgroundSyncing} />
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+            <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => setViewMode("integrated")}
-                className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+                className="rounded-xl bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm"
               >
                 Integrated View
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("legacy-board")}
-                className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                className="rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-white"
               >
                 Legacy Board
               </button>
             </div>
 
-            <button type="button" onClick={() => void loadWorkspace()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100">
+            <button type="button" onClick={() => void loadWorkspace()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
               <RefreshCw size={15} /> Refresh workspace
             </button>
-            <button type="button" onClick={() => openMaintenanceStudio()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-100">
+            <button type="button" onClick={() => openMaintenanceStudio()} className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 shadow-sm hover:bg-brand-100/70">
               <Cog size={15} /> Maintenance Studio
             </button>
-            <button type="button" onClick={() => openMaintenanceStudio("REQUEST")} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+            <button type="button" onClick={() => openMaintenanceStudio("REQUEST")} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700">
               <ClipboardCheck size={15} /> New maintenance flow
             </button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Jobs</p>
-            <p className="mt-1 text-xl font-semibold text-slate-900">{activeJobCount}</p>
-          </div>
-          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pending Intake</p>
-            <p className="mt-1 text-xl font-semibold text-slate-900">{pendingRequests.length}</p>
-          </div>
-          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Due In 7 Days</p>
-            <p className="mt-1 text-xl font-semibold text-slate-900">{dueSoonCount}</p>
-          </div>
-          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm shadow-sm backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Critical Open Jobs</p>
-            <p className="mt-1 text-xl font-semibold text-slate-900">{criticalOpenCount}</p>
-          </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))]">
+          <article className="rounded-[28px] bg-gradient-to-br from-brand-600 via-brand-700 to-slate-900 p-5 text-white shadow-[0_24px_50px_rgba(17,94,168,0.28)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Workspace focus</p>
+            <h2 className="mt-3 text-2xl font-semibold">
+              {selectedWorkOrder ? selectedWorkOrder.woNumber : "Ready for next action"}
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-white/80">
+              {selectedWorkOrder
+                ? selectedWorkOrder.title
+                : "Open a request from the queue or launch Maintenance Studio to start a new maintenance flow."}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-white/80">
+              <span className="rounded-full bg-white/10 px-3 py-1">Pending {pendingRequests.length}</span>
+              <span className="rounded-full bg-white/10 px-3 py-1">Overdue {overdueOrders.length}</span>
+              <span className="rounded-full bg-white/10 px-3 py-1">
+                {selectedWorkOrder ? formatLabel(selectedWorkOrder.status) : "Studio ready"}
+              </span>
+            </div>
+          </article>
+
+          <MetricCard icon={<ClipboardList size={18} />} label="Pending Requests" value={String(pendingRequests.length)} hint="Open intake items waiting for assignment or action." tone="sky" />
+          <MetricCard icon={<Wrench size={18} />} label="Live Jobs" value={String(activeJobCount)} hint="Active maintenance work currently in progress." tone="emerald" />
+          <MetricCard icon={<AlertTriangle size={18} />} label="Critical Open" value={String(criticalOpenCount)} hint="High-priority work still waiting to be resolved." tone="rose" />
         </div>
       </section>
 
       {loadError ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{loadError}</div> : null}
       {feedback ? <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${feedback.tone === "success" ? "border border-emerald-200 bg-emerald-50 text-emerald-800" : "border border-rose-200 bg-rose-50 text-rose-800"}`}>{feedback.message}</div> : null}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur">
-        <span className="px-1">Quick Jump</span>
-        {[
-          ["#request-board", "Requests"],
-          ["#schedule-planner", "Schedules"],
-          ["#attention-queue", "Alerts"],
-          ["#job-streams", "Job Streams"],
-          ["#job-report", "Reports"],
-          ["#maintenance-studio", "Studio"]
-        ].map(([href, label]) => (
-          <a key={href} href={href} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] tracking-[0.12em] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">
-            {label}
-          </a>
-        ))}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard icon={<ClipboardList size={18} />} label="Pending Requests" value={String(pendingRequests.length)} hint="Open maintenance intake items waiting for action." badge="Legacy queue" tone="sky" />
-        <MetricCard icon={<Wrench size={18} />} label="In Progress" value={String(activeJobCount)} hint="Jobs currently being worked across all maintenance lanes." tone="emerald" />
-        <MetricCard icon={<CalendarDays size={18} />} label="Due In 7 Days" value={String(dueSoonCount)} hint="Schedules approaching the next maintenance window." tone="amber" />
-        <MetricCard icon={<AlertTriangle size={18} />} label="Overdue" value={String(overdueOrders.length)} hint="Requests already beyond the planned due date." badge={overdueOrders.length > 0 ? "Prioritize now" : "Stable"} tone="rose" />
-        <MetricCard icon={<Boxes size={18} />} label="Item 0 Stock" value={String(zeroStockParts.length)} hint="Zero-stock parts that may block maintenance completion." tone="slate" />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr_0.95fr]">
-        <section id="request-board" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-3">
+      <div className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
+        <section id="request-board" className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Pending Requests</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">Request control board</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Work Queue</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Requests that need action</h2>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                <span className="rounded-full bg-brand-50 px-3 py-1 font-medium text-brand-700">{pendingRequests.length} open requests</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">{activeJobCount} live jobs</span>
+              </div>
             </div>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search WO no, asset, vehicle, or title" className="hidden w-72 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 lg:block" />
+
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search WO no, asset, vehicle, or title" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100 lg:w-80" />
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2">
             {(["ALL", "VEHICLE", "MACHINERY", "SERVICE"] as Array<JobLane | "ALL">).map((lane) => (
-              <button key={lane} type="button" onClick={() => setLaneFilter(lane)} className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${laneFilter === lane ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"}`}>
+              <button key={lane} type="button" onClick={() => setLaneFilter(lane)} className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${laneFilter === lane ? "bg-brand-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50/50"}`}>
                 {lane === "ALL" ? "All Streams" : LANE_META[lane].label}
               </button>
             ))}
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-5 space-y-3">
             {pendingRequests.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">No pending maintenance requests match the current filter.</div>
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">No pending maintenance requests match the current filter.</div>
             ) : (
-              pendingRequests.slice(0, 6).map((order) => {
+              pendingRequests.slice(0, 5).map((order) => {
                 const lane = getJobLane(order);
                 const delta = daysDelta(order.dueDate);
                 const Icon = LANE_META[lane].icon;
 
                 return (
-                  <button key={order.id} type="button" onClick={() => { setSelectedWorkOrderId(order.id); setStudioStep("ALLOCATION"); }} className={`w-full rounded-2xl border px-4 py-3 text-left transition ${selectedWorkOrderId === order.id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"}`}>
+                  <button key={order.id} type="button" onClick={() => { setSelectedWorkOrderId(order.id); setStudioStep("ALLOCATION"); }} className={`w-full rounded-3xl border px-4 py-4 text-left transition ${selectedWorkOrderId === order.id ? "border-brand-400 bg-brand-50 shadow-sm" : "border-slate-200 bg-slate-50 hover:border-brand-200 hover:bg-white"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 gap-3">
-                        <div className={`mt-0.5 rounded-2xl p-2 ${selectedWorkOrderId === order.id ? "bg-white/10 text-white" : "bg-white text-slate-700"}`}><Icon size={16} /></div>
+                        <div className={`mt-0.5 rounded-2xl p-2.5 ${selectedWorkOrderId === order.id ? "bg-brand-100 text-brand-700" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}><Icon size={16} /></div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold">{order.woNumber}</p>
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${selectedWorkOrderId === order.id ? "bg-white/10 text-white" : LANE_META[lane].badge}`}>{LANE_META[lane].label}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${selectedWorkOrderId === order.id ? "bg-white/10 text-white" : PRIORITY_STYLES[order.priority]}`}>{formatLabel(order.priority)}</span>
+                            <p className="text-sm font-semibold text-slate-900">{order.woNumber}</p>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${LANE_META[lane].badge}`}>{LANE_META[lane].label}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLES[order.priority]}`}>{formatLabel(order.priority)}</span>
                           </div>
-                          <p className="mt-1 truncate text-sm font-medium">{order.title}</p>
-                          <p className={`mt-1 text-xs ${selectedWorkOrderId === order.id ? "text-slate-300" : "text-slate-500"}`}>{targetLabel(order)}</p>
+                          <p className="mt-1 text-sm font-medium text-slate-900">{order.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">{targetLabel(order)}</p>
                         </div>
                       </div>
-                      <div className="text-right text-xs">
-                        <p>{formatDate(order.dueDate)}</p>
-                        <p className={selectedWorkOrderId === order.id ? "text-slate-300" : "text-slate-500"}>{typeof delta === "number" ? (delta < 0 ? `${Math.abs(delta)} days overdue` : `${delta} days left`) : "No due date"}</p>
+                      <div className="text-right text-xs text-slate-500">
+                        <p className="font-medium text-slate-700">{formatDate(order.dueDate)}</p>
+                        <p>{typeof delta === "number" ? (delta < 0 ? `${Math.abs(delta)} days overdue` : `${delta} days left`) : "No due date"}</p>
                       </div>
                     </div>
                   </button>
@@ -1433,176 +1441,125 @@ export default function MaintenancePage() {
           </div>
         </section>
 
-        <section id="schedule-planner" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Schedule Maintenance</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">Calendar and due planning</h2>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {upcomingSchedules.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">No active schedules yet. Use the planner below to seed preventive maintenance.</div>
-            ) : (
-              upcomingSchedules.map((schedule) => {
-                const target = schedule.vehicleId ? vehicles.find((vehicle) => vehicle.id === schedule.vehicleId)?.registrationNo : schedule.assetId ? assetsById.get(schedule.assetId)?.name : "Unlinked target";
-                const delta = daysDelta(schedule.nextDueDate);
-
-                return (
-                  <article key={schedule.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{schedule.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">{target} · {formatLabel(schedule.frequency)}</p>
-                      </div>
-                      <div className="text-right text-xs text-slate-500">
-                        <p>{formatDate(schedule.nextDueDate)}</p>
-                        <p>{typeof delta === "number" ? `${delta} days` : "TBD"}</p>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
-
-          {calendarRows.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Calendar Pulse</p>
-                <span className="text-xs text-slate-400">Live from maintenance calendar</span>
+        <div className="space-y-5">
+          <section id="schedule-planner" className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Planning</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">Upcoming schedule</h2>
               </div>
-              <div className="mt-3 space-y-2">
-                {calendarRows.slice(0, 4).map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
-                    <div>
-                      <p className="font-medium text-slate-900">{entry.title}</p>
-                      <p className="text-xs text-slate-500">{entry.vehicleId ? "Vehicle schedule" : entry.assetId ? "Asset schedule" : "Maintenance event"}</p>
-                    </div>
-                    <p className="text-xs font-medium text-slate-600">{formatDate(entry.date)}</p>
-                  </div>
-                ))}
-              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{dueSoonCount} due soon</span>
             </div>
-          ) : null}
 
-          <div className="mt-5 rounded-2xl bg-slate-950 px-4 py-4 text-sm text-slate-200">
-            <p className="font-semibold text-white">Legacy cue integration</p>
-            <p className="mt-2 text-slate-300">Scheduling, due-day prioritization, pending requests, and zero-stock item visibility now sit together instead of across multiple legacy screens.</p>
-          </div>
-        </section>
+            <div className="mt-4 space-y-3">
+              {upcomingSchedules.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">No active schedules yet. Use the studio planner to seed preventive maintenance.</div>
+              ) : (
+                upcomingSchedules.slice(0, 4).map((schedule) => {
+                  const target = schedule.vehicleId ? vehicles.find((vehicle) => vehicle.id === schedule.vehicleId)?.registrationNo : schedule.assetId ? assetsById.get(schedule.assetId)?.name : "Unlinked target";
+                  const delta = daysDelta(schedule.nextDueDate);
 
-        <section id="attention-queue" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Popup Messages</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">Attention queue</h2>
-          </div>
+                  return (
+                    <article key={schedule.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{schedule.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{target} · {formatLabel(schedule.frequency)}</p>
+                        </div>
+                        <div className="text-right text-xs text-slate-500">
+                          <p className="font-medium text-slate-700">{formatDate(schedule.nextDueDate)}</p>
+                          <p>{typeof delta === "number" ? `${delta} days` : "TBD"}</p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
 
-          <div className="mt-4 space-y-3">
-            {alerts.slice(0, 4).map((alert) => (
-              <article key={alert.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${RISK_STYLES[alert.riskLevel]}`}>{alert.riskLevel}</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{formatLabel(alert.type)}</span>
+            {calendarRows.length > 0 ? (
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Calendar pulse</p>
+                <div className="mt-3 space-y-2">
+                  {calendarRows.slice(0, 3).map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-3 text-sm">
+                      <div>
+                        <p className="font-medium text-slate-900">{entry.title}</p>
+                        <p className="text-xs text-slate-500">{entry.vehicleId ? "Vehicle schedule" : entry.assetId ? "Asset schedule" : "Maintenance event"}</p>
+                      </div>
+                      <p className="text-xs font-medium text-slate-600">{formatDate(entry.date)}</p>
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-2 text-sm text-slate-700">{alert.message}</p>
-              </article>
-            ))}
+              </div>
+            ) : null}
+          </section>
 
-            {overdueOrders.slice(0, 2).map((order) => (
-              <article key={order.id} className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <p className="font-semibold">{order.woNumber} is overdue</p>
-                <p className="mt-1">{order.title}</p>
-              </article>
-            ))}
+          <section id="attention-queue" className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Attention</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">What needs attention now</h2>
+              </div>
+              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">{elevatedRiskCount} elevated alerts</span>
+            </div>
 
-            {zeroStockParts.slice(0, 2).map((part) => (
-              <article key={part.id} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <p className="font-semibold">Zero stock: {part.partNumber}</p>
-                <p className="mt-1">{part.name}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+            <div className="mt-4 space-y-3">
+              {alerts.slice(0, 3).map((alert) => (
+                <article key={alert.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${RISK_STYLES[alert.riskLevel]}`}>{alert.riskLevel}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{formatLabel(alert.type)}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700">{alert.message}</p>
+                </article>
+              ))}
+
+              {overdueOrders.slice(0, 2).map((order) => (
+                <article key={order.id} className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  <p className="font-semibold">{order.woNumber} is overdue</p>
+                  <p className="mt-1">{order.title}</p>
+                </article>
+              ))}
+
+              {zeroStockParts.slice(0, 1).map((part) => (
+                <article key={part.id} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <p className="font-semibold">Zero stock: {part.partNumber}</p>
+                  <p className="mt-1">{part.name}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
 
-      <section id="job-streams" className="scroll-mt-24 space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Integrated Job Streams</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">Vehicle, machinery, and service maintenance boards</h2>
-          </div>
-          <p className="text-sm text-slate-500">Open a card to feed the shared maintenance studio on the next panel.</p>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-3">
-          {(["VEHICLE", "MACHINERY", "SERVICE"] as JobLane[]).map((lane) => {
-            const Icon = LANE_META[lane].icon;
-            const rows = workOrdersByLane[lane];
-
-            return (
-              <section key={lane} className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${LANE_META[lane].accent}`}>
-                <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 px-5 py-4">
-                  <div>
-                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"><Icon size={16} /> {LANE_META[lane].label}</div>
-                    <p className="mt-1 text-sm text-slate-500">{LANE_META[lane].description}</p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${LANE_META[lane].badge}`}>{rows.length}</span>
-                </div>
-
-                <div className="space-y-3 px-5 py-4">
-                  {rows.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-6 text-sm text-slate-500">No jobs in this stream yet.</div>
-                  ) : (
-                    rows.slice(0, 4).map((order) => (
-                      <button key={order.id} type="button" onClick={() => { setSelectedWorkOrderId(order.id); setStudioStep(order.status === "OPEN" ? "ALLOCATION" : order.status === "COMPLETED" ? "COMPLETION" : "TIMING"); }} className={`w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition ${selectedWorkOrderId === order.id ? "border-slate-900 bg-slate-900 text-white" : "border-white/70 bg-white/85 hover:border-slate-300 hover:bg-white"}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">{order.woNumber}</p>
-                            <p className="mt-1 text-sm">{order.title}</p>
-                            <p className={`mt-1 text-xs ${selectedWorkOrderId === order.id ? "text-slate-300" : "text-slate-500"}`}>{targetLabel(order)}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${selectedWorkOrderId === order.id ? "bg-white/10 text-white" : STATUS_STYLES[order.status]}`}>{formatLabel(order.status)}</span>
-                            <p className={`mt-2 text-xs ${selectedWorkOrderId === order.id ? "text-slate-300" : "text-slate-500"}`}>{formatCurrency(order.actualCost || order.estimatedCost)}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
-        <section className="space-y-4">
-          <article id="job-report" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.2fr]">
+        <section className="space-y-5">
+          <article id="job-report" className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Selected Job</p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">Total job report</h2>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">Job summary</h2>
               </div>
               {selectedWorkOrder ? <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[selectedWorkOrder.status]}`}>{formatLabel(selectedWorkOrder.status)}</span> : null}
             </div>
 
             {!selectedWorkOrder ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">Select a request or job to inspect the integrated maintenance report.</div>
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">Select a request from the queue to see the maintenance summary and recent activity.</div>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="rounded-2xl bg-slate-950 px-4 py-4 text-slate-100">
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-[24px] bg-gradient-to-br from-brand-600 via-brand-700 to-slate-900 px-5 py-5 text-white shadow-[0_22px_44px_rgba(17,94,168,0.24)]">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
                     <span>{selectedWorkOrder.woNumber}</span>
                     <span className={`rounded-full px-2 py-0.5 normal-case tracking-normal ${LANE_META[getJobLane(selectedWorkOrder)].badge}`}>{LANE_META[getJobLane(selectedWorkOrder)].label}</span>
                     <span className={`rounded-full px-2 py-0.5 normal-case tracking-normal ${PRIORITY_STYLES[selectedWorkOrder.priority]}`}>{formatLabel(selectedWorkOrder.priority)}</span>
                   </div>
                   <h3 className="mt-3 text-xl font-semibold text-white">{selectedWorkOrder.title}</h3>
-                  <p className="mt-2 text-sm text-slate-300">{selectedWorkOrder.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-white/80">{selectedWorkOrder.description}</p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Job details</p>
                     <dl className="mt-3 space-y-2 text-sm text-slate-700">
                       <div className="flex items-center justify-between gap-3"><dt>Target</dt><dd className="text-right font-medium text-slate-900">{targetLabel(selectedWorkOrder)}</dd></div>
@@ -1611,7 +1568,7 @@ export default function MaintenancePage() {
                       <div className="flex items-center justify-between gap-3"><dt>Primary assignee</dt><dd className="font-medium text-slate-900">{userFullName(selectedWorkOrder.technician)}</dd></div>
                     </dl>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cost and time</p>
                     <dl className="mt-3 space-y-2 text-sm text-slate-700">
                       <div className="flex items-center justify-between gap-3"><dt>Estimated cost</dt><dd className="font-medium text-slate-900">{formatCurrency(selectedWorkOrder.estimatedCost)}</dd></div>
@@ -1622,7 +1579,7 @@ export default function MaintenancePage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Requested Items</p>
                     <span className="text-sm font-medium text-slate-700">{selectedWorkOrder.parts.length} linked</span>
@@ -1650,38 +1607,10 @@ export default function MaintenancePage() {
             )}
           </article>
 
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">FMS</p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">Job-wise costing and low-stock impact</h2>
-              </div>
-              <DollarSign size={18} className="text-slate-400" />
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {costByLane.map((row) => (
-                <div key={row.lane} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-slate-900">{LANE_META[row.lane].label}</p>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${LANE_META[row.lane].badge}`}>{row.count} jobs</span>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
-                    <div><p className="text-xs uppercase tracking-[0.16em] text-slate-400">Estimated</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(row.estimated)}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.16em] text-slate-400">Actual</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(row.actual)}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.16em] text-slate-400">Parts</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(row.parts)}</p></div>
-                  </div>
-                </div>
-              ))}
-
-              {lowStockParts.length > 0 ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900"><p className="font-semibold">Low-stock warning</p><p className="mt-1">{lowStockParts.length} parts are at or below reorder point, which may delay maintenance execution.</p></div> : null}
-            </div>
-          </article>
-
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">History</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Activity</p>
                 <h2 className="mt-1 text-lg font-semibold text-slate-900">Recent maintenance logs</h2>
               </div>
               <Clock3 size={18} className="text-slate-400" />
@@ -1708,30 +1637,30 @@ export default function MaintenancePage() {
           </article>
         </section>
 
-        <section id="maintenance-studio" className="scroll-mt-24 overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.35)]">
-          <div className="border-b border-slate-800 px-5 py-5">
+        <section id="maintenance-studio" className="scroll-mt-24 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+          <div className="border-b border-slate-200 px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Maintenance Studio</p>
             <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-white">Legacy flow, integrated</h2>
-                <p className="mt-1 text-sm text-slate-400">Intake, schedule, allocation, item request, timing, and completion now live inside one maintenance workspace.</p>
+                <h2 className="text-xl font-semibold text-slate-900">Focused maintenance flow</h2>
+                <p className="mt-1 text-sm text-slate-500">Create, plan, assign, update, request parts, and complete jobs inside one simplified workspace.</p>
               </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">{selectedWorkOrder ? `${selectedWorkOrder.woNumber} · ${selectedWorkOrder.title}` : "No job selected"}</div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{selectedWorkOrder ? `${selectedWorkOrder.woNumber} · ${selectedWorkOrder.title}` : "No job selected"}</div>
             </div>
           </div>
 
-          <div className="border-b border-slate-800 px-5 py-4">
+          <div className="border-b border-slate-200 px-5 py-4">
             <div className="flex flex-wrap gap-2">
               {([[
                 "REQUEST",
                 "Request intake"
               ], ["SCHEDULE", "Schedule"], ["ALLOCATION", "Allocation"], ["TIMING", "Time & fault"], ["PARTS", "Item request"], ["COMPLETION", "Completion"]] as Array<[StudioStep, string]>).map(([value, label]) => (
-                <button key={value} type="button" onClick={() => setStudioStep(value)} className={`rounded-full px-3 py-1.5 text-sm transition ${studioStep === value ? "bg-white text-slate-900" : "border border-slate-800 bg-slate-900/70 text-slate-300 hover:bg-slate-900"}`}>{label}</button>
+                <button key={value} type="button" onClick={() => setStudioStep(value)} className={`rounded-full px-3 py-1.5 text-sm transition ${studioStep === value ? "bg-brand-600 text-white shadow-sm" : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-brand-200 hover:bg-brand-50/60"}`}>{label}</button>
               ))}
             </div>
           </div>
 
-          <div className="space-y-6 px-5 py-5 text-white">
+          <div className="space-y-6 px-5 py-5 text-slate-900">
             {studioStep === "REQUEST" ? (
               <div className="space-y-5">
                 <div className="grid gap-3 md:grid-cols-3">
@@ -1739,9 +1668,9 @@ export default function MaintenancePage() {
                     const Icon = LANE_META[lane].icon;
 
                     return (
-                      <button key={lane} type="button" onClick={() => setJobForm((current) => ({ ...current, lane, targetId: "", scheduleId: "" }))} className={`rounded-3xl border px-4 py-4 text-left transition ${jobForm.lane === lane ? "border-sky-400 bg-sky-500/10" : "border-slate-800 bg-slate-900/60 hover:border-slate-700"}`}>
-                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-white"><Icon size={15} /> {LANE_META[lane].label}</div>
-                        <p className="mt-2 text-sm text-slate-400">{LANE_META[lane].description}</p>
+                      <button key={lane} type="button" onClick={() => setJobForm((current) => ({ ...current, lane, targetId: "", scheduleId: "" }))} className={`rounded-3xl border px-4 py-4 text-left transition ${jobForm.lane === lane ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-slate-50/70 hover:border-brand-200 hover:bg-white"}`}>
+                        <div className={`inline-flex items-center gap-2 text-sm font-semibold ${jobForm.lane === lane ? "text-brand-800" : "text-slate-800"}`}><Icon size={15} /> {LANE_META[lane].label}</div>
+                        <p className="mt-2 text-sm text-slate-500">{LANE_META[lane].description}</p>
                       </button>
                     );
                   })}
@@ -1768,8 +1697,8 @@ export default function MaintenancePage() {
 
                 <label className={studioLabelClass}>Additional description<textarea rows={4} value={jobForm.description} onChange={(event) => setJobForm((current) => ({ ...current, description: event.target.value }))} className={studioInputClass} placeholder="Add any extra details that should flow into the work order." /></label>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-                  <p className="max-w-2xl text-sm text-slate-400">This intake block folds the request, pending list, and initial vehicle/service/machinery form screens into a single creation flow.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="max-w-2xl text-sm text-slate-600">This intake block keeps request creation focused without forcing users through separate maintenance screens.</p>
                   <button type="button" onClick={() => void handleCreateWorkOrder()} disabled={busyAction === "create-work-order"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
                     {busyAction === "create-work-order" ? <Loader2 size={15} className="animate-spin" /> : <ClipboardCheck size={15} />} Create job
                   </button>
@@ -1794,8 +1723,8 @@ export default function MaintenancePage() {
 
                 <label className={studioLabelClass}>Schedule notes<textarea rows={4} value={scheduleForm.description} onChange={(event) => setScheduleForm((current) => ({ ...current, description: event.target.value }))} className={studioInputClass} placeholder="Capture the planning context, service interval rationale, or inspection criteria." /></label>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-                  <p className="max-w-2xl text-sm text-slate-400">Use this block for scheduled maintenance, overdue prioritization, and proactive planning from the legacy schedule screens.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="max-w-2xl text-sm text-slate-600">Plan preventive work, review intervals, and keep upcoming maintenance visible in one place.</p>
                   <button type="button" onClick={() => void handleCreateSchedule()} disabled={busyAction === "create-schedule"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
                     {busyAction === "create-schedule" ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />} Create schedule
                   </button>
@@ -1806,7 +1735,7 @@ export default function MaintenancePage() {
             {studioStep === "ALLOCATION" ? (
               <div className="space-y-5">
                 {!selectedWorkOrder ? (
-                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-4 py-6 text-sm text-slate-400">Select a maintenance request from the board before assigning staff or vendors.</div>
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Select a maintenance request from the queue before assigning staff or vendors.</div>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -1815,14 +1744,14 @@ export default function MaintenancePage() {
                       <label className={studioLabelClass}>Vendor partner<input value={allocationForm.vendorPartner} onChange={(event) => setAllocationForm((current) => ({ ...current, vendorPartner: event.target.value }))} className={studioInputClass} placeholder="Optional vendor or subcontractor" /></label>
                     </div>
 
-                    <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Support crew / engineers</p>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Support crew / engineers</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {technicians.map((user) => {
                           const active = allocationForm.supportCrewIds.includes(user.id);
 
                           return (
-                            <button key={user.id} type="button" onClick={() => setAllocationForm((current) => ({ ...current, supportCrewIds: active ? current.supportCrewIds.filter((id) => id !== user.id) : [...current.supportCrewIds, user.id] }))} className={`rounded-full px-3 py-1.5 text-sm transition ${active ? "bg-white text-slate-900" : "border border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"}`}>
+                            <button key={user.id} type="button" onClick={() => setAllocationForm((current) => ({ ...current, supportCrewIds: active ? current.supportCrewIds.filter((id) => id !== user.id) : [...current.supportCrewIds, user.id] }))} className={`rounded-full px-3 py-1.5 text-sm transition ${active ? "bg-brand-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50/50"}`}>
                               {userFullName(user)}
                             </button>
                           );
@@ -1830,8 +1759,8 @@ export default function MaintenancePage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-                      <p className="max-w-2xl text-sm text-slate-400">This stage consolidates the old allocation screens for vehicle, machinery, and service jobs into a single crew assignment workflow.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <p className="max-w-2xl text-sm text-slate-600">Assign the lead technician, supporting crew, and any vendor partner without leaving the studio.</p>
                       <button type="button" onClick={() => void handleApplyAllocation()} disabled={busyAction === "apply-allocation"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
                         {busyAction === "apply-allocation" ? <Loader2 size={15} className="animate-spin" /> : <UserRound size={15} />} Apply allocation
                       </button>
@@ -1844,7 +1773,7 @@ export default function MaintenancePage() {
             {studioStep === "TIMING" ? (
               <div className="space-y-5">
                 {!selectedWorkOrder ? (
-                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-4 py-6 text-sm text-slate-400">Select a maintenance job before adding time estimation or fault updates.</div>
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Select a maintenance job before adding time estimation or fault updates.</div>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -1862,8 +1791,8 @@ export default function MaintenancePage() {
 
                     <label className={studioLabelClass}>Job narration<textarea rows={5} value={timingForm.narration} onChange={(event) => setTimingForm((current) => ({ ...current, narration: event.target.value }))} className={studioInputClass} placeholder="Capture the inspection result, repair narrative, time estimation assumptions, or issue diagnosis." /></label>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-                      <p className="max-w-2xl text-sm text-slate-400">Time estimation, fault condition, narration, previous/current counters, and in-progress activation from the legacy forms now live in one stage.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <p className="max-w-2xl text-sm text-slate-600">Capture timing, readings, and fault updates before moving the job into live execution.</p>
                       <button type="button" onClick={() => void handleStartSelectedWorkOrder()} disabled={busyAction === "start-work-order"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
                         {busyAction === "start-work-order" ? <Loader2 size={15} className="animate-spin" /> : <Clock3 size={15} />} Start / update live job
                       </button>
@@ -1876,7 +1805,7 @@ export default function MaintenancePage() {
             {studioStep === "PARTS" ? (
               <div className="space-y-5">
                 {!selectedWorkOrder ? (
-                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-4 py-6 text-sm text-slate-400">Select a maintenance job before building the item request list.</div>
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Select a maintenance job before building the item request list.</div>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-[1.1fr_1fr_auto]">
@@ -1885,30 +1814,30 @@ export default function MaintenancePage() {
                       <div className={studioLabelClass}>
                         Quantity
                         <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setPartForm((current) => ({ ...current, quantity: Math.max(1, current.quantity - 1) }))} className="rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white hover:border-slate-500">-</button>
+                          <button type="button" onClick={() => setPartForm((current) => ({ ...current, quantity: Math.max(1, current.quantity - 1) }))} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:border-brand-200 hover:bg-brand-50/50">-</button>
                           <input value={partForm.quantity} onChange={(event) => setPartForm((current) => ({ ...current, quantity: Math.max(1, Number(event.target.value) || 1) }))} className={`${studioInputClass} w-20 text-center`} />
-                          <button type="button" onClick={() => setPartForm((current) => ({ ...current, quantity: current.quantity + 1 }))} className="rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white hover:border-slate-500">+</button>
+                          <button type="button" onClick={() => setPartForm((current) => ({ ...current, quantity: current.quantity + 1 }))} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:border-brand-200 hover:bg-brand-50/50">+</button>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <button type="button" onClick={handleQueuePart} className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:border-slate-500"><PackagePlus size={15} /> Add item</button>
+                      <button type="button" onClick={handleQueuePart} className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100/70"><PackagePlus size={15} /> Add item</button>
                       <button type="button" onClick={() => void handleSubmitPartRequest()} disabled={busyAction === "submit-part-request"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">{busyAction === "submit-part-request" ? <Loader2 size={15} className="animate-spin" /> : <Boxes size={15} />} Submit item request</button>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Queued items</p>
+                      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Queued items</p>
                         <div className="mt-3 space-y-2">
-                          {queuedPartDetails.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 px-3 py-4 text-sm text-slate-500">No items staged yet.</div> : queuedPartDetails.map((entry) => <div key={entry.partId} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 text-sm text-slate-200"><div><p className="font-medium text-white">{entry.part?.partNumber ?? entry.partId}</p><p className="text-slate-500">{entry.part?.name ?? "Unknown item"}</p></div><p>{entry.quantity} {entry.part?.unit ?? "pcs"}</p></div>)}
+                          {queuedPartDetails.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">No items staged yet.</div> : queuedPartDetails.map((entry) => <div key={entry.partId} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700"><div><p className="font-medium text-slate-900">{entry.part?.partNumber ?? entry.partId}</p><p className="text-slate-500">{entry.part?.name ?? "Unknown item"}</p></div><p>{entry.quantity} {entry.part?.unit ?? "pcs"}</p></div>)}
                         </div>
                       </div>
 
-                      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Already linked to job</p>
+                      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Already linked to job</p>
                         <div className="mt-3 space-y-2">
-                          {selectedWorkOrder.parts.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 px-3 py-4 text-sm text-slate-500">No linked items yet.</div> : selectedWorkOrder.parts.map((part) => <div key={part.id} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-3 text-sm text-slate-200"><div><p className="font-medium text-white">{part.part.partNumber}</p><p className="text-slate-500">{part.part.name}</p></div><p>{part.quantity} {part.part.unit ?? "pcs"}</p></div>)}
+                          {selectedWorkOrder.parts.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">No linked items yet.</div> : selectedWorkOrder.parts.map((part) => <div key={part.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700"><div><p className="font-medium text-slate-900">{part.part.partNumber}</p><p className="text-slate-500">{part.part.name}</p></div><p>{part.quantity} {part.part.unit ?? "pcs"}</p></div>)}
                         </div>
                       </div>
                     </div>
@@ -1920,7 +1849,7 @@ export default function MaintenancePage() {
             {studioStep === "COMPLETION" ? (
               <div className="space-y-5">
                 {!selectedWorkOrder ? (
-                  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-4 py-6 text-sm text-slate-400">Select a maintenance job before finalizing completion and the total report.</div>
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Select a maintenance job before finalizing completion and the total report.</div>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -1932,18 +1861,18 @@ export default function MaintenancePage() {
 
                     <label className={studioLabelClass}>Completion summary / total report<textarea rows={5} value={completionForm.notes} onChange={(event) => setCompletionForm((current) => ({ ...current, notes: event.target.value }))} className={studioInputClass} placeholder="Capture work carried out, replaced parts, pending follow-up, and completion remarks." /></label>
 
-                    <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Completion preview</p>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Completion preview</p>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Job no</p><p className="mt-1 font-medium text-white">{selectedWorkOrder.woNumber}</p></div>
-                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p><p className="mt-1 font-medium text-white">{targetLabel(selectedWorkOrder)}</p></div>
-                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Planned</p><p className="mt-1 font-medium text-white">{formatCurrency(selectedWorkOrder.estimatedCost)} · {toNumber(selectedWorkOrder.estimatedHours).toFixed(1)} h</p></div>
-                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Requested items</p><p className="mt-1 font-medium text-white">{selectedWorkOrder.parts.length} linked items</p></div>
+                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Job no</p><p className="mt-1 font-medium text-slate-900">{selectedWorkOrder.woNumber}</p></div>
+                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p><p className="mt-1 font-medium text-slate-900">{targetLabel(selectedWorkOrder)}</p></div>
+                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Planned</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(selectedWorkOrder.estimatedCost)} · {toNumber(selectedWorkOrder.estimatedHours).toFixed(1)} h</p></div>
+                        <div><p className="text-xs uppercase tracking-[0.16em] text-slate-500">Requested items</p><p className="mt-1 font-medium text-slate-900">{selectedWorkOrder.parts.length} linked items</p></div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-                      <p className="max-w-2xl text-sm text-slate-400">This stage replaces the old complete / total job report screens and writes both work order completion and maintenance log history.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <p className="max-w-2xl text-sm text-slate-600">Finalize the job with completion notes, actual values, and a clean handoff into maintenance log history.</p>
                       <button type="button" onClick={() => void handleCompleteSelectedWorkOrder()} disabled={busyAction === "complete-work-order" || selectedWorkOrder.status === "COMPLETED"} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">
                         {busyAction === "complete-work-order" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {selectedWorkOrder.status === "COMPLETED" ? "Already complete" : "Complete job"}
                       </button>
