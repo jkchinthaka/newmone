@@ -145,9 +145,37 @@ export class VehiclesController {
     return { data, message: "Trips fetched" };
   }
 
+  @Get(":id/history")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "DRIVER")
+  async history(
+    @Param("id") id: string,
+    @Query("from") fromRaw?: string,
+    @Query("to") toRaw?: string,
+    @Query("limit") limitRaw?: string
+  ) {
+    const data = await this.vehiclesService.history(id, {
+      from: fromRaw,
+      to: toRaw,
+      limit: this.toPositiveInt(limitRaw, 1000)
+    });
+    return { data, message: "Vehicle history fetched" };
+  }
+
   @Post(":id/gps-update")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER")
-  async gpsUpdate(@Param("id") id: string, @Body() body: { latitude: number; longitude: number; speed?: number; heading?: number }) {
+  async gpsUpdate(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      latitude: number;
+      longitude: number;
+      speed?: number;
+      heading?: number;
+      engineStatus?: boolean | "ON" | "OFF";
+      fuelLevel?: number;
+      batteryVoltage?: number;
+    }
+  ) {
     const data = await this.vehiclesService.gpsUpdate(id, body);
     return { data, message: "GPS updated" };
   }

@@ -15,6 +15,12 @@ interface VehicleListQuery {
   pageSize?: number;
 }
 
+interface VehicleHistoryQuery {
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
 export type VehicleAlertType = "UPCOMING_SERVICE" | "OVERDUE_MAINTENANCE" | "STATUS_CHANGE";
 export type VehicleAlertSeverity = "info" | "warning" | "critical";
 
@@ -535,7 +541,70 @@ export class VehiclesService {
     return this.prisma.tripLog.findMany({ where: { vehicleId: id }, orderBy: { createdAt: "desc" } });
   }
 
-  gpsUpdate(id: string, data: { latitude: number; longitude: number; speed?: number; heading?: number }) {
+  async history(id: string, query: VehicleHistoryQuery = {}) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException("Vehicle not found");
+    }
+
+    const where: Prisma.GpsLocationWhereInput = { vehicleId: id };
+    const from = query.from ? this.parseDateOrThrow(query.from, "from") : null;
+    const to = query.to ? this.parseDateOrThrow(query.to, "to") : null;
+
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new BadRequestException("The from date must be earlier than the to date");
+    }
+
+    if (from || to) {
+      where.timestamp = {
+        gte: from ?? undefined,
+        lte: to ?? undefined
+      };
+    }
+
+    const limit = Math.min(5_000, Math.max(50, query.limit ?? 1_000));
+
+    return this.prisma.gpsLocation.findMany({
+      where,
+      orderBy: { timestamp: "asc" },
+      take: limit,
+      select: {
+        id: true,
+        vehicleId: true,
+        latitude: true,
+        longitude: true,
+        speed: true,
+        heading: true,
+        timestamp: true
+      }
+    });
+  }
+
+  gpsUpdate(
+    id: string,
+    data: {
+      latitude: number;
+      longitude: number;
+      speed?: number;
+      heading?: number;
+      engineStatus?: boolean | "ON" | "OFF";
+      fuelLevel?: number;
+      batteryVoltage?: number;
+    }
+  ) {
     return this.fleetService.updateGps(id, data);
+  }
+
+  private parseDateOrThrow(value: string, label: string) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`Invalid ${label} date`);
+    }
+
+    return parsed;
   }
 }
