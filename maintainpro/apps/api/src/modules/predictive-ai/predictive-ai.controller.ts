@@ -1,8 +1,9 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { CopilotChatDto } from "./dto/copilot-chat.dto";
 import { PredictiveAiService } from "./predictive-ai.service";
 
 @ApiTags("Predictive AI")
@@ -11,6 +12,12 @@ import { PredictiveAiService } from "./predictive-ai.service";
 @Controller("predictive-ai")
 export class PredictiveAiController {
   constructor(private readonly predictiveAiService: PredictiveAiService) {}
+
+  @Post("copilot")
+  async copilot(@Body() dto: CopilotChatDto) {
+    const data = await this.predictiveAiService.copilotChat(dto);
+    return { data, message: "AI assistant response generated" };
+  }
 
   @Get("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")

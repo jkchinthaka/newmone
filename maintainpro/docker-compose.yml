@@ -13,6 +13,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       DATABASE_URL: postgresql://${POSTGRES_USER:-maintainpro}:${POSTGRES_PASSWORD:-maintainpro}@postgres:5432/${POSTGRES_DB:-maintainpro}?schema=public
       REDIS_URL: redis://redis:6379
+      RAPIDAPI_COPILOT_API_KEY: ${RAPIDAPI_COPILOT_API_KEY:-}
+      RAPIDAPI_COPILOT_HOST: ${RAPIDAPI_COPILOT_HOST:-copilot5.p.rapidapi.com}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"

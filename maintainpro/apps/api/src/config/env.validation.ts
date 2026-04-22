@@ -23,6 +23,8 @@ export const envValidationSchema = Joi.object({
   TWILIO_ACCOUNT_SID: Joi.string().allow(""),
   TWILIO_AUTH_TOKEN: Joi.string().allow(""),
   TWILIO_PHONE_NUMBER: Joi.string().allow(""),
+  RAPIDAPI_COPILOT_API_KEY: Joi.string().allow(""),
+  RAPIDAPI_COPILOT_HOST: Joi.string().default("copilot5.p.rapidapi.com"),
   MINIO_ENDPOINT: Joi.string().required(),
   MINIO_PORT: Joi.number().required(),
   MINIO_USE_SSL: Joi.boolean().default(false),
