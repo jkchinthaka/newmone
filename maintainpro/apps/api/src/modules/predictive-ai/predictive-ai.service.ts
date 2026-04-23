@@ -7,94 +7,161 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Priority, Prisma, RoleName, WorkOrderStatus } from "@prisma/client";
+import { Prisma, Priority, RoleName, WorkOrderStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
-import { MaintenanceService } from "../maintenance/maintenance.service";
-import { ReportsService } from "../reports/reports.service";
-import { WorkOrdersService } from "../work-orders/work-orders.service";
+import type { JwtPayload } from "../auth/auth.types";
 import {
-  AssignTechnicianActionDto,
-  type CopilotReportType,
-  CreateWorkOrderActionDto,
-  GenerateReportActionDto,
-  ScheduleMaintenanceActionDto
-} from "./dto/copilot-actions.dto";
-import {
+  COPILOT_FOCUS_AREAS,
+  COPILOT_MODES,
   type CopilotFocusArea,
   type CopilotMode,
   CopilotChatDto
 } from "./dto/copilot-chat.dto";
 import {
+  type CopilotReportType,
+  AssignTechnicianActionDto,
+  CreateWorkOrderActionDto,
+  GenerateReportActionDto,
+  ScheduleMaintenanceActionDto
+} from "./dto/copilot-actions.dto";
+import {
+  CopilotContextQueryDto,
   CopilotCreateConversationDto,
   CopilotLogsQueryDto
 } from "./dto/copilot-query.dto";
 
-type CopilotUser = {
-  sub: string;
-  role: RoleName;
-  tenantId?: string | null;
-  email?: string;
-} | null;
+export type CopilotActor = Pick<JwtPayload, "sub" | "role" | "email" | "tenantId">;
 
-type CopilotSuggestedAction = {
+type CopilotRoleScope = "ADMIN" | "MANAGER" | "TECHNICIAN" | "VIEWER";
+
+type SuggestedActionType =
+  | "CREATE_WORK_ORDER"
+  | "SCHEDULE_MAINTENANCE"
+  | "ASSIGN_TECHNICIAN"
+  | "GENERATE_REPORT";
+
+type ConversationListOptions = {
+  limit?: string;
+  userId?: string;
+};
+
+type CopilotSummary = {
+  activeWorkOrders: number;
+  overdueTasks: number;
+  assignedToMe: number;
+  fleetOutOfService: number;
+  utilityAnomalies: number;
+  lowStockItems: number;
+};
+
+type CopilotActionSuggestion = {
   id: string;
+  type: SuggestedActionType;
   label: string;
-  actionType:
-    | "CREATE_WORK_ORDER"
-    | "SCHEDULE_MAINTENANCE"
-    | "ASSIGN_TECHNICIAN"
-    | "GENERATE_REPORT";
-  endpoint: string;
   description: string;
   payload: Record<string, unknown>;
+  enabled: boolean;
+  disabledReason?: string;
 };
 
-type CopilotContextBundle = {
+type ContextWorkOrder = {
+  id: string;
+  woNumber: string;
+  title: string;
+  priority: string;
+  status: string;
+  dueDate: string | null;
+  technicianId: string | null;
+};
+
+type ContextMaintenanceSchedule = {
+  id: string;
+  name: string;
+  nextDueDate: string | null;
+  assetId: string | null;
+  vehicleId: string | null;
+};
+
+type ContextFleetIdleVehicle = {
+  id: string;
+  registrationNo: string;
+  lastUpdatedAt: string;
+  daysIdle: number;
+};
+
+type ContextFuelAnomaly = {
+  vehicleId: string;
+  registrationNo: string;
+  averageCostPerLiter: number;
+  globalAverageCostPerLiter: number;
+  variancePercent: number;
+};
+
+type ContextUtilityAnomaly = {
+  meterId: string;
+  meterNumber: string;
+  location: string;
+  utilityType: string;
+  latestAmount: number;
+  previousAmount: number;
+  variancePercent: number;
+  billingMonth: string;
+};
+
+type ContextLowStockPart = {
+  id: string;
+  partNumber: string;
+  name: string;
+  quantityInStock: number;
+  reorderPoint: number;
+};
+
+type ContextProjectedStockout = {
+  partId: string;
+  partNumber: string;
+  name: string;
+  quantityInStock: number;
+  avgDailyUsage: number;
+  projectedDaysLeft: number;
+};
+
+type CopilotContextSnapshot = {
   generatedAt: string;
-  userScope: {
-    userId: string | null;
-    role: RoleName | "ANONYMOUS";
-    tenantId: string | null;
-    visibility: "full" | "summary" | "assigned-only";
+  roleScope: CopilotRoleScope;
+  focusArea: CopilotFocusArea;
+  mode: CopilotMode;
+  summary: CopilotSummary;
+  maintenance: {
+    activeWorkOrders: ContextWorkOrder[];
+    overdueWorkOrders: ContextWorkOrder[];
+    assignedToMe: ContextWorkOrder[];
+    overdueSchedules: ContextMaintenanceSchedule[];
   };
-  metrics: {
-    activeWorkOrders: number;
-    overdueWorkOrders: number;
-    overdueMaintenanceTasks: number;
-    fleetVehicles: number;
-    fleetUnavailable: number;
-    fuelAnomalies: number;
-    utilityAnomalies: number;
-    overdueUtilityBills: number;
-    lowStockParts: number;
-    cleaningOpenIssues: number;
+  fleet: {
+    statusCounts: Record<string, number>;
+    overdueServiceVehicles: Array<{
+      id: string;
+      registrationNo: string;
+      status: string;
+      nextServiceDate: string | null;
+    }>;
+    idleVehicles: ContextFleetIdleVehicle[];
+    fuelAnomalies: ContextFuelAnomaly[];
   };
-  highlights: {
-    activeWorkOrders: Array<Record<string, unknown>>;
-    overdueWorkOrders: Array<Record<string, unknown>>;
-    unassignedWorkOrders: Array<Record<string, unknown>>;
-    overdueMaintenance: Array<Record<string, unknown>>;
-    fuelAnomalies: Array<Record<string, unknown>>;
-    utilityAnomalies: Array<Record<string, unknown>>;
-    lowStockParts: Array<Record<string, unknown>>;
-    stockoutRisk: Array<Record<string, unknown>>;
+  utilities: {
+    overdueBills: number;
+    anomalies: ContextUtilityAnomaly[];
   };
-  insightCards: Array<{
-    id: string;
-    title: string;
-    value: number;
-    severity: "neutral" | "warning" | "critical";
-    description: string;
-  }>;
-  suggestionChips: string[];
+  inventory: {
+    lowStockParts: ContextLowStockPart[];
+    projectedStockouts: ContextProjectedStockout[];
+  };
+  smartSuggestions: string[];
 };
 
-const ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
-  WorkOrderStatus.OPEN,
-  WorkOrderStatus.IN_PROGRESS,
-  WorkOrderStatus.ON_HOLD
-];
+const ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = ["OPEN", "IN_PROGRESS", "ON_HOLD"];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class PredictiveAiService {
@@ -102,423 +169,438 @@ export class PredictiveAiService {
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(WorkOrdersService) private readonly workOrdersService: WorkOrdersService,
-    @Inject(MaintenanceService) private readonly maintenanceService: MaintenanceService,
-    @Inject(ReportsService) private readonly reportsService: ReportsService
+    @Inject(ConfigService) private readonly configService: ConfigService
   ) {}
 
-  async copilotChat(dto: CopilotChatDto, user: CopilotUser = null) {
-    const focusArea = dto.focusArea ?? "GENERAL";
-    const mode = dto.mode ?? "CHAT";
+  async copilotChat(dto: CopilotChatDto, actor: CopilotActor | null = null) {
+    const focusArea = this.normalizeFocusArea(dto.focusArea);
+    const mode = this.normalizeMode(dto.mode);
     const markdown = dto.markdown ?? true;
 
-    const context = await this.getCopilotContext(user, focusArea, mode);
-    const conversation = await this.resolveConversation(user, dto, focusArea, mode);
+    const context = await this.getCopilotContext(actor, focusArea, mode);
 
-    if (conversation) {
-      await this.prisma.copilotMessage.create({
-        data: {
-          conversationId: conversation.id,
-          role: "USER",
-          content: dto.message,
-          focusArea,
-          mode
-        }
-      });
-    }
+    const conversation = actor
+      ? await this.resolveConversation(actor, dto, focusArea, mode)
+      : null;
 
-    const history = conversation
-      ? await this.prisma.copilotMessage.findMany({
-          where: { conversationId: conversation.id },
-          orderBy: { createdAt: "desc" },
-          take: 8,
-          select: {
-            role: true,
-            content: true,
-            createdAt: true
+    const createdUserMessage = actor && conversation
+      ? await this.prisma.copilotMessage.create({
+          data: {
+            conversationId: conversation.id,
+            userId: actor.sub,
+            role: "USER",
+            focusArea,
+            mode,
+            content: dto.message,
+            metadata: {
+              requestedStream: dto.stream ?? false
+            }
           }
         })
-      : [];
-
-    const requestBody = {
-      message: this.buildProjectAwareMessage({
-        message: dto.message,
-        focusArea,
-        mode,
-        user,
-        context,
-        history: history.reverse()
-      }),
-      conversation_id: conversation?.providerConversationId ?? dto.conversationId ?? null,
-      mode,
-      markdown
-    };
+      : null;
 
     const apiKey = this.configService.get<string>("RAPIDAPI_COPILOT_API_KEY")?.trim();
     const host =
       this.configService.get<string>("RAPIDAPI_COPILOT_HOST")?.trim() ||
       "copilot5.p.rapidapi.com";
 
-    if (!apiKey) {
-      this.logger.warn(
-        "Predictive AI assistant is not configured; using structured local fallback insights"
-      );
-
-      const fallback = this.buildFallbackResponse({
-        dto,
-        context,
-        conversation,
-        code: "assistant_not_configured",
-        reason: "RAPIDAPI_COPILOT_API_KEY is missing"
-      });
-
-      await this.persistAssistantArtifacts({
-        user,
-        dto,
-        context,
-        conversation,
-        responseText: fallback.response.text,
-        fallbackCode: "assistant_not_configured",
-        provider: "maintainpro-local-fallback",
-        suggestedActions: fallback.response.suggestedActions,
-        raw: fallback.response.raw
-      });
-
-      return fallback;
-    }
-
     let responseText = "";
     let parsedBody: unknown = null;
+    let source: "upstream" | "fallback" = "upstream";
+    let fallbackCode: string | null = null;
+    let fallbackReason: string | null = null;
 
-    try {
-      const response = await fetch(`https://${host}/copilot`, {
-        method: "POST",
-        headers: {
-          "x-rapidapi-key": apiKey,
-          "x-rapidapi-host": host,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(30_000)
-      });
-
-      responseText = await response.text();
-      parsedBody = this.parseJsonSafely(responseText);
-
-      if (!response.ok) {
-        const reason = this.extractErrorMessage(parsedBody, responseText);
-
-        this.logger.warn(
-          `Copilot upstream returned ${response.status}; using structured fallback: ${reason}`
-        );
-
-        const fallback = this.buildFallbackResponse({
-          dto,
-          context,
-          conversation,
-          code: `upstream_${response.status}`,
-          reason
-        });
-
-        await this.persistAssistantArtifacts({
-          user,
-          dto,
-          context,
-          conversation,
-          responseText: fallback.response.text,
-          fallbackCode: `upstream_${response.status}`,
-          provider: "maintainpro-local-fallback",
-          suggestedActions: fallback.response.suggestedActions,
-          raw: fallback.response.raw
-        });
-
-        return fallback;
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown provider failure";
-
-      this.logger.error(
-        `RapidAPI Copilot request failed; using structured fallback: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined
+    if (!apiKey) {
+      this.logger.warn(
+        "Predictive AI assistant is not configured; using built-in fallback response"
       );
+      source = "fallback";
+      fallbackCode = "assistant_not_configured";
+      responseText = this.buildFallbackText(focusArea, dto.message, context);
+      parsedBody = {
+        source: "maintainpro-local-fallback",
+        code: fallbackCode,
+        reason: null
+      };
+    } else {
+      const requestBody = {
+        message: this.buildProjectAwareMessage(focusArea, mode, dto.message, context),
+        conversation_id: conversation?.providerConversationId ?? null,
+        mode: "CHAT",
+        markdown: true
+      };
 
-      const fallback = this.buildFallbackResponse({
-        dto,
-        context,
-        conversation,
-        code: "upstream_request_failed",
-        reason: errorMessage
-      });
+      try {
+        const response = await fetch(`https://${host}/copilot`, {
+          method: "POST",
+          headers: {
+            "x-rapidapi-key": apiKey,
+            "x-rapidapi-host": host,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(30_000)
+        });
 
-      await this.persistAssistantArtifacts({
-        user,
-        dto,
-        context,
-        conversation,
-        responseText: fallback.response.text,
-        fallbackCode: "upstream_request_failed",
-        provider: "maintainpro-local-fallback",
-        suggestedActions: fallback.response.suggestedActions,
-        raw: fallback.response.raw
-      });
+        const upstreamText = await response.text();
+        parsedBody = this.parseJsonSafely(upstreamText);
 
-      return fallback;
+        if (!response.ok) {
+          source = "fallback";
+          fallbackCode = `upstream_${response.status}`;
+          fallbackReason = this.extractErrorMessage(parsedBody, upstreamText);
+          responseText = this.buildFallbackText(focusArea, dto.message, context);
+          parsedBody = {
+            source: "maintainpro-local-fallback",
+            code: fallbackCode,
+            reason: fallbackReason
+          };
+
+          this.logger.warn(
+            `Copilot upstream returned ${response.status}; using built-in fallback: ${fallbackReason}`
+          );
+        } else {
+          responseText = this.extractAssistantText(parsedBody, upstreamText);
+        }
+      } catch (error) {
+        source = "fallback";
+        fallbackCode = "upstream_request_failed";
+        fallbackReason = error instanceof Error ? error.message : "Unknown provider failure";
+        responseText = this.buildFallbackText(focusArea, dto.message, context);
+        parsedBody = {
+          source: "maintainpro-local-fallback",
+          code: fallbackCode,
+          reason: fallbackReason
+        };
+
+        this.logger.error(
+          `RapidAPI Copilot request failed; using built-in fallback: ${fallbackReason}`,
+          error instanceof Error ? error.stack : undefined
+        );
+      }
     }
 
-    const upstreamConversationId = this.extractConversationId(parsedBody);
-    const assistantText = this.extractAssistantText(parsedBody, responseText);
-    const localActions = this.buildSuggestedActions(focusArea, mode, context);
-    const suggestedActions = this.mergeAssistantActions(
-      this.extractAssistantActions(parsedBody),
-      localActions
-    );
+    const suggestedActions = this.buildSuggestedActions(actor, focusArea, mode, context);
+    const suggestedPrompts = context.smartSuggestions.slice(0, 6);
+    const providerConversationId = this.extractConversationId(parsedBody);
 
-    if (conversation && upstreamConversationId) {
-      await this.prisma.copilotConversation.update({
+    let updatedConversation = conversation;
+    let createdAssistantMessage: {
+      id: string;
+      role: string;
+      content: string;
+      createdAt: Date;
+      focusArea: string;
+      mode: string;
+      actions: unknown;
+    } | null = null;
+
+    if (actor && conversation) {
+      updatedConversation = await this.prisma.copilotConversation.update({
         where: { id: conversation.id },
         data: {
-          providerConversationId: upstreamConversationId,
           focusArea,
-          mode
+          mode,
+          providerConversationId:
+            providerConversationId ?? conversation.providerConversationId ?? null,
+          lastMessageAt: new Date()
+        }
+      });
+
+      createdAssistantMessage = await this.prisma.copilotMessage.create({
+        data: {
+          conversationId: conversation.id,
+          userId: actor.sub,
+          role: "ASSISTANT",
+          focusArea,
+          mode,
+          content: responseText,
+          actions: suggestedActions as unknown as Prisma.InputJsonValue,
+          metadata: {
+            source,
+            fallbackCode,
+            fallbackReason
+          }
+        }
+      });
+
+      await this.prisma.copilotExchangeLog.create({
+        data: {
+          conversationId: conversation.id,
+          userId: actor.sub,
+          focusArea,
+          mode,
+          query: dto.message,
+          response: responseText,
+          source
         }
       });
     }
 
-    const result = this.buildResponse({
-      dto,
-      context,
-      conversation,
-      text: assistantText,
-      raw: parsedBody,
-      providerConversationId: upstreamConversationId,
-      suggestedActions,
-      fallback: false
-    });
+    const responseConversationId = updatedConversation?.id ?? dto.conversationId ?? providerConversationId;
 
-    await this.persistAssistantArtifacts({
-      user,
-      dto,
+    return {
+      request: {
+        conversationId: dto.conversationId ?? null,
+        focusArea,
+        mode,
+        markdown,
+        stream: dto.stream ?? false,
+        message: dto.message
+      },
+      conversation: updatedConversation
+        ? {
+            id: updatedConversation.id,
+            title: updatedConversation.title,
+            focusArea: updatedConversation.focusArea,
+            mode: updatedConversation.mode,
+            providerConversationId: updatedConversation.providerConversationId,
+            lastMessageAt: updatedConversation.lastMessageAt.toISOString(),
+            createdAt: updatedConversation.createdAt.toISOString()
+          }
+        : null,
       context,
-      conversation,
-      responseText: assistantText,
-      fallbackCode: null,
-      provider: "rapidapi-copilot",
-      suggestedActions,
-      raw: parsedBody
-    });
-
-    return result;
+      response: {
+        conversationId: responseConversationId,
+        providerConversationId:
+          updatedConversation?.providerConversationId ?? providerConversationId ?? null,
+        text: responseText,
+        markdown,
+        source,
+        suggestedActions,
+        suggestedPrompts,
+        generatedAt: new Date().toISOString(),
+        raw: parsedBody
+      },
+      exchange: {
+        userMessage: createdUserMessage ? this.mapStoredMessage(createdUserMessage) : null,
+        assistantMessage: createdAssistantMessage
+          ? this.mapStoredMessage(createdAssistantMessage)
+          : null
+      }
+    };
   }
 
   async getCopilotContext(
-    user: CopilotUser,
-    focusArea: CopilotFocusArea = "GENERAL",
-    mode: CopilotMode = "CHAT"
-  ) {
-    if (!user?.sub) {
-      return this.buildEmptyContext(focusArea, mode);
+    actor: CopilotActor | null,
+    focusAreaRaw?: CopilotContextQueryDto["focusArea"] | string,
+    modeRaw?: CopilotContextQueryDto["mode"] | string
+  ): Promise<CopilotContextSnapshot> {
+    const focusArea = this.normalizeFocusArea(focusAreaRaw);
+    const mode = this.normalizeMode(modeRaw);
+
+    if (!actor) {
+      return this.buildSyntheticContext(focusArea, mode, "VIEWER");
     }
 
+    const roleScope = this.resolveRoleScope(actor.role);
     const now = new Date();
-    const tenantId = user?.tenantId ?? null;
-    const role = user?.role ?? "ANONYMOUS";
-    const visibility = this.resolveVisibility(user?.role ?? null);
-
-    const workOrderScope = this.buildWorkOrderScope(user);
-    const vehicleScope = this.buildVehicleScope(user);
-    const meterScope = this.buildMeterScope(user);
-    const partScope = this.buildPartScope(user);
-
-    const overdueWorkOrderWhere: Prisma.WorkOrderWhereInput = {
-      ...workOrderScope,
-      OR: [
-        {
-          status: WorkOrderStatus.OVERDUE
-        },
-        {
-          dueDate: { lt: now },
-          status: { in: ACTIVE_WORK_ORDER_STATUSES }
-        }
-      ]
-    };
-
-    const activeWorkOrderWhere: Prisma.WorkOrderWhereInput = {
-      ...workOrderScope,
-      status: { in: ACTIVE_WORK_ORDER_STATUSES }
-    };
-
-    const maintenanceScope: Prisma.MaintenanceScheduleWhereInput = {
-      isActive: true,
-      nextDueDate: { not: null }
-    };
-
-    if (tenantId) {
-      maintenanceScope.OR = [
-        { asset: { tenantId } },
-        { vehicle: { tenantId } }
-      ];
-    }
-
-    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * DAY_MS);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * DAY_MS);
+    const oneHundredTwentyDaysAgo = new Date(now.getTime() - 120 * DAY_MS);
 
     const [
-      activeWorkOrdersCount,
-      overdueWorkOrdersCount,
       activeWorkOrders,
       overdueWorkOrders,
-      unassignedWorkOrders,
-      overdueMaintenanceCount,
-      overdueMaintenance,
-      vehicles,
+      assignedToMe,
+      overdueSchedules,
+      vehicleStatusRows,
+      overdueServiceVehicles,
+      idleVehicles,
       fuelLogs,
-      utilityReadings,
-      overdueUtilityBills,
       spareParts,
-      stockMovements,
-      cleaningOpenIssues
+      stockOutMovements,
+      utilityBills,
+      overdueBills
     ] = await Promise.all([
-      this.prisma.workOrder.count({ where: activeWorkOrderWhere }),
-      this.prisma.workOrder.count({ where: overdueWorkOrderWhere }),
-      this.prisma.workOrder.findMany({
-        where: activeWorkOrderWhere,
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        take: 8,
-        include: {
-          asset: {
-            select: {
-              name: true,
-              assetTag: true
-            }
-          },
-          vehicle: {
-            select: {
-              registrationNo: true
-            }
-          }
-        }
-      }),
-      this.prisma.workOrder.findMany({
-        where: overdueWorkOrderWhere,
-        orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
-        take: 8,
-        include: {
-          asset: {
-            select: {
-              name: true,
-              assetTag: true
-            }
-          },
-          vehicle: {
-            select: {
-              registrationNo: true
-            }
-          }
-        }
-      }),
       this.prisma.workOrder.findMany({
         where: {
-          ...activeWorkOrderWhere,
-          technicianId: null
+          status: { in: ACTIVE_WORK_ORDER_STATUSES },
+          ...(roleScope === "TECHNICIAN" ? { technicianId: actor.sub } : {})
         },
-        orderBy: { createdAt: "asc" },
-        take: 5,
-        include: {
-          asset: {
-            select: {
-              name: true,
-              assetTag: true
-            }
-          },
-          vehicle: {
-            select: {
-              registrationNo: true
-            }
-          }
-        }
+        select: {
+          id: true,
+          woNumber: true,
+          title: true,
+          priority: true,
+          status: true,
+          dueDate: true,
+          technicianId: true
+        },
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        take: 12
       }),
-      this.prisma.maintenanceSchedule.count({
+      this.prisma.workOrder.findMany({
         where: {
-          ...maintenanceScope,
-          nextDueDate: { lt: now }
-        }
+          status: { in: ACTIVE_WORK_ORDER_STATUSES },
+          dueDate: { lt: now },
+          ...(roleScope === "TECHNICIAN" ? { technicianId: actor.sub } : {})
+        },
+        select: {
+          id: true,
+          woNumber: true,
+          title: true,
+          priority: true,
+          status: true,
+          dueDate: true,
+          technicianId: true
+        },
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        take: 12
+      }),
+      this.prisma.workOrder.findMany({
+        where: {
+          status: { in: ACTIVE_WORK_ORDER_STATUSES },
+          technicianId: actor.sub
+        },
+        select: {
+          id: true,
+          woNumber: true,
+          title: true,
+          priority: true,
+          status: true,
+          dueDate: true,
+          technicianId: true
+        },
+        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        take: 8
       }),
       this.prisma.maintenanceSchedule.findMany({
         where: {
-          ...maintenanceScope,
+          isActive: true,
           nextDueDate: { lt: now }
         },
-        orderBy: { nextDueDate: "asc" },
-        take: 8,
-        include: {
-          asset: {
-            select: {
-              name: true,
-              assetTag: true
-            }
-          },
-          vehicle: {
-            select: {
-              registrationNo: true
-            }
-          }
+        select: {
+          id: true,
+          name: true,
+          nextDueDate: true,
+          assetId: true,
+          vehicleId: true
+        },
+        orderBy: [{ nextDueDate: "asc" }, { createdAt: "desc" }],
+        take: roleScope === "ADMIN" ? 10 : 6
+      }),
+      this.prisma.vehicle.groupBy({
+        by: ["status"],
+        _count: {
+          _all: true
         }
       }),
       this.prisma.vehicle.findMany({
-        where: vehicleScope,
+        where: {
+          nextServiceDate: { lt: now },
+          status: {
+            notIn: ["DISPOSED"]
+          }
+        },
         select: {
           id: true,
           registrationNo: true,
           status: true,
           nextServiceDate: true
-        }
+        },
+        orderBy: [{ nextServiceDate: "asc" }, { createdAt: "desc" }],
+        take: 10
+      }),
+      this.prisma.vehicle.findMany({
+        where: {
+          status: "AVAILABLE",
+          updatedAt: { lt: fourteenDaysAgo }
+        },
+        select: {
+          id: true,
+          registrationNo: true,
+          updatedAt: true
+        },
+        orderBy: {
+          updatedAt: "asc"
+        },
+        take: 10
       }),
       this.prisma.fuelLog.findMany({
         where: {
-          vehicle: vehicleScope,
           date: {
-            gte: sixtyDaysAgo
+            gte: thirtyDaysAgo
           }
         },
-        orderBy: [{ vehicleId: "asc" }, { date: "desc" }],
-        take: 600,
-        select: {
-          vehicleId: true,
-          liters: true,
-          date: true,
+        include: {
           vehicle: {
             select: {
+              id: true,
               registrationNo: true
             }
           }
-        }
+        },
+        orderBy: {
+          date: "desc"
+        },
+        take: 1200
       }),
-      this.prisma.meterReading.findMany({
+      this.prisma.sparePart.findMany({
         where: {
-          meter: meterScope,
-          readingDate: {
-            gte: sixtyDaysAgo
+          isActive: true
+        },
+        select: {
+          id: true,
+          partNumber: true,
+          name: true,
+          quantityInStock: true,
+          reorderPoint: true
+        },
+        orderBy: {
+          quantityInStock: "asc"
+        },
+        take: 400
+      }),
+      this.prisma.stockMovement.findMany({
+        where: {
+          type: "OUT",
+          createdAt: {
+            gte: thirtyDaysAgo
+          },
+          part: {
+            isActive: true
           }
         },
-        orderBy: [{ meterId: "asc" }, { readingDate: "desc" }],
-        take: 800,
         select: {
-          meterId: true,
-          consumption: true,
-          readingDate: true,
-          meter: {
+          quantity: true,
+          part: {
             select: {
-              meterNumber: true,
-              type: true,
-              location: true
+              id: true,
+              partNumber: true,
+              name: true,
+              quantityInStock: true,
+              reorderPoint: true,
+              isActive: true
             }
           }
         }
       }),
+      this.prisma.utilityBill.findMany({
+        where: {
+          billingPeriodStart: {
+            gte: oneHundredTwentyDaysAgo
+          }
+        },
+        select: {
+          meterId: true,
+          billingPeriodStart: true,
+          totalAmount: true,
+          meter: {
+            select: {
+              meterNumber: true,
+              location: true,
+              type: true
+            }
+          }
+        },
+        orderBy: {
+          billingPeriodStart: "desc"
+        },
+        take: 250
+      }),
       this.prisma.utilityBill.count({
         where: {
-          ...(tenantId ? { tenantId } : {}),
           OR: [
             {
               status: "OVERDUE"
@@ -531,281 +613,173 @@ export class PredictiveAiService {
             }
           ]
         }
-      }),
-      this.prisma.sparePart.findMany({
-        where: partScope,
-        select: {
-          id: true,
-          partNumber: true,
-          name: true,
-          quantityInStock: true,
-          reorderPoint: true,
-          minimumStock: true
-        }
-      }),
-      this.prisma.stockMovement.findMany({
-        where: {
-          type: "OUT",
-          createdAt: {
-            gte: thirtyDaysAgo
-          },
-          part: partScope
-        },
-        select: {
-          partId: true,
-          quantity: true,
-          part: {
-            select: {
-              partNumber: true,
-              name: true,
-              quantityInStock: true,
-              reorderPoint: true
-            }
-          }
-        }
-      }),
-      this.prisma.facilityIssue.count({
-        where: {
-          ...(tenantId ? { tenantId } : {}),
-          status: {
-            in: ["OPEN", "IN_PROGRESS"]
-          }
-        }
       })
     ]);
 
-    const fleetUnavailable = vehicles.filter((vehicle) =>
-      ["UNDER_MAINTENANCE", "OUT_OF_SERVICE"].includes(vehicle.status)
-    ).length;
+    const fleetStatusCounts = vehicleStatusRows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.status] = row._count._all;
+      return acc;
+    }, {});
 
     const fuelAnomalies = this.detectFuelAnomalies(fuelLogs);
-    const utilityAnomalies = this.detectUtilityAnomalies(utilityReadings);
-
-    const lowStockParts = spareParts.filter(
-      (part) => part.quantityInStock <= Math.max(part.reorderPoint, 0)
-    );
-
-    const stockoutRisk = this.buildStockoutRisk(stockMovements);
-
-    const metrics = {
-      activeWorkOrders: activeWorkOrdersCount,
-      overdueWorkOrders: overdueWorkOrdersCount,
-      overdueMaintenanceTasks: overdueMaintenanceCount,
-      fleetVehicles: vehicles.length,
-      fleetUnavailable,
-      fuelAnomalies: fuelAnomalies.length,
-      utilityAnomalies: utilityAnomalies.length,
-      overdueUtilityBills,
-      lowStockParts: lowStockParts.length,
-      cleaningOpenIssues
-    };
-
-    const highlightLimit = visibility === "full" ? 8 : 5;
-
-    const highlights = {
-      activeWorkOrders: activeWorkOrders.slice(0, highlightLimit).map((item) => ({
-        id: item.id,
-        woNumber: item.woNumber,
-        title: item.title,
-        priority: item.priority,
-        status: item.status,
-        dueDate: item.dueDate?.toISOString() ?? null,
-        asset: item.asset?.name ?? item.asset?.assetTag ?? null,
-        vehicle: item.vehicle?.registrationNo ?? null
-      })),
-      overdueWorkOrders: overdueWorkOrders.slice(0, highlightLimit).map((item) => ({
-        id: item.id,
-        woNumber: item.woNumber,
-        title: item.title,
-        priority: item.priority,
-        status: item.status,
-        dueDate: item.dueDate?.toISOString() ?? null,
-        asset: item.asset?.name ?? item.asset?.assetTag ?? null,
-        vehicle: item.vehicle?.registrationNo ?? null
-      })),
-      unassignedWorkOrders: unassignedWorkOrders.slice(0, 5).map((item) => ({
-        id: item.id,
-        woNumber: item.woNumber,
-        title: item.title,
-        priority: item.priority,
-        asset: item.asset?.name ?? item.asset?.assetTag ?? null,
-        vehicle: item.vehicle?.registrationNo ?? null
-      })),
-      overdueMaintenance: overdueMaintenance.slice(0, highlightLimit).map((item) => ({
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        frequency: item.frequency,
-        nextDueDate: item.nextDueDate?.toISOString() ?? null,
-        asset: item.asset?.name ?? item.asset?.assetTag ?? null,
-        vehicle: item.vehicle?.registrationNo ?? null
-      })),
-      fuelAnomalies: fuelAnomalies.slice(0, highlightLimit),
-      utilityAnomalies: utilityAnomalies.slice(0, highlightLimit),
-      lowStockParts: lowStockParts.slice(0, highlightLimit).map((part) => ({
+    const utilityAnomalies = this.detectUtilityAnomalies(utilityBills);
+    const lowStockParts = spareParts
+      .filter((part) => part.quantityInStock <= part.reorderPoint)
+      .map((part) => ({
         id: part.id,
         partNumber: part.partNumber,
         name: part.name,
         quantityInStock: part.quantityInStock,
         reorderPoint: part.reorderPoint
-      })),
-      stockoutRisk: stockoutRisk.slice(0, highlightLimit)
+      }));
+    const projectedStockouts = this.projectStockouts(stockOutMovements);
+
+    const activeWorkOrderRows = activeWorkOrders.map((item) => this.mapContextWorkOrder(item));
+    const overdueWorkOrderRows = overdueWorkOrders.map((item) => this.mapContextWorkOrder(item));
+    const assignedWorkOrderRows = assignedToMe.map((item) => this.mapContextWorkOrder(item));
+
+    const scopedMaintenanceActive =
+      roleScope === "TECHNICIAN" ? assignedWorkOrderRows : activeWorkOrderRows;
+    const scopedMaintenanceOverdue =
+      roleScope === "TECHNICIAN"
+        ? assignedWorkOrderRows.filter((item) => Boolean(item.dueDate) && new Date(item.dueDate as string) < now)
+        : overdueWorkOrderRows;
+
+    const scopedUtilityAnomalies = roleScope === "TECHNICIAN" ? [] : utilityAnomalies;
+    const scopedLowStock = roleScope === "TECHNICIAN" ? [] : lowStockParts;
+    const scopedProjectedStockouts = roleScope === "TECHNICIAN" ? [] : projectedStockouts;
+
+    const summary: CopilotSummary = {
+      activeWorkOrders: scopedMaintenanceActive.length,
+      overdueTasks:
+        scopedMaintenanceOverdue.length +
+        (roleScope === "TECHNICIAN" ? 0 : overdueSchedules.length + overdueBills),
+      assignedToMe: assignedWorkOrderRows.length,
+      fleetOutOfService:
+        Number(fleetStatusCounts.OUT_OF_SERVICE ?? 0) + Number(fleetStatusCounts.UNDER_MAINTENANCE ?? 0),
+      utilityAnomalies: scopedUtilityAnomalies.length,
+      lowStockItems: scopedLowStock.length
     };
 
-    const insightCards: CopilotContextBundle["insightCards"] = [
-      {
-        id: "overdue-work-orders",
-        title: "Overdue Work Orders",
-        value: metrics.overdueWorkOrders,
-        severity: metrics.overdueWorkOrders > 0 ? "critical" : "neutral",
-        description: "Work orders that are overdue or already marked overdue."
+    const context: CopilotContextSnapshot = {
+      generatedAt: new Date().toISOString(),
+      roleScope,
+      focusArea,
+      mode,
+      summary,
+      maintenance: {
+        activeWorkOrders: scopedMaintenanceActive.slice(0, roleScope === "ADMIN" ? 10 : 6),
+        overdueWorkOrders: scopedMaintenanceOverdue.slice(0, roleScope === "ADMIN" ? 10 : 6),
+        assignedToMe: assignedWorkOrderRows.slice(0, 8),
+        overdueSchedules:
+          roleScope === "TECHNICIAN"
+            ? []
+            : overdueSchedules.slice(0, 6).map((item) => ({
+                id: item.id,
+                name: item.name,
+                nextDueDate: item.nextDueDate ? item.nextDueDate.toISOString() : null,
+                assetId: item.assetId,
+                vehicleId: item.vehicleId
+              }))
       },
-      {
-        id: "fleet-anomalies",
-        title: "Fuel / Fleet Anomalies",
-        value: metrics.fuelAnomalies + metrics.fleetUnavailable,
-        severity:
-          metrics.fuelAnomalies + metrics.fleetUnavailable > 0 ? "warning" : "neutral",
-        description: "Combined count of fuel anomalies and unavailable vehicles."
+      fleet: {
+        statusCounts: fleetStatusCounts,
+        overdueServiceVehicles:
+          roleScope === "TECHNICIAN"
+            ? []
+            : overdueServiceVehicles.slice(0, 8).map((item) => ({
+                id: item.id,
+                registrationNo: item.registrationNo,
+                status: item.status,
+                nextServiceDate: item.nextServiceDate ? item.nextServiceDate.toISOString() : null
+              })),
+        idleVehicles:
+          roleScope === "TECHNICIAN"
+            ? []
+            : idleVehicles.slice(0, 6).map((item) => ({
+                id: item.id,
+                registrationNo: item.registrationNo,
+                lastUpdatedAt: item.updatedAt.toISOString(),
+                daysIdle: Math.max(1, Math.floor((now.getTime() - item.updatedAt.getTime()) / DAY_MS))
+              })),
+        fuelAnomalies: roleScope === "TECHNICIAN" ? [] : fuelAnomalies.slice(0, 6)
       },
-      {
-        id: "utility-anomalies",
-        title: "Utility Alerts",
-        value: metrics.utilityAnomalies + metrics.overdueUtilityBills,
-        severity:
-          metrics.utilityAnomalies + metrics.overdueUtilityBills > 0 ? "warning" : "neutral",
-        description: "Potential utility spikes and overdue utility liabilities."
+      utilities: {
+        overdueBills: roleScope === "TECHNICIAN" ? 0 : overdueBills,
+        anomalies: scopedUtilityAnomalies.slice(0, 6)
       },
-      {
-        id: "stock-risk",
-        title: "Inventory Risk",
-        value: metrics.lowStockParts,
-        severity: metrics.lowStockParts > 0 ? "warning" : "neutral",
-        description: "Active parts below or at reorder threshold."
-      }
-    ];
-
-    const context: CopilotContextBundle = {
-      generatedAt: now.toISOString(),
-      userScope: {
-        userId: user?.sub ?? null,
-        role,
-        tenantId,
-        visibility
+      inventory: {
+        lowStockParts: scopedLowStock.slice(0, 8),
+        projectedStockouts: scopedProjectedStockouts.slice(0, 8)
       },
-      metrics,
-      highlights,
-      insightCards,
-      suggestionChips: this.buildSuggestionChips(focusArea, metrics)
+      smartSuggestions: []
     };
 
-    if (mode === "PREDICT") {
-      context.suggestionChips = [
-        "Predict next breakdown by asset",
-        "Predict low stock depletion window",
-        "Predict utility cost spikes for next cycle",
-        ...context.suggestionChips
-      ].slice(0, 8);
-    }
-
-    if (mode === "RECOMMEND") {
-      context.suggestionChips = [
-        "Recommend technician allocation",
-        "Recommend maintenance schedule optimization",
-        "Recommend fuel cost reduction actions",
-        ...context.suggestionChips
-      ].slice(0, 8);
-    }
+    context.smartSuggestions = this.buildSmartSuggestions(context);
 
     return context;
   }
 
-  async listConversations(user: CopilotUser, limit = 20) {
-    if (!user?.sub) {
-      return [];
-    }
+  async listConversations(actor: CopilotActor | null, options: ConversationListOptions = {}) {
+    const currentActor = this.requireActor(actor);
+    const limit = this.toPositiveInt(options.limit, 20, 1, 100);
+    const ownerId = this.resolveOwnerId(currentActor, options.userId);
 
-    const rows = await this.prisma.copilotConversation.findMany({
+    const conversations = await this.prisma.copilotConversation.findMany({
       where: {
-        userId: user.sub,
-        ...(user.tenantId ? { tenantId: user.tenantId } : {})
+        userId: ownerId
       },
-      orderBy: { updatedAt: "desc" },
-      take: Math.max(1, Math.min(limit, 100)),
       include: {
         messages: {
-          orderBy: { createdAt: "desc" },
+          orderBy: {
+            createdAt: "desc"
+          },
           take: 1,
           select: {
-            role: true,
             content: true,
+            role: true,
             createdAt: true
           }
         }
-      }
+      },
+      orderBy: {
+        lastMessageAt: "desc"
+      },
+      take: limit
     });
 
-    return rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      focusArea: row.focusArea,
-      mode: row.mode,
-      providerConversationId: row.providerConversationId,
-      updatedAt: row.updatedAt.toISOString(),
-      lastMessage: row.messages[0]
-        ? {
-            role: row.messages[0].role,
-            content: row.messages[0].content,
-            createdAt: row.messages[0].createdAt.toISOString()
-          }
+    return conversations.map((conversation) => ({
+      id: conversation.id,
+      title: conversation.title,
+      focusArea: conversation.focusArea,
+      mode: conversation.mode,
+      providerConversationId: conversation.providerConversationId,
+      lastMessageAt: conversation.lastMessageAt.toISOString(),
+      createdAt: conversation.createdAt.toISOString(),
+      preview: conversation.messages[0]?.content ?? "",
+      lastRole: conversation.messages[0]?.role ?? null,
+      lastMessageCreatedAt: conversation.messages[0]?.createdAt
+        ? conversation.messages[0]?.createdAt.toISOString()
         : null
     }));
   }
 
-  async createConversation(user: CopilotUser, dto: CopilotCreateConversationDto) {
-    const authedUser = this.assertAuthedUser(user);
+  async createConversation(actor: CopilotActor | null, dto: CopilotCreateConversationDto) {
+    const currentActor = this.requireActor(actor);
+    const focusArea = this.normalizeFocusArea(dto.focusArea);
+    const mode = this.normalizeMode(dto.mode);
 
-    const created = await this.prisma.copilotConversation.create({
+    const title = dto.title?.trim() || `Copilot ${focusArea.toLowerCase()} session`;
+
+    const conversation = await this.prisma.copilotConversation.create({
       data: {
-        userId: authedUser.sub,
-        tenantId: authedUser.tenantId ?? null,
-        title: dto.title?.trim() || "New Copilot Conversation",
-        focusArea: dto.focusArea ?? "GENERAL",
-        mode: dto.mode ?? "CHAT"
+        userId: currentActor.sub,
+        title,
+        focusArea,
+        mode,
+        lastMessageAt: new Date()
       }
     });
-
-    return {
-      id: created.id,
-      title: created.title,
-      focusArea: created.focusArea,
-      mode: created.mode,
-      providerConversationId: created.providerConversationId,
-      updatedAt: created.updatedAt.toISOString(),
-      messages: []
-    };
-  }
-
-  async getConversation(user: CopilotUser, conversationId: string) {
-    const authedUser = this.assertAuthedUser(user);
-
-    const conversation = await this.prisma.copilotConversation.findFirst({
-      where: {
-        id: conversationId,
-        userId: authedUser.sub,
-        ...(authedUser.tenantId ? { tenantId: authedUser.tenantId } : {})
-      },
-      include: {
-        messages: {
-          orderBy: { createdAt: "asc" },
-          take: 300
-        }
-      }
-    });
-
-    if (!conversation) {
-      throw new NotFoundException("Conversation not found");
-    }
 
     return {
       id: conversation.id,
@@ -813,77 +787,92 @@ export class PredictiveAiService {
       focusArea: conversation.focusArea,
       mode: conversation.mode,
       providerConversationId: conversation.providerConversationId,
-      updatedAt: conversation.updatedAt.toISOString(),
-      messages: conversation.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        focusArea: message.focusArea,
-        mode: message.mode,
-        suggestedActions: message.suggestedActions,
-        metadata: message.metadata,
-        createdAt: message.createdAt.toISOString()
-      }))
+      lastMessageAt: conversation.lastMessageAt.toISOString(),
+      createdAt: conversation.createdAt.toISOString()
     };
   }
 
-  async logs(user: CopilotUser, query: CopilotLogsQueryDto) {
-    const authedUser = this.assertAuthedUser(user);
-    const limit = this.toPositiveInt(query.limit, 40, 1, 200);
+  async getConversation(actor: CopilotActor | null, conversationId: string, limitRaw?: string) {
+    const currentActor = this.requireActor(actor);
+    const limit = this.toPositiveInt(limitRaw, 120, 1, 300);
 
-    const where: Prisma.CopilotInteractionLogWhereInput = {};
+    const conversation = await this.getAccessibleConversation(currentActor, conversationId);
 
-    if (query.focusArea) {
-      where.focusArea = query.focusArea;
+    const messages = await this.prisma.copilotMessage.findMany({
+      where: {
+        conversationId: conversation.id
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      take: limit
+    });
+
+    return {
+      id: conversation.id,
+      title: conversation.title,
+      focusArea: conversation.focusArea,
+      mode: conversation.mode,
+      providerConversationId: conversation.providerConversationId,
+      lastMessageAt: conversation.lastMessageAt.toISOString(),
+      createdAt: conversation.createdAt.toISOString(),
+      messages: messages.map((message) => this.mapStoredMessage(message))
+    };
+  }
+
+  async getConversationMessages(actor: CopilotActor | null, conversationId: string, limitRaw?: string) {
+    const currentActor = this.requireActor(actor);
+    const limit = this.toPositiveInt(limitRaw, 120, 1, 300);
+
+    const conversation = await this.getAccessibleConversation(currentActor, conversationId);
+
+    const messages = await this.prisma.copilotMessage.findMany({
+      where: {
+        conversationId: conversation.id
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      take: limit
+    });
+
+    return messages.map((message) => this.mapStoredMessage(message));
+  }
+
+  async logs(actor: CopilotActor | null, query: CopilotLogsQueryDto) {
+    const currentActor = this.requireActor(actor);
+    const limit = this.toPositiveInt(query.limit, 50, 1, 300);
+
+    const from = this.safeParseDate(query.from);
+    const to = this.safeParseDate(query.to);
+
+    if (query.userId && !this.isPrivilegedRole(currentActor.role) && query.userId !== currentActor.sub) {
+      throw new ForbiddenException("You can only access your own AI logs");
     }
 
-    if (query.mode) {
-      where.mode = query.mode;
-    }
+    const ownerId = this.resolveOwnerId(currentActor, query.userId);
 
-    const fromDate = this.parseDate(query.from);
-    const toDate = this.parseDate(query.to);
-
-    if (fromDate || toDate) {
-      where.createdAt = {};
-      if (fromDate) {
-        where.createdAt.gte = fromDate;
-      }
-      if (toDate) {
-        where.createdAt.lte = toDate;
-      }
-    }
-
-    const fullAccess = this.hasFullLogAccess(authedUser.role);
-
-    if (fullAccess && query.userId) {
-      where.userId = query.userId;
-    }
-
-    if (!fullAccess) {
-      where.userId = authedUser.sub;
-    }
-
-    if (authedUser.tenantId) {
-      where.tenantId = authedUser.tenantId;
-    }
-
-    const rows = await this.prisma.copilotInteractionLog.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: limit,
+    const logs = await this.prisma.copilotExchangeLog.findMany({
+      where: {
+        ...(ownerId ? { userId: ownerId } : {}),
+        ...(query.focusArea ? { focusArea: query.focusArea } : {}),
+        ...(query.mode ? { mode: query.mode } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {})
+              }
+            }
+          : {})
+      },
       include: {
         user: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
-            role: {
-              select: {
-                name: true
-              }
-            }
+            email: true
           }
         },
         conversation: {
@@ -892,213 +881,776 @@ export class PredictiveAiService {
             title: true
           }
         }
-      }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: limit
     });
 
-    return rows.map((row) => ({
-      id: row.id,
-      query: row.query,
-      response: row.response,
-      focusArea: row.focusArea,
-      mode: row.mode,
-      timestamp: row.createdAt.toISOString(),
-      fallbackCode: row.fallbackCode,
-      provider: row.provider,
+    return logs.map((log) => ({
+      id: log.id,
+      query: log.query,
+      response: log.response,
+      focusArea: log.focusArea,
+      mode: log.mode,
+      source: log.source,
+      timestamp: log.createdAt.toISOString(),
       user: {
-        id: row.user.id,
-        name: `${row.user.firstName} ${row.user.lastName}`.trim(),
-        email: row.user.email,
-        role: row.user.role.name
+        id: log.user.id,
+        name: `${log.user.firstName} ${log.user.lastName}`.trim(),
+        email: log.user.email
       },
-      conversation: row.conversation
+      conversation: log.conversation
         ? {
-            id: row.conversation.id,
-            title: row.conversation.title
+            id: log.conversation.id,
+            title: log.conversation.title
           }
-        : null,
-      contextSnapshot: row.contextSnapshot,
-      metadata: row.metadata
+        : null
     }));
   }
 
-  async createWorkOrderAction(user: CopilotUser, dto: CreateWorkOrderActionDto) {
-    const authedUser = this.assertAuthedUser(user);
-
-    if (!dto.assetId && !dto.vehicleId) {
-      throw new BadRequestException("Either assetId or vehicleId is required");
-    }
-
-    const created = await this.workOrdersService.create({
-      title: dto.title,
-      description: dto.description,
-      priority: dto.priority ?? Priority.MEDIUM,
-      type: dto.type ?? "CORRECTIVE",
-      assetId: dto.assetId,
-      vehicleId: dto.vehicleId,
-      createdById: authedUser.sub,
-      dueDate: dto.dueDate
-    });
-
-    return {
-      action: "CREATE_WORK_ORDER",
-      data: created
-    };
-  }
-
-  async scheduleMaintenanceAction(user: CopilotUser, dto: ScheduleMaintenanceActionDto) {
-    this.assertAuthedUser(user);
-
-    if (!dto.assetId && !dto.vehicleId) {
-      throw new BadRequestException("Either assetId or vehicleId is required");
-    }
-
-    const frequency = dto.frequency ?? "MONTHLY";
-    const defaultIntervalByFrequency: Record<string, number> = {
-      DAILY: 1,
-      WEEKLY: 7,
-      MONTHLY: 30,
-      QUARTERLY: 90,
-      BIANNUAL: 180,
-      ANNUAL: 365,
-      CUSTOM: 30,
-      MILEAGE_BASED: 0
-    };
-
-    const schedule = await this.maintenanceService.createSchedule({
-      name: dto.name,
-      description: dto.description,
-      type: dto.type ?? "PREVENTIVE",
-      frequency,
-      intervalDays:
-        frequency === "MILEAGE_BASED"
-          ? undefined
-          : dto.intervalDays ?? defaultIntervalByFrequency[frequency],
-      intervalMileage: frequency === "MILEAGE_BASED" ? dto.intervalMileage ?? 5_000 : dto.intervalMileage,
-      assetId: dto.assetId,
-      vehicleId: dto.vehicleId,
-      nextDueDate:
-        dto.nextDueDate ??
-        new Date(Date.now() + (dto.intervalDays ?? 14) * 24 * 60 * 60 * 1000).toISOString()
-    });
-
-    return {
-      action: "SCHEDULE_MAINTENANCE",
-      data: schedule
-    };
-  }
-
-  async assignTechnicianAction(user: CopilotUser, dto: AssignTechnicianActionDto) {
-    this.assertAuthedUser(user);
-
-    const assigned = await this.workOrdersService.assign(dto.workOrderId, dto.technicianId);
-
-    return {
-      action: "ASSIGN_TECHNICIAN",
-      data: assigned
-    };
-  }
-
-  async generateReportAction(user: CopilotUser, dto: GenerateReportActionDto) {
-    this.assertAuthedUser(user);
-
-    const reportMap: Record<CopilotReportType, () => Promise<unknown>> = {
-      DASHBOARD: () => this.reportsService.dashboard(),
-      MAINTENANCE_COST: () => this.reportsService.maintenanceCost(),
-      FLEET_EFFICIENCY: () => this.reportsService.fleetEfficiency(),
-      DOWNTIME: () => this.reportsService.downtime(),
-      WORK_ORDERS: () => this.reportsService.workOrders(),
-      INVENTORY: () => this.reportsService.inventory(),
-      UTILITIES: () => this.reportsService.utilities()
-    };
-
-    const report = await reportMap[dto.reportType]();
-
-    return {
-      action: "GENERATE_REPORT",
-      reportType: dto.reportType,
-      data: report
-    };
-  }
-
-  private buildResponse(params: {
-    dto: CopilotChatDto;
-    context: CopilotContextBundle;
-    conversation: { id: string; title: string; updatedAt: Date; providerConversationId: string | null } | null;
-    text: string;
-    raw: unknown;
-    providerConversationId: string | null;
-    suggestedActions: CopilotSuggestedAction[];
-    fallback: boolean;
-  }) {
-    const requestFocusArea = params.dto.focusArea ?? "GENERAL";
-    const requestMode = params.dto.mode ?? "CHAT";
-
-    return {
-      conversation: params.conversation
-        ? {
-            id: params.conversation.id,
-            title: params.conversation.title,
-            updatedAt: params.conversation.updatedAt.toISOString(),
-            providerConversationId: params.providerConversationId ?? params.conversation.providerConversationId
-          }
-        : null,
-      request: {
-        conversationId: params.dto.conversationId ?? null,
-        focusArea: requestFocusArea,
-        mode: requestMode,
-        markdown: params.dto.markdown ?? true,
-        message: params.dto.message
+  predictiveLogs() {
+    return this.prisma.predictiveLog.findMany({
+      include: {
+        asset: true
       },
-      context: params.context,
-      response: {
-        conversationId:
-          params.conversation?.id ??
-          params.providerConversationId ??
-          params.dto.conversationId ??
-          `local-${Date.now().toString(36)}`,
-        providerConversationId: params.providerConversationId,
-        text: params.text,
-        markdown: params.dto.markdown ?? true,
-        suggestedActions: params.suggestedActions,
-        fallback: params.fallback,
-        raw: params.raw
+      orderBy: { analyzedAt: "desc" }
+    });
+  }
+
+  async createWorkOrderAction(actor: CopilotActor | null, dto: CreateWorkOrderActionDto) {
+    const currentActor = this.requireActor(actor);
+    this.assertOperationsRole(currentActor.role);
+
+    const title = dto.title?.trim();
+    const description = dto.description?.trim();
+
+    if (!title) {
+      throw new BadRequestException("title is required");
+    }
+
+    if (!description) {
+      throw new BadRequestException("description is required");
+    }
+
+    if (!dto.assetId && !dto.vehicleId) {
+      throw new BadRequestException("Either assetId or vehicleId is required");
+    }
+
+    const dueDate = dto.dueDate ? this.parseDateOrThrow(dto.dueDate, "dueDate") : undefined;
+
+    const created = await this.prisma.workOrder.create({
+      data: {
+        woNumber: await this.nextWorkOrderNumber(),
+        title,
+        description,
+        priority: dto.priority ?? Priority.MEDIUM,
+        type: dto.type ?? "CORRECTIVE",
+        assetId: dto.assetId,
+        vehicleId: dto.vehicleId,
+        createdById: currentActor.sub,
+        dueDate
+      }
+    });
+
+    return created;
+  }
+
+  async scheduleMaintenanceAction(actor: CopilotActor | null, dto: ScheduleMaintenanceActionDto) {
+    const currentActor = this.requireActor(actor);
+    this.assertOperationsRole(currentActor.role);
+
+    const name = dto.name?.trim();
+    if (!name) {
+      throw new BadRequestException("name is required");
+    }
+
+    if (!dto.assetId && !dto.vehicleId) {
+      throw new BadRequestException("Either assetId or vehicleId is required");
+    }
+
+    const nextDueDate = dto.nextDueDate
+      ? this.parseDateOrThrow(dto.nextDueDate, "nextDueDate")
+      : new Date(Date.now() + 14 * DAY_MS);
+
+    const created = await this.prisma.maintenanceSchedule.create({
+      data: {
+        name,
+        description: dto.description,
+        type: dto.type ?? "PREVENTIVE",
+        frequency: dto.frequency ?? "MONTHLY",
+        intervalDays: dto.intervalDays,
+        intervalMileage: dto.intervalMileage,
+        assetId: dto.assetId,
+        vehicleId: dto.vehicleId,
+        nextDueDate,
+        nextDueMileage: dto.intervalMileage,
+        isActive: true
+      }
+    });
+
+    return created;
+  }
+
+  async assignTechnicianAction(actor: CopilotActor | null, dto: AssignTechnicianActionDto) {
+    const currentActor = this.requireActor(actor);
+    this.assertOperationsRole(currentActor.role);
+
+    if (!dto.workOrderId) {
+      throw new BadRequestException("workOrderId is required");
+    }
+
+    if (!dto.technicianId) {
+      throw new BadRequestException("technicianId is required");
+    }
+
+    return this.assignTechnicianInternal(dto.workOrderId, dto.technicianId);
+  }
+
+  async generateReportAction(actor: CopilotActor | null, dto: GenerateReportActionDto) {
+    const currentActor = this.requireActor(actor);
+    this.assertReportRole(currentActor.role);
+
+    const type = dto.reportType;
+
+    switch (type) {
+      case "DASHBOARD":
+        return this.generateDashboardReport();
+      case "MAINTENANCE_COST":
+        return this.generateMaintenanceCostReport();
+      case "FLEET_EFFICIENCY":
+        return this.generateFleetEfficiencyReport();
+      case "DOWNTIME":
+        return this.generateDowntimeReport();
+      case "WORK_ORDERS":
+        return this.generateWorkOrderReport();
+      case "INVENTORY":
+        return this.generateInventoryReport();
+      case "UTILITIES":
+      default:
+        return this.generateUtilitiesReport();
+    }
+  }
+
+  private async resolveConversation(
+    actor: CopilotActor,
+    dto: CopilotChatDto,
+    focusArea: CopilotFocusArea,
+    mode: CopilotMode
+  ) {
+    if (dto.conversationId) {
+      const existing = await this.prisma.copilotConversation.findUnique({
+        where: {
+          id: dto.conversationId
+        }
+      });
+
+      if (existing) {
+        if (existing.userId !== actor.sub && !this.isPrivilegedRole(actor.role)) {
+          throw new ForbiddenException("You cannot access another user's conversation");
+        }
+
+        return this.prisma.copilotConversation.update({
+          where: {
+            id: existing.id
+          },
+          data: {
+            focusArea,
+            mode,
+            lastMessageAt: new Date()
+          }
+        });
+      }
+    }
+
+    const conversationTitle = dto.conversationTitle?.trim() || this.deriveConversationTitle(dto.message);
+
+    return this.prisma.copilotConversation.create({
+      data: {
+        userId: actor.sub,
+        title: conversationTitle,
+        focusArea,
+        mode,
+        lastMessageAt: new Date()
+      }
+    });
+  }
+
+  private async getAccessibleConversation(actor: CopilotActor, conversationId: string) {
+    const conversation = await this.prisma.copilotConversation.findUnique({
+      where: {
+        id: conversationId
+      }
+    });
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    if (conversation.userId !== actor.sub && !this.isPrivilegedRole(actor.role)) {
+      throw new ForbiddenException("You cannot access another user's conversation");
+    }
+
+    return conversation;
+  }
+
+  private normalizeFocusArea(value?: string | null): CopilotFocusArea {
+    if (!value) {
+      return "GENERAL";
+    }
+
+    const upper = value.toUpperCase();
+    return COPILOT_FOCUS_AREAS.includes(upper as CopilotFocusArea)
+      ? (upper as CopilotFocusArea)
+      : "GENERAL";
+  }
+
+  private normalizeMode(value?: string | null): CopilotMode {
+    if (!value) {
+      return "CHAT";
+    }
+
+    const upper = value.toUpperCase();
+    return COPILOT_MODES.includes(upper as CopilotMode) ? (upper as CopilotMode) : "CHAT";
+  }
+
+  private resolveRoleScope(role: RoleName): CopilotRoleScope {
+    if (role === "SUPER_ADMIN" || role === "ADMIN") {
+      return "ADMIN";
+    }
+
+    if (role === "MANAGER" || role === "ASSET_MANAGER" || role === "SUPERVISOR") {
+      return "MANAGER";
+    }
+
+    if (role === "TECHNICIAN" || role === "MECHANIC") {
+      return "TECHNICIAN";
+    }
+
+    return "VIEWER";
+  }
+
+  private isPrivilegedRole(role: RoleName): boolean {
+    return ["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER"].includes(role);
+  }
+
+  private assertOperationsRole(role: RoleName) {
+    if (!["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER"].includes(role)) {
+      throw new ForbiddenException("Your role cannot execute this AI action");
+    }
+  }
+
+  private assertReportRole(role: RoleName) {
+    if (!["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER"].includes(role)) {
+      throw new ForbiddenException("Your role cannot generate reports from AI actions");
+    }
+  }
+
+  private requireActor(actor: CopilotActor | null): CopilotActor {
+    if (!actor || !actor.sub) {
+      throw new ForbiddenException("Authenticated user context is required");
+    }
+
+    return actor;
+  }
+
+  private resolveOwnerId(actor: CopilotActor, requestedUserId?: string): string {
+    if (requestedUserId && this.isPrivilegedRole(actor.role)) {
+      return requestedUserId;
+    }
+
+    return actor.sub;
+  }
+
+  private mapStoredMessage(message: {
+    id: string;
+    role: string;
+    content: string;
+    createdAt: Date;
+    focusArea: string;
+    mode: string;
+    actions: unknown;
+  }) {
+    return {
+      id: message.id,
+      role: message.role === "ASSISTANT" ? "assistant" : "user",
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+      focusArea: message.focusArea,
+      mode: message.mode,
+      actions: Array.isArray(message.actions) ? message.actions : []
+    };
+  }
+
+  private mapContextWorkOrder(item: {
+    id: string;
+    woNumber: string;
+    title: string;
+    priority: Priority;
+    status: WorkOrderStatus;
+    dueDate: Date | null;
+    technicianId: string | null;
+  }): ContextWorkOrder {
+    return {
+      id: item.id,
+      woNumber: item.woNumber,
+      title: item.title,
+      priority: item.priority,
+      status: item.status,
+      dueDate: item.dueDate ? item.dueDate.toISOString() : null,
+      technicianId: item.technicianId
+    };
+  }
+
+  private detectFuelAnomalies(
+    logs: Array<{
+      liters: unknown;
+      totalCost: unknown;
+      vehicle: {
+        id: string;
+        registrationNo: string;
+      };
+    }>
+  ): ContextFuelAnomaly[] {
+    let totalLiters = 0;
+    let totalCost = 0;
+
+    type VehicleBucket = {
+      liters: number;
+      cost: number;
+      vehicleId: string;
+      registrationNo: string;
+    };
+
+    const byVehicle = new Map<string, VehicleBucket>();
+
+    for (const log of logs) {
+      const liters = Number(log.liters ?? 0);
+      const cost = Number(log.totalCost ?? 0);
+
+      if (!Number.isFinite(liters) || !Number.isFinite(cost) || liters <= 0) {
+        continue;
+      }
+
+      totalLiters += liters;
+      totalCost += cost;
+
+      const current = byVehicle.get(log.vehicle.id) ?? {
+        liters: 0,
+        cost: 0,
+        vehicleId: log.vehicle.id,
+        registrationNo: log.vehicle.registrationNo
+      };
+
+      current.liters += liters;
+      current.cost += cost;
+      byVehicle.set(log.vehicle.id, current);
+    }
+
+    if (totalLiters <= 0) {
+      return [];
+    }
+
+    const globalAverageCostPerLiter = totalCost / totalLiters;
+
+    const anomalies: ContextFuelAnomaly[] = [];
+    for (const bucket of byVehicle.values()) {
+      if (bucket.liters <= 0) {
+        continue;
+      }
+
+      const averageCostPerLiter = bucket.cost / bucket.liters;
+      const variancePercent = ((averageCostPerLiter - globalAverageCostPerLiter) / globalAverageCostPerLiter) * 100;
+
+      if (variancePercent >= 20) {
+        anomalies.push({
+          vehicleId: bucket.vehicleId,
+          registrationNo: bucket.registrationNo,
+          averageCostPerLiter: Number(averageCostPerLiter.toFixed(2)),
+          globalAverageCostPerLiter: Number(globalAverageCostPerLiter.toFixed(2)),
+          variancePercent: Number(variancePercent.toFixed(1))
+        });
+      }
+    }
+
+    return anomalies.sort((left, right) => right.variancePercent - left.variancePercent);
+  }
+
+  private detectUtilityAnomalies(
+    bills: Array<{
+      meterId: string;
+      billingPeriodStart: Date;
+      totalAmount: unknown;
+      meter: {
+        meterNumber: string;
+        location: string;
+        type: string;
+      };
+    }>
+  ): ContextUtilityAnomaly[] {
+    const byMeter = new Map<string, typeof bills>();
+
+    for (const bill of bills) {
+      const group = byMeter.get(bill.meterId) ?? [];
+      group.push(bill);
+      byMeter.set(bill.meterId, group);
+    }
+
+    const anomalies: ContextUtilityAnomaly[] = [];
+
+    for (const [meterId, meterBills] of byMeter.entries()) {
+      const sorted = [...meterBills].sort(
+        (left, right) => right.billingPeriodStart.getTime() - left.billingPeriodStart.getTime()
+      );
+
+      if (sorted.length < 2) {
+        continue;
+      }
+
+      const latest = sorted[0];
+      const previous = sorted[1];
+
+      const latestAmount = Number(latest.totalAmount ?? 0);
+      const previousAmount = Number(previous.totalAmount ?? 0);
+
+      if (previousAmount <= 0 || !Number.isFinite(latestAmount) || !Number.isFinite(previousAmount)) {
+        continue;
+      }
+
+      const variancePercent = ((latestAmount - previousAmount) / previousAmount) * 100;
+
+      if (variancePercent >= 20) {
+        anomalies.push({
+          meterId,
+          meterNumber: latest.meter.meterNumber,
+          location: latest.meter.location,
+          utilityType: latest.meter.type,
+          latestAmount: Number(latestAmount.toFixed(2)),
+          previousAmount: Number(previousAmount.toFixed(2)),
+          variancePercent: Number(variancePercent.toFixed(1)),
+          billingMonth: latest.billingPeriodStart.toISOString().slice(0, 7)
+        });
+      }
+    }
+
+    return anomalies.sort((left, right) => right.variancePercent - left.variancePercent);
+  }
+
+  private projectStockouts(
+    stockMovements: Array<{
+      quantity: number;
+      part: {
+        id: string;
+        partNumber: string;
+        name: string;
+        quantityInStock: number;
+        reorderPoint: number;
+        isActive: boolean;
+      };
+    }>
+  ): ContextProjectedStockout[] {
+    type ProjectionBucket = {
+      partId: string;
+      partNumber: string;
+      name: string;
+      quantityInStock: number;
+      totalOut: number;
+    };
+
+    const byPart = new Map<string, ProjectionBucket>();
+
+    for (const movement of stockMovements) {
+      if (!movement.part.isActive) {
+        continue;
+      }
+
+      const current = byPart.get(movement.part.id) ?? {
+        partId: movement.part.id,
+        partNumber: movement.part.partNumber,
+        name: movement.part.name,
+        quantityInStock: movement.part.quantityInStock,
+        totalOut: 0
+      };
+
+      current.totalOut += movement.quantity;
+      current.quantityInStock = movement.part.quantityInStock;
+      byPart.set(movement.part.id, current);
+    }
+
+    const projected: ContextProjectedStockout[] = [];
+
+    for (const bucket of byPart.values()) {
+      const avgDailyUsage = bucket.totalOut / 30;
+      if (avgDailyUsage <= 0) {
+        continue;
+      }
+
+      const projectedDaysLeft = bucket.quantityInStock / avgDailyUsage;
+
+      if (projectedDaysLeft <= 21) {
+        projected.push({
+          partId: bucket.partId,
+          partNumber: bucket.partNumber,
+          name: bucket.name,
+          quantityInStock: bucket.quantityInStock,
+          avgDailyUsage: Number(avgDailyUsage.toFixed(2)),
+          projectedDaysLeft: Number(projectedDaysLeft.toFixed(1))
+        });
+      }
+    }
+
+    return projected.sort((left, right) => left.projectedDaysLeft - right.projectedDaysLeft);
+  }
+
+  private buildSmartSuggestions(context: CopilotContextSnapshot): string[] {
+    const suggestions: string[] = [];
+
+    if (context.summary.overdueTasks > 0) {
+      suggestions.push("Show overdue maintenance");
+    }
+
+    if (context.fleet.fuelAnomalies.length > 0) {
+      suggestions.push("Analyze fuel usage");
+    }
+
+    if (context.maintenance.overdueWorkOrders.length > 0) {
+      suggestions.push("Predict next breakdown");
+    }
+
+    if (context.inventory.lowStockParts.length > 0) {
+      suggestions.push("Highlight low stock spare parts");
+    }
+
+    if (context.utilities.anomalies.length > 0) {
+      suggestions.push("Explain utility anomaly trend");
+    }
+
+    switch (context.focusArea) {
+      case "MAINTENANCE":
+        suggestions.push("List critical overdue work orders");
+        suggestions.push("Recommend preventive schedule updates");
+        break;
+      case "FLEET":
+        suggestions.push("Show vehicles at service risk");
+        suggestions.push("Identify idle vehicles older than 14 days");
+        break;
+      case "UTILITIES":
+        suggestions.push("Generate utilities anomaly report");
+        suggestions.push("Compare latest utility costs by location");
+        break;
+      case "INVENTORY":
+        suggestions.push("Forecast stockout timeline");
+        suggestions.push("Suggest reorder priorities");
+        break;
+      case "CLEANING":
+        suggestions.push("Summarize unresolved cleaning issues");
+        suggestions.push("Prioritize supervisor sign-off queue");
+        break;
+      case "GENERAL":
+      default:
+        suggestions.push("Summarize today's highest operational risks");
+        suggestions.push("Recommend top 3 actions for this shift");
+        break;
+    }
+
+    return Array.from(new Set(suggestions)).slice(0, 8);
+  }
+
+  private buildSuggestedActions(
+    actor: CopilotActor | null,
+    focusArea: CopilotFocusArea,
+    mode: CopilotMode,
+    context: CopilotContextSnapshot
+  ): CopilotActionSuggestion[] {
+    const operationsEnabled = Boolean(
+      actor && ["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER"].includes(actor.role)
+    );
+    const reportEnabled = Boolean(
+      actor && ["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER"].includes(actor.role)
+    );
+
+    const defaultCreatePayload: Record<string, unknown> = {
+      title: this.suggestWorkOrderTitle(focusArea, mode),
+      description: "Generated from MaintainPro AI Copilot recommendation",
+      priority: context.summary.overdueTasks >= 5 ? "HIGH" : "MEDIUM",
+      type: focusArea === "MAINTENANCE" ? "PREVENTIVE" : "CORRECTIVE"
+    };
+
+    const defaultSchedulePayload: Record<string, unknown> = {
+      name: this.suggestScheduleName(focusArea),
+      description: "Generated from MaintainPro AI Copilot recommendation",
+      type: "PREVENTIVE",
+      frequency: "MONTHLY",
+      nextDueDate: new Date(Date.now() + 7 * DAY_MS).toISOString()
+    };
+
+    const unassigned = context.maintenance.activeWorkOrders.find((item) => !item.technicianId);
+    const assignPayload: Record<string, unknown> = {
+      workOrderId: unassigned?.id ?? "",
+      technicianId: ""
+    };
+
+    const reportType = this.reportTypeForFocus(focusArea);
+
+    const disabledReason = "Role does not have permission for this operation";
+
+    return [
+      {
+        id: "action-create-task",
+        type: "CREATE_WORK_ORDER",
+        label: "Create Task",
+        description: "Create a work order from the copilot recommendation.",
+        payload: defaultCreatePayload,
+        enabled: operationsEnabled,
+        disabledReason: operationsEnabled ? undefined : disabledReason
+      },
+      {
+        id: "action-schedule-maintenance",
+        type: "SCHEDULE_MAINTENANCE",
+        label: "Schedule Maintenance",
+        description: "Create a preventive maintenance schedule.",
+        payload: defaultSchedulePayload,
+        enabled: operationsEnabled,
+        disabledReason: operationsEnabled ? undefined : disabledReason
+      },
+      {
+        id: "action-assign-technician",
+        type: "ASSIGN_TECHNICIAN",
+        label: "Assign Technician",
+        description: "Assign an available technician to the selected work order.",
+        payload: assignPayload,
+        enabled: operationsEnabled && Boolean(unassigned),
+        disabledReason: operationsEnabled
+          ? unassigned
+            ? undefined
+            : "No unassigned active work orders available"
+          : disabledReason
+      },
+      {
+        id: "action-generate-report",
+        type: "GENERATE_REPORT",
+        label: "Generate Report",
+        description: "Generate a module report for current insights.",
+        payload: {
+          reportType
+        },
+        enabled: reportEnabled,
+        disabledReason: reportEnabled ? undefined : disabledReason
+      }
+    ];
+  }
+
+  private suggestWorkOrderTitle(focusArea: CopilotFocusArea, mode: CopilotMode) {
+    const label = focusArea === "GENERAL" ? "Operations" : focusArea;
+    return `${label} ${mode.toLowerCase()} follow-up`;
+  }
+
+  private suggestScheduleName(focusArea: CopilotFocusArea) {
+    if (focusArea === "MAINTENANCE") {
+      return "Preventive maintenance optimization cycle";
+    }
+
+    if (focusArea === "FLEET") {
+      return "Fleet reliability preventive cycle";
+    }
+
+    if (focusArea === "UTILITIES") {
+      return "Utility systems preventive inspection";
+    }
+
+    return "Copilot recommended preventive cycle";
+  }
+
+  private reportTypeForFocus(focusArea: CopilotFocusArea): CopilotReportType {
+    switch (focusArea) {
+      case "FLEET":
+        return "FLEET_EFFICIENCY";
+      case "UTILITIES":
+        return "UTILITIES";
+      case "INVENTORY":
+        return "INVENTORY";
+      case "MAINTENANCE":
+        return "MAINTENANCE_COST";
+      case "GENERAL":
+      case "CLEANING":
+      default:
+        return "DASHBOARD";
+    }
+  }
+
+  private buildProjectAwareMessage(
+    focusArea: CopilotFocusArea,
+    mode: CopilotMode,
+    message: string,
+    context: CopilotContextSnapshot
+  ) {
+    const trimmedMessage = message.trim();
+
+    const modeGuidance: Record<CopilotMode, string> = {
+      CHAT: "Answer directly and concisely using real system context.",
+      ANALYZE:
+        "Provide data-backed operational analysis, identify patterns, and explain what matters most now.",
+      PREDICT:
+        "Predict near-term risks and likely failures using the provided context and suggest early mitigations.",
+      RECOMMEND:
+        "Recommend concrete optimization actions with priority, owner role, and expected impact."
+    };
+
+    const focusGuidance: Record<CopilotFocusArea, string> = {
+      GENERAL:
+        "You are MaintainPro's operations copilot across maintenance, fleet, utilities, cleaning, and inventory.",
+      MAINTENANCE:
+        "Focus on preventive maintenance optimization, overdue work orders, and failure prevention.",
+      FLEET:
+        "Focus on fleet status, fuel anomalies, idle vehicles, and service risk.",
+      CLEANING:
+        "Focus on cleaning visit compliance, sign-off quality, and unresolved facility issues.",
+      INVENTORY:
+        "Focus on low stock prediction, reorder urgency, and spare part risk.",
+      UTILITIES:
+        "Focus on utility anomalies, consumption variance, and cost-control actions."
+    };
+
+    const promptContext = {
+      generatedAt: context.generatedAt,
+      roleScope: context.roleScope,
+      summary: context.summary,
+      maintenance: {
+        overdueWorkOrders: context.maintenance.overdueWorkOrders,
+        overdueSchedules: context.maintenance.overdueSchedules
+      },
+      fleet: {
+        statusCounts: context.fleet.statusCounts,
+        overdueServiceVehicles: context.fleet.overdueServiceVehicles,
+        fuelAnomalies: context.fleet.fuelAnomalies,
+        idleVehicles: context.fleet.idleVehicles
+      },
+      utilities: context.utilities,
+      inventory: {
+        lowStockParts: context.inventory.lowStockParts,
+        projectedStockouts: context.inventory.projectedStockouts
       }
     };
-  }
 
-  private buildFallbackResponse(params: {
-    dto: CopilotChatDto;
-    context: CopilotContextBundle;
-    conversation: { id: string; title: string; updatedAt: Date; providerConversationId: string | null } | null;
-    code: string;
-    reason: string;
-  }) {
-    const focusArea = params.dto.focusArea ?? "GENERAL";
-    const mode = params.dto.mode ?? "CHAT";
-    const text = this.buildFallbackText(focusArea, mode, params.dto.message, params.context);
-    const suggestedActions = this.buildSuggestedActions(focusArea, mode, params.context);
-
-    return this.buildResponse({
-      dto: params.dto,
-      context: params.context,
-      conversation: params.conversation,
-      text,
-      raw: {
-        source: "maintainpro-local-fallback",
-        code: params.code,
-        reason: params.reason
-      },
-      providerConversationId: params.conversation?.providerConversationId ?? null,
-      suggestedActions,
-      fallback: true
-    });
+    return [
+      "You are MaintainPro AI Copilot for production operations.",
+      focusGuidance[focusArea],
+      `Current mode: ${mode}. ${modeGuidance[mode]}`,
+      "Use only the provided live context as the operational source of truth. Avoid generic advice.",
+      "Respond using markdown with concise sections and actionable steps.",
+      "Include a short section titled 'Actionable next steps'.",
+      "Live system context:",
+      JSON.stringify(promptContext, null, 2),
+      "User request:",
+      trimmedMessage
+    ].join("\n\n");
   }
 
   private buildFallbackText(
     focusArea: CopilotFocusArea,
-    mode: CopilotMode,
     message: string,
-    context: CopilotContextBundle
+    context: CopilotContextSnapshot
   ) {
     const normalizedMessage = message.trim();
 
@@ -1106,843 +1658,52 @@ export class PredictiveAiService {
       return "Hello from MaintainPro. I can help with maintenance, fleet, cleaning, inventory, utilities, and daily operations.";
     }
 
-    const metrics = context.metrics;
+    const summary = context.summary;
 
-    const guidanceByArea: Record<CopilotFocusArea, string[]> = {
+    const fallbackByArea: Record<CopilotFocusArea, string[]> = {
       GENERAL: [
-        `Active work orders: ${metrics.activeWorkOrders}`,
-        `Overdue tasks: ${metrics.overdueWorkOrders + metrics.overdueMaintenanceTasks}`,
-        `High-risk anomalies (fleet + utilities): ${metrics.fuelAnomalies + metrics.utilityAnomalies}`
+        "Prioritize overdue tasks that impact uptime, safety, or compliance.",
+        "Resolve active blockers linking work orders, low stock, and utility issues.",
+        "Escalate only risks that threaten today's operational continuity."
       ],
       MAINTENANCE: [
-        `Overdue work orders: ${metrics.overdueWorkOrders}`,
-        `Overdue maintenance schedules: ${metrics.overdueMaintenanceTasks}`,
-        "Prioritize critical assets and unassigned urgent work orders first."
+        "Start with critical overdue preventive and corrective work orders.",
+        "Assign technicians to unassigned high-priority tasks before scheduling new work.",
+        "Bundle repeat failures into a root-cause maintenance action plan."
       ],
       FLEET: [
-        `Unavailable vehicles: ${metrics.fleetUnavailable}`,
-        `Fuel anomalies detected: ${metrics.fuelAnomalies}`,
-        "Focus dispatch on available vehicles with no imminent service conflicts."
+        "Investigate vehicles that are out of service and overdue for maintenance first.",
+        "Audit fuel anomalies to separate route effects from efficiency issues.",
+        "Review idle vehicles for redeployment or maintenance scheduling."
       ],
       CLEANING: [
-        `Open cleaning issues: ${metrics.cleaningOpenIssues}`,
-        `Overdue operational tasks affecting facilities: ${metrics.overdueWorkOrders}`,
-        "Escalate repeated issue locations to supervisors with timestamps."
+        "Prioritize unresolved facility issues and rejected sign-offs.",
+        "Check for repeated location-level compliance misses.",
+        "Close feedback loops with supervisors before next shift handover."
       ],
       INVENTORY: [
-        `Low stock parts: ${metrics.lowStockParts}`,
-        `Potential stockout risks: ${context.highlights.stockoutRisk.length}`,
-        "Link replenishment decisions to active and overdue work orders."
+        "Start with low-stock critical spare parts and projected stockouts.",
+        "Prioritize reorders for parts linked to active overdue work orders.",
+        "Review usage velocity and supplier lead time before adjusting thresholds."
       ],
       UTILITIES: [
-        `Utility anomalies detected: ${metrics.utilityAnomalies}`,
-        `Overdue utility bills: ${metrics.overdueUtilityBills}`,
-        "Validate meter spikes against site activity before escalation."
+        "Validate major month-over-month utility cost variances by meter and location.",
+        "Address overdue utility bills and abnormal usage in the same response cycle.",
+        "Plan immediate containment and medium-term efficiency actions."
       ]
     };
 
-    const nextSteps = guidanceByArea[focusArea]
+    const nextSteps = fallbackByArea[focusArea]
       .map((step, index) => `${index + 1}. ${step}`)
       .join("\n");
 
     return [
       `Built-in MaintainPro guidance for ${focusArea.toLowerCase()} operations:`,
-      `Mode: ${mode}`,
+      `Current snapshot: ${summary.activeWorkOrders} active work orders, ${summary.overdueTasks} overdue tasks, ${summary.fleetOutOfService} fleet units out of service, ${summary.utilityAnomalies} utility anomalies, ${summary.lowStockItems} low-stock parts.`,
+      "### Actionable next steps",
       nextSteps,
-      "Suggested next commands:",
-      context.suggestionChips.map((chip) => `- ${chip}`).join("\n"),
       `Original request: ${normalizedMessage}`
     ].join("\n\n");
-  }
-
-  private buildProjectAwareMessage(params: {
-    message: string;
-    focusArea: CopilotFocusArea;
-    mode: CopilotMode;
-    user: CopilotUser;
-    context: CopilotContextBundle;
-    history: Array<{ role: "USER" | "ASSISTANT" | "SYSTEM"; content: string; createdAt: Date }>;
-  }) {
-    const roleInstruction = this.roleInstruction(params.user?.role ?? null);
-
-    const modeInstruction: Record<CopilotMode, string> = {
-      CHAT:
-        "Respond conversationally but always ground your advice in the provided metrics and highlights.",
-      ANALYZE:
-        "Provide a concise analysis with trends, likely causes, and where to investigate first.",
-      PREDICT:
-        "Forecast near-term risks and likely failure points with confidence notes where possible.",
-      RECOMMEND:
-        "Recommend optimization actions ordered by impact and execution speed."
-    };
-
-    const areaInstruction: Record<CopilotFocusArea, string> = {
-      GENERAL:
-        "You are MaintainPro's operations copilot across maintenance, fleet, inventory, utilities, and cleaning.",
-      MAINTENANCE:
-        "You are MaintainPro's maintenance copilot focused on work orders, preventive planning, and downtime reduction.",
-      FLEET:
-        "You are MaintainPro's fleet copilot focused on utilization, anomalies, service timing, and dispatch continuity.",
-      CLEANING:
-        "You are MaintainPro's cleaning copilot focused on compliance, visit quality, and issue closure.",
-      INVENTORY:
-        "You are MaintainPro's inventory copilot focused on stock health, replenishment risk, and spares readiness.",
-      UTILITIES:
-        "You are MaintainPro's utilities copilot focused on abnormal consumption, cost variance, and service continuity."
-    };
-
-    const compactHistory = params.history.map((entry) => ({
-      role: entry.role,
-      content: entry.content.slice(0, 500),
-      createdAt: entry.createdAt.toISOString()
-    }));
-
-    const contextPacket = {
-      userScope: params.context.userScope,
-      metrics: params.context.metrics,
-      highlights: params.context.highlights,
-      suggestionChips: params.context.suggestionChips,
-      history: compactHistory
-    };
-
-    return [
-      areaInstruction[params.focusArea],
-      roleInstruction,
-      modeInstruction[params.mode],
-      "Use only provided MaintainPro context. Do not invent data.",
-      "Always include a final section named 'Suggested Actions' with 2-4 practical actions.",
-      "Return markdown with clear headings, bullets, and a table when useful.",
-      "MaintainPro Context JSON:",
-      JSON.stringify(contextPacket, null, 2),
-      "User request:",
-      params.message.trim()
-    ].join("\n\n");
-  }
-
-  private roleInstruction(role: RoleName | null) {
-    switch (role) {
-      case RoleName.SUPER_ADMIN:
-      case RoleName.ADMIN:
-        return "User role scope: admin. Provide full operational insights and action pathways.";
-      case RoleName.MANAGER:
-      case RoleName.SUPERVISOR:
-      case RoleName.ASSET_MANAGER:
-        return "User role scope: manager. Prioritize summaries, alerts, and escalation-ready recommendations.";
-      case RoleName.TECHNICIAN:
-      case RoleName.MECHANIC:
-      case RoleName.CLEANER:
-      case RoleName.DRIVER:
-      case RoleName.INVENTORY_KEEPER:
-        return "User role scope: assigned-only. Focus on assigned tasks and immediate execution guidance.";
-      default:
-        return "User role scope: restricted. Keep recommendations concise and operational.";
-    }
-  }
-
-  private async resolveConversation(
-    user: CopilotUser,
-    dto: CopilotChatDto,
-    focusArea: CopilotFocusArea,
-    mode: CopilotMode
-  ) {
-    if (!user?.sub) {
-      return null;
-    }
-
-    const incoming = dto.conversationId?.trim();
-    if (incoming) {
-      const existing = await this.prisma.copilotConversation.findFirst({
-        where: {
-          userId: user.sub,
-          ...(user.tenantId ? { tenantId: user.tenantId } : {}),
-          OR: [{ id: incoming }, { providerConversationId: incoming }]
-        }
-      });
-
-      if (existing) {
-        return existing;
-      }
-    }
-
-    const created = await this.prisma.copilotConversation.create({
-      data: {
-        userId: user.sub,
-        tenantId: user.tenantId ?? null,
-        title: dto.conversationTitle?.trim() || this.deriveConversationTitle(dto.message),
-        focusArea,
-        mode,
-        providerConversationId: incoming && incoming !== "" ? incoming : null
-      }
-    });
-
-    return created;
-  }
-
-  private deriveConversationTitle(message: string) {
-    const clean = message.replace(/\s+/g, " ").trim();
-    if (!clean) {
-      return "Operations Conversation";
-    }
-
-    return clean.length <= 70 ? clean : `${clean.slice(0, 67)}...`;
-  }
-
-  private buildSuggestedActions(
-    focusArea: CopilotFocusArea,
-    _mode: CopilotMode,
-    context: CopilotContextBundle
-  ) {
-    const actions: CopilotSuggestedAction[] = [];
-    const overdueCandidate = context.highlights.overdueWorkOrders[0] as
-      | { title?: string; id?: string; asset?: string | null; vehicle?: string | null }
-      | undefined;
-    const unassignedCandidate = context.highlights.unassignedWorkOrders[0] as
-      | { id?: string; title?: string }
-      | undefined;
-    const overdueMaintenance = context.highlights.overdueMaintenance[0] as
-      | { asset?: string | null; vehicle?: string | null }
-      | undefined;
-
-    if (["GENERAL", "MAINTENANCE", "FLEET"].includes(focusArea)) {
-      actions.push({
-        id: "create-work-order",
-        label: "Create Work Order",
-        actionType: "CREATE_WORK_ORDER",
-        endpoint: "/ai/actions/create-work-order",
-        description: "Open a new work order from the copilot suggestion.",
-        payload: {
-          title: overdueCandidate?.title
-            ? `Follow-up: ${overdueCandidate.title}`
-            : "Copilot generated work order",
-          description: "Generated from copilot recommendation.",
-          priority: context.metrics.overdueWorkOrders > 0 ? "HIGH" : "MEDIUM",
-          type: "CORRECTIVE"
-        }
-      });
-    }
-
-    if (context.metrics.overdueMaintenanceTasks > 0 || focusArea === "MAINTENANCE") {
-      actions.push({
-        id: "schedule-maintenance",
-        label: "Schedule Maintenance",
-        actionType: "SCHEDULE_MAINTENANCE",
-        endpoint: "/ai/actions/schedule-maintenance",
-        description: "Create a preventive maintenance schedule from current risk signals.",
-        payload: {
-          name: "Copilot preventive schedule",
-          type: "PREVENTIVE",
-          frequency: "MONTHLY",
-          nextDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          assetHint: overdueMaintenance?.asset,
-          vehicleHint: overdueMaintenance?.vehicle
-        }
-      });
-    }
-
-    if (unassignedCandidate?.id) {
-      actions.push({
-        id: "assign-technician",
-        label: "Assign Technician",
-        actionType: "ASSIGN_TECHNICIAN",
-        endpoint: "/ai/actions/assign-technician",
-        description: "Assign a technician to an unassigned active work order.",
-        payload: {
-          workOrderId: unassignedCandidate.id,
-          technicianId: ""
-        }
-      });
-    }
-
-    const defaultReportType: CopilotReportType =
-      focusArea === "FLEET"
-        ? "FLEET_EFFICIENCY"
-        : focusArea === "UTILITIES"
-          ? "UTILITIES"
-          : focusArea === "INVENTORY"
-            ? "INVENTORY"
-            : focusArea === "MAINTENANCE"
-              ? "MAINTENANCE_COST"
-              : "DASHBOARD";
-
-    actions.push({
-      id: "generate-report",
-      label: "Generate Report",
-      actionType: "GENERATE_REPORT",
-      endpoint: "/ai/actions/generate-report",
-      description: "Generate a focused report for the current copilot focus area.",
-      payload: {
-        reportType: defaultReportType
-      }
-    });
-
-    return actions.slice(0, 4);
-  }
-
-  private mergeAssistantActions(
-    extracted: CopilotSuggestedAction[],
-    fallback: CopilotSuggestedAction[]
-  ) {
-    const result: CopilotSuggestedAction[] = [];
-    const seen = new Set<string>();
-
-    for (const action of [...extracted, ...fallback]) {
-      if (seen.has(action.actionType)) {
-        continue;
-      }
-      seen.add(action.actionType);
-      result.push(action);
-    }
-
-    return result;
-  }
-
-  private extractAssistantActions(payload: unknown) {
-    if (!payload || typeof payload !== "object") {
-      return [];
-    }
-
-    const record = payload as Record<string, unknown>;
-    const maybeActions =
-      record.suggestedActions ??
-      record.actions ??
-      (record.data && typeof record.data === "object"
-        ? (record.data as Record<string, unknown>).suggestedActions
-        : null);
-
-    if (!Array.isArray(maybeActions)) {
-      return [];
-    }
-
-    const normalized: CopilotSuggestedAction[] = [];
-
-    for (const item of maybeActions) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-
-      const action = item as Record<string, unknown>;
-      const label = typeof action.label === "string" ? action.label : null;
-      const actionType =
-        typeof action.actionType === "string" ? action.actionType.toUpperCase() : null;
-
-      if (!label || !actionType) {
-        continue;
-      }
-
-      if (
-        ![
-          "CREATE_WORK_ORDER",
-          "SCHEDULE_MAINTENANCE",
-          "ASSIGN_TECHNICIAN",
-          "GENERATE_REPORT"
-        ].includes(actionType)
-      ) {
-        continue;
-      }
-
-      normalized.push({
-        id: `${actionType.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`,
-        label,
-        actionType: actionType as CopilotSuggestedAction["actionType"],
-        endpoint:
-          actionType === "CREATE_WORK_ORDER"
-            ? "/ai/actions/create-work-order"
-            : actionType === "SCHEDULE_MAINTENANCE"
-              ? "/ai/actions/schedule-maintenance"
-              : actionType === "ASSIGN_TECHNICIAN"
-                ? "/ai/actions/assign-technician"
-                : "/ai/actions/generate-report",
-        description:
-          typeof action.description === "string"
-            ? action.description
-            : "Action suggested by assistant response.",
-        payload:
-          action.payload && typeof action.payload === "object"
-            ? (action.payload as Record<string, unknown>)
-            : {}
-      });
-    }
-
-    return normalized;
-  }
-
-  private async persistAssistantArtifacts(params: {
-    user: CopilotUser;
-    dto: CopilotChatDto;
-    context: CopilotContextBundle;
-    conversation: { id: string } | null;
-    responseText: string;
-    fallbackCode: string | null;
-    provider: string;
-    suggestedActions: CopilotSuggestedAction[];
-    raw: unknown;
-  }) {
-    if (params.conversation) {
-      await this.prisma.copilotMessage.create({
-        data: {
-          conversationId: params.conversation.id,
-          role: "ASSISTANT",
-          content: params.responseText,
-          focusArea: params.dto.focusArea ?? "GENERAL",
-          mode: params.dto.mode ?? "CHAT",
-          suggestedActions: params.suggestedActions as unknown as Prisma.InputJsonValue,
-          metadata: {
-            fallbackCode: params.fallbackCode,
-            provider: params.provider
-          }
-        }
-      });
-
-      await this.prisma.copilotConversation.update({
-        where: { id: params.conversation.id },
-        data: {
-          focusArea: params.dto.focusArea ?? "GENERAL",
-          mode: params.dto.mode ?? "CHAT"
-        }
-      });
-    }
-
-    if (!params.user?.sub) {
-      return;
-    }
-
-    await this.prisma.copilotInteractionLog.create({
-      data: {
-        conversationId: params.conversation?.id,
-        userId: params.user.sub,
-        tenantId: params.user.tenantId ?? null,
-        query: params.dto.message,
-        response: params.responseText,
-        focusArea: params.dto.focusArea ?? "GENERAL",
-        mode: params.dto.mode ?? "CHAT",
-        contextSnapshot: params.context as unknown as Prisma.InputJsonValue,
-        fallbackCode: params.fallbackCode,
-        provider: params.provider,
-        metadata: {
-          raw: params.raw,
-          markdown: params.dto.markdown ?? true,
-          suggestedActions: params.suggestedActions
-        }
-      }
-    });
-  }
-
-  private detectFuelAnomalies(
-    fuelLogs: Array<{
-      vehicleId: string;
-      liters: Prisma.Decimal;
-      date: Date;
-      vehicle: {
-        registrationNo: string;
-      };
-    }>
-  ) {
-    const logsByVehicle = new Map<
-      string,
-      Array<{ liters: number; date: string; registrationNo: string }>
-    >();
-
-    for (const log of fuelLogs) {
-      const existing = logsByVehicle.get(log.vehicleId) ?? [];
-      existing.push({
-        liters: Number(log.liters),
-        date: log.date.toISOString(),
-        registrationNo: log.vehicle.registrationNo
-      });
-      logsByVehicle.set(log.vehicleId, existing);
-    }
-
-    const anomalies: Array<Record<string, unknown>> = [];
-
-    for (const [vehicleId, logs] of logsByVehicle.entries()) {
-      if (logs.length < 4) {
-        continue;
-      }
-
-      const current = logs[0].liters;
-      const baselineList = logs.slice(1, 4).map((entry) => entry.liters);
-      const baseline = baselineList.reduce((sum, value) => sum + value, 0) / baselineList.length;
-
-      if (baseline <= 0 || current <= baseline * 1.15) {
-        continue;
-      }
-
-      anomalies.push({
-        vehicleId,
-        registrationNo: logs[0].registrationNo,
-        latestLiters: Number(current.toFixed(2)),
-        baselineLiters: Number(baseline.toFixed(2)),
-        deltaPercent: Number((((current - baseline) / baseline) * 100).toFixed(1)),
-        latestDate: logs[0].date
-      });
-    }
-
-    return anomalies.sort((left, right) => Number(right.deltaPercent) - Number(left.deltaPercent));
-  }
-
-  private detectUtilityAnomalies(
-    utilityReadings: Array<{
-      meterId: string;
-      consumption: Prisma.Decimal | null;
-      readingDate: Date;
-      meter: {
-        meterNumber: string;
-        type: string;
-        location: string;
-      };
-    }>
-  ) {
-    const byMeter = new Map<
-      string,
-      Array<{
-        consumption: number;
-        readingDate: string;
-        meterNumber: string;
-        type: string;
-        location: string;
-      }>
-    >();
-
-    for (const reading of utilityReadings) {
-      const existing = byMeter.get(reading.meterId) ?? [];
-      existing.push({
-        consumption: Number(reading.consumption ?? 0),
-        readingDate: reading.readingDate.toISOString(),
-        meterNumber: reading.meter.meterNumber,
-        type: reading.meter.type,
-        location: reading.meter.location
-      });
-      byMeter.set(reading.meterId, existing);
-    }
-
-    const anomalies: Array<Record<string, unknown>> = [];
-
-    for (const [meterId, entries] of byMeter.entries()) {
-      if (entries.length < 4) {
-        continue;
-      }
-
-      const latest = entries[0];
-      const baselineList = entries.slice(1, 4).map((entry) => entry.consumption);
-      const baseline = baselineList.reduce((sum, value) => sum + value, 0) / baselineList.length;
-
-      if (baseline <= 0 || latest.consumption <= baseline * 1.2) {
-        continue;
-      }
-
-      anomalies.push({
-        meterId,
-        meterNumber: latest.meterNumber,
-        type: latest.type,
-        location: latest.location,
-        latestConsumption: Number(latest.consumption.toFixed(2)),
-        baselineConsumption: Number(baseline.toFixed(2)),
-        deltaPercent: Number((((latest.consumption - baseline) / baseline) * 100).toFixed(1)),
-        latestDate: latest.readingDate
-      });
-    }
-
-    return anomalies.sort((left, right) => Number(right.deltaPercent) - Number(left.deltaPercent));
-  }
-
-  private buildStockoutRisk(
-    stockMovements: Array<{
-      partId: string;
-      quantity: number;
-      part: {
-        partNumber: string;
-        name: string;
-        quantityInStock: number;
-        reorderPoint: number;
-      };
-    }>
-  ) {
-    const usageByPart = new Map<
-      string,
-      {
-        partNumber: string;
-        name: string;
-        quantityInStock: number;
-        reorderPoint: number;
-        outQuantity: number;
-      }
-    >();
-
-    for (const movement of stockMovements) {
-      const existing = usageByPart.get(movement.partId);
-
-      if (existing) {
-        existing.outQuantity += movement.quantity;
-        continue;
-      }
-
-      usageByPart.set(movement.partId, {
-        partNumber: movement.part.partNumber,
-        name: movement.part.name,
-        quantityInStock: movement.part.quantityInStock,
-        reorderPoint: movement.part.reorderPoint,
-        outQuantity: movement.quantity
-      });
-    }
-
-    const result = Array.from(usageByPart.entries()).map(([partId, item]) => {
-      const avgDailyUsage = item.outQuantity / 30;
-      const predictedDaysToStockout = avgDailyUsage > 0 ? item.quantityInStock / avgDailyUsage : null;
-
-      return {
-        partId,
-        partNumber: item.partNumber,
-        name: item.name,
-        quantityInStock: item.quantityInStock,
-        reorderPoint: item.reorderPoint,
-        avgDailyUsage: Number(avgDailyUsage.toFixed(2)),
-        predictedDaysToStockout:
-          predictedDaysToStockout === null ? null : Number(predictedDaysToStockout.toFixed(1))
-      };
-    });
-
-    return result
-      .filter((item) => item.predictedDaysToStockout !== null && item.predictedDaysToStockout <= 21)
-      .sort(
-        (left, right) =>
-          Number(left.predictedDaysToStockout ?? Number.MAX_SAFE_INTEGER) -
-          Number(right.predictedDaysToStockout ?? Number.MAX_SAFE_INTEGER)
-      );
-  }
-
-  private buildEmptyContext(focusArea: CopilotFocusArea, _mode: CopilotMode): CopilotContextBundle {
-    const metrics: CopilotContextBundle["metrics"] = {
-      activeWorkOrders: 0,
-      overdueWorkOrders: 0,
-      overdueMaintenanceTasks: 0,
-      fleetVehicles: 0,
-      fleetUnavailable: 0,
-      fuelAnomalies: 0,
-      utilityAnomalies: 0,
-      overdueUtilityBills: 0,
-      lowStockParts: 0,
-      cleaningOpenIssues: 0
-    };
-
-    return {
-      generatedAt: new Date().toISOString(),
-      userScope: {
-        userId: null,
-        role: "ANONYMOUS",
-        tenantId: null,
-        visibility: "summary"
-      },
-      metrics,
-      highlights: {
-        activeWorkOrders: [],
-        overdueWorkOrders: [],
-        unassignedWorkOrders: [],
-        overdueMaintenance: [],
-        fuelAnomalies: [],
-        utilityAnomalies: [],
-        lowStockParts: [],
-        stockoutRisk: []
-      },
-      insightCards: [
-        {
-          id: "overdue-work-orders",
-          title: "Overdue Work Orders",
-          value: 0,
-          severity: "neutral",
-          description: "No operational context loaded."
-        }
-      ],
-      suggestionChips: this.buildSuggestionChips(focusArea, metrics)
-    };
-  }
-
-  private buildSuggestionChips(
-    focusArea: CopilotFocusArea,
-    metrics: CopilotContextBundle["metrics"]
-  ) {
-    const chips: string[] = [];
-
-    if (metrics.overdueWorkOrders > 0) {
-      chips.push("Show overdue maintenance");
-    }
-    if (metrics.fuelAnomalies > 0) {
-      chips.push("Analyze fuel usage");
-    }
-    if (metrics.utilityAnomalies > 0) {
-      chips.push("Detect abnormal utility consumption");
-    }
-    if (metrics.lowStockParts > 0) {
-      chips.push("Predict low stock risk");
-    }
-    if (metrics.overdueMaintenanceTasks > 0) {
-      chips.push("Schedule overdue maintenance");
-    }
-
-    const byArea: Record<CopilotFocusArea, string[]> = {
-      GENERAL: [
-        "Summarize top operational risks",
-        "Recommend today task priorities",
-        "Generate operational dashboard report"
-      ],
-      MAINTENANCE: [
-        "Prioritize critical work orders",
-        "Predict next breakdown",
-        "Recommend technician allocation"
-      ],
-      FLEET: [
-        "Review unavailable vehicles",
-        "Analyze fleet anomalies",
-        "Generate fleet efficiency report"
-      ],
-      CLEANING: [
-        "Show pending cleaning issues",
-        "Recommend supervisor follow-ups",
-        "Summarize cleaning risk hotspots"
-      ],
-      INVENTORY: [
-        "Show low stock spares",
-        "Predict part stockouts",
-        "Generate inventory exposure report"
-      ],
-      UTILITIES: [
-        "Analyze utility anomalies",
-        "Show overdue utility liabilities",
-        "Generate utility report"
-      ]
-    };
-
-    for (const item of byArea[focusArea]) {
-      if (!chips.includes(item)) {
-        chips.push(item);
-      }
-    }
-
-    return chips.slice(0, 8);
-  }
-
-  private buildWorkOrderScope(user: CopilotUser): Prisma.WorkOrderWhereInput {
-    const scope: Prisma.WorkOrderWhereInput = {};
-
-    if (user?.tenantId) {
-      scope.tenantId = user.tenantId;
-    }
-
-    if (!user?.role || !user.sub) {
-      return scope;
-    }
-
-    if ([RoleName.TECHNICIAN, RoleName.MECHANIC].includes(user.role)) {
-      scope.technicianId = user.sub;
-    }
-
-    if (user.role === RoleName.DRIVER) {
-      scope.vehicle = {
-        driver: {
-          userId: user.sub
-        }
-      };
-    }
-
-    return scope;
-  }
-
-  private buildVehicleScope(user: CopilotUser): Prisma.VehicleWhereInput {
-    const scope: Prisma.VehicleWhereInput = {};
-
-    if (user?.tenantId) {
-      scope.tenantId = user.tenantId;
-    }
-
-    if (user?.role === RoleName.DRIVER && user.sub) {
-      scope.driver = {
-        userId: user.sub
-      };
-    }
-
-    return scope;
-  }
-
-  private buildMeterScope(user: CopilotUser): Prisma.UtilityMeterWhereInput {
-    const scope: Prisma.UtilityMeterWhereInput = {
-      isActive: true
-    };
-
-    if (user?.tenantId) {
-      scope.tenantId = user.tenantId;
-    }
-
-    return scope;
-  }
-
-  private buildPartScope(user: CopilotUser): Prisma.SparePartWhereInput {
-    const scope: Prisma.SparePartWhereInput = {
-      isActive: true
-    };
-
-    if (user?.tenantId) {
-      scope.tenantId = user.tenantId;
-    }
-
-    return scope;
-  }
-
-  private resolveVisibility(role: RoleName | null): "full" | "summary" | "assigned-only" {
-    if (!role) {
-      return "summary";
-    }
-
-    if ([RoleName.SUPER_ADMIN, RoleName.ADMIN].includes(role)) {
-      return "full";
-    }
-
-    if ([RoleName.MANAGER, RoleName.SUPERVISOR, RoleName.ASSET_MANAGER].includes(role)) {
-      return "summary";
-    }
-
-    return "assigned-only";
-  }
-
-  private hasFullLogAccess(role: RoleName) {
-    return [RoleName.SUPER_ADMIN, RoleName.ADMIN].includes(role);
-  }
-
-  private assertAuthedUser(user: CopilotUser) {
-    if (!user?.sub) {
-      throw new ForbiddenException("Authenticated user is required");
-    }
-    return user;
-  }
-
-  private toPositiveInt(
-    value: string | undefined,
-    fallback: number,
-    min: number,
-    max: number
-  ) {
-    if (!value) {
-      return fallback;
-    }
-
-    const parsed = Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-
-    return Math.min(max, Math.max(min, Math.floor(parsed)));
-  }
-
-  private parseDate(value: string | undefined) {
-    if (!value) {
-      return null;
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-
-    return date;
   }
 
   private parseJsonSafely(value: string) {
@@ -2040,5 +1801,457 @@ export class PredictiveAiService {
     }
 
     return null;
+  }
+
+  private buildSyntheticContext(
+    focusArea: CopilotFocusArea,
+    mode: CopilotMode,
+    roleScope: CopilotRoleScope
+  ): CopilotContextSnapshot {
+    const context: CopilotContextSnapshot = {
+      generatedAt: new Date().toISOString(),
+      roleScope,
+      focusArea,
+      mode,
+      summary: {
+        activeWorkOrders: 0,
+        overdueTasks: 0,
+        assignedToMe: 0,
+        fleetOutOfService: 0,
+        utilityAnomalies: 0,
+        lowStockItems: 0
+      },
+      maintenance: {
+        activeWorkOrders: [],
+        overdueWorkOrders: [],
+        assignedToMe: [],
+        overdueSchedules: []
+      },
+      fleet: {
+        statusCounts: {},
+        overdueServiceVehicles: [],
+        idleVehicles: [],
+        fuelAnomalies: []
+      },
+      utilities: {
+        overdueBills: 0,
+        anomalies: []
+      },
+      inventory: {
+        lowStockParts: [],
+        projectedStockouts: []
+      },
+      smartSuggestions: []
+    };
+
+    context.smartSuggestions = this.buildSmartSuggestions(context);
+    return context;
+  }
+
+  private deriveConversationTitle(message: string) {
+    const normalized = message.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      return "New Copilot Conversation";
+    }
+
+    if (normalized.length <= 68) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, 65)}...`;
+  }
+
+  private async assignTechnicianInternal(workOrderId: string, technicianId: string) {
+    const workOrder = await this.prisma.workOrder.findUnique({
+      where: {
+        id: workOrderId
+      },
+      select: {
+        id: true,
+        woNumber: true
+      }
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException("Work order not found");
+    }
+
+    const technician = await this.prisma.user.findUnique({
+      where: {
+        id: technicianId
+      },
+      include: {
+        role: true
+      }
+    });
+
+    if (!technician) {
+      throw new NotFoundException("Technician user not found");
+    }
+
+    if (["DRIVER", "VIEWER"].includes(technician.role.name)) {
+      throw new BadRequestException("Cannot assign a work order to a DRIVER or VIEWER");
+    }
+
+    const updated = await this.prisma.workOrder.update({
+      where: {
+        id: workOrderId
+      },
+      data: {
+        technicianId
+      }
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: technicianId,
+        title: "Work order assigned",
+        message: `Work order ${workOrder.woNumber} has been assigned to you`,
+        type: "WORK_ORDER_ASSIGNED",
+        channel: "IN_APP"
+      }
+    });
+
+    return updated;
+  }
+
+  private async nextWorkOrderNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await this.prisma.workOrder.count({
+      where: {
+        createdAt: {
+          gte: new Date(`${year}-01-01T00:00:00.000Z`),
+          lte: new Date(`${year}-12-31T23:59:59.999Z`)
+        }
+      }
+    });
+
+    const sequence = String(count + 1).padStart(4, "0");
+    return `WO-${year}-${sequence}`;
+  }
+
+  private async generateDashboardReport() {
+    const [activeWorkOrders, overdueWorkOrders, fleetByStatus, parts, overdueBills] = await Promise.all([
+      this.prisma.workOrder.count({
+        where: {
+          status: {
+            in: ACTIVE_WORK_ORDER_STATUSES
+          }
+        }
+      }),
+      this.prisma.workOrder.count({
+        where: {
+          status: {
+            in: ACTIVE_WORK_ORDER_STATUSES
+          },
+          dueDate: {
+            lt: new Date()
+          }
+        }
+      }),
+      this.prisma.vehicle.groupBy({
+        by: ["status"],
+        _count: {
+          _all: true
+        }
+      }),
+      this.prisma.sparePart.findMany({
+        where: {
+          isActive: true
+        },
+        select: {
+          quantityInStock: true,
+          reorderPoint: true
+        }
+      }),
+      this.prisma.utilityBill.count({
+        where: {
+          OR: [
+            {
+              status: "OVERDUE"
+            },
+            {
+              status: "UNPAID",
+              dueDate: {
+                lt: new Date()
+              }
+            }
+          ]
+        }
+      })
+    ]);
+
+    const lowStockCount = parts.filter((part) => part.quantityInStock <= part.reorderPoint).length;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      activeWorkOrders,
+      overdueWorkOrders,
+      fleetByStatus,
+      lowStockCount,
+      overdueBills
+    };
+  }
+
+  private async generateMaintenanceCostReport() {
+    const logs = await this.prisma.maintenanceLog.findMany({
+      select: {
+        performedAt: true,
+        cost: true,
+        vehicleId: true,
+        assetId: true
+      },
+      orderBy: {
+        performedAt: "asc"
+      }
+    });
+
+    const byMonth = new Map<string, number>();
+    for (const log of logs) {
+      const month = log.performedAt.toISOString().slice(0, 7);
+      byMonth.set(month, (byMonth.get(month) ?? 0) + Number(log.cost ?? 0));
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      totalsByMonth: Array.from(byMonth.entries()).map(([month, totalCost]) => ({
+        month,
+        totalCost: Number(totalCost.toFixed(2))
+      })),
+      records: logs.map((log) => ({
+        performedAt: log.performedAt.toISOString(),
+        cost: Number(log.cost ?? 0),
+        vehicleId: log.vehicleId,
+        assetId: log.assetId
+      }))
+    };
+  }
+
+  private async generateFleetEfficiencyReport() {
+    const vehicles = await this.prisma.vehicle.findMany({
+      include: {
+        fuelLogs: true,
+        tripLogs: true
+      }
+    });
+
+    return vehicles.map((vehicle) => {
+      const totalDistance = vehicle.tripLogs.reduce((sum, trip) => sum + Number(trip.distance), 0);
+      const totalFuel = vehicle.fuelLogs.reduce((sum, log) => sum + Number(log.liters), 0);
+      const totalCost = vehicle.fuelLogs.reduce((sum, log) => sum + Number(log.totalCost), 0);
+      const averageFuelConsumption = totalDistance > 0 ? (totalFuel / totalDistance) * 100 : 0;
+
+      return {
+        vehicleId: vehicle.id,
+        registrationNo: vehicle.registrationNo,
+        totalDistance,
+        averageFuelConsumption: Number(averageFuelConsumption.toFixed(2)),
+        costPerKm: totalDistance > 0 ? Number((totalCost / totalDistance).toFixed(3)) : 0,
+        utilizationRate: vehicle.status === "IN_USE" ? 1 : 0
+      };
+    });
+  }
+
+  private async generateDowntimeReport() {
+    const orders = await this.prisma.workOrder.findMany({
+      where: {
+        completedDate: {
+          not: null
+        },
+        startDate: {
+          not: null
+        }
+      }
+    });
+
+    const records = orders.map((item) => {
+      const start = item.startDate?.getTime() ?? 0;
+      const end = item.completedDate?.getTime() ?? 0;
+      const hours = Math.max(0, end - start) / (1000 * 60 * 60);
+
+      return {
+        workOrderId: item.id,
+        assetId: item.assetId,
+        vehicleId: item.vehicleId,
+        downtimeHours: Number(hours.toFixed(2))
+      };
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      records,
+      mttrHours:
+        records.length > 0
+          ? Number((records.reduce((sum, item) => sum + item.downtimeHours, 0) / records.length).toFixed(2))
+          : 0,
+      mtbfHours: records.length > 0 ? Number((720 / records.length).toFixed(2)) : 0
+    };
+  }
+
+  private async generateWorkOrderReport() {
+    const [total, completed, breached, byStatus, byPriority] = await Promise.all([
+      this.prisma.workOrder.count(),
+      this.prisma.workOrder.count({
+        where: {
+          status: "COMPLETED"
+        }
+      }),
+      this.prisma.workOrder.count({
+        where: {
+          slaBreached: true
+        }
+      }),
+      this.prisma.workOrder.groupBy({
+        by: ["status"],
+        _count: {
+          _all: true
+        }
+      }),
+      this.prisma.workOrder.groupBy({
+        by: ["priority"],
+        _count: {
+          _all: true
+        }
+      })
+    ]);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      completionRate: total > 0 ? Number((completed / total).toFixed(3)) : 0,
+      slaComplianceRate: total > 0 ? Number(((total - breached) / total).toFixed(3)) : 0,
+      byStatus,
+      byPriority
+    };
+  }
+
+  private async generateInventoryReport() {
+    const [allParts, topUsed] = await Promise.all([
+      this.prisma.sparePart.findMany({
+        where: {
+          isActive: true
+        },
+        select: {
+          id: true,
+          partNumber: true,
+          name: true,
+          quantityInStock: true,
+          reorderPoint: true,
+          unitCost: true
+        },
+        orderBy: {
+          quantityInStock: "asc"
+        },
+        take: 500
+      }),
+      this.prisma.stockMovement.groupBy({
+        by: ["partId"],
+        where: {
+          type: "OUT",
+          createdAt: {
+            gte: new Date(Date.now() - 30 * DAY_MS)
+          }
+        },
+        _sum: {
+          quantity: true
+        },
+        orderBy: {
+          _sum: {
+            quantity: "desc"
+          }
+        },
+        take: 10
+      })
+    ]);
+
+    const lowStock = allParts.filter((part) => part.quantityInStock <= part.reorderPoint).slice(0, 25);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      lowStock: lowStock.map((part) => ({
+        id: part.id,
+        partNumber: part.partNumber,
+        name: part.name,
+        quantityInStock: part.quantityInStock,
+        reorderPoint: part.reorderPoint,
+        estimatedStockValue: Number(part.unitCost) * part.quantityInStock
+      })),
+      topUsed
+    };
+  }
+
+  private async generateUtilitiesReport() {
+    const bills = await this.prisma.utilityBill.findMany({
+      include: {
+        meter: true
+      },
+      orderBy: {
+        billingPeriodStart: "asc"
+      }
+    });
+
+    const anomalies = this.detectUtilityAnomalies(
+      bills.map((bill) => ({
+        meterId: bill.meterId,
+        billingPeriodStart: bill.billingPeriodStart,
+        totalAmount: bill.totalAmount,
+        meter: {
+          meterNumber: bill.meter.meterNumber,
+          location: bill.meter.location,
+          type: bill.meter.type
+        }
+      }))
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      records: bills.map((bill) => ({
+        utilityType: bill.meter.type,
+        month: bill.billingPeriodStart.toISOString().slice(0, 7),
+        consumption: Number(bill.totalConsumption),
+        cost: Number(bill.totalAmount),
+        location: bill.meter.location
+      })),
+      anomalies
+    };
+  }
+
+  private toPositiveInt(
+    raw: string | undefined,
+    fallback: number,
+    min: number,
+    max: number
+  ): number {
+    if (!raw) {
+      return fallback;
+    }
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      return fallback;
+    }
+
+    return Math.min(max, Math.max(min, Math.floor(parsed)));
+  }
+
+  private parseDateOrThrow(value: string, field: string): Date {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${field} must be a valid ISO date`);
+    }
+
+    return parsed;
+  }
+
+  private safeParseDate(value?: string): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
   }
 }

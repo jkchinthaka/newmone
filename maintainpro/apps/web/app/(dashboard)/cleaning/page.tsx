@@ -7,16 +7,17 @@ export const dynamic = "force-dynamic";
 export default function CleaningPage() {
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
-          Cleaning Management
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-lime-50 p-6 shadow-sm">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-emerald-100/70 blur-2xl" />
+        <p className="relative text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
+          Smart Hygiene Operations
         </p>
-        <h1 className="mt-2 text-2xl font-bold text-emerald-900">
-          Washroom &amp; Toilet Hygiene Operations
+        <h1 className="relative mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
+          Enterprise Cleaning Command Center
         </h1>
-        <p className="mt-1 max-w-2xl text-sm text-emerald-800">
-          Manage QR-code visit logs, scheduled checklists, supervisor sign-off and facility
-          issue reporting across all your cleaning locations.
+        <p className="relative mt-2 max-w-3xl text-sm text-slate-600">
+          Real-time schedule enforcement, proof-based visit validation, proactive alerts,
+          and compliance analytics for every cleaning location.
         </p>
       </div>
 

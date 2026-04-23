@@ -25,6 +25,7 @@ const cleaningItems: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/cleaning/scan" as Route, label: "Scan QR", icon: QrCode },
   { href: "/cleaning/visits" as Route, label: "Visits", icon: ClipboardCheck },
   { href: "/cleaning/sign-off" as Route, label: "Sign-off Queue", icon: ClipboardCheck },
+  { href: "/cleaning/analytics" as Route, label: "Analytics", icon: ChartColumnBig },
   { href: "/cleaning/issues" as Route, label: "Facility Issues", icon: Bell },
   { href: "/cleaning/locations" as Route, label: "Locations", icon: HardDrive }
 ];

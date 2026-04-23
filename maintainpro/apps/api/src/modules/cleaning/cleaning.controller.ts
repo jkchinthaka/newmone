@@ -60,6 +60,13 @@ export class CleaningController {
     return { data, message: "Cleaning location created" };
   }
 
+  @Get("users/cleaners")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  async listAssignableCleaners(@Req() req: AuthedRequest) {
+    const data = await this.cleaning.listAssignableCleaners(req.user?.tenantId ?? null);
+    return { data, message: "Assignable cleaners fetched" };
+  }
+
   @Get("locations/:id/qr")
   @Roles("SUPER_ADMIN", "ADMIN")
   async getLocationQr(@Param("id") id: string, @Res() res: Response) {
@@ -67,6 +74,13 @@ export class CleaningController {
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Content-Disposition", `attachment; filename="${qr.filename}"`);
     res.send(qr.buffer);
+  }
+
+  @Post("locations/:id/regenerate-qr")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async regenerateLocationQr(@Param("id") id: string) {
+    const data = await this.cleaning.regenerateLocationQrCode(id);
+    return { data, message: "Location QR regenerated" };
   }
 
   @Get("locations/:id")
@@ -225,10 +239,51 @@ export class CleaningController {
     return { data, message: "Issue updated" };
   }
 
+  @Get("schedule/calendar")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  async scheduleCalendar(
+    @Req() req: AuthedRequest,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("locationId") locationId?: string
+  ) {
+    const data = await this.cleaning.getScheduleCalendar(req.user?.tenantId ?? null, {
+      from,
+      to,
+      locationId
+    });
+    return { data, message: "Cleaning schedule calendar fetched" };
+  }
+
+  @Get("analytics")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  async analytics(
+    @Req() req: AuthedRequest,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("locationId") locationId?: string,
+    @Query("cleanerId") cleanerId?: string
+  ) {
+    const data = await this.cleaning.analytics(req.user?.tenantId ?? null, {
+      from,
+      to,
+      locationId,
+      cleanerId
+    });
+    return { data, message: "Cleaning analytics fetched" };
+  }
+
+  @Post("enforcement/run")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  async runEnforcement(@Req() req: AuthedRequest) {
+    const data = await this.cleaning.runScheduleEnforcement(req.user?.tenantId ?? null);
+    return { data, message: "Schedule enforcement executed" };
+  }
+
   @Get("dashboard")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
   async dashboard(@Req() req: AuthedRequest, @Query("days") days?: string) {
-    const data = await this.cleaning.dashboard(req.user?.tenantId ?? null, days ? Number(days) : 30);
+    const data = await this.cleaning.dashboard(req.user?.tenantId ?? null, days ? Number(days) : 14);
     return { data, message: "Cleaning dashboard fetched" };
   }
 }

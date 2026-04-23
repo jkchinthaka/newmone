@@ -2,14 +2,18 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
+  IsDateString,
   IsArray,
   IsBoolean,
+  IsInt,
   IsLatitude,
   IsLongitude,
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested
 } from "class-validator";
@@ -19,6 +23,27 @@ export class ScanCleaningVisitDto {
   @IsString()
   @MinLength(4)
   qrCode!: string;
+
+  @ApiPropertyOptional({ description: "Client-captured scan timestamp in ISO format" })
+  @IsOptional()
+  @IsDateString()
+  clientScannedAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: "Optional stable identifier for the scanning device" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deviceId?: string;
 }
 
 export class StartCleaningVisitDto {
@@ -36,6 +61,17 @@ export class StartCleaningVisitDto {
   @IsOptional()
   @IsLongitude()
   longitude?: number;
+
+  @ApiPropertyOptional({ description: "Client-captured scan timestamp in ISO format" })
+  @IsOptional()
+  @IsDateString()
+  clientScannedAt?: string;
+
+  @ApiPropertyOptional({ description: "Optional stable identifier for the scanning device" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deviceId?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -93,6 +129,13 @@ export class SignOffVisitDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @ApiPropertyOptional({ description: "Supervisor quality rating from 1 to 5" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number;
 
   @ApiPropertyOptional({ description: "Required when rejecting" })
   @IsOptional()

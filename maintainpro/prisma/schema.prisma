@@ -88,13 +88,13 @@ model User {
   driverProfile      Driver?
   cleaningVisits     CleaningVisit[]   @relation("CleanerVisits")
   signedOffVisits    CleaningVisit[]   @relation("SupervisorSignOffs")
+  assignedCleaningLocations CleaningLocation[] @relation("AssignedCleaningLocations")
   reportedIssues     FacilityIssue[]   @relation("ReportedFacilityIssues")
   resolvedIssues     FacilityIssue[]   @relation("ResolvedFacilityIssues")
+  assignedFacilityIssues FacilityIssue[] @relation("AssignedFacilityIssues")
   copilotConversations CopilotConversation[]
   copilotMessages      CopilotMessage[]
   copilotExchangeLogs  CopilotExchangeLog[]
-  copilotConversations CopilotConversation[]
-  copilotInteractionLogs CopilotInteractionLog[]
 
   @@index([tenantId])
   @@index([roleId])
@@ -698,6 +698,9 @@ enum NotificationType {
   CLEANING_REJECTED
   FACILITY_ISSUE_REPORTED
   CLEANING_MISSED
+  CLEANING_LATE_VISIT
+  CLEANING_HIGH_ISSUE
+  CLEANING_SLA_BREACH
 }
 
 enum NotificationChannel {
@@ -706,69 +709,6 @@ enum NotificationChannel {
   SMS
   WHATSAPP
   PUSH
-}
-
-model CopilotConversation {
-  id                     String                  @id @default(cuid())
-  userId                 String
-  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenantId               String?
-  title                  String
-  focusArea              String                  @default("GENERAL")
-  mode                   String                  @default("CHAT")
-  providerConversationId String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-
-  messages               CopilotMessage[]
-  interactionLogs        CopilotInteractionLog[]
-
-  @@index([userId, updatedAt])
-  @@index([tenantId, updatedAt])
-}
-
-model CopilotMessage {
-  id               String              @id @default(cuid())
-  conversationId   String
-  conversation     CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role             CopilotMessageRole
-  content          String
-  focusArea        String              @default("GENERAL")
-  mode             String              @default("CHAT")
-  suggestedActions Json?
-  metadata         Json?
-  createdAt        DateTime            @default(now())
-
-  @@index([conversationId, createdAt])
-}
-
-enum CopilotMessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
-}
-
-model CopilotInteractionLog {
-  id              String               @id @default(cuid())
-  conversationId  String?
-  conversation    CopilotConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  userId          String
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenantId        String?
-  query           String
-  response        String
-  focusArea       String               @default("GENERAL")
-  mode            String               @default("CHAT")
-  contextSnapshot Json?
-  fallbackCode    String?
-  provider        String               @default("rapidapi-copilot")
-  metadata        Json?
-  createdAt       DateTime             @default(now())
-
-  @@index([userId, createdAt])
-  @@index([tenantId, createdAt])
-  @@index([focusArea, createdAt])
-  @@index([mode, createdAt])
 }
 
 model PredictiveLog {
@@ -853,6 +793,18 @@ enum RiskLevel {
 // reporting. CLEANER and SUPERVISOR roles operate this module.
 // ============================================================
 
+enum CleaningFrequencyUnit {
+  PER_DAY
+  PER_WEEK
+}
+
+enum CleaningShift {
+  MORNING
+  EVENING
+  NIGHT
+  FLEXIBLE
+}
+
 model CleaningLocation {
   id           String              @id @default(cuid())
   tenantId     String?
@@ -866,6 +818,16 @@ model CleaningLocation {
   qrCodeUrl    String?
   scheduleCron String?
   shiftWindow  String?
+  cleaningFrequency Int            @default(1)
+  cleaningFrequencyUnit CleaningFrequencyUnit @default(PER_DAY)
+  shiftAssignment CleaningShift    @default(MORNING)
+  assignedCleanerId String?
+  assignedCleaner User?            @relation("AssignedCleaningLocations", fields: [assignedCleanerId], references: [id])
+  geoLatitude  Decimal?
+  geoLongitude Decimal?
+  geoRadiusMeters Int              @default(150)
+  requireDeviceValidation Boolean  @default(false)
+  requirePhotoEvidence Boolean     @default(false)
   isActive     Boolean             @default(true)
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -876,6 +838,7 @@ model CleaningLocation {
 
   @@index([tenantId])
   @@index([isActive])
+  @@index([assignedCleanerId])
 }
 
 model CleaningChecklistTemplate {
@@ -900,18 +863,30 @@ model CleaningVisit {
   cleanerId       String
   cleaner         User                @relation("CleanerVisits", fields: [cleanerId], references: [id])
   scannedAt       DateTime            @default(now())
+  clientScannedAt DateTime?
+  startedAt       DateTime?
   method          CleaningVisitMethod @default(QR_SCAN)
+  deviceId        String?
   completedAt     DateTime?
+  durationSeconds Int?
   latitude        Decimal?
   longitude       Decimal?
+  geofenceDistanceMeters Decimal?
+  geoValidated    Boolean             @default(false)
   beforePhotos    String[]
   afterPhotos     String[]
+  checklistScore  Int?
+  photoScore      Int?
+  qualityScore    Int?
+  scheduleStatus  CleaningScheduleStatus @default(ON_TIME)
   status          CleaningVisitStatus @default(IN_PROGRESS)
   notes           String?
   signedOffById   String?
   signedOffBy     User?               @relation("SupervisorSignOffs", fields: [signedOffById], references: [id])
   signedOffAt     DateTime?
   signOffNotes    String?
+  supervisorRating Int?
+  supervisorComment String?
   rejectionReason String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -922,6 +897,12 @@ model CleaningVisit {
   @@index([locationId, scannedAt])
   @@index([cleanerId, scannedAt])
   @@index([status])
+  @@index([scheduleStatus])
+}
+
+enum CleaningScheduleStatus {
+  ON_TIME
+  LATE
 }
 
 enum CleaningVisitStatus {
@@ -956,14 +937,20 @@ model FacilityIssue {
   location     CleaningLocation?     @relation(fields: [locationId], references: [id])
   reportedById String
   reportedBy   User                  @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
+  assignedToId String?
+  assignedTo   User?                 @relation("AssignedFacilityIssues", fields: [assignedToId], references: [id])
   title        String
   description  String
   severity     IssueSeverity         @default(MEDIUM)
   status       FacilityIssueStatus   @default(OPEN)
   photos       String[]
+  slaTargetAt  DateTime?
+  firstResponseAt DateTime?
   resolvedById String?
   resolvedBy   User?                 @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
   resolvedAt   DateTime?
+  closedAt     DateTime?
+  resolutionMinutes Int?
   resolution   String?
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
@@ -971,8 +958,10 @@ model FacilityIssue {
   @@index([tenantId])
   @@index([locationId])
   @@index([reportedById])
+  @@index([assignedToId])
   @@index([status])
   @@index([severity])
+  @@index([slaTargetAt])
 }
 
 enum IssueSeverity {

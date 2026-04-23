@@ -22,7 +22,7 @@ describe("PredictiveAiService", () => {
 
     service = new PredictiveAiService(prisma as never, {
       get: jest.fn((key: string) => configValues[key])
-    } as never, {} as never, {} as never, {} as never);
+    } as never);
   });
 
   afterEach(() => {
@@ -41,7 +41,7 @@ describe("PredictiveAiService", () => {
     });
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(result.response.conversationId).toMatch(/^local-/);
+    expect(result.response.conversationId).toBeNull();
     expect(result.response.text).toContain("Hello from MaintainPro");
     expect(result.response.raw).toMatchObject({
       source: "maintainpro-local-fallback",

@@ -4,10 +4,13 @@ import {
   ArrayMaxSize,
   IsArray,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
+  Min,
   MinLength
 } from "class-validator";
 
@@ -40,6 +43,18 @@ export class CreateFacilityIssueDto {
   @ArrayMaxSize(10)
   @IsUrl({}, { each: true })
   photos?: string[];
+
+  @ApiPropertyOptional({ description: "Assign issue to a staff member" })
+  @IsOptional()
+  @IsString()
+  assignedToId?: string;
+
+  @ApiPropertyOptional({ description: "SLA target in hours from creation", default: 24 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  slaHours?: number;
 }
 
 export class UpdateFacilityIssueDto {
@@ -53,4 +68,9 @@ export class UpdateFacilityIssueDto {
   @IsString()
   @MaxLength(1000)
   resolution?: string;
+
+  @ApiPropertyOptional({ description: "Assign issue to a staff member" })
+  @IsOptional()
+  @IsString()
+  assignedToId?: string;
 }
