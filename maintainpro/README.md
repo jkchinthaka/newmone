@@ -157,6 +157,7 @@ Optional backend integrations:
 - `RAPIDAPI_COPILOT_API_KEY`, `RAPIDAPI_COPILOT_HOST` enable the predictive copilot provider.
 - `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
 - `RAPIDAPI_QR_CODE_COLOR`, `RAPIDAPI_QR_CODE_BG_COLOR` customize provider-generated QR colors when the RapidAPI QR provider is enabled.
+- `MONGODB_URI` plus `MONGO_SYNC_ON_STARTUP=true` mirrors all Prisma model data into MongoDB Atlas on every API startup.
 
 Frontend runtime keys:
 

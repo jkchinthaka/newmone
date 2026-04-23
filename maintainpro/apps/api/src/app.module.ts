@@ -8,6 +8,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { envValidationSchema } from "./config/env.validation";
+import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { AssetsModule } from "./modules/assets/assets.module";
@@ -77,6 +78,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     CleaningModule
   ],
   providers: [
+    MongoSyncService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard
