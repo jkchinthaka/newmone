@@ -1,5 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnApplicationShutdown
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import mongoose from "mongoose";
 
@@ -15,20 +20,17 @@ export class MongoSyncService implements OnApplicationBootstrap, OnApplicationSh
   private readonly prismaModelNames = Prisma.dmmf.datamodel.models.map((model) => model.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly configService: ConfigService
+    @Inject(PrismaService) private readonly prisma: PrismaService
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    const shouldSync = this.toBoolean(
-      this.configService.get<string>("MONGO_SYNC_ON_STARTUP", "false")
-    );
+    const shouldSync = this.toBoolean(process.env.MONGO_SYNC_ON_STARTUP ?? "false");
 
     if (!shouldSync) {
       return;
     }
 
-    const mongodbUri = this.configService.get<string>("MONGODB_URI");
+    const mongodbUri = process.env.MONGODB_URI;
     if (!mongodbUri) {
       this.logger.warn(
         "MONGO_SYNC_ON_STARTUP is enabled but MONGODB_URI is empty. Skipping Mongo sync."

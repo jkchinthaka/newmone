@@ -90,6 +90,11 @@ model User {
   signedOffVisits    CleaningVisit[]   @relation("SupervisorSignOffs")
   reportedIssues     FacilityIssue[]   @relation("ReportedFacilityIssues")
   resolvedIssues     FacilityIssue[]   @relation("ResolvedFacilityIssues")
+  copilotConversations CopilotConversation[]
+  copilotMessages      CopilotMessage[]
+  copilotExchangeLogs  CopilotExchangeLog[]
+  copilotConversations CopilotConversation[]
+  copilotInteractionLogs CopilotInteractionLog[]
 
   @@index([tenantId])
   @@index([roleId])
@@ -703,6 +708,69 @@ enum NotificationChannel {
   PUSH
 }
 
+model CopilotConversation {
+  id                     String                  @id @default(cuid())
+  userId                 String
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId               String?
+  title                  String
+  focusArea              String                  @default("GENERAL")
+  mode                   String                  @default("CHAT")
+  providerConversationId String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  messages               CopilotMessage[]
+  interactionLogs        CopilotInteractionLog[]
+
+  @@index([userId, updatedAt])
+  @@index([tenantId, updatedAt])
+}
+
+model CopilotMessage {
+  id               String              @id @default(cuid())
+  conversationId   String
+  conversation     CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role             CopilotMessageRole
+  content          String
+  focusArea        String              @default("GENERAL")
+  mode             String              @default("CHAT")
+  suggestedActions Json?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+enum CopilotMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model CopilotInteractionLog {
+  id              String               @id @default(cuid())
+  conversationId  String?
+  conversation    CopilotConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId        String?
+  query           String
+  response        String
+  focusArea       String               @default("GENERAL")
+  mode            String               @default("CHAT")
+  contextSnapshot Json?
+  fallbackCode    String?
+  provider        String               @default("rapidapi-copilot")
+  metadata        Json?
+  createdAt       DateTime             @default(now())
+
+  @@index([userId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([focusArea, createdAt])
+  @@index([mode, createdAt])
+}
+
 model PredictiveLog {
   id              String    @id @default(cuid())
   assetId         String?
@@ -715,6 +783,59 @@ model PredictiveLog {
   acknowledged    Boolean   @default(false)
 
   @@index([assetId, analyzedAt])
+}
+
+model CopilotConversation {
+  id                     String              @id @default(cuid())
+  userId                 String
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                  String
+  focusArea              String              @default("GENERAL")
+  mode                   String              @default("CHAT")
+  providerConversationId String?
+  lastMessageAt          DateTime            @default(now())
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  messages               CopilotMessage[]
+  exchangeLogs           CopilotExchangeLog[]
+
+  @@index([userId, lastMessageAt])
+}
+
+model CopilotMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  focusArea      String              @default("GENERAL")
+  mode           String              @default("CHAT")
+  content        String
+  actions        Json?
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model CopilotExchangeLog {
+  id             String              @id @default(cuid())
+  conversationId String?
+  conversation   CopilotConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  focusArea      String              @default("GENERAL")
+  mode           String              @default("CHAT")
+  query          String
+  response       String
+  source         String              @default("fallback")
+  createdAt      DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@index([focusArea, createdAt])
+  @@index([createdAt])
 }
 
 enum RiskLevel {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -54,6 +54,34 @@ export class UtilitiesController {
     return { data, message: "Readings fetched" };
   }
 
+  @Get("readings")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  async allReadings() {
+    const data = await this.utilitiesService.allReadings();
+    return { data, message: "Readings fetched" };
+  }
+
+  @Post("readings")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  async addReadingByMeter(
+    @Body()
+    body: {
+      meterId: string;
+      readingDate: string;
+      readingValue: number;
+      images?: string[];
+      notes?: string;
+    }
+  ) {
+    const data = await this.utilitiesService.addReading(body.meterId, {
+      readingDate: body.readingDate,
+      readingValue: body.readingValue,
+      images: body.images,
+      notes: body.notes
+    });
+    return { data, message: "Reading created" };
+  }
+
   @Get("meters/:id/consumption-chart")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
   async consumptionChart(@Param("id") id: string) {
@@ -99,6 +127,17 @@ export class UtilitiesController {
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   async pay(@Param("id") id: string) {
     const data = await this.utilitiesService.payBill(id);
+    return { data, message: "Bill paid" };
+  }
+
+  @Patch("bills/pay")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  async payByBody(@Body() body: { id: string }) {
+    if (!body.id) {
+      throw new BadRequestException("Bill id is required");
+    }
+
+    const data = await this.utilitiesService.payBill(body.id);
     return { data, message: "Bill paid" };
   }
 

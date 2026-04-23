@@ -6,14 +6,44 @@ import { PrismaService } from "../../database/prisma.service";
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private toDateKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
   parts() {
-    return this.prisma.sparePart.findMany({ include: { supplier: true }, orderBy: { createdAt: "desc" } });
+    return this.prisma.sparePart.findMany({
+      where: {
+        isActive: true
+      },
+      include: {
+        supplier: true,
+        stockMovements: {
+          select: {
+            createdAt: true,
+            type: true,
+            quantity: true,
+            reference: true,
+            notes: true
+          },
+          orderBy: {
+            createdAt: "desc"
+          },
+          take: 1
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
   }
 
   async part(id: string) {
-    const part = await this.prisma.sparePart.findUnique({ where: { id }, include: { supplier: true } });
+    const part = await this.prisma.sparePart.findUnique({
+      where: { id },
+      include: { supplier: true }
+    });
 
-    if (!part) {
+    if (!part || !part.isActive) {
       throw new NotFoundException("Spare part not found");
     }
 
@@ -81,6 +111,60 @@ export class InventoryService {
     return this.prisma.sparePart.update({ where: { id }, data });
   }
 
+  async removePart(id: string) {
+    await this.part(id);
+
+    return this.prisma.sparePart.update({
+      where: { id },
+      data: {
+        isActive: false
+      }
+    });
+  }
+
+  async bulkDeleteParts(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException("At least one part id is required");
+    }
+
+    const result = await this.prisma.sparePart.updateMany({
+      where: {
+        id: {
+          in: ids
+        }
+      },
+      data: {
+        isActive: false
+      }
+    });
+
+    return { count: result.count };
+  }
+
+  async bulkUpdateCategory(ids: string[], category: string) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException("At least one part id is required");
+    }
+
+    if (!category?.trim()) {
+      throw new BadRequestException("Category is required");
+    }
+
+    const result = await this.prisma.sparePart.updateMany({
+      where: {
+        id: {
+          in: ids
+        },
+        isActive: true
+      },
+      data: {
+        category: category.trim()
+      }
+    });
+
+    return { count: result.count };
+  }
+
   async stockIn(id: string, quantity: number, notes?: string) {
     await this.part(id);
 
@@ -140,9 +224,152 @@ export class InventoryService {
     });
   }
 
+  async linkedWorkOrders(partId: string) {
+    await this.part(partId);
+
+    return this.prisma.workOrder.findMany({
+      where: {
+        parts: {
+          some: {
+            partId
+          }
+        }
+      },
+      include: {
+        asset: true,
+        vehicle: true,
+        technician: true,
+        parts: {
+          where: {
+            partId
+          },
+          include: {
+            part: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
+
+  async purchaseHistoryForPart(partId: string) {
+    const part = await this.part(partId);
+
+    if (!part.supplierId) {
+      return [];
+    }
+
+    return this.prisma.purchaseOrder.findMany({
+      where: {
+        supplierId: part.supplierId
+      },
+      include: {
+        supplier: true
+      },
+      orderBy: {
+        orderDate: "desc"
+      }
+    });
+  }
+
+  async usageTrend(days = 30) {
+    const safeDays = Math.max(1, Math.min(365, Math.floor(days)));
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - (safeDays - 1));
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: {
+        type: "OUT",
+        createdAt: {
+          gte: since
+        },
+        part: {
+          isActive: true
+        }
+      },
+      select: {
+        quantity: true,
+        createdAt: true
+      }
+    });
+
+    const dateTotals = new Map<string, number>();
+
+    for (let offset = 0; offset < safeDays; offset += 1) {
+      const day = new Date(since);
+      day.setDate(since.getDate() + offset);
+      dateTotals.set(this.toDateKey(day), 0);
+    }
+
+    for (const movement of movements) {
+      const key = this.toDateKey(movement.createdAt);
+      dateTotals.set(key, (dateTotals.get(key) ?? 0) + movement.quantity);
+    }
+
+    return Array.from(dateTotals.entries()).map(([date, quantity]) => ({
+      date,
+      quantity
+    }));
+  }
+
+  async topUsedParts(limit = 5, days = 30) {
+    const safeLimit = Math.max(1, Math.min(25, Math.floor(limit)));
+    const safeDays = Math.max(1, Math.min(365, Math.floor(days)));
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - (safeDays - 1));
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: {
+        type: "OUT",
+        createdAt: {
+          gte: since
+        },
+        part: {
+          isActive: true
+        }
+      },
+      select: {
+        quantity: true,
+        part: {
+          select: {
+            id: true,
+            name: true,
+            partNumber: true
+          }
+        }
+      }
+    });
+
+    const totals = new Map<string, { partId: string; partName: string; partNumber: string; quantity: number }>();
+
+    for (const movement of movements) {
+      const existing = totals.get(movement.part.id);
+
+      if (existing) {
+        existing.quantity += movement.quantity;
+      } else {
+        totals.set(movement.part.id, {
+          partId: movement.part.id,
+          partName: movement.part.name,
+          partNumber: movement.part.partNumber,
+          quantity: movement.quantity
+        });
+      }
+    }
+
+    return Array.from(totals.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, safeLimit);
+  }
+
   lowStock() {
     return this.prisma.sparePart.findMany({
       where: {
+        isActive: true,
         quantityInStock: {
           lte: this.prisma.sparePart.fields.reorderPoint
         }

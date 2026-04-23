@@ -58,6 +58,10 @@ export class UtilitiesService {
     return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
   }
 
+  allReadings() {
+    return this.prisma.meterReading.findMany({ include: { meter: true }, orderBy: { readingDate: "desc" } });
+  }
+
   async consumptionChart(id: string) {
     const readings = await this.prisma.meterReading.findMany({
       where: { meterId: id },

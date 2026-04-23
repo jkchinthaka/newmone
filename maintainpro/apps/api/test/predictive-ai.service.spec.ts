@@ -22,7 +22,7 @@ describe("PredictiveAiService", () => {
 
     service = new PredictiveAiService(prisma as never, {
       get: jest.fn((key: string) => configValues[key])
-    } as never);
+    } as never, {} as never, {} as never, {} as never);
   });
 
   afterEach(() => {
