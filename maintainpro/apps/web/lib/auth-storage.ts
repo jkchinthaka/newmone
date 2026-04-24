@@ -22,9 +22,32 @@ export function setAuthSession(payload: {
   }
 }
 
+export function setAccessToken(accessToken: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+}
+
+export function updateStoredUserTenant(tenantId: string | null) {
+  if (typeof window === "undefined") return;
+
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.tenantId = tenantId;
+    localStorage.setItem(USER_KEY, JSON.stringify(parsed));
+  } catch {
+    // Keep current user payload untouched when local storage content is malformed.
+  }
+}
+
 export function clearAuthSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("maintainpro_active_tenant");
 }

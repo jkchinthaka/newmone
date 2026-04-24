@@ -1,4 +1,14 @@
-import { PrismaClient, Priority, RoleName, WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import {
+  BillingInterval,
+  EntitlementType,
+  PrismaClient,
+  Priority,
+  RoleName,
+  SubscriptionStatus,
+  TenantMembershipRole,
+  WorkOrderStatus,
+  WorkOrderType
+} from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -246,6 +256,202 @@ async function main() {
     });
 
     drivers.push(driver);
+  }
+
+  const planDefinitions: Array<{
+    code: string;
+    name: string;
+    description: string;
+    priceMonthly: number;
+    priceYearly: number;
+    entitlements: Array<{
+      key: string;
+      type: EntitlementType;
+      enabled: boolean;
+      limitValue?: number;
+      unit?: string;
+    }>;
+  }> = [
+    {
+      code: "STARTER",
+      name: "Starter",
+      description: "Starter plan for smaller teams",
+      priceMonthly: 29,
+      priceYearly: 290,
+      entitlements: [
+        { key: "users.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 10, unit: "users" },
+        { key: "assets.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 250, unit: "assets" },
+        { key: "work_orders.monthly", type: EntitlementType.LIMIT, enabled: true, limitValue: 1200, unit: "work_orders" },
+        { key: "feature.analytics.advanced", type: EntitlementType.FEATURE, enabled: false },
+        { key: "feature.ai.copilot", type: EntitlementType.FEATURE, enabled: false }
+      ]
+    },
+    {
+      code: "GROWTH",
+      name: "Growth",
+      description: "Growth plan for scaling operations",
+      priceMonthly: 99,
+      priceYearly: 990,
+      entitlements: [
+        { key: "users.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 50, unit: "users" },
+        { key: "assets.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 2000, unit: "assets" },
+        { key: "work_orders.monthly", type: EntitlementType.LIMIT, enabled: true, limitValue: 10000, unit: "work_orders" },
+        { key: "feature.analytics.advanced", type: EntitlementType.FEATURE, enabled: true },
+        { key: "feature.ai.copilot", type: EntitlementType.FEATURE, enabled: true }
+      ]
+    },
+    {
+      code: "ENTERPRISE",
+      name: "Enterprise",
+      description: "Enterprise plan with unlimited scale",
+      priceMonthly: 299,
+      priceYearly: 2990,
+      entitlements: [
+        { key: "users.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 1000, unit: "users" },
+        { key: "assets.max", type: EntitlementType.LIMIT, enabled: true, limitValue: 100000, unit: "assets" },
+        { key: "work_orders.monthly", type: EntitlementType.LIMIT, enabled: true, limitValue: 500000, unit: "work_orders" },
+        { key: "feature.analytics.advanced", type: EntitlementType.FEATURE, enabled: true },
+        { key: "feature.ai.copilot", type: EntitlementType.FEATURE, enabled: true }
+      ]
+    }
+  ];
+
+  const plansByCode = new Map<string, { id: string }>();
+
+  for (const definition of planDefinitions) {
+    const plan = await prisma.plan.upsert({
+      where: { code: definition.code },
+      update: {
+        name: definition.name,
+        description: definition.description,
+        currency: "USD",
+        isActive: true,
+        priceMonthly: definition.priceMonthly,
+        priceYearly: definition.priceYearly
+      },
+      create: {
+        code: definition.code,
+        name: definition.name,
+        description: definition.description,
+        currency: "USD",
+        isActive: true,
+        priceMonthly: definition.priceMonthly,
+        priceYearly: definition.priceYearly
+      }
+    });
+
+    plansByCode.set(definition.code, { id: plan.id });
+
+    for (const entitlement of definition.entitlements) {
+      await prisma.entitlement.upsert({
+        where: {
+          planId_key: {
+            planId: plan.id,
+            key: entitlement.key
+          }
+        },
+        update: {
+          type: entitlement.type,
+          enabled: entitlement.enabled,
+          limitValue: entitlement.limitValue,
+          unit: entitlement.unit
+        },
+        create: {
+          planId: plan.id,
+          key: entitlement.key,
+          type: entitlement.type,
+          enabled: entitlement.enabled,
+          limitValue: entitlement.limitValue,
+          unit: entitlement.unit
+        }
+      });
+    }
+  }
+
+  const currentSubscription = await prisma.subscription.findFirst({
+    where: {
+      tenantId: tenant.id,
+      isCurrent: true
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  const growthPlan = plansByCode.get("GROWTH");
+
+  if (growthPlan) {
+    const now = new Date();
+    const nextMonth = new Date(now);
+    nextMonth.setMonth(now.getMonth() + 1);
+
+    if (currentSubscription) {
+      await prisma.subscription.update({
+        where: { id: currentSubscription.id },
+        data: {
+          planId: growthPlan.id,
+          status: SubscriptionStatus.ACTIVE,
+          billingInterval: BillingInterval.MONTHLY,
+          seats: 50,
+          isCurrent: true,
+          startedAt: now,
+          currentPeriodStart: now,
+          currentPeriodEnd: nextMonth,
+          cancelAtPeriodEnd: false,
+          canceledAt: null
+        }
+      });
+    } else {
+      await prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          planId: growthPlan.id,
+          status: SubscriptionStatus.ACTIVE,
+          billingInterval: BillingInterval.MONTHLY,
+          seats: 50,
+          isCurrent: true,
+          startedAt: now,
+          currentPeriodStart: now,
+          currentPeriodEnd: nextMonth
+        }
+      });
+    }
+  }
+
+  const tenantUsers = await prisma.user.findMany({
+    where: { tenantId: tenant.id },
+    select: {
+      id: true,
+      role: {
+        select: {
+          name: true
+        }
+      }
+    }
+  });
+
+  for (const tenantUser of tenantUsers) {
+    const membershipRole =
+      tenantUser.role.name === RoleName.SUPER_ADMIN
+        ? TenantMembershipRole.OWNER
+        : tenantUser.role.name === RoleName.ADMIN || tenantUser.role.name === RoleName.MANAGER
+          ? TenantMembershipRole.ADMIN
+          : TenantMembershipRole.MEMBER;
+
+    await prisma.tenantMembership.upsert({
+      where: {
+        tenantId_userId: {
+          tenantId: tenant.id,
+          userId: tenantUser.id
+        }
+      },
+      update: {
+        membershipRole
+      },
+      create: {
+        tenantId: tenant.id,
+        userId: tenantUser.id,
+        membershipRole
+      }
+    });
   }
 
   const assetTags = ["AST-1001", "AST-1002", "AST-1003", "AST-1004", "AST-1005"];

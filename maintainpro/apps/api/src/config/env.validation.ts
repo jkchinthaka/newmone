@@ -13,6 +13,8 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().required(),
   JWT_ACCESS_EXPIRES: Joi.string().default("15m"),
   JWT_REFRESH_EXPIRES: Joi.string().default("7d"),
+  STRIPE_SECRET_KEY: Joi.string().allow(""),
+  STRIPE_WEBHOOK_SECRET: Joi.string().allow(""),
   GOOGLE_CLIENT_ID: Joi.string().allow(""),
   GOOGLE_CLIENT_SECRET: Joi.string().allow(""),
   GOOGLE_CALLBACK_URL: Joi.string().allow(""),

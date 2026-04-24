@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/common";
 import { BullModule } from "@nestjs/bull";
 import { ConfigModule } from "@nestjs/config";
 import { ConfigService } from "@nestjs/config";
@@ -13,11 +13,14 @@ import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { BillingModule } from "./modules/billing/billing.module";
 import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
+import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
+import { InvitationsModule } from "./modules/invitations/invitations.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
@@ -25,6 +28,9 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
+import { TenantContextGuard } from "./modules/tenancy/tenant-context.guard";
+import { TenantContextMiddleware } from "./modules/tenancy/tenant-context.middleware";
+import { TenancyModule } from "./modules/tenancy/tenancy.module";
 import { TripsModule } from "./modules/trips/trips.module";
 import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
@@ -60,6 +66,10 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     ]),
     PrismaModule,
     AuthModule,
+    TenancyModule,
+    EntitlementsModule,
+    InvitationsModule,
+    BillingModule,
     UsersModule,
     RolesModule,
     AssetsModule,
@@ -87,8 +97,18 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     },
     {
       provide: APP_GUARD,
+      useClass: TenantContextGuard
+    },
+    {
+      provide: APP_GUARD,
       useClass: RolesGuard
     }
   ]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(TenantContextMiddleware)
+      .forRoutes({ path: "*", method: RequestMethod.ALL });
+  }
+}

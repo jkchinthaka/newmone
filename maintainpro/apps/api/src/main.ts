@@ -11,7 +11,8 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true
+    bufferLogs: true,
+    rawBody: true
   });
 
   const configuredOrigins = [process.env.CORS_ORIGIN, process.env.FRONTEND_URL]
@@ -36,7 +37,13 @@ async function bootstrap(): Promise<void> {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "X-Tenant-Id",
+      "Stripe-Signature"
+    ]
   });
 
   app.setGlobalPrefix("api");

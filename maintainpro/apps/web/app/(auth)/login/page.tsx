@@ -7,6 +7,7 @@ import { Loader2, ShieldCheck, Wrench } from "lucide-react";
 import { AxiosError } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
+import { setActiveTenantId } from "@/lib/tenant-context";
 
 type LoginForm = {
   username: string;
@@ -50,6 +51,17 @@ export default function LoginPage() {
         refreshToken: payload.refreshToken,
         user: payload.user
       });
+
+      const tenantIdCandidate =
+        payload.user &&
+        typeof payload.user === "object" &&
+        "tenantId" in (payload.user as Record<string, unknown>)
+          ? (payload.user as { tenantId?: unknown }).tenantId
+          : null;
+
+      setActiveTenantId(
+        typeof tenantIdCandidate === "string" ? tenantIdCandidate : null
+      );
 
       window.location.replace("/home");
     } catch (e) {
