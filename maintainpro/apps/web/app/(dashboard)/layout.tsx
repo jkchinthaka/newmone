@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
 import { getAccessToken } from "@/lib/auth-storage";
+import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export default function DashboardLayout({
   children
@@ -38,7 +39,17 @@ export default function DashboardLayout({
       }
 
       try {
-        await apiClient.get("/auth/me");
+        const response = await apiClient.get<{ data?: { tenantId?: string | null } }>(
+          "/auth/me"
+        );
+
+        if (!getActiveTenantId()) {
+          const tenantId = response.data?.data?.tenantId;
+          if (typeof tenantId === "string" && tenantId.trim().length > 0) {
+            setActiveTenantId(tenantId);
+          }
+        }
+
         setReady(true);
       } catch {
         router.replace("/login");
