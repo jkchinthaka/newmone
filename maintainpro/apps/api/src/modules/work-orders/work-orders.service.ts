@@ -1,11 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Priority, RoleName, WorkOrderStatus } from "@prisma/client";
+import {
+  NotificationPriority,
+  NotificationType,
+  Priority,
+  RoleName,
+  WorkOrderStatus
+} from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class WorkOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   private slaHours(priority: Priority): number {
     switch (priority) {
@@ -148,13 +158,20 @@ export class WorkOrdersService {
       }
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: technicianId,
-        title: "Work order assigned",
-        message: `Work order ${updated.woNumber} has been assigned to you`,
-        type: "WORK_ORDER_ASSIGNED",
-        channel: "IN_APP"
+    await this.notificationsService.createNotification({
+      userId: technicianId,
+      title: "Work order assigned",
+      message: `Work order ${updated.woNumber} assigned to you${updated.dueDate ? ` - due ${updated.dueDate.toISOString()}` : ""}`,
+      type: NotificationType.WORK_ORDER_ASSIGNED,
+      priority: NotificationPriority.WARNING,
+      channel: "IN_APP",
+      referenceId: updated.id,
+      referenceType: "WorkOrder",
+      dueAt: updated.dueDate ?? null,
+      metadata: {
+        woNumber: updated.woNumber,
+        status: updated.status,
+        priority: updated.priority
       }
     });
 

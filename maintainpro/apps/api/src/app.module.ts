@@ -23,6 +23,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
+import { SettingsModule } from "./modules/settings/settings.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { TripsModule } from "./modules/trips/trips.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -72,6 +73,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     FuelModule,
     TripsModule,
     NotificationsModule,
+    SettingsModule,
     ReportsModule,
     UtilitiesModule,
     PredictiveAiModule,

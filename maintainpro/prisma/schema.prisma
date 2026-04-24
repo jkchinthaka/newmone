@@ -48,6 +48,27 @@ model AuditLog {
   @@index([tenantId])
 }
 
+model AppSetting {
+  id         String          @id @default(cuid())
+  scope      AppSettingScope @default(GLOBAL)
+  scopeId    String          @default("GLOBAL")
+  key        String
+  value      Json
+  isSecret   Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([scope, scopeId, key])
+  @@index([key])
+  @@index([scope, scopeId])
+}
+
+enum AppSettingScope {
+  GLOBAL
+  TENANT
+  USER
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -669,8 +690,13 @@ model Notification {
   title          String
   message        String
   type           NotificationType
+  priority       NotificationPriority @default(INFO)
   channel        NotificationChannel @default(IN_APP)
   isRead         Boolean             @default(false)
+  readAt         DateTime?
+  acknowledgedAt DateTime?
+  dueAt          DateTime?
+  metadata       Json?
   referenceId    String?
   referenceType  String?
   sentAt         DateTime?
@@ -701,6 +727,12 @@ enum NotificationType {
   CLEANING_LATE_VISIT
   CLEANING_HIGH_ISSUE
   CLEANING_SLA_BREACH
+}
+
+enum NotificationPriority {
+  INFO
+  WARNING
+  CRITICAL
 }
 
 enum NotificationChannel {

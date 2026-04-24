@@ -7,10 +7,18 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Prisma, Priority, RoleName, WorkOrderStatus } from "@prisma/client";
+import {
+  NotificationPriority,
+  NotificationType,
+  Prisma,
+  Priority,
+  RoleName,
+  WorkOrderStatus
+} from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { NotificationsService } from "../notifications/notifications.service";
 import {
   COPILOT_FOCUS_AREAS,
   COPILOT_MODES,
@@ -169,7 +177,8 @@ export class PredictiveAiService {
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(ConfigService) private readonly configService: ConfigService
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService
   ) {}
 
   async copilotChat(dto: CopilotChatDto, actor: CopilotActor | null = null) {
@@ -1902,14 +1911,15 @@ export class PredictiveAiService {
       }
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: technicianId,
-        title: "Work order assigned",
-        message: `Work order ${workOrder.woNumber} has been assigned to you`,
-        type: "WORK_ORDER_ASSIGNED",
-        channel: "IN_APP"
-      }
+    await this.notificationsService.createNotification({
+      userId: technicianId,
+      title: "Work order assigned",
+      message: `Work order ${workOrder.woNumber} has been assigned to you`,
+      type: NotificationType.WORK_ORDER_ASSIGNED,
+      priority: NotificationPriority.WARNING,
+      channel: "IN_APP",
+      referenceId: workOrder.id,
+      referenceType: "WorkOrder"
     });
 
     return updated;

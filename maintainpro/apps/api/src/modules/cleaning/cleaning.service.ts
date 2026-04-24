@@ -16,6 +16,7 @@ import {
   CleaningVisitStatus,
   FacilityIssueStatus,
   IssueSeverity,
+  NotificationPriority,
   NotificationType,
   Prisma,
   RoleName
@@ -25,6 +26,7 @@ import { randomUUID } from "node:crypto";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { PrismaService } from "../../database/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 import {
   CreateCleaningLocationDto,
@@ -94,7 +96,8 @@ export class CleaningService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(QrCodeService) private readonly qrCodeService: QrCodeService
+    @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService
   ) {}
 
   async listAssignableCleaners(tenantId: string | null) {
@@ -773,15 +776,18 @@ export class CleaningService {
       }
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: visit.cleanerId,
-        title: dto.approve ? "Cleaning visit approved" : "Cleaning visit rejected",
-        message: `Your visit at ${visit.location.name} was ${dto.approve ? "approved" : "rejected"}.`,
-        type: dto.approve ? NotificationType.CLEANING_SIGN_OFF : NotificationType.CLEANING_REJECTED,
-        channel: "IN_APP",
-        referenceId: visit.id,
-        referenceType: "CleaningVisit"
+    await this.notificationsService.createNotification({
+      userId: visit.cleanerId,
+      title: dto.approve ? "Cleaning visit approved" : "Cleaning visit rejected",
+      message: `Your visit at ${visit.location.name} was ${dto.approve ? "approved" : "rejected"}.`,
+      type: dto.approve ? NotificationType.CLEANING_SIGN_OFF : NotificationType.CLEANING_REJECTED,
+      priority: dto.approve ? NotificationPriority.INFO : NotificationPriority.WARNING,
+      channel: "IN_APP",
+      referenceId: visit.id,
+      referenceType: "CleaningVisit",
+      metadata: {
+        locationName: visit.location.name,
+        approved: dto.approve
       }
     });
 
@@ -963,15 +969,20 @@ export class CleaningService {
     });
 
     if (issue.assignedToId) {
-      await this.prisma.notification.create({
-        data: {
-          userId: issue.assignedToId,
-          title: "Facility issue assigned",
-          message: `You were assigned to issue: ${issue.title}`,
-          type: NotificationType.SYSTEM_ALERT,
-          channel: "IN_APP",
-          referenceId: issue.id,
-          referenceType: "FacilityIssue"
+      await this.notificationsService.createNotification({
+        userId: issue.assignedToId,
+        title: "Facility issue assigned",
+        message: `You were assigned to issue: ${issue.title}`,
+        type: NotificationType.SYSTEM_ALERT,
+        priority: NotificationPriority.WARNING,
+        channel: "IN_APP",
+        referenceId: issue.id,
+        referenceType: "FacilityIssue",
+        dueAt: issue.slaTargetAt,
+        metadata: {
+          title: issue.title,
+          severity: issue.severity,
+          locationName: issue.location?.name
         }
       });
     }
@@ -2075,6 +2086,9 @@ export class CleaningService {
       title: string;
       message: string;
       type: NotificationType;
+      priority?: NotificationPriority;
+      dueAt?: Date | null;
+      metadata?: Prisma.InputJsonValue;
       referenceId?: string;
       referenceType?: string;
       dedupeKey?: string;
@@ -2114,18 +2128,21 @@ export class CleaningService {
       return 0;
     }
 
-    await this.prisma.notification.createMany({
-      data: targetIds.map((userId) => ({
+    await this.notificationsService.createManyNotifications(
+      targetIds.map((userId) => ({
         userId,
         title: payload.title,
         message: payload.message,
         type: payload.type,
-        channel: "IN_APP" as const,
+        priority: payload.priority,
+        channel: "IN_APP",
         referenceId: payload.referenceId,
         referenceType: payload.referenceType,
+        dueAt: payload.dueAt,
+        metadata: payload.metadata,
         dedupeKey: payload.dedupeKey
       }))
-    });
+    );
 
     return targetIds.length;
   }

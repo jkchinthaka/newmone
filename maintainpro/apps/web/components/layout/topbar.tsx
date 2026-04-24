@@ -1,11 +1,57 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Search, UserCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import { clearAuthSession } from "@/lib/auth-storage";
+import { apiClient } from "@/lib/api-client";
+
+type NotificationsEnvelope = {
+  data?: {
+    items?: unknown[];
+  };
+  meta?: {
+    total?: number;
+  };
+};
+
+export const TOPBAR_UNREAD_QUERY_KEY = ["notifications", "unread-count"] as const;
 
 export function Topbar() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const unreadQuery = useQuery({
+    queryKey: TOPBAR_UNREAD_QUERY_KEY,
+    queryFn: async () => {
+      const response = await apiClient.get<NotificationsEnvelope>("/notifications", {
+        params: {
+          status: "UNREAD",
+          page: 1,
+          pageSize: 1
+        }
+      });
+
+      return Number(response.data.meta?.total ?? response.data.data?.items?.length ?? 0);
+    },
+    refetchInterval: 30_000,
+    staleTime: 10_000
+  });
+
+  useNotificationsSocket((payload) => {
+    queryClient.invalidateQueries({ queryKey: TOPBAR_UNREAD_QUERY_KEY });
+
+    if (payload && typeof payload === "object" && "title" in payload) {
+      const title = (payload as Record<string, unknown>).title;
+      if (typeof title === "string" && title.trim()) {
+        toast.info(title);
+      }
+    }
+  });
 
   function logout() {
     clearAuthSession();
@@ -20,9 +66,18 @@ export function Topbar() {
           <span>Search assets, work orders, vehicles...</span>
         </div>
         <div className="flex items-center gap-3">
-          <button className="rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-100">
+          <Link
+            href="/notifications"
+            className="relative rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
+            aria-label="Open notifications"
+          >
             <Bell size={18} />
-          </button>
+            {(unreadQuery.data ?? 0) > 0 ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-[10px] font-semibold text-white">
+                {(unreadQuery.data ?? 0) > 99 ? "99+" : unreadQuery.data}
+              </span>
+            ) : null}
+          </Link>
           <button
             onClick={logout}
             className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"

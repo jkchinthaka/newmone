@@ -33,11 +33,34 @@ export class UsersController {
     return { data: user, message: "User created" };
   }
 
+  @Post("invite")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async invite(
+    @Body()
+    body: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      roleId: string;
+      phone?: string;
+    }
+  ) {
+    const user = await this.usersService.invite(body);
+    return { data: user, message: "User invited" };
+  }
+
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN")
   async update(@Param("id") id: string, @Body() body: Partial<{ firstName: string; lastName: string; phone: string; roleId: string }>) {
     const user = await this.usersService.update(id, body);
     return { data: user, message: "User updated" };
+  }
+
+  @Patch(":id/status")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async updateStatus(@Param("id") id: string, @Body() body: { isActive: boolean }) {
+    const user = await this.usersService.setActive(id, body.isActive);
+    return { data: user, message: "User status updated" };
   }
 
   @Delete(":id")
