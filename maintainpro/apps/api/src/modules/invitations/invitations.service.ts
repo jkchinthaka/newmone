@@ -26,13 +26,13 @@ export class InvitationsService {
       return;
     }
 
-    if (
-      ![
-        TenantMembershipRole.OWNER,
-        TenantMembershipRole.ADMIN,
-        TenantMembershipRole.BILLING
-      ].includes(membershipRole)
-    ) {
+    const allowedRoles = new Set<TenantMembershipRole>([
+      TenantMembershipRole.OWNER,
+      TenantMembershipRole.ADMIN,
+      TenantMembershipRole.BILLING
+    ]);
+
+    if (!allowedRoles.has(membershipRole)) {
       throw new ForbiddenException("Insufficient tenant permissions to manage invitations");
     }
   }

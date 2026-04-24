@@ -5,7 +5,7 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { BillingInterval, SubscriptionStatus } from "@prisma/client";
+import { BillingInterval, Prisma, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -97,12 +97,12 @@ export class BillingService {
     return new Date(unixSeconds * 1000);
   }
 
-  private stringifyJson(value: unknown) {
+  private stringifyJson(value: unknown): Prisma.InputJsonValue | undefined {
     if (!value || typeof value !== "object") {
-      return null;
+      return undefined;
     }
 
-    return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
   }
 
   private resolveStripePriceId(
@@ -585,7 +585,7 @@ export class BillingService {
 
     const eventObject =
       event.data?.object && typeof event.data.object === "object"
-        ? (event.data.object as Record<string, unknown>)
+        ? (event.data.object as unknown as Record<string, unknown>)
         : {};
 
     switch (event.type) {
