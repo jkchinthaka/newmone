@@ -5,11 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/assets/presentation/asset_detail_screen.dart';
+import '../../features/assets/presentation/asset_scanner_screen.dart';
+import '../../features/assets/presentation/assets_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/cleaning/presentation/cleaning_hub_screen.dart';
+import '../../features/cleaning/presentation/cleaning_location_detail_screen.dart';
+import '../../features/cleaning/presentation/cleaning_locations_screen.dart';
+import '../../features/cleaning/presentation/cleaning_scan_screen.dart';
+import '../../features/cleaning/presentation/cleaning_visit_detail_screen.dart';
+import '../../features/cleaning/presentation/cleaning_visits_screen.dart';
+import '../../features/cleaning/presentation/facility_issues_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/notifications/data/datasources/notifications_socket.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/work_orders/presentation/work_order_create_screen.dart';
+import '../../features/work_orders/presentation/work_order_detail_screen.dart';
+import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../widgets/placeholder_screen.dart';
 
@@ -46,23 +59,22 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/work-orders',
-          builder: (_, __) => const PlaceholderScreen(title: 'Work Orders'),
+          builder: (_, __) => const WorkOrdersScreen(),
           routes: [
             GoRoute(
               path: 'create',
-              builder: (_, __) =>
-                  const PlaceholderScreen(title: 'Create Work Order'),
+              builder: (_, __) => const WorkOrderCreateScreen(),
             ),
             GoRoute(
               path: ':id',
-              builder: (_, state) => PlaceholderScreen(
-                  title: 'Work Order ${state.pathParameters['id']}'),
+              builder: (_, state) =>
+                  WorkOrderDetailScreen(id: state.pathParameters['id'] ?? ''),
             ),
           ],
         ),
         GoRoute(
           path: '/scan',
-          builder: (_, __) => const PlaceholderScreen(title: 'Scan'),
+          redirect: (_, __) => '/assets/scan',
         ),
         GoRoute(
           path: '/notifications',
@@ -85,16 +97,16 @@ final GoRouter appRouter = GoRouter(
     // Full-screen (no bottom nav) routes
     GoRoute(
       path: '/assets',
-      builder: (_, __) => const PlaceholderScreen(title: 'Assets'),
+      builder: (_, __) => const AssetsScreen(),
       routes: [
         GoRoute(
           path: 'scan',
-          builder: (_, __) => const PlaceholderScreen(title: 'Asset Scanner'),
+          builder: (_, __) => const AssetScannerScreen(),
         ),
         GoRoute(
           path: ':id',
           builder: (_, state) =>
-              PlaceholderScreen(title: 'Asset ${state.pathParameters['id']}'),
+              AssetDetailScreen(id: state.pathParameters['id'] ?? ''),
         ),
       ],
     ),
@@ -149,31 +161,39 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/cleaning',
-      builder: (_, __) => const PlaceholderScreen(title: 'Cleaning'),
+      builder: (_, __) => const CleaningHubScreen(),
       routes: [
         GoRoute(
           path: 'locations',
-          builder: (_, __) =>
-              const PlaceholderScreen(title: 'Cleaning Locations'),
-        ),
-        GoRoute(
-          path: 'scan',
-          builder: (_, __) => const PlaceholderScreen(title: 'Cleaning Scan'),
-        ),
-        GoRoute(
-          path: 'visits',
-          builder: (_, __) => const PlaceholderScreen(title: 'Cleaning Visits'),
+          builder: (_, __) => const CleaningLocationsScreen(),
           routes: [
             GoRoute(
               path: ':id',
-              builder: (_, state) => PlaceholderScreen(
-                  title: 'Visit ${state.pathParameters['id']}'),
+              builder: (_, state) => CleaningLocationDetailScreen(
+                  id: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'scan',
+          builder: (_, __) => const CleaningScanScreen(),
+        ),
+        GoRoute(
+          path: 'visits',
+          builder: (_, state) => CleaningVisitsScreen(
+            initialStatus: state.uri.queryParameters['status'],
+          ),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => CleaningVisitDetailScreen(
+                  id: state.pathParameters['id'] ?? ''),
             ),
           ],
         ),
         GoRoute(
           path: 'issues',
-          builder: (_, __) => const PlaceholderScreen(title: 'Facility Issues'),
+          builder: (_, __) => const FacilityIssuesScreen(),
         ),
       ],
     ),
@@ -253,12 +273,39 @@ class _BottomNavShell extends ConsumerWidget {
   const _BottomNavShell({required this.child});
   final Widget child;
 
-  static const List<({String path, IconData icon, IconData activeIcon, String label})> _tabs = [
-    (path: '/dashboard', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Home'),
-    (path: '/work-orders', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, label: 'Orders'),
-    (path: '/scan', icon: Icons.qr_code_scanner_outlined, activeIcon: Icons.qr_code_scanner_rounded, label: 'Scan'),
-    (path: '/notifications', icon: Icons.notifications_outlined, activeIcon: Icons.notifications_rounded, label: 'Alerts'),
-    (path: '/profile', icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile'),
+  static const List<
+          ({String path, IconData icon, IconData activeIcon, String label})>
+      _tabs = [
+    (
+      path: '/dashboard',
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard_rounded,
+      label: 'Home'
+    ),
+    (
+      path: '/work-orders',
+      icon: Icons.assignment_outlined,
+      activeIcon: Icons.assignment_rounded,
+      label: 'Orders'
+    ),
+    (
+      path: '/scan',
+      icon: Icons.qr_code_scanner_outlined,
+      activeIcon: Icons.qr_code_scanner_rounded,
+      label: 'Scan'
+    ),
+    (
+      path: '/notifications',
+      icon: Icons.notifications_outlined,
+      activeIcon: Icons.notifications_rounded,
+      label: 'Alerts'
+    ),
+    (
+      path: '/profile',
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+      label: 'Profile'
+    ),
   ];
 
   int _indexFor(String location) {
@@ -282,7 +329,8 @@ class _BottomNavShell extends ConsumerWidget {
         onTap: (i) => context.go(_tabs[i].path),
         items: [
           for (final t in _tabs)
-            GlassNavItem(icon: t.icon, activeIcon: t.activeIcon, label: t.label),
+            GlassNavItem(
+                icon: t.icon, activeIcon: t.activeIcon, label: t.label),
         ],
       ),
     );

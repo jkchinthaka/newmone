@@ -9,24 +9,27 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
-import 'providers/assets_provider.dart';
+import 'providers/cleaning_provider.dart';
 
-class AssetScannerScreen extends ConsumerStatefulWidget {
-  const AssetScannerScreen({super.key});
+enum _ScanMode { fullVisit, quickScan }
+
+class CleaningScanScreen extends ConsumerStatefulWidget {
+  const CleaningScanScreen({super.key});
 
   @override
-  ConsumerState<AssetScannerScreen> createState() => _AssetScannerScreenState();
+  ConsumerState<CleaningScanScreen> createState() => _CleaningScanScreenState();
 }
 
-class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
+class _CleaningScanScreenState extends ConsumerState<CleaningScanScreen> {
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
-    formats: const [BarcodeFormat.qrCode, BarcodeFormat.code128],
+    formats: const [BarcodeFormat.qrCode],
   );
 
   bool _processing = false;
   String? _statusMsg;
   bool _torchOn = false;
+  _ScanMode _mode = _ScanMode.fullVisit;
 
   @override
   void dispose() {
@@ -34,47 +37,35 @@ class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
     super.dispose();
   }
 
+  String _extractQr(String raw) {
+    final m = RegExp(r'/scan/([^/?#]+)').firstMatch(raw);
+    if (m != null) return Uri.decodeComponent(m.group(1)!);
+    return raw.trim();
+  }
+
   Future<void> _handleCode(String raw) async {
     if (_processing) return;
     _processing = true;
     HapticFeedback.lightImpact();
-    setState(() => _statusMsg = 'Looking up "$raw"…');
+
+    final qr = _extractQr(raw);
+    setState(() => _statusMsg = 'Processing…');
 
     try {
-      // Try to extract id from a URL like "https://app/assets/<id>" or
-      // "https://app/scan/<assetTag>". Else treat raw as an asset tag.
-      String? assetId;
-      String? tag;
-
-      final urlMatch = RegExp(r'/assets/([A-Za-z0-9-]+)').firstMatch(raw);
-      if (urlMatch != null) {
-        assetId = urlMatch.group(1);
-      } else {
-        final scanMatch = RegExp(r'/scan/([^/?#]+)').firstMatch(raw);
-        if (scanMatch != null) {
-          tag = Uri.decodeComponent(scanMatch.group(1)!);
-        } else {
-          tag = raw.trim();
-        }
-      }
-
-      if (assetId != null) {
+      final remote = ref.read(cleaningRemoteProvider);
+      if (_mode == _ScanMode.fullVisit) {
+        final visit = await remote.startVisit(qr);
         if (!mounted) return;
-        context.go('/assets/$assetId');
-        return;
-      }
-
-      final lookup =
-          await ref.read(assetsRemoteProvider).validateTag(tag ?? raw);
-      if (!mounted) return;
-
-      if (lookup.exists && lookup.assetId != null) {
-        context.go('/assets/${lookup.assetId}');
+        ref.invalidate(cleaningVisitsProvider);
+        context.go('/cleaning/visits/${visit.id}');
       } else {
-        setState(() =>
-            _statusMsg = 'No asset found for "${tag ?? raw}". Try again.');
-        await Future<void>.delayed(const Duration(seconds: 2));
-        if (mounted) setState(() => _statusMsg = null);
+        await remote.scan(qr);
+        if (!mounted) return;
+        ref.invalidate(cleaningLocationsProvider);
+        ref.invalidate(cleaningVisitsProvider);
+        setState(() => _statusMsg = 'Marked clean ✓');
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+        if (mounted) Navigator.of(context).maybePop();
       }
     } catch (e) {
       if (!mounted) return;
@@ -94,7 +85,7 @@ class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black.withOpacity(0.4),
         elevation: 0,
-        title: const Text('Scan Asset QR'),
+        title: const Text('Scan location QR'),
         actions: [
           IconButton(
             tooltip: 'Toggle torch',
@@ -126,14 +117,44 @@ class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
               }
             },
           ),
-          // Viewfinder overlay
           IgnorePointer(
             child: CustomPaint(
               painter: _ScannerOverlayPainter(),
               child: const SizedBox.expand(),
             ),
           ),
-          // Bottom hint card
+          // Mode toggle
+          Positioned(
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: kToolbarHeight + AppSpacing.lg,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.card.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _ModeChip(
+                      label: 'Full visit',
+                      selected: _mode == _ScanMode.fullVisit,
+                      onTap: () => setState(() => _mode = _ScanMode.fullVisit),
+                    ),
+                  ),
+                  Expanded(
+                    child: _ModeChip(
+                      label: 'Quick scan',
+                      selected: _mode == _ScanMode.quickScan,
+                      onTap: () => setState(() => _mode = _ScanMode.quickScan),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Positioned(
             left: AppSpacing.md,
             right: AppSpacing.md,
@@ -153,7 +174,9 @@ class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
                   Expanded(
                     child: Text(
                       _statusMsg ??
-                          'Align the QR code inside the frame to scan an asset.',
+                          (_mode == _ScanMode.fullVisit
+                              ? 'Scan the location QR to start a visit with checklist.'
+                              : 'Scan to instantly log a cleaning visit.'),
                       style: AppTextStyles.body,
                     ),
                   ),
@@ -162,6 +185,38 @@ class _AssetScannerScreenState extends ConsumerState<AssetScannerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.full),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppTextStyles.label.copyWith(
+            color: selected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -185,27 +240,22 @@ class _ScannerOverlayPainter extends CustomPainter {
     final overlay = Path.combine(PathOperation.difference, scrimPath, holePath);
     canvas.drawPath(overlay, scrim);
 
-    // Corner brackets
     final bracket = Paint()
       ..color = AppColors.primaryLight
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     const arm = 24.0;
-    // top-left
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(arm, 0), bracket);
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(0, arm), bracket);
-    // top-right
     canvas.drawLine(
         rect.topRight, rect.topRight + const Offset(-arm, 0), bracket);
     canvas.drawLine(
         rect.topRight, rect.topRight + const Offset(0, arm), bracket);
-    // bottom-left
     canvas.drawLine(
         rect.bottomLeft, rect.bottomLeft + const Offset(arm, 0), bracket);
     canvas.drawLine(
         rect.bottomLeft, rect.bottomLeft + const Offset(0, -arm), bracket);
-    // bottom-right
     canvas.drawLine(
         rect.bottomRight, rect.bottomRight + const Offset(-arm, 0), bracket);
     canvas.drawLine(

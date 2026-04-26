@@ -103,19 +103,17 @@ class WorkOrder {
       priority: (json['priority'] ?? 'MEDIUM').toString(),
       type: (json['type'] ?? 'CORRECTIVE').toString(),
       createdAt: _date(json['createdAt']) ?? DateTime.now(),
-      assetId: (json['assetId'] ?? (asset is Map ? asset['id'] : null))
-          ?.toString(),
+      assetId:
+          (json['assetId'] ?? (asset is Map ? asset['id'] : null))?.toString(),
       assetName:
           asset is Map<String, dynamic> ? asset['name']?.toString() : null,
-      vehicleId:
-          (json['vehicleId'] ?? (vehicle is Map ? vehicle['id'] : null))
-              ?.toString(),
+      vehicleId: (json['vehicleId'] ?? (vehicle is Map ? vehicle['id'] : null))
+          ?.toString(),
       vehiclePlate: vehicle is Map<String, dynamic>
           ? (vehicle['plateNumber'] ?? vehicle['licensePlate'])?.toString()
           : null,
-      technicianId:
-          (json['technicianId'] ?? (tech is Map ? tech['id'] : null))
-              ?.toString(),
+      technicianId: (json['technicianId'] ?? (tech is Map ? tech['id'] : null))
+          ?.toString(),
       technicianName: _name(tech),
       createdById:
           (json['createdById'] ?? (creator is Map ? creator['id'] : null))
@@ -195,9 +193,9 @@ class WorkOrderNote {
     return WorkOrderNote(
       id: (json['id'] ?? '').toString(),
       note: (json['note'] ?? json['content'] ?? '').toString(),
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString())
-              ?.toLocal() ??
-          DateTime.now(),
+      createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString())?.toLocal() ??
+              DateTime.now(),
       authorName: author is Map<String, dynamic>
           ? (author['displayName'] ?? author['email'])?.toString()
           : null,
@@ -223,9 +221,9 @@ class WorkOrderAttachment {
       id: (json['id'] ?? '').toString(),
       url: (json['url'] ?? json['attachmentUrl'] ?? '').toString(),
       fileName: json['fileName']?.toString(),
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString())
-              ?.toLocal() ??
-          DateTime.now(),
+      createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString())?.toLocal() ??
+              DateTime.now(),
     );
   }
 }

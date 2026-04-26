@@ -29,9 +29,15 @@ class ApiEndpoints {
 
   // ── Assets ──
   static const String assets = '/assets';
+  static const String assetsValidateTag = '/assets/validate-tag';
+  static const String assetsFilterOptions = '/assets/filter-options';
+  static const String assetsSummary = '/assets/summary';
   static String assetById(String id) => '/assets/$id';
-  static String assetQr(String id) => '/assets/$id/qr';
-  static const String assetsBatchUpload = '/assets/batch-upload';
+  static String assetQr(String id) => '/assets/$id/qr-code';
+  static String assetMaintenanceHistory(String id) =>
+      '/assets/$id/maintenance-history';
+  static String assetStatus(String id) => '/assets/$id/status';
+  static const String assetsBatchUpload = '/assets/bulk-import';
 
   // ── Work Orders ──
   static const String workOrders = '/work-orders';

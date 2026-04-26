@@ -157,8 +157,7 @@ class _NotificationTile extends ConsumerWidget {
                           Container(
                             width: 8,
                             height: 8,
-                            margin:
-                                const EdgeInsets.only(left: AppSpacing.xs),
+                            margin: const EdgeInsets.only(left: AppSpacing.xs),
                             decoration: BoxDecoration(
                               color: color,
                               shape: BoxShape.circle,

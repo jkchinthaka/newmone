@@ -40,8 +40,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               Center(
-                child: Text(user?.email ?? '',
-                    style: AppTextStyles.bodySecondary),
+                child:
+                    Text(user?.email ?? '', style: AppTextStyles.bodySecondary),
               ),
               const SizedBox(height: AppSpacing.xs),
               Center(
@@ -51,13 +51,13 @@ class ProfileScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(AppRadius.full),
-                    border: Border.all(
-                        color: AppColors.primary.withOpacity(0.4)),
+                    border:
+                        Border.all(color: AppColors.primary.withOpacity(0.4)),
                   ),
                   child: Text(
                     (user?.role.name ?? 'viewer').toUpperCase(),
-                    style: AppTextStyles.label.copyWith(
-                        color: AppColors.primaryLight),
+                    style: AppTextStyles.label
+                        .copyWith(color: AppColors.primaryLight),
                   ),
                 ),
               ),
@@ -151,8 +151,7 @@ class ProfileScreen extends ConsumerWidget {
             Icon(Icons.business_outlined,
                 size: 48, color: AppColors.primaryLight),
             SizedBox(height: AppSpacing.md),
-            Text('Tenant switching coming soon',
-                style: AppTextStyles.subtitle),
+            Text('Tenant switching coming soon', style: AppTextStyles.subtitle),
             SizedBox(height: AppSpacing.xs),
             Text(
               'You will be able to switch between organizations here.',
@@ -187,8 +186,8 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(
-              left: AppSpacing.xs, bottom: AppSpacing.xs),
+          padding:
+              const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.xs),
           child: Text(title.toUpperCase(), style: AppTextStyles.label),
         ),
         Container(
@@ -215,8 +214,8 @@ class _Tile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: AppColors.primaryLight),
       title: Text(label, style: AppTextStyles.body),
-      trailing: const Icon(Icons.chevron_right_rounded,
-          color: AppColors.textMuted),
+      trailing:
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
       onTap: onTap,
     );
   }

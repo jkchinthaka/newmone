@@ -34,8 +34,8 @@ class NotificationsSocket {
     socket.on('notification:new', (data) {
       if (data is Map) {
         try {
-          final n = AppNotification.fromJson(
-              Map<String, dynamic>.from(data as Map));
+          final n =
+              AppNotification.fromJson(Map<String, dynamic>.from(data as Map));
           _ref.read(notificationsProvider.notifier).prepend(n);
         } catch (_) {}
       }

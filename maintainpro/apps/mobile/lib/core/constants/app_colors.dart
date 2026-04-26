@@ -66,17 +66,27 @@ class AppColors {
       case 'PAID':
       case 'RESOLVED':
       case 'ACTIVE':
+      case 'OPERATIONAL':
         return statusCompleted;
       case 'CANCELLED':
       case 'CLOSED':
+      case 'RETIRED':
+      case 'DISPOSED':
         return statusCancelled;
       case 'OVERDUE':
       case 'REJECTED':
+      case 'MISSED':
+      case 'OUT_OF_SERVICE':
+      case 'BROKEN':
         return statusOverdue;
       case 'ON_HOLD':
       case 'PENDING':
       case 'PENDING_VERIFICATION':
+      case 'PENDING_APPROVAL':
       case 'SUBMITTED':
+      case 'STARTED':
+      case 'MAINTENANCE':
+      case 'UNDER_REPAIR':
         return statusOnHold;
       default:
         return statusCancelled;
