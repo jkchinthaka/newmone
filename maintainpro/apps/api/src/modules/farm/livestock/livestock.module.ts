@@ -41,6 +41,14 @@ export class LivestockService {
     return this.prisma.animalHealthRecord.findMany({ where: { animalId }, orderBy: { date: "desc" } });
   }
 
+  listAllHealth(tenantId?: string) {
+    return this.prisma.animalHealthRecord.findMany({
+      where: tenantId ? { animal: { tenantId } } : undefined,
+      include: { animal: true },
+      orderBy: { date: "desc" }
+    });
+  }
+
   createHealth(data: Prisma.AnimalHealthRecordUncheckedCreateInput) {
     return this.prisma.animalHealthRecord.create({ data });
   }
@@ -117,6 +125,13 @@ export class LivestockController {
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN")
   async listHealth(@Param("id") id: string) {
     const data = await this.service.listHealth(id);
+    return { data, message: "Health records fetched" };
+  }
+
+  @Get("health")
+  @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
+  async listAllHealth(@Query("tenantId") tenantId?: string) {
+    const data = await this.service.listAllHealth(tenantId);
     return { data, message: "Health records fetched" };
   }
 
