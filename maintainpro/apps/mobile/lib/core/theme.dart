@@ -36,7 +36,7 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: AppTextStyles.title,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 0,
         shape: RoundedRectangleBorder(

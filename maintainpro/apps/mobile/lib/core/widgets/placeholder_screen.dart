@@ -28,7 +28,7 @@ class PlaceholderScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               Text(title, style: AppTextStyles.title),
               const SizedBox(height: AppSpacing.xs),
-              Text(
+              const Text(
                 'This screen is under construction.',
                 style: AppTextStyles.bodySecondary,
                 textAlign: TextAlign.center,
