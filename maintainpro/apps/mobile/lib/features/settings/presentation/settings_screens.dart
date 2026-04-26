@@ -341,7 +341,7 @@ class _EditableMapScreen extends ConsumerStatefulWidget {
     required this.onSave,
   });
   final String title;
-  final FutureProvider<Map<String, dynamic>> provider;
+  final AutoDisposeFutureProvider<Map<String, dynamic>> provider;
   final Future<void> Function(WidgetRef ref, Map<String, dynamic> body) onSave;
 
   @override
@@ -667,7 +667,7 @@ class _ListMapsScreen extends ConsumerWidget {
     this.actions,
   });
   final String title;
-  final FutureProvider<List<Map<String, dynamic>>> provider;
+  final AutoDisposeFutureProvider<List<Map<String, dynamic>>> provider;
   final List<Widget>? actions;
 
   @override

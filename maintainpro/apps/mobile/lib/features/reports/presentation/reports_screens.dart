@@ -226,7 +226,7 @@ class _ReportTile {
 class _ReportScreen extends ConsumerWidget {
   const _ReportScreen({required this.title, required this.provider});
   final String title;
-  final FutureProvider<Map<String, dynamic>> provider;
+  final AutoDisposeFutureProvider<Map<String, dynamic>> provider;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
