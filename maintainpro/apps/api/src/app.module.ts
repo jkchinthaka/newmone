@@ -64,7 +64,12 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
           redis: {
             host: redisUrl.hostname,
             port: Number(redisUrl.port || 6379),
-            password: redisUrl.password || undefined
+            password: redisUrl.password || undefined,
+            maxRetriesPerRequest: 1,
+            enableOfflineQueue: false,
+            enableReadyCheck: false,
+            lazyConnect: true,
+            retryStrategy: (times: number) => Math.min(times * 5000, 30000)
           }
         };
       }

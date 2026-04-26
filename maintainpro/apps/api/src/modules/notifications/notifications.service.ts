@@ -190,7 +190,7 @@ export class NotificationsService {
     const enriched = await this.enrichNotification(notification);
     this.notificationsGateway.emitMarkRead(notification.userId, enriched);
 
-    await this.notificationsQueue.add("send", {
+    await this.enqueueSend({
       channel: "IN_APP",
       userId: notification.userId,
       message: `Notification ${notification.id} marked as read`
@@ -213,7 +213,7 @@ export class NotificationsService {
 
     this.notificationsGateway.emitMarkRead(userId, { markAllRead: true, updated: updated.count });
 
-    await this.notificationsQueue.add("send", {
+    await this.enqueueSend({
       channel: "IN_APP",
       userId,
       message: "All notifications marked as read"
@@ -512,13 +512,23 @@ export class NotificationsService {
     const enriched = await this.enrichNotification(created);
     this.notificationsGateway.emitToUser(input.userId, enriched);
 
-    await this.notificationsQueue.add("send", {
+    await this.enqueueSend({
       channel: input.channel ?? "IN_APP",
       userId: input.userId,
       message: input.message
     });
 
     return enriched;
+  }
+
+  private async enqueueSend(payload: { channel: string; userId: string; message: string }) {
+    try {
+      await this.notificationsQueue.add("send", payload);
+    } catch (err) {
+      // Redis/queue unavailable — degrade gracefully so business logic still completes.
+      // eslint-disable-next-line no-console
+      console.warn("[notifications] queue.add failed (continuing):", (err as Error)?.message);
+    }
   }
 
   async createManyNotifications(inputs: NotificationInput[]) {

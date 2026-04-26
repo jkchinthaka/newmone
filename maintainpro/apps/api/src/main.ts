@@ -9,6 +9,29 @@ import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 
+// Swallow Redis/ioredis connection errors so a missing Redis doesn't crash the API.
+// Queue operations are wrapped in try/catch and degrade gracefully.
+process.on("unhandledRejection", (reason: unknown) => {
+  const err = reason as { code?: string; message?: string } | undefined;
+  if (err && (err.code === "ECONNREFUSED" || /ECONNREFUSED|Redis|ioredis/i.test(err.message ?? ""))) {
+    // eslint-disable-next-line no-console
+    console.warn("[bootstrap] Suppressed Redis connection error:", err.message ?? err.code);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.error("[bootstrap] Unhandled rejection:", reason);
+});
+
+process.on("uncaughtException", (err: Error & { code?: string }) => {
+  if (err && (err.code === "ECONNREFUSED" || /ECONNREFUSED|Redis|ioredis/i.test(err.message ?? ""))) {
+    // eslint-disable-next-line no-console
+    console.warn("[bootstrap] Suppressed Redis uncaught exception:", err.message);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.error("[bootstrap] Uncaught exception:", err);
+});
+
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
@@ -27,9 +50,19 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
 
+  // Flutter web's dev server uses a random localhost port on each run, so in
+  // non-production environments allow any http://localhost:* / 127.0.0.1:*
+  // origin in addition to the explicitly configured ones.
+  const isProd = process.env.NODE_ENV === "production";
+  const localhostOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      if (!isProd && localhostOriginRegex.test(origin)) {
         callback(null, true);
         return;
       }
@@ -76,7 +109,11 @@ async function bootstrap(): Promise<void> {
   }
 
   const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
+  // Bind to 0.0.0.0 so both IPv4 (127.0.0.1) and IPv6 (::1) clients can connect.
+  // On Windows, defaulting to "::" can refuse IPv4 connections from browsers
+  // that resolve "localhost" to 127.0.0.1, causing ERR_CONNECTION_REFUSED.
+  const host = process.env.HOST ?? "0.0.0.0";
+  await app.listen(port, host);
 }
 
 bootstrap();

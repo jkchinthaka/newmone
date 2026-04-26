@@ -1091,7 +1091,7 @@ export class CleaningService {
     const rangeStart = this.startOfDayUtc(new Date(Date.now() - (windowDays - 1) * MS_IN_DAY));
 
     const [enforcement, totalLocations, openIssues, visits, recentRejected] = await Promise.all([
-      this.runScheduleEnforcement(tenantId),
+      this.runScheduleEnforcement(tenantId, { dryRun: true }),
       this.prisma.cleaningLocation.count({
         where: { tenantId: tenantId ?? undefined, isActive: true }
       }),
@@ -1566,7 +1566,8 @@ export class CleaningService {
     };
   }
 
-  async runScheduleEnforcement(tenantId: string | null) {
+  async runScheduleEnforcement(tenantId: string | null, options: { dryRun?: boolean } = {}) {
+    const { dryRun = false } = options;
     const now = new Date();
     const startOfToday = this.startOfDayUtc(now);
     const startOfTomorrow = new Date(startOfToday.getTime() + MS_IN_DAY);
@@ -1666,14 +1667,16 @@ export class CleaningService {
           pendingVisits: pending
         });
 
-        createdAlerts += await this.notifySupervisors(location.tenantId, {
-          title: "Missed cleaning schedule",
-          message: `${location.name} has ${pending} pending cleaning visit(s) today.`,
-          type: NotificationType.CLEANING_MISSED,
-          referenceId: location.id,
-          referenceType: "CleaningLocation",
-          dedupeKey: `cleaning-missed:${location.id}:${dateKey}`
-        });
+        if (!dryRun) {
+          createdAlerts += await this.notifySupervisors(location.tenantId, {
+            title: "Missed cleaning schedule",
+            message: `${location.name} has ${pending} pending cleaning visit(s) today.`,
+            type: NotificationType.CLEANING_MISSED,
+            referenceId: location.id,
+            referenceType: "CleaningLocation",
+            dedupeKey: `cleaning-missed:${location.id}:${dateKey}`
+          });
+        }
       }
 
       if (completed === 0 && this.isShiftOver(location.shiftWindow, now)) {
@@ -1683,14 +1686,16 @@ export class CleaningService {
           shiftWindow: location.shiftWindow
         });
 
-        createdAlerts += await this.notifySupervisors(location.tenantId, {
-          title: "Late cleaning visit",
-          message: `${location.name} has no completed visit after shift window ${location.shiftWindow ?? ""}.`,
-          type: NotificationType.CLEANING_LATE_VISIT,
-          referenceId: location.id,
-          referenceType: "CleaningLocation",
-          dedupeKey: `cleaning-late:${location.id}:${dateKey}`
-        });
+        if (!dryRun) {
+          createdAlerts += await this.notifySupervisors(location.tenantId, {
+            title: "Late cleaning visit",
+            message: `${location.name} has no completed visit after shift window ${location.shiftWindow ?? ""}.`,
+            type: NotificationType.CLEANING_LATE_VISIT,
+            referenceId: location.id,
+            referenceType: "CleaningLocation",
+            dedupeKey: `cleaning-late:${location.id}:${dateKey}`
+          });
+        }
       }
 
       const openIssueCount = issueByLocation.get(location.id) ?? 0;
@@ -1701,14 +1706,16 @@ export class CleaningService {
           openIssueCount
         });
 
-        createdAlerts += await this.notifySupervisors(location.tenantId, {
-          title: "High issue frequency",
-          message: `${location.name} has ${openIssueCount} open/in-progress issues.`,
-          type: NotificationType.CLEANING_HIGH_ISSUE,
-          referenceId: location.id,
-          referenceType: "CleaningLocation",
-          dedupeKey: `cleaning-high-issue:${location.id}:${dateKey}`
-        });
+        if (!dryRun) {
+          createdAlerts += await this.notifySupervisors(location.tenantId, {
+            title: "High issue frequency",
+            message: `${location.name} has ${openIssueCount} open/in-progress issues.`,
+            type: NotificationType.CLEANING_HIGH_ISSUE,
+            referenceId: location.id,
+            referenceType: "CleaningLocation",
+            dedupeKey: `cleaning-high-issue:${location.id}:${dateKey}`
+          });
+        }
       }
     }
 
