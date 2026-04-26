@@ -1,105 +1,150 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/token_storage.dart';
 import 'api_endpoints.dart';
 
+/// Dio singleton with auth + tenant + atomic refresh + logging interceptors.
 final dioProvider = Provider<Dio>((ref) {
   final storage = ref.watch(tokenStorageProvider);
 
   final dio = Dio(
     BaseOptions(
       baseUrl: ApiEndpoints.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
       headers: const {'Content-Type': 'application/json'},
     ),
   );
 
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await storage.readAccessToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        if (!_shouldRefresh(error)) {
-          handler.next(error);
-          return;
-        }
+  // Atomic refresh lock — guarantees only one refresh call at a time.
+  Completer<String?>? refreshCompleter;
 
+  Future<String?> refreshAccessToken() {
+    if (refreshCompleter != null) return refreshCompleter!.future;
+
+    final completer = Completer<String?>();
+    refreshCompleter = completer;
+
+    () async {
+      try {
         final refreshToken = await storage.readRefreshToken();
         if (refreshToken == null || refreshToken.isEmpty) {
-          await storage.clear();
-          handler.next(error);
+          completer.complete(null);
           return;
         }
 
-        try {
-          final refreshDio = Dio(
-            BaseOptions(
-              baseUrl: ApiEndpoints.baseUrl,
-              headers: const {'Content-Type': 'application/json'},
-            ),
-          );
+        final refreshDio = Dio(BaseOptions(
+          baseUrl: ApiEndpoints.baseUrl,
+          headers: const {'Content-Type': 'application/json'},
+        ));
 
-          final refreshResponse = await refreshDio.post(
-            ApiEndpoints.refresh,
-            data: {'refreshToken': refreshToken},
-          );
+        final response = await refreshDio.post<dynamic>(
+          ApiEndpoints.refresh,
+          data: {'refreshToken': refreshToken},
+        );
 
-          final body = refreshResponse.data;
-          if (body is! Map<String, dynamic> ||
-              body['success'] != true ||
-              body['data'] is! Map<String, dynamic>) {
-            throw const FormatException('Invalid refresh response.');
+        final body = response.data;
+        Map<String, dynamic>? data;
+        if (body is Map<String, dynamic>) {
+          if (body['data'] is Map<String, dynamic>) {
+            data = body['data'] as Map<String, dynamic>;
+          } else if (body.containsKey('accessToken')) {
+            data = body;
           }
+        }
+        if (data == null) {
+          completer.complete(null);
+          return;
+        }
 
-          final data = body['data'] as Map<String, dynamic>;
-          final nextAccessToken = (data['accessToken'] ?? '').toString();
-          final nextRefreshToken =
-              (data['refreshToken'] ?? refreshToken).toString();
+        final access = (data['accessToken'] ?? '').toString();
+        final refresh = (data['refreshToken'] ?? refreshToken).toString();
+        if (access.isEmpty) {
+          completer.complete(null);
+          return;
+        }
 
-          if (nextAccessToken.isEmpty) {
-            throw const FormatException('Missing refreshed access token.');
-          }
+        await storage.saveTokens(accessToken: access, refreshToken: refresh);
+        completer.complete(access);
+      } catch (_) {
+        await storage.clear();
+        completer.complete(null);
+      } finally {
+        refreshCompleter = null;
+      }
+    }();
 
-          await storage.saveTokens(
-            accessToken: nextAccessToken,
-            refreshToken: nextRefreshToken,
-          );
+    return completer.future;
+  }
 
-          final retriedRequest = error.requestOptions.copyWith(
+  dio.interceptors.add(InterceptorsWrapper(
+    onRequest: (options, handler) async {
+      final token = await storage.readAccessToken();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+      final tenantId = await storage.readTenantId();
+      if (tenantId != null && tenantId.isNotEmpty) {
+        options.headers['X-Tenant-Id'] = tenantId;
+      }
+      handler.next(options);
+    },
+    onError: (error, handler) async {
+      if (!_shouldRefresh(error)) {
+        handler.next(error);
+        return;
+      }
+
+      final newAccessToken = await refreshAccessToken();
+      if (newAccessToken == null) {
+        await storage.clear();
+        handler.next(error);
+        return;
+      }
+
+      try {
+        final retried = await dio.fetch<dynamic>(
+          error.requestOptions.copyWith(
             headers: {
               ...error.requestOptions.headers,
-              'Authorization': 'Bearer $nextAccessToken',
+              'Authorization': 'Bearer $newAccessToken',
             },
-          );
-
-          final response = await dio.fetch<dynamic>(retriedRequest);
-          handler.resolve(response);
-          return;
-        } catch (_) {
-          await storage.clear();
+          ),
+        );
+        handler.resolve(retried);
+      } catch (e) {
+        if (e is DioException) {
+          handler.next(e);
+        } else {
+          handler.next(error);
         }
+      }
+    },
+  ));
 
-        handler.next(error);
-      },
-    ),
-  );
+  if (kDebugMode) {
+    dio.interceptors.add(LogInterceptor(
+      request: false,
+      requestHeader: false,
+      requestBody: false,
+      responseHeader: false,
+      responseBody: false,
+      error: true,
+    ));
+  }
 
   return dio;
 });
 
 bool _shouldRefresh(DioException error) {
-  if (error.response?.statusCode != 401) {
-    return false;
-  }
-
+  if (error.response?.statusCode != 401) return false;
   final path = error.requestOptions.path;
   return !path.endsWith(ApiEndpoints.login) &&
-      !path.endsWith(ApiEndpoints.refresh);
+      !path.endsWith(ApiEndpoints.refresh) &&
+      !path.endsWith(ApiEndpoints.register) &&
+      !path.endsWith(ApiEndpoints.forgotPassword);
 }

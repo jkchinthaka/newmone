@@ -2,63 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/auth/presentation/login_screen.dart';
-import 'features/dashboard/presentation/dashboard_screen.dart';
+import 'app.dart';
+
+/// Top-level Firebase background message handler. Registered with
+/// FirebaseMessaging.onBackgroundMessage during app startup. Must be a
+/// top-level (or static) function annotated with @pragma('vm:entry-point').
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(dynamic message) async {
+  // Real handling lives in the notifications feature (Phase 11).
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Local storage
   await Hive.initFlutter();
+  await Future.wait<void>([
+    Hive.openBox<dynamic>('workOrdersBox'),
+    Hive.openBox<dynamic>('assetsBox'),
+    Hive.openBox<dynamic>('notificationsBox'),
+    Hive.openBox<dynamic>('offlineQueueBox'),
+    Hive.openBox<dynamic>('dashboardBox'),
+    Hive.openBox<dynamic>('settingsBox'),
+  ]);
+
+  // Firebase init is deferred to Phase 11 once google-services config lands.
+
   runApp(const ProviderScope(child: MaintainProApp()));
-}
-
-class MaintainProApp extends StatelessWidget {
-  const MaintainProApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MaintainPro',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
-        useMaterial3: true,
-      ),
-      home: const AuthGate(),
-    );
-  }
-}
-
-class AuthGate extends ConsumerStatefulWidget {
-  const AuthGate({super.key});
-
-  @override
-  ConsumerState<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends ConsumerState<AuthGate> {
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.microtask(() {
-      ref.read(authStateProvider.notifier).restoreSession();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-
-    if (authState is AuthAuthenticated) {
-      return DashboardScreen(user: authState.user);
-    }
-
-    if (authState is AuthInitial || authState is AuthLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return const LoginScreen();
-  }
 }
