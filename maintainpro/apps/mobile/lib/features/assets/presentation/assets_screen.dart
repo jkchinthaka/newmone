@@ -120,11 +120,11 @@ class _AssetTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.card.withOpacity(0.85),
+            color: AppColors.card.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(
               color: asset.hasOpenWorkOrders
-                  ? AppColors.warning.withOpacity(0.5)
+                  ? AppColors.warning.withValues(alpha: 0.5)
                   : AppColors.border,
             ),
           ),
@@ -135,7 +135,7 @@ class _AssetTile extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.15),
+                  color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 alignment: Alignment.center,
@@ -228,9 +228,9 @@ class _Chip extends StatelessWidget {
       padding:
           const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 3),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.12),
+        color: c.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(color: c.withOpacity(0.35)),
+        border: Border.all(color: c.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -280,7 +280,7 @@ class _AssetSearchFieldState extends ConsumerState<AssetSearchField> {
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.card.withOpacity(0.6),
+              color: AppColors.card.withValues(alpha: 0.6),
               border: Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),

@@ -238,7 +238,7 @@ class _RecentTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.card.withOpacity(0.85),
+              color: AppColors.card.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(color: AppColors.border),
             ),
@@ -248,7 +248,7 @@ class _RecentTile extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: Icon(
@@ -316,7 +316,7 @@ class _NotificationBell extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Material(
-              color: AppColors.card.withOpacity(0.7),
+              color: AppColors.card.withValues(alpha: 0.7),
               shape: const CircleBorder(
                 side: BorderSide(color: AppColors.border),
               ),

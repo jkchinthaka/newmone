@@ -78,7 +78,7 @@ class _DriverCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Material(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: InkWell(
             onTap: () => context.push('/fleet/drivers/${driver.id}'),
             child: Padding(
@@ -109,9 +109,9 @@ class _DriverCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xs, vertical: 2),
                   decoration: BoxDecoration(
-                    color: licenseColor.withOpacity(0.15),
+                    color: licenseColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.full),
-                    border: Border.all(color: licenseColor.withOpacity(0.4)),
+                    border: Border.all(color: licenseColor.withValues(alpha: 0.4)),
                   ),
                   child: Text(licenseLabel,
                       style: AppTextStyles.label.copyWith(color: licenseColor)),

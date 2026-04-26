@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
-import '../data/datasources/farm_remote_datasource.dart';
 import '../data/models/farm_models.dart';
 import 'providers/farm_provider.dart';
 
@@ -21,7 +20,7 @@ Widget _glassCard({required Widget child, VoidCallback? onTap}) {
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Material(
-        color: AppColors.card.withOpacity(0.7),
+        color: AppColors.card.withValues(alpha: 0.7),
         child: InkWell(
           onTap: onTap,
           child: Padding(
@@ -39,7 +38,7 @@ Widget _statusBadge(String status, {Color? color}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
     decoration: BoxDecoration(
-      color: c.withOpacity(0.15),
+      color: c.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(AppRadius.sm),
     ),
     child: Text(status, style: AppTextStyles.label.copyWith(color: c)),

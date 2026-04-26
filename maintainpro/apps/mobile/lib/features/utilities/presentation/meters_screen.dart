@@ -66,14 +66,14 @@ class _MeterCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Material(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: InkWell(
             onTap: () => context.push('/utilities/meters/${item.id}'),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.15),
+                  backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(_typeIcon(item.type), color: color),
                 ),
                 const SizedBox(width: AppSpacing.sm),

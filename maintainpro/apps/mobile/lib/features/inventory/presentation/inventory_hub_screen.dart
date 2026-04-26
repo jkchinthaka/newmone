@@ -41,7 +41,7 @@ class InventoryHubScreen extends ConsumerWidget {
                     filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                     child: Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
-                      color: AppColors.card.withOpacity(0.7),
+                      color: AppColors.card.withValues(alpha: 0.7),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -104,10 +104,10 @@ class InventoryHubScreen extends ConsumerWidget {
                           child: Container(
                             padding: const EdgeInsets.all(AppSpacing.sm),
                             decoration: BoxDecoration(
-                              color: AppColors.warning.withOpacity(0.15),
+                              color: AppColors.warning.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AppRadius.md),
                               border: Border.all(
-                                  color: AppColors.warning.withOpacity(0.4)),
+                                  color: AppColors.warning.withValues(alpha: 0.4)),
                             ),
                             child: Row(children: [
                               const Icon(Icons.warning_amber_rounded,
@@ -169,9 +169,9 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +206,7 @@ class _Tile extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Material(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: InkWell(
             onTap: onTap,
             child: Padding(
@@ -215,7 +215,7 @@ class _Tile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.15),
+                    color: accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: Icon(icon, color: accent),

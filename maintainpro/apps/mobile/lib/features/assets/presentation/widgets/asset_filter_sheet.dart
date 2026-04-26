@@ -143,7 +143,7 @@ class AssetActiveFiltersBar extends ConsumerWidget {
         label: Text(label),
         onDeleted: onClear,
         deleteIconColor: AppColors.textSecondary,
-        backgroundColor: AppColors.card.withOpacity(0.7),
+        backgroundColor: AppColors.card.withValues(alpha: 0.7),
         side: BorderSide(color: AppColors.border),
       ));
     }

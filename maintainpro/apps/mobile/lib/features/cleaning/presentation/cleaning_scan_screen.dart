@@ -83,7 +83,7 @@ class _CleaningScanScreenState extends ConsumerState<CleaningScanScreen> {
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.4),
+        backgroundColor: Colors.black.withValues(alpha: 0.4),
         elevation: 0,
         title: const Text('Scan location QR'),
         actions: [
@@ -131,7 +131,7 @@ class _CleaningScanScreenState extends ConsumerState<CleaningScanScreen> {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppColors.card.withOpacity(0.85),
+                color: AppColors.card.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(AppRadius.full),
                 border: Border.all(color: AppColors.border),
               ),
@@ -162,7 +162,7 @@ class _CleaningScanScreenState extends ConsumerState<CleaningScanScreen> {
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.card.withOpacity(0.85),
+                color: AppColors.card.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(AppRadius.lg),
                 border: Border.all(color: AppColors.border),
               ),
@@ -225,7 +225,7 @@ class _ModeChip extends StatelessWidget {
 class _ScannerOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final scrim = Paint()..color = Colors.black.withOpacity(0.55);
+    final scrim = Paint()..color = Colors.black.withValues(alpha: 0.55);
     final cutoutSize = size.shortestSide * 0.7;
     final rect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),

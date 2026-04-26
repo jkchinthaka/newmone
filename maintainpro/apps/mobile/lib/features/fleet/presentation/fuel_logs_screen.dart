@@ -206,7 +206,7 @@ class _FuelTile extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: ListTile(
             leading:
                 const Icon(Icons.local_gas_station, color: AppColors.warning),

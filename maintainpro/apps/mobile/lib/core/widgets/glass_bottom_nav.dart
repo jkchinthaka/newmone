@@ -26,13 +26,13 @@ class GlassBottomNav extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.card.withOpacity(0.7),
+            color: AppColors.card.withValues(alpha: 0.7),
             border: Border(
-              top: BorderSide(color: AppColors.border.withOpacity(0.6)),
+              top: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
+                color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 20,
                 offset: const Offset(0, -4),
               ),
@@ -91,7 +91,7 @@ class _NavButton extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        splashColor: AppColors.primary.withOpacity(0.2),
+        splashColor: AppColors.primary.withValues(alpha: 0.2),
         highlightColor: Colors.transparent,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),

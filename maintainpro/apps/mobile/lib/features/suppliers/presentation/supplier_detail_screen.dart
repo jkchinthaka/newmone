@@ -85,7 +85,7 @@ class _Card extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

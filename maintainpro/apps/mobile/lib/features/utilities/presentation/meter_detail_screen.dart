@@ -45,7 +45,7 @@ class MeterDetailScreen extends ConsumerWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                     child: Container(
-                      color: AppColors.card.withOpacity(0.7),
+                      color: AppColors.card.withValues(alpha: 0.7),
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,14 +132,14 @@ class _ReadingTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.card.withOpacity(0.5),
+        color: AppColors.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(AppSpacing.xs),
           decoration: BoxDecoration(
-            color: AppColors.info.withOpacity(0.15),
+            color: AppColors.info.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
           child: const Icon(Icons.show_chart, size: 18, color: AppColors.info),

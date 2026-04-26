@@ -116,10 +116,10 @@ class _NotificationTile extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.card.withOpacity(item.isRead ? 0.6 : 0.95),
+            color: AppColors.card.withValues(alpha: item.isRead ? 0.6 : 0.95),
             borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(
-              color: item.isRead ? AppColors.border : color.withOpacity(0.5),
+              color: item.isRead ? AppColors.border : color.withValues(alpha: 0.5),
             ),
           ),
           child: Row(
@@ -129,7 +129,7 @@ class _NotificationTile extends ConsumerWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Icon(_typeIcon(item.type), color: color, size: 20),

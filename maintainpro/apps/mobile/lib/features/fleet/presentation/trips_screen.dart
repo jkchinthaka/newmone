@@ -117,7 +117,7 @@ class _TripCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Material(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: InkWell(
             onTap: () => context.push('/fleet/trips/${trip.id}'),
             child: Padding(

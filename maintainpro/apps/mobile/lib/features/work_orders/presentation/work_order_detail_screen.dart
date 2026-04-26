@@ -88,7 +88,7 @@ class _DetailBody extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.card.withOpacity(0.85),
+              color: AppColors.card.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(
                 color: overdue ? AppColors.error : AppColors.border,
@@ -560,7 +560,7 @@ class _Section extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.card.withOpacity(0.85),
+        color: AppColors.card.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
       ),

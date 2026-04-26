@@ -62,7 +62,7 @@ class _TripBody extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.card.withOpacity(0.7),
+              color: AppColors.card.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(color: AppColors.border),
             ),

@@ -71,7 +71,7 @@ class _LogTile extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

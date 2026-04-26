@@ -39,9 +39,9 @@ class AboutScreen extends ConsumerWidget {
                     height: 96,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primaryLight.withOpacity(0.18),
+                      color: AppColors.primaryLight.withValues(alpha: 0.18),
                       border: Border.all(
-                          color: AppColors.primaryLight.withOpacity(0.4)),
+                          color: AppColors.primaryLight.withValues(alpha: 0.4)),
                     ),
                     child: const Icon(Icons.shield_moon_outlined,
                         size: 56, color: AppColors.primaryLight),
@@ -100,7 +100,7 @@ class AboutScreen extends ConsumerWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           padding: const EdgeInsets.all(AppSpacing.md),
           child: child,
         ),

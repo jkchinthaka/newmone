@@ -59,8 +59,8 @@ class _WorkOrderSearchFieldState extends ConsumerState<WorkOrderSearchField> {
       style: AppTextStyles.body,
       decoration: InputDecoration(
         hintText: 'Search work orders…',
-        prefixIcon: const Icon(Icons.search_rounded,
-            color: AppColors.textSecondary),
+        prefixIcon:
+            const Icon(Icons.search_rounded, color: AppColors.textSecondary),
         suffixIcon: _controller.text.isEmpty
             ? null
             : IconButton(
@@ -183,7 +183,7 @@ Future<void> showWorkOrderFilterSheet(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Material(
-            color: AppColors.card.withOpacity(0.92),
+            color: AppColors.card.withValues(alpha: 0.92),
             child: SafeArea(
               top: false,
               child: Padding(
@@ -234,8 +234,8 @@ Future<void> showWorkOrderFilterSheet(
                         const SizedBox(height: AppSpacing.sm),
                         SwitchListTile.adaptive(
                           contentPadding: EdgeInsets.zero,
-                          title: Text('Assigned to me',
-                              style: AppTextStyles.body),
+                          title:
+                              Text('Assigned to me', style: AppTextStyles.body),
                           value: draft.assignedToMe,
                           activeColor: AppColors.primaryLight,
                           onChanged: (v) => setState(
@@ -246,8 +246,8 @@ Future<void> showWorkOrderFilterSheet(
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () => setState(() =>
-                                    draft = const WorkOrderListFilters()),
+                                onPressed: () => setState(
+                                    () => draft = const WorkOrderListFilters()),
                                 child: const Text('Reset'),
                               ),
                             ),
@@ -306,11 +306,10 @@ class _ChipGroup extends StatelessWidget {
             return ChoiceChip(
               label: Text(opt, style: AppTextStyles.caption),
               selected: isSelected,
-              selectedColor: AppColors.primaryLight.withOpacity(0.3),
+              selectedColor: AppColors.primaryLight.withValues(alpha: 0.3),
               backgroundColor: AppColors.surface,
               side: BorderSide(
-                color:
-                    isSelected ? AppColors.primaryLight : AppColors.border,
+                color: isSelected ? AppColors.primaryLight : AppColors.border,
               ),
               onSelected: (sel) => onChanged(sel ? opt : null),
             );

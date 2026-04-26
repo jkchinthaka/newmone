@@ -69,14 +69,14 @@ class _SupplierCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Material(
-          color: AppColors.card.withOpacity(0.7),
+          color: AppColors.card.withValues(alpha: 0.7),
           child: InkWell(
             onTap: () => context.push('/suppliers/${item.id}'),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.15),
+                  backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(Icons.local_shipping_outlined, color: color),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -100,7 +100,7 @@ class _SupplierCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xs, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Text(item.isActive ? 'ACTIVE' : 'INACTIVE',

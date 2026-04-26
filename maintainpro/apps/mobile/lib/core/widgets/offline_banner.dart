@@ -20,7 +20,7 @@ class OfflineBanner extends ConsumerWidget {
       curve: Curves.easeOut,
       height: online ? 0 : 28,
       width: double.infinity,
-      color: AppColors.warning.withOpacity(0.92),
+      color: AppColors.warning.withValues(alpha: 0.92),
       alignment: Alignment.center,
       child: online
           ? const SizedBox.shrink()

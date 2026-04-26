@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -18,7 +16,6 @@ class FleetMapScreen extends ConsumerStatefulWidget {
 }
 
 class _FleetMapScreenState extends ConsumerState<FleetMapScreen> {
-  GoogleMapController? _ctrl;
   final Map<String, GpsPing> _pings = {};
 
   @override
@@ -58,7 +55,6 @@ class _FleetMapScreenState extends ConsumerState<FleetMapScreen> {
             markers: markers,
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,
-            onMapCreated: (c) => _ctrl = c,
           );
         },
       ),

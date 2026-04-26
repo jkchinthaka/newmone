@@ -17,7 +17,7 @@ Widget _glassCard({required Widget child, VoidCallback? onTap}) {
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Material(
-        color: AppColors.card.withOpacity(0.7),
+        color: AppColors.card.withValues(alpha: 0.7),
         child: InkWell(
           onTap: onTap,
           child: Padding(

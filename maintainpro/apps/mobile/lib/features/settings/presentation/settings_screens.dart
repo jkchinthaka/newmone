@@ -18,7 +18,7 @@ Widget _glassCard({required Widget child, VoidCallback? onTap}) {
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Material(
-        color: AppColors.card.withOpacity(0.7),
+        color: AppColors.card.withValues(alpha: 0.7),
         child: InkWell(
           onTap: onTap,
           child: Padding(
@@ -664,11 +664,9 @@ class _ListMapsScreen extends ConsumerWidget {
   const _ListMapsScreen({
     required this.title,
     required this.provider,
-    this.actions,
   });
   final String title;
   final AutoDisposeFutureProvider<List<Map<String, dynamic>>> provider;
-  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -676,7 +674,6 @@ class _ListMapsScreen extends ConsumerWidget {
     return _scaffold(
       title: title,
       actions: [
-        ...?actions,
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: () => ref.invalidate(provider),

@@ -64,7 +64,7 @@ class _MaintenanceCalendarScreenState
                 },
                 calendarStyle: CalendarStyle(
                   todayDecoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.4),
+                    color: AppColors.primary.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: const BoxDecoration(
@@ -98,7 +98,7 @@ class _MaintenanceCalendarScreenState
                           return Container(
                             padding: const EdgeInsets.all(AppSpacing.sm),
                             decoration: BoxDecoration(
-                              color: AppColors.card.withOpacity(0.7),
+                              color: AppColors.card.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                             child: Text(e.title, style: AppTextStyles.body),

@@ -80,10 +80,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.12),
+                        color: AppColors.success.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         border: Border.all(
-                            color: AppColors.success.withOpacity(0.4)),
+                            color: AppColors.success.withValues(alpha: 0.4)),
                       ),
                       child: Row(
                         children: [

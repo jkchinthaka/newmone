@@ -49,10 +49,10 @@ class ProfileScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.sm, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.18),
+                    color: AppColors.primary.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(AppRadius.full),
                     border:
-                        Border.all(color: AppColors.primary.withOpacity(0.4)),
+                        Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     (user?.role.name ?? 'viewer').toUpperCase(),
@@ -108,7 +108,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               FilledButton.tonalIcon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.error.withOpacity(0.15),
+                  backgroundColor: AppColors.error.withValues(alpha: 0.15),
                   foregroundColor: AppColors.error,
                 ),
                 icon: const Icon(Icons.logout_rounded),
@@ -192,7 +192,7 @@ class _Section extends StatelessWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.card.withOpacity(0.85),
+            color: AppColors.card.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(color: AppColors.border),
           ),
