@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/dio_client.dart';
-import '../data/datasources/billing_remote_datasource.dart';
+import '../../data/datasources/billing_remote_datasource.dart';
 
 final billingRemoteProvider = Provider<BillingRemoteDataSource>((ref) {
   return BillingRemoteDataSource(ref.watch(dioProvider));

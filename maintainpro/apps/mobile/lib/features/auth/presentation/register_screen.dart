@@ -83,7 +83,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxxl),
+                AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.huge),
             child: Form(
               key: _formKey,
               child: Column(

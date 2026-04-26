@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/dio_client.dart';
-import '../data/datasources/reports_remote_datasource.dart';
+import '../../data/datasources/reports_remote_datasource.dart';
 
 final reportsRemoteProvider = Provider<ReportsRemoteDataSource>((ref) {
   return ReportsRemoteDataSource(ref.watch(dioProvider));
