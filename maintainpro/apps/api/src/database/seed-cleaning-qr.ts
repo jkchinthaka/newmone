@@ -39,21 +39,17 @@ async function main() {
     throw new Error("Default tenant not found. Run the base seed first.");
   }
 
-  const supervisorRole = await prisma.role.findUnique({
+  const supervisorRole = await prisma.role.findFirst({
     where: {
-      tenantId_name: {
-        tenantId: tenant.id,
-        name: RoleName.SUPERVISOR
-      }
+      tenantId: tenant.id,
+      name: RoleName.SUPERVISOR
     }
   });
 
-  const cleanerRole = await prisma.role.findUnique({
+  const cleanerRole = await prisma.role.findFirst({
     where: {
-      tenantId_name: {
-        tenantId: tenant.id,
-        name: RoleName.CLEANER
-      }
+      tenantId: tenant.id,
+      name: RoleName.CLEANER
     }
   });
 

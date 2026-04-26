@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/app_user.dart';
 import '../../assets/presentation/asset_scanner_screen.dart';
 import '../../cleaning/presentation/cleaning_screen.dart';
+import '../../farm/presentation/farm_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../work_orders/presentation/work_orders_screen.dart';
@@ -54,12 +55,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       icon: Icons.person_outline,
       builder: (user) => ProfileScreen(user: user),
     );
+    final farmTab = _NavItem(
+      label: 'Farm',
+      icon: Icons.agriculture_outlined,
+      builder: (user) => FarmScreen(user: user),
+    );
 
     switch (role) {
       case UserRole.cleaner:
         return [cleaningTab, notificationsTab, profileTab];
       case UserRole.supervisor:
-        return [cleaningTab, workOrdersTab, notificationsTab, profileTab];
+        return [
+          cleaningTab,
+          workOrdersTab,
+          farmTab,
+          notificationsTab,
+          profileTab
+        ];
       case UserRole.driver:
         return [workOrdersTab, notificationsTab, profileTab];
       case UserRole.mechanic:
@@ -69,6 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return [
           workOrdersTab,
           assetsTab,
+          farmTab,
           cleaningTab,
           notificationsTab,
           profileTab,

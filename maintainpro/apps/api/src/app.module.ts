@@ -16,6 +16,17 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
+import { CropsModule } from "./modules/farm/crops/crops.module";
+import { FarmFinanceModule } from "./modules/farm/farm-finance/farm-finance.module";
+import { FarmWorkersModule } from "./modules/farm/farm-workers/farm-workers.module";
+import { FieldsModule } from "./modules/farm/fields/fields.module";
+import { HarvestModule } from "./modules/farm/harvest/harvest.module";
+import { IrrigationModule } from "./modules/farm/irrigation/irrigation.module";
+import { LivestockModule } from "./modules/farm/livestock/livestock.module";
+import { SoilTestsModule } from "./modules/farm/soil-tests/soil-tests.module";
+import { SprayLogsModule } from "./modules/farm/spray-logs/spray-logs.module";
+import { TraceabilityModule } from "./modules/farm/traceability/traceability.module";
+import { WeatherModule } from "./modules/farm/weather/weather.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
@@ -87,7 +98,18 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     ReportsModule,
     UtilitiesModule,
     PredictiveAiModule,
-    CleaningModule
+    CleaningModule,
+    FieldsModule,
+    CropsModule,
+    HarvestModule,
+    LivestockModule,
+    IrrigationModule,
+    SprayLogsModule,
+    WeatherModule,
+    SoilTestsModule,
+    FarmWorkersModule,
+    FarmFinanceModule,
+    TraceabilityModule
   ],
   providers: [
     MongoSyncService,

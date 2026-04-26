@@ -1,6 +1,6 @@
 {
   "name": "@maintainpro/api",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "MaintainPro NestJS backend API",
   "main": "dist/main.js",

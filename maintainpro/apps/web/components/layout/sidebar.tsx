@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Fuel, Gauge, HardDrive, Home, Layers, QrCode, Settings, SprayCan, Wrench, type LucideIcon } from "lucide-react";
+import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, Settings, Sprout, SprayCan, Sun, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
 
 const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -29,6 +29,22 @@ const cleaningItems: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/cleaning/analytics" as Route, label: "Analytics", icon: ChartColumnBig },
   { href: "/cleaning/issues" as Route, label: "Facility Issues", icon: Bell },
   { href: "/cleaning/locations" as Route, label: "Locations", icon: HardDrive }
+];
+
+const farmItems: Array<{ href: Route; label: string; icon: LucideIcon }> = [
+  { href: "/farm" as Route, label: "Farm Dashboard", icon: Tractor },
+  { href: "/farm/fields" as Route, label: "Fields & Map", icon: MapPin },
+  { href: "/farm/crops" as Route, label: "Crops", icon: Sprout },
+  { href: "/farm/harvest" as Route, label: "Harvest", icon: Leaf },
+  { href: "/farm/livestock" as Route, label: "Livestock", icon: Tractor },
+  { href: "/farm/irrigation" as Route, label: "Irrigation", icon: Droplets },
+  { href: "/farm/spray-logs" as Route, label: "Spray Logs", icon: SprayCan },
+  { href: "/farm/soil-tests" as Route, label: "Soil Tests", icon: Layers },
+  { href: "/farm/weather" as Route, label: "Weather", icon: Sun },
+  { href: "/farm/workers" as Route, label: "Workers", icon: Users },
+  { href: "/farm/attendance" as Route, label: "Attendance", icon: ClipboardCheck },
+  { href: "/farm/finance" as Route, label: "Finance", icon: Wallet },
+  { href: "/farm/traceability" as Route, label: "Traceability", icon: QrCode }
 ];
 
 export function Sidebar() {
@@ -75,6 +91,30 @@ export function Sidebar() {
                   active
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-emerald-800 hover:bg-emerald-100"
+                }`}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="mx-3 my-2 rounded-xl border border-amber-200 bg-amber-50 p-2">
+        <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700">
+          Farm Operations
+        </p>
+        <nav className="mt-1 space-y-1">
+          {farmItems.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                  active ? "bg-amber-600 text-white shadow-sm" : "text-amber-900 hover:bg-amber-100"
                 }`}
               >
                 <Icon size={16} />

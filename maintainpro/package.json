@@ -1,6 +1,6 @@
 {
   "name": "maintainpro",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "MaintainPro enterprise asset, fleet, and utility management platform",
   "packageManager": "npm@11.6.2",

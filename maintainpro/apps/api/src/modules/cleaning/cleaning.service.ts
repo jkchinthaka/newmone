@@ -514,8 +514,8 @@ export class CleaningService {
         durationSeconds: 0,
         method: CleaningVisitMethod.QR_SCAN,
         deviceId: dto.deviceId?.trim() || null,
-        latitude: dto.latitude !== undefined ? new Prisma.Decimal(dto.latitude) : null,
-        longitude: dto.longitude !== undefined ? new Prisma.Decimal(dto.longitude) : null,
+        latitude: dto.latitude !== undefined ? dto.latitude : null,
+        longitude: dto.longitude !== undefined ? dto.longitude : null,
         geofenceDistanceMeters: geofence.distanceMeters,
         geoValidated: geofence.geoValidated,
         checklistScore: 100,
@@ -601,8 +601,8 @@ export class CleaningService {
         startedAt: now,
         method: CleaningVisitMethod.QR_SCAN,
         deviceId: dto.deviceId?.trim() || null,
-        latitude: dto.latitude !== undefined ? new Prisma.Decimal(dto.latitude) : null,
-        longitude: dto.longitude !== undefined ? new Prisma.Decimal(dto.longitude) : null,
+        latitude: dto.latitude !== undefined ? dto.latitude : null,
+        longitude: dto.longitude !== undefined ? dto.longitude : null,
         geofenceDistanceMeters: geofence.distanceMeters,
         geoValidated: geofence.geoValidated,
         beforePhotos: dto.beforePhotos ?? [],
@@ -1826,8 +1826,8 @@ export class CleaningService {
 
   private validateGeofence(
     location: {
-      geoLatitude: Prisma.Decimal | null;
-      geoLongitude: Prisma.Decimal | null;
+      geoLatitude: number | null;
+      geoLongitude: number | null;
       geoRadiusMeters: number;
     },
     latitude?: number,
@@ -1859,7 +1859,7 @@ export class CleaningService {
 
     return {
       geoValidated: true,
-      distanceMeters: new Prisma.Decimal(distance.toFixed(2))
+      distanceMeters: Number(distance.toFixed(2))
     };
   }
 
@@ -2174,7 +2174,7 @@ export class CleaningService {
       return undefined;
     }
 
-    return new Prisma.Decimal(value);
+    return value;
   }
 
   private startOfDayUtc(value: Date) {
@@ -2239,7 +2239,7 @@ export class CleaningService {
 
   private toAuditJson(value: unknown) {
     if (value === undefined || value === null) {
-      return Prisma.JsonNull;
+      return undefined;
     }
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
   }

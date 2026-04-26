@@ -67,7 +67,20 @@ const rolePermissions: Record<RoleName, string[]> = {
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
   DRIVER: ["fleet.log_fuel_trip"],
-  VIEWER: ["modules.view_all", "reports.view"]
+  VIEWER: ["modules.view_all", "reports.view"],
+  FARM_OWNER: [...permissionCatalog],
+  FARM_MANAGER: [
+    "modules.view_all",
+    "assets.manage",
+    "work_orders.manage",
+    "reports.view"
+  ],
+  FIELD_SUPERVISOR: ["modules.view_all", "work_orders.manage", "reports.view"],
+  AGRONOMIST: ["modules.view_all", "reports.view"],
+  VETERINARIAN: ["modules.view_all", "reports.view"],
+  FARM_WORKER: ["work_orders.update_status", "work_orders.view_own"],
+  IRRIGATION_OPERATOR: ["work_orders.update_status"],
+  HARVEST_CREW: ["work_orders.update_status"]
 };
 
 async function ensurePermissions() {
@@ -101,26 +114,22 @@ async function main() {
   const roles = new Map<RoleName, { id: string }>();
 
   for (const roleName of Object.values(RoleName)) {
-    const role = await prisma.role.upsert({
-      where: {
-        tenantId_name: {
-          tenantId: tenant.id,
-          name: roleName
-        }
-      },
-      update: {
-        permissions: {
-          set: rolePermissions[roleName].map((key) => ({ id: permissionIdByKey.get(key)! }))
-        }
-      },
-      create: {
-        tenantId: tenant.id,
-        name: roleName,
-        permissions: {
-          connect: rolePermissions[roleName].map((key) => ({ id: permissionIdByKey.get(key)! }))
-        }
-      }
+    const permissionIds = rolePermissions[roleName].map((key) => permissionIdByKey.get(key)!).filter(Boolean);
+    const existing = await prisma.role.findFirst({
+      where: { tenantId: tenant.id, name: roleName }
     });
+    const role = existing
+      ? await prisma.role.update({
+          where: { id: existing.id },
+          data: { permissionIds: { set: permissionIds } }
+        })
+      : await prisma.role.create({
+          data: {
+            tenantId: tenant.id,
+            name: roleName,
+            permissionIds: { set: permissionIds }
+          }
+        });
 
     roles.set(roleName, { id: role.id });
   }

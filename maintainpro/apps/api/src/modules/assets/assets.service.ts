@@ -1455,7 +1455,7 @@ export class AssetsService {
 
   private toAuditJson(value: unknown) {
     if (value === undefined || value === null) {
-      return Prisma.JsonNull;
+      return undefined;
     }
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
   }

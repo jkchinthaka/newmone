@@ -12,8 +12,14 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       RAPIDAPI_GOOGLE_MAP_PLACES_KEY: ${RAPIDAPI_GOOGLE_MAP_PLACES_KEY:-}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-maintainpro}:${POSTGRES_PASSWORD:-maintainpro}@postgres:5432/${POSTGRES_DB:-maintainpro}?schema=public
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-nelna}:${MONGO_INITDB_ROOT_PASSWORD:-nelna}@mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?authSource=admin
       REDIS_URL: redis://redis:6379
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      FARM_DEFAULT_LATITUDE: ${FARM_DEFAULT_LATITUDE:-6.9271}
+      FARM_DEFAULT_LONGITUDE: ${FARM_DEFAULT_LONGITUDE:-79.8612}
+      WEATHER_ALERT_FROST_THRESHOLD_C: ${WEATHER_ALERT_FROST_THRESHOLD_C:-5}
+      WEATHER_ALERT_RAIN_THRESHOLD_MM: ${WEATHER_ALERT_RAIN_THRESHOLD_MM:-50}
+      TRACEABILITY_PUBLIC_BASE_URL: ${TRACEABILITY_PUBLIC_BASE_URL:-https://trace.nelnafarm.lk}
       RAPIDAPI_COPILOT_API_KEY: ${RAPIDAPI_COPILOT_API_KEY:-}
       RAPIDAPI_COPILOT_HOST: ${RAPIDAPI_COPILOT_HOST:-copilot5.p.rapidapi.com}
       MINIO_ENDPOINT: minio
@@ -23,7 +29,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-maintainpro-files}
     depends_on:
-      postgres:
+      mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -63,19 +69,20 @@ services:
       start_period: 25s
     restart: unless-stopped
 
-  postgres:
-    image: postgres:15-alpine
+  mongo:
+    image: mongo:7
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-maintainpro}
-      POSTGRES_USER: ${POSTGRES_USER:-maintainpro}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maintainpro}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-nelna}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-nelna}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-nelna}
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
-      - maintainpro-postgres-data:/var/lib/postgresql/data
+      - maintainpro-mongo-data:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-maintainpro} -d ${POSTGRES_DB:-maintainpro}"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
   redis:
@@ -136,6 +143,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  maintainpro-postgres-data:
+  maintainpro-mongo-data:
   maintainpro-redis-data:
   maintainpro-minio-data:
