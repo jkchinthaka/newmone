@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/notifications/data/datasources/notifications_socket.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../widgets/glass_bottom_nav.dart';
 import '../widgets/placeholder_screen.dart';
 
 /// Top-level go_router instance. All app routes are registered here.
@@ -36,7 +42,7 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/dashboard',
-          builder: (_, __) => const PlaceholderScreen(title: 'Dashboard'),
+          builder: (_, __) => const DashboardScreen(),
         ),
         GoRoute(
           path: '/work-orders',
@@ -60,11 +66,11 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/notifications',
-          builder: (_, __) => const PlaceholderScreen(title: 'Notifications'),
+          builder: (_, __) => const NotificationsScreen(),
         ),
         GoRoute(
           path: '/profile',
-          builder: (_, __) => const PlaceholderScreen(title: 'Profile'),
+          builder: (_, __) => const ProfileScreen(),
           routes: [
             GoRoute(
               path: 'edit',
@@ -242,22 +248,17 @@ final GoRouter appRouter = GoRouter(
   ],
 );
 
-/// Bottom nav shell used by the inner ShellRoute. Will be expanded with
-/// a real glassmorphism nav bar in Phase 3.
-class _BottomNavShell extends StatelessWidget {
+/// Bottom nav shell used by the inner ShellRoute, with a glassmorphism nav bar.
+class _BottomNavShell extends ConsumerWidget {
   const _BottomNavShell({required this.child});
   final Widget child;
 
-  static const List<({String path, IconData icon, String label})> _tabs = [
-    (path: '/dashboard', icon: Icons.dashboard_rounded, label: 'Home'),
-    (path: '/work-orders', icon: Icons.assignment_rounded, label: 'Orders'),
-    (path: '/scan', icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
-    (
-      path: '/notifications',
-      icon: Icons.notifications_rounded,
-      label: 'Alerts'
-    ),
-    (path: '/profile', icon: Icons.person_rounded, label: 'Profile'),
+  static const List<({String path, IconData icon, IconData activeIcon, String label})> _tabs = [
+    (path: '/dashboard', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Home'),
+    (path: '/work-orders', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, label: 'Orders'),
+    (path: '/scan', icon: Icons.qr_code_scanner_outlined, activeIcon: Icons.qr_code_scanner_rounded, label: 'Scan'),
+    (path: '/notifications', icon: Icons.notifications_outlined, activeIcon: Icons.notifications_rounded, label: 'Alerts'),
+    (path: '/profile', icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile'),
   ];
 
   int _indexFor(String location) {
@@ -268,17 +269,20 @@ class _BottomNavShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Activate the notifications socket lifecycle (auto-connects on auth).
+    ref.watch(notificationsSocketProvider);
     final location = GoRouterState.of(context).uri.toString();
     final currentIndex = _indexFor(location);
     return Scaffold(
+      extendBody: true,
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: GlassBottomNav(
         currentIndex: currentIndex,
         onTap: (i) => context.go(_tabs[i].path),
         items: [
           for (final t in _tabs)
-            BottomNavigationBarItem(icon: Icon(t.icon), label: t.label),
+            GlassNavItem(icon: t.icon, activeIcon: t.activeIcon, label: t.label),
         ],
       ),
     );
