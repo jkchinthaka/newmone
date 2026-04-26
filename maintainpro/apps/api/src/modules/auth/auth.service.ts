@@ -208,7 +208,7 @@ export class AuthService {
     };
   }
 
-  async me(userId: string) {
+  async me(userId: string, activeTenantId: string | null = null) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true }
@@ -218,8 +218,32 @@ export class AuthService {
       throw new NotFoundException("User not found");
     }
 
+    let resolvedTenantId = activeTenantId ?? user.tenantId ?? null;
+
+    if (!resolvedTenantId) {
+      const firstMembership = await this.prisma.tenantMembership.findFirst({
+        where: {
+          userId,
+          tenant: {
+            isActive: true
+          }
+        },
+        select: {
+          tenantId: true
+        },
+        orderBy: {
+          joinedAt: "asc"
+        }
+      });
+
+      resolvedTenantId = firstMembership?.tenantId ?? null;
+    }
+
     return {
-      data: user,
+      data: {
+        ...user,
+        tenantId: resolvedTenantId
+      },
       message: "Profile fetched"
     };
   }

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 
 import { Public } from "../../common/decorators/public.decorator";
+import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
@@ -53,10 +54,11 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @SkipTenantContext()
   @UseGuards(JwtAuthGuard)
   @Get("me")
-  me(@Req() req: { user: { sub: string } }) {
-    return this.authService.me(req.user.sub);
+  me(@Req() req: { user: { sub: string; tenantId?: string | null } }) {
+    return this.authService.me(req.user.sub, req.user.tenantId ?? null);
   }
 
   @Public()

@@ -3,6 +3,7 @@ import { Reflector } from "@nestjs/core";
 import { RoleName } from "@prisma/client";
 
 import { IS_PUBLIC_KEY } from "../../common/decorators/public.decorator";
+import { SKIP_TENANT_CONTEXT_KEY } from "../../common/decorators/skip-tenant-context.decorator";
 import { PrismaService } from "../../database/prisma.service";
 
 type TenantAwareRequest = {
@@ -30,6 +31,10 @@ export class TenantContextGuard implements CanActivate {
       context.getHandler(),
       context.getClass()
     ]);
+    const skipTenantContext = this.reflector.getAllAndOverride<boolean>(SKIP_TENANT_CONTEXT_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
 
     if (isPublic) {
       return true;
@@ -49,7 +54,11 @@ export class TenantContextGuard implements CanActivate {
           ? headerValue[0].trim() || null
           : null;
 
-    let tenantId = request.tenantContext?.requestedTenantId ?? headerTenantId ?? request.user.tenantId ?? null;
+    let tenantId = request.user.tenantId ?? null;
+
+    if (!skipTenantContext) {
+      tenantId = request.tenantContext?.requestedTenantId ?? headerTenantId ?? tenantId;
+    }
 
     if (!tenantId) {
       const firstMembership = await this.prisma.tenantMembership.findFirst({
@@ -68,6 +77,31 @@ export class TenantContextGuard implements CanActivate {
       });
 
       tenantId = firstMembership?.tenantId ?? null;
+    }
+
+    if (skipTenantContext) {
+      if (request.user.role !== RoleName.SUPER_ADMIN) {
+        const firstMembership = await this.prisma.tenantMembership.findFirst({
+          where: {
+            userId: request.user.sub,
+            tenant: {
+              isActive: true
+            }
+          },
+          select: {
+            tenantId: true
+          },
+          orderBy: {
+            joinedAt: "asc"
+          }
+        });
+
+        tenantId = firstMembership?.tenantId ?? tenantId;
+      }
+
+      request.user.tenantId = tenantId;
+      request.tenantId = tenantId;
+      return true;
     }
 
     if (!tenantId) {

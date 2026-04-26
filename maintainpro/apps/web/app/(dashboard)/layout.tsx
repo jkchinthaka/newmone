@@ -8,7 +8,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
 import { getAccessToken } from "@/lib/auth-storage";
-import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import { setActiveTenantId } from "@/lib/tenant-context";
 
 export default function DashboardLayout({
   children
@@ -43,12 +43,8 @@ export default function DashboardLayout({
           "/auth/me"
         );
 
-        if (!getActiveTenantId()) {
-          const tenantId = response.data?.data?.tenantId;
-          if (typeof tenantId === "string" && tenantId.trim().length > 0) {
-            setActiveTenantId(tenantId);
-          }
-        }
+        const tenantId = response.data?.data?.tenantId;
+        setActiveTenantId(typeof tenantId === "string" && tenantId.trim().length > 0 ? tenantId : null);
 
         setReady(true);
       } catch {

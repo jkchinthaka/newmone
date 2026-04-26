@@ -14,17 +14,28 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
-    const errorMessage =
+    const rawMessage =
       typeof exceptionResponse === "string"
         ? exceptionResponse
-        : (exceptionResponse as { message?: string })?.message ?? "Internal server error";
+        : (exceptionResponse as { message?: string | string[] })?.message ?? "Internal server error";
+
+    const errorMessage = Array.isArray(rawMessage) ? rawMessage.join(", ") : rawMessage;
 
     const details =
       typeof exceptionResponse === "object" && exceptionResponse !== null
         ? ((exceptionResponse as { message?: string[] }).message ?? [])
         : [];
 
-    this.logger.error(`${request.method} ${request.url} -> ${status}`, exception instanceof Error ? exception.stack : "");
+    const requestSummary = `${request.method} ${request.url} -> ${status}`;
+    const isSessionProbe = request.method === "GET" && request.url.startsWith("/api/auth/me");
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(requestSummary, exception instanceof Error ? exception.stack : "");
+    } else if (isSessionProbe && (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN)) {
+      this.logger.debug(`${requestSummary} ${errorMessage}`);
+    } else {
+      this.logger.warn(`${requestSummary} ${errorMessage}`);
+    }
 
     response.status(status).json({
       success: false,
