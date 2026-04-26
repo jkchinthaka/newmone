@@ -25,6 +25,48 @@ class AuthRemoteDataSource {
     return AuthResponse.fromJson(payload);
   }
 
+  Future<AuthResponse> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? tenantName,
+  }) async {
+    final response = await _dio.post(
+      ApiEndpoints.register,
+      data: {
+        'email': email,
+        'password': password,
+        'firstName': firstName,
+        'lastName': lastName,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (tenantName != null && tenantName.isNotEmpty)
+          'tenantName': tenantName,
+      },
+    );
+
+    final payload = _readEnvelope(response.data);
+    return AuthResponse.fromJson(payload);
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await _dio.post(
+      ApiEndpoints.forgotPassword,
+      data: {'email': email},
+    );
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    await _dio.post(
+      ApiEndpoints.resetPassword,
+      data: {'token': token, 'password': password},
+    );
+  }
+
   Future<AppUser> me() async {
     final response = await _dio.get(ApiEndpoints.me);
     final payload = _readEnvelope(response.data);

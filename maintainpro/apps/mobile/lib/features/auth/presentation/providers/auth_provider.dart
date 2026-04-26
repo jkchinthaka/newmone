@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/dio_client.dart';
@@ -104,14 +106,66 @@ class AuthNotifier extends Notifier<AuthState> {
 
     try {
       final response = await _remote.login(email: email, password: password);
-      await _storage.saveTokens(
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-      );
+      await _persistSession(response);
       state = AuthAuthenticated(response.user);
     } catch (error) {
       state = AuthError(_errorMessage(error));
     }
+  }
+
+  Future<void> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? tenantName,
+  }) async {
+    state = const AuthLoading();
+    try {
+      final response = await _remote.register(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        tenantName: tenantName,
+      );
+      await _persistSession(response);
+      state = AuthAuthenticated(response.user);
+    } catch (error) {
+      state = AuthError(_errorMessage(error));
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    try {
+      await _remote.forgotPassword(email);
+      return true;
+    } catch (error) {
+      state = AuthError(_errorMessage(error));
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(
+      {required String token, required String password}) async {
+    try {
+      await _remote.resetPassword(token: token, password: password);
+      return true;
+    } catch (error) {
+      state = AuthError(_errorMessage(error));
+      return false;
+    }
+  }
+
+  Future<void> _persistSession(dynamic response) async {
+    await _storage.saveTokens(
+      accessToken: response.accessToken as String,
+      refreshToken: response.refreshToken as String,
+    );
+    final user = response.user as AppUser;
+    await _storage.saveUser(jsonEncode(user.toJson()));
   }
 
   Future<void> logout() async {

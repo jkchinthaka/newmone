@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/splash_screen.dart';
 import '../widgets/placeholder_screen.dart';
 
 /// Top-level go_router instance. All app routes are registered here.
@@ -11,19 +15,19 @@ final GoRouter appRouter = GoRouter(
   routes: <RouteBase>[
     GoRoute(
       path: '/splash',
-      builder: (_, __) => const PlaceholderScreen(title: 'Splash'),
+      builder: (_, __) => const SplashScreen(),
     ),
     GoRoute(
       path: '/login',
-      builder: (_, __) => const PlaceholderScreen(title: 'Login'),
+      builder: (_, __) => const LoginScreen(),
     ),
     GoRoute(
       path: '/register',
-      builder: (_, __) => const PlaceholderScreen(title: 'Register'),
+      builder: (_, __) => const RegisterScreen(),
     ),
     GoRoute(
       path: '/forgot-password',
-      builder: (_, __) => const PlaceholderScreen(title: 'Forgot Password'),
+      builder: (_, __) => const ForgotPasswordScreen(),
     ),
 
     // Shell with bottom nav
