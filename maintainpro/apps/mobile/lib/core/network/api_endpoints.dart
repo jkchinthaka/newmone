@@ -55,15 +55,34 @@ class ApiEndpoints {
       '/maintenance/schedules/$id';
   static const String maintenanceLogs = '/maintenance/logs';
 
-  // ── Fleet ──
+  // ── Fleet · Vehicles ──
   static const String vehicles = '/vehicles';
+  static const String vehiclesSummary = '/vehicles/summary';
+  static const String vehiclesAlerts = '/vehicles/alerts';
   static String vehicleById(String id) => '/vehicles/$id';
+  static String vehicleAssignDriver(String id) => '/vehicles/$id/assign-driver';
+  static String vehicleFuelLog(String id) => '/vehicles/$id/fuel-log';
+  static String vehicleFuelLogs(String id) => '/vehicles/$id/fuel-logs';
+  static String vehicleFuelAnalytics(String id) =>
+      '/vehicles/$id/fuel-analytics';
+  static String vehicleTripStart(String id) => '/vehicles/$id/trip-start';
+  static String vehicleTripEnd(String id) => '/vehicles/$id/trip-end';
+  static String vehicleTrips(String id) => '/vehicles/$id/trips';
+  static String vehicleHistory(String id) => '/vehicles/$id/history';
+  static String vehicleGpsUpdate(String id) => '/vehicles/$id/gps-update';
+
+  // ── Fleet · Drivers ──
   static const String drivers = '/drivers';
   static String driverById(String id) => '/drivers/$id';
+
+  // ── Fleet · Aggregate ──
+  static const String fleetLiveMap = '/fleet/live-map';
   static const String fleetAlerts = '/fleet/alerts';
-  static const String fleetLocations = '/fleet/locations';
-  static const String fuelLogs = '/fuel-logs';
-  static const String tripLogs = '/trip-logs';
+  static const String fleetGeofences = '/fleet/geofences';
+  static String fleetGeofenceById(String id) => '/fleet/geofences/$id';
+  static const String fleetStreetView = '/fleet/street-view';
+  static const String fuelLogs = '/fuel/logs';
+  static const String tripLogs = '/trips';
 
   // ── Inventory ──
   static const String inventory = '/inventory';

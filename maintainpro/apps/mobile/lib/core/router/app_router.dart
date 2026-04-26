@@ -17,6 +17,16 @@ import '../../features/cleaning/presentation/cleaning_visit_detail_screen.dart';
 import '../../features/cleaning/presentation/cleaning_visits_screen.dart';
 import '../../features/cleaning/presentation/facility_issues_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/fleet/presentation/driver_detail_screen.dart';
+import '../../features/fleet/presentation/drivers_screen.dart';
+import '../../features/fleet/presentation/fleet_alerts_screen.dart';
+import '../../features/fleet/presentation/fleet_hub_screen.dart';
+import '../../features/fleet/presentation/fleet_map_screen.dart';
+import '../../features/fleet/presentation/fuel_logs_screen.dart';
+import '../../features/fleet/presentation/trip_detail_screen.dart';
+import '../../features/fleet/presentation/trips_screen.dart';
+import '../../features/fleet/presentation/vehicle_detail_screen.dart';
+import '../../features/fleet/presentation/vehicles_screen.dart';
 import '../../features/notifications/data/datasources/notifications_socket.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -123,28 +133,52 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/fleet',
-      builder: (_, __) => const PlaceholderScreen(title: 'Fleet'),
+      builder: (_, __) => const FleetHubScreen(),
       routes: [
         GoRoute(
-          path: 'vehicles/:id',
-          builder: (_, state) =>
-              PlaceholderScreen(title: 'Vehicle ${state.pathParameters['id']}'),
+          path: 'vehicles',
+          builder: (_, __) => const VehiclesScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => VehicleDetailScreen(
+                  vehicleId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
         ),
         GoRoute(
           path: 'drivers',
-          builder: (_, __) => const PlaceholderScreen(title: 'Drivers'),
+          builder: (_, __) => const DriversScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => DriverDetailScreen(
+                  driverId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
         ),
         GoRoute(
           path: 'map',
-          builder: (_, __) => const PlaceholderScreen(title: 'Fleet Map'),
+          builder: (_, __) => const FleetMapScreen(),
         ),
         GoRoute(
           path: 'fuel',
-          builder: (_, __) => const PlaceholderScreen(title: 'Fuel Logs'),
+          builder: (_, __) => const FuelLogsScreen(),
         ),
         GoRoute(
           path: 'trips',
-          builder: (_, __) => const PlaceholderScreen(title: 'Trip Logs'),
+          builder: (_, __) => const TripsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  TripDetailScreen(tripId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'alerts',
+          builder: (_, __) => const FleetAlertsScreen(),
         ),
       ],
     ),
