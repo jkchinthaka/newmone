@@ -54,6 +54,11 @@ class ApiEndpoints {
   static String maintenanceScheduleById(String id) =>
       '/maintenance/schedules/$id';
   static const String maintenanceLogs = '/maintenance/logs';
+  static const String maintenanceCalendar = '/maintenance/calendar';
+  static const String maintenancePredictiveAlerts =
+      '/maintenance/predictive-alerts';
+  static String maintenancePredictiveAlertAck(String id) =>
+      '/maintenance/predictive-alerts/$id/acknowledge';
 
   // ── Fleet · Vehicles ──
   static const String vehicles = '/vehicles';
@@ -85,9 +90,24 @@ class ApiEndpoints {
   static const String tripLogs = '/trips';
 
   // ── Inventory ──
-  static const String inventory = '/inventory';
-  static String inventoryById(String id) => '/inventory/$id';
-  static String inventoryMovements(String id) => '/inventory/$id/movements';
+  static const String inventoryParts = '/inventory/parts';
+  static String inventoryPartById(String id) => '/inventory/parts/$id';
+  static String inventoryPartStockIn(String id) =>
+      '/inventory/parts/$id/stock-in';
+  static String inventoryPartStockOut(String id) =>
+      '/inventory/parts/$id/stock-out';
+  static String inventoryPartMovements(String id) =>
+      '/inventory/parts/$id/movements';
+  static String inventoryPartWorkOrders(String id) =>
+      '/inventory/parts/$id/work-orders';
+  static String inventoryPartPurchaseHistory(String id) =>
+      '/inventory/parts/$id/purchase-history';
+  static const String inventoryLowStock = '/inventory/low-stock';
+  static const String inventoryUsageTrend = '/inventory/analytics/usage';
+  static const String inventoryTopUsed = '/inventory/analytics/top-used';
+  static const String inventoryPurchaseOrders = '/inventory/purchase-orders';
+  static String inventoryPurchaseOrderById(String id) =>
+      '/inventory/purchase-orders/$id';
 
   // ── Cleaning ──
   static const String cleaningLocations = '/cleaning/locations';
@@ -115,21 +135,52 @@ class ApiEndpoints {
   static const String farmCrops = '/farm/crops';
   static String farmCropById(String id) => '/farm/crops/$id';
   static const String farmHarvest = '/farm/harvest';
-  static const String farmLivestock = '/farm/livestock';
-  static String farmLivestockById(String id) => '/farm/livestock/$id';
+  static String farmHarvestById(String id) => '/farm/harvest/$id';
+  static const String farmLivestockAnimals = '/farm/livestock/animals';
+  static String farmLivestockAnimalById(String id) =>
+      '/farm/livestock/animals/$id';
+  static String farmAnimalHealth(String id) =>
+      '/farm/livestock/animals/$id/health';
+  static String farmAnimalProduction(String id) =>
+      '/farm/livestock/animals/$id/production';
+  static const String farmFeeding = '/farm/livestock/feeding';
   static const String farmIrrigation = '/farm/irrigation';
+  static String farmIrrigationById(String id) => '/farm/irrigation/$id';
   static const String farmSpray = '/farm/spray-logs';
+  static String farmSprayById(String id) => '/farm/spray-logs/$id';
+  static const String farmSprayCompliance = '/farm/spray-logs/compliance';
   static const String farmSoilTests = '/farm/soil-tests';
+  static String farmSoilTestById(String id) => '/farm/soil-tests/$id';
   static const String farmWeather = '/farm/weather';
-  static const String farmFinance = '/farm/finance';
+  static const String farmWeatherAlerts = '/farm/weather/alerts';
+  static const String farmWeatherPoll = '/farm/weather/poll';
+  static const String farmWorkers = '/farm/workers';
+  static String farmWorkerById(String id) => '/farm/workers/$id';
+  static String farmWorkerAttendance(String id) =>
+      '/farm/workers/$id/attendance';
+  static const String farmWorkersAttendance = '/farm/workers/attendance';
+  static const String farmFinanceSummary = '/farm/finance/summary';
+  static const String farmFinanceExpenses = '/farm/finance/expenses';
+  static String farmFinanceExpenseById(String id) =>
+      '/farm/finance/expenses/$id';
+  static const String farmFinanceIncome = '/farm/finance/income';
+  static String farmFinanceIncomeById(String id) => '/farm/finance/income/$id';
+  static const String farmTraceability = '/farm/traceability';
+  static String farmTraceabilityPublic(String batchCode) =>
+      '/farm/traceability/public/$batchCode';
 
   // ── Utilities ──
   static const String utilityMeters = '/utilities/meters';
   static String utilityMeterById(String id) => '/utilities/meters/$id';
   static String utilityMeterReadings(String id) =>
       '/utilities/meters/$id/readings';
+  static String utilityMeterConsumptionChart(String id) =>
+      '/utilities/meters/$id/consumption-chart';
+  static const String utilityReadings = '/utilities/readings';
   static const String utilityBills = '/utilities/bills';
   static String utilityBillById(String id) => '/utilities/bills/$id';
+  static String utilityBillPay(String id) => '/utilities/bills/$id/pay';
+  static const String utilityBillsOverdue = '/utilities/bills/overdue';
   static const String utilityAnalytics = '/utilities/analytics';
 
   // ── Suppliers ──
@@ -146,20 +197,28 @@ class ApiEndpoints {
   static const String notificationsUnreadCount = '/notifications/unread-count';
 
   // ── Reports ──
-  static const String reportsAssets = '/reports/assets';
-  static const String reportsMaintenance = '/reports/maintenance';
-  static const String reportsFleet = '/reports/fleet';
+  static const String reportsDashboard = '/reports/dashboard';
+  static const String reportsMaintenanceCost = '/reports/maintenance-cost';
+  static const String reportsFleetEfficiency = '/reports/fleet-efficiency';
+  static const String reportsDowntime = '/reports/downtime';
+  static const String reportsWorkOrders = '/reports/work-orders';
   static const String reportsInventory = '/reports/inventory';
-  static const String reportsCleaning = '/reports/cleaning';
-  static const String reportsFarm = '/reports/farm';
+  static const String reportsUtilities = '/reports/utilities';
 
   // ── Billing ──
-  static const String billingPlan = '/billing/plan';
-  static const String billingInvoices = '/billing/invoices';
-  static const String billingCheckout = '/billing/checkout';
+  static const String billingSubscription = '/billing/subscription';
+  static const String billingUsage = '/billing/usage';
+  static const String billingCheckoutSession = '/billing/checkout-session';
 
   // ── Settings ──
-  static const String settings = '/settings';
+  static const String settingsProfile = '/settings/profile';
+  static const String settingsOrganization = '/settings/organization';
+  static const String settingsSystem = '/settings/system';
+  static const String settingsIntegrations = '/settings/integrations';
+  static const String settingsFeatureToggles = '/settings/feature-toggles';
+  static const String settingsAutomationRules = '/settings/automation-rules';
+  static const String settingsDigestSchedules = '/settings/digest-schedules';
+  static const String settingsAuditLogs = '/settings/audit-logs';
 
   // ── Predictive AI ──
   static String predictiveAsset(String id) =>

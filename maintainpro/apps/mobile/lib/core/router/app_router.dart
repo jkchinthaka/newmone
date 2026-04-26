@@ -27,9 +27,32 @@ import '../../features/fleet/presentation/trip_detail_screen.dart';
 import '../../features/fleet/presentation/trips_screen.dart';
 import '../../features/fleet/presentation/vehicle_detail_screen.dart';
 import '../../features/fleet/presentation/vehicles_screen.dart';
+import '../../features/inventory/presentation/inventory_hub_screen.dart';
+import '../../features/inventory/presentation/part_detail_screen.dart';
+import '../../features/inventory/presentation/parts_screen.dart';
+import '../../features/inventory/presentation/purchase_orders_screen.dart';
+import '../../features/maintenance/presentation/maintenance_calendar_screen.dart';
+import '../../features/maintenance/presentation/maintenance_hub_screen.dart';
+import '../../features/maintenance/presentation/maintenance_logs_screen.dart';
+import '../../features/maintenance/presentation/predictive_alerts_screen.dart';
+import '../../features/maintenance/presentation/schedule_detail_screen.dart';
+import '../../features/maintenance/presentation/schedules_screen.dart';
+import '../../features/farm/presentation/farm_screens.dart';
+import '../../features/billing/presentation/billing_screens.dart';
 import '../../features/notifications/data/datasources/notifications_socket.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/reports/presentation/reports_screens.dart';
+import '../../features/settings/presentation/about_screen.dart';
+import '../../features/settings/presentation/settings_screens.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/suppliers/presentation/supplier_detail_screen.dart';
+import '../../features/suppliers/presentation/suppliers_screen.dart';
+import '../../features/utilities/presentation/bill_detail_screen.dart';
+import '../../features/utilities/presentation/bills_screen.dart';
+import '../../features/utilities/presentation/meter_detail_screen.dart';
+import '../../features/utilities/presentation/meters_screen.dart';
+import '../../features/utilities/presentation/utilities_hub_screen.dart';
+import '../../features/utilities/presentation/utility_analytics_screen.dart';
 import '../../features/work_orders/presentation/work_order_create_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
@@ -122,12 +145,30 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/maintenance',
-      builder: (_, __) => const PlaceholderScreen(title: 'Maintenance'),
+      builder: (_, __) => const MaintenanceHubScreen(),
       routes: [
         GoRoute(
-          path: ':id',
-          builder: (_, state) => PlaceholderScreen(
-              title: 'Maintenance ${state.pathParameters['id']}'),
+          path: 'schedules',
+          builder: (_, __) => const MaintenanceSchedulesScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => ScheduleDetailScreen(
+                  scheduleId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'logs',
+          builder: (_, __) => const MaintenanceLogsScreen(),
+        ),
+        GoRoute(
+          path: 'calendar',
+          builder: (_, __) => const MaintenanceCalendarScreen(),
+        ),
+        GoRoute(
+          path: 'alerts',
+          builder: (_, __) => const PredictiveAlertsScreen(),
         ),
       ],
     ),
@@ -184,12 +225,26 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/inventory',
-      builder: (_, __) => const PlaceholderScreen(title: 'Inventory'),
+      builder: (_, __) => const InventoryHubScreen(),
       routes: [
         GoRoute(
-          path: ':id',
-          builder: (_, state) => PlaceholderScreen(
-              title: 'Spare Part ${state.pathParameters['id']}'),
+          path: 'parts',
+          builder: (_, __) => const PartsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  PartDetailScreen(partId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'low-stock',
+          builder: (_, __) => const PartsScreen(lowStockOnly: true),
+        ),
+        GoRoute(
+          path: 'purchase-orders',
+          builder: (_, __) => const PurchaseOrdersScreen(),
         ),
       ],
     ),
@@ -233,71 +288,212 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/farm',
-      builder: (_, __) => const PlaceholderScreen(title: 'Farm'),
+      builder: (_, __) => const FarmHubScreen(),
       routes: [
         GoRoute(
           path: 'fields',
-          builder: (_, __) => const PlaceholderScreen(title: 'Fields'),
+          builder: (_, __) => const FieldsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  FieldDetailScreen(fieldId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
         ),
         GoRoute(
           path: 'crops',
-          builder: (_, __) => const PlaceholderScreen(title: 'Crops'),
+          builder: (_, __) => const CropsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  CropDetailScreen(cropId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
         ),
         GoRoute(
           path: 'harvest',
-          builder: (_, __) => const PlaceholderScreen(title: 'Harvest'),
+          builder: (_, __) => const HarvestScreen(),
         ),
         GoRoute(
           path: 'livestock',
-          builder: (_, __) => const PlaceholderScreen(title: 'Livestock'),
+          builder: (_, __) => const LivestockScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => AnimalDetailScreen(
+                  animalId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'feeding',
+          builder: (_, __) => const FeedingScreen(),
         ),
         GoRoute(
           path: 'irrigation',
-          builder: (_, __) => const PlaceholderScreen(title: 'Irrigation'),
+          builder: (_, __) => const IrrigationScreen(),
         ),
         GoRoute(
           path: 'spray',
-          builder: (_, __) => const PlaceholderScreen(title: 'Spray Logs'),
+          builder: (_, __) => const SprayLogsScreen(),
+        ),
+        GoRoute(
+          path: 'soil-tests',
+          builder: (_, __) => const SoilTestsScreen(),
+        ),
+        GoRoute(
+          path: 'weather',
+          builder: (_, __) => const WeatherScreen(),
+        ),
+        GoRoute(
+          path: 'workers',
+          builder: (_, __) => const WorkersScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => WorkerDetailScreen(
+                  workerId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'attendance',
+          builder: (_, __) => const AttendanceScreen(),
+        ),
+        GoRoute(
+          path: 'finance',
+          builder: (_, __) => const FinanceScreen(),
+        ),
+        GoRoute(
+          path: 'traceability',
+          builder: (_, __) => const TraceabilityScreen(),
         ),
       ],
     ),
     GoRoute(
       path: '/utilities',
-      builder: (_, __) => const PlaceholderScreen(title: 'Utilities'),
+      builder: (_, __) => const UtilitiesHubScreen(),
       routes: [
         GoRoute(
-          path: ':id',
-          builder: (_, state) =>
-              PlaceholderScreen(title: 'Meter ${state.pathParameters['id']}'),
+          path: 'meters',
+          builder: (_, __) => const MetersScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  MeterDetailScreen(meterId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'bills',
+          builder: (_, __) => const BillsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) =>
+                  BillDetailScreen(billId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'analytics',
+          builder: (_, __) => const UtilityAnalyticsScreen(),
         ),
       ],
     ),
     GoRoute(
       path: '/suppliers',
-      builder: (_, __) => const PlaceholderScreen(title: 'Suppliers'),
+      builder: (_, __) => const SuppliersScreen(),
       routes: [
         GoRoute(
-          path: 'orders',
-          builder: (_, __) => const PlaceholderScreen(title: 'Purchase Orders'),
-        ),
-        GoRoute(
           path: ':id',
-          builder: (_, state) => PlaceholderScreen(
-              title: 'Supplier ${state.pathParameters['id']}'),
+          builder: (_, state) => SupplierDetailScreen(
+              supplierId: state.pathParameters['id'] ?? ''),
         ),
       ],
     ),
     GoRoute(
       path: '/reports',
-      builder: (_, __) => const PlaceholderScreen(title: 'Reports'),
+      builder: (_, __) => const ReportsHubScreen(),
+      routes: [
+        GoRoute(
+          path: 'dashboard',
+          builder: (_, __) => const ReportDashboardScreen(),
+        ),
+        GoRoute(
+          path: 'maintenance-cost',
+          builder: (_, __) => const ReportMaintenanceCostScreen(),
+        ),
+        GoRoute(
+          path: 'fleet-efficiency',
+          builder: (_, __) => const ReportFleetEfficiencyScreen(),
+        ),
+        GoRoute(
+          path: 'downtime',
+          builder: (_, __) => const ReportDowntimeScreen(),
+        ),
+        GoRoute(
+          path: 'work-orders',
+          builder: (_, __) => const ReportWorkOrdersScreen(),
+        ),
+        GoRoute(
+          path: 'inventory',
+          builder: (_, __) => const ReportInventoryScreen(),
+        ),
+        GoRoute(
+          path: 'utilities',
+          builder: (_, __) => const ReportUtilitiesScreen(),
+        ),
+      ],
     ),
     GoRoute(
       path: '/billing',
-      builder: (_, __) => const PlaceholderScreen(title: 'Billing'),
+      builder: (_, __) => const BillingHubScreen(),
     ),
     GoRoute(
       path: '/settings',
-      builder: (_, __) => const PlaceholderScreen(title: 'Settings'),
+      builder: (_, __) => const SettingsHubScreen(),
+      routes: [
+        GoRoute(
+          path: 'profile',
+          builder: (_, __) => const ProfileSettingsScreen(),
+        ),
+        GoRoute(
+          path: 'organization',
+          builder: (_, __) => const OrganizationSettingsScreen(),
+        ),
+        GoRoute(
+          path: 'system',
+          builder: (_, __) => const SystemSettingsScreen(),
+        ),
+        GoRoute(
+          path: 'integrations',
+          builder: (_, __) => const IntegrationsSettingsScreen(),
+        ),
+        GoRoute(
+          path: 'feature-toggles',
+          builder: (_, __) => const FeatureTogglesScreen(),
+        ),
+        GoRoute(
+          path: 'automation-rules',
+          builder: (_, __) => const AutomationRulesScreen(),
+        ),
+        GoRoute(
+          path: 'digest-schedules',
+          builder: (_, __) => const DigestSchedulesScreen(),
+        ),
+        GoRoute(
+          path: 'audit-logs',
+          builder: (_, __) => const AuditLogsScreen(),
+        ),
+        GoRoute(
+          path: 'about',
+          builder: (_, __) => const AboutScreen(),
+        ),
+      ],
     ),
   ],
 );
