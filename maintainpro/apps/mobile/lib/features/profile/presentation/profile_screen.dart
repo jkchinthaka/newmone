@@ -51,8 +51,8 @@ class ProfileScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(AppRadius.full),
-                    border:
-                        Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     (user?.role.name ?? 'viewer').toUpperCase(),
@@ -76,6 +76,11 @@ class ProfileScreen extends ConsumerWidget {
               ]),
               const SizedBox(height: AppSpacing.md),
               _Section(title: 'App', children: [
+                _Tile(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'AI Assistant',
+                  onTap: () => context.go('/ai'),
+                ),
                 _Tile(
                   icon: Icons.settings_outlined,
                   label: 'Settings',

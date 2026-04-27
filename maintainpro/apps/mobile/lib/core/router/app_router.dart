@@ -8,11 +8,14 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/assets/presentation/asset_detail_screen.dart';
 import '../../features/assets/presentation/asset_scanner_screen.dart';
 import '../../features/assets/presentation/assets_screen.dart';
+import '../../features/ai/presentation/ai_assistant_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/cleaning/presentation/cleaning_analytics_screen.dart';
 import '../../features/cleaning/presentation/cleaning_hub_screen.dart';
 import '../../features/cleaning/presentation/cleaning_location_detail_screen.dart';
 import '../../features/cleaning/presentation/cleaning_locations_screen.dart';
 import '../../features/cleaning/presentation/cleaning_scan_screen.dart';
+import '../../features/cleaning/presentation/cleaning_signoff_queue_screen.dart';
 import '../../features/cleaning/presentation/cleaning_visit_detail_screen.dart';
 import '../../features/cleaning/presentation/cleaning_visits_screen.dart';
 import '../../features/cleaning/presentation/facility_issues_screen.dart';
@@ -37,6 +40,7 @@ import '../../features/maintenance/presentation/maintenance_logs_screen.dart';
 import '../../features/maintenance/presentation/predictive_alerts_screen.dart';
 import '../../features/maintenance/presentation/schedule_detail_screen.dart';
 import '../../features/maintenance/presentation/schedules_screen.dart';
+import '../../features/farm/presentation/farm_map_screen.dart';
 import '../../features/farm/presentation/farm_screens.dart';
 import '../../features/billing/presentation/billing_screens.dart';
 import '../../features/notifications/data/datasources/notifications_socket.dart';
@@ -284,6 +288,14 @@ final GoRouter appRouter = GoRouter(
           path: 'issues',
           builder: (_, __) => const FacilityIssuesScreen(),
         ),
+        GoRoute(
+          path: 'analytics',
+          builder: (_, __) => const CleaningAnalyticsScreen(),
+        ),
+        GoRoute(
+          path: 'signoff',
+          builder: (_, __) => const CleaningSignoffQueueScreen(),
+        ),
       ],
     ),
     GoRoute(
@@ -370,6 +382,10 @@ final GoRouter appRouter = GoRouter(
           path: 'traceability',
           builder: (_, __) => const TraceabilityScreen(),
         ),
+        GoRoute(
+          path: 'map',
+          builder: (_, __) => const FarmMapScreen(),
+        ),
       ],
     ),
     GoRoute(
@@ -452,6 +468,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/billing',
       builder: (_, __) => const BillingHubScreen(),
+    ),
+    GoRoute(
+      path: '/ai',
+      builder: (_, __) => const AiAssistantScreen(),
     ),
     GoRoute(
       path: '/settings',

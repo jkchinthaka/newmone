@@ -225,6 +225,20 @@ class ApiEndpoints {
       '/predictive-ai/asset/$id/prediction';
   static const String predictiveCopilotChat = '/predictive-ai/copilot/chat';
 
+  // ── AI Copilot / Assistant ──
+  static const String aiCopilot = '/ai/copilot';
+  static const String aiContext = '/ai/context';
+  static const String aiConversations = '/ai/conversations';
+  static String aiConversationById(String id) => '/ai/conversations/$id';
+  static String aiConversationMessages(String id) =>
+      '/ai/conversations/$id/messages';
+  static const String aiActionCreateWorkOrder = '/ai/actions/create-work-order';
+  static const String aiActionScheduleMaintenance =
+      '/ai/actions/schedule-maintenance';
+  static const String aiActionAssignTechnician =
+      '/ai/actions/assign-technician';
+  static const String aiActionGenerateReport = '/ai/actions/generate-report';
+
   // ── Health ──
   static const String health = '/health';
 

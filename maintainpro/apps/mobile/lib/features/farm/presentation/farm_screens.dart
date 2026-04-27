@@ -236,6 +236,7 @@ class FarmHubScreen extends ConsumerWidget {
             childAspectRatio: 2.2,
             children: [
               tile('Fields', Icons.grass, '/farm/fields'),
+              tile('Map', Icons.map_outlined, '/farm/map'),
               tile('Crops', Icons.eco, '/farm/crops'),
               tile('Harvest', Icons.agriculture, '/farm/harvest'),
               tile('Livestock', Icons.pets, '/farm/livestock'),

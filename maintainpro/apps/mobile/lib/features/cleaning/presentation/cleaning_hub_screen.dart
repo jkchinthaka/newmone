@@ -78,12 +78,18 @@ class CleaningHubScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.sm),
                 _HubTile(
                   icon: Icons.dashboard_outlined,
-                  title: 'Supervision',
-                  subtitle: 'Sign-off pending submissions',
+                  title: 'Sign-off queue',
+                  subtitle: 'Review submissions waiting for sign-off',
                   accent: AppColors.secondary,
-                  onTap: () => context.push(
-                    '/cleaning/visits?status=SUBMITTED',
-                  ),
+                  onTap: () => context.push('/cleaning/signoff'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _HubTile(
+                  icon: Icons.insights_outlined,
+                  title: 'Analytics',
+                  subtitle: 'Visits, quality and cleaner performance',
+                  accent: AppColors.info,
+                  onTap: () => context.push('/cleaning/analytics'),
                 ),
               ],
             ],
