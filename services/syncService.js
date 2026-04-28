@@ -92,6 +92,13 @@ class SyncService {
       this.pendingErrors = [];
       this.recentActivity = [];
       this.reconnectDelayMs = 5000;
+
+      const parsedInterval = Number.parseInt(process.env.AUTO_RESYNC_INTERVAL_MS, 10);
+      this.autoResyncIntervalMs =
+        Number.isFinite(parsedInterval) && parsedInterval >= 0
+          ? parsedInterval
+          : 15 * 60 * 1000;
+      this.autoResyncTimer = null;
     } catch (error) {
       throw new Error(`Failed to initialize SyncService: ${error.message}`);
     }
@@ -119,9 +126,46 @@ class SyncService {
       this.runSupervisorLoop().catch((error) => {
         this.recordError(`Sync supervisor crashed: ${error.message}`);
       });
+      this.startAutoResyncTimer();
     } catch (error) {
       this.status = "error";
       this.recordError(`Failed to start sync service: ${error.message}`);
+    }
+  }
+
+  /**
+   * Schedule periodic full re-sync based on AUTO_RESYNC_INTERVAL_MS.
+   * @returns {void}
+   */
+  startAutoResyncTimer() {
+    try {
+      if (this.autoResyncTimer || !this.autoResyncIntervalMs) {
+        return;
+      }
+
+      this.autoResyncTimer = setInterval(() => {
+        if (!this.isRunning) {
+          return;
+        }
+        this.pushActivity(
+          "auto_resync_tick",
+          `Scheduled auto re-sync triggered (every ${Math.round(this.autoResyncIntervalMs / 1000)}s).`
+        );
+        this.forceResync().catch((error) => {
+          this.recordError(`Scheduled auto re-sync failed: ${error.message}`);
+        });
+      }, this.autoResyncIntervalMs);
+
+      if (this.autoResyncTimer.unref) {
+        this.autoResyncTimer.unref();
+      }
+
+      this.pushActivity(
+        "auto_resync_scheduled",
+        `Auto re-sync scheduled every ${Math.round(this.autoResyncIntervalMs / 1000)} seconds.`
+      );
+    } catch (error) {
+      this.recordError(`Failed to schedule auto re-sync: ${error.message}`);
     }
   }
 
@@ -132,6 +176,11 @@ class SyncService {
   async stop() {
     try {
       this.isRunning = false;
+
+      if (this.autoResyncTimer) {
+        clearInterval(this.autoResyncTimer);
+        this.autoResyncTimer = null;
+      }
 
       if (this.changeStream) {
         await this.changeStream.close();

@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, X } from "lucide-react";
+import { History, Loader2, X } from "lucide-react";
+
+import { HistoryDrawer } from "@/components/audit/history-drawer";
+import { canViewAuditHistory, useCurrentUser } from "@/lib/use-current-user";
 
 import { asDateInputValue, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
@@ -60,6 +63,9 @@ export function WorkOrderEditorModal({
   );
 
   const [formState, setFormState] = useState(initialState);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const currentUser = useCurrentUser();
+  const showHistory = !isCreateMode && canViewAuditHistory(currentUser.role) && Boolean(workOrder?.id);
 
   useEffect(() => {
     if (!open) {
@@ -277,6 +283,15 @@ export function WorkOrderEditorModal({
               </div>
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
+                {showHistory && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryOpen(true)}
+                    className="mr-auto inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <History size={14} aria-hidden /> View History
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -297,6 +312,15 @@ export function WorkOrderEditorModal({
           </motion.div>
         </motion.div>
       ) : null}
+      {showHistory && workOrder?.id && (
+        <HistoryDrawer
+          entity="WorkOrder"
+          entityId={workOrder.id}
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          title={`Work Order ${workOrder.woNumber ?? workOrder.id}`}
+        />
+      )}
     </AnimatePresence>
   );
 }

@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 
+import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { envValidationSchema } from "./config/env.validation";
@@ -12,6 +13,7 @@ import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { AssetsModule } from "./modules/assets/assets.module";
+import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { CleaningModule } from "./modules/cleaning/cleaning.module";
@@ -89,6 +91,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     UsersModule,
     RolesModule,
     AssetsModule,
+    AuditModule,
     VehiclesModule,
     FleetModule,
     DriversModule,
@@ -135,7 +138,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(TenantContextMiddleware)
+      .apply(TenantContextMiddleware, RequestContextMiddleware)
       .forRoutes({ path: "*", method: RequestMethod.ALL });
   }
 }
