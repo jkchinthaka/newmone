@@ -93,10 +93,10 @@ export default function InventoryManagementPage() {
 
   const { movementsQuery, purchaseHistoryQuery, workOrdersQuery } = usePartDetailData(drawerPart?.id);
 
-  const parts = partsQuery.data ?? [];
-  const suppliers = suppliersQuery.data ?? [];
-  const lowStockParts = lowStockQuery.data ?? [];
-  const purchaseOrders = purchaseOrdersQuery.data ?? [];
+  const parts = useMemo(() => partsQuery.data ?? [], [partsQuery.data]);
+  const suppliers = useMemo(() => suppliersQuery.data ?? [], [suppliersQuery.data]);
+  const lowStockParts = useMemo(() => lowStockQuery.data ?? [], [lowStockQuery.data]);
+  const purchaseOrders = useMemo(() => purchaseOrdersQuery.data ?? [], [purchaseOrdersQuery.data]);
 
   const pendingSupplierIds = useMemo(() => derivePendingSupplierIds(purchaseOrders), [purchaseOrders]);
 
@@ -150,8 +150,14 @@ export default function InventoryManagementPage() {
 
   useEffect(() => {
     setSelectedIds((prev) => {
-      const next = new Set(Array.from(prev).filter((id) => parts.some((part) => part.id === id)));
-      return next;
+      if (prev.size === 0) {
+        return prev;
+      }
+      const filtered = Array.from(prev).filter((id) => parts.some((part) => part.id === id));
+      if (filtered.length === prev.size) {
+        return prev;
+      }
+      return new Set(filtered);
     });
   }, [parts]);
 
