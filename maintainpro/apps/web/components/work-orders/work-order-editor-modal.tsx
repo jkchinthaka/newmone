@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { History, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { HistoryDrawer } from "@/components/audit/history-drawer";
 import { canViewAuditHistory, useCurrentUser } from "@/lib/use-current-user";
@@ -121,6 +122,21 @@ export function WorkOrderEditorModal({
                 }
 
                 if (isCreateMode) {
+                  const isObjectId = (v: string) => /^[a-fA-F0-9]{24}$/.test(v);
+                  const optionalIds: Array<[string, string]> = [
+                    ["Asset ID", formState.assetId.trim()],
+                    ["Vehicle ID", formState.vehicleId.trim()],
+                    ["Schedule ID", formState.scheduleId.trim()]
+                  ];
+                  for (const [label, value] of optionalIds) {
+                    if (value && !isObjectId(value)) {
+                      toast.error(
+                        `${label} must be a 24-character hex ObjectId, or leave it empty.`
+                      );
+                      return;
+                    }
+                  }
+
                   onCreate({
                     title: formState.title.trim(),
                     description: formState.description.trim(),

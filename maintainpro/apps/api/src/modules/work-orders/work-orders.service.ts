@@ -103,6 +103,27 @@ export class WorkOrdersService {
       throw new BadRequestException("createdById is required");
     }
 
+    // MongoDB ObjectIds must be 24 hex chars. Reject obvious non-IDs early so the user
+    // gets a clear message instead of a cryptic Prisma "Malformed ObjectID" error.
+    const isValidObjectId = (v: string) => /^[a-fA-F0-9]{24}$/.test(v);
+    const optionalIdFields: Array<["assetId" | "vehicleId" | "scheduleId", string | undefined]> = [
+      ["assetId", data.assetId],
+      ["vehicleId", data.vehicleId],
+      ["scheduleId", data.scheduleId]
+    ];
+    for (const [field, value] of optionalIdFields) {
+      if (value && !isValidObjectId(value)) {
+        throw new BadRequestException(
+          `Invalid ${field}: "${value}". Expected a 24-character hex ObjectId, or leave the field empty.`
+        );
+      }
+    }
+    if (!isValidObjectId(data.createdById)) {
+      throw new BadRequestException(
+        "Invalid createdById. Please log in again to refresh your session."
+      );
+    }
+
     // Verify the creator exists so we surface a clear error instead of a Prisma FK failure.
     const creator = await this.prisma.user.findUnique({ where: { id: data.createdById } });
     if (!creator) {

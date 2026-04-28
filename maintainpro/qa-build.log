@@ -1,0 +1,40 @@
+
+> maintainpro@1.2.0 build
+> npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/ui-components && npm run build --workspace @maintainpro/api && npm run build --workspace @maintainpro/web
+
+
+> @maintainpro/shared-types@1.2.0 build
+> tsc -p tsconfig.json
+
+
+> @maintainpro/ui-components@1.2.0 build
+> tsc -p tsconfig.json
+
+
+> @maintainpro/api@1.2.0 build
+> npm run prisma:generate && tsc -p tsconfig.build.json
+
+
+> @maintainpro/api@1.2.0 prisma:generate
+> prisma generate --schema ../../prisma/schema.prisma
+
+Environment variables loaded from .env
+Prisma schema loaded from ..\..\prisma\schema.prisma
+Error: 
+EPERM: operation not permitted, rename 'C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\node_modules\.prisma\client\query_engine-windows.dll.node.tmp36184' -> 'C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\node_modules\.prisma\client\query_engine-windows.dll.node'
+
+
+npm error Lifecycle script `prisma:generate` failed with error:
+npm error code 1
+npm error path C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\apps\api
+npm error workspace @maintainpro/api@1.2.0
+npm error location C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\apps\api
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c prisma generate --schema ../../prisma/schema.prisma
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\apps\api
+npm error workspace @maintainpro/api@1.2.0
+npm error location C:\Users\chint\OneDrive\Desktop\newmone\newmone\maintainpro\apps\api
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c npm run prisma:generate && tsc -p tsconfig.build.json
