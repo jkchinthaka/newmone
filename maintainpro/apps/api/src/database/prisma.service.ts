@@ -128,11 +128,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         return next(params);
       }
 
-      const ctx = requestContext.get();
-      const delegate = (this as unknown as Record<string, any>)[camelCase(model)];
-
+      let ctx: ReturnType<typeof requestContext.get> | undefined;
+      let delegate: any;
       let beforeRows: Array<Record<string, unknown>> = [];
+
       try {
+        ctx = requestContext.get();
+        delegate = (this as unknown as Record<string, any>)[camelCase(model)];
+
         if (action === "update" || action === "delete" || action === "upsert") {
           const where = (params.args as { where?: unknown })?.where;
           if (where && delegate?.findUnique) {
@@ -150,17 +153,29 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         this.logger.debug(
           `audit pre-fetch failed for ${model}.${action}: ${(err as Error).message}`
         );
+        // swallow — audit must never break the business path
       }
 
+      // Run the actual operation. Any error here is a real business error and must propagate.
       const result = await next(params);
 
-      this.writeAudit({ model, action, params, beforeRows, result, ctx, delegate }).catch(
-        (err) => {
+      // Fire-and-forget audit write. Wrap in setImmediate so any sync work inside
+      // writeAudit cannot interfere with the current request response cycle.
+      setImmediate(() => {
+        try {
+          this.writeAudit({ model, action, params, beforeRows, result, ctx, delegate }).catch(
+            (err) => {
+              this.logger.warn(
+                `audit write failed for ${model}.${action}: ${(err as Error).message}`
+              );
+            }
+          );
+        } catch (err) {
           this.logger.warn(
-            `audit write failed for ${model}.${action}: ${(err as Error).message}`
+            `audit dispatch failed for ${model}.${action}: ${(err as Error).message}`
           );
         }
-      );
+      });
 
       return result;
     });

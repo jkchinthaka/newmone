@@ -109,7 +109,12 @@ export default function WorkOrdersPage() {
 
   useEffect(() => {
     const validIds = new Set(workOrdersQuery.workOrders.map((order) => order.id));
-    setSelectedIds((current) => current.filter((id) => validIds.has(id)));
+    setSelectedIds((current) => {
+      const filtered = current.filter((id) => validIds.has(id));
+      // Bail out if nothing actually changed, to avoid render loops if the
+      // workOrders array reference flickers without content changes.
+      return filtered.length === current.length ? current : filtered;
+    });
   }, [workOrdersQuery.workOrders]);
 
   const technicians = techniciansQuery.data ?? [];

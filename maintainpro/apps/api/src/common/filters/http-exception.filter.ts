@@ -17,7 +17,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const rawMessage =
       typeof exceptionResponse === "string"
         ? exceptionResponse
-        : (exceptionResponse as { message?: string | string[] })?.message ?? "Internal server error";
+        : (exceptionResponse as { message?: string | string[] })?.message ??
+          (exception instanceof Error ? exception.message : null) ??
+          "Internal server error";
 
     const errorMessage = Array.isArray(rawMessage) ? rawMessage.join(", ") : rawMessage;
 

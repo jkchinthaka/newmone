@@ -93,24 +93,48 @@ export class WorkOrdersService {
     createdById: string;
     dueDate?: string;
   }) {
+    if (!data.title?.trim()) {
+      throw new BadRequestException("Title is required");
+    }
+    if (!data.description?.trim()) {
+      throw new BadRequestException("Description is required");
+    }
+    if (!data.createdById) {
+      throw new BadRequestException("createdById is required");
+    }
+
+    // Verify the creator exists so we surface a clear error instead of a Prisma FK failure.
+    const creator = await this.prisma.user.findUnique({ where: { id: data.createdById } });
+    if (!creator) {
+      throw new BadRequestException(
+        "createdById does not match any existing user. Please log in again."
+      );
+    }
+
     const woNumber = await this.nextWoNumber();
 
-    const created = await this.prisma.workOrder.create({
-      data: {
-        woNumber,
-        title: data.title,
-        description: data.description,
-        priority: data.priority,
-        type: data.type,
-        assetId: data.assetId,
-        vehicleId: data.vehicleId,
-        scheduleId: data.scheduleId,
-        createdById: data.createdById,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined
-      }
-    });
+    try {
+      const created = await this.prisma.workOrder.create({
+        data: {
+          woNumber,
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          type: data.type,
+          assetId: data.assetId,
+          vehicleId: data.vehicleId,
+          scheduleId: data.scheduleId,
+          createdById: data.createdById,
+          dueDate: data.dueDate ? new Date(data.dueDate) : undefined
+        }
+      });
 
-    return created;
+      return created;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create work order";
+      // Surface Prisma validation/FK errors as 400 instead of a bare 500.
+      throw new BadRequestException(`Failed to create work order: ${message}`);
+    }
   }
 
   async update(id: string, data: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>) {

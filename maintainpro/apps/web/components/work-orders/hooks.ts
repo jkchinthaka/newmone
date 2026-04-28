@@ -156,7 +156,11 @@ export function useWorkOrders(filters: WorkOrderFilters) {
     refetchInterval: 30_000
   });
 
-  const sourceRows = query.data ?? [];
+  // Stabilize sourceRows reference: query.data is the same identity across renders while
+  // the data is unchanged, but `?? []` would otherwise allocate a fresh empty array each render
+  // which cascades through useMemo deps and causes consumers to see a "new" workOrders array
+  // every render (manifests as Maximum update depth exceeded in effects depending on it).
+  const sourceRows = useMemo(() => query.data ?? [], [query.data]);
 
   const workOrders = useMemo(() => applyWorkOrderFilters(sourceRows, filters), [sourceRows, filters]);
 
