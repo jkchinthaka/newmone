@@ -58,8 +58,22 @@ export class UtilitiesService {
     return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
   }
 
-  allReadings() {
-    return this.prisma.meterReading.findMany({ include: { meter: true }, orderBy: { readingDate: "desc" } });
+  async allReadings() {
+    // Fetch readings without `include` to tolerate orphan rows whose related
+    // UtilityMeter has been deleted (Prisma throws "Inconsistent query result"
+    // when a required relation resolves to null). We hydrate the meter manually.
+    const readings = await this.prisma.meterReading.findMany({ orderBy: { readingDate: "desc" } });
+    if (readings.length === 0) return [];
+
+    const meterIds = Array.from(new Set(readings.map((r) => r.meterId).filter(Boolean)));
+    const meters = meterIds.length
+      ? await this.prisma.utilityMeter.findMany({ where: { id: { in: meterIds } } })
+      : [];
+    const meterMap = new Map(meters.map((m) => [m.id, m]));
+
+    return readings
+      .filter((r) => meterMap.has(r.meterId))
+      .map((r) => ({ ...r, meter: meterMap.get(r.meterId) }));
   }
 
   async consumptionChart(id: string) {
@@ -74,8 +88,19 @@ export class UtilitiesService {
     }));
   }
 
-  bills() {
-    return this.prisma.utilityBill.findMany({ include: { meter: true }, orderBy: { createdAt: "desc" } });
+  async bills() {
+    // Same orphan-tolerant strategy as `allReadings`: avoid Prisma's required
+    // relation include throwing on dangling meterIds.
+    const bills = await this.prisma.utilityBill.findMany({ orderBy: { createdAt: "desc" } });
+    if (bills.length === 0) return [];
+
+    const meterIds = Array.from(new Set(bills.map((b) => b.meterId).filter(Boolean)));
+    const meters = meterIds.length
+      ? await this.prisma.utilityMeter.findMany({ where: { id: { in: meterIds } } })
+      : [];
+    const meterMap = new Map(meters.map((m) => [m.id, m]));
+
+    return bills.map((b) => ({ ...b, meter: meterMap.get(b.meterId) ?? null }));
   }
 
   async createBill(data: {

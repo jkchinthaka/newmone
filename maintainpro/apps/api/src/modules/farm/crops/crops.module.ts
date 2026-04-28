@@ -1,10 +1,45 @@
-import { Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
 
 import { Roles } from "../../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../../database/prisma.service";
+
+const OBJECT_ID_RE = /^[a-fA-F0-9]{24}$/;
+const DATE_FIELDS = ["plantingDate", "expectedHarvestDate", "actualHarvestDate", "archivedAt"] as const;
+const OBJECT_ID_FIELDS = ["tenantId", "fieldId"] as const;
+
+function normalizeCropPayload<T extends Record<string, unknown>>(data: T, requireIds: boolean): T {
+  const out: Record<string, unknown> = { ...data };
+  for (const key of OBJECT_ID_FIELDS) {
+    const v = out[key];
+    if (v === undefined || v === null || v === "") {
+      if (requireIds) throw new BadRequestException(`${key} is required`);
+      continue;
+    }
+    if (typeof v !== "string" || !OBJECT_ID_RE.test(v)) {
+      throw new BadRequestException(`${key} must be a 24-character hex ObjectId`);
+    }
+  }
+  for (const key of DATE_FIELDS) {
+    const v = out[key];
+    if (v === undefined || v === null || v === "") continue;
+    if (v instanceof Date) continue;
+    const d = new Date(v as string);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException(`${key} must be a valid ISO-8601 date`);
+    }
+    out[key] = d;
+  }
+  if (requireIds && (out.cropType === undefined || out.cropType === "")) {
+    throw new BadRequestException("cropType is required");
+  }
+  if (requireIds && !out.plantingDate) {
+    throw new BadRequestException("plantingDate is required");
+  }
+  return out as T;
+}
 
 @Injectable()
 export class CropsService {
@@ -26,11 +61,13 @@ export class CropsService {
   }
 
   create(data: Prisma.CropCycleUncheckedCreateInput) {
-    return this.prisma.cropCycle.create({ data });
+    const normalized = normalizeCropPayload(data as Record<string, unknown>, true);
+    return this.prisma.cropCycle.create({ data: normalized as Prisma.CropCycleUncheckedCreateInput });
   }
 
   update(id: string, data: Prisma.CropCycleUncheckedUpdateInput) {
-    return this.prisma.cropCycle.update({ where: { id }, data });
+    const normalized = normalizeCropPayload(data as Record<string, unknown>, false);
+    return this.prisma.cropCycle.update({ where: { id }, data: normalized as Prisma.CropCycleUncheckedUpdateInput });
   }
 
   remove(id: string) {

@@ -84,8 +84,18 @@ export function FarmListPage<T extends { id: string }>({
     for (const f of fields) {
       const raw = form[f.name];
       if (raw === "" || raw === undefined) continue;
-      if (f.type === "number") payload[f.name] = Number(raw);
-      else payload[f.name] = raw;
+      if (f.type === "number") {
+        payload[f.name] = Number(raw);
+      } else if (f.type === "date" || f.type === "datetime-local") {
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) {
+          setError(`Invalid value for ${f.label}`);
+          return;
+        }
+        payload[f.name] = d.toISOString();
+      } else {
+        payload[f.name] = raw;
+      }
     }
     const tenantId = getActiveTenantId();
     if (tenantId && !("tenantId" in payload)) payload.tenantId = tenantId;
