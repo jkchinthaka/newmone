@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, Settings, Sprout, SprayCan, Sun, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
+import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, Settings, Sprout, SprayCan, Sun, Tag, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
 
 const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -11,6 +11,7 @@ const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/vehicles", label: "Vehicles", icon: Gauge },
   { href: "/fleet", label: "Fleet", icon: Fuel },
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/maintenance/job-codes" as Route, label: "Job Codes", icon: Tag },
   { href: "/work-orders", label: "Work Orders", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Layers },
   { href: "/utilities", label: "Utilities", icon: ChartColumnBig },
