@@ -36,6 +36,7 @@ model Tenant {
   cleaningLocations CleaningLocation[]
   cleaningVisits    CleaningVisit[]
   facilityIssues    FacilityIssue[]
+  jobCodes          JobCode[]
 }
 
 model AuditLog {
@@ -647,6 +648,23 @@ enum MaintenanceFrequency {
   ANNUAL
   MILEAGE_BASED
   CUSTOM
+}
+
+model JobCode {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?  @db.ObjectId
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  code        String
+  name        String
+  description String?
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@index([category])
 }
 
 model MaintenanceLog {

@@ -34,6 +34,7 @@ import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { InvitationsModule } from "./modules/invitations/invitations.module";
+import { JobCodesModule } from "./modules/job-codes/job-codes.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
@@ -96,6 +97,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     FleetModule,
     DriversModule,
     MaintenanceModule,
+    JobCodesModule,
     WorkOrdersModule,
     InventoryModule,
     SuppliersModule,

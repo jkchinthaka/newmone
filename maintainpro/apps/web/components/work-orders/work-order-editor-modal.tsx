@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { History, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
 
 import { HistoryDrawer } from "@/components/audit/history-drawer";
 import { EntityPicker } from "@/components/ui/entity-picker";
