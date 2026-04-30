@@ -462,6 +462,8 @@ model Vehicle {
   registrationNo     String        @unique
   make               String
   vehicleModel       String
+  description        String?
+  location           String?
   year               Int
   type               VehicleType
   status             VehicleStatus @default(AVAILABLE)
@@ -493,6 +495,8 @@ model Vehicle {
   @@index([tenantId])
   @@index([status])
   @@index([driverId])
+  @@index([location])
+  @@index([type])
 }
 
 enum VehicleType {

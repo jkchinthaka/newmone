@@ -366,7 +366,7 @@ export function ModuleJobListScreen({ module }: { module: ModuleKey }) {
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
-          {jobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => window.location.assign(`/${module}/${job.id}`)} />)}
+          {jobs.map((job, index) => <JobCard key={job.id || job.jobId || `${module}-job-${index}`} job={job} onOpen={() => window.location.assign(`/${module}/${job.id}`)} />)}
           {jobs.length === 0 ? <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">No jobs found for this status filter.</div> : null}
         </div>
       </section>
@@ -378,7 +378,7 @@ export function ModuleJobListScreen({ module }: { module: ModuleKey }) {
             <h3 className="text-lg font-semibold text-slate-900">Pending Service Jobs</h3>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {pendingServiceJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => window.location.assign(`/service/${job.id}`)} />)}
+            {pendingServiceJobs.map((job, index) => <JobCard key={job.id || job.jobId || `service-pending-${index}`} job={job} onOpen={() => window.location.assign(`/service/${job.id}`)} />)}
           </div>
         </section>
       ) : null}
