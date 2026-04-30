@@ -6,8 +6,24 @@ import { PrismaService } from "../../database/prisma.service";
 export class DriversService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.driver.findMany({ include: { user: true }, orderBy: { createdAt: "desc" } });
+  findAll(params: { q?: string; pageSize?: number } = {}) {
+    const q = params.q?.trim();
+    const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
+    return this.prisma.driver.findMany({
+      where: q
+        ? {
+            OR: [
+              { licenseNumber: { contains: q, mode: "insensitive" } },
+              { user: { is: { firstName: { contains: q, mode: "insensitive" } } } },
+              { user: { is: { lastName: { contains: q, mode: "insensitive" } } } },
+              { user: { is: { email: { contains: q, mode: "insensitive" } } } }
+            ]
+          }
+        : undefined,
+      include: { user: true },
+      orderBy: { createdAt: "desc" },
+      take
+    });
   }
 
   create(data: { userId: string; licenseNumber: string; licenseClass: string; licenseExpiry: string }) {

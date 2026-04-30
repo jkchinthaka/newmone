@@ -6,6 +6,7 @@ import { History, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { HistoryDrawer } from "@/components/audit/history-drawer";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { canViewAuditHistory, useCurrentUser } from "@/lib/use-current-user";
 
 import { asDateInputValue, toTitleCase } from "./helpers";
@@ -122,21 +123,6 @@ export function WorkOrderEditorModal({
                 }
 
                 if (isCreateMode) {
-                  const isObjectId = (v: string) => /^[a-fA-F0-9]{24}$/.test(v);
-                  const optionalIds: Array<[string, string]> = [
-                    ["Asset ID", formState.assetId.trim()],
-                    ["Vehicle ID", formState.vehicleId.trim()],
-                    ["Schedule ID", formState.scheduleId.trim()]
-                  ];
-                  for (const [label, value] of optionalIds) {
-                    if (value && !isObjectId(value)) {
-                      toast.error(
-                        `${label} must be a 24-character hex ObjectId, or leave it empty.`
-                      );
-                      return;
-                    }
-                  }
-
                   onCreate({
                     title: formState.title.trim(),
                     description: formState.description.trim(),
@@ -269,20 +255,30 @@ export function WorkOrderEditorModal({
                 {isCreateMode ? (
                   <>
                     <label className="space-y-1 text-sm text-slate-700">
-                      <span className="font-medium">Asset ID (optional)</span>
-                      <input
-                        value={formState.assetId}
-                        onChange={(event) => setFormState((current) => ({ ...current, assetId: event.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                      <span className="font-medium">Asset (optional)</span>
+                      <EntityPicker
+                        endpoint="/assets"
+                        value={formState.assetId || null}
+                        displayField="assetTag"
+                        secondaryField="name"
+                        placeholder="Search assets by tag or name..."
+                        onChange={(id) =>
+                          setFormState((current) => ({ ...current, assetId: id ?? "" }))
+                        }
                       />
                     </label>
 
                     <label className="space-y-1 text-sm text-slate-700">
-                      <span className="font-medium">Vehicle ID (optional)</span>
-                      <input
-                        value={formState.vehicleId}
-                        onChange={(event) => setFormState((current) => ({ ...current, vehicleId: event.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                      <span className="font-medium">Vehicle (optional)</span>
+                      <EntityPicker
+                        endpoint="/vehicles"
+                        value={formState.vehicleId || null}
+                        displayField="registrationNo"
+                        secondaryField="vehicleModel"
+                        placeholder="Search vehicles by registration or model..."
+                        onChange={(id) =>
+                          setFormState((current) => ({ ...current, vehicleId: id ?? "" }))
+                        }
                       />
                     </label>
 

@@ -8,8 +8,28 @@ import { PrismaService } from "../../database/prisma.service";
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.user.findMany({ include: { role: true } });
+  findAll(params: { q?: string; pageSize?: number; roleName?: string } = {}) {
+    const q = params.q?.trim();
+    const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
+    return this.prisma.user.findMany({
+      where: {
+        AND: [
+          q
+            ? {
+                OR: [
+                  { firstName: { contains: q, mode: "insensitive" } },
+                  { lastName: { contains: q, mode: "insensitive" } },
+                  { email: { contains: q, mode: "insensitive" } }
+                ]
+              }
+            : {},
+          params.roleName ? { role: { is: { name: params.roleName } } } : {}
+        ]
+      },
+      include: { role: true },
+      orderBy: { createdAt: "desc" },
+      take
+    });
   }
 
   async findOne(id: string) {

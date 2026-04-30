@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -14,8 +14,16 @@ export class UsersController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN")
-  async findAll() {
-    const users = await this.usersService.findAll();
+  async findAll(
+    @Query("q") q?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("roleName") roleName?: string
+  ) {
+    const users = await this.usersService.findAll({
+      q,
+      roleName,
+      pageSize: pageSize ? Number(pageSize) : undefined
+    });
     return { data: users, message: "Users fetched" };
   }
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -14,8 +14,11 @@ export class DriversController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async findAll() {
-    const data = await this.driversService.findAll();
+  async findAll(@Query("q") q?: string, @Query("pageSize") pageSize?: string) {
+    const data = await this.driversService.findAll({
+      q,
+      pageSize: pageSize ? Number(pageSize) : undefined
+    });
     return { data, message: "Drivers fetched" };
   }
 
