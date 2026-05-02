@@ -51,11 +51,10 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
 
-  // Flutter web's dev server uses a random localhost port on each run, so in
-  // non-production environments allow any http://localhost:* / 127.0.0.1:*
-  // origin in addition to the explicitly configured ones.
+  // Development environments frequently run frontends from dynamic hosts
+  // (localhost ports, Cloudflare Workers previews, etc.), so only enforce a
+  // strict origin allowlist in production.
   const isProd = process.env.NODE_ENV === "production";
-  const localhostOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -63,7 +62,7 @@ async function bootstrap(): Promise<void> {
         callback(null, true);
         return;
       }
-      if (!isProd && localhostOriginRegex.test(origin)) {
+      if (!isProd) {
         callback(null, true);
         return;
       }
