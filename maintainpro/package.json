@@ -19,6 +19,8 @@
     "cloudflare:preview": "npm run cloudflare:build && cd apps/web && wrangler dev",
     "render:build": "npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/api",
     "render:start": "npm run start:prod --workspace @maintainpro/api",
+    "render:deploy": "node scripts/render-deploy.mjs",
+    "render:deploy:dry": "node scripts/render-deploy.mjs --dry-run",
     "deploy:check": "npm run typecheck && npm run render:build && npm run vercel:build",
     "lint": "npm run lint --workspace @maintainpro/api && npm run lint --workspace @maintainpro/web",
     "typecheck": "npm run typecheck --workspace @maintainpro/api && npm run typecheck --workspace @maintainpro/web",

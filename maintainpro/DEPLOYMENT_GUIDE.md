@@ -216,6 +216,17 @@ Open `https://your-render-api.onrender.com/health`.
 
 Render free disk is ephemeral. Configure Cloudinary for persistent uploads before using asset document upload features in production.
 
-## 8. Secret Safety
+## 8. Render API Deploy Trigger (Optional)
+
+Use this only if you want to trigger Render deploys from your local terminal via API.
+
+1. Copy `.env.render.local.example` to `.env.render.local` in `maintainpro/`.
+2. Set `RENDER_API_KEY` and `RENDER_SERVICE_ID` in `.env.render.local`.
+3. Run `npm run render:deploy:dry` to validate the key and target service.
+4. Run `npm run render:deploy` to trigger a deployment.
+
+`RENDER_API_KEY` is sensitive. Keep it only in local ignored files or your secret manager.
+
+## 9. Secret Safety
 
 Never commit real `.env` files. This repo ignores local env files and includes only `.env.example` templates. If a real credential has ever been used in a local file or terminal output, rotate it before production deployment.

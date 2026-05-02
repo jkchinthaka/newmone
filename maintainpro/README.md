@@ -205,6 +205,15 @@ Configure repository secrets for staging deploy automation:
 - `STAGING_USER`
 - `STAGING_SSH_KEY`
 
+Optional Render API deploy automation:
+
+1. Copy `.env.render.local.example` to `.env.render.local`.
+2. Set `RENDER_API_KEY` and `RENDER_SERVICE_ID` in `.env.render.local`.
+3. Run `npm run render:deploy:dry` to verify API access and target service.
+4. Run `npm run render:deploy` to trigger a Render deployment via API.
+
+`.env.render.local` is ignored by git. Do not commit real Render credentials.
+
 ## Contribution Guide
 
 1. Create a feature branch from `develop`.
