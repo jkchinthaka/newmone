@@ -8,7 +8,6 @@ import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../database/prisma.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
-import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { AuthTokens, JwtPayload } from "./auth.types";
@@ -99,13 +98,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!valid) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     await this.prisma.user.update({
@@ -129,7 +128,7 @@ export class AuthService {
     };
   }
 
-  async refresh(dto: RefreshTokenDto) {
+  async refresh(dto: { refreshToken: string }) {
     const tokenInStore = this.refreshTokenStore.get(dto.refreshToken);
 
     if (!tokenInStore || tokenInStore.expiresAt < Date.now()) {
@@ -163,7 +162,7 @@ export class AuthService {
     };
   }
 
-  async logout(dto: RefreshTokenDto) {
+  async logout(dto: { refreshToken: string }) {
     this.refreshTokenStore.delete(dto.refreshToken);
 
     return {

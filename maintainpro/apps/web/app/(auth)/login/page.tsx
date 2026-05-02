@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Loader2, ShieldCheck, Wrench } from "lucide-react";
-import { AxiosError } from "axios";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
 import { setActiveTenantId } from "@/lib/tenant-context";
 
@@ -65,10 +64,7 @@ export default function LoginPage() {
 
       window.location.replace("/home");
     } catch (e) {
-      const err = e as AxiosError<{ message?: string | string[] }>;
-      const raw = err.response?.data?.message;
-      const message = Array.isArray(raw) ? raw.join(", ") : raw;
-      setError(message ?? "Login failed. Check your credentials and try again.");
+      setError(getApiErrorMessage(e, "Login failed. Check your credentials and try again."));
     } finally {
       setBusy(false);
     }

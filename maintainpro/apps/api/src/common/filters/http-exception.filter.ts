@@ -10,7 +10,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const dependencyFailure = this.isDependencyFailure(exception);
+    const status = dependencyFailure
+      ? HttpStatus.SERVICE_UNAVAILABLE
+      : exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
@@ -21,7 +26,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
           (exception instanceof Error ? exception.message : null) ??
           "Internal server error";
 
-    const errorMessage = Array.isArray(rawMessage) ? rawMessage.join(", ") : rawMessage;
+    const errorMessage = dependencyFailure
+      ? "Database unavailable. Check MongoDB connection and retry."
+      : Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage;
 
     const details =
       typeof exceptionResponse === "object" && exceptionResponse !== null
@@ -42,10 +51,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       success: false,
       error: {
-        code: exception instanceof HttpException ? "HTTP_ERROR" : "INTERNAL_ERROR",
+        code: dependencyFailure ? "DATABASE_UNAVAILABLE" : exception instanceof HttpException ? "HTTP_ERROR" : "INTERNAL_ERROR",
         message: errorMessage,
-        details: Array.isArray(details) ? details : [details]
+        details: dependencyFailure ? ["MongoDB or Prisma dependency is not reachable."] : Array.isArray(details) ? details : [details]
       }
     });
+  }
+
+  private isDependencyFailure(exception: unknown): boolean {
+    if (exception instanceof HttpException) {
+      return false;
+    }
+
+    const message = exception instanceof Error ? exception.message : String(exception ?? "");
+    const name = exception instanceof Error ? exception.name : "";
+
+    return /Prisma|Mongo|ReplicaSetNoPrimary|Server selection|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|P1001|P6001/i.test(
+      `${name} ${message}`
+    );
   }
 }

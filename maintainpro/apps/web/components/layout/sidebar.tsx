@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Bell, Bot, Building2, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Database, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, Settings, Sprout, SprayCan, Sun, Tag, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
+import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Database, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, ServerCog, Settings, Sprout, SprayCan, Sun, Tag, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
 
 const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -20,6 +20,7 @@ const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/reports", label: "Reports", icon: ChartColumnBig },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/billing" as Route, label: "Billing", icon: CreditCard },
+  { href: "/system-health" as Route, label: "System Health", icon: ServerCog },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 

@@ -4,8 +4,41 @@ import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api",
-  timeout: 15_000
+  timeout: 15_000,
+  withCredentials: true
 });
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object") {
+    const candidate = error as {
+      code?: string;
+      message?: string;
+      response?: {
+        status?: number;
+        data?: {
+          error?: { message?: string | string[] };
+          message?: string | string[];
+        };
+      };
+    };
+
+    const rawMessage = candidate.response?.data?.error?.message ?? candidate.response?.data?.message;
+    if (Array.isArray(rawMessage) && rawMessage.length > 0) {
+      return rawMessage.join(", ");
+    }
+    if (typeof rawMessage === "string" && rawMessage.trim()) {
+      return rawMessage;
+    }
+    if (!candidate.response && candidate.code === "ERR_NETWORK") {
+      return "API is unreachable. Start the MaintainPro API and check the system health page.";
+    }
+    if (typeof candidate.message === "string" && candidate.message.trim()) {
+      return candidate.message;
+    }
+  }
+
+  return fallback;
+}
 
 function isAuthMeRequest(url?: string): boolean {
   return url === "/auth/me" || url?.endsWith("/auth/me") === true;

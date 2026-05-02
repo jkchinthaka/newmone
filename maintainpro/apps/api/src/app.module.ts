@@ -12,6 +12,7 @@ import { envValidationSchema } from "./config/env.validation";
 import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
+import { HealthService } from "./health.service";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -124,6 +125,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     TraceabilityModule
   ],
   providers: [
+    HealthService,
     MongoSyncService,
     {
       provide: APP_GUARD,

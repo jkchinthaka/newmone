@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Inject, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Inject, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
+import type { Request, Response } from "express";
 
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
@@ -19,26 +20,48 @@ export class AuthController {
 
   @Public()
   @Post("register")
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.register(dto);
+    this.setAuthCookies(res, result.data);
+    return result;
   }
 
   @Public()
   @Post("login")
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto);
+    this.setAuthCookies(res, result.data);
+    return result;
   }
 
   @Public()
   @Post("refresh")
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto);
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const refreshToken = dto.refreshToken ?? this.getCookie(req, "maintainpro_refresh");
+    if (!refreshToken) {
+      throw new BadRequestException("Refresh token is required");
+    }
+
+    const result = await this.authService.refresh({ refreshToken });
+    this.setAuthCookies(res, result.data);
+    return result;
   }
 
   @Public()
   @Post("logout")
-  logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto);
+  async logout(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const refreshToken = dto.refreshToken ?? this.getCookie(req, "maintainpro_refresh");
+    const result = await this.authService.logout({ refreshToken: refreshToken ?? "" });
+    this.clearAuthCookies(res);
+    return result;
   }
 
   @Public()
@@ -76,5 +99,51 @@ export class AuthController {
       data: req.user,
       message: "Google OAuth callback successful"
     };
+  }
+
+  private setAuthCookies(
+    res: Response,
+    tokens: { accessToken?: string; refreshToken?: string }
+  ): void {
+    const secure = process.env.NODE_ENV === "production";
+    const baseOptions = {
+      httpOnly: true,
+      sameSite: "lax" as const,
+      secure,
+      path: "/"
+    };
+
+    if (tokens.accessToken) {
+      res.cookie("maintainpro_access", tokens.accessToken, {
+        ...baseOptions,
+        maxAge: 15 * 60 * 1000
+      });
+    }
+
+    if (tokens.refreshToken) {
+      res.cookie("maintainpro_refresh", tokens.refreshToken, {
+        ...baseOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+    }
+  }
+
+  private clearAuthCookies(res: Response): void {
+    const secure = process.env.NODE_ENV === "production";
+    const options = { httpOnly: true, sameSite: "lax" as const, secure, path: "/" };
+    res.clearCookie("maintainpro_access", options);
+    res.clearCookie("maintainpro_refresh", options);
+  }
+
+  private getCookie(req: Request, name: string): string | null {
+    const header = req.headers.cookie;
+    if (!header) return null;
+
+    const match = header
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${name}=`));
+
+    return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
   }
 }

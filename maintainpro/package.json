@@ -21,6 +21,8 @@
     "db:generate": "npx prisma generate --schema ./prisma/schema.prisma",
     "db:migrate": "npx prisma migrate dev --schema ./prisma/schema.prisma",
     "db:seed": "npm run seed --workspace @maintainpro/api",
+    "smoke:local": "node scripts/smoke-local.mjs",
+    "bootstrap:local": "node scripts/bootstrap-local.mjs",
     "docker:up": "docker compose -f docker-compose.yml up -d --build",
     "docker:up:dev": "docker compose -f docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml down",

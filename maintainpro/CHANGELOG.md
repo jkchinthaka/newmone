@@ -11,6 +11,7 @@ A major feature release that turns MaintainPro into a multi-tenant farm
 operations platform on top of the existing maintenance core.
 
 ### Added — Backend (NestJS / Prisma)
+
 - Migrated Prisma datasource provider to **MongoDB** (`provider = "mongodb"`),
   with all model IDs converted to `String @db.ObjectId`, decimals replaced by
   `Float`, and explicit many-to-many links via `roleIds String[] @db.ObjectId`.
@@ -37,6 +38,7 @@ operations platform on top of the existing maintenance core.
   no-ops when `OPENWEATHER_API_KEY` is not configured.
 
 ### Added — Web (Next.js App Router)
+
 - 13 farm pages under `apps/web/app/(dashboard)/farm/`:
   - `farm/` (hub with stat cards + 12 quick links).
   - `farm/fields/`, `farm/crops/`, `farm/spray-logs/`, `farm/harvest/`,
@@ -51,6 +53,7 @@ operations platform on top of the existing maintenance core.
   to avoid SSR `window` errors.
 
 ### Added — Mobile (Flutter / Riverpod)
+
 - New top-level **Farm** tab on the mobile dashboard for `superAdmin`,
   `admin`, `manager`, and `supervisor` roles.
 - `FarmScreen` exposes 8 sub-tabs: Fields, Crops, Livestock, Health,
@@ -60,11 +63,13 @@ operations platform on top of the existing maintenance core.
   and consumes the `{ data }` response envelope.
 
 ### Performance
+
 - Confirmed 122 `@@index` declarations across the Prisma schema; all farm
   models indexed on `tenantId` plus their primary lookup fields
   (e.g., `fieldId`, `cropId`, `recordedAt`, `date`).
 
 ### Tooling / Ops
+
 - Renovate config added at `.github/renovate.json` (weekly schedule).
 - Workspace version bumped to `1.2.0` across:
   `package.json`, `apps/api/package.json`, `apps/web/package.json`,
@@ -72,6 +77,7 @@ operations platform on top of the existing maintenance core.
   `apps/mobile/pubspec.yaml` (`1.2.0+2`).
 
 ### Notes
+
 - Caching is in-process and tenant-scoped; for multi-replica deployments,
   replace `FarmCacheService` with a Redis-backed implementation.
 - `@nestjs/schedule` is intentionally **not** installed; jobs use
@@ -80,4 +86,4 @@ operations platform on top of the existing maintenance core.
 ## [1.0.0] - Initial release
 
 - Maintenance work orders, assets, parts, vendors, predictive AI copilot,
-  cleaning module, mobile app, and realtime Mongo sync dashboard.
+  cleaning module, and mobile app.
