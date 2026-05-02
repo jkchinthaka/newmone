@@ -106,9 +106,10 @@ export class AuthController {
     tokens: { accessToken?: string; refreshToken?: string }
   ): void {
     const secure = process.env.NODE_ENV === "production";
+    const sameSite = secure ? ("none" as const) : ("lax" as const);
     const baseOptions = {
       httpOnly: true,
-      sameSite: "lax" as const,
+      sameSite,
       secure,
       path: "/"
     };
@@ -130,7 +131,8 @@ export class AuthController {
 
   private clearAuthCookies(res: Response): void {
     const secure = process.env.NODE_ENV === "production";
-    const options = { httpOnly: true, sameSite: "lax" as const, secure, path: "/" };
+    const sameSite = secure ? ("none" as const) : ("lax" as const);
+    const options = { httpOnly: true, sameSite, secure, path: "/" };
     res.clearCookie("maintainpro_access", options);
     res.clearCookie("maintainpro_refresh", options);
   }

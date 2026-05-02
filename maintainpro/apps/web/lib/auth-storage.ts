@@ -10,8 +10,12 @@ export function clearStoredTokens() {
 
 export function getAccessToken() {
   if (typeof window === "undefined") return null;
-  clearStoredTokens();
-  return null;
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!token || token.trim().length === 0) {
+    return null;
+  }
+
+  return token;
 }
 
 export function setAuthSession(payload: {
@@ -20,7 +24,12 @@ export function setAuthSession(payload: {
   user?: unknown;
 }) {
   if (typeof window === "undefined") return;
-  clearStoredTokens();
+  localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken);
+  if (payload.refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
   if (payload.user) {
     localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
   }
@@ -28,8 +37,10 @@ export function setAuthSession(payload: {
 
 export function setAccessToken(accessToken: string) {
   if (typeof window === "undefined") return;
-  if (accessToken) {
-    clearStoredTokens();
+  if (accessToken && accessToken.trim().length > 0) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  } else {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
   }
 }
 
