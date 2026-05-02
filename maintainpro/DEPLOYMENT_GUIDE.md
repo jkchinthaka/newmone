@@ -24,7 +24,12 @@ Run commands from the `maintainpro` directory unless a platform setting says oth
 1. Create a MongoDB Atlas account.
 2. Create an M0 free cluster.
 3. Create a database user with a strong password.
-4. In Network Access, allow Render to connect. For quick free-tier setup use `0.0.0.0/0`; for stronger security, replace it with specific outbound IPs if your Render plan provides them.
+4. In Network Access, allow Render to connect.
+   - Recommended: add the outbound ranges shown by your Render service/region.
+   - For this workspace, use:
+     - `74.220.49.0/24`
+     - `74.220.57.0/24`
+   - Quick trial fallback: `0.0.0.0/0` (less secure; avoid for long-term production).
 5. Click Connect, choose Drivers, and copy the Node.js connection string.
 6. Replace the username, password, cluster host, and database name. Use a real database path such as `/nelna`.
 7. Set both Render variables to the same Atlas URI:
@@ -90,6 +95,7 @@ Notes:
 - `JWT_SECRET` is enough for low-cost deployment. `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` remain supported if you want split secrets.
 - Without `REDIS_URL`, background queues may be degraded, but the API can boot and `/health` will still report database status.
 - Cloudinary is recommended for persistent file uploads on Render. Render free instance disk is ephemeral.
+- If Atlas (or another external provider) enforces IP allowlists, include your Render outbound CIDRs (`74.220.49.0/24`, `74.220.57.0/24`) in that provider's firewall rules.
 
 ## 4. Vercel Frontend Settings
 
