@@ -1,5 +1,5 @@
 {
-  "name": "maintainpro-web",
+  "name": "newmone",
   "main": "maintainpro/apps/web/.open-next/worker.js",
   "compatibility_date": "2026-05-02",
   "compatibility_flags": ["nodejs_compat"],
