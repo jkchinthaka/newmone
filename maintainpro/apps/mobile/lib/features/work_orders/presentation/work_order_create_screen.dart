@@ -143,7 +143,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Priority', style: AppTextStyles.subtitle),
+                const Text('Priority', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 Wrap(
                   spacing: AppSpacing.xs,
@@ -158,7 +158,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Type', style: AppTextStyles.subtitle),
+                const Text('Type', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 Wrap(
                   spacing: AppSpacing.xs,

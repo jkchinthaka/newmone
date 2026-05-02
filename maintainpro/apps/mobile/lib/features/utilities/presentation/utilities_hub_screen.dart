@@ -52,7 +52,7 @@ class UtilitiesHubScreen extends ConsumerWidget {
                         data: (a) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('This month', style: AppTextStyles.subtitle),
+                            const Text('This month', style: AppTextStyles.subtitle),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
                                 '\$${a.totalSpentThisMonth.toStringAsFixed(2)}',

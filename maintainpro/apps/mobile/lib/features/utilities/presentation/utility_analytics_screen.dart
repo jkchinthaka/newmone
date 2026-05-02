@@ -41,7 +41,7 @@ class UtilityAnalyticsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Overview', style: AppTextStyles.subtitle),
+                        const Text('Overview', style: AppTextStyles.subtitle),
                         const SizedBox(height: AppSpacing.sm),
                         _kv('Total meters', '${a.totalMeters}'),
                         _kv('Active meters', '${a.activeMeters}'),
@@ -65,7 +65,7 @@ class UtilityAnalyticsScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Spend by type', style: AppTextStyles.subtitle),
+                          const Text('Spend by type', style: AppTextStyles.subtitle),
                           const SizedBox(height: AppSpacing.md),
                           SizedBox(
                             height: 220,

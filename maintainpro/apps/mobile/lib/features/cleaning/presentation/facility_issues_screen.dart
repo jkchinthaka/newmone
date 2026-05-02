@@ -329,7 +329,7 @@ class _CreateIssueFormState extends ConsumerState<_CreateIssueForm> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text('Severity', style: AppTextStyles.label),
+          const Text('Severity', style: AppTextStyles.label),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
@@ -347,7 +347,7 @@ class _CreateIssueFormState extends ConsumerState<_CreateIssueForm> {
             error: (e, _) => Text('Could not load locations: $e',
                 style: AppTextStyles.caption),
             data: (items) => DropdownButtonFormField<CleaningLocation?>(
-              value: _location,
+              initialValue: _location,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Location (optional)',

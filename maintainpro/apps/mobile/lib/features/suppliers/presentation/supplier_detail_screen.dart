@@ -154,7 +154,7 @@ Future<void> _showEdit(BuildContext context, WidgetRef ref, Supplier s) async {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Edit supplier', style: AppTextStyles.title),
+              const Text('Edit supplier', style: AppTextStyles.title),
               const SizedBox(height: AppSpacing.md),
               TextField(
                   controller: nameCtrl,

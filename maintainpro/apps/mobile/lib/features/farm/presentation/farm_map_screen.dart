@@ -147,16 +147,16 @@ class _FarmMapBody extends StatelessWidget {
     }
 
     if (markers.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.map_outlined, size: 64),
-              const SizedBox(height: AppSpacing.sm),
+              Icon(Icons.map_outlined, size: 64),
+              SizedBox(height: AppSpacing.sm),
               Text('No GPS data yet', style: AppTextStyles.title),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                   'Add coordinates to fields and tag livestock to see them here.',
                   textAlign: TextAlign.center,

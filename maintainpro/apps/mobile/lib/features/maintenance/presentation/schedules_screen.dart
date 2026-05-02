@@ -179,7 +179,7 @@ Future<void> _showCreateSheet(BuildContext context, WidgetRef ref) async {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New schedule', style: AppTextStyles.title),
+                const Text('New schedule', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: nameCtrl,

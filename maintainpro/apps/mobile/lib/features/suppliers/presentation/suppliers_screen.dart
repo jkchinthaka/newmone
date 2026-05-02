@@ -142,7 +142,7 @@ Future<void> _showCreateSupplier(BuildContext context, WidgetRef ref) async {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('New supplier', style: AppTextStyles.title),
+              const Text('New supplier', style: AppTextStyles.title),
               const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: nameCtrl,

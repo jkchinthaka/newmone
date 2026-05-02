@@ -53,10 +53,10 @@ class WorkOrdersScreen extends ConsumerWidget {
           bottom: false,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
+              const Padding(
+                padding: EdgeInsets.fromLTRB(
                     AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.sm),
-                child: const WorkOrderSearchField(),
+                child: WorkOrderSearchField(),
               ),
               const WorkOrderActiveFiltersBar(),
               Expanded(

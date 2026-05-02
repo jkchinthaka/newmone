@@ -71,7 +71,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   Text('Forgot your password?',
                       style: AppTextStyles.display.copyWith(fontSize: 24)),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(
+                  const Text(
                     'Enter your email and we will send you a link to reset your password.',
                     style: AppTextStyles.bodySecondary,
                   ),

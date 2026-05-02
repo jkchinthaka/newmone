@@ -71,7 +71,7 @@ class VehicleDetailScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.md),
                 _InfoCard(vehicle: vehicle),
                 const SizedBox(height: AppSpacing.md),
-                Text('Recent fuel logs', style: AppTextStyles.subtitle),
+                const Text('Recent fuel logs', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 fuelAsync.when(
                   loading: () => const _Skeleton(),
@@ -84,7 +84,7 @@ class VehicleDetailScreen extends ConsumerWidget {
                   orElse: () => const SizedBox.shrink(),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Recent trips', style: AppTextStyles.subtitle),
+                const Text('Recent trips', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 tripsAsync.when(
                   loading: () => const _Skeleton(),
@@ -117,7 +117,7 @@ class VehicleDetailScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Assign driver', style: AppTextStyles.title),
+              const Text('Assign driver', style: AppTextStyles.title),
               const SizedBox(height: AppSpacing.sm),
               DropdownButtonFormField<String>(
                 initialValue: selected,
@@ -197,7 +197,7 @@ class VehicleDetailScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Log fuel', style: AppTextStyles.title),
+              const Text('Log fuel', style: AppTextStyles.title),
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: liters,
@@ -300,7 +300,7 @@ class VehicleDetailScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Start trip', style: AppTextStyles.title),
+                const Text('Start trip', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<String>(
                   initialValue: driverId,
@@ -378,7 +378,7 @@ class VehicleDetailScreen extends ConsumerWidget {
 
   Future<void> _showStatusSheet(
       BuildContext context, WidgetRef ref, Vehicle vehicle) async {
-    final statuses = const [
+    const statuses = [
       'AVAILABLE',
       'IN_USE',
       'UNDER_MAINTENANCE',

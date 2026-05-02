@@ -202,7 +202,7 @@ Future<void> _showCreatePart(BuildContext context, WidgetRef ref) async {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New part', style: AppTextStyles.title),
+                const Text('New part', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: partNumberCtrl,

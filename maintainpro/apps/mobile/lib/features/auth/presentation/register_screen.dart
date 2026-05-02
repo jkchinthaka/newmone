@@ -92,7 +92,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Text('Sign up',
                       style: AppTextStyles.display.copyWith(fontSize: 26)),
                   const SizedBox(height: AppSpacing.xs),
-                  Text('Get started with MaintainPro',
+                  const Text('Get started with MaintainPro',
                       style: AppTextStyles.bodySecondary),
                   const SizedBox(height: AppSpacing.xl),
                   Row(
@@ -192,7 +192,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Already have an account? ',
+                      const Text('Already have an account? ',
                           style: AppTextStyles.bodySecondary),
                       GestureDetector(
                         onTap: () => context.pop(),

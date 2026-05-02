@@ -101,7 +101,7 @@ class FuelLogsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Log fuel', style: AppTextStyles.title),
+                const Text('Log fuel', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<String>(
                   initialValue: vehicleId,

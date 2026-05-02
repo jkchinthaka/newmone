@@ -152,7 +152,7 @@ class WorkOrderActiveFiltersBar extends ConsumerWidget {
               return TextButton.icon(
                 onPressed: () => notifier.state = const WorkOrderListFilters(),
                 icon: const Icon(Icons.clear_all_rounded, size: 16),
-                label: Text('Clear all', style: AppTextStyles.caption),
+                label: const Text('Clear all', style: AppTextStyles.caption),
               );
             }
             return chips[i];
@@ -197,7 +197,7 @@ Future<void> showWorkOrderFilterSheet(
                       children: [
                         Row(
                           children: [
-                            Text('Filter Work Orders',
+                            const Text('Filter Work Orders',
                                 style: AppTextStyles.title),
                             const Spacer(),
                             IconButton(
@@ -235,7 +235,7 @@ Future<void> showWorkOrderFilterSheet(
                         SwitchListTile.adaptive(
                           contentPadding: EdgeInsets.zero,
                           title:
-                              Text('Assigned to me', style: AppTextStyles.body),
+                              const Text('Assigned to me', style: AppTextStyles.body),
                           value: draft.assignedToMe,
                           activeColor: AppColors.primaryLight,
                           onChanged: (v) => setState(

@@ -66,7 +66,7 @@ class WorkOrder {
       status != 'CANCELLED';
 
   factory WorkOrder.fromJson(Map<String, dynamic> json) {
-    String? _name(dynamic v) {
+    String? name(dynamic v) {
       if (v is Map<String, dynamic>) {
         final dn = (v['displayName'] ?? '').toString().trim();
         if (dn.isNotEmpty) return dn;
@@ -80,7 +80,7 @@ class WorkOrder {
       return null;
     }
 
-    DateTime? _date(dynamic v) {
+    DateTime? date(dynamic v) {
       if (v == null) return null;
       try {
         return DateTime.parse(v.toString()).toLocal();
@@ -102,7 +102,7 @@ class WorkOrder {
       status: (json['status'] ?? 'OPEN').toString(),
       priority: (json['priority'] ?? 'MEDIUM').toString(),
       type: (json['type'] ?? 'CORRECTIVE').toString(),
-      createdAt: _date(json['createdAt']) ?? DateTime.now(),
+      createdAt: date(json['createdAt']) ?? DateTime.now(),
       assetId:
           (json['assetId'] ?? (asset is Map ? asset['id'] : null))?.toString(),
       assetName:
@@ -114,15 +114,15 @@ class WorkOrder {
           : null,
       technicianId: (json['technicianId'] ?? (tech is Map ? tech['id'] : null))
           ?.toString(),
-      technicianName: _name(tech),
+      technicianName: name(tech),
       createdById:
           (json['createdById'] ?? (creator is Map ? creator['id'] : null))
               ?.toString(),
-      createdByName: _name(creator),
-      dueDate: _date(json['dueDate']),
-      slaDeadline: _date(json['slaDeadline']),
-      startDate: _date(json['startDate']),
-      completedDate: _date(json['completedDate']),
+      createdByName: name(creator),
+      dueDate: date(json['dueDate']),
+      slaDeadline: date(json['slaDeadline']),
+      startDate: date(json['startDate']),
+      completedDate: date(json['completedDate']),
       estimatedCost: _num(json['estimatedCost']),
       estimatedHours: _num(json['estimatedHours']),
       actualCost: _num(json['actualCost']),

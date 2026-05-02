@@ -63,7 +63,7 @@ class _VehiclesScreenState extends ConsumerState<VehiclesScreen> {
             user.role == UserRole.admin ||
             user.role == UserRole.assetManager);
 
-    final statusOptions = const [
+    const statusOptions = [
       'AVAILABLE',
       'IN_USE',
       'UNDER_MAINTENANCE',
@@ -195,7 +195,7 @@ class _VehiclesScreenState extends ConsumerState<VehiclesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Add vehicle', style: AppTextStyles.title),
+                  const Text('Add vehicle', style: AppTextStyles.title),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: reg,

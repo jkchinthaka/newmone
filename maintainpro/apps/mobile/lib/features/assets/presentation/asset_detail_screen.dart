@@ -375,7 +375,7 @@ class _Section extends StatelessWidget {
           Text(title, style: AppTextStyles.subtitle),
           const SizedBox(height: AppSpacing.xs),
           if (children.isEmpty)
-            Text('No data.', style: AppTextStyles.bodySecondary)
+            const Text('No data.', style: AppTextStyles.bodySecondary)
           else
             ...children,
         ],

@@ -268,7 +268,7 @@ class _BodyState extends ConsumerState<_Body> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Notes', style: AppTextStyles.subtitle),
+                const Text('Notes', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 TextField(
                   controller: _notesCtrl,
@@ -294,7 +294,7 @@ class _BodyState extends ConsumerState<_Body> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Sign-off', style: AppTextStyles.subtitle),
+                const Text('Sign-off', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 Row(
                   children: [

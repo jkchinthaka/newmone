@@ -413,10 +413,10 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         const SizedBox(height: AppSpacing.lg),
-        Icon(Icons.auto_awesome_rounded,
+        const Icon(Icons.auto_awesome_rounded,
             size: 64, color: AppColors.primaryLight),
         const SizedBox(height: AppSpacing.md),
-        Text('How can I help?',
+        const Text('How can I help?',
             textAlign: TextAlign.center, style: AppTextStyles.title),
         const SizedBox(height: AppSpacing.xs),
         Text(

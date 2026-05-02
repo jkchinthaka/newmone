@@ -253,7 +253,7 @@ class _DetailBody extends ConsumerWidget {
             ),
             children: wo.parts.isEmpty
                 ? [
-                    Text(
+                    const Text(
                       'No parts logged.',
                       style: AppTextStyles.bodySecondary,
                     ),

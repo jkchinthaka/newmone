@@ -24,7 +24,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
   @override
   Widget build(BuildContext context) {
     final trips = ref.watch(allTripsProvider);
-    final statuses = const ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+    const statuses = ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Trips')),

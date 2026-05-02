@@ -408,10 +408,10 @@ export default function VehiclesPage() {
     }
   }
 
-  function exportCurrentViewCsv() {
+  function getVehicleExportRows() {
     if (rows.length === 0) {
       toast.error("No vehicle rows to export.");
-      return;
+      return null;
     }
 
     const headers = [
@@ -440,7 +440,17 @@ export default function VehiclesPage() {
       vehicle.nextServiceMileage ? String(vehicle.nextServiceMileage) : ""
     ]);
 
-    const csv = [headers, ...records]
+    return { headers, records };
+  }
+
+  function exportCurrentViewCsv() {
+    const exportRows = getVehicleExportRows();
+
+    if (!exportRows) {
+      return;
+    }
+
+    const csv = [exportRows.headers, ...exportRows.records]
       .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
       .join("\n");
 
@@ -455,6 +465,68 @@ export default function VehiclesPage() {
     window.URL.revokeObjectURL(url);
 
     toast.success("Current vehicle view exported as CSV.");
+  }
+
+  async function exportCurrentViewExcel() {
+    const exportRows = getVehicleExportRows();
+
+    if (!exportRows) {
+      return;
+    }
+
+    const XLSX = await import("xlsx");
+    const worksheet = XLSX.utils.aoa_to_sheet([exportRows.headers, ...exportRows.records]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicles");
+    XLSX.writeFile(workbook, `vehicles-page-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    toast.success("Current vehicle view exported as Excel.");
+  }
+
+  function exportCurrentViewPdf() {
+    const exportRows = getVehicleExportRows();
+
+    if (!exportRows) {
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1100,height=800");
+
+    if (!printWindow) {
+      toast.error("Enable pop-ups to export the vehicle view as PDF.");
+      return;
+    }
+
+    const generatedAt = new Date().toLocaleString();
+    const tableHead = exportRows.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+    const tableRows = exportRows.records
+      .map((record) => `<tr>${record.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+      .join("");
+
+    printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <title>Vehicle Export</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
+      h1 { font-size: 22px; margin: 0 0 4px; }
+      p { color: #475569; margin: 0 0 18px; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; font-size: 11px; }
+      th, td { border: 1px solid #cbd5e1; padding: 7px 8px; text-align: left; vertical-align: top; }
+      th { background: #f1f5f9; font-weight: 700; }
+      tr:nth-child(even) td { background: #f8fafc; }
+    </style>
+  </head>
+  <body>
+    <h1>Vehicle Export</h1>
+    <p>${escapeHtml(exportRows.records.length)} vehicle(s) from the current filtered view. Generated ${escapeHtml(generatedAt)}.</p>
+    <table><thead><tr>${tableHead}</tr></thead><tbody>${tableRows}</tbody></table>
+    <script>window.addEventListener("load", () => { window.print(); });</script>
+  </body>
+</html>`);
+    printWindow.document.close();
+
+    toast.success("Vehicle PDF export opened in a print window.");
   }
 
   const summaryCards = useMemo(
@@ -828,10 +900,9 @@ export default function VehiclesPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Advanced & Future Enhancements</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Fleet Data Exports</h3>
         <p className="mt-1 text-sm text-slate-600">
-          This workspace is now prepared for deeper fleet intelligence modules. Immediate export is available for CSV,
-          with PDF and Excel exports staged as next upgrades.
+          Download the current filtered vehicle view for offline analysis, audit sharing, or printable reporting.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <FutureFeatureCard
@@ -863,17 +934,17 @@ export default function VehiclesPage() {
           </button>
           <button
             type="button"
-            disabled
-            className="cursor-not-allowed rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-400"
+            onClick={() => void exportCurrentViewExcel()}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
           >
-            Export Excel (coming soon)
+            Export Excel
           </button>
           <button
             type="button"
-            disabled
-            className="cursor-not-allowed rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-400"
+            onClick={exportCurrentViewPdf}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
           >
-            Export PDF (coming soon)
+            Export PDF
           </button>
         </div>
       </section>
@@ -1313,6 +1384,15 @@ function formatDate(value: string) {
   }
 
   return parsed.toLocaleDateString();
+}
+
+function escapeHtml(value: unknown) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function buildErrorMessage(error: any, fallback: string) {

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { RoleName } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
@@ -10,6 +11,7 @@ export class UsersService {
 
   findAll(params: { q?: string; pageSize?: number; roleName?: string } = {}) {
     const q = params.q?.trim();
+    const roleName = this.parseRoleName(params.roleName);
     const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
     return this.prisma.user.findMany({
       where: {
@@ -23,13 +25,27 @@ export class UsersService {
                 ]
               }
             : {},
-          params.roleName ? { role: { is: { name: params.roleName } } } : {}
+          roleName ? { role: { is: { name: roleName } } } : {}
         ]
       },
       include: { role: true },
       orderBy: { createdAt: "desc" },
       take
     });
+  }
+
+  private parseRoleName(value?: string): RoleName | undefined {
+    const trimmed = value?.trim();
+
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if ((Object.values(RoleName) as string[]).includes(trimmed)) {
+      return trimmed as RoleName;
+    }
+
+    throw new BadRequestException(`Invalid roleName filter: ${trimmed}`);
   }
 
   async findOne(id: string) {

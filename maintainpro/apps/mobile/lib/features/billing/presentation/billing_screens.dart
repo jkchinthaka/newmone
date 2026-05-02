@@ -112,12 +112,12 @@ class BillingHubScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(AppSpacing.md,
               kToolbarHeight + AppSpacing.md, AppSpacing.md, AppSpacing.md),
           children: [
-            Text('Subscription', style: AppTextStyles.title),
+            const Text('Subscription', style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.sm),
             subAsync.when(
               data: (data) => _glassCard(
                 child: data.isEmpty
-                    ? Text('No active subscription',
+                    ? const Text('No active subscription',
                         style: AppTextStyles.bodySecondary)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,12 +134,12 @@ class BillingHubScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('Usage', style: AppTextStyles.title),
+            const Text('Usage', style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.sm),
             usageAsync.when(
               data: (data) => _glassCard(
                 child: data.isEmpty
-                    ? Text('No usage data', style: AppTextStyles.bodySecondary)
+                    ? const Text('No usage data', style: AppTextStyles.bodySecondary)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -195,7 +195,7 @@ class BillingHubScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Start checkout', style: AppTextStyles.title),
+                const Text('Start checkout', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: controller,

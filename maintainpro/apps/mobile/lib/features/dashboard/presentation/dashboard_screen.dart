@@ -184,7 +184,7 @@ class _DashboardContent extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
           child: Row(
             children: [
-              Text('Recent activity', style: AppTextStyles.title),
+              const Text('Recent activity', style: AppTextStyles.title),
               const Spacer(),
               TextButton(
                 onPressed: () => GoRouter.of(context).go('/work-orders'),

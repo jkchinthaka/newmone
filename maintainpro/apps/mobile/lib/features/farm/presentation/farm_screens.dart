@@ -381,7 +381,7 @@ class FieldDetailScreen extends ConsumerWidget {
               ],
             )),
             const SizedBox(height: AppSpacing.md),
-            Text('Crop cycles', style: AppTextStyles.subtitle),
+            const Text('Crop cycles', style: AppTextStyles.subtitle),
             const SizedBox(height: AppSpacing.xs),
             crops.when(
               loading: () => const Padding(
@@ -584,7 +584,7 @@ class CropDetailScreen extends ConsumerWidget {
                 child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Costs (LKR)', style: AppTextStyles.subtitle),
+                const Text('Costs (LKR)', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.xs),
                 _kv('Seed', c.seedCostLkr),
                 _kv('Fertilizer', c.fertilizerCostLkr),
@@ -605,7 +605,7 @@ class CropDetailScreen extends ConsumerWidget {
                   child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Notes', style: AppTextStyles.subtitle),
+                  const Text('Notes', style: AppTextStyles.subtitle),
                   const SizedBox(height: AppSpacing.xs),
                   Text(c.notes!, style: AppTextStyles.body),
                 ],
@@ -1903,7 +1903,7 @@ class WorkerDetailScreen extends ConsumerWidget {
               ],
             )),
             const SizedBox(height: AppSpacing.md),
-            Text('Attendance', style: AppTextStyles.subtitle),
+            const Text('Attendance', style: AppTextStyles.subtitle),
             const SizedBox(height: AppSpacing.xs),
             att.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -2017,9 +2017,9 @@ class AttendanceScreen extends ConsumerWidget {
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Tenant attendance view', style: AppTextStyles.subtitle),
+              const Text('Tenant attendance view', style: AppTextStyles.subtitle),
               const SizedBox(height: AppSpacing.xs),
-              Text(
+              const Text(
                 'Open a worker to view and record their attendance.',
                 style: AppTextStyles.bodySecondary,
               ),
@@ -2091,7 +2091,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                     child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Totals', style: AppTextStyles.subtitle),
+                    const Text('Totals', style: AppTextStyles.subtitle),
                     const SizedBox(height: AppSpacing.xs),
                     _kv('Income', s.totalIncome, color: AppColors.success),
                     _kv('Expense', s.totalExpense, color: AppColors.error),
@@ -2107,7 +2107,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                       child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Expense by category',
+                      const Text('Expense by category',
                           style: AppTextStyles.subtitle),
                       const SizedBox(height: AppSpacing.xs),
                       ...s.expenseByCategory.entries
@@ -2120,7 +2120,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                       child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Income by source', style: AppTextStyles.subtitle),
+                      const Text('Income by source', style: AppTextStyles.subtitle),
                       const SizedBox(height: AppSpacing.xs),
                       ...s.incomeBySource.entries
                           .map((e) => _kv(e.key, e.value)),

@@ -126,7 +126,7 @@ class _SummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Fleet at a glance', style: AppTextStyles.subtitle),
+              const Text('Fleet at a glance', style: AppTextStyles.subtitle),
               const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,

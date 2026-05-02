@@ -63,7 +63,7 @@ class PartDetailScreen extends ConsumerWidget {
                 orElse: () => const SizedBox.shrink(),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text('Recent movements', style: AppTextStyles.subtitle),
+              const Text('Recent movements', style: AppTextStyles.subtitle),
               const SizedBox(height: AppSpacing.xs),
               movements.when(
                 loading: () => const Center(
@@ -74,9 +74,9 @@ class PartDetailScreen extends ConsumerWidget {
                 error: (e, _) => Text('Failed: $e',
                     style: AppTextStyles.body.copyWith(color: AppColors.error)),
                 data: (list) => list.isEmpty
-                    ? Padding(
+                    ? const Padding(
                         padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            EdgeInsets.symmetric(vertical: AppSpacing.md),
                         child: Text('No movements yet',
                             style: AppTextStyles.bodySecondary),
                       )

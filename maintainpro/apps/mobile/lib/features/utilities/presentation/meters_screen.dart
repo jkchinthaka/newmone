@@ -157,7 +157,7 @@ Future<void> _showCreateMeter(BuildContext context, WidgetRef ref) async {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New meter', style: AppTextStyles.title),
+                const Text('New meter', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: numberCtrl,

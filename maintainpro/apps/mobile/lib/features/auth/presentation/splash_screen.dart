@@ -66,7 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 Text('MaintainPro',
                     style: AppTextStyles.display.copyWith(fontSize: 32)),
                 const SizedBox(height: AppSpacing.xs),
-                Text('Facility & Fleet Management',
+                const Text('Facility & Fleet Management',
                     style: AppTextStyles.bodySecondary),
                 const SizedBox(height: AppSpacing.xxl),
                 const SizedBox(

@@ -85,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Text('Welcome back',
                           style: AppTextStyles.display.copyWith(fontSize: 28)),
                       const SizedBox(height: AppSpacing.xs),
-                      Text('Sign in to continue to MaintainPro',
+                      const Text('Sign in to continue to MaintainPro',
                           style: AppTextStyles.bodySecondary),
                       const SizedBox(height: AppSpacing.xxl),
                       TextFormField(
@@ -143,7 +143,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text("Don't have an account? ",
+                          const Text("Don't have an account? ",
                               style: AppTextStyles.bodySecondary),
                           GestureDetector(
                             onTap: () => context.push('/register'),

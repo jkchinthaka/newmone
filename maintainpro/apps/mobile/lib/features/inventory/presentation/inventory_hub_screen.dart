@@ -45,7 +45,7 @@ class InventoryHubScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Inventory at a glance',
+                          const Text('Inventory at a glance',
                               style: AppTextStyles.subtitle),
                           const SizedBox(height: AppSpacing.md),
                           parts.when(

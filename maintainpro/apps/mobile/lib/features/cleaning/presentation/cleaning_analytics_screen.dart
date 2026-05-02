@@ -91,7 +91,7 @@ class _AnalyticsBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        Text('Overview', style: AppTextStyles.title),
+        const Text('Overview', style: AppTextStyles.title),
         const SizedBox(height: AppSpacing.sm),
         GridView.count(
           crossAxisCount: 2,
@@ -134,10 +134,10 @@ class _AnalyticsBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Top cleaners', style: AppTextStyles.title),
+        const Text('Top cleaners', style: AppTextStyles.title),
         const SizedBox(height: AppSpacing.sm),
         if (cleanerStats.isEmpty)
-          _EmptyHint(text: 'No cleaner activity in selected range.')
+          const _EmptyHint(text: 'No cleaner activity in selected range.')
         else
           ...cleanerStats.whereType<Map>().map((raw) {
             final m = Map<String, dynamic>.from(raw);
@@ -152,7 +152,7 @@ class _AnalyticsBody extends StatelessWidget {
           }),
         const SizedBox(height: AppSpacing.lg),
         if (trend.isNotEmpty) ...[
-          Text('Daily trend', style: AppTextStyles.title),
+          const Text('Daily trend', style: AppTextStyles.title),
           const SizedBox(height: AppSpacing.sm),
           ...trend.whereType<Map>().take(14).map((raw) {
             final m = Map<String, dynamic>.from(raw);

@@ -99,7 +99,7 @@ Widget _renderValue(dynamic value) {
   }
   if (value is List) {
     if (value.isEmpty) {
-      return Text('No items', style: AppTextStyles.bodySecondary);
+      return const Text('No items', style: AppTextStyles.bodySecondary);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +148,7 @@ Widget _renderEntry(String key, dynamic value) {
           ),
           const SizedBox(height: AppSpacing.xs),
           if (value.isEmpty)
-            Text('No items', style: AppTextStyles.bodySecondary)
+            const Text('No items', style: AppTextStyles.bodySecondary)
           else
             for (var i = 0; i < value.length && i < 50; i++)
               Padding(
@@ -174,18 +174,18 @@ class ReportsHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = <_ReportTile>[
-      _ReportTile('Dashboard', Icons.dashboard_outlined, '/reports/dashboard'),
-      _ReportTile('Maintenance Cost', Icons.build_outlined,
+      const _ReportTile('Dashboard', Icons.dashboard_outlined, '/reports/dashboard'),
+      const _ReportTile('Maintenance Cost', Icons.build_outlined,
           '/reports/maintenance-cost'),
-      _ReportTile('Fleet Efficiency', Icons.local_shipping_outlined,
+      const _ReportTile('Fleet Efficiency', Icons.local_shipping_outlined,
           '/reports/fleet-efficiency'),
-      _ReportTile(
+      const _ReportTile(
           'Downtime', Icons.warning_amber_outlined, '/reports/downtime'),
-      _ReportTile(
+      const _ReportTile(
           'Work Orders', Icons.assignment_outlined, '/reports/work-orders'),
-      _ReportTile(
+      const _ReportTile(
           'Inventory', Icons.inventory_2_outlined, '/reports/inventory'),
-      _ReportTile('Utilities', Icons.bolt_outlined, '/reports/utilities'),
+      const _ReportTile('Utilities', Icons.bolt_outlined, '/reports/utilities'),
     ];
 
     return _scaffold(
@@ -242,7 +242,7 @@ class _ReportScreen extends ConsumerWidget {
       body: async.when(
         data: (data) {
           if (data.isEmpty) {
-            return Center(
+            return const Center(
                 child: Text('No data', style: AppTextStyles.bodySecondary));
           }
           return RefreshIndicator(

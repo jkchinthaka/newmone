@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   Building2,
   Car,
@@ -125,7 +124,7 @@ export default function MasterDataPage() {
         {MASTER_ENTITIES.map((entity) => {
           const Icon = entity.icon;
           return (
-            <Link
+            <a
               key={entity.href + entity.label}
               href={entity.href}
               className={`group flex flex-col gap-3 rounded-2xl border ${entity.border} ${entity.bg} p-5 transition hover:shadow-md`}
@@ -145,7 +144,7 @@ export default function MasterDataPage() {
                   {entity.description}
                 </p>
               </div>
-            </Link>
+            </a>
           );
         })}
       </div>

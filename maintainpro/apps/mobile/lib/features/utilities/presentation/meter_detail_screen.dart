@@ -73,7 +73,7 @@ class MeterDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Readings', style: AppTextStyles.subtitle),
+                const Text('Readings', style: AppTextStyles.subtitle),
                 const SizedBox(height: AppSpacing.sm),
                 readings.when(
                   loading: () =>
@@ -195,7 +195,7 @@ Future<void> _showAddReading(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New reading', style: AppTextStyles.title),
+                const Text('New reading', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: valueCtrl,

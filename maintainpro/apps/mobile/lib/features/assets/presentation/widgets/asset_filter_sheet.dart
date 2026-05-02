@@ -144,7 +144,7 @@ class AssetActiveFiltersBar extends ConsumerWidget {
         onDeleted: onClear,
         deleteIconColor: AppColors.textSecondary,
         backgroundColor: AppColors.card.withValues(alpha: 0.7),
-        side: BorderSide(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ));
     }
 

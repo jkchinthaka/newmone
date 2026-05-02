@@ -113,22 +113,22 @@ class SettingsHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tiles = <_SettingsTile>[
-      _SettingsTile('Profile', Icons.person_outline, '/settings/profile'),
-      _SettingsTile(
+      const _SettingsTile('Profile', Icons.person_outline, '/settings/profile'),
+      const _SettingsTile(
           'Organization', Icons.business_outlined, '/settings/organization'),
-      _SettingsTile('System', Icons.settings_outlined, '/settings/system'),
-      _SettingsTile(
+      const _SettingsTile('System', Icons.settings_outlined, '/settings/system'),
+      const _SettingsTile(
           'Integrations', Icons.extension_outlined, '/settings/integrations'),
-      _SettingsTile('Feature Toggles', Icons.toggle_on_outlined,
+      const _SettingsTile('Feature Toggles', Icons.toggle_on_outlined,
           '/settings/feature-toggles'),
-      _SettingsTile('Automation Rules', Icons.bolt_outlined,
+      const _SettingsTile('Automation Rules', Icons.bolt_outlined,
           '/settings/automation-rules'),
-      _SettingsTile('Digest Schedules', Icons.schedule_outlined,
+      const _SettingsTile('Digest Schedules', Icons.schedule_outlined,
           '/settings/digest-schedules'),
-      _SettingsTile(
+      const _SettingsTile(
           'Audit Logs', Icons.history_outlined, '/settings/audit-logs'),
-      _SettingsTile('Billing', Icons.credit_card_outlined, '/billing'),
-      _SettingsTile('About', Icons.info_outline, '/settings/about'),
+      const _SettingsTile('Billing', Icons.credit_card_outlined, '/billing'),
+      const _SettingsTile('About', Icons.info_outline, '/settings/about'),
     ];
 
     return _scaffold(
@@ -298,7 +298,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('Change password', style: AppTextStyles.subtitle),
+        const Text('Change password', style: AppTextStyles.subtitle),
         const SizedBox(height: AppSpacing.xs),
         _glassCard(
           child: Column(
@@ -472,7 +472,7 @@ class _EditableMapScreenState extends ConsumerState<_EditableMapScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 if ((l.value as List).isEmpty)
-                  Text('No items', style: AppTextStyles.bodySecondary)
+                  const Text('No items', style: AppTextStyles.bodySecondary)
                 else
                   for (final item in (l.value as List).take(20))
                     Padding(
@@ -611,7 +611,7 @@ class _FeatureTogglesScreenState extends ConsumerState<FeatureTogglesScreen> {
           final flat = _flatten(data);
           if (_local.isEmpty) _local.addAll(flat);
           if (_local.isEmpty) {
-            return Center(
+            return const Center(
                 child: Text('No feature toggles defined',
                     style: AppTextStyles.bodySecondary));
           }
@@ -682,7 +682,7 @@ class _ListMapsScreen extends ConsumerWidget {
       body: async.when(
         data: (items) {
           if (items.isEmpty) {
-            return Center(
+            return const Center(
                 child: Text('No items', style: AppTextStyles.bodySecondary));
           }
           return RefreshIndicator(
@@ -778,7 +778,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
       body: async.when(
         data: (items) {
           if (items.isEmpty) {
-            return Center(
+            return const Center(
                 child:
                     Text('No audit logs', style: AppTextStyles.bodySecondary));
           }
