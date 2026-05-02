@@ -11,6 +11,12 @@ maintainpro/**/dist
 maintainpro/**/.turbo
 maintainpro/**/coverage
 maintainpro/**/build
+maintainpro/.env
+maintainpro/.env.*
+maintainpro/**/.env
+maintainpro/**/.env.*
+!maintainpro/.env.example
+!maintainpro/**/.env.example
 maintainpro/apps/mobile/.dart_tool
 maintainpro/apps/mobile/build
 maintainpro/**/*.tsbuildinfo

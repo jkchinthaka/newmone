@@ -54,6 +54,10 @@ import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
+if (!process.env.NODE_ENV && process.env.RENDER) {
+  process.env.NODE_ENV = "production";
+}
+
 if (!process.env.DATABASE_URL && process.env.MONGODB_URI) {
   process.env.DATABASE_URL = process.env.MONGODB_URI;
 }
