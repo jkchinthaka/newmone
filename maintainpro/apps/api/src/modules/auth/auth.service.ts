@@ -24,6 +24,11 @@ export class AuthService {
     @Inject(ConfigService) private readonly configService: ConfigService
   ) {}
 
+  private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
+    const { passwordHash: _passwordHash, ...publicUser } = user;
+    return publicUser;
+  }
+
   private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>("JWT_ACCESS_SECRET"),
@@ -80,7 +85,7 @@ export class AuthService {
 
     return {
       data: {
-        user,
+        user: this.toPublicUser(user),
         ...tokens
       },
       message: "Registration successful"
@@ -117,7 +122,7 @@ export class AuthService {
 
     return {
       data: {
-        user,
+        user: this.toPublicUser(user),
         ...tokens
       },
       message: "Login successful"
@@ -241,7 +246,7 @@ export class AuthService {
 
     return {
       data: {
-        ...user,
+        ...this.toPublicUser(user),
         tenantId: resolvedTenantId
       },
       message: "Profile fetched"

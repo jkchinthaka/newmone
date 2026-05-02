@@ -11,9 +11,9 @@ services:
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
-      DATABASE_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-nelna}:${MONGO_INITDB_ROOT_PASSWORD:-nelna}@mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?authSource=admin
+      DATABASE_URL: mongodb://mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?replicaSet=rs0
       RAPIDAPI_GOOGLE_MAP_PLACES_KEY: ${RAPIDAPI_GOOGLE_MAP_PLACES_KEY:-}
-      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-nelna}:${MONGO_INITDB_ROOT_PASSWORD:-nelna}@mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?authSource=admin
+      MONGODB_URI: mongodb://mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?replicaSet=rs0
       REDIS_URL: redis://redis:6379
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
       FARM_DEFAULT_LATITUDE: ${FARM_DEFAULT_LATITUDE:-6.9271}
@@ -70,10 +70,6 @@ services:
     image: mongo:7
     ports:
       - "27018:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-nelna}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-nelna}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-nelna}
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - maintainpro-mongo-data-dev:/data/db
