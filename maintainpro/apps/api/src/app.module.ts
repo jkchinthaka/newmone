@@ -53,6 +53,22 @@ import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 
+// Normalize equivalent deployment variables before ConfigModule validation runs.
+if (!process.env.DATABASE_URL && process.env.MONGODB_URI) {
+  process.env.DATABASE_URL = process.env.MONGODB_URI;
+}
+
+if (!process.env.MONGODB_URI && process.env.DATABASE_URL) {
+  process.env.MONGODB_URI = process.env.DATABASE_URL;
+}
+
+if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
+  process.env.FRONTEND_URL = String(process.env.CORS_ORIGIN)
+    .split(",")
+    .map((value) => value.trim())
+    .find(Boolean);
+}
+
 @Module({
   controllers: [HealthController],
   imports: [
