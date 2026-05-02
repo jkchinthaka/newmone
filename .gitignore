@@ -30,8 +30,11 @@ build/
 coverage/
 *.tsbuildinfo
 maintainpro/apps/web/.next/
+maintainpro/apps/web/.open-next/
 .vercel/
 **/.vercel/
+.wrangler/
+**/.wrangler/
 uploads/
 **/uploads/
 
