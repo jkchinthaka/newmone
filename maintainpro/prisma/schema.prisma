@@ -37,6 +37,7 @@ model Tenant {
   cleaningVisits    CleaningVisit[]
   facilityIssues    FacilityIssue[]
   jobCodes          JobCode[]
+  departments       Department[]
 }
 
 model AuditLog {
@@ -95,21 +96,24 @@ model Permission {
 }
 
 model User {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String?  @db.ObjectId
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
-  email        String   @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  avatar       String?
-  roleId       String   @db.ObjectId
-  role         Role     @relation(fields: [roleId], references: [id])
-  isActive     Boolean  @default(true)
-  lastLogin    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?     @db.ObjectId
+  tenant         Tenant?     @relation(fields: [tenantId], references: [id])
+  email          String      @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  phone          String?
+  avatar         String?
+  roleId         String      @db.ObjectId
+  role           Role        @relation(fields: [roleId], references: [id])
+  /// FK to Department master — nullable for legacy records
+  departmentId   String?     @db.ObjectId
+  department     Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isActive       Boolean     @default(true)
+  lastLogin      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   assignedWorkOrders        WorkOrder[]            @relation("TechnicianWorkOrders")
   createdWorkOrders         WorkOrder[]            @relation("CreatorWorkOrders")
@@ -127,9 +131,11 @@ model User {
   copilotConversations      CopilotConversation[]
   copilotMessages           CopilotMessage[]
   copilotExchangeLogs       CopilotExchangeLog[]
+  managedDepartments        Department[]           @relation("DepartmentManager")
 
   @@index([tenantId])
   @@index([roleId])
+  @@index([departmentId])
 }
 
 model Role {
@@ -375,6 +381,36 @@ model StripeInvoice {
   @@index([subscriptionId])
 }
 
+// ─── Department Master ──────────────────────────────────────────────────────
+model Department {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?      @db.ObjectId
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  name        String
+  code        String
+  description String?
+  isActive    Boolean      @default(true)
+  /// Self-FK for hierarchical departments (parent org unit)
+  parentId    String?      @db.ObjectId
+  parent      Department?  @relation("DeptChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Department[] @relation("DeptChildren")
+  /// Optional FK to User who manages this department
+  managerId   String?      @db.ObjectId
+  manager     User?        @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  assets   Asset[]   @relation("AssetDepartment")
+  vehicles Vehicle[] @relation("VehicleDepartment")
+  drivers  Driver[]  @relation("DriverDepartment")
+  users    User[]    @relation("UserDepartment")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@index([tenantId, parentId])
+  @@index([managerId])
+}
+
 model Asset {
   id              String         @id @default(auto()) @map("_id") @db.ObjectId
   tenantId        String?        @db.ObjectId
@@ -388,7 +424,11 @@ model Asset {
   purchaseDate    DateTime?
   purchasePrice   Float?
   supplier        String?
+  /// Legacy free-text department — preserved for historical accuracy
   department      String?
+  /// FK to Department master — nullable for legacy records
+  departmentId    String?        @db.ObjectId
+  departmentRef   Department?    @relation("AssetDepartment", fields: [departmentId], references: [id])
   ownerName       String?
   currentValue    Float?
   location        String?
@@ -419,6 +459,7 @@ model Asset {
   @@index([condition])
   @@index([archivedAt])
   @@index([nextServiceDate])
+  @@index([departmentId])
 }
 
 enum AssetStatus {
@@ -483,6 +524,9 @@ model Vehicle {
   images             String[]
   driverId           String?       @db.ObjectId
   driver             Driver?       @relation(fields: [driverId], references: [id])
+  /// FK to Department master — nullable for legacy records
+  departmentId       String?       @db.ObjectId
+  department         Department?   @relation("VehicleDepartment", fields: [departmentId], references: [id])
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -498,6 +542,7 @@ model Vehicle {
   @@index([driverId])
   @@index([location])
   @@index([type])
+  @@index([departmentId])
 }
 
 enum VehicleType {
@@ -528,22 +573,26 @@ enum FuelType {
 }
 
 model Driver {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId      String?  @db.ObjectId
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
-  userId        String   @unique @db.ObjectId
-  user          User     @relation(fields: [userId], references: [id])
-  licenseNumber String   @unique
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?     @db.ObjectId
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
+  userId        String      @unique @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id])
+  licenseNumber String      @unique
   licenseClass  String
   licenseExpiry DateTime
-  isAvailable   Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isAvailable   Boolean     @default(true)
+  /// FK to Department master — nullable for legacy records
+  departmentId  String?     @db.ObjectId
+  department    Department? @relation("DriverDepartment", fields: [departmentId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   vehicles Vehicle[]
   tripLogs TripLog[]
 
   @@index([tenantId])
+  @@index([departmentId])
 }
 
 model FuelLog {
@@ -651,19 +700,29 @@ enum MaintenanceFrequency {
 }
 
 model JobCode {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String?  @db.ObjectId
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
-  code        String
-  name        String
-  description String?
-  category    String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?   @db.ObjectId
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
+  code            String
+  name            String
+  description     String?
+  category        String?
+  isActive        Boolean   @default(true)
+  /// null = main job; set = sub-job under this parent
+  parentId        String?   @db.ObjectId
+  parent          JobCode?  @relation("SubJobs", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subJobs         JobCode[] @relation("SubJobs")
+  estimatedHours  Float?
+  /// Skill tags (free-form strings)
+  requiredSkills  String[]
+  /// ObjectIds of SparePart documents required for this job
+  requiredPartIds String[]  @db.ObjectId
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
+  @@index([tenantId, parentId])
   @@index([category])
 }
 

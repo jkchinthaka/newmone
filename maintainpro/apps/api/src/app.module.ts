@@ -41,6 +41,7 @@ import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module
 import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
+import { DepartmentsModule } from "./modules/departments/departments.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { TenantContextGuard } from "./modules/tenancy/tenant-context.guard";
 import { TenantContextMiddleware } from "./modules/tenancy/tenant-context.middleware";
@@ -100,6 +101,7 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     JobCodesModule,
     WorkOrdersModule,
     InventoryModule,
+    DepartmentsModule,
     SuppliersModule,
     FuelModule,
     TripsModule,
