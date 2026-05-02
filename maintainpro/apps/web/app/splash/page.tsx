@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Wrench } from "lucide-react";
 
-import { getAccessToken } from "@/lib/auth-storage";
+import { apiClient } from "@/lib/api-client";
 
 export default function SplashPage() {
-  const router = useRouter();
-
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      window.location.replace(getAccessToken() ? "/home" : "/login");
+      apiClient
+        .get("/auth/me")
+        .then(() => window.location.replace("/home"))
+        .catch(() => window.location.replace("/login"));
     }, 1600);
 
     return () => window.clearTimeout(handle);
-  }, [router]);
+  }, []);
 
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_rgba(20,118,214,0.25),_transparent_35%),linear-gradient(135deg,#0f2b46,#115ea8_55%,#b8860b)] p-6 text-white">

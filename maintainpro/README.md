@@ -181,6 +181,18 @@ GitHub workflows:
 - `docker-build-check.yml`: verifies Docker images and compose config
 - `develop-staging-deploy.yml`: develop-branch staging build/deploy placeholder
 
+## Vercel Web Deployment
+
+The Next.js web app lives in `apps/web`, while the deployable monorepo root is `maintainpro`. The repository includes Vercel config for both common setups:
+
+- If the Vercel project root is the Git repository root, `../vercel.json` runs `cd maintainpro && npm run vercel:build` and serves `maintainpro/apps/web/.next`.
+- If the Vercel project root is `maintainpro`, `vercel.json` runs `npm run vercel:build` and serves `apps/web/.next`.
+
+Set these Vercel environment variables for hosted API connectivity:
+
+- `NEXT_PUBLIC_API_BASE_URL`, for example `https://api.example.com/api`
+- `NEXT_PUBLIC_API_ORIGIN`, for example `https://api.example.com`
+
 Configure repository secrets for staging deploy automation:
 
 - `STAGING_HOST`

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { CreateUserDto, InviteUserDto, UpdateUserDto, UpdateUserStatusDto } from "./dto/users.dto";
 import { UsersService } from "./users.service";
 
 @ApiTags("Users")
@@ -36,7 +37,7 @@ export class UsersController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN")
-  async create(@Body() body: { email: string; passwordHash: string; firstName: string; lastName: string; roleId: string; phone?: string }) {
+  async create(@Body() body: CreateUserDto) {
     const user = await this.usersService.create(body);
     return { data: user, message: "User created" };
   }
@@ -45,13 +46,7 @@ export class UsersController {
   @Roles("SUPER_ADMIN", "ADMIN")
   async invite(
     @Body()
-    body: {
-      email: string;
-      firstName: string;
-      lastName: string;
-      roleId: string;
-      phone?: string;
-    }
+    body: InviteUserDto
   ) {
     const user = await this.usersService.invite(body);
     return { data: user, message: "User invited" };
@@ -59,14 +54,14 @@ export class UsersController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN")
-  async update(@Param("id") id: string, @Body() body: Partial<{ firstName: string; lastName: string; phone: string; roleId: string }>) {
+  async update(@Param("id") id: string, @Body() body: UpdateUserDto) {
     const user = await this.usersService.update(id, body);
     return { data: user, message: "User updated" };
   }
 
   @Patch(":id/status")
   @Roles("SUPER_ADMIN", "ADMIN")
-  async updateStatus(@Param("id") id: string, @Body() body: { isActive: boolean }) {
+  async updateStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
     const user = await this.usersService.setActive(id, body.isActive);
     return { data: user, message: "User status updated" };
   }

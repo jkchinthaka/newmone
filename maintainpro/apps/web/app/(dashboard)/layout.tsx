@@ -7,7 +7,6 @@ import { Toaster } from "sonner";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
-import { getAccessToken } from "@/lib/auth-storage";
 import { setActiveTenantId } from "@/lib/tenant-context";
 
 export default function DashboardLayout({
@@ -31,13 +30,6 @@ export default function DashboardLayout({
 
   useEffect(() => {
     async function validateSession() {
-      const token = getAccessToken();
-
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
-
       try {
         const response = await apiClient.get<{ data?: { tenantId?: string | null } }>(
           "/auth/me"

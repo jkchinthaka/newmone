@@ -4,16 +4,35 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
+import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
+
+type UserRecord = { passwordHash: string };
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(params: { q?: string; pageSize?: number; roleName?: string } = {}) {
+  private toPublicUser<T extends UserRecord>(user: T): Omit<T, "passwordHash"> {
+    const { passwordHash: _passwordHash, ...publicUser } = user;
+    return publicUser;
+  }
+
+  private async ensureRoleExists(roleId: string): Promise<void> {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      select: { id: true }
+    });
+
+    if (!role) {
+      throw new BadRequestException("Role not found");
+    }
+  }
+
+  async findAll(params: { q?: string; pageSize?: number; roleName?: string } = {}) {
     const q = params.q?.trim();
     const roleName = this.parseRoleName(params.roleName);
     const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         AND: [
           q
@@ -32,6 +51,8 @@ export class UsersService {
       orderBy: { createdAt: "desc" },
       take
     });
+
+    return users.map((user) => this.toPublicUser(user));
   }
 
   private parseRoleName(value?: string): RoleName | undefined {
@@ -55,29 +76,13 @@ export class UsersService {
       throw new NotFoundException("User not found");
     }
 
-    return user;
+    return this.toPublicUser(user);
   }
 
-  create(data: {
-    email: string;
-    passwordHash: string;
-    firstName: string;
-    lastName: string;
-    roleId: string;
-    phone?: string;
-  }) {
-    return this.prisma.user.create({ data });
-  }
-
-  async invite(data: {
-    email: string;
-    firstName: string;
-    lastName: string;
-    roleId: string;
-    phone?: string;
-  }) {
+  async create(data: CreateUserDto) {
+    const email = data.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({
-      where: { email: data.email.toLowerCase() },
+      where: { email },
       select: { id: true }
     });
 
@@ -85,16 +90,47 @@ export class UsersService {
       throw new BadRequestException("Email already in use");
     }
 
+    await this.ensureRoleExists(data.roleId);
+
+    const passwordHash = await bcrypt.hash(data.password, 12);
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        roleId: data.roleId,
+        phone: data.phone?.trim() || undefined
+      },
+      include: { role: true }
+    });
+
+    return this.toPublicUser(user);
+  }
+
+  async invite(data: InviteUserDto) {
+    const email = data.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true }
+    });
+
+    if (existing) {
+      throw new BadRequestException("Email already in use");
+    }
+
+    await this.ensureRoleExists(data.roleId);
+
     const tempPassword = `Invite-${randomUUID().slice(0, 8)}`;
     const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
-        email: data.email.toLowerCase(),
-        firstName: data.firstName,
-        lastName: data.lastName,
+        email,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
         roleId: data.roleId,
-        phone: data.phone,
+        phone: data.phone?.trim() || undefined,
         passwordHash,
         isActive: true
       },
@@ -102,25 +138,41 @@ export class UsersService {
         role: true
       }
     });
+
+    return this.toPublicUser(user);
   }
 
-  async update(id: string, data: Partial<{ firstName: string; lastName: string; phone: string; roleId: string }>) {
+  async update(id: string, data: UpdateUserDto) {
     await this.findOne(id);
 
-    return this.prisma.user.update({
+    if (data.roleId) {
+      await this.ensureRoleExists(data.roleId);
+    }
+
+    const user = await this.prisma.user.update({
       where: { id },
-      data
+      data: {
+        firstName: data.firstName?.trim(),
+        lastName: data.lastName?.trim(),
+        phone: data.phone?.trim() || undefined,
+        roleId: data.roleId
+      },
+      include: { role: true }
     });
+
+    return this.toPublicUser(user);
   }
 
   async setActive(id: string, isActive: boolean) {
     await this.findOne(id);
 
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id },
       data: { isActive },
       include: { role: true }
     });
+
+    return this.toPublicUser(user);
   }
 
   async remove(id: string) {

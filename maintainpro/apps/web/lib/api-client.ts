@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearAuthSession, getAccessToken } from "@/lib/auth-storage";
+import { clearAuthSession, clearStoredTokens } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export const apiClient = axios.create({
@@ -45,12 +45,8 @@ function isAuthMeRequest(url?: string): boolean {
 }
 
 apiClient.interceptors.request.use((config) => {
-  const token = getAccessToken();
   const tenantId = getActiveTenantId();
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  clearStoredTokens();
 
   if (tenantId && !isAuthMeRequest(config.url)) {
     config.headers["X-Tenant-Id"] = tenantId;

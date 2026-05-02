@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "installCommand": "cd maintainpro && npm install",
+  "buildCommand": "cd maintainpro && npm run vercel:build",
+  "outputDirectory": "maintainpro/apps/web/.next"
+}

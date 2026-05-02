@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { AxiosError } from "axios";
 import { Loader2, UserPlus } from "lucide-react";
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
 
 type RegisterForm = {
@@ -50,10 +49,7 @@ export default function RegisterPage() {
 
       window.location.replace("/home");
     } catch (e) {
-      const err = e as AxiosError<{ message?: string | string[] }>;
-      const raw = err.response?.data?.message;
-      const message = Array.isArray(raw) ? raw.join(", ") : raw;
-      setError(message ?? "Registration failed. Check your details and try again.");
+      setError(getApiErrorMessage(e, "Registration failed. Check your details and try again."));
     } finally {
       setBusy(false);
     }

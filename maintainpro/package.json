@@ -13,6 +13,7 @@
     "dev:api": "npm run dev --workspace @maintainpro/api",
     "dev:web": "npm run dev --workspace @maintainpro/web",
     "build": "npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/ui-components && npm run build --workspace @maintainpro/api && npm run build --workspace @maintainpro/web",
+    "vercel:build": "npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/web",
     "lint": "npm run lint --workspace @maintainpro/api && npm run lint --workspace @maintainpro/web",
     "typecheck": "npm run typecheck --workspace @maintainpro/api && npm run typecheck --workspace @maintainpro/web",
     "test": "npm run test --workspace @maintainpro/api",

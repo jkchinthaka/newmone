@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
-import { getAccessToken } from "@/lib/auth-storage";
 
 export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
   // Keep latest handler in a ref so we don't reconnect the socket on every render.
@@ -12,11 +11,6 @@ export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
   }, [onEvent]);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      return;
-    }
-
     let cancelled = false;
     let socket: Socket | null = null;
 
@@ -30,7 +24,7 @@ export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
         `${process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:3000"}/notifications`,
         {
           transports: ["websocket"],
-          auth: { token },
+          withCredentials: true,
           reconnection: true,
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,

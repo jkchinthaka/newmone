@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import {
   clearAuthSession,
-  setAccessToken,
   updateStoredUserTenant
 } from "@/lib/auth-storage";
 import { apiClient } from "@/lib/api-client";
@@ -95,10 +94,6 @@ export function Topbar() {
       return response.data.data;
     },
     onSuccess: (payload, tenantId) => {
-      if (payload?.accessToken) {
-        setAccessToken(payload.accessToken);
-      }
-
       setActiveTenantId(tenantId);
       updateStoredUserTenant(tenantId);
 

@@ -15,7 +15,13 @@ type JwtPayload = {
 @Injectable()
 @WebSocketGateway({
   namespace: "/notifications",
-  cors: { origin: "*" }
+  cors: {
+    origin: (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? "http://localhost:3001")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+    credentials: true
+  }
 })
 export class NotificationsGateway implements OnGatewayConnection {
   @WebSocketServer()
@@ -68,6 +74,18 @@ export class NotificationsGateway implements OnGatewayConnection {
     const headerToken = client.handshake.headers.authorization;
     if (typeof headerToken === "string" && headerToken.trim()) {
       return headerToken.replace(/^Bearer\s+/i, "").trim();
+    }
+
+    const cookieHeader = client.handshake.headers.cookie;
+    if (typeof cookieHeader === "string" && cookieHeader.trim()) {
+      const match = cookieHeader
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("maintainpro_access="));
+
+      if (match) {
+        return decodeURIComponent(match.slice("maintainpro_access=".length));
+      }
     }
 
     return null;

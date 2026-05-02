@@ -22,6 +22,7 @@ export const useFleetSocket = ({ onLocationUpdated, onAlertCreated }: FleetSocke
       if (cancelled) return;
       socket = io(`${process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:3000"}/fleet`, {
         transports: ["websocket"],
+        withCredentials: true,
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
