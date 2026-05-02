@@ -5,6 +5,7 @@ import { RoleName, TenantMembershipRole } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { getAccessJwtSecret } from "../../config/jwt-secrets";
 
 type TenantSummary = {
   tenantId: string;
@@ -24,7 +25,7 @@ export class TenancyService {
 
   private async signAccessToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
-      secret: this.configService.get<string>("JWT_ACCESS_SECRET") ?? "dev-access-secret",
+      secret: getAccessJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_ACCESS_EXPIRES", "15m")
     });
   }

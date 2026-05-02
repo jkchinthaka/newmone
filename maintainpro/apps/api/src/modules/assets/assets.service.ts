@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
@@ -832,20 +832,10 @@ export class AssetsService {
 
     const documentId = randomUUID();
     const originalName = this.sanitizeFilename(file.originalname || `asset-document-${documentId}`);
-    const extension = originalName.includes(".")
-      ? originalName.slice(originalName.lastIndexOf("."))
-      : "";
-    const storedName = `${id}-${documentId}${extension}`;
-    await writeFile(join(uploadDirectory, storedName), file.buffer);
-
-    const documentRecord: AssetDocumentRecord = {
-      id: documentId,
-      name: originalName,
-      storedName,
-      mimeType: file.mimetype,
-      size: file.size,
-      uploadedAt: new Date().toISOString()
-    };
+    const cloudinaryRecord = await this.uploadDocumentToCloudinary(id, documentId, originalName, file);
+    const documentRecord =
+      cloudinaryRecord ??
+      (await this.storeDocumentLocally(id, documentId, originalName, file, uploadDirectory));
 
     const updated = await this.prisma.asset.update({
       where: { id },
@@ -1352,6 +1342,93 @@ export class AssetsService {
 
   private getDocumentDirectory() {
     return join(process.cwd(), "uploads", "asset-documents");
+  }
+
+  private async storeDocumentLocally(
+    id: string,
+    documentId: string,
+    originalName: string,
+    file: Express.Multer.File,
+    uploadDirectory: string
+  ): Promise<AssetDocumentRecord> {
+    const extension = originalName.includes(".")
+      ? originalName.slice(originalName.lastIndexOf("."))
+      : "";
+    const storedName = `${id}-${documentId}${extension}`;
+    await writeFile(join(uploadDirectory, storedName), file.buffer);
+
+    return {
+      id: documentId,
+      name: originalName,
+      storedName,
+      mimeType: file.mimetype,
+      size: file.size,
+      uploadedAt: new Date().toISOString()
+    };
+  }
+
+  private async uploadDocumentToCloudinary(
+    id: string,
+    documentId: string,
+    originalName: string,
+    file: Express.Multer.File
+  ): Promise<AssetDocumentRecord | null> {
+    const cloudName = this.getConfigValue("CLOUDINARY_CLOUD_NAME");
+    const apiKey = this.getConfigValue("CLOUDINARY_API_KEY");
+    const apiSecret = this.getConfigValue("CLOUDINARY_API_SECRET");
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return null;
+    }
+
+    const folder = this.getConfigValue("CLOUDINARY_ASSET_FOLDER") || "maintainpro/asset-documents";
+    const publicId = `${id}-${documentId}`;
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signaturePayload = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+    const signature = createHash("sha1").update(signaturePayload).digest("hex");
+    const formData = new FormData();
+    const fileBytes = file.buffer.buffer.slice(
+      file.buffer.byteOffset,
+      file.buffer.byteOffset + file.buffer.byteLength
+    ) as ArrayBuffer;
+
+    formData.append(
+      "file",
+      new Blob([fileBytes], { type: file.mimetype || "application/octet-stream" }),
+      originalName
+    );
+    formData.append("api_key", apiKey);
+    formData.append("folder", folder);
+    formData.append("public_id", publicId);
+    formData.append("timestamp", timestamp);
+    formData.append("signature", signature);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+      method: "POST",
+      body: formData
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      bytes?: number;
+      error?: { message?: string };
+      secure_url?: string;
+    };
+
+    if (!response.ok || !body.secure_url) {
+      throw new BadRequestException(body.error?.message ?? "Cloudinary upload failed");
+    }
+
+    return {
+      id: documentId,
+      name: originalName,
+      mimeType: file.mimetype,
+      size: body.bytes ?? file.size,
+      uploadedAt: new Date().toISOString(),
+      externalUrl: body.secure_url
+    };
+  }
+
+  private getConfigValue(key: string) {
+    return this.configService.get<string>(key)?.trim() ?? "";
   }
 
   private async buildAssetsPdfExport(headers: string[], rows: string[][]) {

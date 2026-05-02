@@ -63,7 +63,8 @@ import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const redisUrl = new URL(configService.get<string>("REDIS_URL", "redis://localhost:6379"));
+        const configuredRedisUrl = configService.get<string>("REDIS_URL", "");
+        const redisUrl = new URL(configuredRedisUrl.trim() || "redis://localhost:6379");
 
         return {
           redis: {

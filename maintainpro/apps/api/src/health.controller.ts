@@ -9,9 +9,9 @@ export class HealthController {
 
   @Public()
   @Get()
-  health() {
+  async health() {
     return {
-      data: this.healthService.getLiveness(),
+      data: await this.healthService.getPublicHealth(),
       message: "Health check passed"
     };
   }

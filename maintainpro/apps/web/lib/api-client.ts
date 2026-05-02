@@ -1,9 +1,10 @@
 import axios from "axios";
+import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession, clearStoredTokens } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api",
+  baseURL: apiBaseUrl,
   timeout: 15_000,
   withCredentials: true
 });

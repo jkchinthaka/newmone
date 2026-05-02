@@ -8,6 +8,16 @@
 !.env.example
 !**/.env.example
 !**/.env.*.example
+.env.production
+.env.development
+.env.render
+.env.vercel
+.env.backup
+**/.env.production
+**/.env.development
+**/.env.render
+**/.env.vercel
+**/.env.backup
 
 # Dependencies
 node_modules/
@@ -20,6 +30,10 @@ build/
 coverage/
 *.tsbuildinfo
 maintainpro/apps/web/.next/
+.vercel/
+**/.vercel/
+uploads/
+**/uploads/
 
 # Logs
 *.log

@@ -8,6 +8,7 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { HealthService } from "./health.service";
 
 // Swallow Redis/ioredis connection errors so a missing Redis doesn't crash the API.
 // Queue operations are wrapped in try/catch and degrade gracefully.
@@ -91,6 +92,25 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  const healthService = app.get(HealthService);
+  const express = app.getHttpAdapter().getInstance() as {
+    get: (path: string, handler: (_req: unknown, res: { json: (body: unknown) => void }) => void | Promise<void>) => void;
+  };
+
+  express.get("/health", async (_req, res) => {
+    res.json({
+      data: await healthService.getPublicHealth(),
+      message: "Health check passed"
+    });
+  });
+
+  express.get("/health/readiness", async (_req, res) => {
+    res.json({
+      data: await healthService.getReadiness(),
+      message: "Readiness check completed"
+    });
+  });
 
   const config = new DocumentBuilder()
     .setTitle("MaintainPro API")

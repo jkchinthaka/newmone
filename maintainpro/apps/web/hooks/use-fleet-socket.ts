@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
+import { apiOrigin } from "@/lib/api-url";
 
 type FleetSocketHandlers = {
   onLocationUpdated?: (payload: unknown) => void;
@@ -20,7 +21,7 @@ export const useFleetSocket = ({ onLocationUpdated, onAlertCreated }: FleetSocke
 
     const timer = setTimeout(() => {
       if (cancelled) return;
-      socket = io(`${process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:3000"}/fleet`, {
+      socket = io(`${apiOrigin}/fleet`, {
         transports: ["websocket"],
         withCredentials: true,
         reconnection: true,

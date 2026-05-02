@@ -7,6 +7,7 @@ import {
 } from "@nestjs/websockets";
 import { verify } from "jsonwebtoken";
 import type { Server, Socket } from "socket.io";
+import { getAccessJwtSecret } from "../../config/jwt-secrets";
 
 type JwtPayload = {
   sub?: string;
@@ -42,7 +43,7 @@ export class NotificationsGateway implements OnGatewayConnection {
     try {
       const payload = verify(
         token,
-        this.configService.get<string>("JWT_ACCESS_SECRET") ?? "dev-access-secret"
+        getAccessJwtSecret(this.configService)
       ) as JwtPayload;
 
       if (!payload.sub) {

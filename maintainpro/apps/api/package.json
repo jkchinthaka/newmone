@@ -9,6 +9,7 @@
     "dev": "node --watch --watch-path=src -r ts-node/register/transpile-only src/main.ts",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "npm run typecheck",
     "test": "jest --config ./jest.config.cjs --runInBand",

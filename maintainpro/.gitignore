@@ -13,6 +13,22 @@ apps/web/.next/
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+!.env.example
+!**/.env.example
+!**/.env.*.example
+.env.production
+.env.development
+.env.render
+.env.vercel
+.env.backup
+
+# Deployment state and uploaded runtime files
+.vercel/
+uploads/
+apps/api/uploads/
 
 # Logs
 npm-debug.log*

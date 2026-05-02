@@ -5,6 +5,7 @@ import type { Request } from "express";
 import { ExtractJwt, Strategy } from "passport-jwt";
 
 import type { JwtPayload } from "./auth.types";
+import { getAccessJwtSecret } from "../../config/jwt-secrets";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -25,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>("JWT_ACCESS_SECRET") ?? "dev-access-secret"
+      secretOrKey: getAccessJwtSecret(configService)
     });
   }
 

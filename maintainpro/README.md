@@ -146,13 +146,15 @@ See `.env.example` for all variables.
 Critical required keys for backend startup:
 
 - `CORS_ORIGIN`, `FRONTEND_URL`
-- `DATABASE_URL`, `REDIS_URL`
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
-- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`
+- `DATABASE_URL`
+- `JWT_SECRET`, or both `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
 
 Optional backend integrations:
 
+- `REDIS_URL` enables managed Redis-backed queues.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` enable persistent asset document uploads on Render.
+- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET` enable S3-compatible object storage health checks.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` enable SMTP notifications.
 - `RAPIDAPI_GOOGLE_MAP_PLACES_KEY` enables Street View previews in the fleet map.
 - `RAPIDAPI_COPILOT_API_KEY`, `RAPIDAPI_COPILOT_HOST` enable the predictive copilot provider.
 - `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
@@ -161,6 +163,7 @@ Optional backend integrations:
 
 Frontend runtime keys:
 
+- `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_API_ORIGIN`
 
@@ -183,6 +186,8 @@ GitHub workflows:
 
 ## Vercel Web Deployment
 
+For the full Vercel, Render, MongoDB Atlas, Cloudinary, and smoke-test checklist, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+
 The Next.js web app lives in `apps/web`, while the deployable monorepo root is `maintainpro`. The repository includes Vercel config for both common setups:
 
 - If the Vercel project root is the Git repository root, `../vercel.json` runs `cd maintainpro && npm run vercel:build` and serves `maintainpro/apps/web/.next`.
@@ -190,6 +195,7 @@ The Next.js web app lives in `apps/web`, while the deployable monorepo root is `
 
 Set these Vercel environment variables for hosted API connectivity:
 
+- `NEXT_PUBLIC_API_URL`, for example `https://api.example.com/api`
 - `NEXT_PUBLIC_API_BASE_URL`, for example `https://api.example.com/api`
 - `NEXT_PUBLIC_API_ORIGIN`, for example `https://api.example.com`
 

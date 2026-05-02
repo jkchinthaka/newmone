@@ -1,0 +1,91 @@
+services:
+  - type: web
+    name: maintainpro-api
+    runtime: node
+    rootDir: maintainpro
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install && npm run render:build
+    startCommand: npm run render:start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES
+        value: 7d
+      - key: CORS_ORIGIN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_ASSET_FOLDER
+        value: maintainpro/asset-documents
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: RAPIDAPI_GOOGLE_MAP_PLACES_KEY
+        sync: false
+      - key: RAPIDAPI_COPILOT_API_KEY
+        sync: false
+      - key: RAPIDAPI_COPILOT_HOST
+        value: copilot5.p.rapidapi.com
+      - key: RAPIDAPI_QR_CODE_API_KEY
+        sync: false
+      - key: RAPIDAPI_QR_CODE_HOST
+        value: simple-qr-code-generator-cheap-and-efficient.p.rapidapi.com
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: FARM_DEFAULT_LATITUDE
+        value: "6.9271"
+      - key: FARM_DEFAULT_LONGITUDE
+        value: "79.8612"
+      - key: WEATHER_ALERT_FROST_THRESHOLD_C
+        value: "5"
+      - key: WEATHER_ALERT_RAIN_THRESHOLD_MM
+        value: "50"
+      - key: APP_VERSION
+        value: "1.2.0"

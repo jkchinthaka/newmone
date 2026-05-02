@@ -6,6 +6,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
+import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -30,12 +31,12 @@ export class AuthService {
 
   private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessToken = await this.jwtService.signAsync(payload, {
-      secret: this.configService.get<string>("JWT_ACCESS_SECRET"),
+      secret: getAccessJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_ACCESS_EXPIRES", "15m")
     });
 
     const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: this.configService.get<string>("JWT_REFRESH_SECRET"),
+      secret: getRefreshJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES", "7d")
     });
 
@@ -136,7 +137,7 @@ export class AuthService {
     }
 
     const decoded = await this.jwtService.verifyAsync<JwtPayload>(dto.refreshToken, {
-      secret: this.configService.get<string>("JWT_REFRESH_SECRET")
+      secret: getRefreshJwtSecret(this.configService)
     });
 
     const user = await this.prisma.user.findUnique({

@@ -43,6 +43,22 @@ export class HealthService {
     };
   }
 
+  async getPublicHealth() {
+    const database = await this.checkDatabase();
+
+    return {
+      status: database.status === "operational" ? "ok" : "degraded",
+      service: "maintainpro-api",
+      environment: this.configService.get<string>("NODE_ENV", "development"),
+      timestamp: new Date().toISOString(),
+      database: {
+        status: database.status,
+        latencyMs: database.latencyMs,
+        message: database.message
+      }
+    };
+  }
+
   async getReadiness() {
     const [database, redis, objectStorage] = await Promise.all([
       this.checkDatabase(),
@@ -161,6 +177,16 @@ export class HealthService {
   }
 
   private async checkObjectStorage(): Promise<DependencyCheck> {
+    if (this.hasCloudinaryConfig()) {
+      return {
+        key: "objectStorage",
+        label: "Cloudinary file storage",
+        status: "operational",
+        required: true,
+        message: "Cloudinary is configured for persistent uploaded files."
+      };
+    }
+
     const endpoint = this.configService.get<string>("MINIO_ENDPOINT", "");
     const port = this.configService.get<number>("MINIO_PORT", 9000);
     const useSsl = this.configService.get<boolean>("MINIO_USE_SSL", false);
@@ -174,7 +200,7 @@ export class HealthService {
         status: "unconfigured",
         required: true,
         message: "MinIO/S3 endpoint or bucket is not configured.",
-        action: "Set MINIO_ENDPOINT, MINIO_PORT, and MINIO_BUCKET for uploaded files and reports."
+        action: "Set Cloudinary credentials or MINIO_ENDPOINT, MINIO_PORT, and MINIO_BUCKET for uploaded files and reports."
       };
     }
 
@@ -303,6 +329,12 @@ export class HealthService {
   private hasConfigValue(key: string): boolean {
     const value = this.configService.get<string | number | boolean | undefined>(key);
     return value !== undefined && String(value).trim().length > 0;
+  }
+
+  private hasCloudinaryConfig(): boolean {
+    return ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every((key) =>
+      this.hasConfigValue(key)
+    );
   }
 
   private buildMinioHealthUrl(endpoint: string, port: number, useSsl: boolean): string {

@@ -110,7 +110,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
+    try {
+      await this.$connect();
+    } catch (error) {
+      this.logger.error(
+        "Database connection failed during startup; API will continue and report degraded health.",
+        error instanceof Error ? error.stack : String(error)
+      );
+    }
+
     this.installAuditMiddleware();
   }
 

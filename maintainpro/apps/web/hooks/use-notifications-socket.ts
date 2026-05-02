@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
+import { apiOrigin } from "@/lib/api-url";
 
 export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
   // Keep latest handler in a ref so we don't reconnect the socket on every render.
@@ -20,17 +21,14 @@ export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
     const timer = setTimeout(() => {
       if (cancelled) return;
 
-      socket = io(
-        `${process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:3000"}/notifications`,
-        {
-          transports: ["websocket"],
-          withCredentials: true,
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-          timeout: 10000
-        }
-      );
+      socket = io(`${apiOrigin}/notifications`, {
+        transports: ["websocket"],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000
+      });
 
       const dispatch = (payload: unknown) => handlerRef.current(payload);
       socket.on("notifications.new", dispatch);
