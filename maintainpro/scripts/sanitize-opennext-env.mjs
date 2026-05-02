@@ -28,6 +28,24 @@ for (const [key, value] of Object.entries(process.env)) {
   }
 }
 
+const defaultApiOrigin = (process.env.MAINTAINPRO_API_ORIGIN || "https://newmone.onrender.com").replace(
+  /\/+$/,
+  ""
+);
+const defaultApiBaseUrl = `${defaultApiOrigin}/api`;
+
+if (!safeEnv.NEXT_PUBLIC_API_ORIGIN) {
+  safeEnv.NEXT_PUBLIC_API_ORIGIN = defaultApiOrigin;
+}
+
+if (!safeEnv.NEXT_PUBLIC_API_URL) {
+  safeEnv.NEXT_PUBLIC_API_URL = defaultApiBaseUrl;
+}
+
+if (!safeEnv.NEXT_PUBLIC_API_BASE_URL) {
+  safeEnv.NEXT_PUBLIC_API_BASE_URL = safeEnv.NEXT_PUBLIC_API_URL;
+}
+
 const content = ["production", "development", "test"]
   .map((mode) => `export const ${mode} = ${JSON.stringify(safeEnv)};`)
   .join("\n") + "\n";

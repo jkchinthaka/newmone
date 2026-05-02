@@ -4,6 +4,11 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-05-02",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "https://newmone.onrender.com/api",
+    "NEXT_PUBLIC_API_BASE_URL": "https://newmone.onrender.com/api",
+    "NEXT_PUBLIC_API_ORIGIN": "https://newmone.onrender.com"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

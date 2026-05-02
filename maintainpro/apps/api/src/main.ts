@@ -97,6 +97,13 @@ async function bootstrap(): Promise<void> {
     get: (path: string, handler: (_req: unknown, res: { json: (body: unknown) => void }) => void | Promise<void>) => void;
   };
 
+  express.get("/", async (_req, res) => {
+    res.json({
+      data: await healthService.getPublicHealth(),
+      message: "MaintainPro API is running"
+    });
+  });
+
   express.get("/health", async (_req, res) => {
     res.json({
       data: await healthService.getPublicHealth(),
