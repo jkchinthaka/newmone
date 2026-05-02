@@ -172,6 +172,16 @@ Check the Vercel project settings:
 - Build Command must be `npm run vercel:build`.
 - Output Directory must be `apps/web/.next`.
 
+### Render build fails with `failed to read dockerfile`
+
+Render is currently running the service in Docker mode and looking for a repository-root `Dockerfile`.
+
+- This repository now includes a root `Dockerfile` that builds and starts the backend from `maintainpro/apps/api`.
+- If you prefer non-Docker deployment, set Render service runtime to `Node`.
+- Root Directory: `maintainpro`
+- Build Command: `npm install && npm run render:build`
+- Start Command: `npm run render:start`
+
 ### Browser shows API network errors
 
 Check Vercel environment variables:
