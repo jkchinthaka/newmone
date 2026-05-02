@@ -19,7 +19,7 @@
     "seed": "tsx src/database/seed.ts"
   },
   "dependencies": {
-    "@maintainpro/shared-types": "1.0.0",
+    "@maintainpro/shared-types": "1.2.0",
     "@nestjs/bull": "^10.2.3",
     "@nestjs/common": "^10.4.15",
     "@nestjs/config": "^3.3.0",

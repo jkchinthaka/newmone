@@ -11,6 +11,7 @@ services:
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      DATABASE_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-nelna}:${MONGO_INITDB_ROOT_PASSWORD:-nelna}@mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?authSource=admin
       RAPIDAPI_GOOGLE_MAP_PLACES_KEY: ${RAPIDAPI_GOOGLE_MAP_PLACES_KEY:-}
       MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-nelna}:${MONGO_INITDB_ROOT_PASSWORD:-nelna}@mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?authSource=admin
       REDIS_URL: redis://redis:6379
