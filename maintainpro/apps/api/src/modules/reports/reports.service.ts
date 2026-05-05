@@ -753,7 +753,7 @@ export class ReportsService {
       this.getFilterOptions(tenantId)
     ]);
 
-    const rows = parts.map((part) => {
+    const allRows = parts.map((part) => {
       const relatedMovements = movements.filter((movement) => movement.partId === part.id);
       const usedQuantity = relatedMovements.filter((movement) => movement.type === "OUT").reduce((sum, movement) => sum + movement.quantity, 0);
       const linkedCost = workOrderParts.filter((item) => item.partId === part.id).reduce((sum, item) => sum + item.totalCost, 0);
@@ -774,11 +774,16 @@ export class ReportsService {
         lastMovement: relatedMovements[0]?.createdAt ?? null
       };
     });
+    const stockStatuses = ["LOW", "CRITICAL", "OUT_OF_STOCK", "IN_STOCK"];
+    const rows = stockStatuses.includes(query.status ?? "") ? allRows.filter((item) => item.status === query.status) : allRows;
+    const rowPartIds = new Set(rows.map((item) => item.id));
+    const filteredMovements = movements.filter((item) => rowPartIds.has(item.partId));
+    const filteredWorkOrderParts = workOrderParts.filter((item) => rowPartIds.has(item.partId));
     const sortedRows = this.sortRows(rows, query.sortBy ?? "stockValue", query.sortDirection ?? "desc");
     const pageRows = sortedRows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
-    const stockValue = parts.reduce((sum, part) => sum + part.quantityInStock * part.unitCost, 0);
+    const stockValue = rows.reduce((sum, item) => sum + item.stockValue, 0);
     const lowStock = rows.filter((item) => item.status === "LOW" || item.status === "CRITICAL" || item.status === "OUT_OF_STOCK").length;
-    const usageQuantity = movements.filter((item) => item.type === "OUT").reduce((sum, item) => sum + item.quantity, 0);
+    const usageQuantity = filteredMovements.filter((item) => item.type === "OUT").reduce((sum, item) => sum + item.quantity, 0);
     const pendingPo = purchaseOrders.filter((item) => ["PENDING", "ORDERED", "PARTIALLY_RECEIVED"].includes(item.status)).length;
     const stockByCategory = this.countAmountBy(rows, (item) => item.category, (item) => item.stockValue);
     const supplierPerformance = this.countAmountBy(purchaseOrders, (item) => item.supplier?.name ?? "Unknown Supplier", (item) => item.totalAmount);
@@ -789,15 +794,15 @@ export class ReportsService {
       range,
       query,
       summaryCards: [
-        { label: "Stock Value", value: this.formatCurrency(stockValue), subLabel: `${parts.length} active parts`, tone: "info" },
+        { label: "Stock Value", value: this.formatCurrency(stockValue), subLabel: `${rows.length} active parts`, tone: "info" },
         { label: "Low Stock Alerts", value: lowStock, subLabel: "Low, critical, or out", tone: lowStock > 0 ? "danger" : "success" },
         { label: "Stock Usage", value: usageQuantity, subLabel: "Units consumed in range", tone: "neutral" },
         { label: "Pending POs", value: pendingPo, subLabel: "Supplier replenishment", tone: pendingPo > 0 ? "warning" : "success" }
       ],
       charts: [
         { id: "stock-by-category", title: "Current Stock Value by Category", type: "bar", data: this.mapToChart(stockByCategory), xKey: "name", yKeys: ["value"] },
-        { id: "stock-usage", title: "Stock Usage History", type: "line", data: this.buildDailyTrend(movements.filter((item) => item.type === "OUT").map((item) => ({ date: item.createdAt, value: item.quantity })), range, "quantity"), xKey: "date", yKeys: ["quantity"] },
-        { id: "parts-used", title: "Parts Used per Job", type: "bar", data: this.topPartUsage(workOrderParts), xKey: "name", yKeys: ["quantity", "cost"] },
+        { id: "stock-usage", title: "Stock Usage History", type: "line", data: this.buildDailyTrend(filteredMovements.filter((item) => item.type === "OUT").map((item) => ({ date: item.createdAt, value: item.quantity })), range, "quantity"), xKey: "date", yKeys: ["quantity"] },
+        { id: "parts-used", title: "Parts Used per Job", type: "bar", data: this.topPartUsage(filteredWorkOrderParts), xKey: "name", yKeys: ["quantity", "cost"] },
         { id: "supplier-performance", title: "Supplier Performance by Spend", type: "bar", data: this.mapToChart(supplierPerformance).slice(0, 8), xKey: "name", yKeys: ["value"] }
       ],
       table: {
@@ -1098,28 +1103,33 @@ export class ReportsService {
       ...this.tenantWhere(tenantId),
       createdAt: { gte: range.start, lte: range.end }
     };
+    const andFilters: Array<Record<string, unknown>> = [];
 
     if (query.status && Object.values(WorkOrderStatus).includes(query.status as WorkOrderStatus)) {
       where.status = query.status;
     }
     if (query.userId) where.technicianId = query.userId;
-    if (query.assetId) where.OR = [{ assetId: query.assetId }, { vehicleId: query.assetId }];
+    if (query.assetId) andFilters.push({ OR: [{ assetId: query.assetId }, { vehicleId: query.assetId }] });
     if (query.departmentId) {
-      where.OR = [
-        { asset: { departmentId: query.departmentId } },
-        { vehicle: { departmentId: query.departmentId } },
-        { technician: { departmentId: query.departmentId } }
-      ];
+      andFilters.push({
+        OR: [
+          { asset: { departmentId: query.departmentId } },
+          { vehicle: { departmentId: query.departmentId } },
+          { technician: { departmentId: query.departmentId } }
+        ]
+      });
     }
     if (query.search?.trim()) {
       const search = query.search.trim();
-      const searchOr = [
-        { woNumber: { contains: search, mode: "insensitive" as const } },
-        { title: { contains: search, mode: "insensitive" as const } },
-        { description: { contains: search, mode: "insensitive" as const } }
-      ];
-      where.OR = [...((where.OR as Array<Record<string, unknown>> | undefined) ?? []), ...searchOr];
+      andFilters.push({
+        OR: [
+          { woNumber: { contains: search, mode: "insensitive" as const } },
+          { title: { contains: search, mode: "insensitive" as const } },
+          { description: { contains: search, mode: "insensitive" as const } }
+        ]
+      });
     }
+    if (andFilters.length > 0) where.AND = andFilters;
 
     return where;
   }
@@ -1163,7 +1173,6 @@ export class ReportsService {
     const where: Record<string, unknown> = { ...this.tenantWhere(tenantId), isActive: true };
     if (query.supplierId) where.supplierId = query.supplierId;
     if (query.category) where.category = query.category;
-    if (query.status === "LOW") where.quantityInStock = { lte: 5 };
     if (query.status === "OUT_OF_STOCK") where.quantityInStock = { lte: 0 };
     if (query.search?.trim()) {
       const search = query.search.trim();
@@ -1194,36 +1203,39 @@ export class ReportsService {
   }
 
   private maintenanceLogWhere(tenantId: string | null, range: DateRange, query: ReportQuery) {
-    const relationTenant = tenantId
-      ? {
-          OR: [
-            { asset: { tenantId } },
-            { vehicle: { tenantId } },
-            { workOrder: { tenantId } }
-          ]
-        }
-      : {};
     const where: Record<string, unknown> = {
-      ...relationTenant,
       performedAt: { gte: range.start, lte: range.end }
     };
-    if (query.assetId) where.OR = [{ assetId: query.assetId }, { vehicleId: query.assetId }];
+    const andFilters: Array<Record<string, unknown>> = [];
+    if (tenantId) {
+      andFilters.push({
+        OR: [
+          { asset: { tenantId } },
+          { vehicle: { tenantId } },
+          { workOrder: { tenantId } }
+        ]
+      });
+    }
+    if (query.assetId) andFilters.push({ OR: [{ assetId: query.assetId }, { vehicleId: query.assetId }] });
+    if (andFilters.length > 0) where.AND = andFilters;
     return where;
   }
 
   private maintenanceScheduleWhere(tenantId: string | null, query: ReportQuery, upcomingOnly: boolean) {
     const where: Record<string, unknown> = {
-      isActive: true,
-      ...(tenantId
-        ? {
-            OR: [
-              { asset: { tenantId } },
-              { vehicle: { tenantId } }
-            ]
-          }
-        : {})
+      isActive: true
     };
-    if (query.assetId) where.OR = [{ assetId: query.assetId }, { vehicleId: query.assetId }];
+    const andFilters: Array<Record<string, unknown>> = [];
+    if (tenantId) {
+      andFilters.push({
+        OR: [
+          { asset: { tenantId } },
+          { vehicle: { tenantId } }
+        ]
+      });
+    }
+    if (query.assetId) andFilters.push({ OR: [{ assetId: query.assetId }, { vehicleId: query.assetId }] });
+    if (andFilters.length > 0) where.AND = andFilters;
     if (upcomingOnly) where.nextDueDate = { lte: this.daysFromNow(30) };
     return where;
   }
