@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
+import { createDepartmentCode, normalizeDepartmentName } from "./department-master-list";
 
 export interface CreateDepartmentInput {
   name: string;
-  code: string;
+  code?: string;
   description?: string;
   parentId?: string | null;
   managerId?: string | null;
@@ -17,6 +18,7 @@ export interface UpdateDepartmentInput {
   parentId?: string | null;
   managerId?: string | null;
   isActive?: boolean;
+  status?: "active" | "inactive" | "ACTIVE" | "INACTIVE";
 }
 
 @Injectable()
@@ -25,7 +27,7 @@ export class DepartmentsService {
 
   findAll(
     tenantId: string | null,
-    params: { q?: string; parentId?: string | "null"; pageSize?: number; includeInactive?: boolean } = {}
+    params: { q?: string; parentId?: string | "null"; pageSize?: number; includeInactive?: boolean; exclude?: string; ids?: string[] } = {}
   ) {
     const q = params.q?.trim();
     const take = Math.min(Math.max(params.pageSize ?? 100, 1), 200);
@@ -41,6 +43,7 @@ export class DepartmentsService {
     return this.prisma.department.findMany({
       where: {
         tenantId: tenantId ?? null,
+        id: params.ids?.length ? { in: params.ids } : params.exclude ? { not: params.exclude } : undefined,
         isActive: params.includeInactive ? undefined : true,
         ...parentFilter,
         ...(q
@@ -78,16 +81,13 @@ export class DepartmentsService {
   }
 
   async create(tenantId: string | null, input: CreateDepartmentInput) {
-    const code = input.code.trim().toUpperCase();
     const name = input.name.trim();
 
-    if (!code) throw new BadRequestException("`code` is required");
     if (!name) throw new BadRequestException("`name` is required");
+    await this.assertUniqueName(tenantId, name);
+    const code = await this.resolveCode(tenantId, name, input.code);
 
-    // Prevent circular self-reference
-    if (input.parentId) {
-      await this.assertNotAncestor(tenantId, input.parentId, input.parentId);
-    }
+    if (input.parentId) await this.assertDepartmentExists(tenantId, input.parentId);
 
     return this.prisma.department.create({
       data: {
@@ -111,12 +111,23 @@ export class DepartmentsService {
     }
 
     const data: Record<string, unknown> = {};
-    if (input.name !== undefined) data.name = input.name.trim();
-    if (input.code !== undefined) data.code = input.code.trim().toUpperCase();
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException("`name` is required");
+      await this.assertUniqueName(tenantId, name, id);
+      data.name = name;
+      if (input.code === undefined && !existing.code) {
+        data.code = await this.resolveCode(tenantId, name, undefined, id);
+      }
+    }
+    if (input.code !== undefined) {
+      data.code = await this.resolveCode(tenantId, String(data.name ?? existing.name), input.code, id);
+    }
     if (input.description !== undefined) data.description = input.description?.trim() || null;
     if (input.parentId !== undefined) data.parentId = input.parentId || null;
     if (input.managerId !== undefined) data.managerId = input.managerId || null;
     if (input.isActive !== undefined) data.isActive = input.isActive;
+    if (input.status !== undefined) data.isActive = String(input.status).toUpperCase() === "ACTIVE";
 
     return this.prisma.department.update({ where: { id }, data });
   }
@@ -125,6 +136,36 @@ export class DepartmentsService {
     const existing = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null } });
     if (!existing) throw new NotFoundException("Department not found");
     return this.prisma.department.update({ where: { id }, data: { isActive: false } });
+  }
+
+  private async assertUniqueName(tenantId: string | null, name: string, excludeId?: string) {
+    const departments = await this.prisma.department.findMany({
+      where: { tenantId: tenantId ?? null },
+      select: { id: true, name: true }
+    });
+    const normalized = normalizeDepartmentName(name);
+    const duplicate = departments.find((department) => department.id !== excludeId && normalizeDepartmentName(department.name) === normalized);
+    if (duplicate) {
+      throw new BadRequestException(`Department "${name}" already exists`);
+    }
+  }
+
+  private async resolveCode(tenantId: string | null, name: string, inputCode?: string, excludeId?: string) {
+    const departments = await this.prisma.department.findMany({
+      where: { tenantId: tenantId ?? null },
+      select: { id: true, code: true }
+    });
+    const usedCodes = new Set(departments.filter((department) => department.id !== excludeId).map((department) => department.code.toUpperCase()));
+    const code = inputCode?.trim() ? inputCode.trim().toUpperCase() : createDepartmentCode(name, usedCodes);
+    if (usedCodes.has(code)) {
+      throw new BadRequestException(`Department code "${code}" already exists`);
+    }
+    return code;
+  }
+
+  private async assertDepartmentExists(tenantId: string | null, id: string) {
+    const department = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null }, select: { id: true } });
+    if (!department) throw new BadRequestException("Parent department not found");
   }
 
   /** Verify that `candidateAncestorId` is NOT already a descendant of `id` (prevents cycles). */

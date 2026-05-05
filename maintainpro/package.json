@@ -32,6 +32,7 @@
     "db:generate": "npx prisma generate --schema ./prisma/schema.prisma",
     "db:migrate": "npx prisma migrate dev --schema ./prisma/schema.prisma",
     "db:seed": "npm run seed --workspace @maintainpro/api",
+    "departments:migrate": "npm run departments:migrate --workspace @maintainpro/api",
     "smoke:local": "node scripts/smoke-local.mjs",
     "smoke:deploy": "node scripts/smoke-deployment.mjs",
     "healthcheck": "node scripts/healthcheck.mjs",

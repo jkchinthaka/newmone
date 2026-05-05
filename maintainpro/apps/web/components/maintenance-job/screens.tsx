@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarClock, CheckCircle2, ChevronRight, Clock3, Cog, Factory, PackagePlus, PlusCircle, Settings2, UserRound, Wrench } from "lucide-react";
 
+import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { useMaintenanceJobApp } from "./provider";
 import type { Employee, MaintenanceJob, ModuleKey, RequestedItem } from "./types";
 
@@ -61,6 +62,7 @@ function buildClientDraft(module: ModuleKey, jobId: string): MaintenanceJob {
     dueDate: todayIso(),
     assetNumber: "",
     department: "",
+    departmentId: "",
     jobType: "Internal",
     jobSegment: module === "service" ? "Service" : "Repair",
     mainJobCategory: "",
@@ -394,6 +396,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
   const [step, setStep] = useState<EditorStep>("basic");
   const [showItemsModal, setShowItemsModal] = useState(false);
   const [subJobDraft, setSubJobDraft] = useState("");
+  const [departmentError, setDepartmentError] = useState("");
 
   useEffect(() => {
     setForm(existingJob ?? buildClientDraft(module, previewJobId(module)));
@@ -408,6 +411,32 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
   }
 
   const selectedVendor = vendors.find((vendor) => vendor.code === form.servicePartyCode) ?? vendors[0];
+  const handleDepartmentChange = (departmentId: string | null, department: DepartmentOption | null) => {
+    setDepartmentError("");
+    setForm((current) => current
+      ? {
+          ...current,
+          departmentId: departmentId ?? "",
+          department: department?.name ?? "",
+          departmentName: department?.name ?? ""
+        }
+      : current);
+  };
+  const handleSaveBasic = () => {
+    if (!form.departmentId) {
+      setDepartmentError("Department is required");
+      return;
+    }
+
+    if (form.id) {
+      const saved = saveJob(form.id, form);
+      if (saved) setForm(saved);
+      return;
+    }
+
+    const created = createManualJob(module, form);
+    window.location.assign(`/${module}/${created.id}`);
+  };
 
   return (
     <div className="space-y-5">
@@ -447,7 +476,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
             {module === "machinery" ? (
               <>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Building Name & Number</span><input value={form.buildingName} onChange={(event) => setForm((current) => current ? { ...current, buildingName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-                <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Department Name</span><input value={form.departmentName} onChange={(event) => setForm((current) => current ? { ...current, departmentName: event.target.value, department: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <DepartmentSelect label="Department Name" value={form.departmentId ?? null} selectedName={form.departmentName || form.department} required error={departmentError} onChange={handleDepartmentChange} />
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Section Name</span><input value={form.sectionName} onChange={(event) => setForm((current) => current ? { ...current, sectionName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Main Job Category</span><input value={form.mainJobCategory} onChange={(event) => setForm((current) => current ? { ...current, mainJobCategory: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sub Job Category</span><input value={form.subJobCategory} onChange={(event) => setForm((current) => current ? { ...current, subJobCategory: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
@@ -457,7 +486,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
             {module === "service" ? (
               <>
                 <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Job Definition</span><input value={form.serviceJobDefinition} onChange={(event) => setForm((current) => current ? { ...current, serviceJobDefinition: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-                <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Department Name</span><input value={form.departmentName} onChange={(event) => setForm((current) => current ? { ...current, departmentName: event.target.value, department: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <DepartmentSelect label="Department Name" value={form.departmentId ?? null} selectedName={form.departmentName || form.department} required error={departmentError} onChange={handleDepartmentChange} />
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Section Name</span><input value={form.sectionName} onChange={(event) => setForm((current) => current ? { ...current, sectionName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Party</span><select value={form.servicePartyCode} onChange={(event) => { const vendor = vendors.find((entry) => entry.code === event.target.value); setForm((current) => current ? { ...current, servicePartyCode: event.target.value, servicePartyName: vendor?.name ?? "" } : current); }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400">{vendors.map((vendor) => <option key={vendor.code} value={vendor.code}>{vendor.code} {vendor.name}</option>)}</select></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Value</span><input value={form.serviceValue} onChange={(event) => setForm((current) => current ? { ...current, serviceValue: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
@@ -466,7 +495,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
 
             {module === "vehicle" ? (
               <>
-                <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Department</span><input value={form.department} onChange={(event) => setForm((current) => current ? { ...current, department: event.target.value, departmentName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <DepartmentSelect label="Department" value={form.departmentId ?? null} selectedName={form.departmentName || form.department} required error={departmentError} onChange={handleDepartmentChange} />
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Definition</span><input value={form.title} onChange={(event) => setForm((current) => current ? { ...current, title: event.target.value, mainJobCategory: event.target.value || current.mainJobCategory } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Vehicle Internal Name</span><input value={form.vehicleInternalName} onChange={(event) => setForm((current) => current ? { ...current, vehicleInternalName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Party</span><select value={form.servicePartyCode} onChange={(event) => { const vendor = vendors.find((entry) => entry.code === event.target.value); setForm((current) => current ? { ...current, servicePartyCode: event.target.value, servicePartyName: vendor?.name ?? "" } : current); }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400">{vendors.map((vendor) => <option key={vendor.code} value={vendor.code}>{vendor.code} {vendor.name}</option>)}</select></label>
@@ -493,7 +522,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
 
           <div className="mt-6 flex justify-end gap-3">
             <button type="button" onClick={() => window.location.assign(`/${module}`)} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
-            <button type="button" disabled={!canEdit} onClick={() => { if (form.id) { const saved = saveJob(form.id, form); if (saved) setForm(saved); } else { const created = createManualJob(module, form); window.location.assign(`/${module}/${created.id}`); } }} className="rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-55">{form.id ? "Save Basic Info" : "Create Job"}</button>
+            <button type="button" disabled={!canEdit} onClick={handleSaveBasic} className="rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-55">{form.id ? "Save Basic Info" : "Create Job"}</button>
           </div>
         </section>
       ) : null}

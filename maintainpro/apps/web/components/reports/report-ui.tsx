@@ -21,6 +21,7 @@ import {
 } from "recharts";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { DepartmentMultiSelect } from "@/components/departments/department-select";
 
 import { downloadReportExport, formatReportValue } from "./api";
 import {
@@ -114,7 +115,7 @@ export function ReportFiltersBar({
           End
           <input type="date" value={filters.endDate} onChange={(event) => patch({ endDate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
         </label>
-        <SelectFilter label="Department" value={filters.departmentId} onChange={(value) => patch({ departmentId: value })} options={options?.departments ?? []} />
+        <DepartmentMultiSelect value={filters.departmentIds} onChange={(value) => patch({ departmentIds: value, departmentId: value[0] ?? "" })} options={options?.departments ?? []} label="Departments" />
         <SelectFilter label="User" value={filters.userId} onChange={(value) => patch({ userId: value })} options={options?.users ?? []} />
         {!compact ? <SelectFilter label="Asset" value={filters.assetId} onChange={(value) => patch({ assetId: value })} options={options?.assets ?? []} /> : null}
         {!compact ? <SelectFilter label="Status" value={filters.status} onChange={(value) => patch({ status: value })} options={(options?.statuses ?? []).map((status) => ({ id: status, label: status }))} /> : null}

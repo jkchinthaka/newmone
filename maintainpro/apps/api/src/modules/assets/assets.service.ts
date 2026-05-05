@@ -25,6 +25,7 @@ import type {
   UpdateAssetStatusDto
 } from "./dto/assets.dto";
 import { PrismaService } from "../../database/prisma.service";
+import { normalizeDepartmentName } from "../departments/department-master-list";
 
 interface AssetDocumentRecord {
   id: string;
@@ -52,6 +53,7 @@ interface AssetMutationInput {
   currentValue?: number | null;
   supplier?: string | null;
   department?: string | null;
+  departmentId?: string | null;
   ownerName?: string | null;
   location?: string | null;
   manufacturer?: string | null;
@@ -377,10 +379,12 @@ export class AssetsService {
 
   async create(tenantId: string | null | undefined, actorId: string, data: CreateAssetDto) {
     await this.ensureUniqueAssetTag(data.assetTag);
+    const departmentFields = await this.resolveDepartmentFields(tenantId, data);
 
     const created = await this.prisma.asset.create({
       data: {
-        ...this.buildAssetCreateInput(tenantId, data)
+        ...this.buildAssetCreateInput(tenantId, data),
+        ...departmentFields
       }
     });
 
@@ -418,10 +422,14 @@ export class AssetsService {
     }
 
     this.validateStatusTransition(current.status, data.status, data.disposalReason ?? current.disposalReason ?? undefined);
+    const departmentFields = await this.resolveDepartmentFields(tenantId, data);
 
     const updated = await this.prisma.asset.update({
       where: { id },
-      data: this.buildAssetMutationInput(data)
+      data: {
+        ...this.buildAssetMutationInput(data),
+        ...departmentFields
+      }
     });
 
     await this.recordAudit({
@@ -946,10 +954,12 @@ export class AssetsService {
         }
 
         const before = await this.findOne(existing.id, tenantId);
+        const departmentFields = await this.resolveDepartmentFields(tenantId, item);
         const next = await this.prisma.asset.update({
           where: { id: existing.id },
           data: {
             ...this.buildAssetMutationInput(item),
+            ...departmentFields,
             archivedAt: null
           }
         });
@@ -967,9 +977,11 @@ export class AssetsService {
         continue;
       }
 
+      const departmentFields = await this.resolveDepartmentFields(tenantId, item);
       const base = await this.prisma.asset.create({
         data: {
-          ...this.buildAssetCreateInput(tenantId, item)
+          ...this.buildAssetCreateInput(tenantId, item),
+          ...departmentFields
         }
       });
 
@@ -1011,6 +1023,7 @@ export class AssetsService {
       | "condition"
       | "location"
       | "department"
+      | "departmentId"
       | "supplier"
       | "ownerName"
       | "includeArchived"
@@ -1040,7 +1053,14 @@ export class AssetsService {
       where.location = { contains: query.location, mode: "insensitive" };
     }
     if (query.department) {
-      where.department = { contains: query.department, mode: "insensitive" };
+      const departmentId = this.toNullableString(query.departmentId);
+      if (departmentId) {
+        where.departmentId = departmentId;
+      } else {
+        where.department = { contains: query.department, mode: "insensitive" };
+      }
+    } else if (query.departmentId) {
+      where.departmentId = query.departmentId;
     }
     if (query.supplier) {
       where.supplier = { contains: query.supplier, mode: "insensitive" };
@@ -1096,6 +1116,7 @@ export class AssetsService {
       currentValue: this.toNullableNumber(data.currentValue),
       supplier: this.toNullableString(data.supplier),
       department: this.toNullableString(data.department),
+      departmentId: this.toNullableString(data.departmentId),
       ownerName: this.toNullableString(data.ownerName),
       location: this.toNullableString(data.location),
       manufacturer: this.toNullableString(data.manufacturer),
@@ -1127,6 +1148,7 @@ export class AssetsService {
       currentValue: this.toNullableNumber(data.currentValue) ?? null,
       supplier: this.toNullableString(data.supplier) ?? null,
       department: this.toNullableString(data.department) ?? null,
+      departmentId: this.toNullableString(data.departmentId) ?? null,
       ownerName: this.toNullableString(data.ownerName) ?? null,
       location: this.toNullableString(data.location) ?? null,
       manufacturer: this.toNullableString(data.manufacturer) ?? null,
@@ -1152,6 +1174,42 @@ export class AssetsService {
     if (existing && existing.id !== excludeId) {
       throw new BadRequestException("Asset tag must be unique across the system");
     }
+  }
+
+  private async resolveDepartmentFields(
+    tenantId: string | null | undefined,
+    data: Pick<Partial<CreateAssetDto>, "department" | "departmentId">
+  ): Promise<Pick<AssetMutationInput, "department" | "departmentId">> {
+    const hasDepartmentId = Object.prototype.hasOwnProperty.call(data, "departmentId");
+    const hasDepartmentName = Object.prototype.hasOwnProperty.call(data, "department");
+    if (!hasDepartmentId && !hasDepartmentName) return {};
+
+    const departmentId = this.toNullableString(data.departmentId);
+    if (departmentId) {
+      const department = await this.prisma.department.findFirst({
+        where: { id: departmentId, tenantId: tenantId ?? null, isActive: true },
+        select: { id: true, name: true }
+      });
+      if (!department) throw new BadRequestException("Selected department was not found or is inactive");
+      return { departmentId: department.id, department: department.name };
+    }
+
+    if (hasDepartmentId && !departmentId) {
+      return { departmentId: null, department: null };
+    }
+
+    const legacyDepartment = this.toNullableString(data.department);
+    if (!legacyDepartment) return { departmentId: null, department: null };
+
+    const departments = await this.prisma.department.findMany({
+      where: { tenantId: tenantId ?? null, isActive: true },
+      select: { id: true, name: true }
+    });
+    const matchedDepartment = departments.find((department) => normalizeDepartmentName(department.name) === normalizeDepartmentName(legacyDepartment));
+
+    return matchedDepartment
+      ? { departmentId: matchedDepartment.id, department: matchedDepartment.name }
+      : { departmentId: null, department: legacyDepartment };
   }
 
   private async requireAssetRecord(id: string, tenantId?: string | null) {

@@ -14,6 +14,7 @@ export type ReportFilters = {
   startDate: string;
   endDate: string;
   departmentId: string;
+  departmentIds: string[];
   userId: string;
   assetId: string;
   status: string;

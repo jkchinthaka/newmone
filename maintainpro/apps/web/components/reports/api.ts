@@ -34,6 +34,7 @@ export function defaultReportFilters(): ReportFilters {
     startDate: toInputDate(start),
     endDate: toInputDate(end),
     departmentId: "",
+    departmentIds: [],
     userId: "",
     assetId: "",
     status: "",
@@ -49,7 +50,9 @@ export function defaultReportFilters(): ReportFilters {
 
 export function toQueryParams(filters: ReportFilters) {
   return Object.fromEntries(
-    Object.entries(filters).filter(([, value]) => value !== "" && value !== null && value !== undefined)
+    Object.entries(filters)
+      .map(([key, value]) => [key, Array.isArray(value) ? value.join(",") : value] as const)
+      .filter(([, value]) => value !== "" && value !== null && value !== undefined)
   );
 }
 

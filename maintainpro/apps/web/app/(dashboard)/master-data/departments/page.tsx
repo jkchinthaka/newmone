@@ -77,18 +77,17 @@ export default function DepartmentsPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.name.trim()) { toast.error("`name` is required"); return; }
-    if (!form.code.trim()) { toast.error("`code` is required"); return; }
     setSubmitting(true);
     try {
       const payload = {
         name: form.name.trim(),
-        code: form.code.trim(),
+        code: form.code.trim() || undefined,
         description: form.description.trim() || undefined,
         parentId: form.parentId ?? null,
         managerId: form.managerId ?? null,
       };
       if (editingId) {
-        await apiClient.patch(`/departments/${editingId}`, payload);
+        await apiClient.put(`/departments/${editingId}`, payload);
         toast.success("Department updated");
         setEditingId(null);
       } else {
@@ -126,7 +125,7 @@ export default function DepartmentsPage() {
       !window.confirm(`Deactivate department "${dept.name}"? It will no longer appear in dropdowns.`)
     ) return;
     try {
-      await apiClient.patch(`/departments/${dept.id}/deactivate`);
+      await apiClient.delete(`/departments/${dept.id}`);
       toast.success(`"${dept.name}" deactivated`);
       setItems((cur) => cur.filter((d) => d.id !== dept.id));
     } catch {
@@ -187,14 +186,11 @@ export default function DepartmentsPage() {
 
           {/* Code */}
           <label className="space-y-1 text-sm text-slate-700">
-            <span className="font-medium">
-              Code <span className="text-rose-500">*</span>
-            </span>
+            <span className="font-medium">Code</span>
             <input
-              required
               value={form.code}
               onChange={(e) => setForm((c) => ({ ...c, code: e.target.value.toUpperCase() }))}
-              placeholder="e.g. ENG"
+              placeholder="Optional; generated from name"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
             />
           </label>

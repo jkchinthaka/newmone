@@ -82,6 +82,11 @@ export class AssetListQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   supplier?: string;
 
   @ApiPropertyOptional()
@@ -187,6 +192,11 @@ export class CreateAssetDto {
   @IsString()
   @MaxLength(160)
   department?: string;
+
+  @ApiPropertyOptional({ description: "Department master record id" })
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

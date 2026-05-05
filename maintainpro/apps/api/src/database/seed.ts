@@ -11,6 +11,8 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
+import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
+
 const prisma = new PrismaClient();
 
 const permissionCatalog = [
@@ -96,6 +98,42 @@ async function ensurePermissions() {
   }
 }
 
+async function ensureMasterDepartments(tenantId: string) {
+  const departments = await prisma.department.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, code: true }
+  });
+  const byName = new Map(departments.map((department) => [normalizeDepartmentName(department.name), department]));
+  const usedCodes = new Set(departments.map((department) => department.code.toUpperCase()));
+
+  for (const department of buildCanonicalDepartmentSeed()) {
+    const existing = byName.get(normalizeDepartmentName(department.name));
+    if (existing) {
+      await prisma.department.update({
+        where: { id: existing.id },
+        data: {
+          name: department.name,
+          code: existing.code || department.code,
+          isActive: true
+        }
+      });
+      continue;
+    }
+
+    const code = createDepartmentCode(department.name, usedCodes);
+    usedCodes.add(code);
+
+    await prisma.department.create({
+      data: {
+        tenantId,
+        name: department.name,
+        code,
+        isActive: true
+      }
+    });
+  }
+}
+
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -107,6 +145,7 @@ async function main() {
   });
 
   await ensurePermissions();
+  await ensureMasterDepartments(tenant.id);
 
   const permissions = await prisma.permission.findMany();
   const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));

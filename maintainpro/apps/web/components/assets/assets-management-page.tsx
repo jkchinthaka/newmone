@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { USER_KEY } from "@/lib/auth-storage";
+import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import {
   hasActiveFilters,
   useAssetPageStore,
@@ -90,6 +91,7 @@ interface AssetListItem {
   warrantyExpiry?: string | null;
   supplier?: string | null;
   department?: string | null;
+  departmentId?: string | null;
   ownerName?: string | null;
   meterReading?: string | number | null;
   qrCodeUrl?: string | null;
@@ -165,6 +167,7 @@ interface AssetFormValues {
   warrantyExpiry: string;
   supplier: string;
   department: string;
+  departmentId: string;
   ownerName: string;
   lastServiceDate: string;
   nextServiceDate: string;
@@ -275,6 +278,7 @@ const formSchema = z.object({
   warrantyExpiry: z.string().optional().default(""),
   supplier: z.string().optional().default(""),
   department: z.string().optional().default(""),
+  departmentId: z.string().trim().min(1, "Department is required"),
   ownerName: z.string().optional().default(""),
   lastServiceDate: z.string().optional().default(""),
   nextServiceDate: z.string().optional().default(""),
@@ -402,6 +406,9 @@ function toQueryParams(filters: ReturnType<typeof useAssetPageStore.getState>["f
   if (filters.location) {
     params.location = filters.location;
   }
+  if (filters.departmentId) {
+    params.departmentId = filters.departmentId;
+  }
 
   return params;
 }
@@ -447,6 +454,7 @@ function emptyFormValues(): AssetFormValues {
     warrantyExpiry: "",
     supplier: "",
     department: "",
+    departmentId: "",
     ownerName: "",
     lastServiceDate: "",
     nextServiceDate: "",
@@ -467,6 +475,7 @@ function mapAssetToForm(asset: AssetListItem | AssetDetail): AssetFormValues {
     warrantyExpiry: asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toISOString().slice(0, 10) : "",
     supplier: asset.supplier ?? "",
     department: asset.department ?? "",
+    departmentId: asset.departmentId ?? "",
     ownerName: asset.ownerName ?? "",
     lastServiceDate: asset.lastServiceDate ? new Date(asset.lastServiceDate).toISOString().slice(0, 10) : "",
     nextServiceDate: asset.nextServiceDate ? new Date(asset.nextServiceDate).toISOString().slice(0, 10) : "",
@@ -495,6 +504,10 @@ function toAssetPayload(values: AssetFormValues) {
     const value = values[field].trim();
     if (value) payload[field] = value;
   });
+
+  if (values.departmentId.trim()) {
+    payload.departmentId = values.departmentId.trim();
+  }
 
   const optionalDateFields: Array<keyof Pick<AssetFormValues, "purchaseDate" | "warrantyExpiry" | "lastServiceDate" | "nextServiceDate">> = [
     "purchaseDate",
@@ -745,6 +758,7 @@ function summarizeFilters(filters: ReturnType<typeof useAssetPageStore.getState>
     );
   }
   if (filters.location) parts.push(`location: ${filters.location}`);
+  if (filters.departmentId) parts.push("department selected");
   return parts.join(" | ") || "No filters";
 }
 
@@ -917,6 +931,7 @@ export default function AssetsManagementPage() {
                     condition: input.values.condition,
                     supplier: input.values.supplier,
                     department: input.values.department,
+                    departmentId: input.values.departmentId,
                     ownerName: input.values.ownerName,
                     lastServiceDate: input.values.lastServiceDate || null,
                     nextServiceDate: input.values.nextServiceDate || null,
@@ -1136,14 +1151,6 @@ export default function AssetsManagementPage() {
   const filterSummary = useMemo(() => summarizeFilters(filters), [filters]);
   const pageNumbers = useMemo(() => buildPageNumbers(meta.page, meta.totalPages), [meta.page, meta.totalPages]);
 
-  const departmentOptions = useMemo(() => {
-    const options = new Set<string>();
-    rows.forEach((asset) => {
-      if (asset.department) options.add(asset.department);
-    });
-    return Array.from(options).sort((left, right) => left.localeCompare(right));
-  }, [rows]);
-
   const ownerOptions = useMemo(() => {
     const options = new Set<string>();
     rows.forEach((asset) => {
@@ -1359,7 +1366,7 @@ export default function AssetsManagementPage() {
         </section>
 
         <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 lg:grid-cols-[1.6fr,1fr,1fr,1fr,1fr,1fr,auto]">
+          <div className="grid gap-3 lg:grid-cols-[1.6fr,1fr,1fr,1fr,1.2fr,1fr,1fr,auto]">
             <label className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1406,6 +1413,13 @@ export default function AssetsManagementPage() {
                 </option>
               ))}
             </select>
+
+            <DepartmentSelect
+              label="Department"
+              value={filters.departmentId || null}
+              onChange={(departmentId) => setFilters({ departmentId: departmentId ?? "" })}
+              placeholder="Select Department"
+            />
 
             <select
               value={filters.sortBy}
@@ -1931,7 +1945,6 @@ export default function AssetsManagementPage() {
       <AssetFormModal
         open={showFormModal}
         asset={editingAsset}
-        departmentOptions={departmentOptions}
         ownerOptions={ownerOptions}
         busy={saveAssetMutation.isPending}
         onClose={() => {
@@ -2242,7 +2255,6 @@ function QrModal({
 function AssetFormModal({
   open,
   asset,
-  departmentOptions,
   ownerOptions,
   busy,
   onClose,
@@ -2250,7 +2262,6 @@ function AssetFormModal({
 }: {
   open: boolean;
   asset: AssetListItem | AssetDetail | null;
-  departmentOptions: string[];
   ownerOptions: string[];
   busy: boolean;
   onClose: () => void;
@@ -2408,18 +2419,18 @@ function AssetFormModal({
               />
             </Field>
 
-            <Field label="Department / Owner">
-              <select
-                {...form.register("department")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
-              >
-                <option value="">Select department</option>
-                {departmentOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+            <Field label="Department *" error={form.formState.errors.departmentId?.message}>
+              <DepartmentSelect
+                value={form.watch("departmentId") || null}
+                selectedName={form.watch("department") || asset?.department || undefined}
+                label={null}
+                required
+                placeholder="Select Department"
+                onChange={(departmentId, department: DepartmentOption | null) => {
+                  form.setValue("departmentId", departmentId ?? "", { shouldDirty: true, shouldValidate: true });
+                  form.setValue("department", department?.name ?? "", { shouldDirty: true });
+                }}
+              />
             </Field>
 
             <Field label="Owner">

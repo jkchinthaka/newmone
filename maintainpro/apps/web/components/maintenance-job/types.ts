@@ -22,6 +22,7 @@ export type PendingRequest = {
   dueDate: string;
   assetNumber: string;
   department: string;
+  departmentId?: string;
   requestedBy: string;
   type: RequestType;
   mainJob: string;
@@ -83,6 +84,7 @@ export type JobFormDraft = {
   requestedBy: string;
   jobNo: string;
   department: string;
+  departmentId?: string;
   mainJob: string;
   subJob: string;
   narration: string;
@@ -101,6 +103,7 @@ export type MaintenanceJob = {
   dueDate: string;
   assetNumber: string;
   department: string;
+  departmentId?: string;
   jobType: JobType;
   jobSegment: string;
   mainJobCategory: string;

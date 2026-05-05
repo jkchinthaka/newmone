@@ -110,11 +110,22 @@ export class ReportsController {
   }
 
   private parseQuery(query: ReportQuery): ReportQuery {
+    const departmentIds = this.parseDepartmentIds(query.departmentIds, query.departmentId);
     return {
       ...query,
+      departmentIds,
+      departmentId: departmentIds[0] ?? query.departmentId,
       page: query.page ? Number(query.page) : undefined,
       pageSize: query.pageSize ? Number(query.pageSize) : undefined,
       sortDirection: query.sortDirection === "asc" ? "asc" : query.sortDirection === "desc" ? "desc" : undefined
     };
+  }
+
+  private parseDepartmentIds(rawIds?: string[] | string, rawId?: string) {
+    const values = [rawId, rawIds]
+      .flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return Array.from(new Set(values));
   }
 }

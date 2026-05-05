@@ -20,6 +20,7 @@ export interface ReportQuery {
   startDate?: string;
   endDate?: string;
   departmentId?: string;
+  departmentIds?: string[] | string;
   userId?: string;
   assetId?: string;
   status?: string;
@@ -99,6 +100,7 @@ export interface ReportModuleResponse {
     startDate: string;
     endDate: string;
     departmentId?: string;
+    departmentIds?: string[];
     userId?: string;
     assetId?: string;
     status?: string;
@@ -1045,6 +1047,7 @@ export class ReportsService {
       startDate: this.isoDate(range.start) ?? "",
       endDate: this.isoDate(range.end) ?? "",
       departmentId: query.departmentId || undefined,
+      departmentIds: this.departmentIds(query).length ? this.departmentIds(query) : undefined,
       userId: query.userId || undefined,
       assetId: query.assetId || undefined,
       status: query.status || undefined,
@@ -1098,6 +1101,20 @@ export class ReportsService {
     return tenantId ? { tenantId } : {};
   }
 
+  private departmentIds(query: ReportQuery) {
+    const values = [query.departmentId, query.departmentIds]
+      .flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return Array.from(new Set(values));
+  }
+
+  private departmentIdCondition(query: ReportQuery) {
+    const ids = this.departmentIds(query);
+    if (ids.length === 0) return undefined;
+    return ids.length === 1 ? ids[0] : { in: ids };
+  }
+
   private workOrderWhere(tenantId: string | null, range: DateRange, query: ReportQuery) {
     const where: Record<string, unknown> = {
       ...this.tenantWhere(tenantId),
@@ -1110,12 +1127,13 @@ export class ReportsService {
     }
     if (query.userId) where.technicianId = query.userId;
     if (query.assetId) andFilters.push({ OR: [{ assetId: query.assetId }, { vehicleId: query.assetId }] });
-    if (query.departmentId) {
+    const departmentCondition = this.departmentIdCondition(query);
+    if (departmentCondition) {
       andFilters.push({
         OR: [
-          { asset: { departmentId: query.departmentId } },
-          { vehicle: { departmentId: query.departmentId } },
-          { technician: { departmentId: query.departmentId } }
+          { asset: { departmentId: departmentCondition } },
+          { vehicle: { departmentId: departmentCondition } },
+          { technician: { departmentId: departmentCondition } }
         ]
       });
     }
@@ -1139,7 +1157,8 @@ export class ReportsService {
     if (query.assetId) where.id = query.assetId;
     if (query.status) where.status = query.status;
     if (query.category) where.category = query.category;
-    if (query.departmentId) where.departmentId = query.departmentId;
+    const departmentCondition = this.departmentIdCondition(query);
+    if (departmentCondition) where.departmentId = departmentCondition;
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
@@ -1157,7 +1176,8 @@ export class ReportsService {
     if (query.assetId) where.id = query.assetId;
     if (query.status) where.status = query.status;
     if (query.category) where.type = query.category;
-    if (query.departmentId) where.departmentId = query.departmentId;
+    const departmentCondition = this.departmentIdCondition(query);
+    if (departmentCondition) where.departmentId = departmentCondition;
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
@@ -1260,7 +1280,8 @@ export class ReportsService {
   private userWhere(tenantId: string | null, query: ReportQuery) {
     const where: Record<string, unknown> = { ...this.tenantWhere(tenantId) };
     if (query.userId) where.id = query.userId;
-    if (query.departmentId) where.departmentId = query.departmentId;
+    const departmentCondition = this.departmentIdCondition(query);
+    if (departmentCondition) where.departmentId = departmentCondition;
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [

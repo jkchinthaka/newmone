@@ -20,6 +20,7 @@ export interface AssetQueryFilters {
   status: AssetStatusFilter;
   category: AssetCategoryFilter;
   location: string;
+  departmentId: string;
   sortBy: AssetSortField;
   sortOrder: "asc" | "desc";
   page: number;
@@ -31,6 +32,7 @@ const DEFAULT_FILTERS: AssetQueryFilters = {
   status: "",
   category: "",
   location: "",
+  departmentId: "",
   sortBy: "createdAt",
   sortOrder: "desc",
   page: 1,
@@ -138,6 +140,7 @@ export function hasActiveFilters(filters: AssetQueryFilters) {
       filters.status ||
       filters.category ||
       filters.location ||
+      filters.departmentId ||
       filters.sortBy !== DEFAULT_FILTERS.sortBy ||
       filters.sortOrder !== DEFAULT_FILTERS.sortOrder
   );
