@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
-import { createDepartmentCode, normalizeDepartmentName } from "./department-master-list";
+import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "./department-master-list";
 
 export interface CreateDepartmentInput {
   name: string;
@@ -23,12 +24,16 @@ export interface UpdateDepartmentInput {
 
 @Injectable()
 export class DepartmentsService {
+  private readonly canonicalDepartmentsReady = new Set<string>();
+
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(
+  async findAll(
     tenantId: string | null,
     params: { q?: string; parentId?: string | "null"; pageSize?: number; includeInactive?: boolean; exclude?: string; ids?: string[] } = {}
   ) {
+    await this.ensureCanonicalDepartments(tenantId);
+
     const q = params.q?.trim();
     const take = Math.min(Math.max(params.pageSize ?? 100, 1), 200);
 
@@ -166,6 +171,49 @@ export class DepartmentsService {
   private async assertDepartmentExists(tenantId: string | null, id: string) {
     const department = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null }, select: { id: true } });
     if (!department) throw new BadRequestException("Parent department not found");
+  }
+
+  private async ensureCanonicalDepartments(tenantId: string | null) {
+    const cacheKey = tenantId ?? "__GLOBAL__";
+    if (this.canonicalDepartmentsReady.has(cacheKey)) return;
+
+    const departments = await this.prisma.department.findMany({
+      where: { tenantId: tenantId ?? null },
+      select: { id: true, name: true, code: true, isActive: true }
+    });
+    const byName = new Map(departments.map((department) => [normalizeDepartmentName(department.name), department]));
+    const usedCodes = new Set(departments.map((department) => department.code.toUpperCase()));
+
+    for (const department of buildCanonicalDepartmentSeed()) {
+      const normalized = normalizeDepartmentName(department.name);
+      const existing = byName.get(normalized);
+
+      if (existing) {
+        usedCodes.add(existing.code.toUpperCase());
+        continue;
+      }
+
+      const nextCode = createDepartmentCode(department.name, usedCodes);
+      usedCodes.add(nextCode.toUpperCase());
+
+      try {
+        await this.prisma.department.create({
+          data: {
+            tenantId: tenantId ?? null,
+            name: department.name,
+            code: nextCode,
+            isActive: true
+          }
+        });
+      } catch (error) {
+        // Concurrent requests may race on seed creation; unique conflicts are safe to ignore.
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+          throw error;
+        }
+      }
+    }
+
+    this.canonicalDepartmentsReady.add(cacheKey);
   }
 
   /** Verify that `candidateAncestorId` is NOT already a descendant of `id` (prevents cycles). */
