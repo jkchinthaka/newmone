@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, RiskLevel } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import type { JwtPayload } from "../auth/auth.types";
 
 interface MaintenanceLogQuery {
   vehicleId?: string;
@@ -12,6 +13,8 @@ interface MaintenanceLogQuery {
 const DEFAULT_LOG_PAGE_SIZE = 10;
 const MAX_LOG_PAGE_SIZE = 100;
 
+type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -19,8 +22,41 @@ export class MaintenanceService {
     private readonly prisma: PrismaService
   ) {}
 
-  schedules() {
+  private resolveTenantId(actor?: Actor): string | null | undefined {
+    if (!actor) {
+      return undefined;
+    }
+
+    return actor.tenantId ?? null;
+  }
+
+  private buildScheduleTenantWhere(tenantId: string | null | undefined): Prisma.MaintenanceScheduleWhereInput {
+    if (tenantId === undefined) {
+      return {};
+    }
+
+    return {
+      OR: [{ asset: { tenantId } }, { vehicle: { tenantId } }]
+    };
+  }
+
+  private buildLogTenantWhere(tenantId: string | null | undefined): Prisma.MaintenanceLogWhereInput {
+    if (tenantId === undefined) {
+      return {};
+    }
+
+    return {
+      OR: [{ workOrder: { tenantId } }, { asset: { tenantId } }, { vehicle: { tenantId } }]
+    };
+  }
+
+  schedules(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+
     return this.prisma.maintenanceSchedule.findMany({
+      where: {
+        ...this.buildScheduleTenantWhere(tenantId)
+      },
       include: {
         maintenanceLogs: true,
         workOrders: true
@@ -29,17 +65,28 @@ export class MaintenanceService {
     });
   }
 
-  schedule(id: string) {
-    return this.prisma.maintenanceSchedule.findUnique({
-      where: { id },
+  async schedule(id: string, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+
+    const schedule = await this.prisma.maintenanceSchedule.findFirst({
+      where: {
+        id,
+        ...this.buildScheduleTenantWhere(tenantId)
+      },
       include: {
         maintenanceLogs: true,
         workOrders: true
       }
     });
+
+    if (!schedule) {
+      throw new NotFoundException("Maintenance schedule not found");
+    }
+
+    return schedule;
   }
 
-  createSchedule(data: {
+  async createSchedule(data: {
     name: string;
     description?: string;
     type: "PREVENTIVE" | "PREDICTIVE" | "CORRECTIVE" | "INSPECTION";
@@ -52,7 +99,29 @@ export class MaintenanceService {
     nextDueMileage?: number;
     estimatedCost?: number;
     estimatedHours?: number;
-  }) {
+  }, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+
+    if (tenantId !== undefined) {
+      if (!data.assetId && !data.vehicleId) {
+        throw new NotFoundException("Tenant-scoped schedules must reference an asset or vehicle");
+      }
+
+      if (data.assetId) {
+        const asset = await this.prisma.asset.findFirst({ where: { id: data.assetId, tenantId } });
+        if (!asset) {
+          throw new NotFoundException("Asset not found in tenant context");
+        }
+      }
+
+      if (data.vehicleId) {
+        const vehicle = await this.prisma.vehicle.findFirst({ where: { id: data.vehicleId, tenantId } });
+        if (!vehicle) {
+          throw new NotFoundException("Vehicle not found in tenant context");
+        }
+      }
+    }
+
     return this.prisma.maintenanceSchedule.create({
       data: {
         ...data,
@@ -61,7 +130,7 @@ export class MaintenanceService {
     });
   }
 
-  updateSchedule(
+  async updateSchedule(
     id: string,
     data: Partial<{
       name: string;
@@ -75,8 +144,11 @@ export class MaintenanceService {
       estimatedCost: number;
       estimatedHours: number;
       isActive: boolean;
-    }>
+    }>,
+    actor?: Actor
   ) {
+    await this.schedule(id, actor);
+
     return this.prisma.maintenanceSchedule.update({
       where: { id },
       data: {
@@ -86,15 +158,19 @@ export class MaintenanceService {
     });
   }
 
-  removeSchedule(id: string) {
+  async removeSchedule(id: string, actor?: Actor) {
+    await this.schedule(id, actor);
     return this.prisma.maintenanceSchedule.delete({ where: { id } });
   }
 
-  async logs(query: MaintenanceLogQuery = {}) {
+  async logs(query: MaintenanceLogQuery = {}, actor?: Actor) {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(MAX_LOG_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_LOG_PAGE_SIZE));
+    const tenantId = this.resolveTenantId(actor);
 
-    const where: Prisma.MaintenanceLogWhereInput = {};
+    const where: Prisma.MaintenanceLogWhereInput = {
+      ...this.buildLogTenantWhere(tenantId)
+    };
     if (query.vehicleId) {
       where.vehicleId = query.vehicleId;
     }
@@ -129,7 +205,7 @@ export class MaintenanceService {
     };
   }
 
-  createLog(data: {
+  async createLog(data: {
     scheduleId?: string;
     assetId?: string;
     vehicleId?: string;
@@ -140,7 +216,36 @@ export class MaintenanceService {
     cost?: number;
     notes?: string;
     attachments?: string[];
-  }) {
+  }, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+
+    if (tenantId !== undefined) {
+      if (data.scheduleId) {
+        await this.schedule(data.scheduleId, actor);
+      }
+
+      if (data.assetId) {
+        const asset = await this.prisma.asset.findFirst({ where: { id: data.assetId, tenantId } });
+        if (!asset) {
+          throw new NotFoundException("Asset not found in tenant context");
+        }
+      }
+
+      if (data.vehicleId) {
+        const vehicle = await this.prisma.vehicle.findFirst({ where: { id: data.vehicleId, tenantId } });
+        if (!vehicle) {
+          throw new NotFoundException("Vehicle not found in tenant context");
+        }
+      }
+
+      if (data.workOrderId) {
+        const workOrder = await this.prisma.workOrder.findFirst({ where: { id: data.workOrderId, tenantId } });
+        if (!workOrder) {
+          throw new NotFoundException("Work order not found in tenant context");
+        }
+      }
+    }
+
     return this.prisma.maintenanceLog.create({
       data: {
         ...data,
@@ -150,9 +255,14 @@ export class MaintenanceService {
     });
   }
 
-  async calendar() {
+  async calendar(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+
     const schedules = await this.prisma.maintenanceSchedule.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...this.buildScheduleTenantWhere(tenantId)
+      },
       select: {
         id: true,
         name: true,
@@ -171,7 +281,8 @@ export class MaintenanceService {
     }));
   }
 
-  async predictiveAlerts() {
+  async predictiveAlerts(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
     const alerts: Array<{
       id: string;
       type: string;
@@ -182,6 +293,7 @@ export class MaintenanceService {
 
     const vehicles = await this.prisma.vehicle.findMany({
       where: {
+        ...(tenantId !== undefined ? { tenantId } : {}),
         nextServiceMileage: {
           not: null
         }
@@ -205,6 +317,7 @@ export class MaintenanceService {
 
     const schedules = await this.prisma.maintenanceSchedule.findMany({
       where: {
+        ...this.buildScheduleTenantWhere(tenantId),
         intervalDays: {
           not: null
         }
@@ -243,6 +356,7 @@ export class MaintenanceService {
     const groupedCorrective = await this.prisma.workOrder.groupBy({
       by: ["assetId"],
       where: {
+        ...(tenantId !== undefined ? { tenantId } : {}),
         type: "CORRECTIVE",
         createdAt: {
           gte: since
@@ -268,7 +382,13 @@ export class MaintenanceService {
         });
       });
 
-    const fuelLogs = await this.prisma.fuelLog.findMany({ orderBy: { date: "desc" }, take: 120 });
+    const fuelLogs = await this.prisma.fuelLog.findMany({
+      where: {
+        ...(tenantId !== undefined ? { vehicle: { tenantId } } : {})
+      },
+      orderBy: { date: "desc" },
+      take: 120
+    });
 
     const byVehicle = new Map<string, number[]>();
     for (const log of fuelLogs) {
@@ -300,11 +420,19 @@ export class MaintenanceService {
     return alerts;
   }
 
-  async acknowledgePredictiveAlert(id: string) {
+  async acknowledgePredictiveAlert(id: string, actor?: Actor) {
     const [, referenceId] = id.split(/^[^-]+-[^-]+-/);
+    const tenantId = this.resolveTenantId(actor);
 
     if (!referenceId) {
       throw new NotFoundException("Predictive alert not found");
+    }
+
+    if (tenantId !== undefined) {
+      const asset = await this.prisma.asset.findFirst({ where: { id: referenceId, tenantId } });
+      if (!asset) {
+        throw new NotFoundException("Predictive alert target not found in tenant context");
+      }
     }
 
     const log = await this.prisma.predictiveLog.create({

@@ -1,9 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import type { JwtPayload } from "../auth/auth.types";
 import { SuppliersService } from "./suppliers.service";
+
+type AuthedRequest = {
+  user: JwtPayload;
+};
 
 @ApiTags("Suppliers")
 @ApiBearerAuth()
@@ -14,29 +19,36 @@ export class SuppliersController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async findAll() {
-    const data = await this.suppliersService.findAll();
+  async findAll(@Req() req: AuthedRequest) {
+    const data = await this.suppliersService.findAll(req.user);
     return { data, message: "Suppliers fetched" };
   }
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async create(@Body() body: { name: string; contactName?: string; email?: string; phone?: string; address?: string; website?: string; taxNumber?: string; notes?: string }) {
-    const data = await this.suppliersService.create(body);
+  async create(
+    @Req() req: AuthedRequest,
+    @Body() body: { name: string; contactName?: string; email?: string; phone?: string; address?: string; website?: string; taxNumber?: string; notes?: string; tenantId?: string }
+  ) {
+    const data = await this.suppliersService.create(body, req.user);
     return { data, message: "Supplier created" };
   }
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async findOne(@Param("id") id: string) {
-    const data = await this.suppliersService.findOne(id);
+  async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.suppliersService.findOne(id, req.user);
     return { data, message: "Supplier fetched" };
   }
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async update(@Param("id") id: string, @Body() body: Partial<{ name: string; contactName: string; email: string; phone: string; address: string; website: string; taxNumber: string; notes: string; isActive: boolean }>) {
-    const data = await this.suppliersService.update(id, body);
+  async update(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Partial<{ name: string; contactName: string; email: string; phone: string; address: string; website: string; taxNumber: string; notes: string; isActive: boolean }>
+  ) {
+    const data = await this.suppliersService.update(id, body, req.user);
     return { data, message: "Supplier updated" };
   }
 }

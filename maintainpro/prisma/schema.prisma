@@ -30,6 +30,13 @@ model Tenant {
   workOrders     WorkOrder[]
   spareParts     SparePart[]
   suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+  partRequests   PartRequest[]
+  partIssues     PartIssue[]
+  partRequestApprovals      PartRequestApproval[]
+  purchaseOrderApprovals    PurchaseOrderApproval[]
+  purchaseOrderErpSyncAttempts PurchaseOrderErpSync[]
+  purchaseOrderLines        PurchaseOrderLine[]
   meters         UtilityMeter[]
   bills          UtilityBill[]
   audits         AuditLog[]
@@ -144,6 +151,11 @@ model User {
   managedDepartments        Department[]           @relation("DepartmentManager")
   recordedVehicleMeterLogs  VehicleMeterLog[]      @relation("VehicleMeterRecordedBy")
   approvedVehicleGateMoves  VehicleGateMovement[]  @relation("VehicleGateApprovedBy")
+  partRequestsRequested     PartRequest[]          @relation("PartRequestRequester")
+  partRequestApprovals      PartRequestApproval[]  @relation("PartRequestApprovalActor")
+  partIssuesIssued          PartIssue[]            @relation("PartIssueIssuer")
+  purchaseOrderApprovals    PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
+  purchaseOrderErpSyncActions PurchaseOrderErpSync[] @relation("PurchaseOrderErpSyncTrigger")
 
   @@index([tenantId])
   @@index([roleId])
@@ -896,6 +908,8 @@ model WorkOrder {
 
   maintenanceLogs MaintenanceLog[]
   parts           WorkOrderPart[]
+  partRequests    PartRequest[]
+  partIssues      PartIssue[]
 
   @@index([tenantId])
   @@index([status])
@@ -961,6 +975,9 @@ model SparePart {
 
   stockMovements StockMovement[]
   workOrderParts WorkOrderPart[]
+  partRequests   PartRequest[]
+  partIssues     PartIssue[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@index([tenantId])
   @@index([supplierId])
@@ -1024,19 +1041,166 @@ model Supplier {
 
 model PurchaseOrder {
   id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String?   @db.ObjectId
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id])
   poNumber     String    @unique
   supplierId   String    @db.ObjectId
   supplier     Supplier  @relation(fields: [supplierId], references: [id])
   status       POStatus  @default(PENDING)
+  workflowStatus PurchaseOrderWorkflowStatus @default(PENDING_OPERATIONAL)
+  requiresFinanceApproval Boolean @default(false)
   orderDate    DateTime
   expectedDate DateTime?
   receivedDate DateTime?
   totalAmount  Float
   notes        String?
+  approvals    PurchaseOrderApproval[]
+  erpSyncAttempts PurchaseOrderErpSync[]
+  lines        PurchaseOrderLine[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@index([tenantId])
+  @@index([tenantId, workflowStatus])
   @@index([supplierId])
+}
+
+model PurchaseOrderLine {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?       @db.ObjectId
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String       @db.ObjectId
+  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  partId         String?       @db.ObjectId
+  part           SparePart?    @relation(fields: [partId], references: [id])
+  description    String
+  quantity       Int
+  unitCost       Float
+  totalCost      Float
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([purchaseOrderId])
+  @@index([partId])
+}
+
+model PurchaseOrderApproval {
+  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?                @db.ObjectId
+  tenant         Tenant?                @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String                @db.ObjectId
+  purchaseOrder  PurchaseOrder          @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  stage          ApprovalStage
+  sequence       Int                    @default(1)
+  status         ApprovalDecisionStatus @default(PENDING)
+  actorId        String?                @db.ObjectId
+  actor          User?                  @relation("PurchaseOrderApprovalActor", fields: [actorId], references: [id])
+  actedAt        DateTime?
+  reason         String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([purchaseOrderId, stage])
+  @@index([tenantId])
+  @@index([tenantId, stage, status])
+}
+
+model PurchaseOrderErpSync {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?       @db.ObjectId
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String       @db.ObjectId
+  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  provider       String        @default("MOCK_ERP")
+  status         ErpSyncStatus @default(PENDING)
+  attempt        Int           @default(1)
+  triggeredById  String?       @db.ObjectId
+  triggeredBy    User?         @relation("PurchaseOrderErpSyncTrigger", fields: [triggeredById], references: [id])
+  lastAttemptAt  DateTime?
+  nextRetryAt    DateTime?
+  errorMessage   String?
+  requestPayload Json?
+  responsePayload Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([purchaseOrderId, createdAt])
+}
+
+model PartRequest {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?           @db.ObjectId
+  tenant         Tenant?           @relation(fields: [tenantId], references: [id])
+  workOrderId    String            @db.ObjectId
+  workOrder      WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  partId         String            @db.ObjectId
+  part           SparePart         @relation(fields: [partId], references: [id])
+  requestedById  String            @db.ObjectId
+  requestedBy    User              @relation("PartRequestRequester", fields: [requestedById], references: [id])
+  requestedQuantity Int
+  approvedQuantity Int?
+  issuedQuantity Int               @default(0)
+  unitCostSnapshot Float
+  requiresFinanceApproval Boolean  @default(false)
+  reason         String?
+  rejectionReason String?
+  status         PartRequestStatus @default(PENDING_OPERATIONAL)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  approvals      PartRequestApproval[]
+  issues         PartIssue[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([workOrderId])
+  @@index([partId])
+}
+
+model PartRequestApproval {
+  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?                @db.ObjectId
+  tenant         Tenant?                @relation(fields: [tenantId], references: [id])
+  partRequestId  String                 @db.ObjectId
+  partRequest    PartRequest            @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  stage          ApprovalStage
+  sequence       Int                    @default(1)
+  status         ApprovalDecisionStatus @default(PENDING)
+  actorId        String?                @db.ObjectId
+  actor          User?                  @relation("PartRequestApprovalActor", fields: [actorId], references: [id])
+  actedAt        DateTime?
+  reason         String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([partRequestId, stage])
+  @@index([tenantId])
+  @@index([tenantId, stage, status])
+}
+
+model PartIssue {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?     @db.ObjectId
+  tenant         Tenant?     @relation(fields: [tenantId], references: [id])
+  partRequestId  String      @db.ObjectId
+  partRequest    PartRequest @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  workOrderId    String      @db.ObjectId
+  workOrder      WorkOrder   @relation(fields: [workOrderId], references: [id])
+  partId         String      @db.ObjectId
+  part           SparePart   @relation(fields: [partId], references: [id])
+  issuedById     String      @db.ObjectId
+  issuedBy       User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
+  quantity       Int
+  notes          String?
+  createdAt      DateTime    @default(now())
+
+  @@index([tenantId])
+  @@index([partRequestId])
+  @@index([workOrderId])
+  @@index([partId])
 }
 
 enum POStatus {
@@ -1045,6 +1209,42 @@ enum POStatus {
   PARTIALLY_RECEIVED
   RECEIVED
   CANCELLED
+}
+
+enum PurchaseOrderWorkflowStatus {
+  PENDING_OPERATIONAL
+  PENDING_FINANCE
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalStage {
+  OPERATIONAL
+  FINANCE
+}
+
+enum ApprovalDecisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum PartRequestStatus {
+  PENDING_OPERATIONAL
+  PENDING_FINANCE
+  APPROVED
+  REJECTED
+  PARTIALLY_ISSUED
+  ISSUED
+  CANCELLED
+}
+
+enum ErpSyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
 }
 
 model UtilityMeter {
@@ -1150,6 +1350,16 @@ enum NotificationType {
   WORK_ORDER_ASSIGNED
   WORK_ORDER_UPDATED
   LOW_STOCK
+  PART_REQUEST_SUBMITTED
+  PART_REQUEST_APPROVED
+  PART_REQUEST_REJECTED
+  PART_ISSUE_COMPLETED
+  PURCHASE_ORDER_APPROVAL_REQUIRED
+  PURCHASE_ORDER_APPROVED
+  PURCHASE_ORDER_REJECTED
+  ERP_SYNC_SUCCESS
+  ERP_SYNC_FAILED
+  ERP_SYNC_RETRIED
   VEHICLE_SERVICE_DUE
   LICENSE_EXPIRY
   INSURANCE_EXPIRY

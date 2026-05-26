@@ -19,6 +19,7 @@ const prisma = new PrismaClient();
 
 const permissionCatalog = [
   // Phase 1 enterprise RBAC / PBAC keys
+  "dashboard.view",
   "users.view",
   "users.create",
   "users.edit",
@@ -37,6 +38,9 @@ const permissionCatalog = [
   "vehicles.edit",
   "vehicles.operate",
   "vehicles.delete",
+  "gate.override.approve",
+  "service.rules.manage",
+  "settings.manage",
 
   // Backward-compatible / module-level keys already used by other modules
   "users.manage",
@@ -45,9 +49,21 @@ const permissionCatalog = [
   "work_orders.manage",
   "work_orders.update_status",
   "work_orders.view_own",
+  "part_requests.create",
+  "part_requests.view",
+  "part_requests.approve_operational",
+  "part_requests.approve_finance",
+  "part_requests.reject",
+  "part_requests.issue",
   "fleet.manage",
   "fleet.log_fuel_trip",
   "inventory.manage",
+  "inventory.stock_issue",
+  "purchase_orders.approve_operational",
+  "purchase_orders.approve_finance",
+  "purchase_orders.reject",
+  "purchase_orders.erp_sync",
+  "purchase_orders.erp_sync_retry",
   "reports.view",
   "utilities.manage",
   "system.configure",
@@ -61,17 +77,31 @@ const rolePermissions: Record<RoleName, string[]> = {
   SUPER_ADMIN: [...permissionCatalog],
   ADMIN: permissionCatalog.filter((permission) => permission !== "system.configure"),
   OPERATIONS_MANAGER: [
+    "dashboard.view",
     "modules.view_all",
     "reports.view",
     "users.view",
     "work_orders.manage",
     "work_orders.update_status",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.approve_finance",
+    "part_requests.reject",
+    "part_requests.issue",
     "vehicles.view",
     "vehicles.operate",
+    "inventory.stock_issue",
+    "purchase_orders.approve_operational",
+    "purchase_orders.approve_finance",
+    "purchase_orders.reject",
+    "purchase_orders.erp_sync",
+    "purchase_orders.erp_sync_retry",
+    "gate.override.approve",
     "settings.view",
     "audit.view"
   ],
   FLEET_MANAGER: [
+    "dashboard.view",
     "modules.view_all",
     "reports.view",
     "fleet.manage",
@@ -80,10 +110,13 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.create",
     "vehicles.edit",
     "vehicles.operate",
+    "gate.override.approve",
+    "service.rules.manage",
     "settings.view",
     "audit.view"
   ],
   COMPLIANCE_MANAGER: [
+    "dashboard.view",
     "modules.view_all",
     "reports.view",
     "audit.view",
@@ -92,51 +125,105 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.view"
   ],
   MANAGER: [
+    "dashboard.view",
     "modules.view_all",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
     "work_orders.view_own",
+    "part_requests.create",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.approve_finance",
+    "part_requests.reject",
+    "part_requests.issue",
     "fleet.manage",
     "fleet.log_fuel_trip",
     "inventory.manage",
+    "inventory.stock_issue",
+    "purchase_orders.approve_operational",
+    "purchase_orders.approve_finance",
+    "purchase_orders.reject",
+    "purchase_orders.erp_sync",
+    "purchase_orders.erp_sync_retry",
     "reports.view",
     "utilities.manage",
     "cleaning.manage",
     "users.view",
     "vehicles.view",
     "vehicles.operate",
+    "gate.override.approve",
+    "service.rules.manage",
     "settings.view"
   ],
-  TECHNICIAN: ["work_orders.update_status", "work_orders.view_own", "inventory.manage", "vehicles.view"],
-  MECHANIC: ["work_orders.update_status", "work_orders.view_own", "inventory.manage", "vehicles.view", "vehicles.edit"],
+  TECHNICIAN: [
+    "dashboard.view",
+    "work_orders.update_status",
+    "work_orders.view_own",
+    "part_requests.create",
+    "part_requests.view",
+    "inventory.manage",
+    "vehicles.view"
+  ],
+  MECHANIC: [
+    "dashboard.view",
+    "work_orders.update_status",
+    "work_orders.view_own",
+    "part_requests.create",
+    "part_requests.view",
+    "inventory.manage",
+    "vehicles.view",
+    "vehicles.edit"
+  ],
   ASSET_MANAGER: [
+    "dashboard.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
+    "part_requests.create",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.reject",
     "reports.view",
+    "purchase_orders.approve_operational",
+    "purchase_orders.reject",
     "vehicles.view",
     "vehicles.create",
     "vehicles.edit",
     "vehicles.operate",
     "audit.view"
   ],
-  INVENTORY_KEEPER: ["inventory.manage", "reports.view", "modules.view_all"],
+  INVENTORY_KEEPER: [
+    "dashboard.view",
+    "inventory.manage",
+    "inventory.stock_issue",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.issue",
+    "purchase_orders.approve_operational",
+    "purchase_orders.erp_sync",
+    "purchase_orders.erp_sync_retry",
+    "reports.view",
+    "modules.view_all"
+  ],
   SUPERVISOR: [
+    "dashboard.view",
     "modules.view_all",
     "cleaning.manage",
     "cleaning.sign_off",
     "cleaning.report_issue",
+    "part_requests.view",
     "reports.view",
     "users.view",
     "vehicles.view",
     "audit.view"
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
-  DRIVER: ["fleet.log_fuel_trip", "vehicles.view", "vehicles.operate", "work_orders.view_own"],
-  VIEWER: ["modules.view_all", "reports.view", "vehicles.view", "settings.view"],
+  DRIVER: ["dashboard.view", "fleet.log_fuel_trip", "vehicles.view", "vehicles.operate", "work_orders.view_own"],
+  VIEWER: ["dashboard.view", "modules.view_all", "reports.view", "vehicles.view", "part_requests.view", "settings.view"],
   FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
+    "dashboard.view",
     "modules.view_all",
     "assets.manage",
     "work_orders.manage",
@@ -144,9 +231,9 @@ const rolePermissions: Record<RoleName, string[]> = {
     "settings.view",
     "vehicles.view"
   ],
-  FIELD_SUPERVISOR: ["modules.view_all", "work_orders.manage", "reports.view", "vehicles.view"],
-  AGRONOMIST: ["modules.view_all", "reports.view"],
-  VETERINARIAN: ["modules.view_all", "reports.view"],
+  FIELD_SUPERVISOR: ["dashboard.view", "modules.view_all", "work_orders.manage", "reports.view", "vehicles.view"],
+  AGRONOMIST: ["dashboard.view", "modules.view_all", "reports.view"],
+  VETERINARIAN: ["dashboard.view", "modules.view_all", "reports.view"],
   FARM_WORKER: ["work_orders.update_status", "work_orders.view_own"],
   IRRIGATION_OPERATOR: ["work_orders.update_status"],
   HARVEST_CREW: ["work_orders.update_status"]
@@ -291,6 +378,44 @@ async function ensureSystemPolicyDefaults(tenantId: string) {
   }
 }
 
+async function ensureVehicleGatePolicyBackfill() {
+  const settings = await prisma.appSetting.findMany({
+    where: {
+      scope: AppSettingScope.TENANT,
+      key: "system.configuration"
+    },
+    select: {
+      id: true,
+      value: true
+    }
+  });
+
+  for (const setting of settings) {
+    const currentValue =
+      setting.value && typeof setting.value === "object" && !Array.isArray(setting.value)
+        ? ({ ...setting.value } as Record<string, unknown>)
+        : {};
+
+    if (currentValue.vehicleGatePolicy && typeof currentValue.vehicleGatePolicy === "object") {
+      continue;
+    }
+
+    currentValue.vehicleGatePolicy = {
+      blockWhenServiceOverdue: true,
+      allowManagerOverride: true,
+      dueSoonMileageThreshold: 500,
+      dueSoonDaysThreshold: 14
+    };
+
+    await prisma.appSetting.update({
+      where: { id: setting.id },
+      data: {
+        value: currentValue as Prisma.InputJsonValue
+      }
+    });
+  }
+}
+
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -304,6 +429,7 @@ async function main() {
   await ensurePermissions();
   await ensureMasterDepartments(tenant.id);
   await ensureSystemPolicyDefaults(tenant.id);
+  await ensureVehicleGatePolicyBackfill();
 
   const permissions = await prisma.permission.findMany();
   const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));

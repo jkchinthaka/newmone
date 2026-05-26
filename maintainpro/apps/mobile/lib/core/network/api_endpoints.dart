@@ -49,6 +49,28 @@ class ApiEndpoints {
   static String workOrderAttachments(String id) =>
       '/work-orders/$id/attachments';
 
+  // ── Work Orders · Part Requests (Phase 3) ──
+  static String workOrderPartRequests(String id) =>
+      '/work-orders/$id/part-requests';
+  static String workOrderPartRequestById(String workOrderId, String prId) =>
+      '/work-orders/$workOrderId/part-requests/$prId';
+  static String workOrderPartRequestApproveOperational(
+    String workOrderId,
+    String prId,
+  ) => '/work-orders/$workOrderId/part-requests/$prId/approve-operational';
+  static String workOrderPartRequestApproveFinance(
+    String workOrderId,
+    String prId,
+  ) => '/work-orders/$workOrderId/part-requests/$prId/approve-finance';
+  static String workOrderPartRequestReject(
+    String workOrderId,
+    String prId,
+  ) => '/work-orders/$workOrderId/part-requests/$prId/reject';
+  static String workOrderPartRequestIssue(
+    String workOrderId,
+    String prId,
+  ) => '/work-orders/$workOrderId/part-requests/$prId/issue';
+
   // ── Maintenance ──
   static const String maintenanceSchedules = '/maintenance/schedules';
   static String maintenanceScheduleById(String id) =>
@@ -108,6 +130,18 @@ class ApiEndpoints {
   static const String inventoryPurchaseOrders = '/inventory/purchase-orders';
   static String inventoryPurchaseOrderById(String id) =>
       '/inventory/purchase-orders/$id';
+
+  // ── Inventory · PO Workflow (Phase 3) ──
+  static String inventoryPurchaseOrderApproveOperational(String id) =>
+      '/inventory/purchase-orders/$id/approve-operational';
+  static String inventoryPurchaseOrderApproveFinance(String id) =>
+      '/inventory/purchase-orders/$id/approve-finance';
+  static String inventoryPurchaseOrderReject(String id) =>
+      '/inventory/purchase-orders/$id/reject';
+  static String inventoryPurchaseOrderErpSync(String id) =>
+      '/inventory/purchase-orders/$id/erp-sync';
+  static String inventoryPurchaseOrderErpSyncRetry(String id) =>
+      '/inventory/purchase-orders/$id/erp-sync/retry';
 
   // ── Cleaning ──
   static const String cleaningLocations = '/cleaning/locations';

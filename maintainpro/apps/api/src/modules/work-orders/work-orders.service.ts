@@ -1,14 +1,23 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  ApprovalDecisionStatus,
+  ApprovalStage,
+  AuditAction,
   NotificationPriority,
   NotificationType,
+  PartRequestStatus,
   Priority,
+  Prisma,
   RoleName,
   WorkOrderStatus
 } from "@prisma/client";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+
+type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
 @Injectable()
 export class WorkOrdersService {
@@ -16,6 +25,62 @@ export class WorkOrdersService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService
   ) {}
+
+  private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
+
+  private resolveTenantId(actor?: Actor): string | null | undefined {
+    if (!actor) {
+      return undefined;
+    }
+
+    return actor.tenantId ?? null;
+  }
+
+  private async recordAudit(payload: {
+    entity: string;
+    entityId: string;
+    action: AuditAction;
+    actor?: Actor;
+    reason?: string;
+    metadata?: Prisma.InputJsonValue;
+    beforeData?: Prisma.InputJsonValue;
+    afterData?: Prisma.InputJsonValue;
+  }) {
+    const ctx = requestContext.get();
+    const actorId = payload.actor?.sub ?? ctx?.actorId ?? null;
+    const actorEmail = payload.actor?.email ?? ctx?.actorEmail ?? null;
+    const actorRole = payload.actor?.role ?? ctx?.actorRole ?? null;
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: payload.actor?.tenantId ?? ctx?.tenantId ?? null,
+        actorId,
+        module: "maintenance",
+        entity: payload.entity,
+        entityId: payload.entityId,
+        action: payload.action,
+        reason: payload.reason,
+        ipAddress: ctx?.ipAddress ?? undefined,
+        userAgent: ctx?.userAgent ?? undefined,
+        requestPath: ctx?.requestPath ?? undefined,
+        actorSnapshot:
+          actorId || actorEmail || actorRole
+            ? ({ id: actorId, email: actorEmail, role: actorRole } as Prisma.InputJsonValue)
+            : undefined,
+        metadata: payload.metadata,
+        beforeData: payload.beforeData,
+        afterData: payload.afterData
+      }
+    });
+  }
+
+  private assertActor(actor?: Actor) {
+    if (!actor?.sub) {
+      throw new BadRequestException("Authenticated actor context is required");
+    }
+
+    return actor;
+  }
 
   private slaHours(priority: Priority): number {
     switch (priority) {
@@ -31,23 +96,39 @@ export class WorkOrdersService {
     }
   }
 
-  private async nextWoNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.workOrder.count({
-      where: {
-        createdAt: {
-          gte: new Date(`${year}-01-01T00:00:00.000Z`),
-          lte: new Date(`${year}-12-31T23:59:59.999Z`)
-        }
-      }
-    });
+  private requiresFinanceApproval(totalCost: number, pettyCash?: boolean): boolean {
+    return Boolean(pettyCash) || totalCost >= this.financeApprovalThreshold;
+  }
 
+  private async nextWoNumber(actor?: Actor): Promise<string> {
+    const year = new Date().getFullYear();
+    const tenantId = this.resolveTenantId(actor);
+    const where: Prisma.WorkOrderWhereInput = {
+      createdAt: {
+        gte: new Date(`${year}-01-01T00:00:00.000Z`),
+        lte: new Date(`${year}-12-31T23:59:59.999Z`)
+      }
+    };
+
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
+    const count = await this.prisma.workOrder.count({ where });
     const sequence = String(count + 1).padStart(4, "0");
     return `WO-${year}-${sequence}`;
   }
 
-  findAll() {
+  findAll(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const where: Prisma.WorkOrderWhereInput = {};
+
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
     return this.prisma.workOrder.findMany({
+      where,
       include: {
         asset: true,
         vehicle: true,
@@ -63,9 +144,16 @@ export class WorkOrdersService {
     });
   }
 
-  async findOne(id: string) {
-    const workOrder = await this.prisma.workOrder.findUnique({
-      where: { id },
+  async findOne(id: string, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const where: Prisma.WorkOrderWhereInput = { id };
+
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where,
       include: {
         parts: {
           include: {
@@ -82,17 +170,20 @@ export class WorkOrdersService {
     return workOrder;
   }
 
-  async create(data: {
-    title: string;
-    description: string;
-    priority: Priority;
-    type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION";
-    assetId?: string;
-    vehicleId?: string;
-    scheduleId?: string;
-    createdById: string;
-    dueDate?: string;
-  }) {
+  async create(
+    data: {
+      title: string;
+      description: string;
+      priority: Priority;
+      type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION";
+      assetId?: string;
+      vehicleId?: string;
+      scheduleId?: string;
+      createdById: string;
+      dueDate?: string;
+    },
+    actor?: Actor
+  ) {
     if (!data.title?.trim()) {
       throw new BadRequestException("Title is required");
     }
@@ -103,14 +194,13 @@ export class WorkOrdersService {
       throw new BadRequestException("createdById is required");
     }
 
-    // MongoDB ObjectIds must be 24 hex chars. Reject obvious non-IDs early so the user
-    // gets a clear message instead of a cryptic Prisma "Malformed ObjectID" error.
-    const isValidObjectId = (v: string) => /^[a-fA-F0-9]{24}$/.test(v);
+    const isValidObjectId = (value: string) => /^[a-fA-F0-9]{24}$/.test(value);
     const optionalIdFields: Array<["assetId" | "vehicleId" | "scheduleId", string | undefined]> = [
       ["assetId", data.assetId],
       ["vehicleId", data.vehicleId],
       ["scheduleId", data.scheduleId]
     ];
+
     for (const [field, value] of optionalIdFields) {
       if (value && !isValidObjectId(value)) {
         throw new BadRequestException(
@@ -118,25 +208,29 @@ export class WorkOrdersService {
         );
       }
     }
+
     if (!isValidObjectId(data.createdById)) {
-      throw new BadRequestException(
-        "Invalid createdById. Please log in again to refresh your session."
-      );
+      throw new BadRequestException("Invalid createdById. Please log in again to refresh your session.");
     }
 
-    // Verify the creator exists so we surface a clear error instead of a Prisma FK failure.
-    const creator = await this.prisma.user.findUnique({ where: { id: data.createdById } });
+    const tenantId = this.resolveTenantId(actor);
+    const creator = await this.prisma.user.findFirst({
+      where: {
+        id: data.createdById,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      }
+    });
+
     if (!creator) {
-      throw new BadRequestException(
-        "createdById does not match any existing user. Please log in again."
-      );
+      throw new BadRequestException("createdById does not match any existing user in your tenant context.");
     }
 
-    const woNumber = await this.nextWoNumber();
+    const woNumber = await this.nextWoNumber(actor);
 
     try {
       const created = await this.prisma.workOrder.create({
         data: {
+          tenantId: tenantId === undefined ? creator.tenantId ?? null : tenantId,
           woNumber,
           title: data.title,
           description: data.description,
@@ -151,15 +245,18 @@ export class WorkOrdersService {
       });
 
       return created;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create work order";
-      // Surface Prisma validation/FK errors as 400 instead of a bare 500.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create work order";
       throw new BadRequestException(`Failed to create work order: ${message}`);
     }
   }
 
-  async update(id: string, data: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>) {
-    await this.findOne(id);
+  async update(
+    id: string,
+    data: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>,
+    actor?: Actor
+  ) {
+    await this.findOne(id, actor);
 
     return this.prisma.workOrder.update({
       where: { id },
@@ -170,21 +267,24 @@ export class WorkOrdersService {
     });
   }
 
-  async remove(id: string) {
-    const existing = await this.findOne(id);
+  async remove(id: string, actor?: Actor) {
+    const existing = await this.findOne(id, actor);
 
     if (existing.status !== WorkOrderStatus.OPEN) {
       throw new BadRequestException("Work order deletion only allowed when status is OPEN");
     }
 
     await this.prisma.workOrder.delete({ where: { id } });
-
     return { deleted: true };
   }
 
-  async assign(id: string, technicianId: string) {
-    const technician = await this.prisma.user.findUnique({
-      where: { id: technicianId },
+  async assign(id: string, technicianId: string, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const technician = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      },
       include: { role: true }
     });
 
@@ -198,9 +298,7 @@ export class WorkOrdersService {
 
     const updated = await this.prisma.workOrder.update({
       where: { id },
-      data: {
-        technicianId
-      }
+      data: { technicianId }
     });
 
     await this.notificationsService.createNotification({
@@ -229,9 +327,10 @@ export class WorkOrdersService {
       status: WorkOrderStatus;
       actualCost?: number;
       actualHours?: number;
-    }
+    },
+    actor?: Actor
   ) {
-    const current = await this.findOne(id);
+    const current = await this.findOne(id, actor);
 
     if (data.status === WorkOrderStatus.COMPLETED && (!data.actualCost || !data.actualHours)) {
       throw new BadRequestException("Cannot complete a work order without entering actual cost and hours");
@@ -247,7 +346,7 @@ export class WorkOrdersService {
 
     const completedDate = data.status === WorkOrderStatus.COMPLETED ? new Date() : current.completedDate;
 
-    const updated = await this.prisma.workOrder.update({
+    return this.prisma.workOrder.update({
       where: { id },
       data: {
         status: data.status,
@@ -259,12 +358,23 @@ export class WorkOrdersService {
         slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
       }
     });
-
-    return updated;
   }
 
-  async addPart(id: string, data: { partId: string; quantity: number; unitCost: number }) {
-    const part = await this.prisma.sparePart.findUnique({ where: { id: data.partId } });
+  async addPart(id: string, data: { partId: string; quantity: number; unitCost: number }, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const workOrder = await this.findOne(id, actor);
+
+    if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
+      throw new BadRequestException("Part quantity must be greater than 0");
+    }
+
+    const part = await this.prisma.sparePart.findFirst({
+      where: {
+        id: data.partId,
+        isActive: true,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      }
+    });
 
     if (!part) {
       throw new NotFoundException("Spare part not found");
@@ -300,23 +410,609 @@ export class WorkOrdersService {
         partId: data.partId,
         type: "OUT",
         quantity: data.quantity,
-        reference: id,
-        notes: "Deducted via work order"
+        reference: `work-order:${workOrder.id}`,
+        notes: "Deducted via work order add-part"
+      }
+    });
+
+    await this.recordAudit({
+      entity: "PART_STOCK_ISSUE",
+      entityId: createdPart.id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: "Stock issued from direct work-order part add",
+      metadata: {
+        workOrderId: workOrder.id,
+        partId: data.partId,
+        quantity: data.quantity,
+        unitCost: data.unitCost,
+        totalCost
       }
     });
 
     return createdPart;
   }
 
-  parts(id: string) {
+  async listPartRequests(workOrderId: string, actor?: Actor) {
+    await this.findOne(workOrderId, actor);
+    const tenantId = this.resolveTenantId(actor);
+
+    return this.prisma.partRequest.findMany({
+      where: {
+        workOrderId,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      },
+      include: {
+        part: true,
+        requestedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        approvals: {
+          include: {
+            actor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            sequence: "asc"
+          }
+        },
+        issues: {
+          orderBy: {
+            createdAt: "desc"
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
+
+  async createPartRequest(
+    workOrderId: string,
+    data: {
+      partId: string;
+      quantity: number;
+      unitCost?: number;
+      reason?: string;
+      pettyCash?: boolean;
+    },
+    actor?: Actor
+  ) {
+    const requester = this.assertActor(actor);
+    const tenantId = this.resolveTenantId(actor);
+    const workOrder = await this.findOne(workOrderId, actor);
+
+    if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
+      throw new BadRequestException("Requested quantity must be greater than 0");
+    }
+
+    const part = await this.prisma.sparePart.findFirst({
+      where: {
+        id: data.partId,
+        isActive: true,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      }
+    });
+
+    if (!part) {
+      throw new NotFoundException("Spare part not found");
+    }
+
+    const unitCostSnapshot = data.unitCost ?? part.unitCost;
+    if (!Number.isFinite(unitCostSnapshot) || unitCostSnapshot <= 0) {
+      throw new BadRequestException("Unit cost must be greater than 0");
+    }
+
+    const totalCost = unitCostSnapshot * data.quantity;
+    const requiresFinanceApproval = this.requiresFinanceApproval(totalCost, data.pettyCash);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const partRequest = await tx.partRequest.create({
+        data: {
+          tenantId: tenantId ?? null,
+          workOrderId,
+          partId: data.partId,
+          requestedById: requester.sub,
+          requestedQuantity: data.quantity,
+          unitCostSnapshot,
+          reason: data.reason?.trim() || null,
+          requiresFinanceApproval,
+          status: PartRequestStatus.PENDING_OPERATIONAL
+        }
+      });
+
+      await tx.partRequestApproval.createMany({
+        data: [
+          {
+            tenantId: tenantId ?? null,
+            partRequestId: partRequest.id,
+            stage: ApprovalStage.OPERATIONAL,
+            sequence: 1,
+            status: ApprovalDecisionStatus.PENDING
+          },
+          {
+            tenantId: tenantId ?? null,
+            partRequestId: partRequest.id,
+            stage: ApprovalStage.FINANCE,
+            sequence: 2,
+            status: requiresFinanceApproval
+              ? ApprovalDecisionStatus.PENDING
+              : ApprovalDecisionStatus.SKIPPED,
+            reason: requiresFinanceApproval
+              ? null
+              : "Finance approval not required"
+          }
+        ]
+      });
+
+      return partRequest;
+    });
+
+    await this.recordAudit({
+      entity: "PART_REQUEST",
+      entityId: created.id,
+      action: AuditAction.CREATE,
+      actor,
+      reason: data.reason,
+      metadata: {
+        workOrderId,
+        partId: data.partId,
+        requestedQuantity: data.quantity,
+        unitCostSnapshot,
+        totalCost,
+        requiresFinanceApproval,
+        pettyCash: Boolean(data.pettyCash)
+      }
+    });
+
+    await this.notificationsService.createNotification({
+      userId: workOrder.createdById,
+      title: "Part request submitted",
+      message: `Part request submitted for work order ${workOrder.woNumber}`,
+      type: NotificationType.PART_REQUEST_SUBMITTED,
+      priority: NotificationPriority.WARNING,
+      referenceId: created.id,
+      referenceType: "PartRequest",
+      metadata: {
+        workOrderId,
+        partId: data.partId,
+        quantity: data.quantity,
+        requiresFinanceApproval
+      }
+    });
+
+    return this.getPartRequest(workOrderId, created.id, actor);
+  }
+
+  async approvePartRequestOperational(
+    workOrderId: string,
+    requestId: string,
+    data: { approvedQuantity?: number; reason?: string },
+    actor?: Actor
+  ) {
+    const approver = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+
+    if (request.status !== PartRequestStatus.PENDING_OPERATIONAL) {
+      throw new BadRequestException("Part request is not awaiting operational approval");
+    }
+
+    const approvedQuantity = data.approvedQuantity ?? request.requestedQuantity;
+
+    if (!Number.isFinite(approvedQuantity) || approvedQuantity <= 0) {
+      throw new BadRequestException("Approved quantity must be greater than 0");
+    }
+
+    if (approvedQuantity > request.requestedQuantity) {
+      throw new BadRequestException("Approved quantity cannot exceed requested quantity");
+    }
+
+    const nextStatus = request.requiresFinanceApproval
+      ? PartRequestStatus.PENDING_FINANCE
+      : PartRequestStatus.APPROVED;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.partRequest.update({
+        where: { id: requestId },
+        data: {
+          approvedQuantity,
+          status: nextStatus,
+          rejectionReason: null
+        }
+      });
+
+      await tx.partRequestApproval.update({
+        where: {
+          partRequestId_stage: {
+            partRequestId: requestId,
+            stage: ApprovalStage.OPERATIONAL
+          }
+        },
+        data: {
+          status: ApprovalDecisionStatus.APPROVED,
+          actorId: approver.sub,
+          actedAt: new Date(),
+          reason: data.reason?.trim() || null
+        }
+      });
+
+      if (!request.requiresFinanceApproval) {
+        await tx.partRequestApproval.update({
+          where: {
+            partRequestId_stage: {
+              partRequestId: requestId,
+              stage: ApprovalStage.FINANCE
+            }
+          },
+          data: {
+            status: ApprovalDecisionStatus.SKIPPED,
+            reason: "Finance approval not required"
+          }
+        });
+      }
+    });
+
+    await this.recordAudit({
+      entity: "PART_REQUEST_APPROVAL",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.reason,
+      metadata: {
+        stage: ApprovalStage.OPERATIONAL,
+        approvedQuantity,
+        nextStatus
+      }
+    });
+
+    await this.notificationsService.createNotification({
+      userId: request.requestedById,
+      title: request.requiresFinanceApproval ? "Part request pending finance approval" : "Part request approved",
+      message: request.requiresFinanceApproval
+        ? "Operational approval complete. Finance approval is pending."
+        : "Your part request has been approved.",
+      type: NotificationType.PART_REQUEST_APPROVED,
+      priority: NotificationPriority.INFO,
+      referenceId: request.id,
+      referenceType: "PartRequest",
+      metadata: {
+        stage: "OPERATIONAL",
+        approvedQuantity,
+        requiresFinanceApproval: request.requiresFinanceApproval
+      }
+    });
+
+    return this.getPartRequest(workOrderId, requestId, actor);
+  }
+
+  async approvePartRequestFinance(
+    workOrderId: string,
+    requestId: string,
+    data: { approvedQuantity?: number; reason?: string },
+    actor?: Actor
+  ) {
+    const approver = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+
+    if (request.status !== PartRequestStatus.PENDING_FINANCE) {
+      throw new BadRequestException("Part request is not awaiting finance approval");
+    }
+
+    const approvedQuantity = data.approvedQuantity ?? request.approvedQuantity ?? request.requestedQuantity;
+
+    if (!Number.isFinite(approvedQuantity) || approvedQuantity <= 0) {
+      throw new BadRequestException("Approved quantity must be greater than 0");
+    }
+
+    if (approvedQuantity > request.requestedQuantity) {
+      throw new BadRequestException("Approved quantity cannot exceed requested quantity");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.partRequest.update({
+        where: { id: requestId },
+        data: {
+          approvedQuantity,
+          status: PartRequestStatus.APPROVED,
+          rejectionReason: null
+        }
+      });
+
+      await tx.partRequestApproval.update({
+        where: {
+          partRequestId_stage: {
+            partRequestId: requestId,
+            stage: ApprovalStage.FINANCE
+          }
+        },
+        data: {
+          status: ApprovalDecisionStatus.APPROVED,
+          actorId: approver.sub,
+          actedAt: new Date(),
+          reason: data.reason?.trim() || null
+        }
+      });
+    });
+
+    await this.recordAudit({
+      entity: "PART_REQUEST_APPROVAL",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.reason,
+      metadata: {
+        stage: ApprovalStage.FINANCE,
+        approvedQuantity,
+        nextStatus: PartRequestStatus.APPROVED
+      }
+    });
+
+    await this.notificationsService.createNotification({
+      userId: request.requestedById,
+      title: "Part request approved",
+      message: "Finance approval complete. Your part request is approved.",
+      type: NotificationType.PART_REQUEST_APPROVED,
+      priority: NotificationPriority.INFO,
+      referenceId: request.id,
+      referenceType: "PartRequest",
+      metadata: {
+        stage: "FINANCE",
+        approvedQuantity
+      }
+    });
+
+    return this.getPartRequest(workOrderId, requestId, actor);
+  }
+
+  async rejectPartRequest(
+    workOrderId: string,
+    requestId: string,
+    data: { reason: string; stage?: "OPERATIONAL" | "FINANCE" },
+    actor?: Actor
+  ) {
+    const approver = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+
+    if (!data.reason?.trim()) {
+      throw new BadRequestException("Rejection reason is required");
+    }
+
+    if (request.status === PartRequestStatus.ISSUED || request.status === PartRequestStatus.PARTIALLY_ISSUED) {
+      throw new BadRequestException("Cannot reject a request that has already been issued");
+    }
+
+    const stage = data.stage
+      ? (data.stage as ApprovalStage)
+      : request.status === PartRequestStatus.PENDING_FINANCE
+        ? ApprovalStage.FINANCE
+        : ApprovalStage.OPERATIONAL;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.partRequest.update({
+        where: { id: requestId },
+        data: {
+          status: PartRequestStatus.REJECTED,
+          rejectionReason: data.reason.trim()
+        }
+      });
+
+      await tx.partRequestApproval.update({
+        where: {
+          partRequestId_stage: {
+            partRequestId: requestId,
+            stage
+          }
+        },
+        data: {
+          status: ApprovalDecisionStatus.REJECTED,
+          actorId: approver.sub,
+          actedAt: new Date(),
+          reason: data.reason.trim()
+        }
+      });
+    });
+
+    await this.recordAudit({
+      entity: "PART_REQUEST_APPROVAL",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.reason,
+      metadata: {
+        stage,
+        nextStatus: PartRequestStatus.REJECTED
+      }
+    });
+
+    await this.notificationsService.createNotification({
+      userId: request.requestedById,
+      title: "Part request rejected",
+      message: "Your part request was rejected. Please review the reason and resubmit if needed.",
+      type: NotificationType.PART_REQUEST_REJECTED,
+      priority: NotificationPriority.WARNING,
+      referenceId: request.id,
+      referenceType: "PartRequest",
+      metadata: {
+        stage,
+        reason: data.reason.trim()
+      }
+    });
+
+    return this.getPartRequest(workOrderId, requestId, actor);
+  }
+
+  async issuePartRequest(
+    workOrderId: string,
+    requestId: string,
+    data: { quantity?: number; notes?: string },
+    actor?: Actor
+  ) {
+    const issuer = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+
+    if (request.status !== PartRequestStatus.APPROVED && request.status !== PartRequestStatus.PARTIALLY_ISSUED) {
+      throw new BadRequestException("Part request must be approved before stock issue");
+    }
+
+    const approvedQuantity = request.approvedQuantity ?? request.requestedQuantity;
+    const remaining = approvedQuantity - request.issuedQuantity;
+    const issueQuantity = data.quantity ?? remaining;
+
+    if (!Number.isFinite(issueQuantity) || issueQuantity <= 0) {
+      throw new BadRequestException("Issue quantity must be greater than 0");
+    }
+
+    if (issueQuantity > remaining) {
+      throw new BadRequestException("Issue quantity cannot exceed remaining approved quantity");
+    }
+
+    if (request.part.quantityInStock < issueQuantity) {
+      throw new BadRequestException("Insufficient stock for this issue request");
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.sparePart.update({
+        where: { id: request.partId },
+        data: {
+          quantityInStock: {
+            decrement: issueQuantity
+          }
+        }
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          partId: request.partId,
+          type: "OUT",
+          quantity: issueQuantity,
+          reference: `part-request:${request.id}`,
+          notes: data.notes?.trim() || "Issued via approved part request"
+        }
+      });
+
+      const issue = await tx.partIssue.create({
+        data: {
+          tenantId: request.tenantId,
+          partRequestId: request.id,
+          workOrderId: request.workOrderId,
+          partId: request.partId,
+          issuedById: issuer.sub,
+          quantity: issueQuantity,
+          notes: data.notes?.trim() || null
+        }
+      });
+
+      const issuedQuantity = request.issuedQuantity + issueQuantity;
+      await tx.partRequest.update({
+        where: { id: request.id },
+        data: {
+          issuedQuantity,
+          status: issuedQuantity >= approvedQuantity
+            ? PartRequestStatus.ISSUED
+            : PartRequestStatus.PARTIALLY_ISSUED
+        }
+      });
+
+      return issue;
+    });
+
+    await this.recordAudit({
+      entity: "PART_ISSUE",
+      entityId: result.id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.notes,
+      metadata: {
+        partRequestId: request.id,
+        workOrderId: request.workOrderId,
+        partId: request.partId,
+        quantity: issueQuantity,
+        remainingAfterIssue: remaining - issueQuantity
+      }
+    });
+
+    await this.notificationsService.createNotification({
+      userId: request.requestedById,
+      title: "Part issue completed",
+      message: "Stock has been issued against your approved request.",
+      type: NotificationType.PART_ISSUE_COMPLETED,
+      priority: NotificationPriority.INFO,
+      referenceId: request.id,
+      referenceType: "PartRequest",
+      metadata: {
+        issueId: result.id,
+        quantity: issueQuantity
+      }
+    });
+
+    return this.getPartRequest(workOrderId, requestId, actor);
+  }
+
+  async getPartRequest(workOrderId: string, requestId: string, actor?: Actor) {
+    await this.findOne(workOrderId, actor);
+    const tenantId = this.resolveTenantId(actor);
+
+    const request = await this.prisma.partRequest.findFirst({
+      where: {
+        id: requestId,
+        workOrderId,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      },
+      include: {
+        part: true,
+        workOrder: true,
+        approvals: {
+          include: {
+            actor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            sequence: "asc"
+          }
+        },
+        issues: {
+          orderBy: {
+            createdAt: "desc"
+          }
+        }
+      }
+    });
+
+    if (!request) {
+      throw new NotFoundException("Part request not found");
+    }
+
+    return request;
+  }
+
+  async parts(id: string, actor?: Actor) {
+    await this.findOne(id, actor);
     return this.prisma.workOrderPart.findMany({
       where: { workOrderId: id },
       include: { part: true }
     });
   }
 
-  async addNote(id: string, note: string) {
-    const current = await this.findOne(id);
+  async addNote(id: string, note: string, actor?: Actor) {
+    const current = await this.findOne(id, actor);
     const existing = current.notes ? `${current.notes}\n` : "";
 
     return this.prisma.workOrder.update({
@@ -327,8 +1023,8 @@ export class WorkOrdersService {
     });
   }
 
-  async addAttachment(id: string, attachmentUrl: string) {
-    const current = await this.findOne(id);
+  async addAttachment(id: string, attachmentUrl: string, actor?: Actor) {
+    const current = await this.findOne(id, actor);
 
     return this.prisma.workOrder.update({
       where: { id },

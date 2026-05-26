@@ -10,6 +10,7 @@ import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-us
 
 import { asDateInputValue, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
+import { PartRequestsPanel } from "./part-requests-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -292,6 +293,12 @@ export function WorkOrderEditorModal({
                   </>
                 ) : null}
               </div>
+
+              {!isCreateMode && workOrder?.id ? (
+                <div className="border-t border-slate-200 pt-3">
+                  <PartRequestsPanel workOrderId={workOrder.id} />
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
                 {showHistory && (

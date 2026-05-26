@@ -183,6 +183,91 @@ class InventoryRemoteDataSource {
     }
   }
 
+  // ── Phase 3 · PO Workflow ──
+
+  Future<Map<String, dynamic>> approvePurchaseOrderOperational(
+    String id, {
+    String? reason,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.inventoryPurchaseOrderApproveOperational(id),
+        data: {if (reason != null && reason.isNotEmpty) 'reason': reason},
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approvePurchaseOrderFinance(
+    String id, {
+    String? reason,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.inventoryPurchaseOrderApproveFinance(id),
+        data: {if (reason != null && reason.isNotEmpty) 'reason': reason},
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectPurchaseOrder(
+    String id, {
+    required String reason,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.inventoryPurchaseOrderReject(id),
+        data: {'reason': reason},
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> syncPurchaseOrderToErp(
+    String id, {
+    bool? forceFailure,
+    String? note,
+  }) async {
+    try {
+      final res = await _dio.post<dynamic>(
+        ApiEndpoints.inventoryPurchaseOrderErpSync(id),
+        data: {
+          if (forceFailure != null) 'forceFailure': forceFailure,
+          if (note != null && note.isNotEmpty) 'note': note,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> retryPurchaseOrderErpSync(
+    String id, {
+    bool? forceFailure,
+    String? note,
+  }) async {
+    try {
+      final res = await _dio.post<dynamic>(
+        ApiEndpoints.inventoryPurchaseOrderErpSyncRetry(id),
+        data: {
+          if (forceFailure != null) 'forceFailure': forceFailure,
+          if (note != null && note.isNotEmpty) 'note': note,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
   Future<InventoryPurchaseOrder> updatePurchaseOrder(
     String id, {
     String? status,

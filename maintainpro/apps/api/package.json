@@ -18,7 +18,8 @@
     "prisma:migrate": "prisma migrate dev --schema ../../prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema ../../prisma/schema.prisma",
     "seed": "tsx src/database/seed.ts",
-    "departments:migrate": "tsx src/database/migrate-departments.ts"
+    "departments:migrate": "tsx src/database/migrate-departments.ts",
+    "phase3:migrate": "tsx src/database/migrate-phase3-procurement.ts"
   },
   "dependencies": {
     "@maintainpro/shared-types": "1.2.0",

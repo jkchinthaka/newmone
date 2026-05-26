@@ -15,6 +15,7 @@ const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/maintenance/job-codes" as Route, label: "Job Codes", icon: Tag },
   { href: "/work-orders", label: "Work Orders", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Layers },
+  { href: "/procurement" as Route, label: "Procurement", icon: ClipboardCheck },
   { href: "/utilities", label: "Utilities", icon: ChartColumnBig },
   { href: "/predictive-ai" as Route, label: "AI Assistant", icon: Bot },
   { href: "/reports", label: "Reports", icon: ChartColumnBig },

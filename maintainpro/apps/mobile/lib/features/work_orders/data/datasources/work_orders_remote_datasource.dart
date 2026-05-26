@@ -166,4 +166,135 @@ class WorkOrdersRemoteDataSource {
       throw NetworkException.fromDio(e);
     }
   }
+
+  // ── Phase 3 · Part Requests ──
+
+  Future<List<Map<String, dynamic>>> listPartRequests(
+    String workOrderId,
+  ) async {
+    try {
+      final res = await _dio.get<dynamic>(
+        ApiEndpoints.workOrderPartRequests(workOrderId),
+      );
+      final data = _unwrap(res);
+      if (data is! List) return const [];
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPartRequest(
+    String workOrderId, {
+    required String partId,
+    required int quantity,
+    double? unitCost,
+    String? reason,
+    bool? pettyCash,
+  }) async {
+    try {
+      final res = await _dio.post<dynamic>(
+        ApiEndpoints.workOrderPartRequests(workOrderId),
+        data: {
+          'partId': partId,
+          'quantity': quantity,
+          if (unitCost != null) 'unitCost': unitCost,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          if (pettyCash != null) 'pettyCash': pettyCash,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approvePartRequestOperational(
+    String workOrderId,
+    String partRequestId, {
+    String? reason,
+    int? approvedQuantity,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.workOrderPartRequestApproveOperational(
+          workOrderId,
+          partRequestId,
+        ),
+        data: {
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          if (approvedQuantity != null) 'approvedQuantity': approvedQuantity,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approvePartRequestFinance(
+    String workOrderId,
+    String partRequestId, {
+    String? reason,
+    int? approvedQuantity,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.workOrderPartRequestApproveFinance(
+          workOrderId,
+          partRequestId,
+        ),
+        data: {
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          if (approvedQuantity != null) 'approvedQuantity': approvedQuantity,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectPartRequest(
+    String workOrderId,
+    String partRequestId, {
+    required String reason,
+    String? stage,
+  }) async {
+    try {
+      final res = await _dio.patch<dynamic>(
+        ApiEndpoints.workOrderPartRequestReject(workOrderId, partRequestId),
+        data: {
+          'reason': reason,
+          if (stage != null) 'stage': stage,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> issuePartRequest(
+    String workOrderId,
+    String partRequestId, {
+    int? quantity,
+    String? notes,
+  }) async {
+    try {
+      final res = await _dio.post<dynamic>(
+        ApiEndpoints.workOrderPartRequestIssue(workOrderId, partRequestId),
+        data: {
+          if (quantity != null) 'quantity': quantity,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      return Map<String, dynamic>.from(_unwrap(res) as Map);
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
 }
