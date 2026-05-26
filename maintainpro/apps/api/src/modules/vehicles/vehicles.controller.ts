@@ -241,7 +241,18 @@ export class VehiclesController {
 
   @Post(":id/fuel-log")
   @Permissions("vehicles.operate")
-  async fuelLog(@Param("id") id: string, @Body() body: { liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }) {
+  async fuelLog(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      driverId?: string;
+      liters: number;
+      costPerLiter: number;
+      mileageAtFuel: number;
+      fuelStation?: string;
+      notes?: string;
+    }
+  ) {
     const data = await this.vehiclesService.fuelLog(id, body);
     return { data, message: "Fuel log recorded" };
   }

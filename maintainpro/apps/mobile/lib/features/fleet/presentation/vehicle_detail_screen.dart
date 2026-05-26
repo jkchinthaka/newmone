@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/offline/offline_sync.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../../shared/models/app_user.dart';
@@ -237,9 +238,11 @@ class VehicleDetailScreen extends ConsumerWidget {
               FilledButton(
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
-                    await ref.read(fleetRemoteProvider).createFuelLog(
-                          vehicle.id,
+                    final result =
+                        await ref.read(offlineSyncControllerProvider).submitFuelLog(
+                              vehicle.id,
                           liters: double.parse(liters.text),
                           costPerLiter: double.parse(cost.text),
                           mileageAtFuel: double.parse(mileage.text),
@@ -251,9 +254,26 @@ class VehicleDetailScreen extends ConsumerWidget {
                               : notes.text.trim(),
                         );
                     if (ctx.mounted) Navigator.pop(ctx);
-                    ref.invalidate(vehicleFuelLogsProvider(vehicle.id));
-                    ref.invalidate(vehicleFuelAnalyticsProvider(vehicle.id));
-                    ref.invalidate(vehicleDetailProvider(vehicle.id));
+                    if (result.isSynced) {
+                      ref.invalidate(vehicleFuelLogsProvider(vehicle.id));
+                      ref.invalidate(vehicleFuelAnalyticsProvider(vehicle.id));
+                      ref.invalidate(vehicleDetailProvider(vehicle.id));
+                      if (context.mounted) {
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Fuel log saved')),
+                        );
+                      }
+                    } else if (context.mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.isDuplicate
+                                ? 'This fuel log is already queued for sync.'
+                                : 'Saved offline. This fuel log will sync when you are back online.',
+                          ),
+                        ),
+                      );
+                    }
                   } catch (e) {
                     if (ctx.mounted) {
                       ScaffoldMessenger.of(ctx)

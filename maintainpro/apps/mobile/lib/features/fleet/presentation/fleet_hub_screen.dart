@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+import '../../operations/presentation/widgets/field_ops_briefing_card.dart';
 import '../../../shared/models/app_user.dart';
 import 'providers/fleet_provider.dart';
 
@@ -47,6 +48,11 @@ class FleetHubScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
+                const FieldOpsBriefingCard(
+                  focusAreaOverride: 'FLEET',
+                  maxInsights: 2,
+                ),
+                const SizedBox(height: AppSpacing.md),
                 summary.when(
                   data: (s) => _SummaryCard(summary: s),
                   loading: () => const _SkeletonCard(),

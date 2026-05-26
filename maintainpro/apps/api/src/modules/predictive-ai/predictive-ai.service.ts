@@ -43,6 +43,19 @@ export type CopilotActor = Pick<JwtPayload, "sub" | "role" | "email" | "tenantId
 
 type CopilotRoleScope = "ADMIN" | "MANAGER" | "TECHNICIAN" | "VIEWER";
 
+type FieldInsightCategory = "MAINTENANCE" | "FLEET" | "UTILITIES" | "INVENTORY";
+type FieldInsightSeverity = "INFO" | "WARNING" | "CRITICAL";
+
+type FieldInsight = {
+  id: string;
+  category: FieldInsightCategory;
+  severity: FieldInsightSeverity;
+  title: string;
+  message: string;
+  route: string | null;
+  suggestedAction: string | null;
+};
+
 type SuggestedActionType =
   | "CREATE_WORK_ORDER"
   | "SCHEDULE_MAINTENANCE"
@@ -775,6 +788,7 @@ export class PredictiveAiService {
 
   async createConversation(actor: CopilotActor | null, dto: CopilotCreateConversationDto) {
     const currentActor = this.requireActor(actor);
+
     const focusArea = this.normalizeFocusArea(dto.focusArea);
     const mode = this.normalizeMode(dto.mode);
 
@@ -798,6 +812,79 @@ export class PredictiveAiService {
       providerConversationId: conversation.providerConversationId,
       lastMessageAt: conversation.lastMessageAt.toISOString(),
       createdAt: conversation.createdAt.toISOString()
+    };
+  }
+
+  async getFieldInsights(
+    actor: CopilotActor | null,
+    focusAreaRaw?: CopilotContextQueryDto["focusArea"] | string,
+    modeRaw?: CopilotContextQueryDto["mode"] | string,
+    limitRaw?: string
+  ) {
+    const context = await this.getCopilotContext(actor, focusAreaRaw, modeRaw);
+    const limit = this.toPositiveInt(limitRaw, 10, 1, 20);
+
+    const insights: FieldInsight[] = [
+      ...context.maintenance.overdueWorkOrders.map((item) => ({
+        id: `maintenance-overdue-${item.id}`,
+        category: "MAINTENANCE" as const,
+        severity: (item.priority === "CRITICAL" || item.priority === "HIGH" ? "CRITICAL" : "WARNING") as FieldInsightSeverity,
+        title: `${item.woNumber} needs attention`,
+        message: `${item.title} is overdue${item.dueDate != null ? ` since ${item.dueDate.split("T")[0]}` : ""}.`,
+        route: `/work-orders/${item.id}`,
+        suggestedAction: "Update status or reassign the work order immediately."
+      })),
+      ...context.fleet.overdueServiceVehicles.map((item) => ({
+        id: `fleet-service-${item.id}`,
+        category: "FLEET" as const,
+        severity: (item.status === "OUT_OF_SERVICE" ? "CRITICAL" : "WARNING") as FieldInsightSeverity,
+        title: `${item.registrationNo} is past service`,
+        message: `${item.registrationNo} remains ${this.humanizeEnum(item.status)} with overdue servicing risk.`,
+        route: `/fleet/vehicles/${item.id}`,
+        suggestedAction: "Inspect the vehicle and schedule or complete service today."
+      })),
+      ...context.fleet.fuelAnomalies.map((item) => ({
+        id: `fleet-fuel-${item.vehicleId}`,
+        category: "FLEET" as const,
+        severity: (item.variancePercent >= 25 ? "CRITICAL" : "WARNING") as FieldInsightSeverity,
+        title: `${item.registrationNo} fuel cost anomaly`,
+        message: `${item.registrationNo} is ${item.variancePercent.toFixed(1)}% above the fleet average fuel cost per liter.`,
+        route: `/fleet/vehicles/${item.vehicleId}`,
+        suggestedAction: "Verify route conditions, fueling source, and possible efficiency issues."
+      })),
+      ...context.utilities.anomalies.map((item) => ({
+        id: `utilities-${item.meterId}`,
+        category: "UTILITIES" as const,
+        severity: (item.variancePercent >= 30 ? "CRITICAL" : "WARNING") as FieldInsightSeverity,
+        title: `${item.meterNumber} consumption spike`,
+        message: `${item.location} is ${item.variancePercent.toFixed(1)}% above the previous ${item.billingMonth} bill.`,
+        route: `/utilities/meters/${item.meterId}`,
+        suggestedAction: "Inspect the site for leaks, misuse, or unplanned operating hours."
+      })),
+      ...context.inventory.projectedStockouts.map((item) => ({
+        id: `inventory-${item.partId}`,
+        category: "INVENTORY" as const,
+        severity: (item.projectedDaysLeft <= 7 ? "CRITICAL" : "WARNING") as FieldInsightSeverity,
+        title: `${item.partNumber} nearing stockout`,
+        message: `${item.name} has about ${item.projectedDaysLeft.toFixed(1)} day(s) of stock left at current usage.`,
+        route: `/inventory/parts/${item.partId}`,
+        suggestedAction: "Raise or expedite replenishment before the next maintenance cycle."
+      }))
+    ];
+
+    const filteredInsights = this.filterFieldInsightsByFocusArea(
+      insights,
+      context.focusArea
+    ).slice(0, limit);
+
+    return {
+      generatedAt: context.generatedAt,
+      roleScope: context.roleScope,
+      focusArea: context.focusArea,
+      mode: context.mode,
+      summary: context.summary,
+      smartSuggestions: context.smartSuggestions.slice(0, 6),
+      insights: filteredInsights
     };
   }
 
@@ -1138,6 +1225,40 @@ export class PredictiveAiService {
     }
 
     return "VIEWER";
+  }
+
+  private filterFieldInsightsByFocusArea(
+    insights: FieldInsight[],
+    focusArea: CopilotFocusArea
+  ) {
+    if (focusArea === "GENERAL") {
+      return insights;
+    }
+
+    const areaToCategory: Record<CopilotFocusArea, FieldInsightCategory | null> = {
+      GENERAL: null,
+      MAINTENANCE: "MAINTENANCE",
+      FLEET: "FLEET",
+      CLEANING: "MAINTENANCE",
+      INVENTORY: "INVENTORY",
+      UTILITIES: "UTILITIES"
+    };
+
+    const category = areaToCategory[focusArea];
+    if (category == null) {
+      return insights;
+    }
+
+    return insights.filter((item) => item.category === category);
+  }
+
+  private humanizeEnum(value: string): string {
+    return value
+      .toLowerCase()
+      .split("_")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   }
 
   private isPrivilegedRole(role: RoleName): boolean {

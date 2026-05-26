@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/ai_remote_datasource.dart';
 import '../../data/models/copilot_message.dart';
+import '../../data/models/field_insight.dart';
 
 final aiRemoteProvider = Provider<AiRemoteDataSource>((ref) {
   return AiRemoteDataSource(ref.watch(dioProvider));
@@ -11,6 +12,17 @@ final aiRemoteProvider = Provider<AiRemoteDataSource>((ref) {
 final aiConversationsProvider =
     FutureProvider.autoDispose<List<CopilotConversation>>((ref) async {
   return ref.watch(aiRemoteProvider).listConversations();
+});
+
+final fieldInsightsProvider =
+    FutureProvider.autoDispose.family<FieldInsightsSnapshot, String>(
+        (ref, focusArea) async {
+  final data = await ref.watch(aiRemoteProvider).fieldInsights(
+        focusArea: focusArea,
+        mode: 'PREDICT',
+        limit: 4,
+      );
+  return FieldInsightsSnapshot.fromJson(data);
 });
 
 class AiCopilotState {

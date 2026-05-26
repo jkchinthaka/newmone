@@ -18,7 +18,10 @@ export const REPORT_MODULES: ReportModuleDefinition[] = [
   { slug: "assets", label: "Assets & Equipment", description: "Maintenance history, downtime, breakdowns, cost, and upcoming service" },
   { slug: "inventory", label: "Inventory & Parts", description: "Stock levels, alerts, movements, supplier performance, and velocity" },
   { slug: "performance", label: "Performance KPIs", description: "Completion rate, response time, overdue rate, efficiency, and productivity" },
-  { slug: "system-logs", label: "System Logs", description: "Audit history, security changes, and system coverage notes" }
+  { slug: "system-logs", label: "System Logs", description: "Audit history, security changes, and system coverage notes" },
+  { slug: "driver-intelligence", label: "Driver Intelligence", description: "Driver scoring, risk levels, eligibility, and linked operational signals" },
+  { slug: "fuel-analytics", label: "Fuel Analytics", description: "Fuel cost, consumption, anomaly flags, and vehicle fuel efficiency trends" },
+  { slug: "vehicle-cost-analytics", label: "Vehicle Cost Analytics", description: "Net vehicle cost across fuel, maintenance, accidents, fines, and insurance" }
 ];
 
 export function isReportModuleSlug(value: string): value is ReportModuleSlug {
@@ -36,7 +39,9 @@ export function defaultReportFilters(): ReportFilters {
     departmentId: "",
     departmentIds: [],
     userId: "",
+    driverId: "",
     assetId: "",
+    vehicleId: "",
     status: "",
     supplierId: "",
     category: "",

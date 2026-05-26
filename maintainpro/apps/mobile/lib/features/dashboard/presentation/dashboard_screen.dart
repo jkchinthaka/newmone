@@ -14,6 +14,7 @@ import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../notifications/presentation/providers/notifications_provider.dart';
+import '../../operations/presentation/widgets/field_ops_briefing_card.dart';
 import '../data/models/dashboard_summary.dart';
 import 'providers/dashboard_provider.dart';
 
@@ -70,6 +71,17 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      0,
+                      AppSpacing.xl,
+                      AppSpacing.md,
+                    ),
+                    child: FieldOpsBriefingCard(),
                   ),
                 ),
                 asyncSummary.when(

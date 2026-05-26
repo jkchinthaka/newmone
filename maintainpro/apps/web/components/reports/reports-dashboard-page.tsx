@@ -36,7 +36,7 @@ export function ReportsDashboardPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <ReportHeader
           title="Reports"
-          description="A decision dashboard for operations, financials, user activity, assets, inventory, performance KPIs, and audit/system activity."
+          description="A decision dashboard for operations, financials, user activity, assets, inventory, performance KPIs, driver intelligence, fuel analytics, vehicle costs, and audit activity."
           generatedAt={dashboard?.generatedAt}
         />
         <button type="button" onClick={() => query.refetch()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 print:hidden">

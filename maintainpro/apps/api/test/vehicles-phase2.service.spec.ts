@@ -143,7 +143,11 @@ describe("VehiclesService Phase 2 critical flows", () => {
       updateGps: jest.fn()
     };
 
-    service = new VehiclesService(prisma, fleetService as any);
+    const complianceService = {
+      evaluateForGateOut: jest.fn().mockResolvedValue([])
+    };
+
+    service = new VehiclesService(prisma, fleetService as any, complianceService as any);
   });
 
   it("allows gate-out when vehicle has no blocking issues", async () => {

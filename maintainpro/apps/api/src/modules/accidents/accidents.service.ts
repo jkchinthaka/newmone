@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccidentEvidenceType,
+  AccidentResponsibility,
   AccidentSeverity,
   AccidentStatus,
   AuditAction,
@@ -19,6 +20,7 @@ export interface CreateAccidentInput {
   location: string;
   description: string;
   severity?: AccidentSeverity;
+  responsibility?: AccidentResponsibility;
   thirdPartyInvolved?: boolean;
   thirdPartyDetails?: string;
   policeReportNo?: string;
@@ -102,6 +104,7 @@ export class AccidentsService {
         location: input.location,
         description: input.description,
         severity: input.severity ?? AccidentSeverity.MINOR,
+        responsibility: input.responsibility ?? (input.driverId ? AccidentResponsibility.DRIVER : AccidentResponsibility.UNDETERMINED),
         thirdPartyInvolved: input.thirdPartyInvolved ?? false,
         thirdPartyDetails: input.thirdPartyDetails,
         policeReportNo: input.policeReportNo,
@@ -117,7 +120,13 @@ export class AccidentsService {
       module: "accidents",
       actor: a,
       reason: `Accident reported (${reportNumber})`,
-      metadata: { action: "create", reportNumber, severity: created.severity, vehicleId: vehicle.id },
+      metadata: {
+        action: "create",
+        reportNumber,
+        severity: created.severity,
+        responsibility: created.responsibility,
+        vehicleId: vehicle.id
+      },
       afterData: created as unknown as Prisma.InputJsonValue
     });
 
@@ -128,6 +137,7 @@ export class AccidentsService {
     id: string,
     input: Partial<{
       severity: AccidentSeverity;
+      responsibility: AccidentResponsibility;
       status: AccidentStatus;
       thirdPartyDetails: string;
       policeReportNo: string;

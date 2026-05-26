@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../operations/presentation/widgets/field_ops_briefing_card.dart';
 import 'providers/maintenance_provider.dart';
 
 class MaintenanceHubScreen extends ConsumerWidget {
@@ -36,6 +37,11 @@ class MaintenanceHubScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
+                const FieldOpsBriefingCard(
+                  focusAreaOverride: 'MAINTENANCE',
+                  maxInsights: 2,
+                ),
+                const SizedBox(height: AppSpacing.md),
                 schedules.when(
                   data: (list) => _SummaryCard(
                     total: list.length,

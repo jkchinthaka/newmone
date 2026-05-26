@@ -44,11 +44,13 @@ import { InvitationsModule } from "./modules/invitations/invitations.module";
 import { JobCodesModule } from "./modules/job-codes/job-codes.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { OperationsModule } from "./modules/operations/operations.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
+import { DriverIntelligenceModule } from "./modules/driver-intelligence/driver-intelligence.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { TenantContextGuard } from "./modules/tenancy/tenant-context.guard";
 import { TenantContextMiddleware } from "./modules/tenancy/tenant-context.middleware";
@@ -125,6 +127,7 @@ if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
     VehiclesModule,
     FleetModule,
     DriversModule,
+    DriverIntelligenceModule,
     MaintenanceModule,
     JobCodesModule,
     WorkOrdersModule,
@@ -134,6 +137,7 @@ if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
     FuelModule,
     TripsModule,
     NotificationsModule,
+    OperationsModule,
     SettingsModule,
     ReportsModule,
     UtilitiesModule,

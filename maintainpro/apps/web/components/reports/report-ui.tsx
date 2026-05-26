@@ -106,7 +106,7 @@ export function ReportFiltersBar({
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm print:hidden">
-      <div className={`grid gap-2 ${compact ? "md:grid-cols-5" : "md:grid-cols-4 xl:grid-cols-8"}`}>
+      <div className={`grid gap-2 ${compact ? "md:grid-cols-3 xl:grid-cols-6" : "md:grid-cols-4 xl:grid-cols-10"}`}>
         <label className="space-y-1 text-xs font-medium text-slate-600">
           Start
           <input type="date" value={filters.startDate} onChange={(event) => patch({ startDate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
@@ -116,9 +116,11 @@ export function ReportFiltersBar({
           <input type="date" value={filters.endDate} onChange={(event) => patch({ endDate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
         </label>
         <DepartmentMultiSelect value={filters.departmentIds} onChange={(value) => patch({ departmentIds: value, departmentId: value[0] ?? "" })} options={options?.departments ?? []} label="Departments" />
-        <SelectFilter label="User" value={filters.userId} onChange={(value) => patch({ userId: value })} options={options?.users ?? []} />
+        {!compact ? <SelectFilter label="User" value={filters.userId} onChange={(value) => patch({ userId: value })} options={options?.users ?? []} /> : null}
+        <SelectFilter label="Driver" value={filters.driverId} onChange={(value) => patch({ driverId: value })} options={options?.drivers ?? []} />
+        <SelectFilter label="Vehicle" value={filters.vehicleId} onChange={(value) => patch({ vehicleId: value })} options={options?.vehicles ?? []} />
         {!compact ? <SelectFilter label="Asset" value={filters.assetId} onChange={(value) => patch({ assetId: value })} options={options?.assets ?? []} /> : null}
-        {!compact ? <SelectFilter label="Status" value={filters.status} onChange={(value) => patch({ status: value })} options={(options?.statuses ?? []).map((status) => ({ id: status, label: status }))} /> : null}
+        <SelectFilter label="Status" value={filters.status} onChange={(value) => patch({ status: value })} options={(options?.statuses ?? []).map((status) => ({ id: status, label: status }))} />
         {!compact ? <SelectFilter label="Supplier" value={filters.supplierId} onChange={(value) => patch({ supplierId: value })} options={options?.suppliers ?? []} /> : null}
         {!compact ? <SelectFilter label="Category" value={filters.category} onChange={(value) => patch({ category: value })} options={(options?.categories ?? []).map((category) => ({ id: category, label: category }))} /> : null}
       </div>

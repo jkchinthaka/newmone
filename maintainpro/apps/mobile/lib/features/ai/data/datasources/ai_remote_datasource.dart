@@ -60,6 +60,29 @@ class AiRemoteDataSource {
     }
   }
 
+  Future<Map<String, dynamic>> fieldInsights({
+    String? focusArea,
+    String? mode,
+    int limit = 10,
+  }) async {
+    try {
+      final res = await _dio.get<dynamic>(
+        ApiEndpoints.aiFieldInsights,
+        queryParameters: {
+          if (focusArea != null && focusArea.isNotEmpty) 'focusArea': focusArea,
+          if (mode != null && mode.isNotEmpty) 'mode': mode,
+          'limit': limit,
+        },
+      );
+      final data = _unwrap(res);
+      return data is Map
+          ? Map<String, dynamic>.from(data)
+          : <String, dynamic>{};
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
   Future<List<CopilotConversation>> listConversations() async {
     try {
       final res = await _dio.get<dynamic>(ApiEndpoints.aiConversations);

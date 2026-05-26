@@ -12,6 +12,7 @@ import { Queue } from "bull";
 
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsGateway } from "./notifications.gateway";
+import { PushDeviceRegistration, PushDispatchService } from "./push-dispatch.service";
 
 export interface NotificationPreference {
   inApp: boolean;
@@ -26,6 +27,16 @@ export interface NotificationRuleSet {
   onlyCritical: boolean;
   emailOnlyOverdue: boolean;
 }
+
+type PushRegistrationInput = {
+  installationId: string;
+  token: string;
+  platform?: string;
+  provider?: string;
+  appVersion?: string;
+  locale?: string;
+  deviceName?: string;
+};
 
 export type NotificationActionType =
   | "ACKNOWLEDGE"
@@ -111,7 +122,8 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsGateway: NotificationsGateway,
-    @InjectQueue("notifications") private readonly notificationsQueue: Queue
+    @InjectQueue("notifications") private readonly notificationsQueue: Queue,
+    private readonly pushDispatchService: PushDispatchService
   ) {}
 
   async findAll(userId: string, query: NotificationQuery) {
@@ -468,7 +480,7 @@ export class NotificationsService {
 
     const priority = input.priority ?? this.defaultPriorityForType(input.type);
 
-    if (!preferences.inApp) {
+    if (!preferences.inApp && !preferences.push) {
       return null;
     }
 
@@ -510,18 +522,125 @@ export class NotificationsService {
     });
 
     const enriched = await this.enrichNotification(created);
-    this.notificationsGateway.emitToUser(input.userId, enriched);
+    if (preferences.inApp) {
+      this.notificationsGateway.emitToUser(input.userId, enriched);
+    }
 
-    await this.enqueueSend({
-      channel: input.channel ?? "IN_APP",
-      userId: input.userId,
-      message: input.message
-    });
+    if (preferences.inApp) {
+      await this.enqueueSend({
+        channel: "IN_APP",
+        userId: input.userId,
+        title: input.title,
+        message: input.message,
+        notificationId: created.id,
+        metadata: input.metadata as Prisma.JsonValue | null
+      });
+    }
+
+    if (preferences.push) {
+      await this.enqueueSend({
+        channel: "PUSH",
+        userId: input.userId,
+        title: input.title,
+        message: input.message,
+        notificationId: created.id,
+        metadata: input.metadata as Prisma.JsonValue | null
+      });
+    }
 
     return enriched;
   }
 
-  private async enqueueSend(payload: { channel: string; userId: string; message: string }) {
+  async getPushReadiness(userId: string) {
+    const preferences = await this.getPreferences(userId);
+    const devices = await this.pushDispatchService.getRegisteredDevices(userId);
+
+    return {
+      enabled: preferences.push,
+      ready: preferences.push && devices.length > 0,
+      deviceCount: devices.length,
+      providers: this.pushDispatchService.describeProviders(),
+      devices: this.pushDispatchService.maskDevices(devices)
+    };
+  }
+
+  async registerPushDevice(userId: string, input: PushRegistrationInput) {
+    const installationId = input.installationId.trim();
+    const token = input.token.trim();
+
+    if (!installationId) {
+      throw new BadRequestException("installationId is required");
+    }
+
+    if (!token) {
+      throw new BadRequestException("token is required");
+    }
+
+    const current = await this.pushDispatchService.getRegisteredDevices(userId);
+    const existing = current.find(
+      (device) => device.installationId === installationId || device.token === token
+    );
+    const now = new Date().toISOString();
+
+    const nextDevice: PushDeviceRegistration = {
+      installationId,
+      token,
+      platform: this.optionalString(input.platform) ?? "unknown",
+      provider: (this.optionalString(input.provider) ?? "FCM").toUpperCase(),
+      appVersion: this.optionalString(input.appVersion),
+      locale: this.optionalString(input.locale),
+      deviceName: this.optionalString(input.deviceName),
+      createdAt: existing?.createdAt ?? now,
+      lastSeenAt: now
+    };
+
+    const devices = [
+      nextDevice,
+      ...current.filter(
+        (device) =>
+          device.installationId !== nextDevice.installationId &&
+          device.token !== nextDevice.token
+      )
+    ].slice(0, 10);
+
+    await this.setUserSetting(userId, "notifications.push.devices", devices);
+
+    return {
+      registered: true,
+      deviceCount: devices.length,
+      providers: this.pushDispatchService.describeProviders(),
+      device: this.pushDispatchService.maskDevices([nextDevice])[0]
+    };
+  }
+
+  async unregisterPushDevice(userId: string, installationId: string) {
+    const normalizedInstallationId = installationId.trim();
+    if (!normalizedInstallationId) {
+      throw new BadRequestException("installationId is required");
+    }
+
+    const current = await this.pushDispatchService.getRegisteredDevices(userId);
+    const devices = current.filter(
+      (device) => device.installationId !== normalizedInstallationId
+    );
+
+    await this.setUserSetting(userId, "notifications.push.devices", devices);
+
+    return {
+      removed: devices.length < current.length,
+      deviceCount: devices.length,
+      providers: this.pushDispatchService.describeProviders()
+    };
+  }
+
+  private async enqueueSend(payload: {
+    channel: string;
+    userId: string;
+    message: string;
+    title?: string;
+    notificationId?: string;
+    metadata?: Prisma.JsonValue | null;
+  }) {
     try {
       await this.notificationsQueue.add("send", payload);
     } catch (err) {
@@ -1192,5 +1311,10 @@ export class NotificationsService {
         value: value as Prisma.InputJsonValue
       }
     });
+  }
+
+  private optionalString(value: unknown): string | null {
+    const text = value?.toString().trim() ?? "";
+    return text.length > 0 ? text : null;
   }
 }

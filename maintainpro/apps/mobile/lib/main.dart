@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -26,7 +28,12 @@ Future<void> main() async {
     Hive.openBox<dynamic>('settingsBox'),
   ]);
 
-  // Firebase init is deferred to Phase 11 once google-services config lands.
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (_) {
+    // Push readiness remains optional until platform Firebase config is present.
+  }
 
   runApp(const ProviderScope(child: MaintainProApp()));
 }

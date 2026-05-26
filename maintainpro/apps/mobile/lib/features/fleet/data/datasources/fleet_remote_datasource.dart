@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/network_exceptions.dart';
 import '../models/driver.dart';
+import '../models/driver_intelligence.dart';
 import '../models/fuel_log.dart';
 import '../models/gps_ping.dart';
 import '../models/trip.dart';
@@ -181,6 +182,7 @@ class FleetRemoteDataSource {
   // ── Fuel ───────────────────────────────────────────────────────────────
   Future<FuelLog> createFuelLog(
     String vehicleId, {
+    String? driverId,
     required double liters,
     required double costPerLiter,
     required double mileageAtFuel,
@@ -191,6 +193,7 @@ class FleetRemoteDataSource {
       final res = await _dio.post<dynamic>(
         ApiEndpoints.vehicleFuelLog(vehicleId),
         data: {
+          if (driverId != null && driverId.isNotEmpty) 'driverId': driverId,
           'liters': liters,
           'costPerLiter': costPerLiter,
           'mileageAtFuel': mileageAtFuel,
@@ -201,6 +204,16 @@ class FleetRemoteDataSource {
       );
       final data = _unwrap(res);
       return FuelLog.fromJson(Map<String, dynamic>.from(data as Map));
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<FuelAnalytics> fleetFuelAnalytics() async {
+    try {
+      final res = await _dio.get<dynamic>(ApiEndpoints.fuelAnalytics);
+      final data = _unwrap(res);
+      return FuelAnalytics.fromJson(Map<String, dynamic>.from(data as Map));
     } on DioException catch (e) {
       throw NetworkException.fromDio(e);
     }
@@ -371,6 +384,18 @@ class FleetRemoteDataSource {
       final res = await _dio.get<dynamic>(ApiEndpoints.driverById(id));
       final data = _unwrap(res);
       return Driver.fromJson(Map<String, dynamic>.from(data as Map));
+    } on DioException catch (e) {
+      throw NetworkException.fromDio(e);
+    }
+  }
+
+  Future<DriverIntelligenceProfile> getDriverIntelligence(String id) async {
+    try {
+      final res = await _dio.get<dynamic>(ApiEndpoints.driverIntelligenceById(id));
+      final data = _unwrap(res);
+      return DriverIntelligenceProfile.fromJson(
+        Map<String, dynamic>.from(data as Map),
+      );
     } on DioException catch (e) {
       throw NetworkException.fromDio(e);
     }

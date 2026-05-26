@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { AccidentEvidenceType, AccidentSeverity, AccidentStatus } from "@prisma/client";
+import { AccidentEvidenceType, AccidentResponsibility, AccidentSeverity, AccidentStatus } from "@prisma/client";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -35,6 +35,7 @@ export class AccidentsController {
       location: string;
       description: string;
       severity?: AccidentSeverity;
+      responsibility?: AccidentResponsibility;
       thirdPartyInvolved?: boolean;
       thirdPartyDetails?: string;
       policeReportNo?: string;
@@ -61,6 +62,7 @@ export class AccidentsController {
     @Body()
     body: Partial<{
       severity: AccidentSeverity;
+      responsibility: AccidentResponsibility;
       status: AccidentStatus;
       thirdPartyDetails: string;
       policeReportNo: string;

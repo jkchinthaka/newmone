@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { NotificationType } from "@prisma/client";
 
@@ -127,5 +127,35 @@ export class NotificationsController {
   ) {
     const data = await this.notificationsService.updateRules(req.user.sub, body);
     return { data, message: "Notification rules updated" };
+  }
+
+  @Get("push/readiness")
+  async pushReadiness(@Req() req: AuthedRequest) {
+    const data = await this.notificationsService.getPushReadiness(req.user.sub);
+    return { data, message: "Push readiness fetched" };
+  }
+
+  @Post("push/devices")
+  async registerPushDevice(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      installationId: string;
+      token: string;
+      platform?: string;
+      provider?: string;
+      appVersion?: string;
+      locale?: string;
+      deviceName?: string;
+    }
+  ) {
+    const data = await this.notificationsService.registerPushDevice(req.user.sub, body);
+    return { data, message: "Push device registered" };
+  }
+
+  @Delete("push/devices/:installationId")
+  async unregisterPushDevice(@Req() req: AuthedRequest, @Param("installationId") installationId: string) {
+    const data = await this.notificationsService.unregisterPushDevice(req.user.sub, installationId);
+    return { data, message: "Push device unregistered" };
   }
 }

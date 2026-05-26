@@ -3,13 +3,17 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Database, Droplets, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, ServerCog, Settings, Sprout, SprayCan, Sun, Tag, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Bell, Bot, ChartColumnBig, ClipboardCheck, ClipboardList, CreditCard, Database, Droplets, FileCheck2, Fuel, Gauge, HardDrive, Home, Layers, Leaf, MapPin, QrCode, Receipt, ServerCog, Settings, ShieldCheck, Sprout, SprayCan, Sun, Tag, Tractor, Users, Wallet, Wrench, type LucideIcon } from "lucide-react";
 
 const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/master-data" as Route, label: "Master Data", icon: Database },
   { href: "/assets", label: "Assets", icon: HardDrive },
   { href: "/vehicles", label: "Vehicles", icon: Gauge },
+  { href: "/compliance" as Route, label: "Compliance", icon: ShieldCheck },
+  { href: "/accidents" as Route, label: "Accidents", icon: AlertTriangle },
+  { href: "/insurance-claims" as Route, label: "Insurance Claims", icon: FileCheck2 },
+  { href: "/traffic-fines" as Route, label: "Traffic Fines", icon: Receipt },
   { href: "/fleet", label: "Fleet", icon: Fuel },
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
   { href: "/maintenance/job-codes" as Route, label: "Job Codes", icon: Tag },

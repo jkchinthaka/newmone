@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
@@ -56,6 +57,33 @@ export class PredictiveAiController {
     );
 
     return { data, message: "Copilot context fetched" };
+  }
+
+  @Get("field-insights")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "ASSET_MANAGER",
+    "SUPERVISOR",
+    "MANAGER",
+    "TECHNICIAN",
+    "MECHANIC",
+    "DRIVER"
+  )
+  @Permissions("predictive_insights.view")
+  async fieldInsights(
+    @Req() req: AuthedRequest,
+    @Query() query: CopilotContextQueryDto,
+    @Query("limit") limitRaw?: string
+  ) {
+    const data = await this.predictiveAiService.getFieldInsights(
+      this.getActor(req),
+      query.focusArea,
+      query.mode,
+      limitRaw
+    );
+
+    return { data, message: "Field insights fetched" };
   }
 
   @Get("conversations")

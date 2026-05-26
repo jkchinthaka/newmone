@@ -1096,7 +1096,10 @@ export class VehiclesService {
     });
   }
 
-  async fuelLog(id: string, data: { liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }) {
+  async fuelLog(
+    id: string,
+    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }
+  ) {
     const vehicle = await this.findOne(id);
 
     if (vehicle.status === VehicleStatus.OUT_OF_SERVICE) {
@@ -1108,6 +1111,7 @@ export class VehiclesService {
     }
 
     const totalCost = data.liters * data.costPerLiter;
+    const resolvedDriverId = await this.resolveFuelDriverId(data.driverId ?? vehicle.driverId ?? undefined);
 
     await this.prisma.vehicle.update({
       where: { id },
@@ -1117,6 +1121,7 @@ export class VehiclesService {
     return this.prisma.fuelLog.create({
       data: {
         vehicleId: id,
+        driverId: resolvedDriverId,
         date: new Date(),
         liters: data.liters,
         costPerLiter: data.costPerLiter,
@@ -1128,36 +1133,135 @@ export class VehiclesService {
     });
   }
 
-  fuelLogs(id: string) {
-    return this.prisma.fuelLog.findMany({ where: { vehicleId: id }, orderBy: { date: "desc" } });
+  fuelLogs(id: string, filters?: { startDate?: Date; endDate?: Date; driverId?: string }) {
+    return this.prisma.fuelLog.findMany({
+      where: {
+        vehicleId: id,
+        ...(filters?.driverId ? { driverId: filters.driverId } : {}),
+        ...(filters?.startDate || filters?.endDate
+          ? {
+              date: {
+                ...(filters?.startDate ? { gte: filters.startDate } : {}),
+                ...(filters?.endDate ? { lte: filters.endDate } : {})
+              }
+            }
+          : {})
+      },
+      orderBy: { date: "desc" }
+    });
   }
 
-  async fuelAnalytics(id: string) {
-    const logs = await this.fuelLogs(id);
+  async fuelAnalytics(id: string, filters?: { startDate?: Date; endDate?: Date; driverId?: string }) {
+    const logs = await this.fuelLogs(id, filters);
+    const sorted = [...logs].sort((left, right) => {
+      const mileageDiff = Number(left.mileageAtFuel) - Number(right.mileageAtFuel);
+      if (mileageDiff !== 0) {
+        return mileageDiff;
+      }
+      return left.date.getTime() - right.date.getTime();
+    });
+    const monthlyFuelCostTrend = new Map<string, { totalCost: number; liters: number }>();
 
-    if (logs.length < 2) {
+    for (const log of logs) {
+      const month = log.date.toISOString().slice(0, 7);
+      const current = monthlyFuelCostTrend.get(month) ?? { totalCost: 0, liters: 0 };
+      current.totalCost += Number(log.totalCost);
+      current.liters += Number(log.liters);
+      monthlyFuelCostTrend.set(month, current);
+    }
+
+    if (sorted.length < 2) {
+      const totalLiters = logs.reduce((sum, log) => sum + Number(log.liters), 0);
+      const totalCost = logs.reduce((sum, log) => sum + Number(log.totalCost), 0);
       return {
+        totalLiters,
+        totalCost,
+        avgCostPerLiter: totalLiters > 0 ? totalCost / totalLiters : 0,
+        avgConsumption: 0,
         averageConsumptionLPer100Km: 0,
+        distance: 0,
         costPerKm: 0,
-        monthlyFuelCostTrend: []
+        abnormalUsageCount: 0,
+        anomalies: [],
+        monthlyFuelCostTrend: [...monthlyFuelCostTrend.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([month, value]) => ({ month, totalCost: value.totalCost, liters: value.liters }))
       };
+    }
+
+    const intervals: Array<{
+      date: Date;
+      liters: number;
+      distance: number;
+      litersPer100Km: number;
+    }> = [];
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      const previous = sorted[index - 1];
+      const current = sorted[index];
+      const distance = Number(current.mileageAtFuel) - Number(previous.mileageAtFuel);
+
+      if (distance <= 0) {
+        continue;
+      }
+
+      intervals.push({
+        date: current.date,
+        liters: Number(current.liters),
+        distance,
+        litersPer100Km: (Number(current.liters) / distance) * 100
+      });
     }
 
     const totalLiters = logs.reduce((sum, log) => sum + Number(log.liters), 0);
     const totalCost = logs.reduce((sum, log) => sum + Number(log.totalCost), 0);
-    const distance = Number(logs[0].mileageAtFuel) - Number(logs[logs.length - 1].mileageAtFuel);
+    const distance = intervals.reduce((sum, interval) => sum + interval.distance, 0);
 
     const averageConsumptionLPer100Km = distance > 0 ? (totalLiters / distance) * 100 : 0;
     const costPerKm = distance > 0 ? totalCost / distance : 0;
+    const anomalyBaseline =
+      intervals.length > 0
+        ? intervals.reduce((sum, interval) => sum + interval.litersPer100Km, 0) / intervals.length
+        : 0;
+    const anomalies = intervals.filter(
+      (interval) =>
+        (anomalyBaseline > 0 &&
+          (interval.litersPer100Km > anomalyBaseline * 1.35 || interval.litersPer100Km < anomalyBaseline * 0.55)) ||
+        (interval.distance < 25 && interval.liters > 12)
+    );
 
     return {
+      totalLiters,
+      totalCost,
+      avgCostPerLiter: totalLiters > 0 ? totalCost / totalLiters : 0,
+      avgConsumption: averageConsumptionLPer100Km,
       averageConsumptionLPer100Km,
+      distance,
       costPerKm,
-      monthlyFuelCostTrend: logs.map((log) => ({
-        month: log.date.toISOString().slice(0, 7),
-        totalCost: Number(log.totalCost)
-      }))
+      abnormalUsageCount: anomalies.length,
+      anomalies: anomalies.map((interval) => ({
+        date: interval.date.toISOString(),
+        distance: interval.distance,
+        liters: interval.liters,
+        litersPer100Km: Math.round(interval.litersPer100Km * 100) / 100
+      })),
+      monthlyFuelCostTrend: [...monthlyFuelCostTrend.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([month, value]) => ({ month, totalCost: value.totalCost, liters: value.liters }))
     };
+  }
+
+  private async resolveFuelDriverId(driverId?: string) {
+    if (!driverId) {
+      return undefined;
+    }
+
+    const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { id: true } });
+    if (!driver) {
+      throw new NotFoundException("Driver not found");
+    }
+
+    return driver.id;
   }
 
   async tripStart(id: string, data: { driverId: string; startLocation: string; endLocation: string; startMileage: number; purpose?: string }) {

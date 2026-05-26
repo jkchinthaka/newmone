@@ -19,6 +19,7 @@ import { JwtAuthGuard } from "../src/common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../src/common/guards/permissions.guard";
 import { PrismaService } from "../src/database/prisma.service";
 import { FleetService } from "../src/modules/fleet/fleet.service";
+import { ComplianceService } from "../src/modules/compliance/compliance.service";
 import { VehiclesController } from "../src/modules/vehicles/vehicles.controller";
 import { VehiclesService } from "../src/modules/vehicles/vehicles.service";
 
@@ -157,6 +158,10 @@ const buildVehicle = (overrides: Record<string, unknown> = {}) => ({
     {
       provide: FleetService,
       useValue: fleetService
+    },
+    {
+      provide: ComplianceService,
+      useValue: { evaluateForGateOut: jest.fn().mockResolvedValue([]) }
     },
     {
       provide: APP_GUARD,

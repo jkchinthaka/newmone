@@ -1,6 +1,7 @@
 import {
   AppSettingScope,
   BillingInterval,
+  DriverTrainingStatus,
   EntitlementType,
   Prisma,
   PrismaClient,
@@ -86,7 +87,18 @@ const permissionCatalog = [
   "traffic_fines.view",
   "traffic_fines.report",
   "traffic_fines.manage",
-  "traffic_fines.payment"
+  "traffic_fines.payment",
+
+  // Phase 5 — intelligence, analytics, dashboards
+  "driver_intelligence.view",
+  "driver_intelligence.manage",
+  "dashboard_analytics.view",
+  "fuel_analytics.view",
+  "vehicle_cost_analytics.view",
+
+  // Phase 6 — operational scanning
+  "operations.scan_lookup",
+  "predictive_insights.view"
 ];
 
 const rolePermissions: Record<RoleName, string[]> = {
@@ -115,14 +127,21 @@ const rolePermissions: Record<RoleName, string[]> = {
     "gate.override.approve",
     "settings.view",
     "audit.view",
+    "dashboard_analytics.view",
     "compliance.view",
     "vehicle_documents.view",
     "accidents.view",
     "insurance_claims.view",
-    "traffic_fines.view"
+    "traffic_fines.view",
+    "driver_intelligence.view",
+    "fuel_analytics.view",
+    "vehicle_cost_analytics.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   FLEET_MANAGER: [
     "dashboard.view",
+    "dashboard_analytics.view",
     "modules.view_all",
     "reports.view",
     "fleet.manage",
@@ -148,10 +167,17 @@ const rolePermissions: Record<RoleName, string[]> = {
     "traffic_fines.view",
     "traffic_fines.report",
     "traffic_fines.manage",
-    "traffic_fines.payment"
+    "traffic_fines.payment",
+    "driver_intelligence.view",
+    "driver_intelligence.manage",
+    "fuel_analytics.view",
+    "vehicle_cost_analytics.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   COMPLIANCE_MANAGER: [
     "dashboard.view",
+    "dashboard_analytics.view",
     "modules.view_all",
     "reports.view",
     "audit.view",
@@ -171,10 +197,14 @@ const rolePermissions: Record<RoleName, string[]> = {
     "traffic_fines.view",
     "traffic_fines.report",
     "traffic_fines.manage",
-    "traffic_fines.payment"
+    "traffic_fines.payment",
+    "driver_intelligence.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   MANAGER: [
     "dashboard.view",
+    "dashboard_analytics.view",
     "modules.view_all",
     "assets.manage",
     "work_orders.manage",
@@ -216,7 +246,13 @@ const rolePermissions: Record<RoleName, string[]> = {
     "traffic_fines.view",
     "traffic_fines.report",
     "traffic_fines.manage",
-    "traffic_fines.payment"
+    "traffic_fines.payment",
+    "driver_intelligence.view",
+    "driver_intelligence.manage",
+    "fuel_analytics.view",
+    "vehicle_cost_analytics.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   TECHNICIAN: [
     "dashboard.view",
@@ -225,7 +261,9 @@ const rolePermissions: Record<RoleName, string[]> = {
     "part_requests.create",
     "part_requests.view",
     "inventory.manage",
-    "vehicles.view"
+    "vehicles.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   MECHANIC: [
     "dashboard.view",
@@ -235,10 +273,13 @@ const rolePermissions: Record<RoleName, string[]> = {
     "part_requests.view",
     "inventory.manage",
     "vehicles.view",
-    "vehicles.edit"
+    "vehicles.edit",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   ASSET_MANAGER: [
     "dashboard.view",
+    "dashboard_analytics.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
@@ -253,7 +294,12 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.create",
     "vehicles.edit",
     "vehicles.operate",
-    "audit.view"
+    "audit.view",
+    "driver_intelligence.view",
+    "fuel_analytics.view",
+    "vehicle_cost_analytics.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   INVENTORY_KEEPER: [
     "dashboard.view",
@@ -270,6 +316,7 @@ const rolePermissions: Record<RoleName, string[]> = {
   ],
   SUPERVISOR: [
     "dashboard.view",
+    "dashboard_analytics.view",
     "modules.view_all",
     "cleaning.manage",
     "cleaning.sign_off",
@@ -278,7 +325,11 @@ const rolePermissions: Record<RoleName, string[]> = {
     "reports.view",
     "users.view",
     "vehicles.view",
-    "audit.view"
+    "audit.view",
+    "driver_intelligence.view",
+    "driver_intelligence.manage",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
   DRIVER: [
@@ -291,9 +342,13 @@ const rolePermissions: Record<RoleName, string[]> = {
     "accidents.report",
     "accidents.view",
     "traffic_fines.report",
-    "traffic_fines.view"
+    "traffic_fines.view",
+    "driver_intelligence.view",
+    "fuel_analytics.view",
+    "operations.scan_lookup",
+    "predictive_insights.view"
   ],
-  VIEWER: ["dashboard.view", "modules.view_all", "reports.view", "vehicles.view", "part_requests.view", "settings.view"],
+  VIEWER: ["dashboard.view", "dashboard_analytics.view", "modules.view_all", "reports.view", "vehicles.view", "part_requests.view", "settings.view", "driver_intelligence.view", "fuel_analytics.view", "vehicle_cost_analytics.view"],
   FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
     "dashboard.view",
@@ -644,19 +699,40 @@ async function main() {
 
   const drivers = [];
   for (let i = 0; i < driverUsers.length; i += 1) {
+    const trainingStatus =
+      i === 0
+        ? DriverTrainingStatus.CURRENT
+        : i === 1
+          ? DriverTrainingStatus.CURRENT
+          : DriverTrainingStatus.IN_PROGRESS;
+    const trainingCompletedAt =
+      i === 2 ? null : new Date(Date.now() - (90 + i * 15) * 24 * 60 * 60 * 1000);
+    const trainingExpiry =
+      i === 2 ? null : new Date(Date.now() + (180 - i * 30) * 24 * 60 * 60 * 1000);
+
     const driver = await prisma.driver.upsert({
       where: { userId: driverUsers[i].id },
       update: {
         tenantId: tenant.id,
         licenseClass: "Class A",
-        licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        trainingStatus,
+        trainingCompletedAt,
+        trainingExpiry,
+        supervisorReviewScore: 92 - i * 11,
+        pendingDisciplinaryIssues: i === 0 ? 0 : i === 1 ? 1 : 2
       },
       create: {
         tenantId: tenant.id,
         userId: driverUsers[i].id,
         licenseNumber: `LIC-2026-${1000 + i}`,
         licenseClass: "Class A",
-        licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        trainingStatus,
+        trainingCompletedAt,
+        trainingExpiry,
+        supervisorReviewScore: 92 - i * 11,
+        pendingDisciplinaryIssues: i === 0 ? 0 : i === 1 ? 1 : 2
       }
     });
 

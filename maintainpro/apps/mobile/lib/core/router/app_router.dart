@@ -45,6 +45,7 @@ import '../../features/farm/presentation/farm_screens.dart';
 import '../../features/billing/presentation/billing_screens.dart';
 import '../../features/notifications/data/datasources/notifications_socket.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/operations/presentation/operations_scan_screen.dart';
 import '../../features/reports/presentation/reports_screens.dart';
 import '../../features/settings/presentation/about_screen.dart';
 import '../../features/settings/presentation/settings_screens.dart';
@@ -111,7 +112,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/scan',
-          redirect: (_, __) => '/assets/scan',
+          redirect: (_, __) => '/operations/scan',
         ),
         GoRoute(
           path: '/notifications',
@@ -132,6 +133,10 @@ final GoRouter appRouter = GoRouter(
     ),
 
     // Full-screen (no bottom nav) routes
+    GoRoute(
+      path: '/operations/scan',
+      builder: (_, __) => const OperationsScanScreen(),
+    ),
     GoRoute(
       path: '/assets',
       builder: (_, __) => const AssetsScreen(),

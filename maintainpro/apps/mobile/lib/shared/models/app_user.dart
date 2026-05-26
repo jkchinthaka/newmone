@@ -2,6 +2,7 @@ enum UserRole {
   superAdmin,
   admin,
   manager,
+  securityOfficer,
   technician,
   mechanic,
   assetManager,
@@ -21,8 +22,13 @@ extension UserRoleParser on UserRole {
         return UserRole.superAdmin;
       case 'ADMIN':
         return UserRole.admin;
+      case 'OPERATIONS_MANAGER':
+      case 'FLEET_MANAGER':
+      case 'COMPLIANCE_MANAGER':
       case 'MANAGER':
         return UserRole.manager;
+      case 'SECURITY_OFFICER':
+        return UserRole.securityOfficer;
       case 'TECHNICIAN':
         return UserRole.technician;
       case 'MECHANIC':
@@ -43,6 +49,23 @@ extension UserRoleParser on UserRole {
         return UserRole.viewer;
     }
   }
+}
+
+extension UserRoleCapabilities on UserRole {
+  bool get isManagerial => this == UserRole.superAdmin ||
+      this == UserRole.admin ||
+      this == UserRole.manager ||
+      this == UserRole.assetManager ||
+      this == UserRole.supervisor;
+
+  bool get isTechnicianLike =>
+      this == UserRole.technician || this == UserRole.mechanic;
+
+  bool get supportsFieldOpsBriefing =>
+      isManagerial ||
+      isTechnicianLike ||
+      this == UserRole.driver ||
+      this == UserRole.securityOfficer;
 }
 
 class AppUser {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/offline/offline_sync.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/bottom_sheet_widget.dart';
 import '../../../core/widgets/error_widget.dart';
@@ -351,17 +352,31 @@ class _DetailBody extends ConsumerWidget {
                   final nav = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
                   try {
-                    await ref.read(workOrdersRemoteProvider).updateStatus(
+                    final result = await ref
+                        .read(offlineSyncControllerProvider)
+                        .submitWorkOrderStatus(
                           wo.id,
                           status: selected,
                           actualCost: num.tryParse(actualCostCtrl.text),
                           actualHours: num.tryParse(actualHoursCtrl.text),
                         );
                     nav.pop();
-                    await _refresh(ref);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Status updated')),
-                    );
+                    if (result.isSynced) {
+                      await _refresh(ref);
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Status updated')),
+                      );
+                    } else {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.isDuplicate
+                                ? 'This status update is already queued for sync.'
+                                : 'Saved offline. This status update will sync when you are back online.',
+                          ),
+                        ),
+                      );
+                    }
                   } catch (e) {
                     messenger.showSnackBar(
                       SnackBar(content: Text(e.toString())),

@@ -5,7 +5,10 @@ export type ReportModuleSlug =
   | "assets"
   | "inventory"
   | "performance"
-  | "system-logs";
+  | "system-logs"
+  | "driver-intelligence"
+  | "fuel-analytics"
+  | "vehicle-cost-analytics";
 
 export type ReportTone = "neutral" | "success" | "warning" | "danger" | "info";
 export type ReportExportFormat = "csv" | "xlsx" | "pdf";
@@ -16,7 +19,9 @@ export type ReportFilters = {
   departmentId: string;
   departmentIds: string[];
   userId: string;
+  driverId: string;
   assetId: string;
+  vehicleId: string;
   status: string;
   supplierId: string;
   category: string;
@@ -65,6 +70,8 @@ export type ReportTable = {
 export type ReportFilterOptions = {
   departments: Array<{ id: string; label: string }>;
   users: Array<{ id: string; label: string; role?: string }>;
+  drivers: Array<{ id: string; label: string }>;
+  vehicles: Array<{ id: string; label: string }>;
   assets: Array<{ id: string; label: string; type: "asset" | "vehicle" }>;
   suppliers: Array<{ id: string; label: string }>;
   statuses: string[];

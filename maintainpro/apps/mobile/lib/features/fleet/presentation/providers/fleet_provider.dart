@@ -4,6 +4,7 @@ import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/fleet_remote_datasource.dart';
 import '../../data/datasources/fleet_socket.dart';
 import '../../data/models/driver.dart';
+import '../../data/models/driver_intelligence.dart';
 import '../../data/models/fuel_log.dart';
 import '../../data/models/gps_ping.dart';
 import '../../data/models/trip.dart';
@@ -107,10 +108,20 @@ final driverDetailProvider =
   return ref.read(fleetRemoteProvider).getDriver(id);
 });
 
+final driverIntelligenceProvider = FutureProvider.family
+    .autoDispose<DriverIntelligenceProfile, String>((ref, id) async {
+  return ref.read(fleetRemoteProvider).getDriverIntelligence(id);
+});
+
 // ── Fuel ────────────────────────────────────────────────────────────────
 final allFuelLogsProvider =
     FutureProvider.autoDispose<List<FuelLog>>((ref) async {
   return ref.read(fleetRemoteProvider).listAllFuelLogs();
+});
+
+final fleetFuelAnalyticsProvider =
+    FutureProvider.autoDispose<FuelAnalytics>((ref) async {
+  return ref.read(fleetRemoteProvider).fleetFuelAnalytics();
 });
 
 final vehicleFuelLogsProvider =

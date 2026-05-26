@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/offline/offline_sync.dart';
+import '../data/models/driver.dart';
 import '../data/models/fuel_log.dart';
 import '../data/models/vehicle.dart';
 import 'providers/fleet_provider.dart';
@@ -16,6 +18,7 @@ class FuelLogsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logs = ref.watch(allFuelLogsProvider);
+    final analytics = ref.watch(fleetFuelAnalyticsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Fuel logs')),
@@ -27,7 +30,10 @@ class FuelLogsScreen extends ConsumerWidget {
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(allFuelLogsProvider),
+          onRefresh: () async {
+            ref.invalidate(allFuelLogsProvider);
+            ref.invalidate(fleetFuelAnalyticsProvider);
+          },
           child: logs.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
@@ -40,18 +46,24 @@ class FuelLogsScreen extends ConsumerWidget {
             data: (list) {
               if (list.isEmpty) {
                 return ListView(
-                  children: const [
-                    SizedBox(height: 120),
-                    Center(child: Text('No fuel logs yet.')),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  children: [
+                    _FuelAnalyticsSummary(async: analytics),
+                    const SizedBox(height: 120),
+                    const Center(child: Text('No fuel logs yet.')),
                   ],
                 );
               }
-              return ListView.separated(
+              return ListView(
                 padding: const EdgeInsets.all(AppSpacing.md),
-                itemCount: list.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: AppSpacing.xs),
-                itemBuilder: (_, i) => _FuelTile(log: list[i]),
+                children: [
+                  _FuelAnalyticsSummary(async: analytics),
+                  const SizedBox(height: AppSpacing.md),
+                  ...list.map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: _FuelTile(log: item),
+                      )),
+                ],
               );
             },
           ),
@@ -62,14 +74,16 @@ class FuelLogsScreen extends ConsumerWidget {
 
   Future<void> _showCreateSheet(BuildContext context, WidgetRef ref) async {
     List<Vehicle> vehicles;
+    List<Driver> drivers;
     try {
       final res =
           await ref.read(fleetRemoteProvider).listVehicles(pageSize: 200);
       vehicles = res.items;
+      drivers = await ref.read(fleetRemoteProvider).listDrivers();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not load vehicles: $e')));
+            SnackBar(content: Text('Could not load fleet data: $e')));
       }
       return;
     }
@@ -77,6 +91,7 @@ class FuelLogsScreen extends ConsumerWidget {
 
     final formKey = GlobalKey<FormState>();
     String? vehicleId;
+    String selectedDriverId = '';
     final liters = TextEditingController();
     final cost = TextEditingController();
     final mileage = TextEditingController();
@@ -123,6 +138,29 @@ class FuelLogsScreen extends ConsumerWidget {
                   }),
                 ),
                 const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedDriverId,
+                  decoration:
+                      const InputDecoration(labelText: 'Driver attribution'),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('Use current vehicle assignment'),
+                    ),
+                    ...drivers.map(
+                      (driver) => DropdownMenuItem<String>(
+                        value: driver.id,
+                        child: Text(
+                          driver.displayName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setLocal(() => selectedDriverId = value ?? ''),
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 TextFormField(
                   controller: liters,
                   keyboardType:
@@ -162,9 +200,15 @@ class FuelLogsScreen extends ConsumerWidget {
                 FilledButton(
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
+                    final messenger = ScaffoldMessenger.of(context);
                     try {
-                      await ref.read(fleetRemoteProvider).createFuelLog(
+                      final result = await ref
+                          .read(offlineSyncControllerProvider)
+                          .submitFuelLog(
                             vehicleId!,
+                          driverId: selectedDriverId.isEmpty
+                                ? null
+                                : selectedDriverId,
                             liters: double.parse(liters.text),
                             costPerLiter: double.parse(cost.text),
                             mileageAtFuel: double.parse(mileage.text),
@@ -176,7 +220,25 @@ class FuelLogsScreen extends ConsumerWidget {
                                 : notes.text.trim(),
                           );
                       if (ctx.mounted) Navigator.pop(ctx);
-                      ref.invalidate(allFuelLogsProvider);
+                      if (result.isSynced) {
+                        ref.invalidate(allFuelLogsProvider);
+                        ref.invalidate(fleetFuelAnalyticsProvider);
+                        if (context.mounted) {
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Fuel log saved')),
+                          );
+                        }
+                      } else if (context.mounted) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              result.isDuplicate
+                                  ? 'This fuel log is already queued for sync.'
+                                  : 'Saved offline. This fuel log will sync when you are back online.',
+                            ),
+                          ),
+                        );
+                      }
                     } catch (e) {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
@@ -190,6 +252,129 @@ class FuelLogsScreen extends ConsumerWidget {
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+class _FuelAnalyticsSummary extends StatelessWidget {
+  const _FuelAnalyticsSummary({required this.async});
+
+  final AsyncValue<FuelAnalytics> async;
+
+  @override
+  Widget build(BuildContext context) {
+    return async.when(
+      loading: () => Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.card.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (analytics) => Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.card.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Fuel analytics', style: AppTextStyles.title),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _SummaryChip(
+                  label: 'Total liters',
+                  value: analytics.totalLiters.toStringAsFixed(1),
+                  color: AppColors.info,
+                ),
+                _SummaryChip(
+                  label: 'Total cost',
+                  value: analytics.totalCost.toStringAsFixed(2),
+                  color: AppColors.warning,
+                ),
+                _SummaryChip(
+                  label: 'Avg cost / L',
+                  value: analytics.avgCostPerLiter.toStringAsFixed(2),
+                  color: AppColors.success,
+                ),
+                _SummaryChip(
+                  label: 'Fuel flags',
+                  value: analytics.abnormalUsageCount.toString(),
+                  color: analytics.abnormalUsageCount > 0
+                      ? AppColors.error
+                      : AppColors.success,
+                ),
+              ],
+            ),
+            if (analytics.anomalies.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Recent anomaly flags',
+                style:
+                    AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              ...analytics.anomalies.take(3).map(
+                    (item) => Padding(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+                      child: Text(
+                        '${item.registrationNo ?? item.vehicleId ?? 'Vehicle'} · ${item.litersPer100Km.toStringAsFixed(1)} L/100km · ${item.distance.toStringAsFixed(0)} km',
+                        style: AppTextStyles.bodySecondary,
+                      ),
+                    ),
+                  ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: AppTextStyles.caption),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            value,
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }

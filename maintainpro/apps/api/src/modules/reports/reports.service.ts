@@ -1,9 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { AuditAction, ExpenseCategory, WorkOrderStatus } from "@prisma/client";
+import { AuditAction, ExpenseCategory, Prisma, RoleName, WorkOrderStatus } from "@prisma/client";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 import { PrismaService } from "../../database/prisma.service";
+import { DriverIntelligenceService } from "../driver-intelligence/driver-intelligence.service";
+import { VehiclesService } from "../vehicles/vehicles.service";
 
 export type ReportModuleKey =
   | "operations"
@@ -12,7 +14,10 @@ export type ReportModuleKey =
   | "assets"
   | "inventory"
   | "performance"
-  | "system-logs";
+  | "system-logs"
+  | "driver-intelligence"
+  | "fuel-analytics"
+  | "vehicle-cost-analytics";
 
 export type ReportExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -22,7 +27,9 @@ export interface ReportQuery {
   departmentId?: string;
   departmentIds?: string[] | string;
   userId?: string;
+  driverId?: string;
   assetId?: string;
+  vehicleId?: string;
   status?: string;
   supplierId?: string;
   category?: string;
@@ -35,7 +42,8 @@ export interface ReportQuery {
 
 interface ReportActor {
   sub: string;
-  role: string;
+  email: string;
+  role: RoleName;
   tenantId?: string | null;
 }
 
@@ -84,6 +92,8 @@ interface ReportSummaryCard {
 export interface ReportFilterOptions {
   departments: Array<{ id: string; label: string }>;
   users: Array<{ id: string; label: string; role?: string }>;
+  drivers: Array<{ id: string; label: string }>;
+  vehicles: Array<{ id: string; label: string }>;
   assets: Array<{ id: string; label: string; type: "asset" | "vehicle" }>;
   suppliers: Array<{ id: string; label: string }>;
   statuses: string[];
@@ -102,7 +112,9 @@ export interface ReportModuleResponse {
     departmentId?: string;
     departmentIds?: string[];
     userId?: string;
+    driverId?: string;
     assetId?: string;
+    vehicleId?: string;
     status?: string;
     supplierId?: string;
     category?: string;
@@ -150,6 +162,18 @@ const REPORT_TITLES: Record<ReportModuleKey, { title: string; description: strin
   "system-logs": {
     title: "System Logs and Audit Reports",
     description: "Audit history, security-sensitive changes, record mutations, and system coverage notes."
+  },
+  "driver-intelligence": {
+    title: "Driver Intelligence Reports",
+    description: "Driver scoring, risk levels, eligibility decisions, supervisor review, and linked operational signals."
+  },
+  "fuel-analytics": {
+    title: "Fuel Analytics Reports",
+    description: "Fuel cost, usage efficiency, anomaly flags, and consumption trends by vehicle and driver filter."
+  },
+  "vehicle-cost-analytics": {
+    title: "Vehicle Cost Analytics Reports",
+    description: "Net vehicle cost, fuel, maintenance, accident impact, fines, and insurance recovery trends."
   }
 };
 
@@ -165,7 +189,11 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly driverIntelligenceService: DriverIntelligenceService,
+    private readonly vehiclesService: VehiclesService
+  ) {}
 
   async options(actor: ReportActor): Promise<ReportFilterOptions> {
     return this.getFilterOptions(actor.tenantId ?? null);
@@ -174,7 +202,7 @@ export class ReportsService {
   async dashboard(actor: ReportActor, query: ReportQuery = {}) {
     const range = this.resolveDateRange(query);
     const tenantId = actor.tenantId ?? null;
-    const [operations, financials, inventory, assets, audits, filterOptions] = await Promise.all([
+    const [operations, financials, inventory, assets, audits, filterOptions, driverDashboard] = await Promise.all([
       this.prisma.workOrder.findMany({
         where: this.workOrderWhere(tenantId, range, query),
         select: {
@@ -215,7 +243,15 @@ export class ReportsService {
         orderBy: { createdAt: "desc" },
         take: 6
       }),
-      this.getFilterOptions(tenantId)
+      this.getFilterOptions(tenantId),
+      this.driverIntelligenceService.dashboard(actor, {
+        startDate: this.isoDate(range.start) ?? undefined,
+        endDate: this.isoDate(range.end) ?? undefined,
+        departmentId: query.departmentId,
+        driverId: query.driverId,
+        vehicleId: query.vehicleId,
+        status: query.status
+      })
     ]);
 
     const now = new Date();
@@ -255,6 +291,31 @@ export class ReportsService {
         value: this.formatCurrency(stockValue),
         helper: `${lowStock} low-stock items`,
         tone: lowStock > 0 ? "danger" : "success"
+      },
+      {
+        module: "driver-intelligence",
+        label: "Driver Intelligence",
+        value: driverDashboard.summaryCards.find((item) => item.label === "Average driver score")?.value ?? 0,
+        helper: `${driverDashboard.riskDistribution
+          .filter((item) => item.level === "HIGH" || item.level === "CRITICAL")
+          .reduce((sum, item) => sum + item.count, 0)} high-risk drivers`,
+        tone: driverDashboard.riskDistribution.some((item) => (item.level === "HIGH" || item.level === "CRITICAL") && item.count > 0)
+          ? "warning"
+          : "success"
+      },
+      {
+        module: "fuel-analytics",
+        label: "Fuel Analytics",
+        value: driverDashboard.fuelInsights.abnormalUsageCount,
+        helper: "Abnormal usage events flagged for review",
+        tone: driverDashboard.fuelInsights.abnormalUsageCount > 0 ? "warning" : "success"
+      },
+      {
+        module: "vehicle-cost-analytics",
+        label: "Vehicle Costs",
+        value: this.formatCurrency(driverDashboard.fleetCostSummary.breakdown.netCost),
+        helper: "Net fleet cost in selected range",
+        tone: "info"
       }
     ];
 
@@ -271,7 +332,23 @@ export class ReportsService {
           tone: completed >= totalJobs && totalJobs > 0 ? "success" : "neutral"
         },
         { label: "Total Expenses", value: this.formatCurrency(totalExpenses), subLabel: "Jobs, parts, utilities, POs, farm costs", tone: "info" },
-        { label: "Low Stock", value: lowStock, subLabel: "At or below threshold", tone: lowStock > 0 ? "danger" : "success" }
+        { label: "Low Stock", value: lowStock, subLabel: "At or below threshold", tone: lowStock > 0 ? "danger" : "success" },
+        {
+          label: "High Risk Drivers",
+          value: driverDashboard.riskDistribution
+            .filter((item) => item.level === "HIGH" || item.level === "CRITICAL")
+            .reduce((sum, item) => sum + item.count, 0),
+          subLabel: "Driver intelligence score below threshold or with material incidents",
+          tone: driverDashboard.riskDistribution.some((item) => (item.level === "HIGH" || item.level === "CRITICAL") && item.count > 0)
+            ? "warning"
+            : "success"
+        },
+        {
+          label: "Eligible Drivers",
+          value: driverDashboard.summaryCards.find((item) => item.label === "Eligible for new vehicle")?.value ?? 0,
+          subLabel: "Ready for new vehicle assignment",
+          tone: "info"
+        }
       ],
       moduleSummaries,
       crossModuleTrend: this.buildMonthlyTrend(financials.map((item) => ({ date: item.date, value: item.amount })), range, "expense"),
@@ -290,7 +367,8 @@ export class ReportsService {
           type: "Recent audit",
           message: `${item.action} ${item.entity} by ${this.userLabel(item.actor)}`,
           tone: "neutral"
-        }))
+        })),
+        ...driverDashboard.alerts.slice(0, 4)
       ],
       dataCoverage: this.systemCoverageNotes()
     };
@@ -315,6 +393,12 @@ export class ReportsService {
         return this.performanceReport(actor, query);
       case "system-logs":
         return this.systemLogsReport(actor, query);
+      case "driver-intelligence":
+        return this.driverIntelligenceReport(actor, query);
+      case "fuel-analytics":
+        return this.fuelAnalyticsReport(actor, query);
+      case "vehicle-cost-analytics":
+        return this.vehicleCostAnalyticsReport(actor, query);
       default:
         return this.operationsReport(actor, query);
     }
@@ -348,33 +432,468 @@ export class ReportsService {
   }
 
   async maintenanceCost(actor?: ReportActor) {
-    const report = await this.financialReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, {});
+    const report = await this.financialReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, {});
     return report;
   }
 
   async fleetEfficiency(actor?: ReportActor) {
-    const report = await this.assetsReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, {});
+    const report = await this.assetsReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, {});
     return report;
   }
 
   async downtime(actor?: ReportActor) {
-    const report = await this.assetsReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, {});
+    const report = await this.assetsReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, {});
     return report;
   }
 
   async workOrders(actor?: ReportActor) {
-    const report = await this.operationsReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, {});
+    const report = await this.operationsReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, {});
     return report;
   }
 
   async inventory(actor?: ReportActor) {
-    const report = await this.inventoryReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, {});
+    const report = await this.inventoryReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, {});
     return report;
   }
 
   async utilities(actor?: ReportActor) {
-    const report = await this.financialReport(actor ?? { sub: "system", role: "SUPER_ADMIN" }, { category: "Utilities" });
+    const report = await this.financialReport(actor ?? { sub: "system", email: "system@local", role: "SUPER_ADMIN" }, { category: "Utilities" });
     return report;
+  }
+
+  private async driverIntelligenceReport(actor: ReportActor, query: ReportQuery): Promise<ReportModuleResponse> {
+    const range = this.resolveDateRange(query);
+    const pagination = this.resolvePagination(query);
+    const filterOptions = await this.getFilterOptions(actor.tenantId ?? null);
+    const list = await this.driverIntelligenceService.listDrivers(actor, {
+      startDate: this.isoDate(range.start) ?? undefined,
+      endDate: this.isoDate(range.end) ?? undefined,
+      departmentId: query.departmentId,
+      driverId: query.driverId,
+      vehicleId: query.vehicleId,
+      search: query.search,
+      sortBy:
+        query.sortBy === "name" || query.sortBy === "riskLevel" || query.sortBy === "eligibility"
+          ? query.sortBy
+          : "score",
+      sortDirection: query.sortDirection,
+      page: 1,
+      pageSize: MAX_PAGE_SIZE
+    });
+
+    let rows = list.items;
+    if (query.status) {
+      const status = query.status.toUpperCase();
+      rows = rows.filter((item) => {
+        if (["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(status)) {
+          return item.riskLevel === status;
+        }
+        if (status === "ELIGIBLE") {
+          return item.eligibleForNewVehicle;
+        }
+        if (status === "INELIGIBLE") {
+          return !item.eligibleForNewVehicle;
+        }
+        return true;
+      });
+    }
+
+    const total = rows.length;
+    const pageRows = rows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
+    const averageScore = rows.length > 0 ? Math.round(rows.reduce((sum, item) => sum + item.driverScore, 0) / rows.length) : 0;
+    const highRiskCount = rows.filter((item) => item.riskLevel === "HIGH" || item.riskLevel === "CRITICAL").length;
+    const eligibleCount = rows.filter((item) => item.eligibleForNewVehicle).length;
+
+    return this.composeReport({
+      actor,
+      module: "driver-intelligence",
+      range,
+      query,
+      summaryCards: [
+        { label: "Drivers in scope", value: total, subLabel: "After report filters", tone: "info" },
+        { label: "Average driver score", value: averageScore, subLabel: "Weighted intelligence score", tone: averageScore >= 85 ? "success" : averageScore >= 70 ? "warning" : "danger" },
+        { label: "High risk drivers", value: highRiskCount, subLabel: "High or critical risk level", tone: highRiskCount > 0 ? "warning" : "success" },
+        { label: "Eligible for new vehicle", value: eligibleCount, subLabel: `${total - eligibleCount} require review`, tone: eligibleCount === total ? "success" : "info" }
+      ],
+      charts: [
+        {
+          id: "driver-risk-distribution",
+          title: "Driver Risk Distribution",
+          type: "pie",
+          data: ["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((level) => ({
+            level,
+            count: rows.filter((item) => item.riskLevel === level).length
+          })),
+          nameKey: "level",
+          valueKey: "count"
+        },
+        {
+          id: "top-driver-scores",
+          title: "Top Driver Scores",
+          type: "bar",
+          data: [...rows]
+            .sort((left, right) => right.driverScore - left.driverScore)
+            .slice(0, 10)
+            .map((item) => ({ name: item.displayName, score: item.driverScore })),
+          xKey: "name",
+          yKeys: ["score"]
+        }
+      ],
+      table: {
+        columns: [
+          { key: "name", label: "Driver" },
+          { key: "department", label: "Department" },
+          { key: "driverScore", label: "Driver Score", type: "number" },
+          { key: "riskLevel", label: "Risk Level" },
+          { key: "eligible", label: "Eligible" },
+          { key: "trainingStatus", label: "Training" },
+          { key: "supervisorReviewScore", label: "Supervisor Review", type: "number" },
+          { key: "vehicleCareScore", label: "Vehicle Care", type: "number" },
+          { key: "driverFaultAccidents", label: "Driver-Fault Accidents", type: "number" },
+          { key: "driverRelatedFines", label: "Driver-Related Fines", type: "number" },
+          { key: "abnormalFuelUsageCount", label: "Fuel Flags", type: "number" },
+          { key: "licenseExpiry", label: "License Expiry", type: "date" }
+        ],
+        rows: pageRows.map((item) => ({
+          name: item.displayName,
+          department: item.department,
+          driverScore: item.driverScore,
+          riskLevel: item.riskLevel,
+          eligible: item.eligibleForNewVehicle ? "Yes" : "No",
+          trainingStatus: item.inputs.trainingStatus,
+          supervisorReviewScore: item.inputs.supervisorReviewScore ?? null,
+          vehicleCareScore: item.components.vehicleCareScore,
+          driverFaultAccidents: item.summary.driverFaultAccidents,
+          driverRelatedFines: item.summary.driverRelatedFines,
+          abnormalFuelUsageCount: item.summary.abnormalFuelUsageCount,
+          licenseExpiry: item.license.expiry
+        })),
+        pagination: this.paginationMeta(pagination, total)
+      },
+      insights: [
+        `${highRiskCount} driver(s) are currently high or critical risk in the selected scope.`,
+        `${eligibleCount} driver(s) meet the current new vehicle eligibility rule set.`,
+        "Driver scores blend accident responsibility, fine responsibility, vehicle care, trip reliability, fuel behavior, compliance readiness, and supervisor review inputs."
+      ],
+      filterOptions,
+      coverageNotes: [
+        ...this.systemCoverageNotes(),
+        "Eligibility uses license validity, risk level, serious driver-related fines, driver-fault accidents, disciplinary issues, and vehicle care score."
+      ]
+    });
+  }
+
+  private async fuelAnalyticsReport(actor: ReportActor, query: ReportQuery): Promise<ReportModuleResponse> {
+    const range = this.resolveDateRange(query);
+    const pagination = this.resolvePagination(query);
+    const filterOptions = await this.getFilterOptions(actor.tenantId ?? null);
+    const departmentCondition = this.departmentIdCondition(query);
+    const vehicleWhere: Prisma.VehicleWhereInput = {
+      ...this.tenantWhere(actor.tenantId ?? null),
+      ...(query.vehicleId ? { id: query.vehicleId } : {}),
+      ...(query.driverId ? { driverId: query.driverId } : {}),
+      ...(departmentCondition ? { departmentId: departmentCondition } : {})
+    };
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: vehicleWhere,
+      select: {
+        id: true,
+        registrationNo: true,
+        vehicleModel: true,
+        status: true,
+        department: { select: { name: true } },
+        driver: { select: { user: { select: { firstName: true, lastName: true, email: true } } } }
+      },
+      orderBy: { registrationNo: "asc" },
+      take: 200
+    });
+
+    const analyticsRows = await Promise.all(
+      vehicles.map(async (vehicle) => ({
+        vehicle,
+        analytics: await this.vehiclesService.fuelAnalytics(vehicle.id, {
+          startDate: range.start,
+          endDate: range.end,
+          driverId: query.driverId
+        })
+      }))
+    );
+
+    let rows = analyticsRows.map(({ vehicle, analytics }) => ({
+      id: vehicle.id,
+      registrationNo: vehicle.registrationNo,
+      vehicleModel: vehicle.vehicleModel,
+      department: vehicle.department?.name ?? null,
+      driver: this.userLabel(vehicle.driver?.user),
+      vehicleStatus: vehicle.status,
+      totalLiters: Math.round(Number(analytics.totalLiters ?? 0) * 100) / 100,
+      totalCost: Math.round(Number(analytics.totalCost ?? 0) * 100) / 100,
+      avgCostPerLiter: Math.round(Number(analytics.avgCostPerLiter ?? 0) * 100) / 100,
+      avgConsumption: Math.round(Number(analytics.averageConsumptionLPer100Km ?? analytics.avgConsumption ?? 0) * 100) / 100,
+      costPerKm: Math.round(Number(analytics.costPerKm ?? 0) * 100) / 100,
+      abnormalUsageCount: Number(analytics.abnormalUsageCount ?? 0),
+      monthlyFuelCostTrend: analytics.monthlyFuelCostTrend as Array<{ month: string; totalCost: number; liters?: number }>
+    }));
+
+    if (query.status) {
+      const status = query.status.toUpperCase();
+      rows = rows.filter((item) => {
+        if (status === "ANOMALOUS") {
+          return item.abnormalUsageCount > 0;
+        }
+        if (status === "NORMAL") {
+          return item.abnormalUsageCount === 0;
+        }
+        return item.vehicleStatus === query.status;
+      });
+    }
+
+    const total = rows.length;
+    const pageRows = rows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
+    const monthlyTrend = new Map<string, { totalCost: number; liters: number }>();
+    for (const row of rows) {
+      for (const item of row.monthlyFuelCostTrend) {
+        const current = monthlyTrend.get(item.month) ?? { totalCost: 0, liters: 0 };
+        current.totalCost += Number(item.totalCost ?? 0);
+        current.liters += Number(item.liters ?? 0);
+        monthlyTrend.set(item.month, current);
+      }
+    }
+
+    const totalFuelCost = rows.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalLiters = rows.reduce((sum, item) => sum + item.totalLiters, 0);
+    const averageConsumption = rows.length > 0 ? rows.reduce((sum, item) => sum + item.avgConsumption, 0) / rows.length : 0;
+    const abnormalVehicles = rows.filter((item) => item.abnormalUsageCount > 0).length;
+
+    return this.composeReport({
+      actor,
+      module: "fuel-analytics",
+      range,
+      query,
+      summaryCards: [
+        { label: "Vehicles analyzed", value: total, subLabel: "After report filters", tone: "info" },
+        { label: "Fuel cost", value: this.formatCurrency(totalFuelCost), subLabel: `${Math.round(totalLiters * 100) / 100} liters logged`, tone: "info" },
+        { label: "Average consumption", value: `${averageConsumption.toFixed(1)} L/100km`, subLabel: "Average across scoped vehicles", tone: averageConsumption <= 10 ? "success" : averageConsumption <= 13 ? "warning" : "danger" },
+        { label: "Abnormal vehicles", value: abnormalVehicles, subLabel: "Flagged for review only", tone: abnormalVehicles > 0 ? "warning" : "success" }
+      ],
+      charts: [
+        {
+          id: "fuel-cost-trend",
+          title: "Fuel Cost Trend",
+          type: "line",
+          data: [...monthlyTrend.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([period, value]) => ({ period, totalCost: Math.round(value.totalCost * 100) / 100 })),
+          xKey: "period",
+          yKeys: ["totalCost"]
+        },
+        {
+          id: "fuel-cost-by-vehicle",
+          title: "Highest Fuel Cost Vehicles",
+          type: "bar",
+          data: [...rows]
+            .sort((left, right) => right.totalCost - left.totalCost)
+            .slice(0, 10)
+            .map((item) => ({ vehicle: item.registrationNo, totalCost: item.totalCost })),
+          xKey: "vehicle",
+          yKeys: ["totalCost"]
+        }
+      ],
+      table: {
+        columns: [
+          { key: "registrationNo", label: "Vehicle" },
+          { key: "vehicleModel", label: "Model" },
+          { key: "department", label: "Department" },
+          { key: "driver", label: "Assigned Driver" },
+          { key: "vehicleStatus", label: "Vehicle Status" },
+          { key: "totalLiters", label: "Liters", type: "number" },
+          { key: "totalCost", label: "Fuel Cost", type: "currency" },
+          { key: "avgCostPerLiter", label: "Avg Cost/L", type: "currency" },
+          { key: "avgConsumption", label: "Avg Consumption", type: "number" },
+          { key: "costPerKm", label: "Cost/Km", type: "currency" },
+          { key: "abnormalUsageCount", label: "Fuel Flags", type: "number" }
+        ],
+        rows: pageRows.map((item) => ({
+          registrationNo: item.registrationNo,
+          vehicleModel: item.vehicleModel,
+          department: item.department,
+          driver: item.driver,
+          vehicleStatus: item.vehicleStatus,
+          totalLiters: item.totalLiters,
+          totalCost: item.totalCost,
+          avgCostPerLiter: item.avgCostPerLiter,
+          avgConsumption: item.avgConsumption,
+          costPerKm: item.costPerKm,
+          abnormalUsageCount: item.abnormalUsageCount
+        })),
+        pagination: this.paginationMeta(pagination, total)
+      },
+      insights: [
+        `${abnormalVehicles} vehicle(s) show abnormal fuel behavior in the selected range.`,
+        `Fuel analytics currently summarize ${Math.round(totalLiters * 100) / 100} liters across scoped vehicles.`,
+        "Abnormal usage is a review signal and is not automatically treated as driver fault without supporting evidence."
+      ],
+      filterOptions,
+      coverageNotes: [
+        ...this.systemCoverageNotes(),
+        "Fuel analytics use logged liters, cost, mileage progression, and anomaly thresholds derived from historical usage intervals."
+      ]
+    });
+  }
+
+  private async vehicleCostAnalyticsReport(actor: ReportActor, query: ReportQuery): Promise<ReportModuleResponse> {
+    const range = this.resolveDateRange(query);
+    const pagination = this.resolvePagination(query);
+    const filterOptions = await this.getFilterOptions(actor.tenantId ?? null);
+    const departmentCondition = this.departmentIdCondition(query);
+    const vehicleWhere: Prisma.VehicleWhereInput = {
+      ...this.tenantWhere(actor.tenantId ?? null),
+      ...(query.vehicleId ? { id: query.vehicleId } : {}),
+      ...(query.driverId ? { driverId: query.driverId } : {}),
+      ...(departmentCondition ? { departmentId: departmentCondition } : {}),
+      ...(query.status ? { status: query.status as any } : {})
+    };
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: vehicleWhere,
+      select: {
+        id: true,
+        registrationNo: true,
+        vehicleModel: true,
+        status: true,
+        complianceStatus: true,
+        serviceStatus: true,
+        department: { select: { name: true } }
+      },
+      orderBy: { registrationNo: "asc" },
+      take: 200
+    });
+
+    const costRows = await Promise.all(
+      vehicles.map(async (vehicle) => {
+        const summary = await this.driverIntelligenceService.vehicleCostSummary(actor, vehicle.id, {
+          startDate: this.isoDate(range.start) ?? undefined,
+          endDate: this.isoDate(range.end) ?? undefined
+        });
+        return {
+          id: vehicle.id,
+          registrationNo: vehicle.registrationNo,
+          vehicleModel: vehicle.vehicleModel,
+          department: vehicle.department?.name ?? null,
+          vehicleStatus: vehicle.status,
+          complianceStatus: vehicle.complianceStatus,
+          serviceStatus: vehicle.serviceStatus,
+          breakdown: summary.breakdown,
+          monthlyTrend: summary.monthlyTrend
+        };
+      })
+    );
+
+    const total = costRows.length;
+    const pageRows = costRows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
+    const totalNetCost = costRows.reduce((sum, item) => sum + Number(item.breakdown.netCost ?? 0), 0);
+    const totalInsuranceRecovery = costRows.reduce((sum, item) => sum + Number(item.breakdown.insuranceRecovery ?? 0), 0);
+    const highestCostVehicle = [...costRows].sort((left, right) => Number(right.breakdown.netCost) - Number(left.breakdown.netCost))[0];
+    const monthlyTrend = new Map<string, { fuelCost: number; maintenanceCost: number; accidentCost: number; fineCost: number; insuranceRecovery: number; netCost: number }>();
+    for (const row of costRows) {
+      for (const item of row.monthlyTrend) {
+        const current = monthlyTrend.get(item.period) ?? {
+          fuelCost: 0,
+          maintenanceCost: 0,
+          accidentCost: 0,
+          fineCost: 0,
+          insuranceRecovery: 0,
+          netCost: 0
+        };
+        current.fuelCost += Number(item.fuelCost ?? 0);
+        current.maintenanceCost += Number(item.maintenanceCost ?? 0);
+        current.accidentCost += Number(item.accidentCost ?? 0);
+        current.fineCost += Number(item.fineCost ?? 0);
+        current.insuranceRecovery += Number(item.insuranceRecovery ?? 0);
+        current.netCost += Number(item.netCost ?? 0);
+        monthlyTrend.set(item.period, current);
+      }
+    }
+
+    return this.composeReport({
+      actor,
+      module: "vehicle-cost-analytics",
+      range,
+      query,
+      summaryCards: [
+        { label: "Vehicles in scope", value: total, subLabel: "After report filters", tone: "info" },
+        { label: "Net vehicle cost", value: this.formatCurrency(totalNetCost), subLabel: "Fuel + maintenance + accidents + fines - insurance", tone: "info" },
+        { label: "Insurance recovery", value: this.formatCurrency(totalInsuranceRecovery), subLabel: "Approved claims in range", tone: totalInsuranceRecovery > 0 ? "success" : "neutral" },
+        { label: "Highest cost vehicle", value: highestCostVehicle?.registrationNo ?? "-", subLabel: highestCostVehicle ? this.formatCurrency(Number(highestCostVehicle.breakdown.netCost ?? 0)) : "No cost data", tone: highestCostVehicle ? "warning" : "neutral" }
+      ],
+      charts: [
+        {
+          id: "vehicle-cost-trend",
+          title: "Net Vehicle Cost Trend",
+          type: "line",
+          data: [...monthlyTrend.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([period, value]) => ({ period, netCost: Math.round(value.netCost * 100) / 100 })),
+          xKey: "period",
+          yKeys: ["netCost"]
+        },
+        {
+          id: "top-cost-vehicles",
+          title: "Highest Cost Vehicles",
+          type: "bar",
+          data: [...costRows]
+            .sort((left, right) => Number(right.breakdown.netCost) - Number(left.breakdown.netCost))
+            .slice(0, 10)
+            .map((item) => ({ vehicle: item.registrationNo, netCost: Number(item.breakdown.netCost) })),
+          xKey: "vehicle",
+          yKeys: ["netCost"]
+        }
+      ],
+      table: {
+        columns: [
+          { key: "registrationNo", label: "Vehicle" },
+          { key: "vehicleModel", label: "Model" },
+          { key: "department", label: "Department" },
+          { key: "vehicleStatus", label: "Status" },
+          { key: "complianceStatus", label: "Compliance" },
+          { key: "serviceStatus", label: "Service" },
+          { key: "fuelCost", label: "Fuel Cost", type: "currency" },
+          { key: "maintenanceCost", label: "Maintenance Cost", type: "currency" },
+          { key: "accidentCost", label: "Accident Cost", type: "currency" },
+          { key: "fineCost", label: "Fine Cost", type: "currency" },
+          { key: "insuranceRecovery", label: "Insurance Recovery", type: "currency" },
+          { key: "netCost", label: "Net Cost", type: "currency" }
+        ],
+        rows: pageRows.map((item) => ({
+          registrationNo: item.registrationNo,
+          vehicleModel: item.vehicleModel,
+          department: item.department,
+          vehicleStatus: item.vehicleStatus,
+          complianceStatus: item.complianceStatus,
+          serviceStatus: item.serviceStatus,
+          fuelCost: Number(item.breakdown.fuelCost ?? 0),
+          maintenanceCost: Number(item.breakdown.maintenanceCost ?? 0),
+          accidentCost: Number(item.breakdown.accidentCost ?? 0),
+          fineCost: Number(item.breakdown.fineCost ?? 0),
+          insuranceRecovery: Number(item.breakdown.insuranceRecovery ?? 0),
+          netCost: Number(item.breakdown.netCost ?? 0)
+        })),
+        pagination: this.paginationMeta(pagination, total)
+      },
+      insights: [
+        `${total} vehicle(s) contribute ${this.formatCurrency(totalNetCost)} of net cost in the selected range.`,
+        highestCostVehicle
+          ? `${highestCostVehicle.registrationNo} is currently the highest net-cost vehicle at ${this.formatCurrency(Number(highestCostVehicle.breakdown.netCost ?? 0))}.`
+          : "No vehicle cost data matched the current filters.",
+        "Vehicle cost analytics combine fuel logs, work orders, maintenance logs, accident damage, traffic fines, and approved insurance recoveries."
+      ],
+      filterOptions,
+      coverageNotes: [
+        ...this.systemCoverageNotes(),
+        "Current cost attribution is vehicle-centric and uses current assignment links where driver filtering is applied."
+      ]
+    });
   }
 
   private async operationsReport(actor: ReportActor, query: ReportQuery): Promise<ReportModuleResponse> {
@@ -1049,7 +1568,9 @@ export class ReportsService {
       departmentId: query.departmentId || undefined,
       departmentIds: this.departmentIds(query).length ? this.departmentIds(query) : undefined,
       userId: query.userId || undefined,
+      driverId: query.driverId || undefined,
       assetId: query.assetId || undefined,
+      vehicleId: query.vehicleId || undefined,
       status: query.status || undefined,
       supplierId: query.supplierId || undefined,
       category: query.category || undefined,
@@ -1074,9 +1595,19 @@ export class ReportsService {
   }
 
   private async getFilterOptions(tenantId: string | null): Promise<ReportFilterOptions> {
-    const [departments, users, assets, vehicles, suppliers, partCategories, assetCategories] = await Promise.all([
+    const [departments, users, drivers, assets, vehicles, suppliers, partCategories, assetCategories] = await Promise.all([
       this.prisma.department.findMany({ where: { ...(tenantId ? { tenantId } : {}), isActive: true }, select: { id: true, name: true, code: true }, orderBy: { name: "asc" } }),
       this.prisma.user.findMany({ where: { ...(tenantId ? { tenantId } : {}), isActive: true }, include: { role: true }, orderBy: { firstName: "asc" } }),
+      this.prisma.driver.findMany({
+        where: { ...(tenantId ? { tenantId } : {}) },
+        select: {
+          id: true,
+          licenseNumber: true,
+          user: { select: { firstName: true, lastName: true, email: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200
+      }),
       this.prisma.asset.findMany({ where: { ...(tenantId ? { tenantId } : {}), archivedAt: null }, select: { id: true, name: true, assetTag: true }, orderBy: { name: "asc" }, take: 200 }),
       this.prisma.vehicle.findMany({ where: { ...(tenantId ? { tenantId } : {}) }, select: { id: true, registrationNo: true, vehicleModel: true }, orderBy: { registrationNo: "asc" }, take: 200 }),
       this.prisma.supplier.findMany({ where: { ...(tenantId ? { tenantId } : {}), isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -1087,12 +1618,28 @@ export class ReportsService {
     return {
       departments: departments.map((item) => ({ id: item.id, label: `${item.name} (${item.code})` })),
       users: users.map((item) => ({ id: item.id, label: this.userLabel(item), role: item.role.name })),
+      drivers: drivers.map((item) => ({ id: item.id, label: `${this.userLabel(item.user)} (${item.licenseNumber})` })),
+      vehicles: vehicles.map((item) => ({ id: item.id, label: `${item.registrationNo} - ${item.vehicleModel}` })),
       assets: [
         ...assets.map((item) => ({ id: item.id, label: `${item.assetTag} - ${item.name}`, type: "asset" as const })),
         ...vehicles.map((item) => ({ id: item.id, label: `${item.registrationNo} - ${item.vehicleModel}`, type: "vehicle" as const }))
       ],
       suppliers: suppliers.map((item) => ({ id: item.id, label: item.name })),
-      statuses: Array.from(new Set([...Object.values(WorkOrderStatus), "LOW", "CRITICAL", "OUT_OF_STOCK", "IN_STOCK"])),
+      statuses: Array.from(
+        new Set([
+          ...Object.values(WorkOrderStatus),
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+          "CRITICAL",
+          "ELIGIBLE",
+          "INELIGIBLE",
+          "ANOMALOUS",
+          "NORMAL",
+          "OUT_OF_STOCK",
+          "IN_STOCK"
+        ])
+      ),
       categories: Array.from(new Set([...partCategories.map((item) => item.category), ...assetCategories.map((item) => item.category)])).sort()
     };
   }

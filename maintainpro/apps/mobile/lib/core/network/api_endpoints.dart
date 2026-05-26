@@ -101,6 +101,8 @@ class ApiEndpoints {
   // ── Fleet · Drivers ──
   static const String drivers = '/drivers';
   static String driverById(String id) => '/drivers/$id';
+    static String driverIntelligenceById(String id) =>
+            '/driver-intelligence/drivers/$id';
 
   // ── Fleet · Aggregate ──
   static const String fleetLiveMap = '/fleet/live-map';
@@ -109,6 +111,7 @@ class ApiEndpoints {
   static String fleetGeofenceById(String id) => '/fleet/geofences/$id';
   static const String fleetStreetView = '/fleet/street-view';
   static const String fuelLogs = '/fuel/logs';
+    static const String fuelAnalytics = '/fuel/analytics';
   static const String tripLogs = '/trips';
 
   // ── Inventory ──
@@ -229,6 +232,14 @@ class ApiEndpoints {
   static String notificationRead(String id) => '/notifications/$id/read';
   static const String notificationsReadAll = '/notifications/read-all';
   static const String notificationsUnreadCount = '/notifications/unread-count';
+  static const String notificationsPushReadiness =
+      '/notifications/push/readiness';
+  static const String notificationsPushDevices = '/notifications/push/devices';
+  static String notificationPushDevice(String installationId) =>
+      '/notifications/push/devices/$installationId';
+
+    // ── Operations ──
+    static const String operationsScanLookup = '/operations/scan-lookup';
 
   // ── Reports ──
   static const String reportsDashboard = '/reports/dashboard';
@@ -255,6 +266,7 @@ class ApiEndpoints {
   static const String settingsAuditLogs = '/settings/audit-logs';
 
   // ── Predictive AI ──
+    static const String aiFieldInsights = '/predictive-ai/field-insights';
   static String predictiveAsset(String id) =>
       '/predictive-ai/asset/$id/prediction';
   static const String predictiveCopilotChat = '/predictive-ai/copilot/chat';
@@ -278,4 +290,42 @@ class ApiEndpoints {
 
   // ── Dashboard (aggregate) ──
   static const String dashboard = '/reports/dashboard';
+
+  // ── Phase 4 · Vehicle Documents ──
+  static String vehicleDocuments(String vehicleId) =>
+      '/vehicles/$vehicleId/documents';
+  static String vehicleDocumentById(String docId) =>
+      '/vehicle-documents/$docId';
+  static String vehicleDocumentVerify(String docId) =>
+      '/vehicle-documents/$docId/verify';
+  static String vehicleDocumentReject(String docId) =>
+      '/vehicle-documents/$docId/reject';
+
+  // ── Phase 4 · Compliance ──
+  static const String complianceOverview = '/compliance/overview';
+  static String complianceVehicle(String vehicleId) =>
+      '/compliance/vehicles/$vehicleId';
+
+  // ── Phase 4 · Accidents ──
+  static const String accidents = '/accidents';
+  static String accidentById(String id) => '/accidents/$id';
+  static String accidentEvidence(String id) => '/accidents/$id/evidence';
+  static String accidentStatus(String id) => '/accidents/$id/status';
+  static String accidentLinkWorkOrder(String id) =>
+      '/accidents/$id/work-order';
+
+  // ── Phase 4 · Insurance Claims ──
+  static const String insuranceClaims = '/insurance-claims';
+  static String insuranceClaimById(String id) => '/insurance-claims/$id';
+  static String insuranceClaimStatus(String id) =>
+      '/insurance-claims/$id/status';
+
+  // ── Phase 4 · Traffic Fines ──
+  static const String trafficFines = '/traffic-fines';
+  static String trafficFineById(String id) => '/traffic-fines/$id';
+  static String trafficFineResponsibility(String id) =>
+      '/traffic-fines/$id/responsibility';
+  static String trafficFinePayment(String id) => '/traffic-fines/$id/payment';
+  static String trafficFineLinkWorkOrder(String id) =>
+      '/traffic-fines/$id/work-order';
 }

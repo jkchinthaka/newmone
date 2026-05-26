@@ -648,6 +648,13 @@ enum FuelType {
   LPG
 }
 
+enum DriverTrainingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  CURRENT
+  EXPIRED
+}
+
 model Driver {
   id            String      @id @default(auto()) @map("_id") @db.ObjectId
   tenantId      String?     @db.ObjectId
@@ -658,6 +665,11 @@ model Driver {
   licenseClass  String
   licenseExpiry DateTime
   isAvailable   Boolean     @default(true)
+  trainingStatus DriverTrainingStatus @default(NOT_STARTED)
+  trainingCompletedAt DateTime?
+  trainingExpiry DateTime?
+  supervisorReviewScore Int?
+  pendingDisciplinaryIssues Int @default(0)
   /// FK to Department master — nullable for legacy records
   departmentId  String?     @db.ObjectId
   department    Department? @relation("DriverDepartment", fields: [departmentId], references: [id])
@@ -665,6 +677,7 @@ model Driver {
   updatedAt     DateTime    @updatedAt
 
   vehicles Vehicle[]
+  fuelLogs FuelLog[]
   tripLogs TripLog[]
   gateMovements VehicleGateMovement[]
   accidents AccidentReport[]
@@ -678,6 +691,8 @@ model FuelLog {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
   vehicleId     String   @db.ObjectId
   vehicle       Vehicle  @relation(fields: [vehicleId], references: [id])
+  driverId      String?  @db.ObjectId
+  driver        Driver?  @relation(fields: [driverId], references: [id])
   date          DateTime
   liters        Float
   costPerLiter  Float
@@ -689,6 +704,7 @@ model FuelLog {
   createdAt     DateTime @default(now())
 
   @@index([vehicleId, date])
+  @@index([driverId, date])
 }
 
 model TripLog {
@@ -2285,6 +2301,7 @@ model AccidentReport {
   description           String
   severity              AccidentSeverity    @default(MINOR)
   status                AccidentStatus      @default(REPORTED)
+  responsibility        AccidentResponsibility @default(UNDETERMINED)
   thirdPartyInvolved    Boolean             @default(false)
   thirdPartyDetails     String?
   policeReportNo        String?
@@ -2303,6 +2320,7 @@ model AccidentReport {
   @@index([driverId])
   @@index([occurredAt])
   @@index([status])
+  @@index([responsibility])
 }
 
 model AccidentEvidence {
@@ -2330,6 +2348,14 @@ enum AccidentStatus {
   REPORTED
   UNDER_INVESTIGATION
   CLOSED
+}
+
+enum AccidentResponsibility {
+  DRIVER
+  THIRD_PARTY
+  VEHICLE_DEFECT
+  ENVIRONMENT
+  UNDETERMINED
 }
 
 enum AccidentEvidenceType {
