@@ -1070,6 +1070,7 @@ async function main() {
 
   const vehicleIds: string[] = [];
   for (let i = 1; i <= 5; i += 1) {
+    const vin = `VINSEED${i.toString().padStart(10, "0")}`;
     const vehicle = await prisma.vehicle.upsert({
       where: { registrationNo: `MH-01-AB-10${i}` },
       update: {
@@ -1081,6 +1082,7 @@ async function main() {
         fuelType: i % 2 === 0 ? "DIESEL" : "PETROL",
         currentMileage: 10000 + i * 1200,
         images: [],
+        vin,
         driverId: i <= drivers.length ? drivers[i - 1].id : undefined
       },
       create: {
@@ -1093,6 +1095,7 @@ async function main() {
         fuelType: i % 2 === 0 ? "DIESEL" : "PETROL",
         currentMileage: 10000 + i * 1200,
         images: [],
+        vin,
         driverId: i <= drivers.length ? drivers[i - 1].id : undefined
       }
     });
