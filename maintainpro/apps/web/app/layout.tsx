@@ -1,9 +1,27 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+import { ServiceWorkerRegistrar } from "../components/pwa/service-worker-registrar";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "MaintainPro Platform",
-  description: "Enterprise Asset, Fleet, Utility and Service Management"
+  description: "Enterprise Asset, Fleet, Utility and Service Management",
+  applicationName: "MaintainPro",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "MaintainPro"
+  },
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/pwa-192x192.svg"
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  colorScheme: "light"
 };
 
 export default function RootLayout({
@@ -13,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   );
 }
