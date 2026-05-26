@@ -45,6 +45,10 @@ model Tenant {
   facilityIssues    FacilityIssue[]
   jobCodes          JobCode[]
   departments       Department[]
+  vehicleDocuments  VehicleDocument[]
+  accidentReports   AccidentReport[]
+  insuranceClaims   InsuranceClaim[]
+  trafficFines      TrafficFine[]
 }
 
 model AuditLog {
@@ -156,6 +160,12 @@ model User {
   partIssuesIssued          PartIssue[]            @relation("PartIssueIssuer")
   purchaseOrderApprovals    PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
   purchaseOrderErpSyncActions PurchaseOrderErpSync[] @relation("PurchaseOrderErpSyncTrigger")
+  vehicleDocsUploaded       VehicleDocument[]       @relation("VehicleDocUploader")
+  vehicleDocsVerified       VehicleDocument[]       @relation("VehicleDocVerifier")
+  accidentsReported         AccidentReport[]        @relation("AccidentReporter")
+  accidentEvidenceUploaded  AccidentEvidence[]      @relation("AccidentEvidenceUploader")
+  insuranceClaimsFiled      InsuranceClaim[]        @relation("InsuranceClaimFiler")
+  trafficFinesReported      TrafficFine[]           @relation("TrafficFineReporter")
 
   @@index([tenantId])
   @@index([roleId])
@@ -555,6 +565,8 @@ model Vehicle {
   serviceIntervalMileage Float?
   insuranceExpiry    DateTime?
   roadTaxExpiry      DateTime?
+  complianceStatus           ComplianceStatus @default(COMPLIANT)
+  complianceLastEvaluatedAt  DateTime?
   lastServiceDate    DateTime?
   nextServiceDate    DateTime?
   nextServiceMileage Float?
@@ -579,6 +591,10 @@ model Vehicle {
   gpsLocations         GpsLocation[]
   meterLogs            VehicleMeterLog[]
   gateMovements        VehicleGateMovement[]
+  documents            VehicleDocument[]
+  accidents            AccidentReport[]
+  insuranceClaims      InsuranceClaim[]
+  trafficFines         TrafficFine[]
 
   @@index([tenantId])
   @@index([status])
@@ -651,6 +667,8 @@ model Driver {
   vehicles Vehicle[]
   tripLogs TripLog[]
   gateMovements VehicleGateMovement[]
+  accidents AccidentReport[]
+  trafficFines TrafficFine[]
 
   @@index([tenantId])
   @@index([departmentId])
@@ -903,6 +921,10 @@ model WorkOrder {
   slaBreached    Boolean              @default(false)
   notes          String?
   attachments    String[]
+  accidentId     String?              @unique @db.ObjectId
+  accident       AccidentReport?      @relation(fields: [accidentId], references: [id])
+  trafficFineId  String?              @unique @db.ObjectId
+  trafficFine    TrafficFine?         @relation(fields: [trafficFineId], references: [id])
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
@@ -939,6 +961,7 @@ enum WorkOrderType {
   EMERGENCY
   INSPECTION
   INSTALLATION
+  ACCIDENT_REPAIR
   PLANTING
   HARVESTING
   SPRAYING
@@ -2186,4 +2209,225 @@ model TraceabilityRecord {
 
   @@index([batchCode])
   @@index([tenantId])
+}
+
+
+// =============================================================================
+// PHASE 4 — Vehicle Compliance, Documents, Accidents, Insurance, Traffic Fines
+// =============================================================================
+
+model VehicleDocument {
+  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?                 @db.ObjectId
+  tenant             Tenant?                 @relation(fields: [tenantId], references: [id])
+  vehicleId          String                  @db.ObjectId
+  vehicle            Vehicle                 @relation(fields: [vehicleId], references: [id])
+  documentType       VehicleDocumentType
+  documentNumber     String?
+  issuedDate         DateTime?
+  expiryDate         DateTime
+  issuingAuthority   String?
+  fileUrl            String?
+  status             VehicleDocumentStatus   @default(PENDING_VERIFICATION)
+  verifiedById       String?                 @db.ObjectId
+  verifiedBy         User?                   @relation("VehicleDocVerifier", fields: [verifiedById], references: [id])
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  uploadedById       String                  @db.ObjectId
+  uploadedBy         User                    @relation("VehicleDocUploader", fields: [uploadedById], references: [id])
+  notes              String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([expiryDate])
+  @@index([documentType])
+  @@index([status])
+}
+
+enum VehicleDocumentType {
+  REGISTRATION
+  INSURANCE
+  PERMIT
+  FITNESS
+  POLLUTION
+  ROAD_TAX
+  OTHER
+}
+
+enum VehicleDocumentStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  ATTENTION_REQUIRED
+  NON_COMPLIANT
+}
+
+model AccidentReport {
+  id                    String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?             @db.ObjectId
+  tenant                Tenant?             @relation(fields: [tenantId], references: [id])
+  reportNumber          String              @unique
+  vehicleId             String              @db.ObjectId
+  vehicle               Vehicle             @relation(fields: [vehicleId], references: [id])
+  driverId              String?             @db.ObjectId
+  driver                Driver?             @relation(fields: [driverId], references: [id])
+  reportedById          String              @db.ObjectId
+  reportedBy            User                @relation("AccidentReporter", fields: [reportedById], references: [id])
+  occurredAt            DateTime
+  location              String
+  description           String
+  severity              AccidentSeverity    @default(MINOR)
+  status                AccidentStatus      @default(REPORTED)
+  thirdPartyInvolved    Boolean             @default(false)
+  thirdPartyDetails     String?
+  policeReportNo        String?
+  estimatedDamageCost   Float?
+  actualDamageCost      Float?
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  evidence              AccidentEvidence[]
+  workOrder             WorkOrder?
+  insuranceClaims       InsuranceClaim[]
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([occurredAt])
+  @@index([status])
+}
+
+model AccidentEvidence {
+  id            String                @id @default(auto()) @map("_id") @db.ObjectId
+  accidentId    String                @db.ObjectId
+  accident      AccidentReport        @relation(fields: [accidentId], references: [id], onDelete: Cascade)
+  evidenceType  AccidentEvidenceType
+  fileUrl       String
+  description   String?
+  uploadedById  String                @db.ObjectId
+  uploadedBy    User                  @relation("AccidentEvidenceUploader", fields: [uploadedById], references: [id])
+  uploadedAt    DateTime              @default(now())
+
+  @@index([accidentId])
+}
+
+enum AccidentSeverity {
+  MINOR
+  MODERATE
+  MAJOR
+  TOTAL_LOSS
+}
+
+enum AccidentStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  CLOSED
+}
+
+enum AccidentEvidenceType {
+  PHOTO
+  POLICE_REPORT
+  WITNESS_STATEMENT
+  INSURANCE_DOCUMENT
+  OTHER
+}
+
+model InsuranceClaim {
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?               @db.ObjectId
+  tenant            Tenant?               @relation(fields: [tenantId], references: [id])
+  claimNumber       String                @unique
+  vehicleId         String                @db.ObjectId
+  vehicle           Vehicle               @relation(fields: [vehicleId], references: [id])
+  accidentId        String?               @db.ObjectId
+  accident          AccidentReport?       @relation(fields: [accidentId], references: [id])
+  policyNumber      String
+  insurerName       String
+  claimAmount       Float
+  approvedAmount    Float?
+  status            InsuranceClaimStatus  @default(DRAFT)
+  filedAt           DateTime?
+  settledAt         DateTime?
+  filedById         String                @db.ObjectId
+  filedBy           User                  @relation("InsuranceClaimFiler", fields: [filedById], references: [id])
+  documents         String[]
+  notes             String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([accidentId])
+  @@index([status])
+}
+
+enum InsuranceClaimStatus {
+  DRAFT
+  FILED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SETTLED
+  CLOSED
+}
+
+model TrafficFine {
+  id                  String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?             @db.ObjectId
+  tenant              Tenant?             @relation(fields: [tenantId], references: [id])
+  fineNumber          String              @unique
+  vehicleId           String              @db.ObjectId
+  vehicle             Vehicle             @relation(fields: [vehicleId], references: [id])
+  driverId            String?             @db.ObjectId
+  driver              Driver?             @relation(fields: [driverId], references: [id])
+  reportedById        String              @db.ObjectId
+  reportedBy          User                @relation("TrafficFineReporter", fields: [reportedById], references: [id])
+  fineDate            DateTime
+  dueDate             DateTime?
+  location            String?
+  violationCode       String?
+  description         String
+  fineAmount          Float
+  issuingAuthority    String?
+  responsibility      FineResponsibility  @default(UNDETERMINED)
+  documentRelated     Boolean             @default(false)
+  paymentStatus       FinePaymentStatus   @default(PENDING)
+  paidAt              DateTime?
+  paidAmount          Float?
+  paymentReference    String?
+  evidenceUrls        String[]
+  notes               String?
+  workOrder           WorkOrder?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([fineDate])
+  @@index([paymentStatus])
+  @@index([responsibility])
+}
+
+enum FineResponsibility {
+  DRIVER
+  ORGANIZATION
+  VEHICLE_DEFECT
+  UNDETERMINED
+}
+
+enum FinePaymentStatus {
+  PENDING
+  PAID
+  DISPUTED
+  OVERDUE
+  WAIVED
 }

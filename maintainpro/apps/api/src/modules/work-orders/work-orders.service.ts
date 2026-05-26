@@ -175,7 +175,7 @@ export class WorkOrdersService {
       title: string;
       description: string;
       priority: Priority;
-      type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION";
+      type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION" | "ACCIDENT_REPAIR";
       assetId?: string;
       vehicleId?: string;
       scheduleId?: string;

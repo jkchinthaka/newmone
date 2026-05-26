@@ -19,6 +19,11 @@ import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { CleaningModule } from "./modules/cleaning/cleaning.module";
+import { ComplianceModule } from "./modules/compliance/compliance.module";
+import { VehicleDocumentsModule } from "./modules/vehicle-documents/vehicle-documents.module";
+import { AccidentsModule } from "./modules/accidents/accidents.module";
+import { InsuranceClaimsModule } from "./modules/insurance-claims/insurance-claims.module";
+import { TrafficFinesModule } from "./modules/traffic-fines/traffic-fines.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
 import { CropsModule } from "./modules/farm/crops/crops.module";
 import { FarmFinanceModule } from "./modules/farm/farm-finance/farm-finance.module";
@@ -134,6 +139,11 @@ if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
     UtilitiesModule,
     PredictiveAiModule,
     CleaningModule,
+    ComplianceModule,
+    VehicleDocumentsModule,
+    AccidentsModule,
+    InsuranceClaimsModule,
+    TrafficFinesModule,
     FieldsModule,
     CropsModule,
     HarvestModule,

@@ -13,6 +13,7 @@ import {
 
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import { ComplianceService } from "../compliance/compliance.service";
 import { FleetService } from "../fleet/fleet.service";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
@@ -70,7 +71,8 @@ const MAX_METER_LOG_LIMIT = 500;
 export class VehiclesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(FleetService) private readonly fleetService: FleetService
+    @Inject(FleetService) private readonly fleetService: FleetService,
+    @Inject(ComplianceService) private readonly complianceService: ComplianceService
   ) {}
 
   async findAll(query: VehicleListQuery = {}) {
@@ -559,6 +561,11 @@ export class VehiclesService {
     const serviceEvaluation = this.evaluateServiceWindow(vehicle);
     if (serviceEvaluation.overdue) {
       blockReasons.push("Vehicle service is overdue");
+    }
+
+    const complianceReasons = await this.complianceService.evaluateForGateOut(id);
+    if (complianceReasons.length > 0) {
+      blockReasons.push(...complianceReasons);
     }
 
     const blocked = blockReasons.length > 0;

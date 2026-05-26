@@ -70,7 +70,23 @@ const permissionCatalog = [
   "cleaning.manage",
   "cleaning.log_visit",
   "cleaning.sign_off",
-  "cleaning.report_issue"
+  "cleaning.report_issue",
+
+  // Phase 4 — vehicle compliance, documents, accidents, claims, fines
+  "compliance.view",
+  "vehicle_documents.view",
+  "vehicle_documents.manage",
+  "vehicle_documents.verify",
+  "accidents.view",
+  "accidents.report",
+  "accidents.manage",
+  "insurance_claims.view",
+  "insurance_claims.manage",
+  "insurance_claims.approve",
+  "traffic_fines.view",
+  "traffic_fines.report",
+  "traffic_fines.manage",
+  "traffic_fines.payment"
 ];
 
 const rolePermissions: Record<RoleName, string[]> = {
@@ -98,7 +114,12 @@ const rolePermissions: Record<RoleName, string[]> = {
     "purchase_orders.erp_sync_retry",
     "gate.override.approve",
     "settings.view",
-    "audit.view"
+    "audit.view",
+    "compliance.view",
+    "vehicle_documents.view",
+    "accidents.view",
+    "insurance_claims.view",
+    "traffic_fines.view"
   ],
   FLEET_MANAGER: [
     "dashboard.view",
@@ -113,7 +134,21 @@ const rolePermissions: Record<RoleName, string[]> = {
     "gate.override.approve",
     "service.rules.manage",
     "settings.view",
-    "audit.view"
+    "audit.view",
+    "compliance.view",
+    "vehicle_documents.view",
+    "vehicle_documents.manage",
+    "vehicle_documents.verify",
+    "accidents.view",
+    "accidents.report",
+    "accidents.manage",
+    "insurance_claims.view",
+    "insurance_claims.manage",
+    "insurance_claims.approve",
+    "traffic_fines.view",
+    "traffic_fines.report",
+    "traffic_fines.manage",
+    "traffic_fines.payment"
   ],
   COMPLIANCE_MANAGER: [
     "dashboard.view",
@@ -122,7 +157,21 @@ const rolePermissions: Record<RoleName, string[]> = {
     "audit.view",
     "settings.view",
     "users.view",
-    "vehicles.view"
+    "vehicles.view",
+    "compliance.view",
+    "vehicle_documents.view",
+    "vehicle_documents.manage",
+    "vehicle_documents.verify",
+    "accidents.view",
+    "accidents.report",
+    "accidents.manage",
+    "insurance_claims.view",
+    "insurance_claims.manage",
+    "insurance_claims.approve",
+    "traffic_fines.view",
+    "traffic_fines.report",
+    "traffic_fines.manage",
+    "traffic_fines.payment"
   ],
   MANAGER: [
     "dashboard.view",
@@ -154,7 +203,20 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.operate",
     "gate.override.approve",
     "service.rules.manage",
-    "settings.view"
+    "settings.view",
+    "compliance.view",
+    "vehicle_documents.view",
+    "vehicle_documents.manage",
+    "vehicle_documents.verify",
+    "accidents.view",
+    "accidents.report",
+    "accidents.manage",
+    "insurance_claims.view",
+    "insurance_claims.manage",
+    "traffic_fines.view",
+    "traffic_fines.report",
+    "traffic_fines.manage",
+    "traffic_fines.payment"
   ],
   TECHNICIAN: [
     "dashboard.view",
@@ -219,7 +281,18 @@ const rolePermissions: Record<RoleName, string[]> = {
     "audit.view"
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
-  DRIVER: ["dashboard.view", "fleet.log_fuel_trip", "vehicles.view", "vehicles.operate", "work_orders.view_own"],
+  DRIVER: [
+    "dashboard.view",
+    "fleet.log_fuel_trip",
+    "vehicles.view",
+    "vehicles.operate",
+    "work_orders.view_own",
+    "vehicle_documents.view",
+    "accidents.report",
+    "accidents.view",
+    "traffic_fines.report",
+    "traffic_fines.view"
+  ],
   VIEWER: ["dashboard.view", "modules.view_all", "reports.view", "vehicles.view", "part_requests.view", "settings.view"],
   FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
