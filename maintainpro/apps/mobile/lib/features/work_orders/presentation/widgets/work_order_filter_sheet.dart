@@ -237,7 +237,7 @@ Future<void> showWorkOrderFilterSheet(
                           title:
                               const Text('Assigned to me', style: AppTextStyles.body),
                           value: draft.assignedToMe,
-                          activeColor: AppColors.primaryLight,
+                          activeThumbColor: AppColors.primaryLight,
                           onChanged: (v) => setState(
                               () => draft = draft.copyWith(assignedToMe: v)),
                         ),
