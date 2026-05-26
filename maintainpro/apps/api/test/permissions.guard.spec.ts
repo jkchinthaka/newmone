@@ -2,6 +2,8 @@ import { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
 import { PermissionsGuard } from "../src/common/guards/permissions.guard";
+import { OperationsController } from "../src/modules/operations/operations.controller";
+import { PredictiveAiController } from "../src/modules/predictive-ai/predictive-ai.controller";
 
 describe("PermissionsGuard", () => {
   const buildContext = (user: { sub?: string; role?: string; permissions?: string[] }) => {
@@ -91,5 +93,49 @@ describe("PermissionsGuard", () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires operations scan permission for the phase 6 scan endpoint", async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          role: {
+            permissions: [{ key: "vehicles.view" }]
+          }
+        })
+      }
+    } as any);
+
+    const context = {
+      getHandler: () => OperationsController.prototype.scanLookup,
+      getClass: () => OperationsController,
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { sub: "u-1", role: "DRIVER" } })
+      })
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(context)).rejects.toThrow("operations.scan_lookup");
+  });
+
+  it("requires predictive insights permission for the field insights endpoint", async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          role: {
+            permissions: [{ key: "operations.scan_lookup" }]
+          }
+        })
+      }
+    } as any);
+
+    const context = {
+      getHandler: () => PredictiveAiController.prototype.fieldInsights,
+      getClass: () => PredictiveAiController,
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { sub: "u-1", role: "DRIVER" } })
+      })
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(context)).rejects.toThrow("predictive_insights.view");
   });
 });

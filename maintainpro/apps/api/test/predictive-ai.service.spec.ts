@@ -100,4 +100,107 @@ describe("PredictiveAiService", () => {
     expect(result.response.conversationId).toBe("conv-123");
     expect(result.response.text).toBe("Upstream assistant reply");
   });
+
+  it("builds field insights from copilot context and filters by focus area", async () => {
+    jest.spyOn(service, "getCopilotContext").mockResolvedValue({
+      generatedAt: "2026-05-01T00:00:00.000Z",
+      roleScope: "MANAGER",
+      focusArea: "FLEET",
+      mode: "PREDICT",
+      summary: {
+        activeWorkOrders: 3,
+        overdueTasks: 2,
+        assignedToMe: 1,
+        fleetOutOfService: 1,
+        utilityAnomalies: 1,
+        lowStockItems: 1
+      },
+      maintenance: {
+        activeWorkOrders: [],
+        overdueWorkOrders: [
+          {
+            id: "wo-1",
+            woNumber: "WO-1",
+            title: "Replace hydraulic hose",
+            priority: "HIGH",
+            status: "OPEN",
+            dueDate: "2026-04-30T00:00:00.000Z",
+            technicianId: "tech-1"
+          }
+        ],
+        assignedToMe: [],
+        overdueSchedules: []
+      },
+      fleet: {
+        statusCounts: {},
+        overdueServiceVehicles: [
+          {
+            id: "veh-1",
+            registrationNo: "ABC-123",
+            status: "OUT_OF_SERVICE",
+            nextServiceDate: "2026-04-29T00:00:00.000Z"
+          }
+        ],
+        idleVehicles: [],
+        fuelAnomalies: [
+          {
+            vehicleId: "veh-2",
+            registrationNo: "XYZ-999",
+            averageCostPerLiter: 3.2,
+            globalAverageCostPerLiter: 2.6,
+            variancePercent: 23.1
+          }
+        ]
+      },
+      utilities: {
+        overdueBills: 0,
+        anomalies: [
+          {
+            meterId: "meter-1",
+            meterNumber: "MTR-001",
+            location: "HQ",
+            utilityType: "POWER",
+            latestAmount: 1800,
+            previousAmount: 1200,
+            variancePercent: 50,
+            billingMonth: "2026-04"
+          }
+        ]
+      },
+      inventory: {
+        lowStockParts: [],
+        projectedStockouts: [
+          {
+            partId: "part-1",
+            partNumber: "P-100",
+            name: "Oil Filter",
+            quantityInStock: 4,
+            avgDailyUsage: 1,
+            projectedDaysLeft: 4
+          }
+        ]
+      },
+      smartSuggestions: ["Dispatch a roadside technician to the flagged vehicle."]
+    } as never);
+
+    const result = await service.getFieldInsights(
+      {
+        sub: "user-1",
+        role: "MANAGER",
+        email: "manager@example.com",
+        tenantId: "tenant-1"
+      },
+      "FLEET",
+      "PREDICT",
+      "1"
+    );
+
+    expect(result.smartSuggestions).toEqual([
+      "Dispatch a roadside technician to the flagged vehicle."
+    ]);
+    expect(result.insights).toHaveLength(1);
+    expect(result.insights[0]).toMatchObject({
+      category: "FLEET"
+    });
+  });
 });

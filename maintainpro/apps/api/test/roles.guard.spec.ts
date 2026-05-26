@@ -2,6 +2,7 @@ import { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
 import { RolesGuard } from "../src/common/guards/roles.guard";
+import { OperationsController } from "../src/modules/operations/operations.controller";
 
 describe("RolesGuard", () => {
   it("allows access when no roles metadata exists", () => {
@@ -34,6 +35,20 @@ describe("RolesGuard", () => {
       getClass: jest.fn(),
       switchToHttp: () => ({
         getRequest: () => ({ user: { role: "TECHNICIAN" } })
+      })
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(context)).toBe(false);
+  });
+
+  it("blocks viewers from the phase 6 operations scan endpoint", () => {
+    const guard = new RolesGuard(new Reflector());
+
+    const context = {
+      getHandler: () => OperationsController.prototype.scanLookup,
+      getClass: () => OperationsController,
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: "VIEWER" } })
       })
     } as unknown as ExecutionContext;
 
