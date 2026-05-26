@@ -258,6 +258,23 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     });
   });
 
+  it("allows security officer gate-out with the fine-grained gate permission", async () => {
+    prisma.vehicle.findUnique.mockResolvedValueOnce(buildVehicle());
+    tx.vehicle.update.mockResolvedValue({ id: "veh-1" });
+    tx.vehicleGateMovement.create.mockResolvedValue({ id: "move-1", status: GateMovementStatus.ALLOWED });
+    tx.vehicleMeterLog.create.mockResolvedValue({ id: "log-1" });
+
+    const response = await request(app.getHttpServer())
+      .post("/vehicles/veh-1/gate-out")
+      .set("x-test-role", "SECURITY_OFFICER")
+      .set("x-test-permissions", "gate.out.create")
+      .send({ meterReading: 1125, notes: "Security dispatch" })
+      .expect(201);
+
+    expect(response.body.message).toBe("Gate-out recorded");
+    expect(response.body.data.allowed).toBe(true);
+  });
+
   it("blocks gate-out when vehicle service is overdue", async () => {
     prisma.vehicle.findUnique.mockResolvedValueOnce(
       buildVehicle({

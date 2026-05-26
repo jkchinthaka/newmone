@@ -199,6 +199,7 @@ enum RoleName {
   ASSET_MANAGER
   INVENTORY_KEEPER
   SUPERVISOR
+  SECURITY_OFFICER
   CLEANER
   DRIVER
   VIEWER
@@ -937,9 +938,9 @@ model WorkOrder {
   slaBreached    Boolean              @default(false)
   notes          String?
   attachments    String[]
-  accidentId     String?              @unique @db.ObjectId
+  accidentId     String?              @db.ObjectId
   accident       AccidentReport?      @relation(fields: [accidentId], references: [id])
-  trafficFineId  String?              @unique @db.ObjectId
+  trafficFineId  String?              @db.ObjectId
   trafficFine    TrafficFine?         @relation(fields: [trafficFineId], references: [id])
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
@@ -953,6 +954,8 @@ model WorkOrder {
   @@index([status])
   @@index([priority])
   @@index([technicianId])
+  @@index([accidentId])
+  @@index([trafficFineId])
 }
 
 enum Priority {
@@ -2312,7 +2315,7 @@ model AccidentReport {
   updatedAt             DateTime            @updatedAt
 
   evidence              AccidentEvidence[]
-  workOrder             WorkOrder?
+  workOrders            WorkOrder[]
   insuranceClaims       InsuranceClaim[]
 
   @@index([tenantId])
@@ -2431,7 +2434,7 @@ model TrafficFine {
   paymentReference    String?
   evidenceUrls        String[]
   notes               String?
-  workOrder           WorkOrder?
+  workOrders          WorkOrder[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 

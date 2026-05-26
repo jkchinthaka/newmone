@@ -11,9 +11,12 @@ services:
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
-      DATABASE_URL: mongodb://mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?replicaSet=rs0
+      DATABASE_PROVIDER: mongodb
+      MONGO_DATABASE_NAME: ${MONGO_INITDB_DATABASE:-bileeta_db}
+      MONGO_SYNC_ON_STARTUP: ${MONGO_SYNC_ON_STARTUP:-false}
+      DATABASE_URL: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/${MONGO_INITDB_DATABASE:-bileeta_db}?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0
       RAPIDAPI_GOOGLE_MAP_PLACES_KEY: ${RAPIDAPI_GOOGLE_MAP_PLACES_KEY:-}
-      MONGODB_URI: mongodb://mongo:27017/${MONGO_INITDB_DATABASE:-nelna}?replicaSet=rs0
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/${MONGO_INITDB_DATABASE:-bileeta_db}?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0
       REDIS_URL: redis://redis:6379
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
       FARM_DEFAULT_LATITUDE: ${FARM_DEFAULT_LATITUDE:-6.9271}
@@ -72,11 +75,18 @@ services:
 
   mongo:
     image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-bileeta_db}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - maintainpro-mongo-data:/data/db
+      - ./infra/mongo/init-app-user.js:/docker-entrypoint-initdb.d/init-app-user.js:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"]
+      test: ["CMD-SHELL", "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\""]
       interval: 10s
       timeout: 5s
       retries: 10

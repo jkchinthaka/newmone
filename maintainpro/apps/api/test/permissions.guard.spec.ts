@@ -4,6 +4,7 @@ import { Reflector } from "@nestjs/core";
 import { PermissionsGuard } from "../src/common/guards/permissions.guard";
 import { OperationsController } from "../src/modules/operations/operations.controller";
 import { PredictiveAiController } from "../src/modules/predictive-ai/predictive-ai.controller";
+import { VehiclesController } from "../src/modules/vehicles/vehicles.controller";
 
 describe("PermissionsGuard", () => {
   const buildContext = (user: { sub?: string; role?: string; permissions?: string[] }) => {
@@ -137,5 +138,49 @@ describe("PermissionsGuard", () => {
     } as unknown as ExecutionContext;
 
     await expect(guard.canActivate(context)).rejects.toThrow("predictive_insights.view");
+  });
+
+  it("accepts the legacy vehicles.operate permission for gate-out compatibility", async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      user: { findUnique: jest.fn() }
+    } as any);
+
+    const context = {
+      getHandler: () => VehiclesController.prototype.gateOut,
+      getClass: () => VehiclesController,
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: {
+            sub: "u-1",
+            role: "MANAGER",
+            permissions: ["vehicles.operate"]
+          }
+        })
+      })
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it("allows security officers with fine-grained gate permission", async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      user: { findUnique: jest.fn() }
+    } as any);
+
+    const context = {
+      getHandler: () => VehiclesController.prototype.gateOut,
+      getClass: () => VehiclesController,
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: {
+            sub: "u-1",
+            role: "SECURITY_OFFICER",
+            permissions: ["gate.out.create"]
+          }
+        })
+      })
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 });

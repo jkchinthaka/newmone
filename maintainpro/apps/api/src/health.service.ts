@@ -72,10 +72,7 @@ export class HealthService {
     const requiredDown = allChecks.some(
       (check) => check.required && check.status !== "operational"
     );
-    const optionalDown = allChecks.some(
-      (check) => !check.required && check.status !== "operational"
-    );
-    const status: OverallStatus = requiredDown || optionalDown ? "degraded" : "operational";
+    const status: OverallStatus = requiredDown ? "degraded" : "operational";
 
     return {
       status,
@@ -119,7 +116,7 @@ export class HealthService {
         required: true,
         latencyMs: this.elapsedMs(startedAt),
         message: this.safeErrorMessage(error),
-        action: "Check DATABASE_URL, MongoDB replica set health, and run npm run db:seed after restoring the database."
+        action: "Check MONGODB_URI, MongoDB replica set health, and run npm run db:seed after restoring the database."
       };
     }
   }
@@ -238,14 +235,15 @@ export class HealthService {
 
   private getConfigurationChecks(): ConfigCheck[] {
     return [
-      this.configCheck({
+      this.providerConfigCheck({
         key: "smtp",
         label: "Email notifications",
-        required: true,
+        enabledKey: "SMTP_ENABLED",
         env: ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"],
-        configured: "SMTP notification settings are complete.",
-        missing: "SMTP settings are incomplete.",
-        action: "Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM."
+        configured: "SMTP notification delivery is enabled and configured.",
+        disabled: "SMTP notification delivery is disabled.",
+        missing: "SMTP notification delivery is enabled but incomplete.",
+        action: "Set SMTP_ENABLED=true with SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM."
       }),
       this.configCheck({
         key: "stripe",
@@ -265,14 +263,26 @@ export class HealthService {
         missing: "Google OAuth is not configured.",
         action: "Set Google OAuth credentials or keep the provider disabled."
       }),
-      this.configCheck({
+      this.providerConfigCheck({
         key: "sms",
         label: "SMS provider",
-        required: false,
-        env: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
-        configured: "Twilio SMS settings are configured.",
-        missing: "Twilio SMS is not configured.",
-        action: "Set Twilio credentials before enabling SMS alerts."
+        enabledKey: "SMS_ENABLED",
+        env: ["SMS_API_URL", "SMS_API_KEY", "SMS_SENDER_ID"],
+        configured: "Generic HTTP SMS provider is enabled and configured.",
+        disabled: "SMS provider is disabled.",
+        missing: "SMS provider is enabled but incomplete.",
+        action: "Set SMS_ENABLED=true with SMS_API_URL, SMS_API_KEY, and SMS_SENDER_ID."
+      }),
+      this.erpProviderCheck(),
+      this.providerConfigCheck({
+        key: "push",
+        label: "Push provider",
+        enabledKey: "PUSH_PROVIDER_ENABLED",
+        env: ["PUSH_PROVIDER_API_URL", "PUSH_PROVIDER_API_KEY"],
+        configured: "Generic HTTP push provider is enabled and configured.",
+        disabled: "Push provider is using noop fallback.",
+        missing: "Push provider is enabled but incomplete.",
+        action: "Set PUSH_PROVIDER_ENABLED=true with PUSH_PROVIDER_API_URL and PUSH_PROVIDER_API_KEY when a vendor is selected."
       }),
       this.configCheck({
         key: "aiCopilot",
@@ -323,6 +333,88 @@ export class HealthService {
       required: options.required,
       message: `${options.missing} Missing: ${missing.join(", ")}.`,
       action: options.action
+    };
+  }
+
+  private providerConfigCheck(options: {
+    key: string;
+    label: string;
+    enabledKey: string;
+    env: string[];
+    configured: string;
+    disabled: string;
+    missing: string;
+    action: string;
+  }): ConfigCheck {
+    const enabled = this.configService.get<boolean>(options.enabledKey, false);
+    if (!enabled) {
+      return {
+        key: options.key,
+        label: options.label,
+        status: "unconfigured",
+        required: false,
+        message: options.disabled
+      };
+    }
+
+    const missing = options.env.filter((key) => !this.hasConfigValue(key));
+    if (missing.length === 0) {
+      return {
+        key: options.key,
+        label: options.label,
+        status: "operational",
+        required: true,
+        message: options.configured
+      };
+    }
+
+    return {
+      key: options.key,
+      label: options.label,
+      status: "degraded",
+      required: true,
+      message: `${options.missing} Missing: ${missing.join(", ")}.`,
+      action: options.action
+    };
+  }
+
+  private erpProviderCheck(): ConfigCheck {
+    const provider = this.configService.get<string>("ERP_SYNC_PROVIDER", "mock").toLowerCase();
+    const isProduction = this.configService.get<string>("NODE_ENV", "development") === "production";
+    const mockAllowed = this.configService.get<boolean>("ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION", false);
+
+    if (provider === "mock") {
+      const allowed = !isProduction || mockAllowed;
+      return {
+        key: "erp",
+        label: "ERP sync provider",
+        status: allowed ? "unconfigured" : "degraded",
+        required: isProduction,
+        message: allowed
+          ? "ERP sync is using MOCK_ERP mode."
+          : "ERP sync is set to mock mode in production and is blocked unless explicitly allowed.",
+        action: allowed ? undefined : "Set ERP_SYNC_PROVIDER=http with ERP_API_URL and ERP_API_KEY, or explicitly de-scope ERP sync."
+      };
+    }
+
+    const missing = ["ERP_API_URL", "ERP_API_KEY"].filter((key) => !this.hasConfigValue(key));
+    if (missing.length === 0) {
+      return {
+        key: "erp",
+        label: "ERP sync provider",
+        status: "operational",
+        required: true,
+        message: "HTTP ERP sync provider is configured."
+      };
+    }
+
+    return {
+      key: "erp",
+      label: "ERP sync provider",
+      status: "degraded",
+      required: true,
+      message: `HTTP ERP sync provider is incomplete. Missing: ${missing.join(", ")}.`,
+      action: "Set ERP_API_URL and ERP_API_KEY before enabling production ERP sync."
     };
   }
 

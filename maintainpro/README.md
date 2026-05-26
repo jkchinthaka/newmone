@@ -4,7 +4,7 @@ MaintainPro is an enterprise-grade, multi-module operations platform for asset m
 
 ## Technology Stack
 
-- Backend: NestJS + TypeScript + Prisma + PostgreSQL + Redis + Bull + WebSockets + Swagger
+- Backend: NestJS + TypeScript + Prisma MongoDB + Redis + Bull + WebSockets + Swagger
 - Frontend: Next.js App Router + TailwindCSS + Recharts + Leaflet
 - Mobile: Flutter + Riverpod + Dio + Hive offline queue + QR scanner
 - Shared packages: workspace libraries under `packages/`
@@ -19,7 +19,7 @@ flowchart LR
   Mobile[Flutter App] --> API[NestJS API]
   Nginx --> API
   Nginx --> Web
-  API --> Postgres[(PostgreSQL)]
+  API --> MongoDB[(MongoDB)]
   API --> Redis[(Redis)]
   API --> MinIO[(MinIO Object Storage)]
   API --> Queue[Bull Queues]
@@ -54,6 +54,7 @@ maintainpro/
 - ADMIN: operational admin access across modules
 - MANAGER: planning, assignment, approvals, and reporting
 - TECHNICIAN: maintenance and work-order execution
+- SECURITY_OFFICER: gate-in/gate-out and operational scan lookup access
 - DRIVER: fleet usage, trip, and vehicle updates
 - VIEWER: read-only analytics and operational visibility
 
@@ -137,7 +138,7 @@ npm run docker:down:dev
 npm run docker:down
 ```
 
-Production stack includes nginx, API, web, PostgreSQL, Redis, and MinIO.
+Production-like stack includes nginx, API, web, MongoDB, Redis, and MinIO.
 
 ## Environment Reference
 
@@ -146,7 +147,8 @@ See `.env.example` for all variables.
 Critical required keys for backend startup:
 
 - `CORS_ORIGIN`, `FRONTEND_URL`
-- `DATABASE_URL`
+- `MONGODB_URI`
+- `DATABASE_URL` using the same MongoDB URI for Prisma compatibility
 - `JWT_SECRET`, or both `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
 
 Optional backend integrations:
@@ -154,12 +156,15 @@ Optional backend integrations:
 - `REDIS_URL` enables managed Redis-backed queues.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` enable persistent asset document uploads on Render.
 - `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET` enable S3-compatible object storage health checks.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` enable SMTP notifications.
+- `SMTP_ENABLED=true` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` enable SMTP email notifications.
+- `SMS_ENABLED=true` plus `SMS_API_URL`, `SMS_API_KEY`, and `SMS_SENDER_ID` enable the generic HTTP SMS provider.
+- `ERP_SYNC_PROVIDER=http`, `ERP_API_URL`, and `ERP_API_KEY` enable real purchase-order ERP sync. The default `mock` provider is blocked in production unless `ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION=true` is explicitly set.
+- `PUSH_PROVIDER_ENABLED=true`, `PUSH_PROVIDER_API_URL`, and `PUSH_PROVIDER_API_KEY` enable the generic HTTP push provider. Otherwise push remains log-only/no-op.
 - `RAPIDAPI_GOOGLE_MAP_PLACES_KEY` enables Street View previews in the fleet map.
 - `RAPIDAPI_COPILOT_API_KEY`, `RAPIDAPI_COPILOT_HOST` enable the predictive copilot provider.
 - `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
 - `RAPIDAPI_QR_CODE_COLOR`, `RAPIDAPI_QR_CODE_BG_COLOR` customize provider-generated QR colors when the RapidAPI QR provider is enabled.
-- `MONGODB_URI` plus `MONGO_SYNC_ON_STARTUP=true` mirrors all Prisma model data into MongoDB Atlas on every API startup.
+- `MONGO_SYNC_ON_STARTUP=false` is the production default. The legacy Mongoose mirror service should only be enabled for a rehearsed compatibility sync.
 
 Frontend runtime keys:
 
@@ -171,10 +176,14 @@ Frontend runtime keys:
 
 - Prisma schema: `prisma/schema.prisma`
 - Generate client: `npm run db:generate`
-- Run migration (local): `npm run db:migrate`
+- Push schema to MongoDB: `npm run db:push`
 - Seed data: `npm run db:seed`
 
+`npm run db:migrate` is retained as a compatibility alias for `db:push` because Prisma MongoDB does not use SQL migration files for active rollout. Historical folders under `prisma/migrations/` are legacy metadata and are not the production rollout path.
+
 Seed includes baseline roles, permissions, admin users, and sample domain entities across assets, vehicles, inventory, work orders, and utilities.
+
+For the production database rollout checklist, see [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md).
 
 ## CI/CD
 

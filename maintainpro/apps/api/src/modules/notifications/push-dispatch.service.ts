@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AppSettingScope, Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -73,12 +74,106 @@ export class NoopPushProvider {
 }
 
 @Injectable()
+export class HttpPushProvider {
+  private readonly logger = new Logger(HttpPushProvider.name);
+
+  constructor(private readonly configService: ConfigService) {}
+
+  describe(): PushProviderSummary {
+    const configured = this.isConfigured();
+    return {
+      id: this.providerId,
+      configured,
+      mode: configured ? "active" : "noop",
+      description: configured
+        ? "Generic HTTP push provider is configured"
+        : "Generic HTTP push provider is disabled or missing provider settings"
+    };
+  }
+
+  async dispatch(payload: PushProviderPayload): Promise<PushDeliveryResult> {
+    if (!this.isConfigured()) {
+      return {
+        providerId: this.providerId,
+        attempted: 0,
+        delivered: 0,
+        skipped: payload.devices.length,
+        mode: "noop"
+      };
+    }
+
+    const endpoint = this.configService.get<string>("PUSH_PROVIDER_API_URL", "");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({
+        userId: payload.userId,
+        title: payload.title,
+        message: payload.message,
+        notificationId: payload.notificationId ?? null,
+        metadata: payload.metadata ?? null,
+        devices: payload.devices.map((device) => ({
+          installationId: device.installationId,
+          token: device.token,
+          platform: device.platform,
+          provider: device.provider,
+          appVersion: device.appVersion,
+          locale: device.locale
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Push provider returned HTTP ${response.status}${body ? `: ${body}` : ""}`);
+    }
+
+    this.logger.log(`Delivered push payload to ${payload.devices.length} device(s) via ${this.providerId}`);
+    return {
+      providerId: this.providerId,
+      attempted: payload.devices.length,
+      delivered: payload.devices.length,
+      skipped: 0,
+      mode: "active"
+    };
+  }
+
+  private get providerId(): string {
+    return this.configService.get<string>("PUSH_PROVIDER", "generic-http").trim() || "generic-http";
+  }
+
+  private isConfigured(): boolean {
+    if (!this.configService.get<boolean>("PUSH_PROVIDER_ENABLED", false)) {
+      return false;
+    }
+
+    return ["PUSH_PROVIDER_API_URL", "PUSH_PROVIDER_API_KEY"].every((key) => this.hasConfigValue(key));
+  }
+
+  private buildHeaders(): Record<string, string> {
+    const headerName = this.configService.get<string>("PUSH_PROVIDER_AUTH_HEADER", "Authorization");
+    const apiKey = this.configService.get<string>("PUSH_PROVIDER_API_KEY", "");
+
+    return {
+      "Content-Type": "application/json",
+      [headerName]: headerName.toLowerCase() === "authorization" ? `Bearer ${apiKey}` : apiKey
+    };
+  }
+
+  private hasConfigValue(key: string): boolean {
+    const value = this.configService.get<string | number | boolean | undefined>(key);
+    return value !== undefined && String(value).trim().length > 0;
+  }
+}
+
+@Injectable()
 export class PushDispatchService {
   private readonly pushDevicesSettingKey = "notifications.push.devices";
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly noopPushProvider: NoopPushProvider
+    private readonly noopPushProvider: NoopPushProvider,
+    private readonly httpPushProvider: HttpPushProvider
   ) {}
 
   async dispatch(payload: PushDispatchPayload) {
@@ -190,6 +285,7 @@ export class PushDispatchService {
   }
 
   private get providers() {
-    return [this.noopPushProvider];
+    const httpProvider = this.httpPushProvider.describe();
+    return httpProvider.configured ? [this.httpPushProvider] : [this.noopPushProvider];
   }
 }

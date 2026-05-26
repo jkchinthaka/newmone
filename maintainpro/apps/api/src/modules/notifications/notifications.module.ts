@@ -2,10 +2,12 @@ import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bull";
 
 import { NotificationsController } from "./notifications.controller";
+import { EmailDispatchService } from "./email-dispatch.service";
 import { NotificationsGateway } from "./notifications.gateway";
 import { NotificationsProcessor } from "./notifications.processor";
 import { NotificationsService } from "./notifications.service";
-import { NoopPushProvider, PushDispatchService } from "./push-dispatch.service";
+import { HttpPushProvider, NoopPushProvider, PushDispatchService } from "./push-dispatch.service";
+import { SmsDispatchService } from "./sms-dispatch.service";
 
 @Module({
   imports: [
@@ -18,9 +20,12 @@ import { NoopPushProvider, PushDispatchService } from "./push-dispatch.service";
     NotificationsService,
     NotificationsGateway,
     NotificationsProcessor,
+    EmailDispatchService,
+    SmsDispatchService,
     PushDispatchService,
+    HttpPushProvider,
     NoopPushProvider
   ],
-  exports: [NotificationsService]
+  exports: [NotificationsService, EmailDispatchService, SmsDispatchService, PushDispatchService]
 })
 export class NotificationsModule {}

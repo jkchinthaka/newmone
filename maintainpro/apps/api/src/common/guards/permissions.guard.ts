@@ -17,6 +17,11 @@ type RequestUser = {
   permissions?: string[];
 };
 
+const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
+  "gate.out.create": ["vehicles.operate"],
+  "gate.in.create": ["vehicles.operate"]
+};
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
@@ -71,7 +76,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const missingPermissions = requiredPermissions.filter(
-      (permission) => !userPermissions.has(permission)
+      (permission) => !this.hasPermission(userPermissions, permission)
     );
 
     if (missingPermissions.length > 0) {
@@ -92,6 +97,16 @@ export class PermissionsGuard implements CanActivate {
       permissions
         .map((permission) => permission.trim())
         .filter(Boolean)
+    );
+  }
+
+  private hasPermission(userPermissions: Set<string>, requiredPermission: string): boolean {
+    if (userPermissions.has(requiredPermission)) {
+      return true;
+    }
+
+    return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some((permission) =>
+      userPermissions.has(permission)
     );
   }
 }

@@ -66,13 +66,21 @@ export class TrafficFinesService {
   }
 
   private async assertAccess(id: string, actor: Phase4Actor) {
-    const fine = await this.prisma.trafficFine.findUnique({ where: { id }, include: { workOrder: true } });
+    const fine = await this.prisma.trafficFine.findUnique({ where: { id }, include: { workOrders: true } });
     if (!fine) throw new NotFoundException("Traffic fine not found");
     const tenantId = resolveTenantId(actor);
     if (tenantId !== undefined && fine.tenantId && fine.tenantId !== tenantId) {
       throw new ForbiddenException("Fine not in your tenant");
     }
-    return fine;
+    return this.withPrimaryWorkOrder(fine);
+  }
+
+  private withPrimaryWorkOrder<T extends { workOrders?: unknown[] }>(record: T) {
+    const { workOrders, ...rest } = record;
+    return {
+      ...rest,
+      workOrder: workOrders?.[0] ?? null
+    };
   }
 
   async list(
@@ -93,10 +101,10 @@ export class TrafficFinesService {
       include: {
         vehicle: { select: { id: true, registrationNo: true } },
         driver: { select: { id: true, licenseNumber: true } },
-        workOrder: { select: { id: true, woNumber: true, status: true } }
+        workOrders: { select: { id: true, woNumber: true, status: true } }
       },
       take: 200
-    });
+    }).then((rows) => rows.map((row) => this.withPrimaryWorkOrder(row)));
   }
 
   async findOne(id: string, actor: Phase4Actor) {

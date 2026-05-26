@@ -54,4 +54,18 @@ describe("RolesGuard", () => {
 
     expect(guard.canActivate(context)).toBe(false);
   });
+
+  it("allows security officers to access the operations scan endpoint", () => {
+    const guard = new RolesGuard(new Reflector());
+
+    const context = {
+      getHandler: () => OperationsController.prototype.scanLookup,
+      getClass: () => OperationsController,
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: "SECURITY_OFFICER" } })
+      })
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(context)).toBe(true);
+  });
 });

@@ -136,7 +136,7 @@ export class VehiclesController {
   }
 
   @Post(":id/gate-out")
-  @Permissions("vehicles.operate")
+  @Permissions("gate.out.create")
   async gateOut(
     @Param("id") id: string,
     @Body()
@@ -158,7 +158,7 @@ export class VehiclesController {
   }
 
   @Post(":id/gate-in")
-  @Permissions("vehicles.operate")
+  @Permissions("gate.in.create")
   async gateIn(
     @Param("id") id: string,
     @Body()

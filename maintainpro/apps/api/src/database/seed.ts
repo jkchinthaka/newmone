@@ -38,6 +38,8 @@ const permissionCatalog = [
   "vehicles.create",
   "vehicles.edit",
   "vehicles.operate",
+  "gate.out.create",
+  "gate.in.create",
   "vehicles.delete",
   "gate.override.approve",
   "service.rules.manage",
@@ -118,6 +120,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "part_requests.issue",
     "vehicles.view",
     "vehicles.operate",
+    "gate.out.create",
+    "gate.in.create",
     "inventory.stock_issue",
     "purchase_orders.approve_operational",
     "purchase_orders.approve_finance",
@@ -150,6 +154,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.create",
     "vehicles.edit",
     "vehicles.operate",
+    "gate.out.create",
+    "gate.in.create",
     "gate.override.approve",
     "service.rules.manage",
     "settings.view",
@@ -231,6 +237,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "users.view",
     "vehicles.view",
     "vehicles.operate",
+    "gate.out.create",
+    "gate.in.create",
     "gate.override.approve",
     "service.rules.manage",
     "settings.view",
@@ -294,6 +302,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "vehicles.create",
     "vehicles.edit",
     "vehicles.operate",
+    "gate.out.create",
+    "gate.in.create",
     "audit.view",
     "driver_intelligence.view",
     "fuel_analytics.view",
@@ -331,12 +341,22 @@ const rolePermissions: Record<RoleName, string[]> = {
     "operations.scan_lookup",
     "predictive_insights.view"
   ],
+  SECURITY_OFFICER: [
+    "dashboard.view",
+    "vehicles.view",
+    "gate.out.create",
+    "gate.in.create",
+    "operations.scan_lookup",
+    "predictive_insights.view"
+  ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
   DRIVER: [
     "dashboard.view",
     "fleet.log_fuel_trip",
     "vehicles.view",
     "vehicles.operate",
+    "gate.out.create",
+    "gate.in.create",
     "work_orders.view_own",
     "vehicle_documents.view",
     "accidents.report",
@@ -544,6 +564,68 @@ async function ensureVehicleGatePolicyBackfill() {
   }
 }
 
+async function verifySeedBaseline(tenantId: string) {
+  const requiredRoles: RoleName[] = [
+    RoleName.SUPER_ADMIN,
+    RoleName.ADMIN,
+    RoleName.MANAGER,
+    RoleName.SECURITY_OFFICER,
+    RoleName.DRIVER,
+    RoleName.TECHNICIAN
+  ];
+
+  const [roles, permissions, systemConfiguration, usersCount, tenantsCount] = await Promise.all([
+    prisma.role.findMany({ where: { tenantId, name: { in: requiredRoles } }, include: { permissions: true } }),
+    prisma.permission.findMany({ where: { key: { in: permissionCatalog } } }),
+    prisma.appSetting.findUnique({
+      where: {
+        scope_scopeId_key: {
+          scope: AppSettingScope.TENANT,
+          scopeId: tenantId,
+          key: "system.configuration"
+        }
+      }
+    }),
+    prisma.user.count({ where: { tenantId } }),
+    prisma.tenant.count()
+  ]);
+
+  const roleNames = new Set(roles.map((role) => role.name));
+  const missingRoles = requiredRoles.filter((roleName) => !roleNames.has(roleName));
+  if (missingRoles.length > 0) {
+    throw new Error(`Seed verification failed: missing roles ${missingRoles.join(", ")}`);
+  }
+
+  const permissionKeys = new Set(permissions.map((permission) => permission.key));
+  const missingPermissions = permissionCatalog.filter((permission) => !permissionKeys.has(permission));
+  if (missingPermissions.length > 0) {
+    throw new Error(`Seed verification failed: missing permissions ${missingPermissions.join(", ")}`);
+  }
+
+  const superAdmin = roles.find((role) => role.name === RoleName.SUPER_ADMIN);
+  const superAdminPermissions = new Set(superAdmin?.permissions.map((permission) => permission.key) ?? []);
+  const missingSuperAdminPermissions = permissionCatalog.filter(
+    (permission) => !superAdminPermissions.has(permission)
+  );
+  if (missingSuperAdminPermissions.length > 0) {
+    throw new Error(
+      `Seed verification failed: SUPER_ADMIN missing ${missingSuperAdminPermissions.join(", ")}`
+    );
+  }
+
+  const configurationValue =
+    systemConfiguration?.value && typeof systemConfiguration.value === "object" && !Array.isArray(systemConfiguration.value)
+      ? (systemConfiguration.value as Record<string, unknown>)
+      : null;
+  if (!configurationValue?.vehicleGatePolicy) {
+    throw new Error("Seed verification failed: vehicle gate policy is missing");
+  }
+
+  if (usersCount < 1 || tenantsCount < 1) {
+    throw new Error("Seed verification failed: core MongoDB collections are not queryable");
+  }
+}
+
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -667,6 +749,27 @@ async function main() {
       firstName: "Kamal",
       lastName: "Perera",
       roleId: roles.get(RoleName.CLEANER)!.id,
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "security@maintainpro.local" },
+    update: {
+      firstName: "Security",
+      lastName: "Officer",
+      roleId: roles.get(RoleName.SECURITY_OFFICER)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "security@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Security",
+      lastName: "Officer",
+      roleId: roles.get(RoleName.SECURITY_OFFICER)!.id,
       isActive: true
     }
   });
@@ -1200,6 +1303,8 @@ async function main() {
       }
     });
   }
+
+  await verifySeedBaseline(tenant.id);
 
   console.log("Seed complete");
 }

@@ -15,6 +15,7 @@ import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+import { ErpSyncProviderService } from "./erp-sync-provider.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -22,7 +23,8 @@ type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 export class InventoryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly erpSyncProviderService: ErpSyncProviderService
   ) {}
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
@@ -1051,12 +1053,159 @@ export class InventoryService {
     return succeeded;
   }
 
+  private async executeConfiguredErpSync(
+    orderId: string,
+    data: { forceFailure?: boolean; note?: string },
+    actor?: Actor
+  ) {
+    const order = await this.getPurchaseOrder(orderId, actor);
+
+    if (order.workflowStatus !== PurchaseOrderWorkflowStatus.APPROVED) {
+      throw new BadRequestException("Purchase order must be approved before ERP sync");
+    }
+
+    const attempt = (order.erpSyncAttempts[0]?.attempt ?? 0) + 1;
+    const provider = this.erpSyncProviderService.describeProvider();
+    const requestPayload = {
+      poNumber: order.poNumber,
+      totalAmount: order.totalAmount,
+      note: data.note ?? null,
+      supplier: order.supplier,
+      lines: order.lines
+    };
+
+    const created = await this.prisma.purchaseOrderErpSync.create({
+      data: {
+        tenantId: order.tenantId,
+        purchaseOrderId: order.id,
+        provider: provider.providerId,
+        status: ErpSyncStatus.PENDING,
+        attempt,
+        triggeredById: actor?.sub,
+        requestPayload: requestPayload as Prisma.InputJsonValue
+      }
+    });
+
+    try {
+      const response = await this.erpSyncProviderService.syncPurchaseOrder(requestPayload);
+      if (!response.accepted) {
+        throw new Error("ERP provider rejected payload");
+      }
+
+      const succeeded = await this.prisma.purchaseOrderErpSync.update({
+        where: { id: created.id },
+        data: {
+          status: ErpSyncStatus.SUCCESS,
+          lastAttemptAt: new Date(),
+          responsePayload: {
+            accepted: true,
+            providerRef: response.providerRef ?? null,
+            raw: response.raw ?? null
+          } as Prisma.InputJsonValue
+        }
+      });
+
+      if (order.status === POStatus.PENDING) {
+        await this.prisma.purchaseOrder.update({
+          where: { id: order.id },
+          data: { status: POStatus.ORDERED }
+        });
+      }
+
+      await this.recordAudit({
+        entity: "PURCHASE_ORDER_ERP_SYNC",
+        entityId: succeeded.id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: "ERP sync succeeded",
+        metadata: {
+          purchaseOrderId: order.id,
+          attempt: succeeded.attempt,
+          status: succeeded.status,
+          provider: provider.providerId
+        }
+      });
+
+      if (actor?.sub) {
+        await this.notificationsService.createNotification({
+          userId: actor.sub,
+          title: "ERP sync completed",
+          message: `ERP sync completed for PO ${order.poNumber}.`,
+          type: NotificationType.ERP_SYNC_SUCCESS,
+          priority: NotificationPriority.INFO,
+          referenceId: order.id,
+          referenceType: "PurchaseOrder",
+          metadata: {
+            syncId: succeeded.id,
+            attempt: succeeded.attempt,
+            provider: provider.providerId
+          }
+        });
+      }
+
+      return succeeded;
+    } catch (error) {
+      const failed = await this.prisma.purchaseOrderErpSync.update({
+        where: { id: created.id },
+        data: {
+          status: ErpSyncStatus.FAILED,
+          lastAttemptAt: new Date(),
+          nextRetryAt: new Date(Date.now() + 15 * 60 * 1000),
+          errorMessage: (error as Error).message
+        }
+      });
+
+      await this.recordAudit({
+        entity: "PURCHASE_ORDER_ERP_SYNC",
+        entityId: failed.id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: "ERP sync failed",
+        metadata: {
+          purchaseOrderId: order.id,
+          attempt: failed.attempt,
+          status: failed.status,
+          provider: provider.providerId,
+          errorMessage: failed.errorMessage
+        }
+      });
+
+      if (actor?.sub) {
+        await this.notificationsService.createNotification({
+          userId: actor.sub,
+          title: "ERP sync failed",
+          message: `ERP sync failed for PO ${order.poNumber}. Retry is available.`,
+          type: NotificationType.ERP_SYNC_FAILED,
+          priority: NotificationPriority.CRITICAL,
+          referenceId: order.id,
+          referenceType: "PurchaseOrder",
+          metadata: {
+            syncId: failed.id,
+            attempt: failed.attempt,
+            provider: provider.providerId,
+            errorMessage: failed.errorMessage
+          }
+        });
+      }
+
+      return failed;
+    }
+  }
+
   async syncPurchaseOrderToErp(
     id: string,
     data: { forceFailure?: boolean; note?: string },
     actor?: Actor
   ) {
-    return this.executeMockErpSync(id, data, actor);
+    try {
+      this.erpSyncProviderService.assertCanUseSelectedProvider();
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+
+    return this.erpSyncProviderService.mode === "mock"
+      ? this.executeMockErpSync(id, data, actor)
+      : this.executeConfiguredErpSync(id, data, actor);
   }
 
   async retryPurchaseOrderErpSync(
@@ -1071,7 +1220,7 @@ export class InventoryService {
       throw new BadRequestException("No failed ERP sync attempt found for retry");
     }
 
-    const retried = await this.executeMockErpSync(id, data, actor);
+    const retried = await this.syncPurchaseOrderToErp(id, data, actor);
 
     await this.recordAudit({
       entity: "PURCHASE_ORDER_ERP_SYNC",

@@ -31,16 +31,23 @@ Run commands from the `maintainpro` directory unless a platform setting says oth
      - `74.220.57.0/24`
    - Quick trial fallback: `0.0.0.0/0` (less secure; avoid for long-term production).
 5. Click Connect, choose Drivers, and copy the Node.js connection string.
-6. Replace the username, password, cluster host, and database name. Use a real database path such as `/nelna`.
+6. Replace the username, password, cluster host, and database name. Use the launch database path, for example `/bileeta_db`.
 7. Set both Render variables to the same Atlas URI:
-   - `DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority`
-   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority`
+   - `DATABASE_PROVIDER=mongodb`
+   - `MONGO_DATABASE_NAME=bileeta_db`
+   - `MONGO_SYNC_ON_STARTUP=false`
+   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority`
+   - `DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority`
 
-After the API is deployed, seed initial data from a Render shell or a one-off job:
+Before routing production traffic, push the Prisma MongoDB schema and seed initial data from a Render shell or a one-off job:
 
 ```bash
-npm run seed
+npm run db:generate
+npm run db:push
+npm run db:seed
 ```
+
+For the full rehearsal, rollback, and verification checklist, use [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md).
 
 ## 3. Render Backend Settings
 
@@ -60,8 +67,11 @@ Required Render environment variables:
 
 ```env
 NODE_ENV=production
-DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority
+DATABASE_PROVIDER=mongodb
+MONGO_DATABASE_NAME=bileeta_db
+MONGO_SYNC_ON_STARTUP=false
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority
+DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority
 JWT_SECRET=<strong-random-secret>
 CORS_ORIGIN=https://your-vercel-app.vercel.app
 FRONTEND_URL=https://your-vercel-app.vercel.app
@@ -79,9 +89,29 @@ CLOUDINARY_API_SECRET=
 CLOUDINARY_ASSET_FOLDER=maintainpro/asset-documents
 SMTP_HOST=
 SMTP_PORT=
+SMTP_ENABLED=false
+SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=MaintainPro Alerts <alerts@example.com>
+SMS_ENABLED=false
+SMS_API_URL=
+SMS_API_KEY=
+SMS_API_SECRET=
+SMS_AUTH_HEADER=Authorization
+SMS_SENDER_ID=MaintainPro
+ERP_SYNC_PROVIDER=mock
+ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION=false
+ERP_PROVIDER_ID=
+ERP_API_URL=
+ERP_API_KEY=
+ERP_AUTH_HEADER=Authorization
+ERP_TIMEOUT_MS=15000
+PUSH_PROVIDER=noop
+PUSH_PROVIDER_ENABLED=false
+PUSH_PROVIDER_API_URL=
+PUSH_PROVIDER_API_KEY=
+PUSH_PROVIDER_AUTH_HEADER=Authorization
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 GOOGLE_CLIENT_ID=
@@ -95,6 +125,8 @@ Notes:
 - `JWT_SECRET` is enough for low-cost deployment. `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` remain supported if you want split secrets.
 - Without `REDIS_URL`, background queues may be degraded, but the API can boot and `/health` will still report database status.
 - Cloudinary is recommended for persistent file uploads on Render. Render free instance disk is ephemeral.
+- Leave SMTP, SMS, ERP, and push enable flags as `false` until provider credentials and webhook/firewall requirements are verified. `/health/ready` reports each provider as configured, disabled, or degraded.
+- Keep `ERP_SYNC_PROVIDER=mock` only for trials. For production ERP sync, switch to `http` and set `ERP_API_URL` plus `ERP_API_KEY`; mock mode is blocked in production unless explicitly allowed.
 - If Atlas (or another external provider) enforces IP allowlists, include your Render outbound CIDRs (`74.220.49.0/24`, `74.220.57.0/24`) in that provider's firewall rules.
 
 ## 4. Vercel Frontend Settings
@@ -118,6 +150,20 @@ NEXT_PUBLIC_API_ORIGIN=https://your-render-api.onrender.com
 ```
 
 `NEXT_PUBLIC_API_URL` is the primary variable. The other two are kept for compatibility and websocket clarity.
+
+Cloudflare Workers/OpenNext remains supported for the web app. Use `npm run cloudflare:build` and keep `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_API_ORIGIN` pointed at the Render API origin before deploying with Wrangler.
+
+## 4.1 Hosting And Domain Readiness
+
+Before go-live:
+
+- Select one frontend host as canonical: Vercel or Cloudflare Workers.
+- Configure the custom app domain on the chosen frontend host and verify HTTPS issuance.
+- Configure the custom API domain on Render, then update DNS with Render's required CNAME/ALIAS target.
+- Set `CORS_ORIGIN` and `FRONTEND_URL` to the final frontend origin without a trailing slash.
+- Set `NEXT_PUBLIC_API_URL` to the final API URL ending in `/api`, and `NEXT_PUBLIC_API_ORIGIN` to the API origin without `/api`.
+- Redeploy API and web after domain environment variables are changed.
+- Verify `/health` and `/health/ready` on the custom API domain before switching users to the new URL.
 
 ## 5. Cloudinary File Storage
 
@@ -159,6 +205,7 @@ The smoke test verifies:
 - Vercel frontend returns valid Next.js HTML
 - Render `/health` is reachable
 - MongoDB Atlas status is operational
+- `/health/ready` reports required services as `ok` and optional disabled providers as intentionally disabled, not misconfigured
 - CORS accepts the Vercel origin with credentials
 - Login endpoint returns a valid response without exposing `passwordHash`
 
@@ -210,7 +257,8 @@ Open `https://your-render-api.onrender.com/health`.
 - Confirm the Atlas URI contains the database name after the host.
 - Confirm username/password are URL encoded if they contain special characters.
 - Confirm Atlas Network Access allows Render.
-- Confirm `DATABASE_URL` is present during Render build and runtime.
+- Confirm both `MONGODB_URI` and `DATABASE_URL` are present during Render build and runtime and point to the same MongoDB database.
+- Confirm schema rollout used `npm run db:push`, not SQL migration commands.
 
 ### Uploaded files disappear
 

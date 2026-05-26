@@ -30,6 +30,7 @@ export class OperationsController {
     "MECHANIC",
     "ASSET_MANAGER",
     "SUPERVISOR",
+    "SECURITY_OFFICER",
     "DRIVER"
   )
   @Permissions("operations.scan_lookup")

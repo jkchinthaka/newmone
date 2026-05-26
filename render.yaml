@@ -17,8 +17,14 @@ services:
         value: production
       - key: DATABASE_URL
         sync: false
+      - key: DATABASE_PROVIDER
+        value: mongodb
+      - key: MONGO_DATABASE_NAME
+        sync: false
       - key: MONGODB_URI
         sync: false
+      - key: MONGO_SYNC_ON_STARTUP
+        value: "false"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_ACCESS_SECRET
@@ -45,8 +51,12 @@ services:
         value: maintainpro/asset-documents
       - key: SMTP_HOST
         sync: false
+      - key: SMTP_ENABLED
+        value: "false"
       - key: SMTP_PORT
         sync: false
+      - key: SMTP_SECURE
+        value: "false"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
@@ -65,12 +75,48 @@ services:
         sync: false
       - key: SENDGRID_API_KEY
         sync: false
+      - key: SMS_ENABLED
+        value: "false"
+      - key: SMS_API_URL
+        sync: false
+      - key: SMS_API_KEY
+        sync: false
+      - key: SMS_API_SECRET
+        sync: false
+      - key: SMS_AUTH_HEADER
+        value: Authorization
+      - key: SMS_SENDER_ID
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
         sync: false
       - key: TWILIO_PHONE_NUMBER
         sync: false
+      - key: ERP_SYNC_PROVIDER
+        value: mock
+      - key: ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION
+        value: "false"
+      - key: ERP_PROVIDER_ID
+        sync: false
+      - key: ERP_API_URL
+        sync: false
+      - key: ERP_API_KEY
+        sync: false
+      - key: ERP_AUTH_HEADER
+        value: Authorization
+      - key: ERP_TIMEOUT_MS
+        value: "15000"
+      - key: PUSH_PROVIDER
+        value: noop
+      - key: PUSH_PROVIDER_ENABLED
+        value: "false"
+      - key: PUSH_PROVIDER_API_URL
+        sync: false
+      - key: PUSH_PROVIDER_API_KEY
+        sync: false
+      - key: PUSH_PROVIDER_AUTH_HEADER
+        value: Authorization
       - key: RAPIDAPI_GOOGLE_MAP_PLACES_KEY
         sync: false
       - key: RAPIDAPI_COPILOT_API_KEY

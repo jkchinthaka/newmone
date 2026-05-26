@@ -480,7 +480,7 @@ export class NotificationsService {
 
     const priority = input.priority ?? this.defaultPriorityForType(input.type);
 
-    if (!preferences.inApp && !preferences.push) {
+    if (!preferences.inApp && !preferences.email && !preferences.sms && !preferences.push) {
       return null;
     }
 
@@ -529,6 +529,28 @@ export class NotificationsService {
     if (preferences.inApp) {
       await this.enqueueSend({
         channel: "IN_APP",
+        userId: input.userId,
+        title: input.title,
+        message: input.message,
+        notificationId: created.id,
+        metadata: input.metadata as Prisma.JsonValue | null
+      });
+    }
+
+    if (preferences.email && (!rules.emailOnlyOverdue || this.isOverdue(created.dueAt))) {
+      await this.enqueueSend({
+        channel: "EMAIL",
+        userId: input.userId,
+        title: input.title,
+        message: input.message,
+        notificationId: created.id,
+        metadata: input.metadata as Prisma.JsonValue | null
+      });
+    }
+
+    if (preferences.sms) {
+      await this.enqueueSend({
+        channel: "SMS",
         userId: input.userId,
         title: input.title,
         message: input.message,
@@ -642,12 +664,24 @@ export class NotificationsService {
     metadata?: Prisma.JsonValue | null;
   }) {
     try {
-      await this.notificationsQueue.add("send", payload);
+      await this.notificationsQueue.add("send", payload, {
+        attempts: payload.channel === "IN_APP" ? 1 : 3,
+        backoff: {
+          type: "exponential",
+          delay: 30_000
+        },
+        removeOnComplete: true,
+        removeOnFail: false
+      });
     } catch (err) {
       // Redis/queue unavailable — degrade gracefully so business logic still completes.
       // eslint-disable-next-line no-console
       console.warn("[notifications] queue.add failed (continuing):", (err as Error)?.message);
     }
+  }
+
+  private isOverdue(value: Date | null | undefined): boolean {
+    return Boolean(value && value.getTime() <= Date.now());
   }
 
   async createManyNotifications(inputs: NotificationInput[]) {

@@ -320,6 +320,17 @@ describe("Phase 3 workflow HTTP e2e", () => {
       expect(inventoryService.approvePurchaseOrderFinance).not.toHaveBeenCalled();
     });
 
+    it("security officer cannot approve purchase orders", async () => {
+      await request(app.getHttpServer())
+        .patch("/inventory/purchase-orders/po-1/approve-finance")
+        .set("x-test-role", "SECURITY_OFFICER")
+        .set("x-test-permissions", "dashboard.view,vehicles.view,gate.out.create,gate.in.create,operations.scan_lookup")
+        .send({ reason: "not allowed" })
+        .expect(403);
+
+      expect(inventoryService.approvePurchaseOrderFinance).not.toHaveBeenCalled();
+    });
+
     it("executes ERP sync manually", async () => {
       inventoryService.syncPurchaseOrderToErp.mockResolvedValueOnce({
         id: "erp-1",
