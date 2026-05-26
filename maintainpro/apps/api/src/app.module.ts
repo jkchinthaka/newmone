@@ -100,9 +100,7 @@ if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
             port: Number(redisUrl.port || 6379),
             password: redisUrl.password || undefined,
             maxRetriesPerRequest: 1,
-            enableOfflineQueue: false,
             enableReadyCheck: false,
-            lazyConnect: true,
             retryStrategy: (times: number) => Math.min(times * 5000, 30000)
           }
         };

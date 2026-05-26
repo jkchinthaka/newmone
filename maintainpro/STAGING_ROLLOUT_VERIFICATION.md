@@ -2,7 +2,7 @@
 
 ## Scope
 
-This pass was limited to final MongoDB rollout execution and verification in the intended dev/staging target environment. No new business features were started or added.
+This pass was limited to final MongoDB rollout execution and verification in the intended dev/staging target environment. A follow-up Redis readiness closure was completed on 2026-05-26. No new business features were started or added.
 
 All database credentials were supplied through local environment variables or process-only environment values. No MongoDB credentials, SMTP keys, SMS keys, ERP keys, push keys, or committed environment files were added to source control.
 
@@ -75,7 +75,7 @@ Collection counts observed during verification:
 API smoke tests were run against the local API server connected to the verified MongoDB target. All workflow checks passed:
 
 - API health: passed, database operational.
-- API readiness endpoint: passed as an endpoint check, with readiness status `degraded` because Redis was not reachable/configured.
+- API readiness endpoint: passed with readiness status `operational` after Redis was started and the queue configuration was corrected.
 - Admin login: passed.
 - Vehicle list: passed.
 - Vehicle profile: passed.
@@ -97,7 +97,13 @@ Provider readiness observed through `/health/readiness`:
 - SMS: `unconfigured`, optional, disabled by current process settings.
 - ERP: `unconfigured`, optional, using mock ERP mode in non-production.
 - Push: `unconfigured`, optional, using noop fallback.
-- Redis: `degraded`, required. This is the remaining staging readiness gate before treating `/health/readiness` as fully healthy.
+- Redis: `operational`, required. `/health/readiness` and `/api/health/readiness` both report Redis as accepting queue commands.
+
+Redis URL coverage verified during closure:
+
+- Local/native API: `redis://127.0.0.1:6379`.
+- Docker/Compose API container: `redis://redis:6379`.
+- Docker Compose dev host access: Redis service port `6380` maps to container port `6379` for host-side tools.
 
 ERP production guard remains active: mock ERP mode is blocked in production unless explicitly allowed by environment configuration.
 
@@ -112,16 +118,26 @@ Post-rollout validation passed:
 - `docker compose -f docker-compose.dev.yml config --quiet` with placeholder-only MongoDB env values.
 - `docker compose -f docker-compose.yml config --quiet` with placeholder-only MongoDB env values.
 
+Redis readiness closure validation passed:
+
+- Started Redis in the local/staging environment and confirmed `ioredis` ping returned `PONG`.
+- Restarted the API and confirmed queue-dependent modules started without Redis/Bull bootstrap errors.
+- `GET /health/readiness`: `operational`; Redis dependency `operational`, required, latency 5 ms.
+- `GET /api/health/readiness`: `operational`; Redis dependency `operational`, required, latency 6 ms.
+- `npm run typecheck --workspace @maintainpro/api`.
+- `npm run test --workspace @maintainpro/api`: 18 suites passed, 93 tests passed.
+- `npm run build --workspace @maintainpro/api`.
+
 The first web typecheck invocation was interrupted by the shell and was rerun cleanly; the clean rerun passed.
 
-## Remaining Staging Gate
+## Redis Readiness Gate
 
-The MongoDB rollout itself is verified and passed. The application readiness endpoint still reports `degraded` because Redis is a required dependency and was not operational in this local dev/staging smoke environment.
+The MongoDB rollout itself is verified and passed. The Redis readiness gate is now closed for the local/dev-staging runtime.
 
-Before staging deployment is considered fully ready, configure and verify the staging Redis connection through local/staging environment variables and rerun `/health/readiness` until Redis reports operational.
+The required readiness dependencies now report operational: MongoDB / Prisma, Redis queues, and object storage.
 
 ## Final Assessment
 
 MongoDB schema sync, seed, runtime database verification, core smoke workflows, provider readiness reporting, and post-rollout validation all passed for the intended dev/staging MongoDB target.
 
-Final staging deployment status: conditionally ready. The MongoDB rollout is complete, but staging should not be declared fully healthy until the required Redis dependency is provisioned and `/health/readiness` returns without the Redis degradation.
+Final staging deployment status: ready for the verified local/dev-staging runtime. The MongoDB rollout is complete, Redis is provisioned and reachable, and `/health/readiness` returns without Redis degradation.
