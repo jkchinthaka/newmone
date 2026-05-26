@@ -142,6 +142,8 @@ model User {
   copilotMessages           CopilotMessage[]
   copilotExchangeLogs       CopilotExchangeLog[]
   managedDepartments        Department[]           @relation("DepartmentManager")
+  recordedVehicleMeterLogs  VehicleMeterLog[]      @relation("VehicleMeterRecordedBy")
+  approvedVehicleGateMoves  VehicleGateMovement[]  @relation("VehicleGateApprovedBy")
 
   @@index([tenantId])
   @@index([roleId])
@@ -563,6 +565,8 @@ model Vehicle {
   maintenanceLogs      MaintenanceLog[]
   workOrders           WorkOrder[]
   gpsLocations         GpsLocation[]
+  meterLogs            VehicleMeterLog[]
+  gateMovements        VehicleGateMovement[]
 
   @@index([tenantId])
   @@index([status])
@@ -634,6 +638,7 @@ model Driver {
 
   vehicles Vehicle[]
   tripLogs TripLog[]
+  gateMovements VehicleGateMovement[]
 
   @@index([tenantId])
   @@index([departmentId])
@@ -676,6 +681,67 @@ model TripLog {
 
   @@index([vehicleId, startTime])
   @@index([driverId, startTime])
+}
+
+model VehicleMeterLog {
+  id           String                  @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId    String                  @db.ObjectId
+  vehicle      Vehicle                 @relation(fields: [vehicleId], references: [id])
+  recordedById String?                 @db.ObjectId
+  recordedBy   User?                   @relation("VehicleMeterRecordedBy", fields: [recordedById], references: [id])
+  reading      Float
+  readingType  VehicleMeterReadingType @default(MANUAL)
+  source       String?
+  notes        String?
+  createdAt    DateTime                @default(now())
+
+  @@index([vehicleId, createdAt])
+  @@index([recordedById, createdAt])
+}
+
+enum VehicleMeterReadingType {
+  GATE_OUT
+  GATE_IN
+  TRIP_START
+  TRIP_END
+  MANUAL
+  SERVICE_UPDATE
+}
+
+model VehicleGateMovement {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId       String             @db.ObjectId
+  vehicle         Vehicle            @relation(fields: [vehicleId], references: [id])
+  driverId        String?            @db.ObjectId
+  driver          Driver?            @relation(fields: [driverId], references: [id])
+  movementType    GateMovementType
+  status          GateMovementStatus
+  meterReading    Float
+  previousMileage Float?
+  blockedReason   String?
+  overrideReason  String?
+  approvedById    String?            @db.ObjectId
+  approvedBy      User?              @relation("VehicleGateApprovedBy", fields: [approvedById], references: [id])
+  gatePassNo      String?
+  checkpoint      String?
+  occurredAt      DateTime           @default(now())
+  createdAt       DateTime           @default(now())
+  metadata        Json?
+
+  @@index([vehicleId, occurredAt])
+  @@index([status, movementType, occurredAt])
+  @@index([driverId, occurredAt])
+}
+
+enum GateMovementType {
+  OUT
+  IN
+}
+
+enum GateMovementStatus {
+  ALLOWED
+  BLOCKED
+  OVERRIDE_APPROVED
 }
 
 enum TripStatus {

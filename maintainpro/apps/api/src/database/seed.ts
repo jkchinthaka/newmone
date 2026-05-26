@@ -228,6 +228,12 @@ async function ensureSystemPolicyDefaults(tenantId: string) {
         notificationRules: {
           onlyCritical: false,
           emailOnlyOverdue: false
+        },
+        vehicleGatePolicy: {
+          blockWhenServiceOverdue: true,
+          allowManagerOverride: true,
+          dueSoonMileageThreshold: 500,
+          dueSoonDaysThreshold: 14
         }
       }
     },

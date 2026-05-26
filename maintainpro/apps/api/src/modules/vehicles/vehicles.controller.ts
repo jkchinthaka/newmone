@@ -71,6 +71,8 @@ export class VehiclesController {
       currentMileage?: number;
       serviceIntervalDays?: number;
       serviceIntervalMileage?: number;
+      nextServiceDate?: string;
+      nextServiceMileage?: number;
       acquisitionDate?: string;
       purchasePrice?: number;
       currentValue?: number;
@@ -131,6 +133,103 @@ export class VehiclesController {
   async remove(@Param("id") id: string) {
     const data = await this.vehiclesService.remove(id);
     return { data, message: "Vehicle deleted" };
+  }
+
+  @Post(":id/gate-out")
+  @Permissions("vehicles.operate")
+  async gateOut(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      meterReading: number;
+      driverId?: string;
+      checkpoint?: string;
+      gatePassNo?: string;
+      notes?: string;
+      allowOverride?: boolean;
+      overrideReason?: string;
+      approvedByUserId?: string;
+      occurredAt?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    const data = await this.vehiclesService.gateOut(id, body);
+    return { data, message: data.allowed ? "Gate-out recorded" : "Gate-out blocked" };
+  }
+
+  @Post(":id/gate-in")
+  @Permissions("vehicles.operate")
+  async gateIn(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      meterReading: number;
+      checkpoint?: string;
+      notes?: string;
+      occurredAt?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    const data = await this.vehiclesService.gateIn(id, body);
+    return { data, message: "Gate-in recorded" };
+  }
+
+  @Post(":id/meter-reading")
+  @Permissions("vehicles.operate")
+  async recordMeterReading(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      reading: number;
+      source?: string;
+      notes?: string;
+      recordedByUserId?: string;
+    }
+  ) {
+    const data = await this.vehiclesService.recordMeterReading(id, body);
+    return { data, message: "Meter reading recorded" };
+  }
+
+  @Get(":id/meter-logs")
+  @Permissions("vehicles.view")
+  async meterLogs(@Param("id") id: string, @Query("limit") limitRaw?: string) {
+    const data = await this.vehiclesService.meterLogs(id, {
+      limit: this.toPositiveInt(limitRaw, 100)
+    });
+    return { data, message: "Meter logs fetched" };
+  }
+
+  @Get(":id/gate-movements")
+  @Permissions("vehicles.view")
+  async gateMovements(@Param("id") id: string, @Query("limit") limitRaw?: string) {
+    const data = await this.vehiclesService.gateMovements(id, this.toPositiveInt(limitRaw, 100));
+    return { data, message: "Gate movements fetched" };
+  }
+
+  @Get(":id/service-rule")
+  @Permissions("vehicles.view")
+  async serviceRule(@Param("id") id: string) {
+    const data = await this.vehiclesService.serviceRule(id);
+    return { data, message: "Service rule fetched" };
+  }
+
+  @Patch(":id/service-rule")
+  @Permissions("vehicles.edit")
+  async updateServiceRule(
+    @Param("id") id: string,
+    @Body()
+    body: Partial<{
+      serviceIntervalDays: number;
+      serviceIntervalMileage: number;
+      nextServiceDate: string;
+      nextServiceMileage: number;
+      lastServiceDate: string;
+      resetFromCurrentMileage: boolean;
+      notes: string;
+    }>
+  ) {
+    const data = await this.vehiclesService.updateServiceRule(id, body);
+    return { data, message: "Service rule updated" };
   }
 
   @Post(":id/assign-driver")
