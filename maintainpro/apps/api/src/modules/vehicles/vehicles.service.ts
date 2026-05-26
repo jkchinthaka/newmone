@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  AuditAction,
   GateMovementStatus,
   GateMovementType,
   Prisma,
@@ -10,6 +11,7 @@ import {
   VehicleStatus
 } from "@prisma/client";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { FleetService } from "../fleet/fleet.service";
 
@@ -647,6 +649,32 @@ export class VehiclesService {
       return movement;
     });
 
+    if (movementStatus === GateMovementStatus.OVERRIDE_APPROVED) {
+      await this.recordAudit({
+        entity: "VEHICLE_GATE_MOVEMENT",
+        entityId: result.id,
+        action: AuditAction.UPDATE,
+        reason: data.overrideReason,
+        metadata: {
+          event: "GATE_OUT_OVERRIDE_APPROVED",
+          vehicleId: id,
+          meterReading: data.meterReading,
+          previousMileage: Number(vehicle.currentMileage),
+          blockedReason: blockReasonText,
+          approvedByUserId
+        },
+        beforeData: {
+          status: GateMovementStatus.BLOCKED,
+          blockedReason: blockReasonText
+        },
+        afterData: {
+          status: movementStatus,
+          overrideReason: data.overrideReason?.trim() || null,
+          approvedByUserId
+        }
+      });
+    }
+
     return {
       allowed: true,
       blocked,
@@ -760,6 +788,7 @@ export class VehiclesService {
     }
   ) {
     const vehicle = await this.findOne(id);
+    const previousMileage = Number(vehicle.currentMileage);
 
     if (data.reading < Number(vehicle.currentMileage)) {
       throw new BadRequestException("Mileage entries must be monotonically increasing");
@@ -796,6 +825,27 @@ export class VehiclesService {
         vehicle: updatedVehicle,
         meterLog
       };
+    });
+
+    await this.recordAudit({
+      entity: "VEHICLE",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      reason: data.notes,
+      metadata: {
+        event: "MANUAL_METER_READING",
+        source: data.source?.trim() || "manual",
+        meterLogId: result.meterLog.id,
+        reading: data.reading
+      },
+      beforeData: {
+        currentMileage: previousMileage,
+        serviceStatus: vehicle.serviceStatus
+      },
+      afterData: {
+        currentMileage: Number(result.vehicle.currentMileage),
+        serviceStatus: result.vehicle.serviceStatus
+      }
     });
 
     return {
@@ -978,6 +1028,33 @@ export class VehiclesService {
       });
 
       return updatedVehicle;
+    });
+
+    await this.recordAudit({
+      entity: "VEHICLE",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      reason: data.notes,
+      metadata: {
+        event: "SERVICE_RULE_UPDATE",
+        resetFromCurrentMileage: Boolean(data.resetFromCurrentMileage)
+      },
+      beforeData: {
+        serviceIntervalDays: vehicle.serviceIntervalDays,
+        serviceIntervalMileage: vehicle.serviceIntervalMileage,
+        nextServiceDate: vehicle.nextServiceDate,
+        nextServiceMileage: vehicle.nextServiceMileage,
+        lastServiceDate: vehicle.lastServiceDate,
+        serviceStatus: vehicle.serviceStatus
+      },
+      afterData: {
+        serviceIntervalDays: updated.serviceIntervalDays,
+        serviceIntervalMileage: updated.serviceIntervalMileage,
+        nextServiceDate: updated.nextServiceDate,
+        nextServiceMileage: updated.nextServiceMileage,
+        lastServiceDate: updated.lastServiceDate,
+        serviceStatus: updated.serviceStatus
+      }
     });
 
     return {
@@ -1398,6 +1475,40 @@ export class VehiclesService {
     }
 
     return approver.id;
+  }
+
+  private async recordAudit(payload: {
+    entity: string;
+    entityId: string;
+    action: AuditAction;
+    reason?: string;
+    metadata?: unknown;
+    beforeData?: unknown;
+    afterData?: unknown;
+  }) {
+    const ctx = requestContext.get();
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: ctx?.tenantId ?? null,
+        actorId: ctx?.actorId ?? null,
+        entity: payload.entity,
+        entityId: payload.entityId,
+        action: payload.action,
+        module: ctx?.module ?? "vehicles",
+        reason: payload.reason,
+        ipAddress: ctx?.ipAddress ?? undefined,
+        userAgent: ctx?.userAgent ?? undefined,
+        requestPath: ctx?.requestPath ?? undefined,
+        actorSnapshot:
+          ctx?.actorId || ctx?.actorEmail || ctx?.actorRole
+            ? ({ id: ctx?.actorId, email: ctx?.actorEmail, role: ctx?.actorRole } as Prisma.InputJsonValue)
+            : undefined,
+        metadata: payload.metadata as Prisma.InputJsonValue | undefined,
+        beforeData: payload.beforeData as Prisma.InputJsonValue | undefined,
+        afterData: payload.afterData as Prisma.InputJsonValue | undefined
+      }
+    });
   }
 
   private parseDateOrThrow(value: string, label: string) {
