@@ -33,7 +33,9 @@ import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api-client";
 import {
+  getStoredPermissions,
   getStoredRole,
+  VEHICLE_READ_ROLES,
   VEHICLE_DELETE_ROLES,
   VEHICLE_WRITE_ROLES,
   type DashboardRole
@@ -42,19 +44,32 @@ import {
 type VehicleType = "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
 type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
 type VehicleStatus = "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
+type VehicleOwnershipType = "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
+type VehicleServiceStatus = "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
 type SortBy = "createdAt" | "mileage" | "nextServiceDate" | "year";
 type SortDir = "asc" | "desc";
 
 interface Vehicle {
   id: string;
   registrationNo: string;
+  assetTag?: string | null;
   make: string;
   vehicleModel: string;
+  description?: string | null;
+  location?: string | null;
   year: number;
   type: VehicleType;
+  ownershipType?: VehicleOwnershipType;
+  serviceStatus?: VehicleServiceStatus;
   fuelType: FuelType;
   status: VehicleStatus;
   currentMileage: number | string;
+  serviceIntervalDays?: number | null;
+  serviceIntervalMileage?: number | null;
+  acquisitionDate?: string | null;
+  warrantyExpiry?: string | null;
+  costCenter?: string | null;
+  vendorName?: string | null;
   color?: string | null;
   nextServiceDate?: string | null;
   nextServiceMileage?: number | null;
@@ -103,6 +118,10 @@ const VEHICLE_TYPES: VehicleType[] = [
 ];
 
 const FUEL_TYPES: FuelType[] = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "LPG"];
+
+const OWNERSHIP_TYPES: VehicleOwnershipType[] = ["OWNED", "LEASED", "RENTED", "THIRD_PARTY"];
+
+const SERVICE_STATUS_OPTIONS: VehicleServiceStatus[] = ["ON_SCHEDULE", "DUE_SOON", "OVERDUE"];
 
 const VEHICLE_STATUSES: VehicleStatus[] = [
   "AVAILABLE",
@@ -169,6 +188,7 @@ const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
 
 export default function VehiclesPage() {
   const [role, setRole] = useState<DashboardRole>("VIEWER");
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [rows, setRows] = useState<Vehicle[]>([]);
   const [summary, setSummary] = useState<VehicleSummary>(DEFAULT_SUMMARY);
   const [alerts, setAlerts] = useState<VehicleAlert[]>([]);
@@ -189,11 +209,21 @@ export default function VehiclesPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
 
-  const canEdit = VEHICLE_WRITE_ROLES.includes(role);
-  const canDelete = VEHICLE_DELETE_ROLES.includes(role);
+  const hasPermission = useCallback(
+    (permission: string, fallbackRoles: DashboardRole[] = []) => {
+      return permissions.includes(permission) || fallbackRoles.includes(role);
+    },
+    [permissions, role]
+  );
+
+  const canView = hasPermission("vehicles.view", VEHICLE_READ_ROLES);
+  const canCreate = hasPermission("vehicles.create", VEHICLE_WRITE_ROLES);
+  const canEdit = hasPermission("vehicles.edit", VEHICLE_WRITE_ROLES);
+  const canDelete = hasPermission("vehicles.delete", VEHICLE_DELETE_ROLES);
 
   useEffect(() => {
     setRole(getStoredRole());
+    setPermissions(getStoredPermissions());
   }, []);
 
   useEffect(() => {
@@ -310,15 +340,33 @@ export default function VehiclesPage() {
   );
 
   useEffect(() => {
+    if (!canView) {
+      setLoading(false);
+      setRows([]);
+      setAlerts([]);
+      setSummary(DEFAULT_SUMMARY);
+      setError("You do not have permission to view vehicle records.");
+      return;
+    }
+
     void loadSummary();
     void loadAlerts();
-  }, [loadSummary, loadAlerts]);
+  }, [canView, loadSummary, loadAlerts]);
 
   useEffect(() => {
+    if (!canView) {
+      return;
+    }
+
     void loadVehicles();
-  }, [loadVehicles]);
+  }, [canView, loadVehicles]);
 
   async function refreshAll() {
+    if (!canView) {
+      toast.error("You do not have permission to view vehicle records.");
+      return;
+    }
+
     await Promise.all([loadVehicles(), loadSummary(), loadAlerts()]);
     toast.success("Vehicle dashboard refreshed.");
   }
@@ -562,6 +610,17 @@ export default function VehiclesPage() {
   const showingFrom = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
   const showingTo = pagination.total === 0 ? 0 : Math.min(pagination.page * pagination.pageSize, pagination.total);
 
+  if (!canView) {
+    return (
+      <section className="card space-y-2">
+        <h2 className="text-lg font-semibold text-slate-900">Vehicle Management</h2>
+        <p className="text-sm text-amber-700">
+          You do not have permission to view vehicle records.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-5 py-5 text-white shadow-sm">
@@ -585,10 +644,10 @@ export default function VehiclesPage() {
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              disabled={!canEdit}
-              title={!canEdit ? "Your role cannot register vehicles" : undefined}
+              disabled={!canCreate}
+              title={!canCreate ? "Your permissions do not allow vehicle registration" : undefined}
               className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-                canEdit
+                canCreate
                   ? "bg-white text-slate-900 hover:bg-slate-100"
                   : "cursor-not-allowed bg-slate-500/50 text-slate-200"
               }`}
@@ -597,9 +656,9 @@ export default function VehiclesPage() {
             </button>
           </div>
         </div>
-        {!canEdit && (
+        {!canCreate && !canEdit && (
           <p className="mt-3 rounded-lg border border-slate-500/70 bg-slate-800/60 px-3 py-2 text-xs text-slate-200">
-            View-only mode is active for your current role. Edit and create actions are visually disabled.
+            View-only mode is active for your account. Edit and create actions are disabled by permissions.
           </p>
         )}
       </section>
@@ -782,6 +841,13 @@ export default function VehiclesPage() {
                       {vehicle.make} {vehicle.vehicleModel}
                     </h3>
                     <p className="mt-0.5 text-xs text-slate-500">{vehicle.year} model</p>
+                    {(vehicle.assetTag || vehicle.costCenter) && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        {[vehicle.assetTag ? `Tag: ${vehicle.assetTag}` : null, vehicle.costCenter ? `Cost Center: ${vehicle.costCenter}` : null]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusMeta.badgeClass}`}
@@ -1041,12 +1107,23 @@ function CreateVehicleModal({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     registrationNo: "",
+    assetTag: "",
     make: "",
     vehicleModel: "",
+    description: "",
+    location: "",
     year: new Date().getFullYear(),
     type: "CAR" as VehicleType,
+    ownershipType: "OWNED" as VehicleOwnershipType,
     fuelType: "PETROL" as FuelType,
-    currentMileage: 0
+    serviceStatus: "ON_SCHEDULE" as VehicleServiceStatus,
+    currentMileage: 0,
+    serviceIntervalDays: 0,
+    serviceIntervalMileage: 0,
+    acquisitionDate: "",
+    warrantyExpiry: "",
+    costCenter: "",
+    vendorName: ""
   });
 
   async function handleSubmit(event: FormEvent) {
@@ -1063,12 +1140,23 @@ function CreateVehicleModal({
     try {
       const res = await apiClient.post("/vehicles", {
         registrationNo: form.registrationNo.trim(),
+        assetTag: form.assetTag.trim() || undefined,
         make: form.make.trim(),
         vehicleModel: form.vehicleModel.trim(),
+        description: form.description.trim() || undefined,
+        location: form.location.trim() || undefined,
         year: Number(form.year),
         type: form.type,
+        ownershipType: form.ownershipType,
         fuelType: form.fuelType,
-        currentMileage: Number(form.currentMileage) || 0
+        serviceStatus: form.serviceStatus,
+        currentMileage: Number(form.currentMileage) || 0,
+        serviceIntervalDays: form.serviceIntervalDays ? Number(form.serviceIntervalDays) : undefined,
+        serviceIntervalMileage: form.serviceIntervalMileage ? Number(form.serviceIntervalMileage) : undefined,
+        acquisitionDate: form.acquisitionDate || undefined,
+        warrantyExpiry: form.warrantyExpiry || undefined,
+        costCenter: form.costCenter.trim() || undefined,
+        vendorName: form.vendorName.trim() || undefined
       });
 
       const payload = res.data?.data ?? res.data;
@@ -1092,6 +1180,13 @@ function CreateVehicleModal({
               className={inputCls}
             />
           </Field>
+          <Field label="Asset Tag">
+            <input
+              value={form.assetTag}
+              onChange={(event) => setForm({ ...form, assetTag: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
           <Field label="Year *">
             <input
               type="number"
@@ -1100,6 +1195,13 @@ function CreateVehicleModal({
               required
               value={form.year}
               onChange={(event) => setForm({ ...form, year: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Location">
+            <input
+              value={form.location}
+              onChange={(event) => setForm({ ...form, location: event.target.value })}
               className={inputCls}
             />
           </Field>
@@ -1145,12 +1247,94 @@ function CreateVehicleModal({
               ))}
             </select>
           </Field>
+          <Field label="Ownership">
+            <select
+              value={form.ownershipType}
+              onChange={(event) => setForm({ ...form, ownershipType: event.target.value as VehicleOwnershipType })}
+              className={inputCls}
+            >
+              {OWNERSHIP_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {humanizeEnum(type)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Service Status">
+            <select
+              value={form.serviceStatus}
+              onChange={(event) => setForm({ ...form, serviceStatus: event.target.value as VehicleServiceStatus })}
+              className={inputCls}
+            >
+              {SERVICE_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {humanizeEnum(status)}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Current Mileage (km)" className="md:col-span-2">
             <input
               type="number"
               min={0}
               value={form.currentMileage}
               onChange={(event) => setForm({ ...form, currentMileage: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Service Interval Days">
+            <input
+              type="number"
+              min={0}
+              value={form.serviceIntervalDays}
+              onChange={(event) => setForm({ ...form, serviceIntervalDays: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Service Interval Mileage">
+            <input
+              type="number"
+              min={0}
+              value={form.serviceIntervalMileage}
+              onChange={(event) => setForm({ ...form, serviceIntervalMileage: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Acquisition Date">
+            <input
+              type="date"
+              value={form.acquisitionDate}
+              onChange={(event) => setForm({ ...form, acquisitionDate: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Warranty Expiry">
+            <input
+              type="date"
+              value={form.warrantyExpiry}
+              onChange={(event) => setForm({ ...form, warrantyExpiry: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Cost Center">
+            <input
+              value={form.costCenter}
+              onChange={(event) => setForm({ ...form, costCenter: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Vendor Name">
+            <input
+              value={form.vendorName}
+              onChange={(event) => setForm({ ...form, vendorName: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Description" className="md:col-span-2">
+            <textarea
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              rows={3}
               className={inputCls}
             />
           </Field>
@@ -1194,7 +1378,18 @@ function EditVehicleModal({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     status: vehicle.status,
+    serviceStatus: vehicle.serviceStatus ?? "ON_SCHEDULE",
     currentMileage: Number(vehicle.currentMileage),
+    assetTag: vehicle.assetTag ?? "",
+    location: vehicle.location ?? "",
+    description: vehicle.description ?? "",
+    ownershipType: vehicle.ownershipType ?? "OWNED",
+    serviceIntervalDays: vehicle.serviceIntervalDays ?? 0,
+    serviceIntervalMileage: vehicle.serviceIntervalMileage ?? 0,
+    acquisitionDate: vehicle.acquisitionDate ? vehicle.acquisitionDate.slice(0, 10) : "",
+    warrantyExpiry: vehicle.warrantyExpiry ? vehicle.warrantyExpiry.slice(0, 10) : "",
+    costCenter: vehicle.costCenter ?? "",
+    vendorName: vehicle.vendorName ?? "",
     color: vehicle.color ?? "",
     nextServiceDate: vehicle.nextServiceDate ? vehicle.nextServiceDate.slice(0, 10) : "",
     nextServiceMileage: vehicle.nextServiceMileage ?? 0
@@ -1214,7 +1409,18 @@ function EditVehicleModal({
     try {
       const res = await apiClient.patch(`/vehicles/${vehicle.id}`, {
         status: form.status,
+        serviceStatus: form.serviceStatus,
         currentMileage: Number(form.currentMileage),
+        assetTag: form.assetTag.trim() || undefined,
+        location: form.location.trim() || undefined,
+        description: form.description.trim() || undefined,
+        ownershipType: form.ownershipType,
+        serviceIntervalDays: form.serviceIntervalDays ? Number(form.serviceIntervalDays) : undefined,
+        serviceIntervalMileage: form.serviceIntervalMileage ? Number(form.serviceIntervalMileage) : undefined,
+        acquisitionDate: form.acquisitionDate || undefined,
+        warrantyExpiry: form.warrantyExpiry || undefined,
+        costCenter: form.costCenter.trim() || undefined,
+        vendorName: form.vendorName.trim() || undefined,
         color: form.color.trim() || undefined,
         nextServiceDate: form.nextServiceDate || undefined,
         nextServiceMileage: form.nextServiceMileage ? Number(form.nextServiceMileage) : undefined
@@ -1247,6 +1453,20 @@ function EditVehicleModal({
               ))}
             </select>
           </Field>
+          <Field label="Service Status">
+            <select
+              value={form.serviceStatus}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, serviceStatus: event.target.value as VehicleServiceStatus })}
+              className={inputCls}
+            >
+              {SERVICE_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {humanizeEnum(status)}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Current Mileage (km)">
             <input
               type="number"
@@ -1257,11 +1477,75 @@ function EditVehicleModal({
               className={inputCls}
             />
           </Field>
+          <Field label="Asset Tag">
+            <input
+              value={form.assetTag}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, assetTag: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Ownership">
+            <select
+              value={form.ownershipType}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, ownershipType: event.target.value as VehicleOwnershipType })}
+              className={inputCls}
+            >
+              {OWNERSHIP_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {humanizeEnum(type)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Location">
+            <input
+              value={form.location}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, location: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Cost Center">
+            <input
+              value={form.costCenter}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, costCenter: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Vendor Name">
+            <input
+              value={form.vendorName}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, vendorName: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
           <Field label="Color">
             <input
               value={form.color}
               disabled={!canEdit}
               onChange={(event) => setForm({ ...form, color: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Acquisition Date">
+            <input
+              type="date"
+              value={form.acquisitionDate}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, acquisitionDate: event.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Warranty Expiry">
+            <input
+              type="date"
+              value={form.warrantyExpiry}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, warrantyExpiry: event.target.value })}
               className={inputCls}
             />
           </Field>
@@ -1274,6 +1558,26 @@ function EditVehicleModal({
               className={inputCls}
             />
           </Field>
+          <Field label="Service Interval Days">
+            <input
+              type="number"
+              min={0}
+              value={form.serviceIntervalDays}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, serviceIntervalDays: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Service Interval Mileage">
+            <input
+              type="number"
+              min={0}
+              value={form.serviceIntervalMileage}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, serviceIntervalMileage: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
           <Field label="Next Service Mileage" className="md:col-span-2">
             <input
               type="number"
@@ -1281,6 +1585,15 @@ function EditVehicleModal({
               value={form.nextServiceMileage}
               disabled={!canEdit}
               onChange={(event) => setForm({ ...form, nextServiceMileage: Number(event.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Description" className="md:col-span-2">
+            <textarea
+              value={form.description}
+              disabled={!canEdit}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              rows={3}
               className={inputCls}
             />
           </Field>

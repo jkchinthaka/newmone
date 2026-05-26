@@ -8,7 +8,7 @@ import {
   type AuditEntry,
   type AuditFieldChange
 } from "@/lib/audit-api";
-import { canViewAuditHistory, useCurrentUser } from "@/lib/use-current-user";
+import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 
 interface HistoryDrawerProps {
   entity: string;
@@ -125,7 +125,7 @@ function EntryCard({ entry }: { entry: AuditEntry }) {
 
 export function HistoryDrawer({ entity, entityId, open, onClose, title }: HistoryDrawerProps) {
   const user = useCurrentUser();
-  const allowed = canViewAuditHistory(user.role);
+  const allowed = canViewAuditHistoryForUser(user);
 
   useEffect(() => {
     if (!open) return;

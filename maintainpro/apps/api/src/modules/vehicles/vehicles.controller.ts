@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { Roles } from "../../common/decorators/roles.decorator";
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { VehiclesService } from "./vehicles.service";
 
@@ -13,7 +13,7 @@ export class VehiclesController {
   constructor(@Inject(VehiclesService) private readonly vehiclesService: VehiclesService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("vehicles.view")
   async findAll(
     @Query("q") q?: string,
     @Query("status") statusRaw?: string | string[],
@@ -35,14 +35,14 @@ export class VehiclesController {
   }
 
   @Get("summary")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async summary(@Query("upcomingDays") upcomingDaysRaw?: string) {
     const data = await this.vehiclesService.summary(this.toPositiveInt(upcomingDaysRaw, 14));
     return { data, message: "Vehicle summary fetched" };
   }
 
   @Get("alerts")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async alerts(@Query("upcomingDays") upcomingDaysRaw?: string, @Query("limit") limitRaw?: string) {
     const data = await this.vehiclesService.alerts({
       upcomingDays: this.toPositiveInt(upcomingDaysRaw, 14),
@@ -52,17 +52,32 @@ export class VehiclesController {
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("vehicles.create")
   async create(
     @Body()
     body: {
       registrationNo: string;
+      assetTag?: string;
       make: string;
       vehicleModel: string;
+      description?: string;
+      location?: string;
       year: number;
       type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
+      ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
       fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+      serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
+      fuelCapacity?: number;
       currentMileage?: number;
+      serviceIntervalDays?: number;
+      serviceIntervalMileage?: number;
+      acquisitionDate?: string;
+      purchasePrice?: number;
+      currentValue?: number;
+      warrantyExpiry?: string;
+      costCenter?: string;
+      vendorName?: string;
+      customFields?: Record<string, unknown>;
     }
   ) {
     const data = await this.vehiclesService.create(body);
@@ -70,59 +85,84 @@ export class VehiclesController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async findOne(@Param("id") id: string) {
     const data = await this.vehiclesService.findOne(id);
     return { data, message: "Vehicle fetched" };
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("vehicles.edit")
   async update(
     @Param("id") id: string,
-    @Body() body: Partial<{ status: "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED"; currentMileage: number; nextServiceDate: string; nextServiceMileage: number; insuranceExpiry: string; roadTaxExpiry: string; color: string }>
+    @Body()
+    body: Partial<{
+      status: "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
+      serviceStatus: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
+      currentMileage: number;
+      nextServiceDate: string;
+      nextServiceMileage: number;
+      serviceIntervalDays: number;
+      serviceIntervalMileage: number;
+      acquisitionDate: string;
+      purchasePrice: number;
+      currentValue: number;
+      warrantyExpiry: string;
+      insuranceExpiry: string;
+      roadTaxExpiry: string;
+      decommissionedAt: string;
+      decommissionReason: string;
+      assetTag: string;
+      color: string;
+      location: string;
+      description: string;
+      ownershipType: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
+      costCenter: string;
+      vendorName: string;
+      customFields: Record<string, unknown>;
+    }>
   ) {
     const data = await this.vehiclesService.update(id, body);
     return { data, message: "Vehicle updated" };
   }
 
   @Delete(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("vehicles.delete")
   async remove(@Param("id") id: string) {
     const data = await this.vehiclesService.remove(id);
     return { data, message: "Vehicle deleted" };
   }
 
   @Post(":id/assign-driver")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("vehicles.edit")
   async assignDriver(@Param("id") id: string, @Body() body: { driverId: string }) {
     const data = await this.vehiclesService.assignDriver(id, body.driverId);
     return { data, message: "Driver assigned" };
   }
 
   @Post(":id/fuel-log")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER")
+  @Permissions("vehicles.operate")
   async fuelLog(@Param("id") id: string, @Body() body: { liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }) {
     const data = await this.vehiclesService.fuelLog(id, body);
     return { data, message: "Fuel log recorded" };
   }
 
   @Get(":id/fuel-logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async fuelLogs(@Param("id") id: string) {
     const data = await this.vehiclesService.fuelLogs(id);
     return { data, message: "Fuel logs fetched" };
   }
 
   @Get(":id/fuel-analytics")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async fuelAnalytics(@Param("id") id: string) {
     const data = await this.vehiclesService.fuelAnalytics(id);
     return { data, message: "Fuel analytics fetched" };
   }
 
   @Post(":id/trip-start")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER")
+  @Permissions("vehicles.operate")
   async tripStart(
     @Param("id") id: string,
     @Body() body: { driverId: string; startLocation: string; endLocation: string; startMileage: number; purpose?: string }
@@ -132,21 +172,21 @@ export class VehiclesController {
   }
 
   @Post(":id/trip-end")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER")
+  @Permissions("vehicles.operate")
   async tripEnd(@Param("id") id: string, @Body() body: { tripId: string; endMileage: number; notes?: string }) {
     const data = await this.vehiclesService.tripEnd(id, body);
     return { data, message: "Trip ended" };
   }
 
   @Get(":id/trips")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER", "SUPERVISOR")
+  @Permissions("vehicles.view")
   async trips(@Param("id") id: string) {
     const data = await this.vehiclesService.trips(id);
     return { data, message: "Trips fetched" };
   }
 
   @Get(":id/history")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "DRIVER")
+  @Permissions("vehicles.view")
   async history(
     @Param("id") id: string,
     @Query("from") fromRaw?: string,
@@ -162,7 +202,7 @@ export class VehiclesController {
   }
 
   @Post(":id/gps-update")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER")
+  @Permissions("vehicles.operate")
   async gpsUpdate(
     @Param("id") id: string,
     @Body()

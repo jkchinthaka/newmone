@@ -7,6 +7,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { envValidationSchema } from "./config/env.validation";
 import { MongoSyncService } from "./database/mongo-sync.service";
@@ -159,6 +160,10 @@ if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
     {
       provide: APP_GUARD,
       useClass: RolesGuard
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard
     }
   ]
 })

@@ -201,7 +201,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     const { model, action, params, beforeRows, result, ctx, delegate } = opts;
 
     const actorId = ctx?.actorId ?? null;
+    const actorEmail = ctx?.actorEmail ?? null;
+    const actorRole = ctx?.actorRole ?? null;
     const ctxTenantId = ctx?.tenantId ?? null;
+    const module = ctx?.module ?? null;
+    const ipAddress = ctx?.ipAddress ?? null;
+    const userAgent = ctx?.userAgent ?? null;
+    const requestPath = ctx?.requestPath ?? null;
 
     const entries: Array<{
       action: "CREATE" | "UPDATE" | "DELETE";
@@ -312,9 +318,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         data: {
           tenantId: tenantForRow,
           actorId,
+          module,
           entity: opts.model,
           entityId: entry.entityId,
           action: entry.action,
+          ipAddress,
+          userAgent,
+          requestPath,
+          actorSnapshot:
+            actorId || actorEmail || actorRole
+              ? ({ id: actorId, email: actorEmail, role: actorRole } as Json)
+              : undefined,
           beforeData,
           afterData
         }

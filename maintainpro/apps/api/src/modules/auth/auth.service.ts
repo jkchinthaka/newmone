@@ -29,6 +29,18 @@ export class AuthService {
     return publicUser;
   }
 
+  private permissionKeysFromRole(
+    role: { permissions?: Array<{ key: string }> } | null | undefined
+  ): string[] {
+    if (!role || !Array.isArray(role.permissions)) {
+      return [];
+    }
+
+    return role.permissions
+      .map((permission) => permission.key)
+      .filter((key) => typeof key === "string" && key.trim().length > 0);
+  }
+
   private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: getAccessJwtSecret(this.configService),
@@ -72,20 +84,34 @@ export class AuthService {
         roleId: technicianRole.id
       },
       include: {
-        role: true
+        role: {
+          include: {
+            permissions: {
+              select: {
+                key: true
+              }
+            }
+          }
+        }
       }
     });
+
+    const permissionKeys = this.permissionKeysFromRole(user.role);
 
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
       role: user.role.name,
+      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
     return {
       data: {
-        user: this.toPublicUser(user),
+        user: {
+          ...this.toPublicUser(user),
+          permissions: permissionKeys
+        },
         ...tokens
       },
       message: "Registration successful"
@@ -95,7 +121,17 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { role: true }
+      include: {
+        role: {
+          include: {
+            permissions: {
+              select: {
+                key: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -113,16 +149,22 @@ export class AuthService {
       data: { lastLogin: new Date() }
     });
 
+    const permissionKeys = this.permissionKeysFromRole(user.role);
+
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
       role: user.role.name,
+      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
     return {
       data: {
-        user: this.toPublicUser(user),
+        user: {
+          ...this.toPublicUser(user),
+          permissions: permissionKeys
+        },
         ...tokens
       },
       message: "Login successful"
@@ -142,7 +184,17 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: decoded.sub },
-      include: { role: true }
+      include: {
+        role: {
+          include: {
+            permissions: {
+              select: {
+                key: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -150,10 +202,13 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
+    const permissionKeys = this.permissionKeysFromRole(user.role);
+
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
       role: user.role.name,
+      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
@@ -216,7 +271,17 @@ export class AuthService {
   async me(userId: string, activeTenantId: string | null = null) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { role: true }
+      include: {
+        role: {
+          include: {
+            permissions: {
+              select: {
+                key: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -244,9 +309,12 @@ export class AuthService {
       resolvedTenantId = firstMembership?.tenantId ?? null;
     }
 
+    const permissionKeys = this.permissionKeysFromRole(user.role);
+
     return {
       data: {
         ...this.toPublicUser(user),
+        permissions: permissionKeys,
         tenantId: resolvedTenantId
       },
       message: "Profile fetched"

@@ -8,6 +8,9 @@ interface ListAuditQuery {
   entity?: string;
   entityId?: string;
   actorId?: string;
+  module?: string;
+  from?: string;
+  to?: string;
   page: number;
   pageSize: number;
 }
@@ -29,6 +32,16 @@ export class AuditService {
     if (query.entity) where.entity = query.entity;
     if (query.entityId) where.entityId = query.entityId;
     if (query.actorId) where.actorId = query.actorId;
+    if (query.module) where.module = query.module;
+
+    const from = this.parseDate(query.from);
+    const to = this.parseDate(query.to);
+    if (from || to) {
+      where.createdAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {})
+      };
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.auditLog.findMany({
@@ -67,5 +80,18 @@ export class AuditService {
       throw new NotFoundException("entity and entityId are required");
     }
     return this.list(actor, { entity, entityId, page, pageSize });
+  }
+
+  private parseDate(value?: string): Date | undefined {
+    if (!value || value.trim().length === 0) {
+      return undefined;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+
+    return parsed;
   }
 }

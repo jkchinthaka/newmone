@@ -1,6 +1,8 @@
 import {
+  AppSettingScope,
   BillingInterval,
   EntitlementType,
+  Prisma,
   PrismaClient,
   Priority,
   RoleName,
@@ -16,8 +18,28 @@ import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartment
 const prisma = new PrismaClient();
 
 const permissionCatalog = [
-  "users.manage",
+  // Phase 1 enterprise RBAC / PBAC keys
+  "users.view",
+  "users.create",
+  "users.edit",
+  "users.status.manage",
+  "users.delete",
+  "roles.view",
   "roles.manage",
+  "permissions.view",
+  "permissions.create",
+  "settings.view",
+  "settings.organization.manage",
+  "settings.system.manage",
+  "audit.view",
+  "vehicles.view",
+  "vehicles.create",
+  "vehicles.edit",
+  "vehicles.operate",
+  "vehicles.delete",
+
+  // Backward-compatible / module-level keys already used by other modules
+  "users.manage",
   "modules.view_all",
   "assets.manage",
   "work_orders.manage",
@@ -37,7 +59,38 @@ const permissionCatalog = [
 
 const rolePermissions: Record<RoleName, string[]> = {
   SUPER_ADMIN: [...permissionCatalog],
-  ADMIN: permissionCatalog.filter((p) => p !== "system.configure"),
+  ADMIN: permissionCatalog.filter((permission) => permission !== "system.configure"),
+  OPERATIONS_MANAGER: [
+    "modules.view_all",
+    "reports.view",
+    "users.view",
+    "work_orders.manage",
+    "work_orders.update_status",
+    "vehicles.view",
+    "vehicles.operate",
+    "settings.view",
+    "audit.view"
+  ],
+  FLEET_MANAGER: [
+    "modules.view_all",
+    "reports.view",
+    "fleet.manage",
+    "fleet.log_fuel_trip",
+    "vehicles.view",
+    "vehicles.create",
+    "vehicles.edit",
+    "vehicles.operate",
+    "settings.view",
+    "audit.view"
+  ],
+  COMPLIANCE_MANAGER: [
+    "modules.view_all",
+    "reports.view",
+    "audit.view",
+    "settings.view",
+    "users.view",
+    "vehicles.view"
+  ],
   MANAGER: [
     "modules.view_all",
     "assets.manage",
@@ -49,35 +102,49 @@ const rolePermissions: Record<RoleName, string[]> = {
     "inventory.manage",
     "reports.view",
     "utilities.manage",
-    "cleaning.manage"
+    "cleaning.manage",
+    "users.view",
+    "vehicles.view",
+    "vehicles.operate",
+    "settings.view"
   ],
-  TECHNICIAN: ["work_orders.update_status", "work_orders.view_own", "inventory.manage"],
-  MECHANIC: ["work_orders.update_status", "work_orders.view_own", "inventory.manage"],
+  TECHNICIAN: ["work_orders.update_status", "work_orders.view_own", "inventory.manage", "vehicles.view"],
+  MECHANIC: ["work_orders.update_status", "work_orders.view_own", "inventory.manage", "vehicles.view", "vehicles.edit"],
   ASSET_MANAGER: [
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
-    "reports.view"
+    "reports.view",
+    "vehicles.view",
+    "vehicles.create",
+    "vehicles.edit",
+    "vehicles.operate",
+    "audit.view"
   ],
-  INVENTORY_KEEPER: ["inventory.manage", "reports.view"],
+  INVENTORY_KEEPER: ["inventory.manage", "reports.view", "modules.view_all"],
   SUPERVISOR: [
     "modules.view_all",
     "cleaning.manage",
     "cleaning.sign_off",
     "cleaning.report_issue",
-    "reports.view"
+    "reports.view",
+    "users.view",
+    "vehicles.view",
+    "audit.view"
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
-  DRIVER: ["fleet.log_fuel_trip"],
-  VIEWER: ["modules.view_all", "reports.view"],
+  DRIVER: ["fleet.log_fuel_trip", "vehicles.view", "vehicles.operate", "work_orders.view_own"],
+  VIEWER: ["modules.view_all", "reports.view", "vehicles.view", "settings.view"],
   FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
     "modules.view_all",
     "assets.manage",
     "work_orders.manage",
-    "reports.view"
+    "reports.view",
+    "settings.view",
+    "vehicles.view"
   ],
-  FIELD_SUPERVISOR: ["modules.view_all", "work_orders.manage", "reports.view"],
+  FIELD_SUPERVISOR: ["modules.view_all", "work_orders.manage", "reports.view", "vehicles.view"],
   AGRONOMIST: ["modules.view_all", "reports.view"],
   VETERINARIAN: ["modules.view_all", "reports.view"],
   FARM_WORKER: ["work_orders.update_status", "work_orders.view_own"],
@@ -134,6 +201,90 @@ async function ensureMasterDepartments(tenantId: string) {
   }
 }
 
+async function ensureSystemPolicyDefaults(tenantId: string) {
+  const defaults: Array<{ key: string; value: Record<string, unknown>; isSecret?: boolean }> = [
+    {
+      key: "organization.profile",
+      value: {
+        timezone: "UTC",
+        currency: "USD",
+        logoUrl: ""
+      }
+    },
+    {
+      key: "system.configuration",
+      value: {
+        slaThresholdHours: {
+          critical: 4,
+          high: 24,
+          medium: 72,
+          low: 168
+        },
+        utilityRates: {
+          electricity: 0,
+          water: 0,
+          gas: 0
+        },
+        notificationRules: {
+          onlyCritical: false,
+          emailOnlyOverdue: false
+        }
+      }
+    },
+    {
+      key: "system.featureToggles",
+      value: {
+        aiAssistant: true,
+        predictiveAlerts: true,
+        fleetModule: true,
+        cleaningModule: true,
+        utilitiesModule: true,
+        inventoryModule: true
+      }
+    },
+    {
+      key: "system.accessPolicy",
+      value: {
+        requireMfaForAdmin: false,
+        sessionTimeoutMinutes: 480,
+        minimumPasswordLength: 8,
+        maxFailedLoginAttempts: 5
+      }
+    },
+    {
+      key: "system.auditPolicy",
+      value: {
+        retentionDays: 365,
+        includeActorSnapshot: true,
+        includeRequestMetadata: true
+      }
+    }
+  ];
+
+  for (const item of defaults) {
+    await prisma.appSetting.upsert({
+      where: {
+        scope_scopeId_key: {
+          scope: AppSettingScope.TENANT,
+          scopeId: tenantId,
+          key: item.key
+        }
+      },
+      create: {
+        scope: AppSettingScope.TENANT,
+        scopeId: tenantId,
+        key: item.key,
+        value: item.value as Prisma.InputJsonValue,
+        isSecret: item.isSecret ?? false
+      },
+      update: {
+        value: item.value as Prisma.InputJsonValue,
+        isSecret: item.isSecret ?? false
+      }
+    });
+  }
+}
+
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -146,6 +297,7 @@ async function main() {
 
   await ensurePermissions();
   await ensureMasterDepartments(tenant.id);
+  await ensureSystemPolicyDefaults(tenant.id);
 
   const permissions = await prisma.permission.findMany();
   const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));

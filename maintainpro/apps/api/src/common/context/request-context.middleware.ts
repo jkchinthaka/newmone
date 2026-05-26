@@ -21,13 +21,29 @@ export class RequestContextMiddleware implements NestMiddleware {
     const actorRole = req.user?.role ?? null;
     const tenantId =
       req.tenantContext?.requestedTenantId ?? req.user?.tenantId ?? null;
+    const routePath = req.baseUrl || req.path || req.originalUrl || req.url || "";
+    const module = routePath.split("/").filter(Boolean)[0] ?? null;
+    const forwarded = req.headers["x-forwarded-for"];
+    const forwardedIp = Array.isArray(forwarded)
+      ? forwarded[0]
+      : typeof forwarded === "string"
+        ? forwarded.split(",")[0]
+        : null;
+    const ipAddress = forwardedIp || req.ip || null;
+    const userAgent =
+      typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null;
+    const requestPath = req.originalUrl || req.url || null;
 
     requestContext.run(
       {
         actorId,
         actorEmail,
         actorRole,
-        tenantId
+        tenantId,
+        module,
+        ipAddress,
+        userAgent,
+        requestPath
       },
       () => next()
     );

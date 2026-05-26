@@ -8,6 +8,7 @@ import { AppSettingScope, AuditAction, Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requestContext } from "../../common/context/request-context";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Pagination = {
@@ -451,7 +452,7 @@ export class SettingsService {
 
   async getAuditLogs(
     actor: JwtPayload,
-    query: { page: number; pageSize: number; entity?: string }
+    query: { page: number; pageSize: number; entity?: string; module?: string; from?: string; to?: string }
   ): Promise<{ items: unknown[]; pagination: Pagination }> {
     const tenant = await this.requireTenant(actor);
     const page = Number.isFinite(query.page) && query.page > 0 ? query.page : 1;
@@ -460,9 +461,21 @@ export class SettingsService {
       Number.isFinite(query.pageSize) && query.pageSize > 0 ? query.pageSize : 20
     );
 
-    const where = {
+    const from = this.parseDate(query.from);
+    const to = this.parseDate(query.to);
+
+    const where: Prisma.AuditLogWhereInput = {
       tenantId: tenant.id,
-      entity: query.entity ? query.entity : undefined
+      entity: query.entity ? query.entity : undefined,
+      module: query.module ? query.module : undefined,
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {})
+            }
+          }
+        : {})
     };
 
     const [items, total] = await Promise.all([
@@ -564,6 +577,8 @@ export class SettingsService {
     entity: string;
     entityId: string;
     action: AuditAction;
+    reason?: string;
+    metadata?: unknown;
     beforeData?: unknown;
     afterData?: unknown;
   }) {
@@ -571,17 +586,42 @@ export class SettingsService {
       return;
     }
 
+    const ctx = requestContext.get();
+
     await this.prisma.auditLog.create({
       data: {
         tenantId: payload.tenantId,
         actorId: payload.actorId,
+        module: ctx?.module ?? "settings",
         entity: payload.entity,
         entityId: payload.entityId,
         action: payload.action,
+        reason: payload.reason,
+        ipAddress: ctx?.ipAddress ?? undefined,
+        userAgent: ctx?.userAgent ?? undefined,
+        requestPath: ctx?.requestPath ?? undefined,
+        actorSnapshot:
+          ctx?.actorId || ctx?.actorEmail || ctx?.actorRole
+            ? ({ id: ctx?.actorId, email: ctx?.actorEmail, role: ctx?.actorRole } as Prisma.InputJsonValue)
+            : undefined,
+        metadata: payload.metadata as Prisma.InputJsonValue | undefined,
         beforeData: payload.beforeData as Prisma.InputJsonValue | undefined,
         afterData: payload.afterData as Prisma.InputJsonValue | undefined
       }
     });
+  }
+
+  private parseDate(value?: string): Date | undefined {
+    if (!value || value.trim().length === 0) {
+      return undefined;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+
+    return parsed;
   }
 
   private maskSensitive(value: unknown): unknown {

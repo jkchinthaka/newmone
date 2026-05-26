@@ -6,7 +6,7 @@ import { History, Loader2, X } from "lucide-react";
 
 import { HistoryDrawer } from "@/components/audit/history-drawer";
 import { EntityPicker } from "@/components/ui/entity-picker";
-import { canViewAuditHistory, useCurrentUser } from "@/lib/use-current-user";
+import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 
 import { asDateInputValue, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
@@ -66,7 +66,7 @@ export function WorkOrderEditorModal({
   const [formState, setFormState] = useState(initialState);
   const [historyOpen, setHistoryOpen] = useState(false);
   const currentUser = useCurrentUser();
-  const showHistory = !isCreateMode && canViewAuditHistory(currentUser.role) && Boolean(workOrder?.id);
+  const showHistory = !isCreateMode && canViewAuditHistoryForUser(currentUser) && Boolean(workOrder?.id);
 
   useEffect(() => {
     if (!open) {

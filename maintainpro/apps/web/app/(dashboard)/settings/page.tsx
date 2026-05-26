@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { apiClient } from "@/lib/api-client";
-import { getStoredRole } from "@/lib/user-role";
+import { getStoredPermissions, getStoredRole } from "@/lib/user-role";
 
 type ApiEnvelope<T> = {
   data: T;
@@ -91,6 +91,9 @@ type NotificationRules = {
 type AuditRow = {
   id: string;
   entity: string;
+  module: string | null;
+  reason: string | null;
+  ipAddress: string | null;
   action: string;
   createdAt: string;
   actor: {
@@ -100,7 +103,17 @@ type AuditRow = {
   } | null;
 };
 
-const ROLE_OPTIONS = ["SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "DRIVER", "VIEWER"];
+const ROLE_OPTIONS = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "OPERATIONS_MANAGER",
+  "FLEET_MANAGER",
+  "COMPLIANCE_MANAGER",
+  "MANAGER",
+  "TECHNICIAN",
+  "DRIVER",
+  "VIEWER"
+];
 const NOTIFICATION_TYPES = [
   "MAINTENANCE_DUE",
   "WORK_ORDER_ASSIGNED",
@@ -220,6 +233,10 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [auditPage, setAuditPage] = useState(1);
+  const [auditEntityFilter, setAuditEntityFilter] = useState("");
+  const [auditModuleFilter, setAuditModuleFilter] = useState("");
+  const [auditFromDate, setAuditFromDate] = useState("");
+  const [auditToDate, setAuditToDate] = useState("");
 
   const [systemDraft, setSystemDraft] = useState("{}");
   const [integrationsDraft, setIntegrationsDraft] = useState("{}");
@@ -227,7 +244,23 @@ export default function SettingsPage() {
   const [digestDraft, setDigestDraft] = useState("[]");
 
   const role = useMemo(() => getStoredRole(), []);
-  const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
+  const permissions = useMemo(() => getStoredPermissions(), []);
+  const permissionSet = useMemo(() => new Set(permissions), [permissions]);
+  const isAdminRole = role === "SUPER_ADMIN" || role === "ADMIN";
+  const hasPermission = (permission: string) => permissionSet.has(permission);
+
+  const canViewSettings = hasPermission("settings.view") || isAdminRole;
+  const canManageOrganization = hasPermission("settings.organization.manage") || isAdminRole;
+  const canManageSystem = hasPermission("settings.system.manage") || isAdminRole;
+  const canViewUsers = hasPermission("users.view") || isAdminRole;
+  const canCreateUsers = hasPermission("users.create") || isAdminRole;
+  const canManageUserStatus = hasPermission("users.status.manage") || isAdminRole;
+  const canDeleteUsers = hasPermission("users.delete") || isAdminRole;
+  const canViewRoles = hasPermission("roles.view") || isAdminRole;
+  const canManageRoles = hasPermission("roles.manage") || isAdminRole;
+  const canViewPermissions = hasPermission("permissions.view") || isAdminRole;
+  const canCreatePermissions = hasPermission("permissions.create") || isAdminRole;
+  const canViewAudit = hasPermission("audit.view") || isAdminRole;
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -288,7 +321,7 @@ export default function SettingsPage() {
 
   const organizationQuery = useQuery({
     queryKey: ["settings", "organization"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<OrganizationData>>("/settings/organization");
       return response.data.data;
@@ -297,7 +330,7 @@ export default function SettingsPage() {
 
   const systemQuery = useQuery({
     queryKey: ["settings", "system"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>("/settings/system");
       return response.data.data;
@@ -306,7 +339,7 @@ export default function SettingsPage() {
 
   const integrationsQuery = useQuery({
     queryKey: ["settings", "integrations"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>("/settings/integrations");
       return response.data.data;
@@ -315,7 +348,7 @@ export default function SettingsPage() {
 
   const featureToggleQuery = useQuery({
     queryKey: ["settings", "feature-toggles"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Record<string, boolean>>>(
         "/settings/feature-toggles"
@@ -326,7 +359,7 @@ export default function SettingsPage() {
 
   const automationQuery = useQuery({
     queryKey: ["settings", "automation-rules"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Array<Record<string, unknown>>>>(
         "/settings/automation-rules"
@@ -337,7 +370,7 @@ export default function SettingsPage() {
 
   const digestQuery = useQuery({
     queryKey: ["settings", "digest-schedules"],
-    enabled: isAdmin,
+    enabled: canViewSettings,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Array<Record<string, unknown>>>>(
         "/settings/digest-schedules"
@@ -348,7 +381,7 @@ export default function SettingsPage() {
 
   const usersQuery = useQuery({
     queryKey: ["settings", "users"],
-    enabled: isAdmin,
+    enabled: canViewUsers,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<UserRow[]>>("/users");
       return response.data.data;
@@ -357,7 +390,7 @@ export default function SettingsPage() {
 
   const rolesQuery = useQuery({
     queryKey: ["settings", "roles"],
-    enabled: isAdmin,
+    enabled: canViewRoles || canCreateUsers || canManageRoles,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<RoleRow[]>>("/roles");
       return response.data.data;
@@ -366,7 +399,7 @@ export default function SettingsPage() {
 
   const permissionsQuery = useQuery({
     queryKey: ["settings", "permissions"],
-    enabled: isAdmin,
+    enabled: canViewPermissions || canManageRoles,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<PermissionRow[]>>("/roles/permissions");
       return response.data.data;
@@ -392,13 +425,17 @@ export default function SettingsPage() {
   });
 
   const auditQuery = useQuery({
-    queryKey: ["settings", "audit", auditPage],
-    enabled: isAdmin,
+    queryKey: ["settings", "audit", auditPage, auditEntityFilter, auditModuleFilter, auditFromDate, auditToDate],
+    enabled: canViewAudit,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<AuditRow[]>>("/settings/audit-logs", {
         params: {
           page: auditPage,
-          pageSize: 15
+          pageSize: 15,
+          ...(auditEntityFilter ? { entity: auditEntityFilter } : {}),
+          ...(auditModuleFilter ? { module: auditModuleFilter } : {}),
+          ...(auditFromDate ? { from: new Date(`${auditFromDate}T00:00:00.000Z`).toISOString() } : {}),
+          ...(auditToDate ? { to: new Date(`${auditToDate}T23:59:59.999Z`).toISOString() } : {})
         }
       });
 
@@ -679,15 +716,26 @@ export default function SettingsPage() {
     }
   }, [digestQuery.data]);
 
-  const tabs: Array<{ key: SettingsTab; label: string; icon: JSX.Element; adminOnly?: boolean }> = [
-    { key: "profile", label: "Profile", icon: <UserRoundCog size={16} /> },
-    { key: "organization", label: "Organization", icon: <Building2 size={16} />, adminOnly: true },
-    { key: "users", label: "Users", icon: <Users size={16} />, adminOnly: true },
-    { key: "roles", label: "Roles", icon: <Shield size={16} />, adminOnly: true },
-    { key: "system", label: "System", icon: <Settings2 size={16} />, adminOnly: true },
-    { key: "notifications", label: "Notifications", icon: <Sparkles size={16} /> },
-    { key: "audit", label: "Audit", icon: <FileClock size={16} />, adminOnly: true }
+  useEffect(() => {
+    setAuditPage(1);
+  }, [auditEntityFilter, auditModuleFilter, auditFromDate, auditToDate]);
+
+  const tabs: Array<{ key: SettingsTab; label: string; icon: JSX.Element; visible: boolean }> = [
+    { key: "profile", label: "Profile", icon: <UserRoundCog size={16} />, visible: true },
+    { key: "organization", label: "Organization", icon: <Building2 size={16} />, visible: canViewSettings },
+    { key: "users", label: "Users", icon: <Users size={16} />, visible: canViewUsers },
+    { key: "roles", label: "Roles", icon: <Shield size={16} />, visible: canViewRoles || canViewPermissions },
+    { key: "system", label: "System", icon: <Settings2 size={16} />, visible: canViewSettings },
+    { key: "notifications", label: "Notifications", icon: <Sparkles size={16} />, visible: true },
+    { key: "audit", label: "Audit", icon: <FileClock size={16} />, visible: canViewAudit }
   ];
+
+  useEffect(() => {
+    const visibleTabs = tabs.filter((tab) => tab.visible).map((tab) => tab.key);
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab("profile");
+    }
+  }, [activeTab, tabs]);
 
   return (
     <div className="space-y-5">
@@ -701,7 +749,7 @@ export default function SettingsPage() {
       <section className="card overflow-x-auto">
         <div className="flex min-w-max items-center gap-2">
           {tabs
-            .filter((tab) => !tab.adminOnly || isAdmin)
+            .filter((tab) => tab.visible)
             .map((tab) => (
               <button
                 key={tab.key}
@@ -772,7 +820,7 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      {activeTab === "organization" && isAdmin ? (
+      {activeTab === "organization" && canViewSettings ? (
         <section className="card space-y-4">
           <h3 className="text-lg font-semibold text-slate-900">Organization Settings</h3>
           <form
@@ -802,7 +850,8 @@ export default function SettingsPage() {
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
-                disabled={updateOrganizationMutation.isPending}
+                disabled={updateOrganizationMutation.isPending || !canManageOrganization}
+                title={!canManageOrganization ? "You do not have permission to update organization settings" : undefined}
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save Organization
@@ -812,32 +861,38 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      {activeTab === "users" && isAdmin ? (
+      {activeTab === "users" && canViewUsers ? (
         <section className="space-y-4">
           <article className="card space-y-3">
             <h3 className="text-lg font-semibold text-slate-900">Invite User</h3>
-            <form
-              onSubmit={inviteForm.handleSubmit((values) => inviteUserMutation.mutate(values))}
-              className="grid gap-3 md:grid-cols-2"
-            >
-              <input placeholder="First name" {...inviteForm.register("firstName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <input placeholder="Last name" {...inviteForm.register("lastName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <input placeholder="Email" {...inviteForm.register("email")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <select {...inviteForm.register("roleId")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option value="">Select role</option>
-                {(rolesQuery.data ?? []).map((roleItem) => (
-                  <option key={roleItem.id} value={roleItem.id}>
-                    {roleItem.name}
-                  </option>
-                ))}
-              </select>
-              <input placeholder="Phone (optional)" {...inviteForm.register("phone")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2" />
-              <div className="md:col-span-2 flex justify-end">
-                <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
-                  Send Invite
-                </button>
-              </div>
-            </form>
+            {canCreateUsers ? (
+              <form
+                onSubmit={inviteForm.handleSubmit((values) => inviteUserMutation.mutate(values))}
+                className="grid gap-3 md:grid-cols-2"
+              >
+                <input placeholder="First name" {...inviteForm.register("firstName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                <input placeholder="Last name" {...inviteForm.register("lastName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                <input placeholder="Email" {...inviteForm.register("email")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                <select {...inviteForm.register("roleId")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                  <option value="">Select role</option>
+                  {(rolesQuery.data ?? []).map((roleItem) => (
+                    <option key={roleItem.id} value={roleItem.id}>
+                      {roleItem.name}
+                    </option>
+                  ))}
+                </select>
+                <input placeholder="Phone (optional)" {...inviteForm.register("phone")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2" />
+                <div className="md:col-span-2 flex justify-end">
+                  <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+                    Send Invite
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                You do not have permission to invite users.
+              </p>
+            )}
           </article>
 
           <article className="card space-y-3">
@@ -874,16 +929,20 @@ export default function SettingsPage() {
                                 isActive: !user.isActive
                               })
                             }
+                            disabled={!canManageUserStatus}
+                            title={!canManageUserStatus ? "You do not have permission to update user status" : undefined}
                             className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                           >
                             {user.isActive ? "Deactivate" : "Activate"}
                           </button>
-                          <button
-                            onClick={() => deleteUserMutation.mutate(user.id)}
-                            className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                          >
-                            Delete
-                          </button>
+                          {canDeleteUsers ? (
+                            <button
+                              onClick={() => deleteUserMutation.mutate(user.id)}
+                              className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                            >
+                              Delete
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -895,7 +954,7 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      {activeTab === "roles" && isAdmin ? (
+      {activeTab === "roles" && (canViewRoles || canViewPermissions) ? (
         <section className="space-y-4">
           <article className="card space-y-3">
             <h3 className="text-lg font-semibold text-slate-900">Role Management</h3>
@@ -910,7 +969,12 @@ export default function SettingsPage() {
                   ))}
                 </select>
               </label>
-              <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+              <button
+                type="submit"
+                disabled={!canManageRoles}
+                title={!canManageRoles ? "You do not have permission to create roles" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Create Role
               </button>
             </form>
@@ -921,7 +985,12 @@ export default function SettingsPage() {
             >
               <input placeholder="Permission key (e.g. assets.manage)" {...permissionCreateForm.register("key")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
               <input placeholder="Description" {...permissionCreateForm.register("description")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+              <button
+                type="submit"
+                disabled={!canCreatePermissions}
+                title={!canCreatePermissions ? "You do not have permission to add permissions" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Add Permission
               </button>
             </form>
@@ -937,12 +1006,14 @@ export default function SettingsPage() {
                   <div key={roleItem.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-900">{humanize(roleItem.name)}</p>
-                      <button
-                        onClick={() => deleteRoleMutation.mutate(roleItem.id)}
-                        className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                      >
-                        Delete
-                      </button>
+                      {canManageRoles ? (
+                        <button
+                          onClick={() => deleteRoleMutation.mutate(roleItem.id)}
+                          className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </div>
                     <div className="mt-3 grid gap-2 md:grid-cols-2">
                       {(permissionsQuery.data ?? []).map((permission) => {
@@ -954,6 +1025,7 @@ export default function SettingsPage() {
                             <input
                               type="checkbox"
                               defaultChecked={checked}
+                              disabled={!canManageRoles}
                               onChange={(event) => {
                                 const next = new Set(selectedPermissionIds);
 
@@ -981,7 +1053,7 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      {activeTab === "system" && isAdmin ? (
+      {activeTab === "system" && canViewSettings ? (
         <section className="space-y-4">
           <article className="card space-y-3">
             <h3 className="text-lg font-semibold text-slate-900">System Configuration JSON</h3>
@@ -994,6 +1066,9 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <button
                 onClick={() => {
+                  if (!canManageSystem) {
+                    return;
+                  }
                   try {
                     const parsed = JSON.parse(systemDraft) as Record<string, unknown>;
                     saveSystemMutation.mutate(parsed);
@@ -1001,7 +1076,9 @@ export default function SettingsPage() {
                     toast.error("System configuration must be valid JSON.");
                   }
                 }}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                disabled={!canManageSystem}
+                title={!canManageSystem ? "You do not have permission to update system settings" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save System JSON
               </button>
@@ -1019,6 +1096,9 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <button
                 onClick={() => {
+                  if (!canManageSystem) {
+                    return;
+                  }
                   try {
                     const parsed = JSON.parse(integrationsDraft) as Record<string, unknown>;
                     saveIntegrationsMutation.mutate(parsed);
@@ -1026,7 +1106,9 @@ export default function SettingsPage() {
                     toast.error("Integrations payload must be valid JSON.");
                   }
                 }}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                disabled={!canManageSystem}
+                title={!canManageSystem ? "You do not have permission to update integration settings" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save Integrations JSON
               </button>
@@ -1042,6 +1124,7 @@ export default function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={value}
+                    disabled={!canManageSystem}
                     onChange={() =>
                       updateFeatureToggleMutation.mutate({
                         [key]: !value
@@ -1064,6 +1147,9 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <button
                 onClick={() => {
+                  if (!canManageSystem) {
+                    return;
+                  }
                   try {
                     const parsed = JSON.parse(automationDraft) as Array<Record<string, unknown>>;
                     saveAutomationMutation.mutate(parsed);
@@ -1071,7 +1157,9 @@ export default function SettingsPage() {
                     toast.error("Automation rules must be a valid JSON array.");
                   }
                 }}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                disabled={!canManageSystem}
+                title={!canManageSystem ? "You do not have permission to update automation rules" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save Automation Rules
               </button>
@@ -1089,6 +1177,9 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <button
                 onClick={() => {
+                  if (!canManageSystem) {
+                    return;
+                  }
                   try {
                     const parsed = JSON.parse(digestDraft) as Array<Record<string, unknown>>;
                     saveDigestMutation.mutate(parsed);
@@ -1096,7 +1187,9 @@ export default function SettingsPage() {
                     toast.error("Digest schedules must be a valid JSON array.");
                   }
                 }}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                disabled={!canManageSystem}
+                title={!canManageSystem ? "You do not have permission to update digest schedules" : undefined}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save Digest Schedules
               </button>
@@ -1183,16 +1276,44 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      {activeTab === "audit" && isAdmin ? (
+      {activeTab === "audit" && canViewAudit ? (
         <section className="card space-y-3">
           <h3 className="text-lg font-semibold text-slate-900">Settings Audit Logs</h3>
+          <div className="grid gap-2 md:grid-cols-4">
+            <input
+              value={auditEntityFilter}
+              onChange={(event) => setAuditEntityFilter(event.target.value)}
+              placeholder="Filter by entity"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              value={auditModuleFilter}
+              onChange={(event) => setAuditModuleFilter(event.target.value)}
+              placeholder="Filter by module"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="date"
+              value={auditFromDate}
+              onChange={(event) => setAuditFromDate(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="date"
+              value={auditToDate}
+              onChange={(event) => setAuditToDate(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                   <th className="px-2 py-2">Time</th>
+                  <th className="px-2 py-2">Module</th>
                   <th className="px-2 py-2">Entity</th>
                   <th className="px-2 py-2">Action</th>
+                  <th className="px-2 py-2">Reason</th>
                   <th className="px-2 py-2">Actor</th>
                 </tr>
               </thead>
@@ -1200,9 +1321,13 @@ export default function SettingsPage() {
                 {(auditQuery.data?.items ?? []).map((log) => (
                   <tr key={log.id} className="border-t border-slate-200">
                     <td className="px-2 py-2 text-xs text-slate-600">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-2 py-2 text-xs text-slate-600">{log.module ?? "-"}</td>
                     <td className="px-2 py-2 text-sm font-medium text-slate-800">{humanize(log.entity)}</td>
                     <td className="px-2 py-2 text-sm text-slate-700">{humanize(log.action)}</td>
-                    <td className="px-2 py-2 text-xs text-slate-600">{log.actor ? `${log.actor.firstName} ${log.actor.lastName} (${log.actor.email})` : "System"}</td>
+                    <td className="px-2 py-2 text-xs text-slate-600">{log.reason ?? "-"}</td>
+                    <td className="px-2 py-2 text-xs text-slate-600" title={log.ipAddress ?? undefined}>
+                      {log.actor ? `${log.actor.firstName} ${log.actor.lastName} (${log.actor.email})` : "System"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

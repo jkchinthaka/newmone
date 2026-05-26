@@ -5,6 +5,10 @@ export interface AuditRequestContext {
   actorEmail: string | null;
   actorRole: string | null;
   tenantId: string | null;
+  module: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  requestPath: string | null;
 }
 
 const storage = new AsyncLocalStorage<AuditRequestContext>();

@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { Roles } from "../../common/decorators/roles.decorator";
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -18,12 +18,15 @@ export class AuditController {
 
   /** Generic listing with filters. Admin/Asset Manager only. */
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("audit.view")
   async list(
     @Req() req: AuthedRequest,
     @Query("entity") entity?: string,
     @Query("entityId") entityId?: string,
     @Query("actorId") actorId?: string,
+    @Query("module") module?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
     @Query("page") pageRaw?: string,
     @Query("pageSize") pageSizeRaw?: string
   ) {
@@ -33,6 +36,9 @@ export class AuditController {
       entity,
       entityId,
       actorId,
+      module,
+      from,
+      to,
       page,
       pageSize
     });
@@ -41,7 +47,7 @@ export class AuditController {
 
   /** Per-record history convenience endpoint used by the UI History drawer. */
   @Get(":entity/:entityId")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("audit.view")
   async forEntity(
     @Req() req: AuthedRequest,
     @Param("entity") entity: string,

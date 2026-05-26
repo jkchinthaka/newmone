@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { Roles } from "../../common/decorators/roles.decorator";
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesService } from "./roles.service";
 
@@ -13,28 +13,28 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("roles.view")
   async findAll() {
     const roles = await this.rolesService.findAll();
     return { data: roles, message: "Roles fetched" };
   }
 
   @Get("permissions")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("permissions.view")
   async permissions() {
     const permissions = await this.rolesService.permissions();
     return { data: permissions, message: "Permissions fetched" };
   }
 
   @Post("permissions")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("permissions.create")
   async createPermission(@Body() body: { key: string; description?: string }) {
     const permission = await this.rolesService.createPermission(body);
     return { data: permission, message: "Permission created" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("roles.manage")
   async create(
     @Body()
     body: {
@@ -48,7 +48,7 @@ export class RolesController {
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("roles.manage")
   async update(
     @Param("id") id: string,
     @Body()
@@ -62,7 +62,7 @@ export class RolesController {
   }
 
   @Delete(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("roles.manage")
   async remove(@Param("id") id: string) {
     const deleted = await this.rolesService.remove(id);
     return { data: deleted, message: "Role deleted" };

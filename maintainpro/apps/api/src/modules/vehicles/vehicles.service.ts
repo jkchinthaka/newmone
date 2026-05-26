@@ -59,7 +59,9 @@ export class VehiclesService {
     if (q) {
       where.OR = [
         { registrationNo: { contains: q, mode: "insensitive" } },
-        { vehicleModel: { contains: q, mode: "insensitive" } }
+        { vehicleModel: { contains: q, mode: "insensitive" } },
+        { make: { contains: q, mode: "insensitive" } },
+        { assetTag: { contains: q, mode: "insensitive" } }
       ];
     }
 
@@ -330,17 +332,56 @@ export class VehiclesService {
 
   create(data: {
     registrationNo: string;
+    assetTag?: string;
     make: string;
     vehicleModel: string;
+    description?: string;
+    location?: string;
     year: number;
     type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
+    ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
     fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+    serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
+    fuelCapacity?: number;
     currentMileage?: number;
+    serviceIntervalDays?: number;
+    serviceIntervalMileage?: number;
+    acquisitionDate?: string;
+    purchasePrice?: number;
+    currentValue?: number;
+    warrantyExpiry?: string;
+    costCenter?: string;
+    vendorName?: string;
+    customFields?: Record<string, unknown>;
   }) {
     return this.prisma.vehicle.create({
       data: {
-        ...data,
+        registrationNo: data.registrationNo.trim(),
+        assetTag: data.assetTag?.trim() || undefined,
+        make: data.make.trim(),
+        vehicleModel: data.vehicleModel.trim(),
+        description: data.description?.trim() || undefined,
+        location: data.location?.trim() || undefined,
+        year: data.year,
+        type: data.type,
+        ownershipType: data.ownershipType,
+        fuelType: data.fuelType,
+        serviceStatus: data.serviceStatus,
+        fuelCapacity: data.fuelCapacity,
         currentMileage: data.currentMileage ?? 0,
+        serviceIntervalDays: data.serviceIntervalDays,
+        serviceIntervalMileage: data.serviceIntervalMileage,
+        acquisitionDate: data.acquisitionDate
+          ? this.parseDateOrThrow(data.acquisitionDate, "acquisitionDate")
+          : undefined,
+        purchasePrice: data.purchasePrice,
+        currentValue: data.currentValue,
+        warrantyExpiry: data.warrantyExpiry
+          ? this.parseDateOrThrow(data.warrantyExpiry, "warrantyExpiry")
+          : undefined,
+        costCenter: data.costCenter?.trim() || undefined,
+        vendorName: data.vendorName?.trim() || undefined,
+        customFields: data.customFields as Prisma.InputJsonValue | undefined,
         images: []
       }
     });
@@ -350,12 +391,28 @@ export class VehiclesService {
     id: string,
     data: Partial<{
       status: VehicleStatus;
+      serviceStatus: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
       currentMileage: number;
       nextServiceDate: string;
       nextServiceMileage: number;
+      serviceIntervalDays: number;
+      serviceIntervalMileage: number;
+      acquisitionDate: string;
+      purchasePrice: number;
+      currentValue: number;
+      warrantyExpiry: string;
       insuranceExpiry: string;
       roadTaxExpiry: string;
+      decommissionedAt: string;
+      decommissionReason: string;
+      assetTag: string;
       color: string;
+      location: string;
+      description: string;
+      ownershipType: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
+      costCenter: string;
+      vendorName: string;
+      customFields: Record<string, unknown>;
     }>
   ) {
     const current = await this.findOne(id);
@@ -368,9 +425,21 @@ export class VehiclesService {
       where: { id },
       data: {
         ...data,
+        serviceStatus: data.serviceStatus,
         nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
+        acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : undefined,
+        warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : undefined,
         insuranceExpiry: data.insuranceExpiry ? new Date(data.insuranceExpiry) : undefined,
-        roadTaxExpiry: data.roadTaxExpiry ? new Date(data.roadTaxExpiry) : undefined
+        roadTaxExpiry: data.roadTaxExpiry ? new Date(data.roadTaxExpiry) : undefined,
+        decommissionedAt: data.decommissionedAt ? new Date(data.decommissionedAt) : undefined,
+        decommissionReason: data.decommissionReason?.trim() || undefined,
+        assetTag: data.assetTag?.trim() || undefined,
+        color: data.color?.trim() || undefined,
+        location: data.location?.trim() || undefined,
+        description: data.description?.trim() || undefined,
+        costCenter: data.costCenter?.trim() || undefined,
+        vendorName: data.vendorName?.trim() || undefined,
+        customFields: data.customFields as Prisma.InputJsonValue | undefined
       }
     });
   }

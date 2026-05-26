@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
-import { Roles } from "../../common/decorators/roles.decorator";
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CreateUserDto, InviteUserDto, UpdateUserDto, UpdateUserStatusDto } from "./dto/users.dto";
 import { UsersService } from "./users.service";
@@ -14,7 +14,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.view")
   async findAll(
     @Query("q") q?: string,
     @Query("pageSize") pageSize?: string,
@@ -29,21 +29,21 @@ export class UsersController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.view")
   async findOne(@Param("id") id: string) {
     const user = await this.usersService.findOne(id);
     return { data: user, message: "User fetched" };
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.create")
   async create(@Body() body: CreateUserDto) {
     const user = await this.usersService.create(body);
     return { data: user, message: "User created" };
   }
 
   @Post("invite")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.create")
   async invite(
     @Body()
     body: InviteUserDto
@@ -53,21 +53,21 @@ export class UsersController {
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.edit")
   async update(@Param("id") id: string, @Body() body: UpdateUserDto) {
     const user = await this.usersService.update(id, body);
     return { data: user, message: "User updated" };
   }
 
   @Patch(":id/status")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.status.manage")
   async updateStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
     const user = await this.usersService.setActive(id, body.isActive);
     return { data: user, message: "User status updated" };
   }
 
   @Delete(":id")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("users.delete")
   async remove(@Param("id") id: string) {
     const deleted = await this.usersService.remove(id);
     return { data: deleted, message: "User deleted" };

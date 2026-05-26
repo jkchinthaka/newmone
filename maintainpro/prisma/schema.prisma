@@ -47,14 +47,24 @@ model AuditLog {
   entity     String
   entityId   String
   action     AuditAction
+  module     String?
+  reason     String?
   actorId    String?     @db.ObjectId
   actor      User?       @relation(fields: [actorId], references: [id])
+  ipAddress  String?
+  userAgent  String?
+  requestPath String?
+  actorSnapshot Json?
+  metadata   Json?
   beforeData Json?
   afterData  Json?
   createdAt  DateTime    @default(now())
 
   @@index([entity, entityId])
   @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, module, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model AppSetting {
@@ -156,6 +166,9 @@ model Role {
 enum RoleName {
   SUPER_ADMIN
   ADMIN
+  OPERATIONS_MANAGER
+  FLEET_MANAGER
+  COMPLIANCE_MANAGER
   MANAGER
   TECHNICIAN
   MECHANIC
@@ -502,24 +515,38 @@ model Vehicle {
   tenantId           String?       @db.ObjectId
   tenant             Tenant?       @relation(fields: [tenantId], references: [id])
   registrationNo     String        @unique
+  assetTag           String?
   make               String
   vehicleModel       String
   description        String?
   location           String?
   year               Int
   type               VehicleType
+  ownershipType      VehicleOwnershipType @default(OWNED)
   status             VehicleStatus @default(AVAILABLE)
+  serviceStatus      VehicleServiceStatus @default(ON_SCHEDULE)
   color              String?
   vin                String?       @unique
   engineNo           String?
+  vendorName         String?
+  costCenter         String?
+  acquisitionDate    DateTime?
+  purchasePrice      Float?
+  currentValue       Float?
+  warrantyExpiry     DateTime?
   fuelType           FuelType
   fuelCapacity       Float?
   currentMileage     Float         @default(0)
+  serviceIntervalDays Int?
+  serviceIntervalMileage Float?
   insuranceExpiry    DateTime?
   roadTaxExpiry      DateTime?
   lastServiceDate    DateTime?
   nextServiceDate    DateTime?
   nextServiceMileage Float?
+  decommissionedAt   DateTime?
+  decommissionReason String?
+  customFields       Json?
   gpsDeviceId        String?
   images             String[]
   driverId           String?       @db.ObjectId
@@ -543,6 +570,10 @@ model Vehicle {
   @@index([location])
   @@index([type])
   @@index([departmentId])
+  @@index([serviceStatus])
+  @@index([assetTag])
+  @@index([costCenter])
+  @@index([tenantId, status, nextServiceDate])
 }
 
 enum VehicleType {
@@ -561,6 +592,19 @@ enum VehicleStatus {
   UNDER_MAINTENANCE
   OUT_OF_SERVICE
   DISPOSED
+}
+
+enum VehicleOwnershipType {
+  OWNED
+  LEASED
+  RENTED
+  THIRD_PARTY
+}
+
+enum VehicleServiceStatus {
+  ON_SCHEDULE
+  DUE_SOON
+  OVERDUE
 }
 
 enum FuelType {
