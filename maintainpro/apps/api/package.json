@@ -19,6 +19,8 @@
     "prisma:migrate": "npm run prisma:push",
     "prisma:studio": "prisma studio --schema ../../prisma/schema.prisma",
     "seed": "tsx src/database/seed.ts",
+    "backup:resync": "tsx src/database/backup-resync.ts",
+    "backup:verify": "tsx src/database/backup-verify.ts",
     "departments:migrate": "tsx src/database/migrate-departments.ts",
     "phase3:migrate": "tsx src/database/migrate-phase3-procurement.ts"
   },

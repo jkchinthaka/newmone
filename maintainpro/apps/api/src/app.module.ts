@@ -66,6 +66,18 @@ if (!process.env.NODE_ENV && process.env.RENDER) {
   process.env.NODE_ENV = "production";
 }
 
+const resolveEnvReference = (value: string | undefined): string | undefined => {
+  const match = /^\$\{([A-Z0-9_]+)\}$/.exec((value ?? "").trim());
+  return match ? process.env[match[1]] : value;
+};
+
+for (const key of ["PRIMARY_DATABASE_URL", "DATABASE_URL", "MONGODB_URI", "BACKUP_DATABASE_URL"] as const) {
+  const resolved = resolveEnvReference(process.env[key]);
+  if (resolved) {
+    process.env[key] = resolved;
+  }
+}
+
 if (!process.env.PRIMARY_DATABASE_URL && process.env.DATABASE_URL) {
   process.env.PRIMARY_DATABASE_URL = process.env.DATABASE_URL;
 }
@@ -79,7 +91,7 @@ if (!process.env.DATABASE_URL && process.env.MONGODB_URI) {
   process.env.PRIMARY_DATABASE_URL = process.env.MONGODB_URI;
 }
 
-if (!process.env.MONGODB_URI && process.env.DATABASE_URL) {
+if ((!process.env.MONGODB_URI || process.env.MONGODB_URI === "${PRIMARY_DATABASE_URL}") && process.env.DATABASE_URL) {
   process.env.MONGODB_URI = process.env.DATABASE_URL;
 }
 

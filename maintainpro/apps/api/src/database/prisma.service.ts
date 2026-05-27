@@ -151,7 +151,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     if (replicationConfig.primaryDatabaseUrl) {
       process.env.DATABASE_URL = replicationConfig.primaryDatabaseUrl;
       process.env.PRIMARY_DATABASE_URL = replicationConfig.primaryDatabaseUrl;
-      process.env.MONGODB_URI = process.env.MONGODB_URI || replicationConfig.primaryDatabaseUrl;
+      if (!process.env.MONGODB_URI || process.env.MONGODB_URI === "${PRIMARY_DATABASE_URL}") {
+        process.env.MONGODB_URI = replicationConfig.primaryDatabaseUrl;
+      }
     }
 
     super();

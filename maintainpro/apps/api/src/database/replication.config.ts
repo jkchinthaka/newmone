@@ -31,10 +31,20 @@ function integerEnv(value: string | undefined, defaultValue: number, minimum: nu
   return Math.max(minimum, Math.trunc(parsed));
 }
 
+function resolveEnvReference(value: string | undefined, env: NodeJS.ProcessEnv): string {
+  const trimmed = (value ?? "").trim();
+  const match = /^\$\{([A-Z0-9_]+)\}$/.exec(trimmed);
+  if (!match) return trimmed;
+  return (env[match[1]] ?? "").trim();
+}
+
 export function getDatabaseReplicationConfig(env: NodeJS.ProcessEnv = process.env): DatabaseReplicationConfig {
   const mode = normalizeMode(env.DATABASE_REPLICATION_MODE);
   const explicitEnabled = booleanEnv(env.DATABASE_REPLICATION_ENABLED, true);
-  const primaryDatabaseUrl = env.PRIMARY_DATABASE_URL || env.DATABASE_URL || env.MONGODB_URI || "";
+  const primaryDatabaseUrl =
+    resolveEnvReference(env.PRIMARY_DATABASE_URL, env) ||
+    resolveEnvReference(env.DATABASE_URL, env) ||
+    resolveEnvReference(env.MONGODB_URI, env);
 
   return {
     enabled: explicitEnabled && mode !== "disabled",
@@ -45,7 +55,7 @@ export function getDatabaseReplicationConfig(env: NodeJS.ProcessEnv = process.en
     backupRequiredForReadiness: booleanEnv(env.BACKUP_DATABASE_REQUIRED_FOR_READINESS, false),
     backupRequiredForStrictMode: booleanEnv(env.BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE, true),
     primaryDatabaseUrl,
-    backupDatabaseUrl: env.BACKUP_DATABASE_URL || "",
+    backupDatabaseUrl: resolveEnvReference(env.BACKUP_DATABASE_URL, env),
     primaryDatabaseName: env.PRIMARY_DATABASE_NAME || env.MONGO_DATABASE_NAME || "",
     backupDatabaseName: env.BACKUP_DATABASE_NAME || ""
   };
