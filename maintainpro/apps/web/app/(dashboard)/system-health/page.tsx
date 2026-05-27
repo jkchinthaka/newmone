@@ -2,7 +2,15 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, ServerCog, Settings2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  DatabaseZap,
+  RefreshCw,
+  ServerCog,
+  Settings2
+} from "lucide-react";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 
@@ -16,6 +24,20 @@ type SystemCheck = {
   latencyMs?: number;
   message: string;
   action?: string;
+  details?: Record<string, unknown>;
+};
+
+type ReplicationDetails = {
+  mode?: string;
+  primaryDatabaseName?: string;
+  backupDatabaseName?: string;
+  strictModeActive?: boolean;
+  pendingEvents?: number;
+  processingEvents?: number;
+  failedEvents?: number;
+  deadLetterEvents?: number;
+  lastSuccessfulSync?: string | null;
+  replicationLagMs?: number;
 };
 
 type SystemHealth = {
@@ -59,6 +81,22 @@ function formatTime(value?: string) {
   }).format(new Date(value));
 }
 
+function formatDuration(ms?: number) {
+  if (!ms || ms < 1) return "0s";
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function asReplicationDetails(check?: SystemCheck): ReplicationDetails | null {
+  return (check?.details ?? null) as ReplicationDetails | null;
+}
+
 function statusIcon(status: CheckStatus) {
   if (status === "operational") return <CheckCircle2 size={18} />;
   if (status === "degraded") return <AlertTriangle size={18} />;
@@ -93,6 +131,73 @@ function CheckCard({ check }: { check: SystemCheck }) {
   );
 }
 
+function ReplicationStatusCard({ check }: { check: SystemCheck }) {
+  const details = asReplicationDetails(check) ?? {};
+  const modeLabel =
+    details.mode === "strict_dual_write"
+      ? "Strict dual write"
+      : details.mode === "disabled"
+        ? "Disabled"
+        : "Async outbox";
+  const pending = Number(details.pendingEvents ?? 0);
+  const processing = Number(details.processingEvents ?? 0);
+  const failed = Number(details.failedEvents ?? 0);
+  const deadLetter = Number(details.deadLetterEvents ?? 0);
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-brand-700">
+            <DatabaseZap size={18} />
+            <span>Backup Replication</span>
+          </div>
+          <h2 className="mt-2 text-lg font-semibold text-slate-900">
+            {details.primaryDatabaseName ?? "Primary"} to {details.backupDatabaseName ?? "Backup"}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{check.message}</p>
+        </div>
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[check.status]}`}>
+          {statusLabels[check.status]}
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Mode</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">{modeLabel}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Open Events</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">{pending + processing}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Failures</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">{failed + deadLetter}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Lag</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">
+            {formatDuration(Number(details.replicationLagMs ?? 0))}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <span>{check.required ? "Readiness required" : "Readiness optional"}</span>
+        <span>{details.strictModeActive ? "Strict mode active" : "Strict mode inactive"}</span>
+        <span>Last sync {formatTime(details.lastSuccessfulSync ?? undefined)}</span>
+      </div>
+
+      {check.action ? (
+        <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+          {check.action}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export default function SystemHealthPage() {
   const healthQuery = useQuery({
     queryKey: ["system-health"],
@@ -108,6 +213,12 @@ export default function SystemHealthPage() {
     const health = healthQuery.data;
     return [...(health?.dependencies ?? []), ...(health?.configuration ?? [])];
   }, [healthQuery.data]);
+  const replicationCheck = healthQuery.data?.dependencies.find(
+    (check) => check.key === "backupDatabaseReplication"
+  );
+  const dependencies = (healthQuery.data?.dependencies ?? []).filter(
+    (check) => check.key !== "backupDatabaseReplication"
+  );
 
   const criticalIssues = checks.filter((check) => check.required && check.status !== "operational");
 
@@ -177,8 +288,10 @@ export default function SystemHealthPage() {
         </section>
       ) : null}
 
+      {replicationCheck ? <ReplicationStatusCard check={replicationCheck} /> : null}
+
       <section className="grid gap-4 xl:grid-cols-3">
-        {(healthQuery.data?.dependencies ?? []).map((check) => (
+        {dependencies.map((check) => (
           <CheckCard key={check.key} check={check} />
         ))}
       </section>
