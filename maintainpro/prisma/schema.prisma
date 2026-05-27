@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mongodb"
-  url      = env("MONGODB_URI")
+  url      = env("DATABASE_URL")
 }
 
 model Tenant {
@@ -103,6 +103,48 @@ enum AuditAction {
   CREATE
   UPDATE
   DELETE
+}
+
+enum ReplicationOperation {
+  CREATE
+  UPDATE
+  UPSERT
+  DELETE
+}
+
+enum ReplicationOutboxStatus {
+  PENDING
+  PROCESSING
+  SYNCED
+  FAILED
+  DEAD_LETTER
+}
+
+model ReplicationOutbox {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?                 @db.ObjectId
+  entityType     String
+  entityId       String
+  operation      ReplicationOperation
+  payload        Json?
+  modelName      String
+  status         ReplicationOutboxStatus @default(PENDING)
+  attemptCount   Int                     @default(0)
+  lastError      String?
+  nextRetryAt    DateTime                @default(now())
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  syncedAt       DateTime?
+  sourceDatabase String                  @default("primary")
+  targetDatabase String                  @default("backup")
+  correlationId  String
+  actorUserId    String?                 @db.ObjectId
+
+  @@index([status, nextRetryAt])
+  @@index([entityType, entityId])
+  @@index([tenantId, status])
+  @@index([createdAt])
+  @@index([correlationId])
 }
 
 model Permission {
