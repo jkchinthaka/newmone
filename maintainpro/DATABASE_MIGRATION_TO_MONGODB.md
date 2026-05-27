@@ -4,36 +4,49 @@ This runbook is the active database rollout path for MaintainPro. The Prisma dat
 
 ## Target State
 
-- Primary database: MongoDB Atlas or an authenticated MongoDB 7 replica set.
+- Primary database: MongoDB Atlas database `nelna`.
+- Backup database: authenticated local MongoDB 7 replica set database `bileeta_db`.
 - Application ORM: Prisma Client generated from `prisma/schema.prisma`.
-- Required database name for this rollout: `bileeta_db`.
-- Local target URI shape: `mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db`.
-- Docker target URI shape: `mongodb://<username>:<password>@mongo:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0`.
-- Atlas target URI shape: `mongodb+srv://<username>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority`.
+- Prisma datasource: `DATABASE_URL=${PRIMARY_DATABASE_URL}`.
+- Backup target URI shape: `mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0`.
+- Docker backup URI shape: `mongodb://<username>:<password>@mongo:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0`.
+- Atlas primary URI shape: `mongodb+srv://<username>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority`.
 
 ## Required Environment Variables
 
 ```env
 DATABASE_PROVIDER=mongodb
-MONGO_DATABASE_NAME=bileeta_db
+PRIMARY_DATABASE_URL=mongodb+srv://<username>:<password>@<atlas-host>/nelna?retryWrites=true&w=majority
+BACKUP_DATABASE_URL=mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0
+DATABASE_URL=${PRIMARY_DATABASE_URL}
+MONGODB_URI=${PRIMARY_DATABASE_URL}
+PRIMARY_DATABASE_NAME=nelna
+BACKUP_DATABASE_NAME=bileeta_db
+MONGO_DATABASE_NAME=nelna
 MONGO_SYNC_ON_STARTUP=false
-MONGODB_URI=mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db
-DATABASE_URL=mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db
+DATABASE_REPLICATION_ENABLED=true
+DATABASE_REPLICATION_MODE=async_outbox
+DATABASE_REPLICATION_RETRY_ATTEMPTS=5
+DATABASE_REPLICATION_RETRY_DELAY_MS=5000
+DATABASE_REPLICATION_BATCH_SIZE=100
+BACKUP_DATABASE_REQUIRED_FOR_READINESS=false
+BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE=true
 ```
 
-`DATABASE_URL` is kept for Prisma compatibility and must point to the same database as `MONGODB_URI`.
+`DATABASE_URL` is kept for Prisma compatibility and must resolve to `PRIMARY_DATABASE_URL`.
 
 Never commit real credentials. If a credential was pasted into a committed file or shared terminal output, rotate it before go-live.
 
-## Local MongoDB Setup
+## Local Backup MongoDB Setup
 
-1. Create a MongoDB 7 database named `bileeta_db`.
-2. Create an application user in `bileeta_db` with `readWrite` on `bileeta_db`.
-3. Copy `.env.local.example` to `.env` and replace placeholders with the real local user and URL-encoded password.
-4. Confirm the URI authenticates against `authSource=bileeta_db`.
+1. Create a MongoDB 7 single-node replica set named `rs0`.
+2. Create a database named `bileeta_db`.
+3. Create an application user in `bileeta_db` with `readWrite` on `bileeta_db`.
+4. Copy `.env.local.example` to `.env` and replace placeholders with the real Atlas primary URI and local backup URI.
+5. Confirm the backup URI authenticates against `authSource=bileeta_db`.
 
 ```bash
-mongosh "mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db" --eval "db.runCommand({ ping: 1 })"
+mongosh "mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0" --eval "db.runCommand({ ping: 1 })"
 ```
 
 ## Docker MongoDB Setup
@@ -46,7 +59,7 @@ mongosh "mongodb://<username>:<password>@localhost:27017/bileeta_db?authSource=b
 npm run docker:up:dev
 ```
 
-The Docker init script creates the app user in `bileeta_db` on a new Mongo volume. If an older unauthenticated volume already exists, stop the stack and either migrate its data into the new database or create a fresh volume intentionally. Do not delete data-bearing volumes without an approved backup.
+The Docker init script creates the backup app user in `bileeta_db` on a new Mongo volume. If an older unauthenticated volume already exists, stop the stack and either migrate its data into the new database or create a fresh volume intentionally. Do not delete data-bearing volumes without an approved backup.
 
 ## Schema Rollout
 
@@ -81,17 +94,36 @@ After seeding, confirm expected access paths:
 npm run test --workspace @maintainpro/api -- --runTestsByPath test/roles.guard.spec.ts test/permissions.guard.spec.ts test/vehicles-phase2.http-e2e.spec.ts test/phase3-workflow.http-e2e.spec.ts
 ```
 
+## Backup Replication Verification
+
+Use the dual-database runbook for operational details: [DUAL_DATABASE_REPLICATION.md](DUAL_DATABASE_REPLICATION.md).
+
+Before relying on the backup database, run:
+
+```bash
+npm run db:backup:resync -- --dry-run
+npm run db:backup:verify
+```
+
+After backup connectivity is confirmed and an operator approves repair:
+
+```bash
+npm run db:backup:resync
+npm run db:backup:verify
+```
+
 ## Application Readiness Checks
 
 1. Start or deploy the API.
 2. Open `/health` and `/health/ready`.
-3. Confirm the database check reports MongoDB connectivity as healthy.
-4. Confirm optional providers report their real state:
+3. Confirm the primary database check reports MongoDB Atlas connectivity as healthy.
+4. Confirm the backup replication check reports the backup database status, pending events, failures, last successful sync, and lag.
+5. Confirm optional providers report their real state:
    - SMTP disabled or configured.
    - SMS disabled or configured.
    - ERP `mock` blocked in production unless explicitly allowed, or HTTP configured.
    - Push `noop` or HTTP configured.
-5. Run the deployment smoke script against hosted services.
+6. Run the deployment smoke script against hosted services.
 
 ```bash
 $env:MAINTAINPRO_WEB_URL="https://app.example.com"
@@ -106,6 +138,7 @@ npm run smoke:deploy
 Before production rollout:
 
 - Take a MongoDB Atlas backup or snapshot.
+- Preserve the local backup MongoDB volume or snapshot.
 - Record the deployed Git SHA, Render deploy id, and web deploy id.
 - Export a copy of production environment variable names without secret values.
 
@@ -125,7 +158,7 @@ If rollout fails after production writes have started:
 
 ## Credential Rotation Checklist
 
-- Rotate MongoDB app user password before production launch.
+- Rotate both primary Atlas and backup MongoDB app user passwords before production launch.
 - Rotate JWT secrets if they were used in local testing or shared outside the secret manager.
 - Rotate SMTP, SMS, ERP, push, Cloudinary, Stripe, Google, and RapidAPI keys before enabling those providers in production.
 - Redeploy API after changing backend secrets.
@@ -138,6 +171,7 @@ Proceed only when all are true:
 - `npm run db:generate` passes.
 - `npm run db:push` has been rehearsed on staging.
 - `npm run db:seed` passes seed verification.
+- `npm run db:backup:verify` passes after an approved resync or live replication window.
 - API typecheck, focused authorization/provider tests, and production build pass.
-- `/health/ready` shows MongoDB ready and optional providers either configured or intentionally disabled.
+- `/health/ready` shows the primary database ready, backup replication visible, and optional providers either configured or intentionally disabled.
 - Custom domains, DNS, HTTPS, and CORS are verified against final production origins.

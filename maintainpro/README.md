@@ -19,7 +19,9 @@ flowchart LR
   Mobile[Flutter App] --> API[NestJS API]
   Nginx --> API
   Nginx --> Web
-  API --> MongoDB[(MongoDB)]
+  API --> Atlas[(MongoDB Atlas Primary: nelna)]
+  API --> Outbox[(ReplicationOutbox)]
+  Outbox --> Backup[(Local MongoDB Backup: bileeta_db)]
   API --> Redis[(Redis)]
   API --> MinIO[(MinIO Object Storage)]
   API --> Queue[Bull Queues]
@@ -147,8 +149,10 @@ See `.env.example` for all variables.
 Critical required keys for backend startup:
 
 - `CORS_ORIGIN`, `FRONTEND_URL`
-- `MONGODB_URI`
-- `DATABASE_URL` using the same MongoDB URI for Prisma compatibility
+- `PRIMARY_DATABASE_URL` for MongoDB Atlas primary database `nelna`
+- `BACKUP_DATABASE_URL` for local MongoDB backup database `bileeta_db`
+- `DATABASE_URL=${PRIMARY_DATABASE_URL}` for Prisma compatibility
+- `DATABASE_REPLICATION_MODE=async_outbox` unless strict dual-write behavior is explicitly approved
 - `JWT_SECRET`, or both `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
 
 Optional backend integrations:
@@ -165,6 +169,7 @@ Optional backend integrations:
 - `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
 - `RAPIDAPI_QR_CODE_COLOR`, `RAPIDAPI_QR_CODE_BG_COLOR` customize provider-generated QR colors when the RapidAPI QR provider is enabled.
 - `MONGO_SYNC_ON_STARTUP=false` is the production default. The legacy Mongoose mirror service should only be enabled for a rehearsed compatibility sync.
+- `DATABASE_REPLICATION_ENABLED`, `DATABASE_REPLICATION_RETRY_ATTEMPTS`, `DATABASE_REPLICATION_RETRY_DELAY_MS`, `DATABASE_REPLICATION_BATCH_SIZE`, `BACKUP_DATABASE_REQUIRED_FOR_READINESS`, and `BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE` control primary-to-backup replication behavior.
 
 Frontend runtime keys:
 
@@ -178,12 +183,15 @@ Frontend runtime keys:
 - Generate client: `npm run db:generate`
 - Push schema to MongoDB: `npm run db:push`
 - Seed data: `npm run db:seed`
+- Dry-run backup resync: `npm run db:backup:resync -- --dry-run`
+- Apply primary-to-backup resync: `npm run db:backup:resync`
+- Verify backup counts/checksums/outbox lag: `npm run db:backup:verify`
 
 `npm run db:migrate` is retained as a compatibility alias for `db:push` because Prisma MongoDB does not use SQL migration files for active rollout. Historical folders under `prisma/migrations/` are legacy metadata and are not the production rollout path.
 
 Seed includes baseline roles, permissions, admin users, and sample domain entities across assets, vehicles, inventory, work orders, and utilities.
 
-For the production database rollout checklist, see [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md).
+For the production database rollout checklist, see [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md). For the dual-database runbook, see [DUAL_DATABASE_REPLICATION.md](DUAL_DATABASE_REPLICATION.md).
 
 ## CI/CD
 

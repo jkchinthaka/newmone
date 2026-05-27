@@ -4,7 +4,7 @@ This guide prepares MaintainPro for a low-cost production deployment using:
 
 - Frontend: Vercel
 - Backend API: Render Web Service
-- Database: MongoDB Atlas M0 Free Tier
+- Database: MongoDB Atlas M0 Free Tier primary plus local MongoDB backup replication target
 - File storage: Cloudinary when configured, with local filesystem fallback for development
 
 ## 1. Project Structure
@@ -19,7 +19,7 @@ MaintainPro is an npm workspace monorepo.
 
 Run commands from the `maintainpro` directory unless a platform setting says otherwise.
 
-## 2. MongoDB Atlas Free Tier
+## 2. MongoDB Atlas Primary And Local Backup
 
 1. Create a MongoDB Atlas account.
 2. Create an M0 free cluster.
@@ -31,13 +31,19 @@ Run commands from the `maintainpro` directory unless a platform setting says oth
      - `74.220.57.0/24`
    - Quick trial fallback: `0.0.0.0/0` (less secure; avoid for long-term production).
 5. Click Connect, choose Drivers, and copy the Node.js connection string.
-6. Replace the username, password, cluster host, and database name. Use the launch database path, for example `/bileeta_db`.
-7. Set both Render variables to the same Atlas URI:
+6. Replace the username, password, cluster host, and database name. Use the primary database path `/nelna`.
+7. Provision a local or private MongoDB 7 backup target as a single-node replica set named `rs0` with database `bileeta_db`.
+8. Set Render variables with Atlas as primary and local MongoDB as backup:
    - `DATABASE_PROVIDER=mongodb`
-   - `MONGO_DATABASE_NAME=bileeta_db`
+   - `PRIMARY_DATABASE_NAME=nelna`
+   - `BACKUP_DATABASE_NAME=bileeta_db`
+   - `MONGO_DATABASE_NAME=nelna`
    - `MONGO_SYNC_ON_STARTUP=false`
-   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority`
-   - `DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority`
+   - `PRIMARY_DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority`
+   - `BACKUP_DATABASE_URL=mongodb://<user>:<password>@<backup-host>:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0`
+   - `DATABASE_URL=${PRIMARY_DATABASE_URL}`
+   - `MONGODB_URI=${PRIMARY_DATABASE_URL}`
+   - `DATABASE_REPLICATION_MODE=async_outbox`
 
 Before routing production traffic, push the Prisma MongoDB schema and seed initial data from a Render shell or a one-off job:
 
@@ -68,10 +74,21 @@ Required Render environment variables:
 ```env
 NODE_ENV=production
 DATABASE_PROVIDER=mongodb
-MONGO_DATABASE_NAME=bileeta_db
+PRIMARY_DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/nelna?retryWrites=true&w=majority
+BACKUP_DATABASE_URL=mongodb://<user>:<password>@<backup-host>:27017/bileeta_db?authSource=bileeta_db&replicaSet=rs0
+DATABASE_URL=${PRIMARY_DATABASE_URL}
+MONGODB_URI=${PRIMARY_DATABASE_URL}
+PRIMARY_DATABASE_NAME=nelna
+BACKUP_DATABASE_NAME=bileeta_db
+MONGO_DATABASE_NAME=nelna
 MONGO_SYNC_ON_STARTUP=false
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority
-DATABASE_URL=mongodb+srv://<user>:<password>@<cluster-host>/bileeta_db?retryWrites=true&w=majority
+DATABASE_REPLICATION_ENABLED=true
+DATABASE_REPLICATION_MODE=async_outbox
+DATABASE_REPLICATION_RETRY_ATTEMPTS=5
+DATABASE_REPLICATION_RETRY_DELAY_MS=5000
+DATABASE_REPLICATION_BATCH_SIZE=100
+BACKUP_DATABASE_REQUIRED_FOR_READINESS=false
+BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE=true
 JWT_SECRET=<strong-random-secret>
 CORS_ORIGIN=https://your-vercel-app.vercel.app
 FRONTEND_URL=https://your-vercel-app.vercel.app
@@ -124,6 +141,8 @@ Notes:
 - Render injects `PORT`; do not hardcode it in production.
 - `JWT_SECRET` is enough for low-cost deployment. `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` remain supported if you want split secrets.
 - Without `REDIS_URL`, background queues may be degraded, but the API can boot and `/health` will still report database status.
+- Database replication does not require Redis. `/health/ready` and the System Health page report primary DB status, backup DB status, pending events, failures, last successful sync, lag, and strict mode state.
+- `GET /api/admin/replication/status` is read-only and requires `settings.system.manage`.
 - Cloudinary is recommended for persistent file uploads on Render. Render free instance disk is ephemeral.
 - Leave SMTP, SMS, ERP, and push enable flags as `false` until provider credentials and webhook/firewall requirements are verified. `/health/ready` reports each provider as configured, disabled, or degraded.
 - Keep `ERP_SYNC_PROVIDER=mock` only for trials. For production ERP sync, switch to `http` and set `ERP_API_URL` plus `ERP_API_KEY`; mock mode is blocked in production unless explicitly allowed.
@@ -204,7 +223,8 @@ The smoke test verifies:
 
 - Vercel frontend returns valid Next.js HTML
 - Render `/health` is reachable
-- MongoDB Atlas status is operational
+- MongoDB Atlas primary status is operational
+- Backup replication status, lag, failed events, and dead-letter events are visible in `/health/ready`
 - `/health/ready` reports required services as `ok` and optional disabled providers as intentionally disabled, not misconfigured
 - CORS accepts the Vercel origin with credentials
 - Login endpoint returns a valid response without exposing `passwordHash`
@@ -250,14 +270,22 @@ Check Render environment variables:
 Open `https://your-render-api.onrender.com/health`.
 
 - If database is degraded, verify Atlas credentials and Network Access.
+- If backup replication is degraded, verify `BACKUP_DATABASE_URL`, replica set `rs0`, auth source, and `ReplicationOutbox` failed/dead-letter counts.
 - If readiness shows Redis, SMTP, or storage degraded, configure those optional providers or keep them disabled during low-cost trials.
 
 ### Prisma or MongoDB connection errors
 
-- Confirm the Atlas URI contains the database name after the host.
+- Confirm the Atlas URI contains `/nelna` after the host and the backup URI contains `/bileeta_db`.
 - Confirm username/password are URL encoded if they contain special characters.
 - Confirm Atlas Network Access allows Render.
-- Confirm both `MONGODB_URI` and `DATABASE_URL` are present during Render build and runtime and point to the same MongoDB database.
+- Confirm `DATABASE_URL` resolves to `PRIMARY_DATABASE_URL`, and `BACKUP_DATABASE_URL` points to the local backup replica set.
+
+### Backup replication lag or dead-letter events
+
+- Open `/api/health/ready` and check `backupDatabaseReplication.details`.
+- Run `npm run db:backup:verify` from a trusted shell with primary and backup variables configured.
+- Use `npm run db:backup:resync -- --dry-run` before applying a full resync.
+- Apply `npm run db:backup:resync` after connectivity is restored and an operator has approved the repair.
 - Confirm schema rollout used `npm run db:push`, not SQL migration commands.
 
 ### Uploaded files disappear
