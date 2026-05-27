@@ -27,6 +27,10 @@ services:
         value: nelna
       - key: BACKUP_DATABASE_NAME
         value: bileeta_db
+      - key: DATABASE_SERVER_SELECTION_TIMEOUT_MS
+        value: "5000"
+      - key: DATABASE_CONNECT_TIMEOUT_MS
+        value: "5000"
       - key: MONGO_DATABASE_NAME
         value: nelna
       - key: MONGODB_URI

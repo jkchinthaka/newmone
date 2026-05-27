@@ -27,7 +27,7 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
       response?: {
         status?: number;
         data?: {
-          error?: { message?: string | string[] };
+          error?: { code?: string; message?: string | string[] };
           message?: string | string[];
         };
       };
@@ -42,6 +42,12 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     }
     if (!candidate.response && candidate.code === "ERR_NETWORK") {
       return "API is unreachable. Start the MaintainPro API and check the system health page.";
+    }
+    if (
+      candidate.response?.status === 503 ||
+      candidate.response?.data?.error?.code === "DATABASE_UNAVAILABLE"
+    ) {
+      return "API is temporarily unavailable because the database is not reachable. Check the system health page and Render database configuration.";
     }
     if (
       !candidate.response &&

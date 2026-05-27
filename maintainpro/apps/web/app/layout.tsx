@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "MaintainPro"
   },
+  other: {
+    "mobile-web-app-capable": "yes"
+  },
   icons: {
     icon: "/favicon.svg",
     apple: "/pwa-192x192.svg"

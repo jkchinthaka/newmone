@@ -10,6 +10,8 @@ export const envValidationSchema = Joi.object({
   BACKUP_DATABASE_URL: Joi.string().allow(""),
   PRIMARY_DATABASE_NAME: Joi.string().allow("").default("nelna"),
   BACKUP_DATABASE_NAME: Joi.string().allow("").default("bileeta_db"),
+  DATABASE_SERVER_SELECTION_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
+  DATABASE_CONNECT_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
   DATABASE_REPLICATION_ENABLED: Joi.boolean().default(true),
   DATABASE_REPLICATION_MODE: Joi.string()
     .valid("async_outbox", "strict_dual_write", "disabled")

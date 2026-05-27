@@ -60,47 +60,10 @@ import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
+import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
-if (!process.env.NODE_ENV && process.env.RENDER) {
-  process.env.NODE_ENV = "production";
-}
-
-const resolveEnvReference = (value: string | undefined): string | undefined => {
-  const match = /^\$\{([A-Z0-9_]+)\}$/.exec((value ?? "").trim());
-  return match ? process.env[match[1]] : value;
-};
-
-for (const key of ["PRIMARY_DATABASE_URL", "DATABASE_URL", "MONGODB_URI", "BACKUP_DATABASE_URL"] as const) {
-  const resolved = resolveEnvReference(process.env[key]);
-  if (resolved) {
-    process.env[key] = resolved;
-  }
-}
-
-if (!process.env.PRIMARY_DATABASE_URL && process.env.DATABASE_URL) {
-  process.env.PRIMARY_DATABASE_URL = process.env.DATABASE_URL;
-}
-
-if (!process.env.DATABASE_URL && process.env.PRIMARY_DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.PRIMARY_DATABASE_URL;
-}
-
-if (!process.env.DATABASE_URL && process.env.MONGODB_URI) {
-  process.env.DATABASE_URL = process.env.MONGODB_URI;
-  process.env.PRIMARY_DATABASE_URL = process.env.MONGODB_URI;
-}
-
-if ((!process.env.MONGODB_URI || process.env.MONGODB_URI === "${PRIMARY_DATABASE_URL}") && process.env.DATABASE_URL) {
-  process.env.MONGODB_URI = process.env.DATABASE_URL;
-}
-
-if (!process.env.FRONTEND_URL && process.env.CORS_ORIGIN) {
-  process.env.FRONTEND_URL = String(process.env.CORS_ORIGIN)
-    .split(",")
-    .map((value) => value.trim())
-    .find(Boolean);
-}
+normalizeDatabaseEnvironment();
 
 @Module({
   controllers: [HealthController],

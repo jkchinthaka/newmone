@@ -80,6 +80,8 @@ DATABASE_URL=${PRIMARY_DATABASE_URL}
 MONGODB_URI=${PRIMARY_DATABASE_URL}
 PRIMARY_DATABASE_NAME=nelna
 BACKUP_DATABASE_NAME=bileeta_db
+DATABASE_SERVER_SELECTION_TIMEOUT_MS=5000
+DATABASE_CONNECT_TIMEOUT_MS=5000
 MONGO_DATABASE_NAME=nelna
 MONGO_SYNC_ON_STARTUP=false
 DATABASE_REPLICATION_ENABLED=true
@@ -147,6 +149,7 @@ Notes:
 - Leave SMTP, SMS, ERP, and push enable flags as `false` until provider credentials and webhook/firewall requirements are verified. `/health/ready` reports each provider as configured, disabled, or degraded.
 - Keep `ERP_SYNC_PROVIDER=mock` only for trials. For production ERP sync, switch to `http` and set `ERP_API_URL` plus `ERP_API_KEY`; mock mode is blocked in production unless explicitly allowed.
 - If Atlas (or another external provider) enforces IP allowlists, include your Render outbound CIDRs (`74.220.49.0/24`, `74.220.57.0/24`) in that provider's firewall rules.
+- Keep `DATABASE_SERVER_SELECTION_TIMEOUT_MS` and `DATABASE_CONNECT_TIMEOUT_MS` configured so an unreachable database fails fast instead of leaving login requests hanging.
 
 ## 4. Vercel Frontend Settings
 
