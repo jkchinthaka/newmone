@@ -37,6 +37,18 @@ const AUDIT_SKIP_MODELS = new Set<string>([
 const REPLICATION_SKIP_MODELS = new Set<string>(["ReplicationOutbox"]);
 
 const REPLICATION_PREFETCH_LIMIT = 1_000;
+type PrismaTransactionOptions = {
+  maxWait?: number;
+  timeout?: number;
+  isolationLevel?: unknown;
+};
+type PrismaBatchTransactionOptions = {
+  isolationLevel?: unknown;
+};
+type PrismaPromiseValue<T> = T extends Prisma.PrismaPromise<infer R> ? R : never;
+type PrismaBatchTransactionResult<T extends readonly Prisma.PrismaPromise<unknown>[]> = {
+  [K in keyof T]: PrismaPromiseValue<T[K]>;
+};
 
 /** Field names that change on every write but carry no business meaning. */
 const NOISY_FIELDS = new Set<string>(["updatedAt", "createdAt", "id"]);
@@ -233,7 +245,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     await this.backupClient.$runCommandRaw({ ping: 1 });
   }
 
-  $transaction(input: any, options?: any): Promise<any> {
+  $transaction<R>(
+    fn: (prisma: Prisma.TransactionClient) => Promise<R>,
+    options?: PrismaTransactionOptions
+  ): Promise<R>;
+  $transaction<T extends readonly Prisma.PrismaPromise<unknown>[]>(
+    operations: [...T],
+    options?: PrismaBatchTransactionOptions
+  ): Promise<PrismaBatchTransactionResult<T>>;
+  $transaction(input: unknown, options?: PrismaTransactionOptions | PrismaBatchTransactionOptions): Promise<unknown> {
     if (!this.shouldCaptureReplication()) {
       return (super.$transaction as any)(input, options);
     }

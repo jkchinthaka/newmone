@@ -63,21 +63,24 @@ The current implementation before this change used a single MongoDB Prisma datas
 - Error messages shown in logs/readiness are sanitized with database URL masking.
 - The admin replication endpoint is authenticated and requires `settings.system.manage`.
 
-## Verification Plan
+## Validation Evidence
 
-Validation will be completed with:
+Passed:
 
-```bash
-npm run db:generate
-npx prisma validate --schema ./prisma/schema.prisma
-npm run typecheck --workspace @maintainpro/api
-npm run typecheck --workspace @maintainpro/web
-npm run test --workspace @maintainpro/api -- --runTestsByPath test/database-replication.spec.ts
-npm run test --workspace @maintainpro/api
-npm run build
-docker compose -f docker-compose.dev.yml config
-docker compose -f docker-compose.yml config
-```
+- `npm run db:generate`
+- `npx prisma validate --schema ./prisma/schema.prisma`
+- `npm run typecheck --workspace @maintainpro/api`
+- `npm run typecheck --workspace @maintainpro/web`
+- `npx jest --config jest.config.cjs --runTestsByPath test/database-replication.spec.ts` from `apps/api` with 7 tests passed
+- Full API Jest suite from `apps/api`: 19 suites, 100 tests passed
+- `npm run build`
+- `docker compose -f docker-compose.dev.yml config > $null`
+- `docker compose -f docker-compose.yml config > $null`
+- VS Code diagnostics for touched replication/API/web test files: no errors
+
+Notes:
+
+- Jest emitted the existing `ts-jest` hybrid module warning and one open-handle shutdown warning after the full suite. No tests failed.
 
 ## Residual Risks And Operator Notes
 
