@@ -116,6 +116,18 @@ These are operational actions, not code blockers:
 - Run hosted smoke tests against the final web and API domains.
 - Keep ERP and push intentionally disabled if vendors are not selected for launch.
 
+## Dual Database Replication Addendum
+
+Status: implemented, pending final environment rehearsal.
+
+- MongoDB Atlas `nelna` is now the documented primary database and local MongoDB `bileeta_db` is the backup replication target.
+- Added primary/backup Prisma client ownership, primary-side `ReplicationOutbox`, retrying polling sync worker, strict dual-write mode, and disabled mode.
+- Readiness now reports primary DB health, backup DB status, replication lag, failed/dead-letter events, last successful sync, and strict-mode state.
+- Added protected read-only replication admin endpoint and System Health dashboard card.
+- Added manual `db:backup:resync` and `db:backup:verify` scripts.
+- Added [DUAL_DATABASE_REPLICATION.md](DUAL_DATABASE_REPLICATION.md) and [DUAL_DATABASE_REPLICATION_REPORT.md](DUAL_DATABASE_REPLICATION_REPORT.md).
+- Keep `MONGO_SYNC_ON_STARTUP=false`; the legacy startup sync is not the production replication path.
+
 ## Final Assessment
 
 Production hardening blockers from the readiness report are now either resolved in code/docs or explicitly de-scoped behind provider flags and readiness reporting. The application is ready for a staged production rehearsal using the MongoDB rollout runbook and final environment/provider credentials.

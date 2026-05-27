@@ -15,16 +15,38 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PRIMARY_DATABASE_URL
+        sync: false
+      - key: BACKUP_DATABASE_URL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_PROVIDER
         value: mongodb
+      - key: PRIMARY_DATABASE_NAME
+        value: nelna
+      - key: BACKUP_DATABASE_NAME
+        value: bileeta_db
       - key: MONGO_DATABASE_NAME
-        sync: false
+        value: nelna
       - key: MONGODB_URI
         sync: false
       - key: MONGO_SYNC_ON_STARTUP
         value: "false"
+      - key: DATABASE_REPLICATION_ENABLED
+        value: "true"
+      - key: DATABASE_REPLICATION_MODE
+        value: async_outbox
+      - key: DATABASE_REPLICATION_RETRY_ATTEMPTS
+        value: "5"
+      - key: DATABASE_REPLICATION_RETRY_DELAY_MS
+        value: "5000"
+      - key: DATABASE_REPLICATION_BATCH_SIZE
+        value: "100"
+      - key: BACKUP_DATABASE_REQUIRED_FOR_READINESS
+        value: "false"
+      - key: BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE
+        value: "true"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_ACCESS_SECRET
