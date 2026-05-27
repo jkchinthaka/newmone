@@ -1,7 +1,21 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
+
 import { INestApplication, Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, ReplicationOperation, ReplicationOutbox } from "@prisma/client";
 
 import { requestContext } from "../common/context/request-context";
+import {
+  DatabaseReplicationConfig,
+  getDatabaseReplicationConfig,
+  sanitizeReplicationError
+} from "./replication.config";
+import {
+  applyReplicationEventToBackup,
+  isSyncableModel,
+  sanitizeRecordForModel,
+  toOutboxJson
+} from "./replication.utils";
 
 /**
  * Models that must NOT be audited:
@@ -15,9 +29,14 @@ const AUDIT_SKIP_MODELS = new Set<string>([
   "MongoSyncResume",
   "Session",
   "OutboxEvent",
+  "ReplicationOutbox",
   "UsageEvent",
   "UsageMetric"
 ]);
+
+const REPLICATION_SKIP_MODELS = new Set<string>(["ReplicationOutbox"]);
+
+const REPLICATION_PREFETCH_LIMIT = 1_000;
 
 /** Field names that change on every write but carry no business meaning. */
 const NOISY_FIELDS = new Set<string>(["updatedAt", "createdAt", "id"]);
@@ -36,6 +55,22 @@ const MUTATION_ACTIONS = new Set<Prisma.PrismaAction>([
 ]);
 
 type Json = Prisma.InputJsonValue;
+
+interface ReplicationCandidate {
+  modelName: string;
+  entityId: string;
+  operation: ReplicationOperation;
+  payload: Record<string, unknown> | null;
+  tenantId: string | null;
+  actorUserId: string | null;
+  correlationId: string;
+}
+
+interface ReplicationTransactionContext {
+  events: ReplicationCandidate[];
+}
+
+const replicationTransactionContext = new AsyncLocalStorage<ReplicationTransactionContext>();
 
 function safeStringify(value: unknown): string {
   try {
@@ -108,8 +143,36 @@ function camelCase(modelName: string): string {
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
+  private readonly replicationConfig: DatabaseReplicationConfig;
+  private readonly backupClient: PrismaClient | null;
+
+  constructor() {
+    const replicationConfig = getDatabaseReplicationConfig();
+    if (replicationConfig.primaryDatabaseUrl) {
+      process.env.DATABASE_URL = replicationConfig.primaryDatabaseUrl;
+      process.env.PRIMARY_DATABASE_URL = replicationConfig.primaryDatabaseUrl;
+      process.env.MONGODB_URI = process.env.MONGODB_URI || replicationConfig.primaryDatabaseUrl;
+    }
+
+    super();
+
+    this.replicationConfig = replicationConfig;
+    this.backupClient =
+      replicationConfig.enabled && replicationConfig.backupDatabaseUrl
+        ? new PrismaClient({
+            datasources: {
+              db: {
+                url: replicationConfig.backupDatabaseUrl
+              }
+            }
+          })
+        : null;
+  }
 
   async onModuleInit(): Promise<void> {
+    this.installReplicationMiddleware();
+    this.installAuditMiddleware();
+
     try {
       await this.$connect();
     } catch (error) {
@@ -119,13 +182,304 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       );
     }
 
-    this.installAuditMiddleware();
+    if (this.backupClient) {
+      try {
+        await this.backupClient.$connect();
+      } catch (error) {
+        this.logger.warn(
+          `Backup database connection failed during startup: ${sanitizeReplicationError(error)}`
+        );
+      }
+    }
   }
 
   async enableShutdownHooks(app: INestApplication): Promise<void> {
     process.on("beforeExit", async () => {
       await app.close();
     });
+  }
+
+  async disconnectAll(): Promise<void> {
+    await Promise.allSettled([this.$disconnect(), this.backupClient?.$disconnect()]);
+  }
+
+  getPrimary(): PrismaClient {
+    return this;
+  }
+
+  getBackup(): PrismaClient | null {
+    return this.backupClient;
+  }
+
+  getReplicationConfig(): DatabaseReplicationConfig {
+    return this.replicationConfig;
+  }
+
+  isBackupConfigured(): boolean {
+    return Boolean(this.backupClient);
+  }
+
+  async checkPrimary(): Promise<void> {
+    await Promise.all([this.user.count(), this.tenant.count()]);
+  }
+
+  async checkBackup(): Promise<void> {
+    if (!this.backupClient) {
+      throw new Error("Backup database is not configured.");
+    }
+
+    await this.backupClient.$runCommandRaw({ ping: 1 });
+  }
+
+  $transaction(input: any, options?: any): Promise<any> {
+    if (!this.shouldCaptureReplication()) {
+      return (super.$transaction as any)(input, options);
+    }
+
+    const existingContext = replicationTransactionContext.getStore();
+    if (existingContext) {
+      return (super.$transaction as any)(input, options);
+    }
+
+    const context: ReplicationTransactionContext = { events: [] };
+
+    return replicationTransactionContext.run(context, async () => {
+      const result = await (super.$transaction as any)(input, options);
+      await this.persistReplicationCandidates(context.events);
+      return result;
+    });
+  }
+
+  private shouldCaptureReplication(): boolean {
+    return this.replicationConfig.enabled && this.replicationConfig.mode !== "disabled";
+  }
+
+  private installReplicationMiddleware(): void {
+    if (!this.shouldCaptureReplication()) {
+      return;
+    }
+
+    this.$use(async (params, next) => {
+      const { model, action } = params;
+
+      if (
+        !model ||
+        !MUTATION_ACTIONS.has(action) ||
+        REPLICATION_SKIP_MODELS.has(model) ||
+        !isSyncableModel(model)
+      ) {
+        return next(params);
+      }
+
+      const beforeRows = await this.readBeforeRowsForReplication(model, action, params);
+      const result = await next(params);
+      const candidates = await this.buildReplicationCandidates(model, action, params, beforeRows, result);
+      await this.queueReplicationCandidates(candidates);
+
+      return result;
+    });
+  }
+
+  private async readBeforeRowsForReplication(
+    model: string,
+    action: Prisma.PrismaAction,
+    params: Prisma.MiddlewareParams
+  ): Promise<Array<Record<string, unknown>>> {
+    try {
+      const delegate = (this as unknown as Record<string, any>)[camelCase(model)];
+      const where = (params.args as { where?: unknown })?.where;
+
+      if ((action === "update" || action === "delete" || action === "upsert") && where && delegate?.findUnique) {
+        const found = await delegate.findUnique({ where });
+        return found ? [found as Record<string, unknown>] : [];
+      }
+
+      if ((action === "updateMany" || action === "deleteMany") && delegate?.findMany) {
+        const rows = await delegate.findMany({
+          where: where ?? {},
+          take: REPLICATION_PREFETCH_LIMIT
+        });
+        return (rows ?? []) as Array<Record<string, unknown>>;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `replication pre-fetch failed for ${model}.${action}: ${sanitizeReplicationError(error)}`
+      );
+    }
+
+    return [];
+  }
+
+  private async buildReplicationCandidates(
+    modelName: string,
+    action: Prisma.PrismaAction,
+    params: Prisma.MiddlewareParams,
+    beforeRows: Array<Record<string, unknown>>,
+    result: unknown
+  ): Promise<ReplicationCandidate[]> {
+    const ctx = requestContext.get();
+    const tenantIdFromContext = ctx?.tenantId ?? null;
+    const actorUserId = ctx?.actorId ?? null;
+    const correlationId = randomUUID();
+    const createCandidate = (
+      operation: ReplicationOperation,
+      entityId: string,
+      payload: Record<string, unknown> | null
+    ): ReplicationCandidate | null => {
+      if (!entityId) return null;
+      return {
+        modelName,
+        entityId,
+        operation,
+        payload,
+        tenantId: tenantIdFromContext ?? this.extractTenantId(payload),
+        actorUserId,
+        correlationId
+      };
+    };
+
+    const candidates: Array<ReplicationCandidate | null> = [];
+
+    if (action === "create") {
+      const payload = await this.findCurrentReplicationPayload(modelName, result);
+      const entityId = String(payload?.id ?? (result as { id?: unknown } | null)?.id ?? "");
+      candidates.push(createCandidate(ReplicationOperation.CREATE, entityId, payload));
+    } else if (action === "createMany") {
+      const data = (params.args as { data?: unknown })?.data;
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      for (const row of rows) {
+        const payload = sanitizeRecordForModel(modelName, row);
+        if (payload?.id && typeof payload.id === "string") {
+          candidates.push(createCandidate(ReplicationOperation.CREATE, payload.id, payload));
+        }
+      }
+    } else if (action === "update" || action === "upsert") {
+      const payload = await this.findCurrentReplicationPayload(modelName, result);
+      const entityId = String(
+        (payload?.id as string | undefined) ??
+          ((result as { id?: unknown } | null)?.id ?? extractIdFromWhere((params.args as { where?: unknown })?.where) ?? "")
+      );
+      candidates.push(
+        createCandidate(
+          action === "upsert" ? ReplicationOperation.UPSERT : ReplicationOperation.UPDATE,
+          entityId,
+          payload
+        )
+      );
+    } else if (action === "updateMany") {
+      for (const before of beforeRows) {
+        if (typeof before.id !== "string") continue;
+        const payload = await this.findCurrentReplicationPayload(modelName, before.id);
+        candidates.push(createCandidate(ReplicationOperation.UPDATE, before.id, payload));
+      }
+    } else if (action === "delete") {
+      const before = beforeRows[0] ?? null;
+      const payload = sanitizeRecordForModel(modelName, before);
+      const entityId = String(
+        payload?.id ?? extractIdFromWhere((params.args as { where?: unknown })?.where) ?? ""
+      );
+      candidates.push(createCandidate(ReplicationOperation.DELETE, entityId, payload));
+    } else if (action === "deleteMany") {
+      for (const before of beforeRows) {
+        const payload = sanitizeRecordForModel(modelName, before);
+        if (payload?.id && typeof payload.id === "string") {
+          candidates.push(createCandidate(ReplicationOperation.DELETE, payload.id, payload));
+        }
+      }
+    }
+
+    return candidates.filter((candidate): candidate is ReplicationCandidate => Boolean(candidate));
+  }
+
+  private async findCurrentReplicationPayload(
+    modelName: string,
+    valueOrId: unknown
+  ): Promise<Record<string, unknown> | null> {
+    const id = typeof valueOrId === "string" ? valueOrId : (valueOrId as { id?: unknown } | null)?.id;
+    const delegate = (this as unknown as Record<string, any>)[camelCase(modelName)];
+
+    if (typeof id === "string" && delegate?.findUnique) {
+      const found = await delegate.findUnique({ where: { id } });
+      const payload = sanitizeRecordForModel(modelName, found);
+      if (payload) return payload;
+    }
+
+    return sanitizeRecordForModel(modelName, valueOrId);
+  }
+
+  private async queueReplicationCandidates(candidates: ReplicationCandidate[]): Promise<void> {
+    if (candidates.length === 0) return;
+
+    const context = replicationTransactionContext.getStore();
+    if (context) {
+      context.events.push(...candidates);
+      return;
+    }
+
+    await this.persistReplicationCandidates(candidates);
+  }
+
+  private async persistReplicationCandidates(candidates: ReplicationCandidate[]): Promise<void> {
+    for (const candidate of candidates) {
+      const created = await this.replicationOutbox.create({
+        data: {
+          tenantId: candidate.tenantId,
+          actorUserId: candidate.actorUserId,
+          entityType: candidate.modelName,
+          entityId: candidate.entityId,
+          operation: candidate.operation,
+          modelName: candidate.modelName,
+          payload: toOutboxJson(candidate.payload),
+          status: "PENDING",
+          nextRetryAt: new Date(),
+          sourceDatabase: "primary",
+          targetDatabase: "backup",
+          correlationId: candidate.correlationId
+        }
+      });
+
+      if (this.replicationConfig.mode === "strict_dual_write") {
+        await this.applyStrictReplication(created);
+      }
+    }
+  }
+
+  private async applyStrictReplication(event: ReplicationOutbox): Promise<void> {
+    try {
+      const backup = this.backupClient;
+      if (!backup) {
+        throw new Error("Backup database is not configured for strict_dual_write mode.");
+      }
+
+      await applyReplicationEventToBackup(backup, event);
+      await this.replicationOutbox.update({
+        where: { id: event.id },
+        data: {
+          status: "SYNCED",
+          syncedAt: new Date(),
+          lastError: null,
+          attemptCount: { increment: 1 }
+        }
+      });
+    } catch (error) {
+      await this.replicationOutbox.update({
+        where: { id: event.id },
+        data: {
+          status: "FAILED",
+          attemptCount: { increment: 1 },
+          lastError: sanitizeReplicationError(error),
+          nextRetryAt: new Date(Date.now() + this.replicationConfig.retryDelayMs)
+        }
+      });
+
+      if (this.replicationConfig.backupRequiredForStrictMode) {
+        throw new Error(`Strict database replication failed: ${sanitizeReplicationError(error)}`);
+      }
+    }
+  }
+
+  private extractTenantId(payload: Record<string, unknown> | null): string | null {
+    return typeof payload?.tenantId === "string" ? payload.tenantId : null;
   }
 
   private installAuditMiddleware(): void {

@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 
 import { PrismaService } from "./database/prisma.service";
+import { ReplicationSyncService } from "./database/replication-sync.service";
+import { sanitizeReplicationError } from "./database/replication.config";
 
 export type CheckStatus = "operational" | "degraded" | "unconfigured";
 export type OverallStatus = "operational" | "degraded";
@@ -15,6 +17,7 @@ export interface DependencyCheck {
   latencyMs?: number;
   message: string;
   action?: string;
+  details?: Record<string, unknown>;
 }
 
 export interface ConfigCheck {
@@ -30,6 +33,7 @@ export interface ConfigCheck {
 export class HealthService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ReplicationSyncService) private readonly replicationSync: ReplicationSyncService,
     @Inject(ConfigService) private readonly configService: ConfigService
   ) {}
 
@@ -60,13 +64,14 @@ export class HealthService {
   }
 
   async getReadiness() {
-    const [database, redis, objectStorage] = await Promise.all([
+    const [database, backupReplication, redis, objectStorage] = await Promise.all([
       this.checkDatabase(),
+      this.checkBackupReplication(),
       this.checkRedis(),
       this.checkObjectStorage()
     ]);
 
-    const dependencies = [database, redis, objectStorage];
+    const dependencies = [database, backupReplication, redis, objectStorage];
     const configuration = this.getConfigurationChecks();
     const allChecks = [...dependencies, ...configuration];
     const requiredDown = allChecks.some(
@@ -92,31 +97,100 @@ export class HealthService {
 
   private async checkDatabase(): Promise<DependencyCheck> {
     const startedAt = performance.now();
+    const config = this.prisma.getReplicationConfig();
 
     try {
       await this.withTimeout(
-        Promise.all([this.prisma.user.count(), this.prisma.tenant.count()]),
+        this.prisma.checkPrimary(),
         2_500,
-        "Database check timed out"
+        "Primary database check timed out"
       );
 
       return {
-        key: "database",
-        label: "MongoDB / Prisma",
+        key: "primaryDatabase",
+        label: "Primary MongoDB / Prisma",
         status: "operational",
         required: true,
         latencyMs: this.elapsedMs(startedAt),
-        message: "Database connection and core collections are reachable."
+        message: "Primary database connection and core collections are reachable.",
+        details: {
+          databaseName: config.primaryDatabaseName || "unknown",
+          sourceOfTruth: true
+        }
       };
     } catch (error) {
       return {
-        key: "database",
-        label: "MongoDB / Prisma",
+        key: "primaryDatabase",
+        label: "Primary MongoDB / Prisma",
         status: "degraded",
         required: true,
         latencyMs: this.elapsedMs(startedAt),
         message: this.safeErrorMessage(error),
-        action: "Check MONGODB_URI, MongoDB replica set health, and run npm run db:seed after restoring the database."
+        action: "Check PRIMARY_DATABASE_URL/DATABASE_URL, Atlas connectivity, MongoDB replica set health, and run npm run db:seed after restoring the database.",
+        details: {
+          databaseName: config.primaryDatabaseName || "unknown",
+          sourceOfTruth: true
+        }
+      };
+    }
+  }
+
+  private async checkBackupReplication(): Promise<DependencyCheck> {
+    const startedAt = performance.now();
+    const config = this.prisma.getReplicationConfig();
+
+    try {
+      const snapshot = await this.withTimeout(
+        this.replicationSync.getStatusSnapshot(),
+        3_000,
+        "Backup replication check timed out"
+      );
+      const required = snapshot.strictModeActive
+        ? config.backupRequiredForStrictMode
+        : config.backupRequiredForReadiness;
+
+      return {
+        key: "backupDatabaseReplication",
+        label: "Backup MongoDB replication",
+        status: snapshot.backupStatus,
+        required: snapshot.enabled ? required : false,
+        latencyMs: this.elapsedMs(startedAt),
+        message: snapshot.message,
+        action:
+          snapshot.backupStatus === "operational"
+            ? undefined
+            : "Check BACKUP_DATABASE_URL, local MongoDB authSource, replicaSet=rs0, and pending ReplicationOutbox failures.",
+        details: {
+          configured: snapshot.configured,
+          enabled: snapshot.enabled,
+          mode: snapshot.mode,
+          primaryDatabaseName: snapshot.primaryDatabaseName || "unknown",
+          backupDatabaseName: snapshot.backupDatabaseName || "unknown",
+          strictModeActive: snapshot.strictModeActive,
+          pendingEvents: snapshot.pendingEvents,
+          processingEvents: snapshot.processingEvents,
+          failedEvents: snapshot.failedEvents,
+          deadLetterEvents: snapshot.deadLetterEvents,
+          lastSuccessfulSync: snapshot.lastSuccessfulSync,
+          replicationLagMs: snapshot.replicationLagMs
+        }
+      };
+    } catch (error) {
+      return {
+        key: "backupDatabaseReplication",
+        label: "Backup MongoDB replication",
+        status: "degraded",
+        required: config.mode === "strict_dual_write" ? config.backupRequiredForStrictMode : config.backupRequiredForReadiness,
+        latencyMs: this.elapsedMs(startedAt),
+        message: this.safeErrorMessage(error),
+        action: "Confirm the ReplicationOutbox schema exists and backup replication configuration is valid.",
+        details: {
+          configured: Boolean(config.backupDatabaseUrl),
+          enabled: config.enabled,
+          mode: config.mode,
+          primaryDatabaseName: config.primaryDatabaseName || "unknown",
+          backupDatabaseName: config.backupDatabaseName || "unknown"
+        }
       };
     }
   }
@@ -464,7 +538,7 @@ export class HealthService {
 
   private safeErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message.trim()) {
-      return error.message.replace(/mongodb:\/\/[^@\s]+@/gi, "mongodb://[redacted]@");
+      return sanitizeReplicationError(error);
     }
 
     return "Dependency check failed.";

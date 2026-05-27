@@ -66,8 +66,17 @@ if (!process.env.NODE_ENV && process.env.RENDER) {
   process.env.NODE_ENV = "production";
 }
 
+if (!process.env.PRIMARY_DATABASE_URL && process.env.DATABASE_URL) {
+  process.env.PRIMARY_DATABASE_URL = process.env.DATABASE_URL;
+}
+
+if (!process.env.DATABASE_URL && process.env.PRIMARY_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.PRIMARY_DATABASE_URL;
+}
+
 if (!process.env.DATABASE_URL && process.env.MONGODB_URI) {
   process.env.DATABASE_URL = process.env.MONGODB_URI;
+  process.env.PRIMARY_DATABASE_URL = process.env.MONGODB_URI;
 }
 
 if (!process.env.MONGODB_URI && process.env.DATABASE_URL) {
