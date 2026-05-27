@@ -634,38 +634,42 @@ export class InventoryService {
         }
       });
 
-      await tx.purchaseOrderApproval.createMany({
-        data: [
-          {
-            tenantId: tenantId ?? supplier.tenantId ?? null,
-            purchaseOrderId: purchaseOrder.id,
-            stage: ApprovalStage.OPERATIONAL,
-            sequence: 1,
-            status: ApprovalDecisionStatus.PENDING
-          },
-          {
-            tenantId: tenantId ?? supplier.tenantId ?? null,
-            purchaseOrderId: purchaseOrder.id,
-            stage: ApprovalStage.FINANCE,
-            sequence: 2,
-            status: requiresFinanceApproval ? ApprovalDecisionStatus.PENDING : ApprovalDecisionStatus.SKIPPED,
-            reason: requiresFinanceApproval ? null : "Finance approval not required"
-          }
-        ]
-      });
+      const approvalRows = [
+        {
+          tenantId: tenantId ?? supplier.tenantId ?? null,
+          purchaseOrderId: purchaseOrder.id,
+          stage: ApprovalStage.OPERATIONAL,
+          sequence: 1,
+          status: ApprovalDecisionStatus.PENDING
+        },
+        {
+          tenantId: tenantId ?? supplier.tenantId ?? null,
+          purchaseOrderId: purchaseOrder.id,
+          stage: ApprovalStage.FINANCE,
+          sequence: 2,
+          status: requiresFinanceApproval ? ApprovalDecisionStatus.PENDING : ApprovalDecisionStatus.SKIPPED,
+          reason: requiresFinanceApproval ? null : "Finance approval not required"
+        }
+      ];
+
+      for (const approvalRow of approvalRows) {
+        await tx.purchaseOrderApproval.create({ data: approvalRow });
+      }
 
       if (Array.isArray(data.lines) && data.lines.length > 0) {
-        await tx.purchaseOrderLine.createMany({
-          data: data.lines.map((line) => ({
-            tenantId: tenantId ?? supplier.tenantId ?? null,
-            purchaseOrderId: purchaseOrder.id,
-            partId: line.partId,
-            description: line.description,
-            quantity: line.quantity,
-            unitCost: line.unitCost,
-            totalCost: line.quantity * line.unitCost
-          }))
-        });
+        const lineRows = data.lines.map((line) => ({
+          tenantId: tenantId ?? supplier.tenantId ?? null,
+          purchaseOrderId: purchaseOrder.id,
+          partId: line.partId,
+          description: line.description,
+          quantity: line.quantity,
+          unitCost: line.unitCost,
+          totalCost: line.quantity * line.unitCost
+        }));
+
+        for (const lineRow of lineRows) {
+          await tx.purchaseOrderLine.create({ data: lineRow });
+        }
       }
 
       return purchaseOrder;

@@ -533,29 +533,31 @@ export class WorkOrdersService {
         }
       });
 
-      await tx.partRequestApproval.createMany({
-        data: [
-          {
-            tenantId: tenantId ?? null,
-            partRequestId: partRequest.id,
-            stage: ApprovalStage.OPERATIONAL,
-            sequence: 1,
-            status: ApprovalDecisionStatus.PENDING
-          },
-          {
-            tenantId: tenantId ?? null,
-            partRequestId: partRequest.id,
-            stage: ApprovalStage.FINANCE,
-            sequence: 2,
-            status: requiresFinanceApproval
-              ? ApprovalDecisionStatus.PENDING
-              : ApprovalDecisionStatus.SKIPPED,
-            reason: requiresFinanceApproval
-              ? null
-              : "Finance approval not required"
-          }
-        ]
-      });
+      const approvalRows = [
+        {
+          tenantId: tenantId ?? null,
+          partRequestId: partRequest.id,
+          stage: ApprovalStage.OPERATIONAL,
+          sequence: 1,
+          status: ApprovalDecisionStatus.PENDING
+        },
+        {
+          tenantId: tenantId ?? null,
+          partRequestId: partRequest.id,
+          stage: ApprovalStage.FINANCE,
+          sequence: 2,
+          status: requiresFinanceApproval
+            ? ApprovalDecisionStatus.PENDING
+            : ApprovalDecisionStatus.SKIPPED,
+          reason: requiresFinanceApproval
+            ? null
+            : "Finance approval not required"
+        }
+      ];
+
+      for (const approvalRow of approvalRows) {
+        await tx.partRequestApproval.create({ data: approvalRow });
+      }
 
       return partRequest;
     });
