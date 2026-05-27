@@ -166,9 +166,10 @@ Required Vercel environment variables:
 NEXT_PUBLIC_API_URL=https://your-render-api.onrender.com/api
 NEXT_PUBLIC_API_BASE_URL=https://your-render-api.onrender.com/api
 NEXT_PUBLIC_API_ORIGIN=https://your-render-api.onrender.com
+NEXT_PUBLIC_API_TIMEOUT_MS=60000
 ```
 
-`NEXT_PUBLIC_API_URL` is the primary variable. The other two are kept for compatibility and websocket clarity.
+`NEXT_PUBLIC_API_URL` is the primary variable. The other URL variables are kept for compatibility and websocket clarity. `NEXT_PUBLIC_API_TIMEOUT_MS` controls the browser API timeout; keep it high enough for cold starts and long-running reports.
 
 Cloudflare Workers/OpenNext remains supported for the web app. Use `npm run cloudflare:build` and keep `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_API_ORIGIN` pointed at the Render API origin before deploying with Wrangler.
 

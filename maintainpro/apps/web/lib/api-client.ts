@@ -3,9 +3,19 @@ import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession, getAccessToken } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
+const DEFAULT_API_TIMEOUT_MS = 60_000;
+
+function readApiTimeoutMs() {
+  const parsed = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS);
+  if (!Number.isFinite(parsed)) return DEFAULT_API_TIMEOUT_MS;
+  return Math.max(5_000, Math.trunc(parsed));
+}
+
+export const apiTimeoutMs = readApiTimeoutMs();
+
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 15_000,
+  timeout: apiTimeoutMs,
   withCredentials: true
 });
 
@@ -32,6 +42,14 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     }
     if (!candidate.response && candidate.code === "ERR_NETWORK") {
       return "API is unreachable. Start the MaintainPro API and check the system health page.";
+    }
+    if (
+      !candidate.response &&
+      (candidate.code === "ECONNABORTED" ||
+        candidate.code === "ETIMEDOUT" ||
+        /timeout/i.test(candidate.message ?? ""))
+    ) {
+      return `The API request took longer than ${Math.round(apiTimeoutMs / 1000)} seconds. Try again after the API finishes waking up or check the system health page.`;
     }
     if (typeof candidate.message === "string" && candidate.message.trim()) {
       return candidate.message;
