@@ -123,11 +123,15 @@ test.describe("authentication", () => {
 
   test("logs in, stores the session, and opens the protected home page", async ({ page }) => {
     await mockAuthenticatedShell(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("maintainpro_active_tenant", "stale-tenant-from-previous-session");
+    });
     await page.route("**/api/auth/login", async (route) => {
       expect(route.request().postDataJSON()).toEqual({
         email: "admin@maintainpro.local",
         password: e2ePassword
       });
+      expect(route.request().headers()["x-tenant-id"]).toBeUndefined();
 
       await route.fulfill({
         status: 200,

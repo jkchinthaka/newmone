@@ -65,24 +65,25 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function isAuthMeRequest(url?: string): boolean {
-  return url === "/auth/me" || url?.endsWith("/auth/me") === true;
+function isAuthRequest(url?: string): boolean {
+  const path = url?.split("?")[0] ?? "";
+  return path === "/auth" || path.startsWith("/auth/") || path.includes("/api/auth/");
 }
 
 apiClient.interceptors.request.use((config) => {
   const tenantId = getActiveTenantId();
   const accessToken = getAccessToken();
+  config.headers = config.headers ?? {};
 
   if (accessToken) {
-    config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${accessToken}`;
-  } else if (config.headers) {
+  } else {
     delete (config.headers as Record<string, unknown>).Authorization;
   }
 
-  if (tenantId && !isAuthMeRequest(config.url)) {
+  if (tenantId && !isAuthRequest(config.url)) {
     config.headers["X-Tenant-Id"] = tenantId;
-  } else if (isAuthMeRequest(config.url) && config.headers) {
+  } else {
     delete (config.headers as Record<string, unknown>)["X-Tenant-Id"];
   }
 
