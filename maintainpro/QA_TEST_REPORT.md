@@ -4,8 +4,8 @@ Date: 2026-05-28
 Project: Newmone / MaintainPro
 Repository: <https://github.com/jkchinthaka/newmone>
 Project root: `maintainpro`
-Branch reviewed: `main`
-Latest QA commit reviewed: `b4523ca`
+Branch reviewed: `qa/fix-live-production-readiness`
+Latest code QA commit reviewed: `f36fd8d`
 Live web URL: <https://newmone.chinthakajayaweera1.workers.dev/login>
 Live API URL: <https://newmone.onrender.com/api>
 Tester: GitHub Copilot AI QA automation pass
@@ -24,6 +24,8 @@ Release recommendation: keep the current build on hold for production release un
 This QA report is based on direct workspace inspection, code review, terminal validation, automated test execution, dependency audit output, and live API/browser smoke checks performed during this QA pass.
 
 The provided live sample admin account was used for a live authentication smoke test. The password is intentionally not stored in this report.
+
+Screenshot artifacts were checked after the Playwright run. No screenshot files were available because the automated E2E suite passed and no failure artifacts were emitted under `apps/web/test-results/` or `apps/web/playwright-report/`.
 
 The following items could not be fully certified against live production because live login is currently blocked by API/database service-unavailable behavior:
 
@@ -44,6 +46,19 @@ The following items could not be fully certified against live production because
 | Testing | Jest for API tests, Playwright for web E2E |
 | Package manager | npm workspaces under `maintainpro` |
 
+## QA Coverage Summary
+
+| Requested QA area | Coverage performed | Result |
+| --- | --- | --- |
+| Functional testing | Login, validation, protected-route behavior, logout implementation, API auth endpoints, and existing module API suites | PASS locally, FAIL live auth |
+| UI testing | Login page availability, password visibility toggle, responsive auth E2E on desktop/mobile Chromium | PASS for auth UI, broader authenticated UI blocked |
+| Validation testing | Client-side login validation, API empty login validation, schema/type/build validation | PASS |
+| Role-based access testing | JWT, roles, permissions, and tenant guards reviewed; guard tests passed | PASS locally, PARTIAL live because login fails |
+| Workflow testing | Auth workflow E2E, stale tenant login regression, existing API workflow suites for vehicles/compliance/driver intelligence/replication | PASS locally, PARTIAL live |
+| Database testing | Prisma schema/index review, database URL normalization test, live health/readiness probes | PASS locally, FAIL live primary MongoDB auth |
+| Error handling testing | Empty login `400`, unauthenticated `401`, invalid login behavior, sanitized health dependency errors | PASS locally, FAIL live DB-backed invalid/valid login due database outage |
+| Final verification | Typecheck, lint script, Jest, Playwright, production build, OpenNext build, audit, smoke guard, git hygiene, secret scan | PASS except audit and live smoke |
+
 ## Commands Executed And Results
 
 | Command / check | Result | Evidence summary |
@@ -60,6 +75,7 @@ The following items could not be fully certified against live production because
 | Direct Node live auth smoke | FAIL | `/login` returned 200 HTML, unauthenticated `/auth/me` returned 401, empty login returned 400, valid admin login returned 503, no token issued. |
 | `git diff --check` | PASS | No whitespace errors before commit. |
 | Staged secret-risk path check | PASS | No `.env`, `.dev.vars`, Playwright auth state, cookie, or secret-risk paths were staged. |
+| Screenshot artifact check | PASS | No screenshot artifacts were available because the Playwright run passed without failure artifacts. |
 
 ## Test Case Matrix
 
@@ -190,8 +206,8 @@ High priority:
 6. Set `MAINTAINPRO_SEED_PASSWORD`, run the idempotent seed only after database connectivity is restored, and verify admin user, tenant, role, permission, and tenant membership records.
 7. Set `MAINTAINPRO_SMOKE_EMAIL` and `MAINTAINPRO_SMOKE_PASSWORD` in the smoke-test environment.
 8. Re-run live smoke after API health is stable.
-6. Plan dependency upgrades for Next/OpenNext, NestJS/platform-express, multer, Nodemailer, protobuf/AWS SDK transitive packages, Wrangler/miniflare/ws, and related packages.
-7. Replace `xlsx` or isolate spreadsheet handling behind a safer maintained parser; keep current file type, size, and row-count restrictions until replacement is complete.
+9. Plan dependency upgrades for Next/OpenNext, NestJS/platform-express, multer, Nodemailer, protobuf/AWS SDK transitive packages, Wrangler/miniflare/ws, and related packages.
+10. Replace `xlsx` or isolate spreadsheet handling behind a safer maintained parser; keep current file type, size, and row-count restrictions until replacement is complete.
 
 Medium priority:
 
@@ -229,4 +245,4 @@ The project should not be marked production-ready until all items below are true
 
 **FAIL for live production readiness.**
 
-The source code is in a stable QA state and the latest QA fixes have been pushed in commit `b4523ca`, but the live system must remain blocked until Render/API database health is restored and the unresolved dependency/security risks are addressed.
+The source code is in a stable QA state and the latest code QA fixes have been pushed in commit `f36fd8d` on branch `qa/fix-live-production-readiness`, but the live system must remain blocked until Render/API database health is restored and the unresolved dependency/security risks are addressed or formally risk-accepted.
