@@ -6,7 +6,7 @@ import { PrismaService } from "./database/prisma.service";
 import { ReplicationSyncService } from "./database/replication-sync.service";
 import { sanitizeReplicationError } from "./database/replication.config";
 
-export type CheckStatus = "operational" | "degraded" | "unconfigured";
+export type CheckStatus = "operational" | "degraded" | "unconfigured" | "disabled";
 export type OverallStatus = "operational" | "degraded";
 
 export interface DependencyCheck {
@@ -88,6 +88,7 @@ export class HealthService {
         operational: allChecks.filter((check) => check.status === "operational").length,
         degraded: allChecks.filter((check) => check.status === "degraded").length,
         unconfigured: allChecks.filter((check) => check.status === "unconfigured").length,
+        disabled: allChecks.filter((check) => check.status === "disabled").length,
         required: allChecks.filter((check) => check.required).length
       },
       dependencies,
@@ -197,16 +198,19 @@ export class HealthService {
 
   private async checkRedis(): Promise<DependencyCheck> {
     const redisUrl = this.configService.get<string>("REDIS_URL", "");
+    const required = this.configService.get<boolean>("REDIS_REQUIRED_FOR_READINESS", false);
     const startedAt = performance.now();
 
     if (!redisUrl.trim()) {
       return {
         key: "redis",
         label: "Redis queues",
-        status: "unconfigured",
-        required: true,
-        message: "REDIS_URL is not configured.",
-        action: "Set REDIS_URL to the Redis service used by Bull queues."
+        status: required ? "degraded" : "disabled",
+        required,
+        message: required
+          ? "REDIS_URL is not configured but Redis is required for readiness."
+          : "Redis queues are disabled because REDIS_URL is not configured.",
+        action: required ? "Set REDIS_URL to the Redis service used by Bull queues." : undefined
       };
     }
 
@@ -228,7 +232,7 @@ export class HealthService {
         key: "redis",
         label: "Redis queues",
         status: "operational",
-        required: true,
+        required,
         latencyMs: this.elapsedMs(startedAt),
         message: "Redis is accepting queue commands."
       };
@@ -237,7 +241,7 @@ export class HealthService {
         key: "redis",
         label: "Redis queues",
         status: "degraded",
-        required: true,
+        required,
         latencyMs: this.elapsedMs(startedAt),
         message: this.safeErrorMessage(error),
         action: "Start Redis or update REDIS_URL to the reachable cache endpoint."
@@ -248,12 +252,14 @@ export class HealthService {
   }
 
   private async checkObjectStorage(): Promise<DependencyCheck> {
+    const required = this.configService.get<boolean>("OBJECT_STORAGE_REQUIRED_FOR_READINESS", false);
+
     if (this.hasCloudinaryConfig()) {
       return {
         key: "objectStorage",
         label: "Cloudinary file storage",
         status: "operational",
-        required: true,
+        required,
         message: "Cloudinary is configured for persistent uploaded files."
       };
     }
@@ -268,10 +274,12 @@ export class HealthService {
       return {
         key: "objectStorage",
         label: "Object storage",
-        status: "unconfigured",
-        required: true,
-        message: "MinIO/S3 endpoint or bucket is not configured.",
-        action: "Set Cloudinary credentials or MINIO_ENDPOINT, MINIO_PORT, and MINIO_BUCKET for uploaded files and reports."
+        status: required ? "degraded" : "disabled",
+        required,
+        message: required
+          ? "Object storage is not configured but is required for readiness."
+          : "Object storage is disabled because Cloudinary/MinIO/S3 settings are not configured.",
+        action: required ? "Set Cloudinary credentials or MINIO_ENDPOINT, MINIO_PORT, and MINIO_BUCKET for uploaded files and reports." : undefined
       };
     }
 
@@ -290,7 +298,7 @@ export class HealthService {
         key: "objectStorage",
         label: "Object storage",
         status: "operational",
-        required: true,
+        required,
         latencyMs: this.elapsedMs(startedAt),
         message: `Object storage endpoint is reachable for bucket ${bucket}.`
       };
@@ -299,7 +307,7 @@ export class HealthService {
         key: "objectStorage",
         label: "Object storage",
         status: "degraded",
-        required: true,
+        required,
         latencyMs: this.elapsedMs(startedAt),
         message: this.safeErrorMessage(error),
         action: "Start MinIO/S3 or correct MINIO_ENDPOINT and MINIO_PORT."
@@ -456,14 +464,15 @@ export class HealthService {
     const provider = this.configService.get<string>("ERP_SYNC_PROVIDER", "mock").toLowerCase();
     const isProduction = this.configService.get<string>("NODE_ENV", "development") === "production";
     const mockAllowed = this.configService.get<boolean>("ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION", false);
+    const required = this.configService.get<boolean>("ERP_SYNC_REQUIRED_FOR_READINESS", false);
 
     if (provider === "mock") {
-      const allowed = !isProduction || mockAllowed;
+      const allowed = !required || !isProduction || mockAllowed;
       return {
         key: "erp",
         label: "ERP sync provider",
-        status: allowed ? "unconfigured" : "degraded",
-        required: isProduction,
+        status: allowed ? "disabled" : "degraded",
+        required,
         message: allowed
           ? "ERP sync is using MOCK_ERP mode."
           : "ERP sync is set to mock mode in production and is blocked unless explicitly allowed.",
@@ -477,7 +486,7 @@ export class HealthService {
         key: "erp",
         label: "ERP sync provider",
         status: "operational",
-        required: true,
+        required,
         message: "HTTP ERP sync provider is configured."
       };
     }
@@ -486,7 +495,7 @@ export class HealthService {
       key: "erp",
       label: "ERP sync provider",
       status: "degraded",
-      required: true,
+      required,
       message: `HTTP ERP sync provider is incomplete. Missing: ${missing.join(", ")}.`,
       action: "Set ERP_API_URL and ERP_API_KEY before enabling production ERP sync."
     };
@@ -538,7 +547,18 @@ export class HealthService {
 
   private safeErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message.trim()) {
-      return sanitizeReplicationError(error);
+      const message = sanitizeReplicationError(error);
+      if (/SCRAM|AuthenticationFailed|authentication failed/i.test(message)) {
+        return "Database authentication failed. Verify the configured MongoDB username, password, authSource, database name, and connection string.";
+      }
+      if (/timed out|timeout|server selection/i.test(message)) {
+        return "Dependency check timed out. Verify network access, service availability, and configured connection timeouts.";
+      }
+      if (/not configured/i.test(message)) {
+        return message;
+      }
+
+      return "Dependency check failed. Review server logs for sanitized diagnostic details.";
     }
 
     return "Dependency check failed.";

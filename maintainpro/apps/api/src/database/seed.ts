@@ -18,6 +18,15 @@ import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartment
 
 const prisma = new PrismaClient();
 
+function getSeedPassword(): string {
+  const password = (process.env.MAINTAINPRO_SEED_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "").trim();
+  if (password.length < 12) {
+    throw new Error("Set MAINTAINPRO_SEED_PASSWORD to a strong password before running the seed.");
+  }
+
+  return password;
+}
+
 const permissionCatalog = [
   // Phase 1 enterprise RBAC / PBAC keys
   "dashboard.view",
@@ -667,7 +676,7 @@ async function main() {
     roles.set(roleName, { id: role.id });
   }
 
-  const adminPasswordHash = await bcrypt.hash("Admin@1234", 12);
+  const adminPasswordHash = await bcrypt.hash(getSeedPassword(), 12);
 
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@maintainpro.local" },

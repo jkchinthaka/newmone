@@ -20,4 +20,4 @@ run("node", ["scripts/smoke-local.mjs"]);
 console.log("MaintainPro local stack is ready.");
 console.log("API: http://localhost:3000/api/health");
 console.log("Web: http://localhost:3001");
-console.log("Admin: admin / Admin@1234");
+console.log("Use the MAINTAINPRO_SMOKE_EMAIL and MAINTAINPRO_SMOKE_PASSWORD values configured for this environment.");

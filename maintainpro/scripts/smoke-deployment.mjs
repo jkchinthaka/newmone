@@ -1,10 +1,15 @@
 const frontendUrl = (process.env.MAINTAINPRO_WEB_URL ?? process.env.DEPLOY_FRONTEND_URL ?? "").replace(/\/+$/, "");
 const rawApiUrl = (process.env.MAINTAINPRO_API_URL ?? process.env.DEPLOY_API_URL ?? "").replace(/\/+$/, "");
-const loginEmail = process.env.MAINTAINPRO_SMOKE_EMAIL ?? "admin@maintainpro.local";
-const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? "Admin@1234";
+const loginEmail = (process.env.MAINTAINPRO_SMOKE_EMAIL ?? "").trim();
+const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? "";
 
 if (!frontendUrl || !rawApiUrl) {
   console.error("Set MAINTAINPRO_WEB_URL and MAINTAINPRO_API_URL before running smoke:deploy.");
+  process.exit(1);
+}
+
+if (!loginEmail || !loginPassword) {
+  console.error("Set MAINTAINPRO_SMOKE_EMAIL and MAINTAINPRO_SMOKE_PASSWORD before running smoke:deploy.");
   process.exit(1);
 }
 

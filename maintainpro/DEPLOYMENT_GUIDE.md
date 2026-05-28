@@ -48,10 +48,13 @@ Run commands from the `maintainpro` directory unless a platform setting says oth
 Before routing production traffic, push the Prisma MongoDB schema and seed initial data from a Render shell or a one-off job:
 
 ```bash
+export MAINTAINPRO_SEED_PASSWORD="<secure-seed-password-from-secret-store>"
 npm run db:generate
 npm run db:push
 npm run db:seed
 ```
+
+Do not commit the seed password. Store it in the deployment secret manager and rotate it after initial provisioning if the seeded account is used outside a demo environment.
 
 For the full rehearsal, rollback, and verification checklist, use [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md).
 
@@ -218,8 +221,8 @@ After publishing both services, run a live smoke test:
 ```bash
 $env:MAINTAINPRO_WEB_URL="https://your-vercel-app.vercel.app"
 $env:MAINTAINPRO_API_URL="https://your-render-api.onrender.com/api"
-$env:MAINTAINPRO_SMOKE_EMAIL="admin@maintainpro.local"
-$env:MAINTAINPRO_SMOKE_PASSWORD="Admin@1234"
+$env:MAINTAINPRO_SMOKE_EMAIL="<smoke-test-email>"
+$env:MAINTAINPRO_SMOKE_PASSWORD="<smoke-test-password>"
 npm run smoke:deploy
 ```
 

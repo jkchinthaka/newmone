@@ -58,7 +58,11 @@ export function withMongoConnectionTimeouts(value: string | undefined, env: Node
 }
 
 export function normalizeDatabaseEnvironment(env: NodeJS.ProcessEnv = process.env): void {
-  if (!env.NODE_ENV && env.RENDER) {
+  const isRenderRuntime = Boolean(
+    env.RENDER || env.RENDER_SERVICE_ID || env.RENDER_SERVICE_NAME || env.RENDER_EXTERNAL_URL
+  );
+
+  if (!env.NODE_ENV && isRenderRuntime) {
     env.NODE_ENV = "production";
   }
 
