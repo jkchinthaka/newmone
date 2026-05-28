@@ -59,6 +59,10 @@ type ImportPreviewRow = {
   errors: string[];
 };
 
+const IMPORT_FILE_MAX_BYTES = 2 * 1024 * 1024;
+const IMPORT_FILE_MAX_ROWS = 1_000;
+const IMPORT_FILE_EXTENSIONS = new Set([".csv", ".xlsx"]);
+
 interface PaginationMeta {
   page: number;
   limit: number;
@@ -641,7 +645,16 @@ function parseImportRows(records: Array<Record<string, unknown>>): ImportPreview
 }
 
 async function readImportFile(file: File) {
-  if (file.name.toLowerCase().endsWith(".csv")) {
+  const extensionIndex = file.name.lastIndexOf(".");
+  const extension = extensionIndex >= 0 ? file.name.toLowerCase().slice(extensionIndex) : "";
+  if (!IMPORT_FILE_EXTENSIONS.has(extension)) {
+    throw new Error("Import file must be a CSV or XLSX file.");
+  }
+  if (file.size > IMPORT_FILE_MAX_BYTES) {
+    throw new Error("Import file must be 2 MB or smaller.");
+  }
+
+  if (extension === ".csv") {
     const text = await file.text();
     const lines = text
       .split(/\r?\n/)
@@ -650,6 +663,9 @@ async function readImportFile(file: File) {
 
     if (lines.length <= 1) {
       throw new Error("CSV must include headers and at least one row.");
+    }
+    if (lines.length - 1 > IMPORT_FILE_MAX_ROWS) {
+      throw new Error(`Import files are limited to ${IMPORT_FILE_MAX_ROWS} rows.`);
     }
 
     const headers = lines[0]
@@ -676,6 +692,9 @@ async function readImportFile(file: File) {
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
   if (rows.length === 0) {
     throw new Error("Workbook has no data rows.");
+  }
+  if (rows.length > IMPORT_FILE_MAX_ROWS) {
+    throw new Error(`Import files are limited to ${IMPORT_FILE_MAX_ROWS} rows.`);
   }
 
   return parseImportRows(rows);
@@ -2624,7 +2643,7 @@ function BulkImportModal({
                 <Upload size={16} /> Upload file
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xls"
+                  accept=".csv,.xlsx"
                   className="hidden"
                   onChange={async (event) => {
                     const file = event.target.files?.[0];

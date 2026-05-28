@@ -182,7 +182,7 @@ Frontend runtime keys:
 - Prisma schema: `prisma/schema.prisma`
 - Generate client: `npm run db:generate`
 - Push schema to MongoDB: `npm run db:push`
-- Seed data: `npm run db:seed`
+- Seed data: set `MAINTAINPRO_SEED_PASSWORD` from your secret manager, then run `npm run db:seed`
 - Dry-run backup resync: `npm run db:backup:resync -- --dry-run`
 - Apply primary-to-backup resync: `npm run db:backup:resync`
 - Verify backup counts/checksums/outbox lag: `npm run db:backup:verify`

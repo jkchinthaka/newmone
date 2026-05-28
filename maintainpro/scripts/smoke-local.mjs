@@ -1,7 +1,12 @@
 const apiBaseUrl = process.env.MAINTAINPRO_API_URL ?? "http://localhost:3000/api";
 const webUrl = process.env.MAINTAINPRO_WEB_URL ?? "http://localhost:3001";
-const loginEmail = process.env.MAINTAINPRO_SMOKE_EMAIL ?? "admin@maintainpro.local";
-const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? "Admin@1234";
+const loginEmail = (process.env.MAINTAINPRO_SMOKE_EMAIL ?? "").trim();
+const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? "";
+
+if (!loginEmail || !loginPassword) {
+  console.error("Set MAINTAINPRO_SMOKE_EMAIL and MAINTAINPRO_SMOKE_PASSWORD before running smoke:local.");
+  process.exit(1);
+}
 
 async function readJson(response) {
   const text = await response.text();

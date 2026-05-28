@@ -77,8 +77,11 @@ npm run db:push
 Seed after schema push:
 
 ```bash
+export MAINTAINPRO_SEED_PASSWORD="<secure-seed-password-from-secret-store>"
 npm run db:seed
 ```
+
+Do not commit the seed password. Provide it through the shell, Render secret env vars, or the operator's secret manager.
 
 The seed is idempotent and verifies:
 
@@ -128,8 +131,8 @@ npm run db:backup:verify
 ```bash
 $env:MAINTAINPRO_WEB_URL="https://app.example.com"
 $env:MAINTAINPRO_API_URL="https://api.example.com/api"
-$env:MAINTAINPRO_SMOKE_EMAIL="admin@maintainpro.local"
-$env:MAINTAINPRO_SMOKE_PASSWORD="Admin@1234"
+$env:MAINTAINPRO_SMOKE_EMAIL="<smoke-test-email>"
+$env:MAINTAINPRO_SMOKE_PASSWORD="<smoke-test-password>"
 npm run smoke:deploy
 ```
 

@@ -67,6 +67,12 @@ services:
         value: https://newmone.chinthakajayaweera1.workers.dev
       - key: REDIS_URL
         sync: false
+      - key: REDIS_REQUIRED_FOR_READINESS
+        value: "false"
+      - key: OBJECT_STORAGE_REQUIRED_FOR_READINESS
+        value: "false"
+      - key: MAINTAINPRO_SEED_PASSWORD
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -122,6 +128,8 @@ services:
       - key: ERP_SYNC_PROVIDER
         value: mock
       - key: ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION
+        value: "false"
+      - key: ERP_SYNC_REQUIRED_FOR_READINESS
         value: "false"
       - key: ERP_PROVIDER_ID
         sync: false

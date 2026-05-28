@@ -51,4 +51,15 @@ describe("database URL option normalization", () => {
     expect(env.PRIMARY_DATABASE_URL).toContain("serverSelectionTimeoutMS=5000");
     expect(env.FRONTEND_URL).toBe("https://example.com");
   });
+
+  it("detects Render runtime from service-specific variables", () => {
+    const env: NodeJS.ProcessEnv = {
+      RENDER_SERVICE_ID: "srv-example",
+      DATABASE_URL: "mongodb://localhost:27017/nelna"
+    };
+
+    normalizeDatabaseEnvironment(env);
+
+    expect(env.NODE_ENV).toBe("production");
+  });
 });

@@ -3,6 +3,15 @@ import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+function getSeedPassword(): string {
+  const password = (process.env.MAINTAINPRO_SEED_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "").trim();
+  if (password.length < 12) {
+    throw new Error("Set MAINTAINPRO_SEED_PASSWORD to a strong password before running the cleaning QR seed.");
+  }
+
+  return password;
+}
+
 const cleaningLocations = [
   {
     qrCode: "06b558d1-3352-4924-ae6c-f8df06cdf7cf",
@@ -57,7 +66,7 @@ async function main() {
     throw new Error("Required cleaning roles are missing. Re-run the base seed first.");
   }
 
-  const passwordHash = await bcrypt.hash("Admin@1234", 12);
+  const passwordHash = await bcrypt.hash(getSeedPassword(), 12);
 
   await prisma.user.upsert({
     where: { email: "supervisor@maintainpro.local" },
