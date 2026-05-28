@@ -120,9 +120,16 @@ export function Topbar() {
     }
   });
 
-  function logout() {
-    clearAuthSession();
-    router.replace("/login");
+  async function logout() {
+    try {
+      await apiClient.post("/auth/logout", {});
+    } catch {
+      // Local logout should still complete if the API is temporarily unavailable.
+    } finally {
+      clearAuthSession();
+      queryClient.clear();
+      router.replace("/login");
+    }
   }
 
   const selectedTenantId =

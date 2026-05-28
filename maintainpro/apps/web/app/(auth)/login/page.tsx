@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff, Loader2, ShieldCheck, Wrench } from "lucide-react";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
@@ -19,14 +18,17 @@ function normalizeLogin(value: string) {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { register, handleSubmit } = useForm<LoginForm>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<LoginForm>({
     defaultValues: {
-      username: "admin",
-      password: "Admin@1234"
+      username: "",
+      password: ""
     }
   });
 
@@ -114,34 +116,60 @@ export default function LoginPage() {
             <label className="block text-sm">
               <span className="mb-2 block text-slate-600">Username</span>
               <input
-                {...register("username")}
+                {...register("username", {
+                  validate: (value) => value.trim().length > 0 || "Username is required"
+                })}
+                aria-describedby={errors.username ? "login-username-error" : undefined}
+                aria-invalid={errors.username ? "true" : "false"}
+                autoComplete="username"
                 className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                disabled={busy}
                 type="text"
               />
+              {errors.username?.message ? (
+                <p id="login-username-error" className="mt-2 text-sm text-rose-600">
+                  {errors.username.message}
+                </p>
+              ) : null}
             </label>
             <label className="block text-sm">
               <span className="mb-2 block text-slate-600">Password</span>
               <div className="relative">
                 <input
-                  {...register("password")}
+                  {...register("password", {
+                    required: "Password is required",
+                    minLength: {
+                      value: 8,
+                      message: "Password must be at least 8 characters"
+                    }
+                  })}
+                  aria-describedby={errors.password ? "login-password-error" : undefined}
+                  aria-invalid={errors.password ? "true" : "false"}
+                  autoComplete="current-password"
                   className="w-full rounded-2xl border border-slate-300 px-4 py-3 pr-12 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                  disabled={busy}
                   type={showPassword ? "text" : "password"}
                 />
                 <button
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                  disabled={busy}
                   onClick={() => setShowPassword((value) => !value)}
                   type="button"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {errors.password?.message ? (
+                <p id="login-password-error" className="mt-2 text-sm text-rose-600">
+                  {errors.password.message}
+                </p>
+              ) : null}
             </label>
             <div className="flex items-center justify-between gap-3 text-sm">
               <a href="/forgot-password" className="font-medium text-brand-700 hover:text-brand-800">Forgot Password?</a>
-              <span className="text-slate-400">Sample admin: `admin` / `Admin@1234`</span>
             </div>
-            <button className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700" type="submit">
+            <button className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70" disabled={busy} type="submit">
               {busy ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 size={16} className="animate-spin" /> Signing in...

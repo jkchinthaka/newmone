@@ -10,7 +10,8 @@
     "cloudflare:deploy": "npm run cloudflare:build && wrangler deploy",
     "cloudflare:preview": "npm run cloudflare:build && wrangler dev",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "npm run typecheck"
+    "lint": "npm run typecheck",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -18,7 +19,7 @@
     "@opennextjs/cloudflare": "^1.14.10",
     "@tanstack/react-query": "^5.99.2",
     "@tanstack/react-table": "^8.20.6",
-    "axios": "^1.7.7",
+    "axios": "^1.16.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^11.0.1",
