@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { Loader2, ShieldCheck, Wrench } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, Wrench } from "lucide-react";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
 import { setActiveTenantId } from "@/lib/tenant-context";
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit } = useForm<LoginForm>({
     defaultValues: {
       username: "admin",
@@ -120,11 +121,21 @@ export default function LoginPage() {
             </label>
             <label className="block text-sm">
               <span className="mb-2 block text-slate-600">Password</span>
-              <input
-                {...register("password")}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
-                type="password"
-              />
+              <div className="relative">
+                <input
+                  {...register("password")}
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 pr-12 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                  type={showPassword ? "text" : "password"}
+                />
+                <button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                  onClick={() => setShowPassword((value) => !value)}
+                  type="button"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </label>
             <div className="flex items-center justify-between gap-3 text-sm">
               <a href="/forgot-password" className="font-medium text-brand-700 hover:text-brand-800">Forgot Password?</a>
