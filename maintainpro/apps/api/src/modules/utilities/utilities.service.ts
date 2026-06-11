@@ -6,12 +6,17 @@ import { PrismaService } from "../../database/prisma.service";
 export class UtilitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  meters() {
-    return this.prisma.utilityMeter.findMany({ orderBy: { createdAt: "desc" } });
+  meters(tenantId: string | null) {
+    return this.prisma.utilityMeter.findMany({
+      where: { ...(tenantId ? { tenantId } : {}) },
+      orderBy: { createdAt: "desc" }
+    });
   }
 
-  async meter(id: string) {
-    const meter = await this.prisma.utilityMeter.findUnique({ where: { id } });
+  async meter(id: string, tenantId: string | null) {
+    const meter = await this.prisma.utilityMeter.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) }
+    });
 
     if (!meter) {
       throw new NotFoundException("Meter not found");
@@ -20,16 +25,21 @@ export class UtilitiesService {
     return meter;
   }
 
-  createMeter(data: { meterNumber: string; type: "ELECTRICITY" | "WATER" | "GAS"; location: string; description?: string; unit: string }) {
-    return this.prisma.utilityMeter.create({ data });
+  createMeter(
+    tenantId: string | null,
+    data: { meterNumber: string; type: "ELECTRICITY" | "WATER" | "GAS"; location: string; description?: string; unit: string }
+  ) {
+    return this.prisma.utilityMeter.create({ data: { ...data, tenantId: tenantId ?? undefined } });
   }
 
-  updateMeter(id: string, data: Partial<{ location: string; description: string; unit: string; isActive: boolean }>) {
+  async updateMeter(id: string, tenantId: string | null, data: Partial<{ location: string; description: string; unit: string; isActive: boolean }>) {
+    await this.meter(id, tenantId);
+
     return this.prisma.utilityMeter.update({ where: { id }, data });
   }
 
-  async addReading(id: string, data: { readingDate: string; readingValue: number; images?: string[]; notes?: string }) {
-    await this.meter(id);
+  async addReading(id: string, tenantId: string | null, data: { readingDate: string; readingValue: number; images?: string[]; notes?: string }) {
+    await this.meter(id, tenantId);
 
     const last = await this.prisma.meterReading.findFirst({
       where: { meterId: id },
@@ -54,29 +64,35 @@ export class UtilitiesService {
     });
   }
 
-  readings(id: string) {
+  async readings(id: string, tenantId: string | null) {
+    await this.meter(id, tenantId);
+
     return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
   }
 
-  async allReadings() {
-    // Fetch readings without `include` to tolerate orphan rows whose related
-    // UtilityMeter has been deleted (Prisma throws "Inconsistent query result"
-    // when a required relation resolves to null). We hydrate the meter manually.
-    const readings = await this.prisma.meterReading.findMany({ orderBy: { readingDate: "desc" } });
-    if (readings.length === 0) return [];
+  async allReadings(tenantId: string | null) {
+    // Scope to meters owned by this tenant, then fetch their readings. Avoids
+    // Prisma's required-relation `include` throwing on dangling meterIds while
+    // also enforcing tenant isolation (MeterReading has no tenantId of its own).
+    const meters = await this.prisma.utilityMeter.findMany({
+      where: { ...(tenantId ? { tenantId } : {}) }
+    });
+    if (meters.length === 0) return [];
 
-    const meterIds = Array.from(new Set(readings.map((r) => r.meterId).filter(Boolean)));
-    const meters = meterIds.length
-      ? await this.prisma.utilityMeter.findMany({ where: { id: { in: meterIds } } })
-      : [];
     const meterMap = new Map(meters.map((m) => [m.id, m]));
+    const readings = await this.prisma.meterReading.findMany({
+      where: { meterId: { in: meters.map((m) => m.id) } },
+      orderBy: { readingDate: "desc" }
+    });
 
     return readings
       .filter((r) => meterMap.has(r.meterId))
       .map((r) => ({ ...r, meter: meterMap.get(r.meterId) }));
   }
 
-  async consumptionChart(id: string) {
+  async consumptionChart(id: string, tenantId: string | null) {
+    await this.meter(id, tenantId);
+
     const readings = await this.prisma.meterReading.findMany({
       where: { meterId: id },
       orderBy: { readingDate: "asc" }
@@ -88,10 +104,13 @@ export class UtilitiesService {
     }));
   }
 
-  async bills() {
+  async bills(tenantId: string | null) {
     // Same orphan-tolerant strategy as `allReadings`: avoid Prisma's required
     // relation include throwing on dangling meterIds.
-    const bills = await this.prisma.utilityBill.findMany({ orderBy: { createdAt: "desc" } });
+    const bills = await this.prisma.utilityBill.findMany({
+      where: { ...(tenantId ? { tenantId } : {}) },
+      orderBy: { createdAt: "desc" }
+    });
     if (bills.length === 0) return [];
 
     const meterIds = Array.from(new Set(bills.map((b) => b.meterId).filter(Boolean)));
@@ -103,21 +122,27 @@ export class UtilitiesService {
     return bills.map((b) => ({ ...b, meter: meterMap.get(b.meterId) ?? null }));
   }
 
-  async createBill(data: {
-    meterId: string;
-    billingPeriodStart: string;
-    billingPeriodEnd: string;
-    totalConsumption: number;
-    ratePerUnit: number;
-    baseCharge?: number;
-    taxAmount?: number;
-    dueDate?: string;
-    notes?: string;
-  }) {
+  async createBill(
+    tenantId: string | null,
+    data: {
+      meterId: string;
+      billingPeriodStart: string;
+      billingPeriodEnd: string;
+      totalConsumption: number;
+      ratePerUnit: number;
+      baseCharge?: number;
+      taxAmount?: number;
+      dueDate?: string;
+      notes?: string;
+    }
+  ) {
+    await this.meter(data.meterId, tenantId);
+
     const totalAmount = data.totalConsumption * data.ratePerUnit + (data.baseCharge ?? 0) + (data.taxAmount ?? 0);
 
     return this.prisma.utilityBill.create({
       data: {
+        tenantId: tenantId ?? undefined,
         meterId: data.meterId,
         billingPeriodStart: new Date(data.billingPeriodStart),
         billingPeriodEnd: new Date(data.billingPeriodEnd),
@@ -132,8 +157,11 @@ export class UtilitiesService {
     });
   }
 
-  async bill(id: string) {
-    const bill = await this.prisma.utilityBill.findUnique({ where: { id }, include: { meter: true } });
+  async bill(id: string, tenantId: string | null) {
+    const bill = await this.prisma.utilityBill.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) },
+      include: { meter: true }
+    });
 
     if (!bill) {
       throw new NotFoundException("Bill not found");
@@ -142,7 +170,9 @@ export class UtilitiesService {
     return bill;
   }
 
-  payBill(id: string) {
+  async payBill(id: string, tenantId: string | null) {
+    await this.bill(id, tenantId);
+
     return this.prisma.utilityBill.update({
       where: { id },
       data: {
@@ -152,7 +182,7 @@ export class UtilitiesService {
     });
   }
 
-  async overdue() {
+  async overdue(tenantId: string | null) {
     const now = new Date();
 
     await this.prisma.utilityBill.updateMany({
@@ -160,7 +190,8 @@ export class UtilitiesService {
         status: "UNPAID",
         dueDate: {
           lt: now
-        }
+        },
+        ...(tenantId ? { tenantId } : {})
       },
       data: {
         status: "OVERDUE"
@@ -169,7 +200,8 @@ export class UtilitiesService {
 
     return this.prisma.utilityBill.findMany({
       where: {
-        status: "OVERDUE"
+        status: "OVERDUE",
+        ...(tenantId ? { tenantId } : {})
       },
       include: {
         meter: true
@@ -178,8 +210,12 @@ export class UtilitiesService {
     });
   }
 
-  async analytics() {
-    const bills = await this.prisma.utilityBill.findMany({ include: { meter: true }, orderBy: { billingPeriodStart: "asc" } });
+  async analytics(tenantId: string | null) {
+    const bills = await this.prisma.utilityBill.findMany({
+      where: { ...(tenantId ? { tenantId } : {}) },
+      include: { meter: true },
+      orderBy: { billingPeriodStart: "asc" }
+    });
 
     const byType = new Map<string, { consumption: number; cost: number }>();
     for (const bill of bills) {
