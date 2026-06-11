@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|json\\)$\")",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -50 {}')"
+    ]
+  }
+}
