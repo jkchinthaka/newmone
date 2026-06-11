@@ -1,11 +1,19 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { RoleName } from "@prisma/client";
+import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -60,6 +68,19 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  private roleNameForMembership(membershipRole: TenantMembershipRole): RoleName {
+    switch (membershipRole) {
+      case TenantMembershipRole.OWNER:
+      case TenantMembershipRole.ADMIN:
+        return RoleName.ADMIN;
+      case TenantMembershipRole.BILLING:
+        return RoleName.MANAGER;
+      case TenantMembershipRole.MEMBER:
+      default:
+        return RoleName.TECHNICIAN;
+    }
+  }
+
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
@@ -67,9 +88,30 @@ export class AuthService {
       throw new BadRequestException("Email already in use");
     }
 
-    const technicianRole = await this.prisma.role.findFirst({ where: { name: RoleName.TECHNICIAN } });
+    let invitation: Awaited<ReturnType<typeof this.prisma.tenantInvitation.findUnique>> = null;
 
-    if (!technicianRole) {
+    if (dto.invitationToken) {
+      invitation = await this.prisma.tenantInvitation.findUnique({
+        where: { token: dto.invitationToken }
+      });
+
+      const isUsable =
+        invitation &&
+        invitation.status === TenantInvitationStatus.PENDING &&
+        invitation.expiresAt.getTime() > Date.now() &&
+        invitation.email.toLowerCase() === dto.email.trim().toLowerCase();
+
+      if (!isUsable) {
+        throw new BadRequestException("Invitation is invalid, expired, or does not match this email");
+      }
+    } else if (!this.configService.get<boolean>("ALLOW_PUBLIC_REGISTRATION", false)) {
+      throw new ForbiddenException("Registration is by invitation only. Please contact your administrator.");
+    }
+
+    const roleName = invitation ? this.roleNameForMembership(invitation.membershipRole) : RoleName.TECHNICIAN;
+    const role = await this.prisma.role.findFirst({ where: { name: roleName } });
+
+    if (!role) {
       throw new NotFoundException("Default role not found. Run seed first.");
     }
 
@@ -81,7 +123,8 @@ export class AuthService {
         passwordHash,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        roleId: technicianRole.id
+        roleId: role.id,
+        tenantId: invitation ? invitation.tenantId : undefined
       },
       include: {
         role: {
@@ -93,6 +136,39 @@ export class AuthService {
             }
           }
         }
+      }
+    });
+
+    if (invitation) {
+      await this.prisma.tenantMembership.create({
+        data: {
+          tenantId: invitation.tenantId,
+          userId: user.id,
+          membershipRole: invitation.membershipRole
+        }
+      });
+
+      await this.prisma.tenantInvitation.update({
+        where: { id: invitation.id },
+        data: { status: TenantInvitationStatus.ACCEPTED, acceptedAt: new Date() }
+      });
+    }
+
+    const ctx = requestContext.get();
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: user.tenantId ?? undefined,
+        actorId: user.id,
+        module: "auth",
+        entity: "USER",
+        entityId: user.id,
+        action: AuditAction.CREATE,
+        reason: invitation ? "Registration via tenant invitation" : "Public self-registration",
+        ipAddress: ctx?.ipAddress ?? undefined,
+        userAgent: ctx?.userAgent ?? undefined,
+        requestPath: ctx?.requestPath ?? undefined,
+        afterData: { email: user.email, role: user.role.name, tenantId: user.tenantId ?? null }
       }
     });
 

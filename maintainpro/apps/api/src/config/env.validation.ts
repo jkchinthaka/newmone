@@ -35,6 +35,7 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().empty(""),
   JWT_ACCESS_EXPIRES: Joi.string().default("15m"),
   JWT_REFRESH_EXPIRES: Joi.string().default("7d"),
+  ALLOW_PUBLIC_REGISTRATION: Joi.boolean().default(false),
   STRIPE_SECRET_KEY: Joi.string().allow(""),
   STRIPE_WEBHOOK_SECRET: Joi.string().allow(""),
   GOOGLE_CLIENT_ID: Joi.string().allow(""),
@@ -89,7 +90,11 @@ export const envValidationSchema = Joi.object({
   MINIO_USE_SSL: Joi.boolean().default(false),
   MINIO_ACCESS_KEY: Joi.string().allow(""),
   MINIO_SECRET_KEY: Joi.string().allow(""),
-  MINIO_BUCKET: Joi.string().allow("")
+  MINIO_BUCKET: Joi.string().allow(""),
+  SWAGGER_ENABLED: Joi.boolean().default(false),
+  SWAGGER_USER: Joi.string().allow(""),
+  SWAGGER_PASSWORD: Joi.string().allow(""),
+  READINESS_API_KEY: Joi.string().allow("")
 })
   .or("JWT_SECRET", "JWT_ACCESS_SECRET")
   .or("JWT_SECRET", "JWT_REFRESH_SECRET");

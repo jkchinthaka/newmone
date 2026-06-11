@@ -84,6 +84,12 @@ All API routes are prefixed with `/api`.
 - Predictive AI: `/predictive-ai`
 
 Swagger docs: `http://localhost:3000/api/docs` (local API direct) or `http://localhost/api/docs` (via nginx in production compose).
+In production (`NODE_ENV=production`), Swagger is disabled by default. Set `SWAGGER_ENABLED=true` plus
+`SWAGGER_USER`/`SWAGGER_PASSWORD` to expose `/api/docs` behind HTTP Basic Auth.
+
+`/health` returns a minimal public status. `/health/readiness` returns detailed dependency/configuration
+checks and is restricted in production to an `ADMIN`/`SUPER_ADMIN` bearer token, or a request carrying the
+`X-Readiness-Key` header matching `READINESS_API_KEY` (for uptime/infra monitoring).
 
 ## Local Setup (Node)
 

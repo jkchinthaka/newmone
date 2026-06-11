@@ -3,7 +3,10 @@
     "allow": [
       "Bash(grep -E \"\\\\.\\(ts|tsx|js|json\\)$\")",
       "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -50 {}')",
-      "Bash(npx jest *)"
+      "Bash(npx jest *)",
+      "Bash(npx tsc *)",
+      "Bash(cat ../../common/guards/jwt-auth.guard.ts)",
+      "Read(//mnt/c/Users/chint/OneDrive/Desktop/newmone/**)"
     ]
   }
 }

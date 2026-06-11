@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Loader2, UserPlus } from "lucide-react";
 
@@ -19,6 +19,8 @@ type RegisterForm = {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get("invitationToken");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { register, handleSubmit } = useForm<RegisterForm>();
@@ -37,7 +39,8 @@ export default function RegisterPage() {
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
-        password: values.password
+        password: values.password,
+        ...(invitationToken ? { invitationToken } : {})
       });
       const payload = res.data?.data;
 
@@ -68,7 +71,11 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-sm leading-6 text-slate-500">New web accounts default to the technician workflow until an administrator changes the assigned role.</p>
+        <p className="mt-4 text-sm leading-6 text-slate-500">
+          {invitationToken
+            ? "You've been invited to join a MaintainPro workspace. Complete the form below using the email address your invitation was sent to."
+            : "New web accounts default to the technician workflow until an administrator changes the assigned role. Self-registration may be disabled — if so, ask your administrator for an invitation link."}
+        </p>
 
         <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
           <label className="text-sm text-slate-600"><span className="mb-2 block">User ID</span><input {...register("userId")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="text" /></label>

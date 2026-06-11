@@ -1,4 +1,4 @@
-import { IsEmail, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 
 export class RegisterDto {
   @IsEmail()
@@ -20,4 +20,13 @@ export class RegisterDto {
     message: "Password must contain at least 8 characters, one uppercase letter, one number, and one special character"
   })
   password!: string;
+
+  /**
+   * Tenant invitation token (see TenantInvitation.token). When provided and valid,
+   * registration is allowed regardless of ALLOW_PUBLIC_REGISTRATION, and the new
+   * user is attached to the inviting tenant with the invited membership role.
+   */
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }

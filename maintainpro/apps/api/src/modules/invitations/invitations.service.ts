@@ -156,7 +156,7 @@ export class InvitationsService {
         });
 
     const frontendBaseUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001";
-    const invitationLink = `${frontendBaseUrl}/invite/accept?token=${invitation.token}`;
+    const invitationLink = `${frontendBaseUrl}/register?invitationToken=${invitation.token}`;
 
     return {
       ...invitation,
