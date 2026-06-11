@@ -85,6 +85,24 @@ All API routes are prefixed with `/api`.
 
 Swagger docs: `http://localhost:3000/api/docs` (local API direct) or `http://localhost/api/docs` (via nginx in production compose).
 
+## Facility Operations Roadmap
+
+MaintainPro's next product expansion is documented in
+[Facility Operations Workflow Blueprint](docs/FACILITY_OPERATIONS_WORKFLOW_BLUEPRINT.md).
+Use the companion [Master Implementation Prompt](docs/MASTER_IMPLEMENTATION_PROMPT.md)
+to run Cursor/Claude/AI coding work in controlled phases with todo monitoring.
+The blueprint maps the requested facility-management scope into one connected workflow for:
+
+- Facility management: sites, buildings, floors, rooms, areas, and location-aware assets.
+- Building maintenance: repair requests, work orders, SLA tracking, approvals, technician/vendor assignment, and maintenance history.
+- Vendor portal: contractor jobs, quotations, invoices, contracts, documents, and performance.
+- Inventory and procurement: spare parts, stock movements, purchase requests, purchase orders, GRN, and approvals.
+- Budgeting: building/department/category budgets, budget vs actual, approval thresholds, and variance reports.
+- Compliance and safety: inspections, certificates, incidents, permit-to-work, corrective actions, and expiry alerts.
+- Mobile technician app: assigned jobs, QR scan, photos, checklists, parts used, signatures, offline sync, and push notifications.
+- Requester portal: issue intake, status tracking, notifications, feedback, and reopen flow.
+- Predictive maintenance, Power BI integration, document management, cleaning, utilities, dashboards, and reporting.
+
 ## Local Setup (Node)
 
 1. Copy environment template.
