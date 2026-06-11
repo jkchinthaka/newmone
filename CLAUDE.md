@@ -117,7 +117,6 @@ npm run docker:up        # production-like stack: nginx, api, web, mongo, redis,
 Validated centrally in `apps/api/src/config/env.validation.ts` (Joi schema) — any new env var consumed by the API must be added there or `ConfigModule` validation will fail at boot. `normalizeDatabaseEnvironment()` in `src/config/database-url-options.ts` runs before `ConfigModule` to reconcile equivalent deployment variable names (e.g. Render vs local).
 
 Critical vars for local dev: `PRIMARY_DATABASE_URL`/`DATABASE_URL`, `BACKUP_DATABASE_URL`, `JWT_SECRET` (or `JWT_ACCESS_SECRET`+`JWT_REFRESH_SECRET`), `CORS_ORIGIN`, `FRONTEND_URL`. See `.env.example` for the full reference and the README's environment section for what each optional integration unlocks.
-
 ## Working agreement
 
 - Act as a senior full-stack engineer: prioritize business value, UX, maintainability, and deployment readiness over tutorial-style code. This is a real platform for company use.
