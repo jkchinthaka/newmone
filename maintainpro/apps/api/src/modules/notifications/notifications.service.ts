@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import { Queue } from "bull";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { QueueHealthService } from "../queues/queue-health.service";
 import { EmailDispatchService } from "./email-dispatch.service";
@@ -770,6 +771,37 @@ export class NotificationsService {
     return notification;
   }
 
+  private async assertReferenceTenantAccess(
+    referenceType: string | null | undefined,
+    referenceId: string | null | undefined
+  ): Promise<void> {
+    const tenantId = requestContext.get()?.tenantId ?? null;
+    if (!tenantId || !referenceType || !referenceId) {
+      return;
+    }
+
+    if (referenceType === "WorkOrder") {
+      const workOrder = await this.prisma.workOrder.findFirst({
+        where: { id: referenceId, tenantId },
+        select: { id: true }
+      });
+      if (!workOrder) {
+        throw new NotFoundException("Work order not found");
+      }
+      return;
+    }
+
+    if (referenceType === "FacilityIssue") {
+      const issue = await this.prisma.facilityIssue.findFirst({
+        where: { id: referenceId, tenantId },
+        select: { id: true }
+      });
+      if (!issue) {
+        throw new NotFoundException("Facility issue not found");
+      }
+    }
+  }
+
   private parseNotificationTypes(raw?: string) {
     if (!raw) {
       return [];
@@ -1197,10 +1229,12 @@ export class NotificationsService {
     const woNumber = await this.nextWorkOrderNumber();
     const type = this.toWorkOrderType(payload.type);
     const priority = this.toWorkOrderPriority(payload.priority, notification.priority);
+    const tenantId = requestContext.get()?.tenantId ?? null;
 
     const created = await this.prisma.workOrder.create({
       data: {
         woNumber,
+        tenantId,
         title:
           typeof payload.title === "string" && payload.title.trim()
             ? payload.title.trim()
@@ -1258,6 +1292,7 @@ export class NotificationsService {
     payload: Record<string, unknown>
   ) {
     if (notification.referenceType === "WorkOrder" && notification.referenceId) {
+      await this.assertReferenceTenantAccess(notification.referenceType, notification.referenceId);
       const dueDate =
         typeof payload.dueDate === "string"
           ? new Date(payload.dueDate)
@@ -1292,6 +1327,7 @@ export class NotificationsService {
     }
 
     if (notification.referenceType === "WorkOrder" && notification.referenceId) {
+      await this.assertReferenceTenantAccess(notification.referenceType, notification.referenceId);
       const updated = await this.prisma.workOrder.update({
         where: { id: notification.referenceId },
         data: {
@@ -1314,6 +1350,7 @@ export class NotificationsService {
     }
 
     if (notification.referenceType === "FacilityIssue" && notification.referenceId) {
+      await this.assertReferenceTenantAccess(notification.referenceType, notification.referenceId);
       return this.prisma.facilityIssue.update({
         where: { id: notification.referenceId },
         data: {

@@ -9,7 +9,7 @@
 - P4 = advanced / future module
 
 ## Known Issues / Blockers
-- `SEC-006` tenant-isolation final sweep remains in progress and must be completed before final security sign-off.
+- `SEC-006` tenant-isolation final sweep is **DONE** (2026-06-12). Continue monitoring on new modules.
 - Role-aware dashboard replacement (original dashboard UX scope) remains deferred after `/home` legacy routing cleanup.
 
 ## Next Recommended Phase
@@ -22,7 +22,7 @@
 | SEC-003 | P0 | Security/Auth | Secure password reset token flow | DONE | auth.service.ts, auth.module.ts, prisma/schema.prisma | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added hashed one-time reset tokens (15 min), generic response, email link dispatch, session revocation, audit log. Follow-up: web `/reset-password` page is still missing. |
 | SEC-004 | P0 | Security/Auth | Per-endpoint throttling + lockout | DONE | auth.controller.ts, invitations.controller.ts, auth.service.ts, prisma/schema.prisma | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added per-endpoint throttles (auth + invitation creation) and 15-min lockout after 5 failed logins with reset on successful login. |
 | SEC-005 | P1 | Security/Auth | Gate public self-registration | DONE | auth.service.ts, env.validation.ts, auth-register.spec.ts | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added production-safe registration gating: invitation-only by default; prod requires explicit second opt-in (`ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION=true`). |
-| SEC-006 | P0 | Security/Tenancy | Full tenant isolation audit/fix | IN_PROGRESS | vehicles, trips, users, drivers, fleet, compliance, cleaning, phase4 modules | `npm run test --workspace @maintainpro/api`, isolation tests | Patched major leaks incl. cleaning ID-based access + Phase4 null-tenant bypass checks. Continue sweep for remaining modules before final closure. |
+| SEC-006 | P0 | Security/Tenancy | Full tenant isolation audit/fix | DONE | vehicles, work-orders, fleet, notifications + existing modules | `npm run test --workspace @maintainpro/api`, isolation tests | Final sweep closed 5 high-risk gaps; SUPER_ADMIN cross-tenant access is explicit via null tenant or X-Tenant-Id header. |
 | SEC-007 | P0 | Security/Tenancy | Fix Utilities meters tenant leak | DONE | utilities.service.ts | `npm run test --workspace @maintainpro/api` (`utilities-tenant-isolation.spec.ts`) | Added tenant filter to bill-meter hydration query to avoid cross-tenant meter metadata joins. |
 | SEC-008 | P0 | Security/Platform | Protect Swagger + readiness endpoints | DONE | apps/api/src/main.ts, bootstrap/readiness-guard.ts, bootstrap/swagger-guard.ts | `npm run test --workspace @maintainpro/api` (`readiness-guard.spec.ts`, `swagger-guard.spec.ts`) | Verified production protection: readiness requires admin JWT or API key; Swagger is prod opt-in and basic-auth protected. |
 | SEC-009 | P0 | Security/Auth | Reject inactive users in login/jwt/refresh | DONE | auth.service.ts, jwt.strategy.ts | `npm run test --workspace @maintainpro/api` (`jwt-strategy.spec.ts`, auth suites) | Login, JWT validation, and refresh all block inactive users. |

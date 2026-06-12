@@ -527,6 +527,7 @@ export class VehiclesService {
   }
 
   async remove(id: string) {
+    await this.findOne(id);
     await this.prisma.vehicle.delete({ where: { id } });
     return { deleted: true };
   }

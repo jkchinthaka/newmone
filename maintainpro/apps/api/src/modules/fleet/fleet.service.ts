@@ -48,6 +48,7 @@ export interface FleetGeofencePoint {
 
 export interface FleetGeofence {
   id: string;
+  tenantId: string | null;
   name: string;
   type: FleetGeofenceType;
   shape: FleetGeofenceShape;
@@ -216,14 +217,22 @@ export class FleetService implements OnModuleDestroy {
   }
 
   listAlerts(limitRaw?: number) {
+    const tenantId = requestContext.get()?.tenantId ?? null;
     const limit = this.toPositiveInt(limitRaw, 50, 1, 200);
-    return this.alerts.slice(0, limit);
+    const scoped = tenantId
+      ? this.alerts.filter(
+          (alert) => this.runtimeStateByVehicle.get(alert.vehicleId)?.tenantId === tenantId
+        )
+      : this.alerts;
+    return scoped.slice(0, limit);
   }
 
   listGeofences() {
-    return Array.from(this.geofences.values()).sort((left, right) =>
-      left.createdAt < right.createdAt ? 1 : -1
-    );
+    const tenantId = requestContext.get()?.tenantId ?? null;
+    const zones = tenantId
+      ? Array.from(this.geofences.values()).filter((zone) => zone.tenantId === tenantId)
+      : Array.from(this.geofences.values());
+    return zones.sort((left, right) => (left.createdAt < right.createdAt ? 1 : -1));
   }
 
   createGeofence(input: FleetGeofenceCreateInput) {
@@ -243,6 +252,7 @@ export class FleetService implements OnModuleDestroy {
     const nowIso = new Date().toISOString();
     const zone: FleetGeofence = {
       id: `gf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tenantId: requestContext.get()?.tenantId ?? null,
       name,
       type: input.type,
       shape: input.shape,
@@ -292,6 +302,11 @@ export class FleetService implements OnModuleDestroy {
   removeGeofence(id: string) {
     const existing = this.geofences.get(id);
     if (!existing) {
+      throw new NotFoundException("Geofence not found");
+    }
+
+    const tenantId = requestContext.get()?.tenantId ?? null;
+    if (tenantId && existing.tenantId !== tenantId) {
       throw new NotFoundException("Geofence not found");
     }
 
@@ -496,6 +511,10 @@ export class FleetService implements OnModuleDestroy {
     const currentlyInside = new Set<string>();
 
     for (const zone of this.geofences.values()) {
+      if (next.tenantId ? zone.tenantId !== next.tenantId : zone.tenantId !== null) {
+        continue;
+      }
+
       if (this.isPointInsideGeofence(point, zone)) {
         currentlyInside.add(zone.id);
       }

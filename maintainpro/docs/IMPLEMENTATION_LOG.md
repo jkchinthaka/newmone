@@ -846,4 +846,41 @@ Record each completed task with:
 - Remaining risks:
   - SCHEDULE_TASK dialog cancel still schedules without due date (legacy `window.prompt` semantics preserved).
   - Assets table not migrated (UX-009 deferral; no native dialogs found there).
-  - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | SEC-006 | Tenant isolation final sweep closure
+- Audit scope:
+  - Prisma service queries across high-risk modules: vehicles, work-orders, fleet, notifications, trips, users, drivers, inventory, reports, Phase4 (accidents, fines, claims, vehicle-documents), cleaning, utilities.
+  - Tenant context derivation: `TenantContextGuard` validates membership (or active tenant for SUPER_ADMIN via `X-Tenant-Id`); services use `requestContext.getTenantId()` / actor `tenantId`.
+  - SUPER_ADMIN: explicit unscoped reads when `tenantId` is null; tenant switch only via validated active tenant header — not accidental for normal users.
+- Findings fixed (5 high-risk gaps):
+  1. `VehiclesService.remove()` — deleted by id without tenant check → now calls `findOne()` first.
+  2. `WorkOrdersService.assign()` — updated work order without tenant ownership check → now calls `findOne(id, actor)` first.
+  3. `FleetService.listAlerts()` — returned process-global alerts for all tenants → filtered by vehicle runtime tenant.
+  4. `FleetService` geofence CRUD — in-memory geofences shared across tenants → stamped/filtered/scoped by `tenantId`; geofence evaluation respects vehicle tenant.
+  5. `NotificationsService` action handlers — work orders created/mutated without tenant scope → `tenantId` stamped on create; `assertReferenceTenantAccess()` guards reference mutations.
+- Modules verified (no new gaps found):
+  - trips, users, drivers, utilities, reports, inventory, cleaning (post-fetch assert), Phase4 modules (assertAccess pattern), notifications gateway tenant rooms (SEC-011 unchanged).
+- Files changed:
+  - `maintainpro/apps/api/src/modules/vehicles/vehicles.service.ts`
+  - `maintainpro/apps/api/src/modules/work-orders/work-orders.service.ts`
+  - `maintainpro/apps/api/src/modules/fleet/fleet.service.ts`
+  - `maintainpro/apps/api/src/modules/notifications/notifications.service.ts`
+  - `maintainpro/apps/api/test/vehicles-tenant-isolation.spec.ts`
+  - `maintainpro/apps/api/test/work-orders-tenant-isolation.spec.ts` (new)
+  - `maintainpro/apps/api/test/fleet-tenant-isolation.spec.ts` (new)
+  - `maintainpro/apps/api/test/notifications-tenant-isolation.spec.ts` (new)
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 45 suites, 218 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks (intentionally deferred):
+  - Fleet geofences remain in-memory (now tenant-scoped at API layer); DB persistence recommended for multi-instance deployments.
+  - Notification reads are user-scoped (not tenant-column); reference mutations now tenant-guarded.
+  - New modules must adopt the same tenant patterns — monitor via code review.

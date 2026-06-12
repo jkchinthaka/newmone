@@ -279,6 +279,7 @@ export class WorkOrdersService {
   }
 
   async assign(id: string, technicianId: string, actor?: Actor) {
+    await this.findOne(id, actor);
     const tenantId = this.resolveTenantId(actor);
     const technician = await this.prisma.user.findFirst({
       where: {

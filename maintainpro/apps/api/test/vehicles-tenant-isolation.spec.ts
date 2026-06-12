@@ -18,7 +18,8 @@ const createPrismaMock = () => ({
       tripLogs: []
     }),
     create: jest.fn().mockResolvedValue({ id: "vehicle-1" }),
-    update: jest.fn()
+    update: jest.fn(),
+    delete: jest.fn()
   },
   driver: {
     findFirst: jest.fn(),
@@ -94,5 +95,29 @@ describe("VehiclesService tenant isolation", () => {
         where: { id: "vehicle-1", tenantId: "tenant-a" }
       })
     );
+  });
+
+  it("remove verifies tenant ownership before delete", async () => {
+    const prisma = createPrismaMock();
+    prisma.vehicle.findFirst.mockResolvedValue(null);
+    const service = new VehiclesService(prisma as any, { updateGps: jest.fn() } as any, {} as any);
+
+    await expect(
+      requestContext.run(
+        {
+          actorId: "actor-1",
+          actorEmail: "actor@example.com",
+          actorRole: "ADMIN",
+          tenantId: "tenant-a",
+          module: "vehicles",
+          ipAddress: null,
+          userAgent: null,
+          requestPath: "/vehicles/vehicle-1"
+        },
+        () => service.remove("vehicle-1")
+      )
+    ).rejects.toThrow("Vehicle not found");
+
+    expect(prisma.vehicle.delete).not.toHaveBeenCalled();
   });
 });

@@ -30,15 +30,18 @@
 
 ### RISK-SEC-006-TENANT-ISOLATION-RESIDUAL
 - **Category:** Security / Multi-tenancy
-- **Description:** Full tenant isolation sweep (`SEC-006`) remains in progress; residual unscoped query surfaces may still exist outside completed modules.
-- **Impact:** Potential cross-tenant read/write leakage.
-- **Likelihood:** Medium until SEC-006 closure.
+- **Description:** Residual tenant isolation risk after SEC-006 closure — new endpoints or refactors may omit tenant filters.
+- **Impact:** Potential cross-tenant read/write leakage on newly added code paths.
+- **Likelihood:** Low (post-closure) with ongoing review; was Medium during sweep.
 - **Current Mitigation:**
-  - High-risk modules patched and covered by targeted tenant isolation tests.
-  - Ongoing module-by-module sweep tracked in production TODO.
-- **Residual Risk:** Remaining non-audited endpoints/services.
+  - SEC-006 closed 5 high-risk gaps (vehicle delete, WO assign, fleet alerts/geofences, notification reference mutations).
+  - Targeted isolation tests for vehicles, work-orders, fleet, notifications, trips, users, utilities.
+  - `TenantContextGuard` enforces membership; services use `requestContext.getTenantId()` patterns.
+  - SUPER_ADMIN cross-tenant access is explicit (null tenant or validated `X-Tenant-Id`), not accidental for normal users.
+  - QA checklist includes manual cross-tenant access attempts.
+- **Residual Risk:** In-memory fleet geofences (tenant-scoped at API layer but not persisted); notification list is user-scoped not tenant-column-scoped.
 - **Owner:** API Platform
-- **Review Cadence:** Weekly until SEC-006 is DONE.
+- **Review Cadence:** Every new tenant-owned module or Prisma mutation; quarterly spot audit.
 
 ### RISK-SEC-012-REDIS-QUEUE
 - **Category:** Security / Reliability

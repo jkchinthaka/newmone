@@ -85,6 +85,16 @@
 - [ ] Keyboard: Escape closes dialog when safe; Tab moves focus between cancel/confirm; Enter submits prompt dialog.
 - [ ] No `window.alert`, `window.confirm`, or `window.prompt` in high-impact migrated flows.
 
+## 2f) Tenant Isolation (SEC-006)
+- [ ] Tenant A user cannot list Tenant B vehicles, work orders, or trips (404/403, not partial data leak).
+- [ ] Tenant A user cannot read Tenant B record by direct ID URL/API call.
+- [ ] Tenant A user cannot update/delete Tenant B vehicle or work order.
+- [ ] Fleet alerts and geofences for Tenant A do not show Tenant B data.
+- [ ] Notification actions (schedule/assign/create WO) cannot mutate Tenant B referenced records.
+- [ ] User management list/detail excludes users outside caller tenant (non-SUPER_ADMIN).
+- [ ] SUPER_ADMIN cross-tenant access is intentional only (explicit tenant header or global null context), not default for tenant users.
+- [ ] Reports/dashboard counts for tenant user exclude other tenants' records.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.
