@@ -150,3 +150,17 @@
 - **Residual Risk:** New routes/roles must update centralized nav config; direct URL access must remain server-enforced.
 - **Owner:** Web Platform
 - **Review Cadence:** Every navigation release and when new modules/roles are added.
+
+### RISK-UX-011-ERROR-DISPLAY-BALANCE
+- **Category:** UX / Security / Supportability
+- **Description:** Over-sanitized error states can hide actionable failures; under-sanitized states can expose tokens, stack traces, or internal infrastructure details.
+- **Impact:** Harder incident diagnosis, user confusion, or accidental disclosure of sensitive implementation details.
+- **Likelihood:** Low-Medium while pages migrate to shared state components.
+- **Current Mitigation:**
+  - Shared `toSafeDisplayMessage` / `toSafeApiErrorMessage` helpers filter unsafe patterns and length.
+  - Error states use generic fallbacks for technical failures while preserving safe API messages.
+  - Retry actions retained on existing refetch flows.
+  - QA checklist covers safe messaging and no raw technical leakage.
+- **Residual Risk:** New pages must adopt shared helpers; server logs remain the source of truth for detailed diagnostics.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding new data-fetching pages or changing error handling.

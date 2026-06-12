@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { toSafeApiErrorMessage } from "@/components/ui/page-state";
 
 import { defaultReportFilters, getReportsDashboard, REPORT_MODULES } from "./api";
 import { ReportFiltersBar, ReportHeader, StatePanel, SummaryCards } from "./report-ui";
@@ -49,7 +50,7 @@ export function ReportsDashboardPage() {
       {query.isLoading ? (
         <StatePanel type="loading" title="Loading report dashboard" message="Preparing live report summaries and cross-module metrics." />
       ) : query.isError ? (
-        <StatePanel type="error" title="Could not load reports" message={getApiErrorMessage(query.error, "The reports dashboard API returned an error.")} onRetry={() => query.refetch()} />
+        <StatePanel type="error" title="Could not load reports" message={toSafeApiErrorMessage(query.error, "The reports dashboard API returned an error.")} onRetry={() => query.refetch()} />
       ) : dashboard ? (
         <>
           <SummaryCards cards={dashboard.summaryCards} />

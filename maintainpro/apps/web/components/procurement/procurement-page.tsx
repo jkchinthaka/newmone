@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, CheckCircle2, XCircle, Send, Repeat } from "lucide-react";
 import { toast } from "sonner";
 
+import { EmptyState, ErrorState, InlineLoadingState, toSafeDisplayMessage } from "@/components/ui/page-state";
+
 import {
   approveFinance,
   approveOperational,
@@ -41,15 +43,22 @@ export default function ProcurementWorkflowPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<PurchaseOrderWorkflowRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const rows = await listPurchaseOrders();
       setOrders(rows);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load purchase orders."));
+      const message = toSafeDisplayMessage(
+        getApiErrorMessage(err, "Failed to load purchase orders."),
+        "Failed to load purchase orders."
+      );
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -204,11 +213,22 @@ export default function ProcurementWorkflowPage() {
             Purchase Orders ({filtered.length})
           </div>
           {loading ? (
-            <div className="flex items-center justify-center p-8 text-slate-500">
-              <Loader2 className="mr-2 animate-spin" size={16} /> Loading
+            <InlineLoadingState label="Loading purchase orders..." />
+          ) : loadError ? (
+            <div className="p-4">
+              <ErrorState
+                description={loadError}
+                onRetry={() => void refresh()}
+                title="Could not load purchase orders"
+              />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="p-6 text-sm text-slate-500">No purchase orders match the current filter.</p>
+            <div className="p-4">
+              <EmptyState
+                description="No purchase orders match the current filter. Try another status or refresh the list."
+                title="No purchase orders to show"
+              />
+            </div>
           ) : (
             <ul className="divide-y divide-slate-100">
               {filtered.map((po) => (

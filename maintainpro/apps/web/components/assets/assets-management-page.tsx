@@ -35,6 +35,7 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { USER_KEY } from "@/lib/auth-storage";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
+import { EmptyState } from "@/components/ui/page-state";
 import {
   hasActiveFilters,
   useAssetPageStore,
@@ -1645,18 +1646,16 @@ export default function AssetsManagementPage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}>
-                      <div className="grid place-items-center gap-3 px-6 py-16 text-center">
-                        <p className="text-lg font-semibold text-slate-900">No assets matched the current filters</p>
-                        <p className="max-w-2xl text-sm text-slate-500">{filterSummary}</p>
-                        <button
-                          onClick={() => {
+                      <div className="px-4 py-6">
+                        <EmptyState
+                          actionLabel="Clear filters"
+                          description={filterSummary}
+                          onAction={() => {
                             clearFilters();
                             setSearchDraft("");
                           }}
-                          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                        >
-                          Clear filters
-                        </button>
+                          title="No assets matched the current filters"
+                        />
                       </div>
                     </td>
                   </tr>

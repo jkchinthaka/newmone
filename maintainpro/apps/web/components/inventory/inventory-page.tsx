@@ -4,6 +4,8 @@ import { Download, FileSpreadsheet, Loader2, Printer, Tags, Trash2 } from "lucid
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+
 import {
   applyInventoryFilters,
   DEFAULT_FILTERS,
@@ -425,22 +427,24 @@ export default function InventoryManagementPage() {
   }
 
   if (isInitialLoading) {
-    return <InventoryPageSkeleton />;
+    return (
+      <LoadingState
+        description="Loading stock levels, alerts, and procurement signals."
+        title="Loading inventory"
+      >
+        <InventoryPageSkeleton />
+      </LoadingState>
+    );
   }
 
   if (hasBlockingError) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6">
-        <p className="text-sm font-semibold text-rose-900">Unable to load inventory data</p>
-        <p className="mt-1 text-sm text-rose-800">{getErrorMessage(partsQuery.error)}</p>
-        <button
-          type="button"
-          onClick={() => refreshInventoryData()}
-          className="mt-4 rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState
+        error={partsQuery.error}
+        onRetry={() => refreshInventoryData()}
+        title="Unable to load inventory data"
+        description={toSafeApiErrorMessage(partsQuery.error, "Unable to load inventory data.")}
+      />
     );
   }
 

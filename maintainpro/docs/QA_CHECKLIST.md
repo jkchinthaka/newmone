@@ -50,6 +50,17 @@
 - [ ] Logout from topbar still clears session and returns to login.
 - [ ] Frontend nav hiding is UX-only; direct URL access still requires backend authorization.
 
+## 2c) Page UI States (UX-011)
+- [ ] Dashboard and Reports show consistent loading panel while data fetches.
+- [ ] Work Orders, Inventory, Procurement, and System Health show professional loading states (not plain "Loading..." text).
+- [ ] Error states show safe user-friendly messages with retry where supported.
+- [ ] No stack traces, tokens, connection strings, or internal paths appear in UI error messages.
+- [ ] Empty list states explain why data is missing (filters, no records, etc.).
+- [ ] Empty state action buttons only appear when a safe existing action exists (e.g. clear filters).
+- [ ] Assets table empty state uses shared EmptyState with clear filters action.
+- [ ] Mobile view: loading/error/empty panels remain readable and buttons are tappable.
+- [ ] Logout and auth/session behavior unchanged after state component rollout.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

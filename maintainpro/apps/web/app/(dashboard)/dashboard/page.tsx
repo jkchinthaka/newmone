@@ -22,7 +22,7 @@ import {
 } from "recharts";
 
 import { StatePanel, SummaryCards } from "@/components/reports/report-ui";
-import { getApiErrorMessage } from "@/lib/api-client";
+import { toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { getDriverManagementDashboard } from "@/lib/driver-intelligence-api";
 
 const riskPalette: Record<string, string> = {
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       {query.isLoading ? (
         <StatePanel type="loading" title="Loading management dashboard" message="Calculating live driver, cost, and fuel intelligence." />
       ) : query.isError ? (
-        <StatePanel type="error" title="Could not load management dashboard" message={getApiErrorMessage(query.error, "The dashboard API returned an error.")} onRetry={() => query.refetch()} />
+        <StatePanel type="error" title="Could not load management dashboard" message={toSafeApiErrorMessage(query.error, "The dashboard API returned an error.")} onRetry={() => query.refetch()} />
       ) : dashboard ? (
         <>
           <SummaryCards cards={dashboard.summaryCards} />

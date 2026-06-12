@@ -723,3 +723,45 @@ Record each completed task with:
   - Frontend nav visibility is UX-only; backend RBAC must continue to enforce route access.
   - Topbar billing link remains visible on larger screens for all roles (sidebar is role-filtered).
   - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-011 | Standard page UI states
+- What changed:
+  - Added reusable page state components: `LoadingState`, `ErrorState`, `EmptyState`, `SuccessState`, `PermissionState`, plus `LoadingCardSkeleton` and `InlineLoadingState`.
+  - Added `lib/safe-display-message.ts` to sanitize user-facing error text (no stack traces, tokens, or connection strings).
+  - Updated legacy `StatePanel` in reports UI to delegate to shared components.
+  - Applied shared states to high-impact screens:
+    - Dashboard (safe error messaging via existing StatePanel)
+    - Reports dashboard (safe error messaging)
+    - Work Orders (loading + error)
+    - Inventory (loading + error)
+    - Procurement (loading + error + empty)
+    - System Health (loading + error)
+    - Assets list empty state
+- Files changed:
+  - `maintainpro/apps/web/components/ui/page-state.tsx` (new)
+  - `maintainpro/apps/web/lib/safe-display-message.ts` (new)
+  - `maintainpro/apps/web/components/reports/report-ui.tsx`
+  - `maintainpro/apps/web/components/reports/reports-dashboard-page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/dashboard/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/system-health/page.tsx`
+  - `maintainpro/apps/web/components/work-orders/work-orders-page.tsx`
+  - `maintainpro/apps/web/components/inventory/inventory-page.tsx`
+  - `maintainpro/apps/web/components/procurement/procurement-page.tsx`
+  - `maintainpro/apps/web/components/assets/assets-management-page.tsx`
+  - `maintainpro/apps/api/test/page-state.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 40 suites, 199 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Not all routes migrated yet; legacy inline loading/error patterns remain on lower-traffic pages.
+  - Over-sanitized errors may reduce user-facing detail for rare edge cases (see RISK-UX-011).
+  - `SEC-006` tenant-isolation final sweep remains in progress.

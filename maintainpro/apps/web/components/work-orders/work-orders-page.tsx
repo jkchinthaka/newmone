@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { USER_KEY } from "@/lib/auth-storage";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
@@ -56,22 +57,12 @@ function StatCard({ label, value }: { label: string; value: number }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="card animate-pulse space-y-3">
-        <div className="h-4 w-52 rounded bg-slate-200" />
-        <div className="h-10 rounded bg-slate-200" />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-10 rounded bg-slate-200" />
-          ))}
-        </div>
-      </div>
-      <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-[220px] animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
-        ))}
-      </div>
-    </div>
+    <LoadingState
+      description="Fetching work orders, filters, and assignment data."
+      title="Loading work orders"
+    >
+      <LoadingCardSkeleton rows={6} />
+    </LoadingState>
   );
 }
 
@@ -240,16 +231,15 @@ export default function WorkOrdersPage() {
 
     if (workOrdersQuery.error) {
       return (
-        <div className="card flex flex-col items-start gap-3 text-sm text-slate-600">
-          <p>Unable to load work orders right now.</p>
-          <button
-            type="button"
-            onClick={() => workOrdersQuery.refetch()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw size={14} /> Retry
-          </button>
-        </div>
+        <ErrorState
+          error={workOrdersQuery.error}
+          onRetry={() => workOrdersQuery.refetch()}
+          title="Could not load work orders"
+          description={toSafeApiErrorMessage(
+            workOrdersQuery.error,
+            "Unable to load work orders right now."
+          )}
+        />
       );
     }
 

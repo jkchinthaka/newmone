@@ -376,17 +376,16 @@ export function InsightsPanel({ insights, notes }: { insights: string[]; notes?:
   );
 }
 
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
+
 export function StatePanel({ type, title, message, onRetry }: { type: "loading" | "error" | "empty"; title: string; message: string; onRetry?: () => void }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-      {type === "loading" ? <Loader2 className="mx-auto h-6 w-6 animate-spin text-brand-600" /> : null}
-      <p className="mt-3 text-sm font-semibold text-slate-900">{title}</p>
-      <p className="mx-auto mt-1 max-w-xl text-sm text-slate-500">{message}</p>
-      {onRetry ? (
-        <button type="button" onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700">
-          <RefreshCw size={15} /> Retry
-        </button>
-      ) : null}
-    </div>
-  );
+  if (type === "loading") {
+    return <LoadingState title={title} description={message} />;
+  }
+
+  if (type === "error") {
+    return <ErrorState title={title} description={message} onRetry={onRetry} />;
+  }
+
+  return <EmptyState title={title} description={message} />;
 }

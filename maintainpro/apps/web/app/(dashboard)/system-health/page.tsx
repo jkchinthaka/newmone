@@ -12,7 +12,8 @@ import {
   Settings2
 } from "lucide-react";
 
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
+import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 
 type CheckStatus =
   | "operational"
@@ -267,9 +268,23 @@ export default function SystemHealthPage() {
           </button>
         </div>
 
+        {healthQuery.isLoading && !healthQuery.data ? (
+          <div className="mt-5">
+            <LoadingState
+              description="Checking databases, queues, integrations, and readiness dependencies."
+              title="Loading system health"
+            />
+          </div>
+        ) : null}
+
         {healthQuery.error ? (
-          <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {getApiErrorMessage(healthQuery.error, "Unable to load system health.")}
+          <div className="mt-5">
+            <ErrorState
+              error={healthQuery.error}
+              onRetry={() => healthQuery.refetch()}
+              title="Could not load system health"
+              description={toSafeApiErrorMessage(healthQuery.error, "Unable to load system health.")}
+            />
           </div>
         ) : null}
 
