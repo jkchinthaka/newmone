@@ -10,7 +10,7 @@
 
 ## Known Issues / Blockers
 - `SEC-006` tenant-isolation final sweep is **DONE** (2026-06-12). Continue monitoring on new modules.
-- Role-aware dashboard replacement (original dashboard UX scope) remains deferred after `/home` legacy routing cleanup.
+- Role-aware dashboard replacement (original dashboard UX scope) is **DONE** via `DASH-001` (2026-06-12).
 
 ## Next Recommended Phase
 - Phase 2 UI/UX foundation can start now (navigation, auth UX refinements, reusable tables/states, responsive polish).
@@ -46,6 +46,7 @@
 | UX-012 | P2 | UX/Mobile | Mobile responsiveness + PWA improvements | DONE | layout, data-table, assets-table, auth pages, manifest/pwa-metadata | Manual device QA, mobile-pwa.spec.ts, web/full build | Mobile card overflow/action polish, Assets row menu bottom sheet on small screens, touch targets, viewport/PWA metadata alignment, breadcrumb/dialog/toast mobile safety. |
 | UX-013 | P2 | UX/A11y | WCAG 2.1 AA improvements | DONE | auth/layout/nav/data-table/dialogs/page-state | Manual a11y QA, accessibility.spec.ts, web/full build | Core shell ARIA semantics: nav aria-current/expanded, breadcrumb labels, table scope/sort/keyboard rows, dialog validation links, auth form labels/status. |
 | UX-014 | P2 | UX/Locale | Sri Lanka localization readiness | DONE | lib/localization.ts, lib/ui-copy.ts, inventory/work-orders/reports/procurement/assets/dashboard rollout | Manual locale QA, localization.spec.ts, web/full build | en-LK/Asia/Colombo/LKR formatting helpers; English UI default; limited high-impact rollout; no full translation or backend changes. |
+| DASH-001 | P2 | UX/Dashboard | Role-aware dashboard content | DONE | lib/dashboard-roles.ts, components/dashboard/*, dashboard/page.tsx | Manual role QA, dashboard-roles.spec.ts, web/full build | Role-specific dashboard composition using existing APIs only; no backend changes or fake metrics. |
 | ADMIN-001 | P2 | Admin | Dedicated /admin console | NOT_STARTED | new admin route group | Manual RBAC test | |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |

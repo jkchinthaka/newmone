@@ -169,6 +169,18 @@
 - [ ] Visible UI labels remain English (no partial Sinhala/Tamil translation drift).
 - [ ] Screen readers announce formatted currency/date text naturally (no icon-only replacements).
 
+## 2m) Role-Aware Dashboard (DASH-001)
+- [ ] SUPER_ADMIN / ADMIN see system health, work orders, inventory, reports, and driver intelligence sections.
+- [ ] ADMIN dashboard does not appear for TECHNICIAN, CLEANER, DRIVER, INVENTORY_KEEPER, or VIEWER roles.
+- [ ] MANAGER / SUPERVISOR see work orders + reports summaries and operational quick links (no system health or driver intelligence charts).
+- [ ] TECHNICIAN / MECHANIC see assigned work order summary and priority list; no admin/system cards.
+- [ ] INVENTORY_KEEPER / STOREKEEPER see inventory overview with LKR stock value and low-stock counts.
+- [ ] CLEANER sees cleaning quick links and documented empty state (no fake cleaning metrics).
+- [ ] DRIVER sees vehicles/fleet quick links and documented empty state (no fake trip metrics).
+- [ ] VIEWER / AUDITOR see read-only reports summary; no mutation CTAs on dashboard.
+- [ ] Unknown/missing role gets minimal dashboard with safe quick links only.
+- [ ] Dashboard layout remains usable on mobile (cards stack, links tappable).
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

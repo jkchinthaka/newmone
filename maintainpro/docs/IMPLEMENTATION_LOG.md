@@ -1166,3 +1166,54 @@ Record each completed task with:
 - Remaining risks:
   - Unmigrated pages may still show USD/browser-default formatting until individually rolled out.
   - Relative date labels use English-only strings (`Today`, `Yesterday`) until future i18n catalogs exist.
+
+## 2026-06-12 | DASH-001 | Role-aware dashboard content
+- Audit findings:
+  - `/dashboard` previously rendered the full driver-intelligence management dashboard for every role, including technicians, cleaners, inventory keepers, and viewers.
+  - Role detection already exists via `extractRoleName()` / `useCurrentUser()` and UX-006 navigation visibility.
+  - Existing data APIs usable without backend changes: work orders (`fetchWorkOrders`), inventory (`getInventoryParts`, `getLowStockParts`, `getPurchaseOrders`), reports (`getReportsDashboard`), system health (`/health/readiness`), driver intelligence (`getDriverManagementDashboard`).
+  - No dedicated cleaning or driver aggregate dashboard API exists; documented safe empty states instead of fake metrics.
+- Role grouping approach:
+  - Added `lib/dashboard-roles.ts` with `resolveDashboardVariant()` and section visibility helpers.
+  - Variants: `admin`, `management`, `technician`, `cleaner`, `inventory`, `driver`, `viewer`, `minimal`.
+  - Reuses same role naming conventions as navigation/redirect; frontend visibility only.
+- Dashboard sections added:
+  - Shared building blocks: `dashboard-card`, `dashboard-section`, `dashboard-quick-links`.
+  - `SystemHealthSummary` (admin only).
+  - `WorkOrdersSummary` (admin/management/technician; technician filters by assigned user id).
+  - `InventorySummary` (admin/inventory keeper).
+  - `ReportsSummary` (admin/management/viewer; read-only flag for viewer).
+  - `DriverIntelligenceDashboard` extracted from old page (admin only).
+  - Quick links from visible navigation; safe empty states for cleaner/driver/minimal variants.
+- Data sources used:
+  - Work orders list API with client-side stats/priority selection.
+  - Inventory parts/low-stock/purchase orders with existing `calculateInventorySummary`.
+  - Reports dashboard summary cards API.
+  - Health readiness endpoint summary counts.
+  - Driver intelligence dashboard API (admin only).
+- Skipped/deferred:
+  - No new backend endpoints, models, or role permission changes.
+  - No dedicated `/admin` console (ADMIN-001).
+  - No cleaning/driver aggregate metrics (no existing API).
+  - Farm-specific dashboard metrics deferred; farm roles get management variant with work orders/reports/quick links only.
+- Files changed:
+  - `maintainpro/apps/web/lib/dashboard-roles.ts` (new)
+  - `maintainpro/apps/web/components/dashboard/*` (new)
+  - `maintainpro/apps/web/app/(dashboard)/dashboard/page.tsx`
+  - `maintainpro/apps/api/test/dashboard-roles.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Frontend dashboard visibility mirrors role config; backend RBAC still required on module access.
+  - Technician assigned-work filtering depends on `technicianId` matching stored user id.
+  - Multiple dashboard panels may call several existing APIs on admin load (acceptable for this pass; no new endpoints).

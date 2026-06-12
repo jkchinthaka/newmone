@@ -284,3 +284,18 @@
 - **Residual Risk:** Farm, vehicles, fuel, predictive-ai, and legacy FMS pages still use ad hoc formatting; full translation not started.
 - **Owner:** Web Platform
 - **Review Cadence:** When touching date/currency display in any module; migrate to shared helpers before adding new formatted fields.
+
+### RISK-DASH-001-DASHBOARD-ROLE-DRIFT
+- **Category:** UX / Dashboard / Authorization
+- **Description:** Dashboard section visibility is derived from frontend role grouping (`dashboard-roles.ts`); drift from backend RBAC or incomplete role mapping could show/hide wrong panels or imply access the user lacks.
+- **Impact:** Users see irrelevant panels, attempt unavailable modules (403/errors), or miss useful summaries; stale metrics if APIs fail silently.
+- **Likelihood:** Low-Medium when new roles ship without updating dashboard grouping.
+- **Current Mitigation:**
+  - Pure role grouping helpers with unit tests (`dashboard-roles.spec.ts`).
+  - Admin-only driver intelligence and system health panels; viewer/minimal read-only paths.
+  - Safe empty states when aggregate APIs do not exist (cleaner/driver); no fake metrics.
+  - UX-011 loading/error states on each data panel with retry.
+  - QA checklist section 2m for per-role manual verification.
+- **Residual Risk:** Backend remains authoritative; technician assignment filter depends on user id alignment; admin dashboard may trigger multiple existing API calls.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding roles, dashboard modules, or new summary APIs.
