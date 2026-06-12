@@ -255,3 +255,18 @@
 - **Residual Risk:** No automated axe/Lighthouse gate yet; legacy module pages and modal-only flows not fully audited; focus trap not implemented in drawer.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding new interactive components or migrating additional pages.
+
+### RISK-UX-008-COMMAND-PALETTE-VISIBILITY
+- **Category:** UX / Navigation / Authorization
+- **Description:** Command palette visibility is derived from frontend navigation config; drift from backend RBAC or incomplete nav registration could show/hide wrong routes or imply access the user lacks.
+- **Impact:** Users attempt unavailable pages (403/errors) or miss allowed modules; false sense of access if palette shows routes backend denies.
+- **Likelihood:** Low-Medium when new routes/modules ship without updating `navigation.ts`.
+- **Current Mitigation:**
+  - Commands built exclusively from `getVisibleNavigationItems()` + `EXISTING_NAV_ROUTES` (same as UX-006 sidebar).
+  - Navigation-only actions; no mutations/destructive commands in palette.
+  - Dashboard command uses `/dashboard`; `/home` only as labeled Legacy FMS Archive when nav exposes it.
+  - Unit tests (`command-palette.spec.ts`) verify role filtering, search, route alignment, and dashboard/legacy separation.
+  - QA checklist section 2k for keyboard, role visibility, and navigation behavior.
+- **Residual Risk:** Backend remains authoritative; palette is UX convenience only. Entity search and cross-module actions not included.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding routes, roles, or nav items.

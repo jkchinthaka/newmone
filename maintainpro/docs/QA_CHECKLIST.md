@@ -145,6 +145,22 @@
 - [ ] Loading/error/empty states use appropriate status/alert semantics without leaking technical details.
 - [ ] Visible focus rings appear on keyboard navigation for nav links, table controls, dialogs, and auth inputs.
 
+## 2k) Command Palette (UX-008)
+- [ ] Ctrl+K (Windows/Linux) or Cmd+K (macOS) opens command palette outside text inputs.
+- [ ] Shortcut does not fire while typing in input/textarea/select fields.
+- [ ] Topbar search button opens palette on desktop and mobile.
+- [ ] Escape and backdrop click close the palette.
+- [ ] Empty search shows allowed navigation commands for current role.
+- [ ] Search by module name/keyword filters results (e.g. “inventory”, “parts”, “work”).
+- [ ] No-results message appears when query matches nothing.
+- [ ] TECHNICIAN (or similar restricted role) does not see admin-only routes (e.g. System Health) in palette.
+- [ ] Selecting a command navigates to the correct existing route and closes palette.
+- [ ] Dashboard command points to `/dashboard`, not `/home`.
+- [ ] Legacy FMS Archive appears only when role nav exposes it, labeled as archive (not Home).
+- [ ] Arrow keys move active result; Enter navigates.
+- [ ] Palette is usable on mobile (scroll, tap, no horizontal overflow).
+- [ ] No destructive or mutating commands appear in palette.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

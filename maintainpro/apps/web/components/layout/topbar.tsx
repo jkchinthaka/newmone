@@ -65,6 +65,7 @@ export const TOPBAR_TENANT_QUERY_KEY = ["tenants", "context"] as const;
 
 type TopbarProps = {
   onOpenMobileNav?: () => void;
+  onOpenCommandPalette?: () => void;
   mobileNavOpen?: boolean;
   mobileNavId?: string;
 };
@@ -87,6 +88,7 @@ function formatUserLabel(email: string | null, role: string | null): string {
 
 export function Topbar({
   onOpenMobileNav,
+  onOpenCommandPalette,
   mobileNavOpen = false,
   mobileNavId = MOBILE_NAV_DRAWER_ID
 }: TopbarProps) {
@@ -189,10 +191,28 @@ export function Topbar({
           <div className="xl:hidden">
             <MaintainProLogo size="sm" />
           </div>
-          <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 lg:flex">
-            <Search size={16} />
-            <span>Search assets, work orders, vehicles...</span>
-          </div>
+          <button
+            type="button"
+            aria-label="Open command palette"
+            aria-keyshortcuts="Control+K Meta+K"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:hidden"
+            onClick={onOpenCommandPalette}
+          >
+            <Search aria-hidden size={18} />
+          </button>
+          <button
+            type="button"
+            aria-label="Open command palette"
+            aria-keyshortcuts="Control+K Meta+K"
+            className="hidden min-h-11 max-w-full items-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:inline-flex lg:min-w-[14rem]"
+            onClick={onOpenCommandPalette}
+          >
+            <Search aria-hidden size={16} />
+            <span className="truncate">Search modules...</span>
+            <kbd className="ml-auto hidden shrink-0 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 xl:inline">
+              Ctrl K
+            </kbd>
+          </button>
         </div>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <p

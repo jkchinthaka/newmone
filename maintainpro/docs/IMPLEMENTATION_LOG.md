@@ -1073,3 +1073,46 @@ Record each completed task with:
 - Remaining risks:
   - Focus management on route changes and complex nested widgets still needs manual screen-reader QA.
   - Color contrast on legacy pages not fully audited.
+
+## 2026-06-12 | UX-008 | Global command palette
+- Audit findings:
+  - UX-006 `getVisibleNavigationItems()` already centralizes role-aware routes with `EXISTING_NAV_ROUTES` guard and dashboard fallback for unknown roles.
+  - Current user role is available client-side via `useCurrentUser()` / `extractRoleName()` (same source as sidebar).
+  - `/home` is only exposed as labeled “Legacy FMS Archive” (`legacy: true`), not as main Dashboard.
+  - Topbar had decorative search text only; no global quick navigation existed.
+- Command source/filtering approach:
+  - Pure helpers in `lib/command-palette.ts` map visible navigation items to command entries (label, description, href, category, keywords).
+  - Filtering reuses `getVisibleNavigationItems(role)` — no separate command list, no backend calls, no routes outside nav config.
+  - Client-side search matches label, description, category, and keyword aliases only.
+- Fixes applied:
+  - Added reusable `CommandPalette` dialog UI with accessible search, keyboard navigation (Up/Down/Enter/Escape), no-results status, mobile-friendly layout.
+  - Added `GlobalCommandPalette` wired into dashboard layout with Ctrl/Cmd+K shortcut (ignored while typing in inputs/textareas/select/contenteditable).
+  - Topbar search buttons (mobile icon + desktop trigger with Ctrl K hint) open the palette.
+  - Selecting a command navigates via Next router and closes palette.
+- Skipped/deferred:
+  - No destructive/mutating commands (create/update/delete/approve).
+  - No server-side search or new API endpoints.
+  - No focus trap (Escape/backdrop close retained; documented residual risk).
+  - Entity/detail search (assets by tag, work orders by number) deferred — navigation-only scope.
+- Files changed:
+  - `maintainpro/apps/web/lib/command-palette.ts` (new)
+  - `maintainpro/apps/web/components/ui/command-palette.tsx` (new)
+  - `maintainpro/apps/web/components/layout/global-command-palette.tsx` (new)
+  - `maintainpro/apps/web/app/(dashboard)/layout.tsx`
+  - `maintainpro/apps/web/components/layout/topbar.tsx`
+  - `maintainpro/apps/api/test/command-palette.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 50 suites, 248 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Frontend command visibility mirrors nav config only; backend RBAC still required on route access.
+  - Command keywords may drift from nav labels until both share one source (currently same item list).

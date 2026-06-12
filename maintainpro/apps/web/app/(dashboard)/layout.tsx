@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
+import { GlobalCommandPalette } from "@/components/layout/global-command-palette";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
@@ -19,6 +20,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -71,6 +73,7 @@ export default function DashboardLayout({
           <div className="flex min-w-0 flex-1 flex-col">
             <Topbar
               mobileNavOpen={mobileNavOpen}
+              onOpenCommandPalette={() => setCommandPaletteOpen(true)}
               onOpenMobileNav={() => setMobileNavOpen(true)}
             />
             <main id="main-content" className="flex-1 overflow-x-hidden p-4 sm:p-6">
@@ -79,6 +82,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </div>
+      <GlobalCommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       <Toaster closeButton position="top-center" richColors duration={4_000} />
     </QueryClientProvider>
   );
