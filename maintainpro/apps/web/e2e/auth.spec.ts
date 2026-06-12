@@ -80,6 +80,13 @@ test.describe("authentication", () => {
     await expect(passwordInput).toHaveAttribute("type", "password");
   });
 
+  test("does not expose a public sign-up link", async ({ page }) => {
+    await page.goto("/login");
+
+    await expect(page.getByRole("link", { name: /sign up/i })).toHaveCount(0);
+    await expect(page.getByText(/access is by invitation/i)).toBeVisible();
+  });
+
   test("blocks empty login submission with field-level errors", async ({ page }) => {
     let loginCalls = 0;
     await page.route("**/api/auth/login", async (route) => {
@@ -88,12 +95,28 @@ test.describe("authentication", () => {
     });
 
     await page.goto("/login");
-    await page.locator('input[name="username"]').fill("");
+    await page.locator('input[name="email"]').fill("");
     await page.locator('input[name="password"]').fill("");
-    await page.getByRole("button", { name: "LOGIN" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText("Username is required")).toBeVisible();
+    await expect(page.getByText("Work email is required")).toBeVisible();
     await expect(page.getByText("Password is required")).toBeVisible();
+    expect(loginCalls).toBe(0);
+  });
+
+  test("rejects invalid email format before calling login API", async ({ page }) => {
+    let loginCalls = 0;
+    await page.route("**/api/auth/login", async (route) => {
+      loginCalls += 1;
+      await route.abort();
+    });
+
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill("not-an-email");
+    await page.locator('input[name="password"]').fill("WrongPass123");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page.getByText("Enter a valid work email address")).toBeVisible();
     expect(loginCalls).toBe(0);
   });
 
@@ -113,15 +136,15 @@ test.describe("authentication", () => {
     });
 
     await page.goto("/login");
-    await page.locator('input[name="username"]').fill("admin");
+    await page.locator('input[name="email"]').fill("admin@maintainpro.local");
     await page.locator('input[name="password"]').fill("WrongPass123");
-    await page.getByRole("button", { name: "LOGIN" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page.getByText("Invalid email or password")).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("logs in, stores the session, and opens the protected home page", async ({ page }) => {
+  test("logs in as admin and lands on the dashboard route", async ({ page }) => {
     await mockAuthenticatedShell(page);
     await page.addInitScript(() => {
       localStorage.setItem("maintainpro_active_tenant", "stale-tenant-from-previous-session");
@@ -148,13 +171,86 @@ test.describe("authentication", () => {
     });
 
     await page.goto("/login");
-    await page.locator('input[name="username"]').fill("admin");
+    await page.locator('input[name="email"]').fill("admin@maintainpro.local");
     await page.locator('input[name="password"]').fill(e2ePassword);
-    await page.getByRole("button", { name: "LOGIN" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/home");
-    await expect(page.getByRole("heading", { name: "Pending Requests" })).toBeVisible();
+    await page.waitForURL("**/dashboard");
+    await expect(page).not.toHaveURL(/\/home$/);
     await expect.poll(() => page.evaluate(() => localStorage.getItem("maintainpro_access_token"))).toBe("e2e-access-token");
+  });
+
+  test("logs in as technician and lands on work orders", async ({ page }) => {
+    const technicianUser = {
+      ...adminUser,
+      id: "user-e2e-tech",
+      role: { id: "role-tech", name: "TECHNICIAN" }
+    };
+
+    await page.route("**/api/auth/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: technicianUser,
+          message: "Profile fetched"
+        })
+      });
+    });
+
+    await page.route("**/api/tenants/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            activeTenant: {
+              id: "tenant-e2e",
+              name: "E2E Tenant",
+              slug: "e2e-tenant",
+              isActive: true
+            },
+            memberships: []
+          },
+          message: "Tenant context fetched"
+        })
+      });
+    });
+
+    await page.route("**/api/notifications**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: { items: [] },
+          meta: { total: 0 },
+          message: "Notifications fetched"
+        })
+      });
+    });
+
+    await page.route("**/api/auth/login", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            user: technicianUser,
+            accessToken: "e2e-tech-token",
+            refreshToken: "e2e-tech-refresh"
+          },
+          message: "Login successful"
+        })
+      });
+    });
+
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill("tech@maintainpro.local");
+    await page.locator('input[name="password"]').fill(e2ePassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await page.waitForURL("**/work-orders");
+    await expect(page).not.toHaveURL(/\/home$/);
   });
 
   test("redirects unauthenticated protected-route access to login", async ({ page }) => {
@@ -175,6 +271,6 @@ test.describe("authentication", () => {
     await page.goto("/home");
 
     await expect(page).toHaveURL(/\/login\?reason=session_expired$/);
-    await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 });

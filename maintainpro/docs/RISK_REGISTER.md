@@ -70,12 +70,54 @@
 
 ### RISK-BUILD-REGISTER-SUSPENSE-BLOCKER
 - **Category:** Delivery / Build Stability
-- **Description:** Full monorepo build is blocked by a pre-existing web `/register` suspense boundary issue unrelated to completed security tasks.
-- **Impact:** Slower release confidence for full-stack build gates despite API security completion.
-- **Likelihood:** High (currently reproducible).
+- **Description:** Web auth `/register` previously failed static prerender because `useSearchParams` was used without a Suspense boundary.
+- **Impact:** Was blocking full monorepo build and delaying release confidence.
+- **Likelihood:** Low (resolved by WEB-001 refactor).
 - **Current Mitigation:**
-  - API workspace build/test gates pass and are used for security-phase verification.
-  - Blocker is documented in TODO/implementation logs for Phase 2 handling.
-- **Residual Risk:** Full monorepo CI/build remains partially blocked until web issue is resolved.
+  - Route now uses server `page.tsx` + `<Suspense>` wrapper with client child component for `useSearchParams` access.
+  - Verified passing `npm run build --workspace @maintainpro/web` and full `npm run build` monorepo build.
+- **Residual Risk:** Similar regressions can recur if future App Router pages use client navigation hooks in prerendered routes without Suspense/client separation.
 - **Owner:** Web Platform
-- **Review Cadence:** Next UI/Auth web phase.
+- **Review Cadence:** Every auth-route structural change and before release cut.
+
+### RISK-UX-003-LOGIN-IDENTIFIER-AMBIGUITY
+- **Category:** Security / UX / Authentication
+- **Description:** Login UI that accepts ambiguous identifiers (username vs email) or silently rewrites credentials can confuse enterprise users and hide incorrect sign-in attempts.
+- **Impact:** Support friction, mistaken lockouts, or accidental reliance on undocumented alias behavior in production.
+- **Likelihood:** Low after UX-003 (email-only UI aligned to backend contract).
+- **Current Mitigation:**
+  - Backend login is email-only (`LoginDto.email`, Prisma lookup by `User.email`).
+  - Web login validates work email format before submit and sends trimmed email to API.
+  - Silent `@maintainpro.local` alias removed from default production behavior.
+  - Optional dev alias requires explicit `NEXT_PUBLIC_LOGIN_DEV_LOCAL_ALIAS=true`.
+- **Residual Risk:** Future login changes must preserve email-only contract unless backend adds real username support.
+- **Owner:** Web Platform + API/Auth
+- **Review Cadence:** Every auth UI/API contract change.
+
+### RISK-UX-002-AUTH-UI-REGRESSION
+- **Category:** Security / UX / Authentication
+- **Description:** Auth UI refactors can accidentally reintroduce public sign-up links, demo credentials, or break cookie/CSRF login compatibility.
+- **Impact:** Unauthorized account creation exposure, credential leakage perception, or login/session failures.
+- **Likelihood:** Low-Medium during ongoing Phase 2 auth UX work.
+- **Current Mitigation:**
+  - Login page rebuilt without public sign-up link and with invitation-only guidance.
+  - Existing login API contract preserved (`email` + password; work email validation on web).
+  - SEC-010 cookie/CSRF refresh flow untouched in API client/auth storage.
+  - Playwright auth e2e selectors updated for new login copy/button text.
+- **Residual Risk:** Future login/register UX edits must preserve invitation-only posture and cookie-based refresh behavior.
+- **Owner:** Web Platform + API/Auth
+- **Review Cadence:** Every auth UI release and before production deploy.
+
+### RISK-UX-004-ROLE-LANDING-MISROUTING
+- **Category:** UX / Security / Authorization Clarity
+- **Description:** Incorrect post-login landing routes can send users to the wrong module and create confusion about frontend vs backend authorization boundaries.
+- **Impact:** Poor first-login UX, support friction, and mistaken assumptions that landing page access implies full module permissions.
+- **Likelihood:** Low-Medium while role-specific routes are still being built.
+- **Current Mitigation:**
+  - Centralized role redirect helper with explicit route availability checks and `/dashboard` fallback.
+  - Login/register success no longer hardcodes legacy `/home`.
+  - Unit tests for role mapping/fallback and e2e checks for admin/technician landing paths.
+  - QA checklist documents per-role landing expectations.
+- **Residual Risk:** New roles/routes must update the centralized map; backend RBAC remains mandatory for actual access control.
+- **Owner:** Web Platform
+- **Review Cadence:** Every auth/navigation release and when new role landing pages are added.

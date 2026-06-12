@@ -2,8 +2,15 @@
 
 ## 1) Login
 - [ ] Login with valid work email/password succeeds.
+- [ ] Invalid email format is rejected client-side before login API call.
 - [ ] Invalid credentials return generic error message (no account enumeration).
 - [ ] Login has no public demo credentials in production mode.
+- [ ] Login page shows MaintainPro branding and enterprise tagline (desktop and mobile).
+- [ ] Login page has no public sign-up link; invitation-only guidance is shown instead.
+- [ ] Login form uses Work Email label/placeholder and password show/hide toggle.
+- [ ] Login button shows loading state and full-width primary action styling.
+- [ ] Forgot password link navigates to `/forgot-password`.
+- [ ] Keyboard navigation and visible focus states work on login inputs/buttons/links.
 - [ ] Refresh-token cookie + CSRF flow works (`/auth/refresh` requires valid CSRF token/header pairing).
 - [ ] Logout clears auth cookies/session and prevents token reuse.
 - [ ] Forgot password flow always returns generic accepted message.
@@ -11,9 +18,18 @@
 - [ ] Account lockout behavior works after repeated failed attempts.
 
 ## 2) Role-Based Routing
-- [ ] SUPER_ADMIN is routed to admin workspace.
-- [ ] ADMIN/MANAGER are routed to operational dashboard.
-- [ ] TECHNICIAN/CLEANER/SECURITY roles route to role-specific pages.
+- [ ] ADMIN login lands on `/dashboard` (not legacy `/home`).
+- [ ] SUPER_ADMIN login lands on `/system-health` until `/admin` routes exist.
+- [ ] MANAGER login lands on `/dashboard`.
+- [ ] TECHNICIAN login lands on `/work-orders`.
+- [ ] MECHANIC login lands on `/work-orders`.
+- [ ] CLEANER login lands on `/cleaning`.
+- [ ] SECURITY_OFFICER login lands on `/dashboard` until `/fleet/gate` exists.
+- [ ] INVENTORY_KEEPER / STOREKEEPER login lands on `/inventory`.
+- [ ] PROCUREMENT_OFFICER login lands on `/procurement`.
+- [ ] VIEWER / AUDITOR login lands on `/reports`.
+- [ ] Unknown or missing role login safely lands on `/dashboard`.
+- [ ] Post-login redirect uses login response role (frontend landing only; backend RBAC still enforced on routes).
 - [ ] Unauthorized route access is blocked by role/permission checks.
 - [ ] Sidebar/menu items match role permissions.
 
@@ -91,7 +107,13 @@
 - [ ] `EMAIL_MODE=disabled`, `SMS_MODE=disabled`, and `PUSH_MODE=disabled` are surfaced as `disabled` (not fake-success/no-op ambiguity).
 - [ ] System health UI shows `mock`/`misconfigured`/`disabled` badges for integration checks.
 
-## 13) Vendor Portal
+## 13) Web Register Route (`/register`) Build/Behavior
+- [ ] `/register` loads correctly in production build output (no suspense/prerender failure).
+- [ ] `/register?invitationToken=<token>` shows invitation-specific message and submits token to register API flow.
+- [ ] `/register` without invitation token shows invitation-only guidance message and preserves existing security posture.
+- [ ] Registration flow still stores session/access token as expected after successful API response.
+
+## 14) Vendor Portal
 - [ ] Vendor authentication is isolated from internal tenant users.
 - [ ] Vendor sees only assigned jobs/documents/invoices.
 - [ ] Vendor job status updates sync to internal workflows.

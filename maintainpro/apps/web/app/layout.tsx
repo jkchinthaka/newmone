@@ -4,8 +4,12 @@ import { ServiceWorkerRegistrar } from "../components/pwa/service-worker-registr
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MaintainPro Platform",
-  description: "Enterprise Asset, Fleet, Utility and Service Management",
+  title: {
+    default: "MaintainPro",
+    template: "%s | MaintainPro"
+  },
+  description:
+    "Enterprise Maintenance & Facility Operations Platform for maintenance, facility, fleet, and operations teams.",
   applicationName: "MaintainPro",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

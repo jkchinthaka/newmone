@@ -9,14 +9,14 @@
 - P4 = advanced / future module
 
 ## Known Issues / Blockers
-- Full monorepo `npm run build` is currently blocked by a pre-existing web auth `/register` suspense boundary issue (outside current security hardening scope).
+- `SEC-006` tenant-isolation final sweep remains in progress and must be completed before final security sign-off.
 
 ## Next Recommended Phase
-- Phase 2 UI/UX foundation can start now (navigation, auth UX refinements, reusable tables/states, responsive polish), while keeping the `/register` suspense blocker tracked separately.
+- Phase 2 UI/UX foundation can start now (navigation, auth UX refinements, reusable tables/states, responsive polish).
 
 | ID | Priority | Area | Task | Status | Files/Modules | Verification | Notes |
 |---|---|---|---|---|---|---|---|
-| SEC-001 | P0 | Security/Auth | Remove demo credentials from login | NOT_STARTED | apps/web/app/(auth)/login/page.tsx | Manual UI check | |
+| SEC-001 | P0 | Security/Auth | Remove demo credentials from login | DONE | apps/web/app/(auth)/login/page.tsx | Manual UI check, web build | Removed public sign-up link; login shows invitation-only guidance with no displayed credentials. |
 | SEC-002 | P0 | Security/Auth | Persistent hashed refresh tokens + rotation | DONE | apps/api/src/modules/auth/auth.service.ts, auth.controller.ts, prisma/schema.prisma | `npm run test` (api), `npm run typecheck`, `npm run build --workspace @maintainpro/api` | Added `RefreshToken` model + hashed token persistence, rotation, logout, logout-all. |
 | SEC-003 | P0 | Security/Auth | Secure password reset token flow | DONE | auth.service.ts, auth.module.ts, prisma/schema.prisma | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added hashed one-time reset tokens (15 min), generic response, email link dispatch, session revocation, audit log. Follow-up: web `/reset-password` page is still missing. |
 | SEC-004 | P0 | Security/Auth | Per-endpoint throttling + lockout | DONE | auth.controller.ts, invitations.controller.ts, auth.service.ts, prisma/schema.prisma | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added per-endpoint throttles (auth + invitation creation) and 15-min lockout after 5 failed logins with reset on successful login. |
@@ -29,11 +29,12 @@
 | SEC-011 | P0 | Security/Realtime | Authenticate websocket + tenant rooms | DONE | notifications.gateway.ts, fleet.gateway.ts, fleet.service.ts | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added JWT + active-user socket auth for notifications/fleet namespaces and tenant-scoped room routing to prevent cross-tenant event broadcasts. |
 | SEC-012 | P1 | Security/Platform | Surface queue/redis failures in health | DONE | main.ts, health.service.ts, notifications queue/service, system health UI | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added QueueHealthService with Redis/queue status tracking, safe error surfacing, readiness integration, structured queue failure logging, and direct notification fallback when queue dispatch fails. |
 | SEC-013 | P1 | Security/Config | Disable unsafe production mock behavior | DONE | env.validation.ts, billing/erp/notifications/health/system-health UI | `npm run test --workspace @maintainpro/api`, `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/api` | Added explicit integration modes, production mock blocking, misconfigured/mock/disabled visibility in readiness + system health UI, and integration-mode validation tests. |
-| UX-001 | P2 | UX/Brand | Standardize MaintainPro branding | NOT_STARTED | web/mobile/templates | Manual UI audit | |
-| UX-002 | P2 | UX/Auth | Rebuild enterprise login page | NOT_STARTED | apps/web/app/(auth)/login/page.tsx | Manual responsive test | |
-| UX-003 | P2 | UX/Auth | Change Username to Work Email behavior | NOT_STARTED | login/page.tsx | Manual UI test | |
-| UX-004 | P2 | UX/Nav | Role-based login redirect routing | NOT_STARTED | login/page.tsx, role map | Manual role test | |
-| UX-005 | P2 | UX/Dashboard | Role-aware dashboards (replace current) | NOT_STARTED | dashboard/page.tsx | Manual role test | |
+| WEB-001 | P1 | Web/Auth | Fix `/register` Suspense build blocker | DONE | apps/web/app/(auth)/register/page.tsx, register/register-form-card.tsx | `npm run build --workspace @maintainpro/web`, `npm run build`, `npm run typecheck`, `npm run lint`, `npm run test --workspace @maintainpro/api`, `npm run build --workspace @maintainpro/api` | Resolved Next.js prerender failure by moving `useSearchParams` to a client child wrapped in `<Suspense>` from a server page; invite-token registration behavior preserved. |
+| UX-001 | P2 | UX/Brand | Standardize MaintainPro branding | DONE | lib/branding.ts, brand/auth components, auth pages, layout, manifest | Manual UI audit, `npm run build --workspace @maintainpro/web`, full build | Centralized MaintainPro product identity across auth pages, app metadata, and PWA manifest; legacy FMS labels removed from login marketing panel. |
+| UX-002 | P2 | UX/Auth | Rebuild enterprise login page | DONE | apps/web/app/(auth)/login/page.tsx, auth components | Manual responsive test, web/full build | Professional enterprise login with accessible form, password toggle, invitation-only guidance, no public sign-up link or demo credentials. |
+| UX-003 | P2 | UX/Auth | Change Username to Work Email behavior | DONE | login/page.tsx, lib/login-identifier.ts, e2e/auth.spec.ts | Manual UI test, web/full build, e2e auth | Email-only login aligned with backend `LoginDto`; removed silent production alias; optional dev alias via `NEXT_PUBLIC_LOGIN_DEV_LOCAL_ALIAS`. |
+| UX-004 | P2 | UX/Nav | Role-based login redirect routing | DONE | login/page.tsx, register-form-card.tsx, lib/role-redirect.ts | Manual role test, web/full build, `role-redirect.spec.ts` | Centralized post-login role landing map; auth success no longer redirects to legacy `/home`. |
+| UX-005 | P2 | UX/Routing | Clean up legacy `/home` default routing | IN_PROGRESS | splash, fms/home, maintenance redirect, maintenance-job shell | Manual QA, web/full build | Remove `/home` as default destination; label retained legacy FMS workspace and link to `/dashboard`. |
 | UX-006 | P2 | UX/Nav | Professional responsive role-aware navigation | NOT_STARTED | layout/sidebar/topbar | Manual responsive test | |
 | UX-007 | P2 | UX/Nav | Breadcrumbs on deep pages | NOT_STARTED | shared components + pages | Manual UI test | |
 | UX-008 | P2 | UX/Nav | Global command palette | NOT_STARTED | new UI + search APIs | Manual keyboard test | |

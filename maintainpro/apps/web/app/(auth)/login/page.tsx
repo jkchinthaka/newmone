@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Eye, EyeOff, Loader2, ShieldCheck, Wrench } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+
+import { AuthMarketingPanel } from "@/components/auth/auth-marketing-panel";
+import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
+import { PRODUCT_TAGLINE } from "@/lib/branding";
+import { resolveLoginEmail, validateWorkEmail } from "@/lib/login-identifier";
+import { getPostLoginRedirect } from "@/lib/role-redirect";
 import { setActiveTenantId } from "@/lib/tenant-context";
 
 type LoginForm = {
-  username: string;
+  email: string;
   password: string;
 };
-
-function normalizeLogin(value: string) {
-  const trimmed = value.trim();
-  return trimmed.includes("@") ? trimmed : `${trimmed}@maintainpro.local`;
-}
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export default function LoginPage() {
     formState: { errors }
   } = useForm<LoginForm>({
     defaultValues: {
-      username: "",
+      email: "",
       password: ""
     }
   });
@@ -38,13 +39,13 @@ export default function LoginPage() {
 
     try {
       const res = await apiClient.post("/auth/login", {
-        email: normalizeLogin(values.username),
+        email: resolveLoginEmail(values.email),
         password: values.password
       });
       const payload = res.data?.data;
 
       if (!payload?.accessToken) {
-        setError("Login succeeded but token is missing from response.");
+        setError("Sign-in failed. Please try again.");
         return;
       }
 
@@ -64,75 +65,67 @@ export default function LoginPage() {
         typeof tenantIdCandidate === "string" ? tenantIdCandidate : null
       );
 
-      window.location.replace("/home");
+      window.location.replace(getPostLoginRedirect(payload.user));
     } catch (e) {
-      setError(getApiErrorMessage(e, "Login failed. Check your credentials and try again."));
+      setError(
+        getApiErrorMessage(
+          e,
+          "Sign-in failed. Check your credentials and try again."
+        )
+      );
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <main className="grid min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="hidden flex-col justify-between rounded-[32px] bg-gradient-to-br from-[#0f2b46] via-[#115ea8] to-[#b8860b] p-10 text-white shadow-[0_32px_80px_rgba(15,43,70,0.3)] lg:flex">
-        <div>
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10">
-            <Wrench size={24} />
-          </div>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Maintenance Job</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Fleet & Facility Maintenance Management System</h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-white/82">
-            Run pending requests, machinery jobs, service jobs, vehicle maintenance, costing, and completion workflows from one connected web workspace.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[24px] border border-white/12 bg-white/10 p-4">
-            <p className="text-sm font-medium">Role-aware dashboards</p>
-            <p className="mt-2 text-sm text-white/72">Executives get view-only insight while operations roles can move jobs through the full lifecycle.</p>
-          </div>
-          <div className="rounded-[24px] border border-white/12 bg-white/10 p-4">
-            <p className="text-sm font-medium">Full maintenance lifecycle</p>
-            <p className="mt-2 text-sm text-white/72">Create jobs, allocate staff, estimate time, request items, and complete work with reporting.</p>
-          </div>
-        </div>
-      </section>
+    <main className="grid min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6">
+      <AuthMarketingPanel />
 
-      <section className="flex items-center justify-center">
-        <div className="w-full max-w-xl rounded-[32px] border border-white/60 bg-white/88 p-8 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur xl:p-10">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-              <ShieldCheck size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">User Access</p>
-              <h2 className="mt-1 text-3xl font-semibold text-slate-900">Login</h2>
-            </div>
-          </div>
+      <section className="flex items-center justify-center py-4 lg:py-6">
+        <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/92 p-6 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur sm:max-w-xl sm:p-8 xl:p-10">
+          <MaintainProLogo className="lg:hidden" showTagline size="md" />
 
-          <p className="mt-4 text-sm leading-6 text-slate-500">Use your assigned username or email to access the Maintenance Job workspace.</p>
+          <header className="mt-6 lg:mt-0">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-base text-slate-600">Sign in to your workspace</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">{PRODUCT_TAGLINE}</p>
+          </header>
 
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <form
+            aria-busy={busy}
+            className="mt-8 space-y-5"
+            noValidate
+            onSubmit={handleSubmit(onSubmit)}
+          >
             <label className="block text-sm">
-              <span className="mb-2 block text-slate-600">Username</span>
+              <span className="mb-2 block font-medium text-slate-700">Work Email</span>
               <input
-                {...register("username", {
-                  validate: (value) => value.trim().length > 0 || "Username is required"
+                {...register("email", {
+                  validate: (value) => validateWorkEmail(value) ?? true
                 })}
-                aria-describedby={errors.username ? "login-username-error" : undefined}
-                aria-invalid={errors.username ? "true" : "false"}
-                autoComplete="username"
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                aria-describedby={errors.email ? "login-email-error" : undefined}
+                aria-invalid={errors.email ? "true" : "false"}
+                autoComplete="email"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                 disabled={busy}
-                type="text"
+                id="login-email"
+                inputMode="email"
+                name="email"
+                placeholder="you@company.com"
+                type="email"
               />
-              {errors.username?.message ? (
-                <p id="login-username-error" className="mt-2 text-sm text-rose-600">
-                  {errors.username.message}
+              {errors.email?.message ? (
+                <p id="login-email-error" className="mt-2 text-sm text-rose-600" role="alert">
+                  {errors.email.message}
                 </p>
               ) : null}
             </label>
+
             <label className="block text-sm">
-              <span className="mb-2 block text-slate-600">Password</span>
+              <span className="mb-2 block font-medium text-slate-700">Password</span>
               <div className="relative">
                 <input
                   {...register("password", {
@@ -145,13 +138,16 @@ export default function LoginPage() {
                   aria-describedby={errors.password ? "login-password-error" : undefined}
                   aria-invalid={errors.password ? "true" : "false"}
                   autoComplete="current-password"
-                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 pr-12 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                   disabled={busy}
+                  id="login-password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                 />
                 <button
+                  aria-controls="login-password"
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                  className="absolute inset-y-0 right-0 flex items-center rounded-r-2xl px-4 text-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                   disabled={busy}
                   onClick={() => setShowPassword((value) => !value)}
                   type="button"
@@ -160,28 +156,48 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password?.message ? (
-                <p id="login-password-error" className="mt-2 text-sm text-rose-600">
+                <p id="login-password-error" className="mt-2 text-sm text-rose-600" role="alert">
                   {errors.password.message}
                 </p>
               ) : null}
             </label>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <a href="/forgot-password" className="font-medium text-brand-700 hover:text-brand-800">Forgot Password?</a>
+
+            <div className="flex items-center justify-end text-sm">
+              <a
+                className="font-medium text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
+                href="/forgot-password"
+              >
+                Forgot password?
+              </a>
             </div>
-            <button className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70" disabled={busy} type="submit">
+
+            <button
+              className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={busy}
+              type="submit"
+            >
               {busy ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin" /> Signing in...
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Loader2 aria-hidden className="animate-spin" size={16} />
+                  Signing in...
                 </span>
               ) : (
-                "LOGIN"
+                "Sign in"
               )}
             </button>
-            {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+
+            {error ? (
+              <p
+                className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                role="alert"
+              >
+                {error}
+              </p>
+            ) : null}
           </form>
 
-          <p className="mt-6 text-sm text-slate-500">
-            Don&apos;t have an account? <a href="/register" className="font-medium text-brand-700 hover:text-brand-800">Sign Up</a>
+          <p className="mt-8 text-center text-xs leading-5 text-slate-500">
+            Access is by invitation. Contact your administrator if you need an account.
           </p>
         </div>
       </section>

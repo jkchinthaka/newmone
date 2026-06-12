@@ -2,9 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MaintainPro Platform",
+    name: "MaintainPro",
     short_name: "MaintainPro",
-    description: "Enterprise asset, fleet, maintenance, utility, and field operations platform.",
+    description:
+      "Enterprise Maintenance & Facility Operations Platform for maintenance, facility, fleet, and operations teams.",
     start_url: "/splash",
     scope: "/",
     display: "standalone",

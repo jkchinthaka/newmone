@@ -500,3 +500,151 @@ Record each completed task with:
   - `npm run build --workspace @maintainpro/api` (pass)
 - Remaining risks:
   - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside SEC-013 scope.
+
+## 2026-06-12 | WEB-001 | Fix `/register` Suspense build blocker
+- What changed:
+  - Reproduced the Next.js build failure on `/register`:
+    - `useSearchParams() should be wrapped in a suspense boundary at page "/register"`.
+  - Refactored `/register` route rendering pattern to satisfy App Router prerender rules:
+    - Converted route `page.tsx` into a server component shell.
+    - Wrapped the client registration UI in `<Suspense>` with a lightweight loading fallback.
+    - Moved `useSearchParams` usage and existing register-submit logic into a dedicated client child component (`RegisterFormCard`).
+  - Preserved behavior:
+    - Invitation-token registration path (`invitationToken` query param) is still passed through to `/auth/register`.
+    - Existing registration security messaging and API gating behavior are unchanged (no public-registration policy relaxation, no demo credentials introduced).
+- Files changed:
+  - `maintainpro/apps/web/app/(auth)/register/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/register-form-card.tsx`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+- Tests run:
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 37 suites, 177 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - `SEC-006` tenant-isolation final sweep remains in progress and should be completed before final security sign-off.
+
+## 2026-06-12 | UX-001 / UX-002 | Auth branding standardization + enterprise login rebuild
+- What changed:
+  - **UX-001 branding standardization:**
+    - Added centralized branding constants in `lib/branding.ts` (`MaintainPro`, enterprise tagline/description).
+    - Added reusable `MaintainProLogo` and `AuthMarketingPanel` components for consistent auth identity.
+    - Updated app metadata (`layout.tsx`) and PWA manifest (`manifest.ts`) to use standardized product naming/tagline.
+    - Aligned `/register` and `/forgot-password` visible branding with MaintainPro identity.
+    - Removed legacy login marketing labels (`Maintenance Job`, `Fleet & Facility Maintenance Management System`) from the auth experience.
+  - **UX-002 enterprise login rebuild:**
+    - Rebuilt `/login` with professional enterprise layout (marketing panel + focused sign-in card).
+    - Added required copy: “Welcome back”, “Sign in to your workspace”, and enterprise tagline.
+    - Kept backend-compatible login payload (`email` normalization for username/email input).
+    - Added accessible form labels, password show/hide toggle, loading state, and safe generic errors.
+    - Removed public “Sign Up” link; replaced with invitation-only guidance text.
+    - Did not add remember-device or staging badge (no safe existing support/env flag).
+    - Updated Playwright auth e2e selectors for new login copy/button text.
+  - Also closed **SEC-001** as part of login UX hardening (no displayed credentials, no public sign-up link).
+- Files changed:
+  - `maintainpro/apps/web/lib/branding.ts`
+  - `maintainpro/apps/web/components/brand/maintainpro-logo.tsx`
+  - `maintainpro/apps/web/components/auth/auth-marketing-panel.tsx`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/forgot-password/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/register-form-card.tsx`
+  - `maintainpro/apps/web/app/layout.tsx`
+  - `maintainpro/apps/web/app/manifest.ts`
+  - `maintainpro/apps/web/e2e/auth.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 37 suites, 177 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Legacy FMS branding still exists in archived/legacy dashboard areas (intentionally preserved outside auth scope).
+  - `SEC-006` tenant-isolation final sweep remains in progress.
+  - Auth UI regressions (removed sign-up link, changed labels) require manual QA on desktop/mobile.
+
+## 2026-06-12 | UX-003 | Work Email login identifier alignment
+- What changed:
+  - Inspected backend auth contract:
+    - `LoginDto` requires `@IsEmail()` on `email` only.
+    - `AuthService.login()` looks up users exclusively by `User.email` (no username path).
+  - Chose **Option A (email-only enterprise login)** based on backend contract.
+  - Added `lib/login-identifier.ts` with:
+    - client-side work email validation before submit,
+    - production-safe `resolveLoginEmail()` (trim only, no silent alias),
+    - optional dev-only alias helper gated by `NEXT_PUBLIC_LOGIN_DEV_LOCAL_ALIAS=true` for local seed convenience.
+  - Updated `/login` form:
+    - label **Work Email**, placeholder `you@company.com`, `type="email"`, `autoComplete="email"`,
+    - removed silent `@maintainpro.local` normalization from default production UI behavior,
+    - renamed form field from `username` to `email` to match API payload intent.
+  - Updated Playwright auth e2e tests for new field/copy and added cases for invalid email pre-submit rejection and absence of public sign-up link.
+  - Documented optional dev alias flag in `apps/web/.env.example`.
+- Files changed:
+  - `maintainpro/apps/web/lib/login-identifier.ts`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/e2e/auth.spec.ts`
+  - `maintainpro/apps/web/.env.example`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 37 suites, 177 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Local developers accustomed to bare username login must enter full seeded email or opt into explicit dev alias flag.
+  - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-004 | Role-based post-login redirect routing
+- What changed:
+  - Inspected post-login role availability:
+    - Role is available immediately in login/register API response (`payload.user.role.name`).
+    - Stored user payload in localStorage also includes nested role for later reads (`getStoredRole()`).
+    - No extra `/auth/me` call required for initial landing redirect.
+  - Added centralized redirect helper `lib/role-redirect.ts`:
+    - `extractRoleName()`, `resolvePostLoginPath()`, `getPostLoginRedirect()`.
+    - Role preference map with first-existing-route resolution against audited App Router paths.
+    - Safe default fallback to `/dashboard` for unknown/missing roles.
+  - Updated auth success flows:
+    - `/login` and invitation `/register` now call `getPostLoginRedirect(payload.user)` instead of legacy `/home`.
+    - Left legacy `/home` route intact for archival/FMS use (UX-005 follow-up).
+  - Added unit coverage via `apps/api/test/role-redirect.spec.ts` (9 tests).
+  - Updated Playwright auth e2e for admin -> `/dashboard` and technician -> `/work-orders`, with no `/home` post-login redirect.
+- Files changed:
+  - `maintainpro/apps/web/lib/role-redirect.ts`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/register-form-card.tsx`
+  - `maintainpro/apps/api/test/role-redirect.spec.ts`
+  - `maintainpro/apps/api/tsconfig.json` (exclude cross-workspace test from API typecheck rootDir constraint)
+  - `maintainpro/apps/web/e2e/auth.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api -- test/role-redirect.spec.ts` (pass; 9 tests)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 38 suites, 186 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Frontend landing redirect is UX-only; route-level authorization must remain enforced server-side.
+  - Several role-specific target routes are not built yet and currently fall back to `/dashboard` or nearest existing module route.
+  - Legacy `/home` and splash redirect cleanup deferred to UX-005.
+  - `SEC-006` tenant-isolation final sweep remains in progress.
