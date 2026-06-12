@@ -192,7 +192,7 @@
   - Scoped change to list UI only (`assets-table.tsx` + page wiring); no backend/API changes.
   - Preserved column picker, filters, server-side pagination footer, bulk bar, row menu actions, disposal reason validation.
   - Added list-level LoadingState/ErrorState (UX-011); empty state via shared EmptyState.
-  - `assets-table-columns.spec.ts` covers column visibility helper; QA checklist section 2e for manual Assets table verification.
+  - `assets-table.spec.ts` covers column visibility helper; QA checklist section 2e for manual Assets table verification.
 - **Residual Risk:** Dropdown row menus on mobile cards may overlap viewport edges; inline status prompt UX differs slightly without motion row exit animations.
 - **Owner:** Web Platform
 - **Review Cadence:** After first manual QA pass on Assets desktop + mobile.

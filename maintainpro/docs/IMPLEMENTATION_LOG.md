@@ -961,7 +961,7 @@ Record each completed task with:
   - `npm run lint` (pass)
   - `npm run build --workspace @maintainpro/web` (pass)
   - `npm run build` (monorepo; pass)
-  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 47 suites, 228 tests)
   - `npm run build --workspace @maintainpro/api` (pass)
 - Remaining risks:
   - Row action dropdown positioning on small mobile cards may need polish.
