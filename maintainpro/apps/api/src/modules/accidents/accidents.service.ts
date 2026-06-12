@@ -45,7 +45,7 @@ export class AccidentsService {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId && vehicle.tenantId !== tenantId) {
+    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
       throw new ForbiddenException("Vehicle not in your tenant");
     }
     return vehicle;
@@ -55,7 +55,7 @@ export class AccidentsService {
     const acc = await this.prisma.accidentReport.findUnique({ where: { id }, include: { evidence: true, workOrders: true } });
     if (!acc) throw new NotFoundException("Accident report not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && acc.tenantId && acc.tenantId !== tenantId) {
+    if (tenantId !== undefined && acc.tenantId !== tenantId) {
       throw new ForbiddenException("Accident not in your tenant");
     }
     return this.withPrimaryWorkOrder(acc);

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { EntitlementGuard } from "../entitlements/entitlement.guard";
@@ -33,6 +34,7 @@ export class InvitationsController {
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
   @RequireEntitlement("users.max", 1)
   @UseGuards(EntitlementGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async createInvitation(
     @Req() req: InvitationsRequest,
     @Param("id") tenantId: string,

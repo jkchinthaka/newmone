@@ -14,13 +14,13 @@ type SmsDeliveryResult = {
   attempted: number;
   delivered: number;
   skipped: number;
-  mode: "noop" | "active";
+  mode: "disabled" | "mock" | "active" | "misconfigured";
 };
 
 export type SmsProviderSummary = {
   id: string;
   configured: boolean;
-  mode: "noop" | "active";
+  mode: "disabled" | "mock" | "active" | "misconfigured";
   description: string;
 };
 
@@ -34,21 +34,62 @@ export class SmsDispatchService {
   ) {}
 
   describeProvider(): SmsProviderSummary {
-    const configured = this.isConfigured();
+    const mode = this.integrationMode;
+    if (mode === "disabled") {
+      return {
+        id: "generic-http-sms",
+        configured: false,
+        mode: "disabled",
+        description: "SMS delivery is disabled by SMS_MODE=disabled"
+      };
+    }
+    if (mode === "mock") {
+      if (!this.isMockAllowed()) {
+        return {
+          id: "mock-sms",
+          configured: false,
+          mode: "misconfigured",
+          description: "SMS mock mode is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true"
+        };
+      }
+      return {
+        id: "mock-sms",
+        configured: true,
+        mode: "mock",
+        description: "SMS delivery is in mock mode"
+      };
+    }
+    const configured = this.hasLiveConfig();
     return {
       id: "generic-http-sms",
       configured,
-      mode: configured ? "active" : "noop",
+      mode: configured ? "active" : "misconfigured",
       description: configured
         ? "Generic HTTP SMS provider is configured"
-        : "SMS delivery is disabled or missing provider settings"
+        : "SMS_MODE=live but required SMS provider settings are missing"
     };
   }
 
   async dispatch(payload: SmsDispatchPayload): Promise<SmsDeliveryResult> {
-    if (!this.isConfigured()) {
-      this.logger.warn(`Skipped SMS notification for user ${payload.userId}: SMS provider is not configured`);
-      return this.result(0, 0, 1, "noop");
+    const mode = this.integrationMode;
+    if (mode === "disabled") {
+      this.logger.warn(`Skipped SMS notification for user ${payload.userId}: SMS_MODE=disabled`);
+      return this.result(0, 0, 1, "disabled");
+    }
+
+    if (mode === "mock") {
+      if (!this.isMockAllowed()) {
+        throw new Error("SMS mock mode is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true");
+      }
+      this.logger.warn(`Mock SMS delivery for user ${payload.userId}: no external SMS sent`);
+      return this.result(1, 0, 1, "mock");
+    }
+
+    if (!this.hasLiveConfig()) {
+      this.logger.error(
+        `SMS dispatch misconfigured for user ${payload.userId}: SMS_MODE=live but provider settings are incomplete`
+      );
+      throw new Error("SMS_MODE=live requires SMS_API_URL, SMS_API_KEY, and SMS_SENDER_ID");
     }
 
     const user = await this.prisma.user.findUnique({
@@ -89,12 +130,25 @@ export class SmsDispatchService {
     return this.result(1, 1, 0, "active");
   }
 
-  private isConfigured(): boolean {
-    if (!this.configService.get<boolean>("SMS_ENABLED", false)) {
-      return false;
+  private get integrationMode(): "disabled" | "mock" | "live" {
+    const explicit = this.configService.get<string>("SMS_MODE", "").trim().toLowerCase();
+    if (explicit === "disabled" || explicit === "mock" || explicit === "live") {
+      return explicit;
     }
+    // Backward compatibility with legacy SMS_ENABLED flag.
+    return this.configService.get<boolean>("SMS_ENABLED", false) ? "live" : "disabled";
+  }
 
+  private hasLiveConfig(): boolean {
     return ["SMS_API_URL", "SMS_API_KEY", "SMS_SENDER_ID"].every((key) => this.hasConfigValue(key));
+  }
+
+  private isMockAllowed(): boolean {
+    const isProduction = this.configService.get<string>("NODE_ENV", "development") === "production";
+    if (!isProduction) {
+      return true;
+    }
+    return this.configService.get<boolean>("ALLOW_MOCK_IN_PRODUCTION", false);
   }
 
   private buildHeaders(): Record<string, string> {
@@ -118,7 +172,7 @@ export class SmsDispatchService {
     attempted: number,
     delivered: number,
     skipped: number,
-    mode: "noop" | "active"
+    mode: "disabled" | "mock" | "active" | "misconfigured"
   ): SmsDeliveryResult {
     return {
       providerId: "generic-http-sms",

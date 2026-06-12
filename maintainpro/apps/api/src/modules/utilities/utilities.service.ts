@@ -115,7 +115,12 @@ export class UtilitiesService {
 
     const meterIds = Array.from(new Set(bills.map((b) => b.meterId).filter(Boolean)));
     const meters = meterIds.length
-      ? await this.prisma.utilityMeter.findMany({ where: { id: { in: meterIds } } })
+      ? await this.prisma.utilityMeter.findMany({
+          where: {
+            id: { in: meterIds },
+            ...(tenantId ? { tenantId } : {})
+          }
+        })
       : [];
     const meterMap = new Map(meters.map((m) => [m.id, m]));
 

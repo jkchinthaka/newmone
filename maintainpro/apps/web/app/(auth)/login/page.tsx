@@ -50,7 +50,6 @@ export default function LoginPage() {
 
       setAuthSession({
         accessToken: payload.accessToken,
-        refreshToken: payload.refreshToken,
         user: payload.user
       });
 

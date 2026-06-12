@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -39,6 +41,7 @@ type WebhookInvoice = {
 
 @Injectable()
 export class BillingService {
+  private readonly logger = new Logger(BillingService.name);
   private readonly stripe: Stripe | null;
 
   constructor(
@@ -49,6 +52,37 @@ export class BillingService {
   ) {
     const stripeSecret = this.configService.get<string>("STRIPE_SECRET_KEY")?.trim();
     this.stripe = stripeSecret ? new Stripe(stripeSecret) : null;
+  }
+
+  private get billingMode(): "disabled" | "mock" | "live" {
+    const explicit = this.configService.get<string>("BILLING_MODE", "").trim().toLowerCase();
+    if (explicit === "disabled" || explicit === "mock" || explicit === "live") {
+      return explicit;
+    }
+    return this.stripe ? "live" : "mock";
+  }
+
+  private ensureBillingModeAllowed(): void {
+    const mode = this.billingMode;
+    if (mode === "disabled") {
+      throw new BadRequestException("Billing integration is disabled (BILLING_MODE=disabled)");
+    }
+
+    if (
+      mode === "mock" &&
+      this.configService.get<string>("NODE_ENV", "development") === "production" &&
+      !this.configService.get<boolean>("ALLOW_MOCK_IN_PRODUCTION", false)
+    ) {
+      throw new ForbiddenException(
+        "Billing mock mode is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true"
+      );
+    }
+
+    if (mode === "live" && !this.stripe) {
+      throw new BadRequestException(
+        "Billing live mode is selected but Stripe is not configured (missing STRIPE_SECRET_KEY)"
+      );
+    }
   }
 
   private mapStripeSubscriptionStatus(
@@ -232,6 +266,8 @@ export class BillingService {
     tenantId: string,
     dto: CreateCheckoutSessionDto
   ) {
+    this.ensureBillingModeAllowed();
+    const stripe = this.stripe;
     const normalizedCode = dto.planCode.trim().toUpperCase();
 
     const plan = await this.prisma.plan.findUnique({
@@ -254,7 +290,8 @@ export class BillingService {
     const successUrl = dto.successUrl ?? `${frontendUrl}/billing?checkout=success`;
     const cancelUrl = dto.cancelUrl ?? `${frontendUrl}/billing?checkout=canceled`;
 
-    if (!this.stripe) {
+    if (this.billingMode === "mock") {
+      this.logger.warn("[billing] Using mock checkout session mode");
       const subscription = await this.activateSubscription({
         tenantId,
         planId: plan.id,
@@ -274,7 +311,11 @@ export class BillingService {
     const stripeCustomer = await this.getOrCreateStripeCustomer(tenantId, userId);
     const stripePriceId = this.resolveStripePriceId(plan.metadata, billingInterval);
 
-    const session = await this.stripe.checkout.sessions.create({
+    if (!stripe) {
+      throw new BadRequestException("Billing live mode is selected but Stripe client is unavailable");
+    }
+
+    const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomer?.customerId,
       success_url: successUrl,
@@ -549,11 +590,26 @@ export class BillingService {
     rawBody: Buffer | undefined,
     payload: unknown
   ) {
-    if (!this.stripe) {
+    const mode = this.billingMode;
+    if (mode === "disabled") {
+      return {
+        received: false,
+        mode: "disabled"
+      };
+    }
+
+    if (mode === "mock") {
+      this.ensureBillingModeAllowed();
       return {
         received: true,
         mode: "mock"
       };
+    }
+
+    this.ensureBillingModeAllowed();
+    const stripe = this.stripe;
+    if (!stripe) {
+      throw new BadRequestException("Billing live mode is selected but Stripe client is unavailable");
     }
 
     const webhookSecret =
@@ -567,7 +623,7 @@ export class BillingService {
       }
 
       try {
-        event = this.stripe.webhooks.constructEvent(
+        event = stripe.webhooks.constructEvent(
           rawBody,
           signatureHeader,
           webhookSecret

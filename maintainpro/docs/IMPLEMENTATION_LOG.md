@@ -1,138 +1,502 @@
 # MaintainPro Implementation Log
 
-This log records every completed change made as part of the production-readiness program
-tracked in `MAINTAINPRO_PRODUCTION_TODO.md`. One entry per completed task (or meaningful
-sub-step of a large task).
-
-Format per entry:
-
-```
-## YYYY-MM-DD — TASK-ID: short title
-- What changed:
-- Files changed:
-- Tests run:
-- Remaining risks:
-```
+Record each completed task with:
+- Date | Task ID | What changed | Files changed | Tests run | Remaining risks
 
 ---
 
-## 2026-06-12 — SEC-001: Verify no public demo credentials on login page
-
-- What changed: no code change. Audited
-  `apps/web/app/(auth)/login/page.tsx` plus the rest of `(auth)/`, `components/`, and
-  `lib/` for hardcoded demo credentials, prefilled login values, or "demo account"
-  banners (`grep -rni "demo"`). None found — the login form starts with empty
-  `username`/`password` defaults and only links to `/register` and
-  `/forgot-password`. Marked VERIFIED.
-- Files changed: none.
-- Tests run: none (verification only).
-- Remaining risks: none for this item.
-
-## 2026-06-12 — SEC-008: Gate Swagger and detailed readiness in production
-
-- What changed: `/api/docs` was previously mounted unconditionally with no auth.
-  `/health/readiness` (mounted directly on the Express adapter, bypassing all Nest
-  guards) returned full dependency + integration-configuration details
-  (`getReadiness()`) to anyone, unauthenticated.
-  - Extracted two pure, testable helper modules under `src/bootstrap/`:
-    - `swagger-guard.ts`: `shouldSetupSwagger()`, `shouldProtectSwaggerWithBasicAuth()`,
-      `verifySwaggerBasicAuth()`.
-    - `readiness-guard.ts`: `isAuthorizedForReadiness()`.
-  - Swagger (`/api/docs`, `/api/docs-json`) is now always set up outside production.
-    In production it is **disabled by default**; set `SWAGGER_ENABLED=true` plus both
-    `SWAGGER_USER`/`SWAGGER_PASSWORD` to enable it behind HTTP Basic Auth (verified via
-    a small Express middleware using `verifySwaggerBasicAuth`, no new dependency).
-  - `/` and `/health` are unchanged — they already returned the minimal
-    `getPublicHealth()` payload (status/service/environment/db summary only), which
-    satisfies "minimal public health".
-  - `/health/readiness` now calls `isAuthorizedForReadiness()` before returning
-    `getReadiness()`. Outside production it remains open (dev convenience). In
-    production it requires either:
-    - `Authorization: Bearer <JWT>` where the token's `role` is `ADMIN` or
-      `SUPER_ADMIN` (verified with `jsonwebtoken.verify` + `getAccessJwtSecret()`), or
-    - `X-Readiness-Key: <value>` matching the new `READINESS_API_KEY` env var (for
-      uptime/infra monitoring tools that can't hold a user JWT).
-  - Added `SWAGGER_ENABLED`, `SWAGGER_USER`, `SWAGGER_PASSWORD`, `READINESS_API_KEY` to
-    `env.validation.ts` (all optional) and documented them in `.env.example` and
-    `README.md`.
+## 2026-06-12 | PHASE-0 | Repository audit and TODO system bootstrap
+- What changed: completed a read-only architecture audit across API, web, mobile, schema, auth, tenancy, notifications, deployment, and CI; created and initialized the three required tracking docs for production-readiness execution.
 - Files changed:
-  - `apps/api/src/main.ts`
-  - `apps/api/src/bootstrap/readiness-guard.ts` (new)
-  - `apps/api/src/bootstrap/swagger-guard.ts` (new)
-  - `apps/api/src/config/env.validation.ts`
-  - `apps/api/test/readiness-guard.spec.ts` (new)
-  - `apps/api/test/swagger-guard.spec.ts` (new)
-  - `maintainpro/.env.example`
-  - `maintainpro/README.md`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+- Tests run: none (Phase 0 is audit/planning only; no runtime code changes).
+- Remaining risks: multiple Phase-brief assumptions differ from current code state (notably CI already exists, farm web UI exists, utilities meter leak appears already patched, swagger/readiness gating already implemented). These are tracked in Phase 0 audit output and should be confirmed before Phase 1 execution.
+
+## 2026-06-12 | SEC-002 | Persistent hashed refresh tokens + rotation + revoke flows
+- What changed:
+  - Added new Prisma model `RefreshToken` and relations:
+    - `RefreshToken { tokenHash @unique, userId, tenantId?, deviceInfo?, ipAddress?, userAgent?, expiresAt, revokedAt?, lastUsedAt?, createdAt }`
+    - `User.refreshTokens` and `Tenant.refreshTokens`.
+  - Reworked auth token lifecycle in `AuthService`:
+    - Removed in-memory `refreshTokenStore`.
+    - Added SHA-256 hashing for refresh token storage (`tokenHash` only, raw token never persisted).
+    - Persist refresh token on login/register/refresh issuance.
+    - Implemented refresh-token rotation: on `/auth/refresh`, revoke current token (`revokedAt`, `lastUsedAt`) and issue/store a new refresh token.
+    - Added session metadata capture from request context (`ipAddress`, `userAgent`, `deviceInfo`).
+    - Added `logoutAll(userId)` to revoke all active refresh sessions for a user.
+    - `login` now rejects inactive users as part of auth hardening.
+  - Extended `AuthController` with `POST /auth/logout-all` (JWT-protected) and cookie clearing.
+  - Added/updated tests:
+    - New `auth-refresh-token.spec.ts` for rotation + revoke-all behavior.
+    - Updated `auth-register.spec.ts` mocks to include refresh-token persistence behavior.
+- Files changed:
+  - `maintainpro/prisma/schema.prisma`
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/src/modules/auth/auth.controller.ts`
+  - `maintainpro/apps/api/test/auth-refresh-token.spec.ts`
+  - `maintainpro/apps/api/test/auth-register.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
 - Tests run:
-  - `npx jest --config ./jest.config.cjs test/readiness-guard.spec.ts test/swagger-guard.spec.ts` — 20/20 pass
-  - `npx tsc --noEmit -p apps/api/tsconfig.json` — clean
-- Remaining risks: `render.yaml` health check still points at `/health` (unaffected,
-  stays public/minimal). Operators deploying to production must set
-  `READINESS_API_KEY` (or use an admin JWT) if they rely on `/health/readiness` for
-  monitoring — otherwise it now returns 403. PERF-002 (readiness/Swagger timeout)
-  is still open and tracked separately.
+  - `npm run db:generate` (pass)
+  - `npm run test` (api workspace) (pass; 26 suites, 147 tests)
+  - `npm run typecheck` (api + web) (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+  - `npm run build` (monorepo) (fails due pre-existing web `/register` `useSearchParams` suspense boundary issue; unrelated to SEC-002 code)
+- Remaining risks:
+  - `SEC-003` still open: password reset still uses in-memory token store and returns raw token.
+  - Full monorepo build remains blocked by existing web auth page issue outside this task.
 
-## 2026-06-12 — SEC-009: Reject inactive/deleted users in JWT validation
-
-- What changed: `JwtStrategy.validate()` previously returned the JWT payload as-is with
-  no DB check, so a deactivated user's existing access token remained valid until
-  expiry. `validate()` is now async, loads the user by `payload.sub`, and throws
-  `UnauthorizedException` if the user no longer exists or `isActive === false`. Added
-  `PrismaService` injection to `JwtStrategy` (PrismaModule is `@Global()`, no module
-  wiring change needed).
+## 2026-06-12 | SEC-003 | Secure password reset with hashed one-time tokens
+- What changed:
+  - Added Prisma `PasswordResetToken` model:
+    - `tokenHash @unique`, `userId`, `expiresAt`, `usedAt?`, `ipAddress?`, `createdAt`
+    - Relation: `User.passwordResetTokens`.
+  - Updated `AuthService.forgotPassword()`:
+    - Always returns generic response: `"If this email exists, a reset link has been sent"`.
+    - Generates raw reset token with `randomBytes(32)` and stores only SHA-256 hash.
+    - Expires token in 15 minutes.
+    - Invalidates previous active reset tokens for the same user.
+    - Sends reset link via `EmailDispatchService` using `/reset-password?token=RAW`.
+    - No reset token is returned in API response.
+  - Updated `AuthService.resetPassword()`:
+    - Validates token by hash and rejects used/expired tokens.
+    - Updates password hash.
+    - Marks reset token as used (one-time use).
+    - Revokes all active refresh-token sessions for that user.
+    - Writes `AuditLog` entry for password reset completion.
+  - Updated `AuthModule` to import `NotificationsModule` so auth can use `EmailDispatchService`.
+  - Added `auth-password-reset.spec.ts` coverage for:
+    - generic unknown-email response
+    - hashed token creation + email dispatch
+    - invalid token rejection
+    - successful reset transaction flow
+  - Updated existing auth tests to match new `AuthService` constructor dependency.
 - Files changed:
-  - `apps/api/src/modules/auth/jwt.strategy.ts`
-  - `apps/api/test/jwt-strategy.spec.ts` (new)
+  - `maintainpro/prisma/schema.prisma`
+  - `maintainpro/apps/api/src/modules/auth/auth.module.ts`
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/test/auth-password-reset.spec.ts`
+  - `maintainpro/apps/api/test/auth-register.spec.ts`
+  - `maintainpro/apps/api/test/auth-refresh-token.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
 - Tests run:
-  - `npx jest --config ./jest.config.cjs test/jwt-strategy.spec.ts` — 3/3 pass
-  - `npx tsc --noEmit -p apps/api/tsconfig.json` — clean
-- Remaining risks: adds one DB lookup per authenticated request (select isActive only,
-  indexed by `id`/`_id` — negligible). Login/refresh flows should also re-check
-  isActive (covered separately by SEC-002/SEC-004 work).
+  - `npm run db:generate` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 27 suites, 151 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - The reset email now points to `/reset-password`, but this web page does not yet exist in `apps/web`; user experience follow-up needed.
+  - SMTP-disabled environments will still behave securely (generic response), but no email will be delivered (expected behavior).
 
-## 2026-06-12 — SEC-007: Fix UtilitiesService cross-tenant data leak
-
-- What changed: `UtilitiesService` previously queried `utilityMeter`, `meterReading`,
-  and `utilityBill` with no tenant scoping at all (`meters()`, `meter()`,
-  `allReadings()`, `bills()`, `bill()`, `overdue()`, `analytics()`, etc. returned data
-  across ALL tenants). Reworked every method to accept the caller's `tenantId` (from
-  `req.user.tenantId`, set by `TenantContextGuard`) and scope/verify ownership:
-  - List methods (`meters`, `bills`, `overdue`, `analytics`) now filter
-    `where: { tenantId }` (no filter for SUPER_ADMIN with `tenantId === null`).
-  - Single-record methods (`meter`, `bill`) use `findFirst({ where: { id, tenantId } })`
-    so a cross-tenant id lookup returns 404 instead of another tenant's record.
-  - Mutating methods (`updateMeter`, `addReading`, `readings`, `consumptionChart`,
-    `payBill`, `createBill`) call the ownership-checked getter first.
-  - `allReadings()` (MeterReading has no tenantId of its own) now first loads the
-    tenant's meters, then queries readings `where: { meterId: { in: [...] } }`.
-  - `createMeter`/`createBill` now stamp `tenantId` on the created record.
-  - Controller (`utilities.controller.ts`) now injects `@Req() req` and passes
-    `req.user?.tenantId ?? null` to every service call.
+## 2026-06-12 | SEC-004 | Endpoint throttling + login lockout
+- What changed:
+  - Added login lockout fields on `User`:
+    - `failedLoginAttempts Int @default(0)`
+    - `lockedUntil DateTime?`
+  - Hardened `AuthService.login()`:
+    - Denies authentication for accounts still within lockout window.
+    - Increments `failedLoginAttempts` on bad credentials.
+    - Sets `lockedUntil` to now + 15 minutes after 5 consecutive failed attempts.
+    - Resets `failedLoginAttempts` and clears `lockedUntil` after successful login.
+  - Added per-endpoint throttling decorators (`@Throttle`) on:
+    - `POST /auth/register`
+    - `POST /auth/login`
+    - `POST /auth/refresh`
+    - `POST /auth/forgot-password`
+    - `POST /auth/reset-password`
+    - `POST /tenants/:id/invitations`
+  - Added `auth-login-lockout.spec.ts` to validate increment/lockout behavior and lock-window denial.
 - Files changed:
-  - `apps/api/src/modules/utilities/utilities.service.ts`
-  - `apps/api/src/modules/utilities/utilities.controller.ts`
-  - `apps/api/test/utilities-tenant-isolation.spec.ts` (new)
+  - `maintainpro/prisma/schema.prisma`
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/src/modules/auth/auth.controller.ts`
+  - `maintainpro/apps/api/src/modules/invitations/invitations.controller.ts`
+  - `maintainpro/apps/api/test/auth-login-lockout.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
 - Tests run:
-  - `npx jest --config ./jest.config.cjs test/utilities-tenant-isolation.spec.ts` — 8/8 pass
-  - `npx tsc --noEmit -p apps/api/tsconfig.json` — clean
-- Remaining risks: none for this module. SEC-006 (broad tenant-isolation audit across
-  all other modules, e.g. `fleet.service.ts liveMap()`) is still open and tracked
-  separately.
+  - `npm run db:generate` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 28 suites, 154 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Lockout policy thresholds are currently hardcoded (5 attempts, 15 minutes); should be moved to env config in a later hardening pass.
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside this task.
 
-## 2026-06-12 — PHASE-0: Repository audit & TODO system setup
-
-- What changed: Performed full repository audit (backend modules, Prisma schema,
-  frontend routes/components, mobile app, deployment config). Created the three
-  tracking documents (`MAINTAINPRO_PRODUCTION_TODO.md`, `IMPLEMENTATION_LOG.md`,
-  `QA_CHECKLIST.md`) under `maintainpro/docs/`. No application code changed.
+## 2026-06-12 | SEC-005 | Gate public self-registration
+- What changed:
+  - Added production-safe registration toggle in env validation:
+    - `ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION` (default `false`).
+  - Hardened `AuthService.register()` public-signup decision:
+    - Invitation-token registration remains allowed when token is valid.
+    - Public registration in non-production requires `ALLOW_PUBLIC_REGISTRATION=true`.
+    - Public registration in production now requires both:
+      - `ALLOW_PUBLIC_REGISTRATION=true`
+      - `ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION=true`
+  - Expanded `auth-register.spec.ts` for:
+    - production rejection without explicit production override
+    - production allow path with explicit override
 - Files changed:
-  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md` (new)
-  - `maintainpro/docs/IMPLEMENTATION_LOG.md` (new)
-  - `maintainpro/docs/QA_CHECKLIST.md` (new)
-- Tests run: none (audit only)
-- Remaining risks: Several premises in the original task brief do not match the current
-  codebase (Farm module already has full UI; CleaningChecklistTemplate already has
-  service-layer support; "Building/Property/Floor/Room" hierarchy does not exist and
-  Phase 5 as specified is net-new). These are flagged in the TODO table and should be
-  resolved with the user before deep work begins on Phases 5, 10, 11, 12, 13, 18.
+  - `maintainpro/apps/api/src/config/env.validation.ts`
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/test/auth-register.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Runtime admin UI/API toggle for global signup policy is still not implemented.
+
+## 2026-06-12 | SEC-006 | Tenant isolation hardening sweep (in progress)
+- What changed:
+  - Added tenant-aware query scoping in high-risk modules using request-context tenant identity:
+    - `TripsService.allTrips()` now filters by `vehicle.tenantId` for tenant-bound actors.
+    - `UsersService` now scopes list/read/update/status/delete by tenant membership for non-super-admin actors.
+    - `UsersService.create()`/`invite()` now stamp `tenantId` and create tenant membership in tenant-scoped contexts.
+    - `VehiclesService` now applies tenant checks/stamping on key list/detail/create/update/operation paths and tenant-checks related driver lookups.
+    - `DriversService` list/detail/create now use tenant-aware filters/stamping.
+    - `FleetService.liveMap()` now filters GPS feed by `vehicle.tenantId` for tenant-scoped actors.
+    - `FleetService.updateGps()` validates vehicle accessibility before writing telemetry.
+    - `ComplianceService.getVehicleCompliance()` now enforces tenant ownership for vehicle-level compliance reads.
+  - Added targeted tenant-isolation tests:
+    - `trips-tenant-isolation.spec.ts`
+    - `users-tenant-isolation.spec.ts`
+    - `vehicles-tenant-isolation.spec.ts`
+- Files changed:
+  - `maintainpro/apps/api/src/modules/trips/trips.service.ts`
+  - `maintainpro/apps/api/src/modules/users/users.service.ts`
+  - `maintainpro/apps/api/src/modules/vehicles/vehicles.service.ts`
+  - `maintainpro/apps/api/src/modules/drivers/drivers.service.ts`
+  - `maintainpro/apps/api/src/modules/fleet/fleet.service.ts`
+  - `maintainpro/apps/api/src/modules/compliance/compliance.service.ts`
+  - `maintainpro/apps/api/src/modules/compliance/compliance.controller.ts`
+  - `maintainpro/apps/api/test/trips-tenant-isolation.spec.ts`
+  - `maintainpro/apps/api/test/users-tenant-isolation.spec.ts`
+  - `maintainpro/apps/api/test/vehicles-tenant-isolation.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 31 suites, 162 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - SEC-006 remains open until the same tenant-isolation standard is verified module-by-module across the remaining API surfaces.
+
+## 2026-06-12 | SEC-007 | Utilities meter leak fix
+- What changed:
+  - Hardened `UtilitiesService.bills()` meter hydration query:
+    - Added tenant filter when loading related meters by `meterIds`.
+    - Prevents cross-tenant meter metadata from being attached to tenant-scoped bill responses.
+- Files changed:
+  - `maintainpro/apps/api/src/modules/utilities/utilities.service.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api -- test/utilities-tenant-isolation.spec.ts` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - None identified within this specific utility meter-join scope; broader SEC-006 sweep remains in progress.
+
+## 2026-06-12 | SEC-006 | Tenant isolation hardening sweep (continued)
+- What changed:
+  - Hardened `cleaning` module for tenant-safe ID-based operations:
+    - Added tenant ownership checks (via request context) in:
+      - location fetch/update/deactivate/QR operations
+      - visit fetch/sign-off
+      - issue update
+    - Added tenant validation when creating facility issues against `locationId`.
+  - Removed null-tenant bypass risk in Phase4 modules by enforcing strict tenant equality checks:
+    - `insurance-claims.service.ts`
+    - `accidents.service.ts`
+    - `traffic-fines.service.ts`
+    - `vehicle-documents.service.ts`
+    - `driver-intelligence.service.ts`
+  - Prevents access to rows with `tenantId: null` from tenant-scoped actors.
+- Files changed:
+  - `maintainpro/apps/api/src/modules/cleaning/cleaning.service.ts`
+  - `maintainpro/apps/api/src/modules/insurance-claims/insurance-claims.service.ts`
+  - `maintainpro/apps/api/src/modules/accidents/accidents.service.ts`
+  - `maintainpro/apps/api/src/modules/traffic-fines/traffic-fines.service.ts`
+  - `maintainpro/apps/api/src/modules/vehicle-documents/vehicle-documents.service.ts`
+  - `maintainpro/apps/api/src/modules/driver-intelligence/driver-intelligence.service.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 31 suites, 162 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - SEC-006 remains open for a final full module-by-module verification pass to confirm no residual unscoped query surfaces.
+
+## 2026-06-12 | SEC-008 | Protect Swagger + readiness endpoints
+- What changed:
+  - Verified existing production controls in `main.ts` + bootstrap guards:
+    - `/health/readiness` in production requires either:
+      - `ADMIN` / `SUPER_ADMIN` bearer token, or
+      - matching `x-readiness-key` / `READINESS_API_KEY`.
+    - Swagger setup in production is opt-in only (`SWAGGER_ENABLED=true`) and requires both:
+      - `SWAGGER_USER`
+      - `SWAGGER_PASSWORD`
+    - Production Swagger routes (`/api/docs`, `/api/docs-json`) are protected with HTTP Basic Auth.
+  - No code delta required for this task beyond verification.
+- Files verified:
+  - `maintainpro/apps/api/src/main.ts`
+  - `maintainpro/apps/api/src/bootstrap/readiness-guard.ts`
+  - `maintainpro/apps/api/src/bootstrap/swagger-guard.ts`
+  - `maintainpro/apps/api/test/readiness-guard.spec.ts`
+  - `maintainpro/apps/api/test/swagger-guard.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; includes readiness/swagger guard suites)
+- Remaining risks:
+  - None identified for SEC-008 scope.
+
+## 2026-06-12 | SEC-009 | Reject inactive users in login/jwt/refresh
+- What changed:
+  - Verified end-to-end enforcement is already present:
+    - `AuthService.login()` rejects inactive users.
+    - `AuthService.refresh()` revokes/rejects refresh flows for inactive users.
+    - `JwtStrategy.validate()` rejects inactive users on access-token auth paths.
+  - No additional code delta required for this task beyond verification.
+- Files verified:
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/src/modules/auth/jwt.strategy.ts`
+  - `maintainpro/apps/api/test/jwt-strategy.spec.ts`
+  - `maintainpro/apps/api/test/auth-refresh-token.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - None identified for SEC-009 scope.
+
+## 2026-06-12 | SEC-005 | Gate public self-registration
+- What changed:
+  - Added explicit production safety setting in env schema:
+    - `ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION` (default `false`)
+  - Hardened public registration decision logic in `AuthService`:
+    - Public registration remains disabled by default.
+    - Invitation-based registration still works regardless of public-registration flags.
+    - In non-production, `ALLOW_PUBLIC_REGISTRATION=true` enables public registration.
+    - In production, public registration now requires both:
+      - `ALLOW_PUBLIC_REGISTRATION=true`
+      - `ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION=true`
+  - Expanded auth registration tests to cover:
+    - production rejection when only `ALLOW_PUBLIC_REGISTRATION=true`
+    - production allow path only when explicit production override is enabled
+    - updated config test mocks for JWT secret keys in production-mode tests
+- Files changed:
+  - `maintainpro/apps/api/src/config/env.validation.ts`
+  - `maintainpro/apps/api/src/modules/auth/auth.service.ts`
+  - `maintainpro/apps/api/test/auth-register.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 28 suites, 156 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - There is no admin UI/API yet to toggle global signup policy safely at runtime; current control remains env-driven.
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside this task.
+
+## 2026-06-12 | SEC-010 | Cookie refresh + CSRF hardening
+- What changed:
+  - Hardened API auth cookie flow in `AuthController`:
+    - Added CSRF double-submit protection for cookie-based `POST /auth/refresh` and `POST /auth/logout`.
+    - Added non-HttpOnly CSRF cookie (`maintainpro_csrf`) issued whenever refresh cookie is issued/rotated.
+    - Enforced `x-csrf-token` header match against CSRF cookie before allowing cookie-token refresh/logout.
+    - Cleared CSRF cookie alongside access/refresh cookies on logout/logout-all.
+  - Hardened web token handling:
+    - Removed refresh-token persistence from web `localStorage` (legacy key cleanup retained).
+    - Updated login/register session persistence to store only access token + user profile.
+    - Updated Axios client to:
+      - attach CSRF header from cookie for state-changing requests,
+      - perform one-time silent refresh on 401 using cookie + CSRF,
+      - retry original request when refresh succeeds, otherwise clear session and redirect to login.
+- Files changed:
+  - `maintainpro/apps/api/src/modules/auth/auth.controller.ts`
+  - `maintainpro/apps/web/lib/auth-storage.ts`
+  - `maintainpro/apps/web/lib/api-client.ts`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/page.tsx`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 31 suites, 162 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Mobile/API clients that rely on body `refreshToken` are still supported for compatibility and should be migrated to equivalent hardened patterns in a later mobile-focused security pass.
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside this task.
+
+## 2026-06-12 | SEC-011 | WebSocket auth + tenant room isolation
+- What changed:
+  - Hardened `NotificationsGateway` socket connection handling:
+    - Validates JWT on handshake and rejects invalid/missing tokens.
+    - Confirms account is active via Prisma before accepting socket.
+    - Enforces tenant identity for non-super-admin users.
+    - Joins deterministic user and tenant rooms (`user:<id>`, `tenant:<id>`) and emits notification events only to user-scoped rooms.
+  - Hardened `FleetGateway` socket connection handling:
+    - Added JWT handshake auth + active-user validation.
+    - Enforces tenant room join for tenant users, and dedicated global room for `SUPER_ADMIN`.
+    - Replaced namespace-wide broadcasts with room-scoped broadcasts:
+      - `tenant:<id>` for tenant-bound events
+      - `fleet:global` for super-admin/global events.
+  - Updated `FleetService` broadcast flow to carry tenant scope:
+    - Added `tenantId` to fleet vehicle runtime metadata.
+    - `updateGps` now emits location events to tenant-scoped rooms.
+    - Alert broadcasts are resolved against runtime tenant context before socket emission.
+  - Added dedicated websocket tests:
+    - `fleet.gateway.spec.ts`
+    - `notifications.gateway.spec.ts`
+- Files changed:
+  - `maintainpro/apps/api/src/modules/notifications/notifications.gateway.ts`
+  - `maintainpro/apps/api/src/modules/fleet/fleet.gateway.ts`
+  - `maintainpro/apps/api/src/modules/fleet/fleet.service.ts`
+  - `maintainpro/apps/api/test/fleet.gateway.spec.ts`
+  - `maintainpro/apps/api/test/notifications.gateway.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api -- test/fleet.gateway.spec.ts test/notifications.gateway.spec.ts` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 33 suites, 168 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Mobile notification socket listener currently subscribes to legacy event names (`notification:new`, `notification:read`) while backend emits `notifications.new`/`notifications.updated`; this is a pre-existing integration mismatch and should be addressed in mobile hardening.
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside this task.
+
+## 2026-06-12 | SEC-012 | Surface queue/Redis failures in health and system status
+- What changed:
+  - Added queue/Redis runtime observability via new `QueueHealthService` and global `QueuesModule`.
+    - Tracks Redis status transitions (`active`/`degraded`/`disabled`/`failed`).
+    - Tracks per-queue status, job counts (`waiting`, `active`, `delayed`, `failed`), and sanitized last error metadata.
+    - Captures Redis-related bootstrap failures through structured queue-health logging (without leaking secrets).
+  - Registered notifications queue monitoring with `NotificationsQueueMonitor`.
+  - Hardened queue processor visibility:
+    - Added `@OnQueueFailed()` hook in `NotificationsProcessor`.
+    - Queue failures now update queue health and emit structured error logs.
+  - Hardened notification dispatch fallback:
+    - `NotificationsService.enqueueSend()` now checks queue health.
+    - On queue unavailability/failure, it falls back to direct email/SMS/push dispatch (with explicit warning logs) instead of silently swallowing.
+  - Enhanced readiness output in `HealthService`:
+    - Added queue/Redis dependency checks to readiness dependencies.
+    - Added detailed `queues` payload with:
+      - `redis.status`
+      - `redis.lastErrorAt`
+      - `redis.lastErrorMessageSafe`
+      - per-queue status and counts
+      - aggregate queue totals.
+    - Public `/health` remains minimal and unchanged.
+  - Updated environment validation (`env.validation.ts`):
+    - Added `REDIS_REQUIRED_IN_PRODUCTION` guard.
+    - Enforces `REDIS_URL` in production when production Redis requirement is enabled.
+  - Secured detailed API readiness route in controller:
+    - `GET /api/health/readiness` now requires `SUPER_ADMIN`/`ADMIN`.
+    - Existing root readiness route protections remain in `main.ts`.
+  - Updated system-health UI typing for new readiness states (`failed`, `disabled`) and summary counts.
+  - Documentation updates:
+    - Added clear TODO Known Issues/Blockers section for the pre-existing web `/register` build blocker.
+    - Added `docs/RISK_REGISTER.md` with Redis/queue availability risk.
+    - Added `docs/DEPLOYMENT_ENVIRONMENT_CHECKLIST.md` with Redis/Bull and degraded-mode guidance.
+    - Added Redis/queue degraded-state checks to `docs/QA_CHECKLIST.md`.
+- Files changed:
+  - `maintainpro/apps/api/src/modules/queues/queue-health.service.ts`
+  - `maintainpro/apps/api/src/modules/queues/queues.module.ts`
+  - `maintainpro/apps/api/src/modules/notifications/notifications-queue.monitor.ts`
+  - `maintainpro/apps/api/src/modules/notifications/notifications.module.ts`
+  - `maintainpro/apps/api/src/modules/notifications/notifications.processor.ts`
+  - `maintainpro/apps/api/src/modules/notifications/notifications.service.ts`
+  - `maintainpro/apps/api/src/health.service.ts`
+  - `maintainpro/apps/api/src/health.controller.ts`
+  - `maintainpro/apps/api/src/main.ts`
+  - `maintainpro/apps/api/src/config/env.validation.ts`
+  - `maintainpro/apps/api/src/app.module.ts`
+  - `maintainpro/apps/web/app/(dashboard)/system-health/page.tsx`
+  - `maintainpro/apps/api/test/queue-health-readiness.spec.ts`
+  - `maintainpro/apps/api/test/notifications.push.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+  - `maintainpro/docs/DEPLOYMENT_ENVIRONMENT_CHECKLIST.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 34 suites, 172 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside SEC-012 scope.
+
+## 2026-06-12 | SEC-013 | Stop unsafe production mock/no-op integration behavior
+- What changed:
+  - Added explicit integration mode env controls and production safety validation:
+    - `ALLOW_MOCK_IN_PRODUCTION`
+    - `ERP_MODE` (`disabled|mock|live`)
+    - `BILLING_MODE` (`disabled|mock|live`)
+    - `EMAIL_MODE` (`disabled|live`)
+    - `SMS_MODE` (`disabled|mock|live`)
+    - `PUSH_MODE` (`disabled|mock|live`)
+    - `STORAGE_MODE` (`local|r2|s3|minio|cloudinary`)
+  - Extended env validation to:
+    - reject unsafe production mock modes unless explicitly allowed,
+    - enforce live-mode credential presence for ERP/Billing/Email/SMS/Push,
+    - validate storage-mode-specific credential requirements (Cloudinary/MinIO).
+  - Hardened integration services:
+    - `BillingService` now enforces mode semantics (`disabled`/`mock`/`live`) and blocks production mock billing unless explicitly allowed.
+    - `ErpSyncProviderService` now uses explicit `ERP_MODE` with `disabled/mock/live` semantics (plus legacy fallback), and blocks production mock mode by policy.
+    - `EmailDispatchService`, `SmsDispatchService`, and `PushDispatchService` now use explicit mode semantics and surface `disabled/mock/misconfigured` states instead of ambiguous noop behavior.
+  - Expanded readiness/system health visibility:
+    - Added new check states (`mock`, `misconfigured`) in backend health model and web system-health UI.
+    - Health configuration checks now report mode-aware integration status for Billing/ERP/Email/SMS/Push/Storage.
+  - Added/updated tests for SEC-013 policy behavior:
+    - production mock mode rejection in env validation,
+    - dev mock allowance,
+    - billing mock block in production,
+    - integration status visibility in readiness checks.
+- Files changed:
+  - `maintainpro/apps/api/src/config/env.validation.ts`
+  - `maintainpro/apps/api/src/modules/billing/billing.service.ts`
+  - `maintainpro/apps/api/src/modules/inventory/erp-sync-provider.service.ts`
+  - `maintainpro/apps/api/src/modules/notifications/email-dispatch.service.ts`
+  - `maintainpro/apps/api/src/modules/notifications/sms-dispatch.service.ts`
+  - `maintainpro/apps/api/src/modules/notifications/push-dispatch.service.ts`
+  - `maintainpro/apps/api/src/health.service.ts`
+  - `maintainpro/apps/web/app/(dashboard)/system-health/page.tsx`
+  - `maintainpro/apps/api/test/billing-modes.spec.ts`
+  - `maintainpro/apps/api/test/env-validation-integration-modes.spec.ts`
+  - `maintainpro/apps/api/test/health-integration-modes.spec.ts`
+  - `maintainpro/apps/api/test/erp-sync-provider.service.spec.ts`
+  - `maintainpro/apps/api/test/email-dispatch.service.spec.ts`
+  - `maintainpro/apps/api/test/sms-dispatch.service.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+  - `maintainpro/docs/DEPLOYMENT_ENVIRONMENT_CHECKLIST.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+- Tests run:
+  - `npm run test --workspace @maintainpro/api` (pass; 37 suites, 177 tests)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Full monorepo build remains blocked by the pre-existing web auth `/register` suspense issue outside SEC-013 scope.

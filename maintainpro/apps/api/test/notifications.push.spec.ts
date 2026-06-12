@@ -28,7 +28,10 @@ describe("NotificationsService push readiness", () => {
       {} as never,
       {} as never,
       { add: jest.fn() } as never,
-      pushDispatchService as never
+      pushDispatchService as never,
+      { isQueueOperational: jest.fn().mockReturnValue(true), markQueueProcessorFailure: jest.fn() } as never,
+      {} as never,
+      {} as never
     );
 
     jest.spyOn(service as any, "getPreferences").mockResolvedValue({

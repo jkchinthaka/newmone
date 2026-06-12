@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { ComplianceStatus, Prisma, VehicleDocumentStatus, VehicleDocumentType } from "@prisma/client";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { Phase4Actor, resolveTenantId } from "../_phase4/phase4-audit.helper";
 
@@ -31,12 +32,32 @@ export interface ComplianceEvaluation {
 export class ComplianceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async evaluate(vehicleId: string, asOf: Date = new Date()): Promise<ComplianceEvaluation> {
-    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
-    if (!vehicle) throw new NotFoundException("Vehicle not found");
+  private resolvedTenantId(actor?: Phase4Actor): string | null | undefined {
+    const actorTenantId = resolveTenantId(actor);
+    if (actorTenantId !== undefined) {
+      return actorTenantId;
+    }
+    return requestContext.get()?.tenantId ?? undefined;
+  }
+
+  async evaluate(
+    vehicleId: string,
+    asOf: Date = new Date(),
+    actor?: Phase4Actor
+  ): Promise<ComplianceEvaluation> {
+    const tenantId = this.resolvedTenantId(actor);
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId }
+    });
+    if (!vehicle || (tenantId !== undefined && vehicle.tenantId !== tenantId)) {
+      throw new NotFoundException("Vehicle not found");
+    }
 
     const docs = await this.prisma.vehicleDocument.findMany({
-      where: { vehicleId },
+      where: {
+        vehicleId,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      },
       orderBy: { expiryDate: "desc" }
     });
 
@@ -88,8 +109,8 @@ export class ComplianceService {
     return { vehicleId, status, evaluatedAt: asOf, reasons, details };
   }
 
-  async refreshAndPersist(vehicleId: string): Promise<ComplianceEvaluation> {
-    const result = await this.evaluate(vehicleId);
+  async refreshAndPersist(vehicleId: string, actor?: Phase4Actor): Promise<ComplianceEvaluation> {
+    const result = await this.evaluate(vehicleId, new Date(), actor);
     await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { complianceStatus: result.status, complianceLastEvaluatedAt: result.evaluatedAt }
@@ -97,8 +118,8 @@ export class ComplianceService {
     return result;
   }
 
-  async getVehicleCompliance(vehicleId: string): Promise<ComplianceEvaluation> {
-    return this.evaluate(vehicleId);
+  async getVehicleCompliance(vehicleId: string, actor?: Phase4Actor): Promise<ComplianceEvaluation> {
+    return this.evaluate(vehicleId, new Date(), actor);
   }
 
   async fleetSummary(actor?: Phase4Actor) {
@@ -131,7 +152,7 @@ export class ComplianceService {
 
   /** Returns reasons that should block gate-out (NON_COMPLIANT or missing required docs). */
   async evaluateForGateOut(vehicleId: string): Promise<string[]> {
-    const evaluation = await this.evaluate(vehicleId);
+    const evaluation = await this.evaluate(vehicleId, new Date());
     if (evaluation.status === ComplianceStatus.NON_COMPLIANT) {
       return evaluation.reasons;
     }

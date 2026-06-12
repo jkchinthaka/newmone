@@ -75,14 +75,19 @@ export class VehiclesService {
     @Inject(ComplianceService) private readonly complianceService: ComplianceService
   ) {}
 
+  private currentTenantId(): string | null {
+    return requestContext.get()?.tenantId ?? null;
+  }
+
   async findAll(query: VehicleListQuery = {}) {
+    const tenantId = this.currentTenantId();
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(MAX_LIST_PAGE_SIZE, Math.max(1, query.pageSize ?? DEFAULT_LIST_PAGE_SIZE));
     const q = query.q?.trim() ?? "";
     const sortBy = query.sortBy ?? "createdAt";
     const sortDir = query.sortDir ?? "desc";
 
-    const where: Prisma.VehicleWhereInput = {};
+    const where: Prisma.VehicleWhereInput = tenantId ? { tenantId } : {};
 
     if (q) {
       where.OR = [
@@ -127,11 +132,15 @@ export class VehiclesService {
   }
 
   async summary(upcomingDays = 14) {
+    const tenantId = this.currentTenantId();
     const normalizedUpcomingDays = Math.max(1, upcomingDays);
 
     const [totalVehicles, groupedByStatus, serviceCandidates] = await this.prisma.$transaction([
-      this.prisma.vehicle.count(),
+      this.prisma.vehicle.count({
+        where: tenantId ? { tenantId } : {}
+      }),
       this.prisma.vehicle.groupBy({
+        where: tenantId ? { tenantId } : {},
         by: ["status"],
         orderBy: {
           status: "asc"
@@ -142,6 +151,7 @@ export class VehiclesService {
       }),
       this.prisma.vehicle.findMany({
         where: {
+          ...(tenantId ? { tenantId } : {}),
           status: {
             not: VehicleStatus.DISPOSED
           }
@@ -201,10 +211,12 @@ export class VehiclesService {
   }
 
   async alerts(options: { upcomingDays?: number; limit?: number } = {}) {
+    const tenantId = this.currentTenantId();
     const upcomingDays = Math.max(1, options.upcomingDays ?? DEFAULT_SERVICE_ALERT_DAYS);
     const limit = Math.min(50, Math.max(1, options.limit ?? 12));
     const candidates = await this.prisma.vehicle.findMany({
       where: {
+        ...(tenantId ? { tenantId } : {}),
         status: {
           notIn: [VehicleStatus.DISPOSED]
         }
@@ -321,14 +333,27 @@ export class VehiclesService {
   }
 
   async findOne(id: string) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
-      include: {
-        driver: { include: { user: true } },
-        fuelLogs: true,
-        tripLogs: true
-      }
-    });
+    const tenantId = this.currentTenantId();
+    const vehicle = tenantId
+      ? await this.prisma.vehicle.findFirst({
+          where: {
+            id,
+            tenantId
+          },
+          include: {
+            driver: { include: { user: true } },
+            fuelLogs: true,
+            tripLogs: true
+          }
+        })
+      : await this.prisma.vehicle.findUnique({
+          where: { id },
+          include: {
+            driver: { include: { user: true } },
+            fuelLogs: true,
+            tripLogs: true
+          }
+        });
 
     if (!vehicle) {
       throw new NotFoundException("Vehicle not found");
@@ -363,6 +388,7 @@ export class VehiclesService {
     vendorName?: string;
     customFields?: Record<string, unknown>;
   }) {
+    const tenantId = this.currentTenantId();
     const currentMileage = data.currentMileage ?? 0;
     const nextServiceDate = data.nextServiceDate
       ? this.parseDateOrThrow(data.nextServiceDate, "nextServiceDate")
@@ -383,6 +409,7 @@ export class VehiclesService {
 
     return this.prisma.vehicle.create({
       data: {
+        tenantId: tenantId ?? undefined,
         registrationNo: data.registrationNo.trim(),
         assetTag: data.assetTag?.trim() || undefined,
         make: data.make.trim(),
@@ -519,6 +546,7 @@ export class VehiclesService {
       metadata?: Record<string, unknown>;
     }
   ) {
+    const tenantId = this.currentTenantId();
     const vehicle = await this.findOne(id);
 
     if (data.meterReading < Number(vehicle.currentMileage)) {
@@ -531,10 +559,18 @@ export class VehiclesService {
 
     let selectedDriver = vehicle.driver;
     if (data.driverId) {
-      const resolvedDriver = await this.prisma.driver.findUnique({
-        where: { id: data.driverId },
-        include: { user: true }
-      });
+      const resolvedDriver = tenantId
+        ? await this.prisma.driver.findFirst({
+            where: {
+              id: data.driverId,
+              tenantId
+            },
+            include: { user: true }
+          })
+        : await this.prisma.driver.findUnique({
+            where: { id: data.driverId },
+            include: { user: true }
+          });
 
       if (!resolvedDriver) {
         throw new NotFoundException("Driver not found");
@@ -862,14 +898,7 @@ export class VehiclesService {
   }
 
   async meterLogs(id: string, query: VehicleMeterLogQuery = {}) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
-      select: { id: true }
-    });
-
-    if (!vehicle) {
-      throw new NotFoundException("Vehicle not found");
-    }
+    await this.findOne(id);
 
     const limit = Math.min(MAX_METER_LOG_LIMIT, Math.max(1, query.limit ?? 100));
     return this.prisma.vehicleMeterLog.findMany({
@@ -890,14 +919,7 @@ export class VehiclesService {
   }
 
   async gateMovements(id: string, limitRaw?: number) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
-      select: { id: true }
-    });
-
-    if (!vehicle) {
-      throw new NotFoundException("Vehicle not found");
-    }
+    await this.findOne(id);
 
     const limit = Math.min(500, Math.max(1, limitRaw ?? 100));
     return this.prisma.vehicleGateMovement.findMany({
@@ -930,21 +952,41 @@ export class VehiclesService {
   }
 
   async serviceRule(id: string) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        registrationNo: true,
-        currentMileage: true,
-        serviceStatus: true,
-        serviceIntervalDays: true,
-        serviceIntervalMileage: true,
-        lastServiceDate: true,
-        nextServiceDate: true,
-        nextServiceMileage: true,
-        updatedAt: true
-      }
-    });
+    const tenantId = this.currentTenantId();
+    const vehicle = tenantId
+      ? await this.prisma.vehicle.findFirst({
+          where: {
+            id,
+            tenantId
+          },
+          select: {
+            id: true,
+            registrationNo: true,
+            currentMileage: true,
+            serviceStatus: true,
+            serviceIntervalDays: true,
+            serviceIntervalMileage: true,
+            lastServiceDate: true,
+            nextServiceDate: true,
+            nextServiceMileage: true,
+            updatedAt: true
+          }
+        })
+      : await this.prisma.vehicle.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            registrationNo: true,
+            currentMileage: true,
+            serviceStatus: true,
+            serviceIntervalDays: true,
+            serviceIntervalMileage: true,
+            lastServiceDate: true,
+            nextServiceDate: true,
+            nextServiceMileage: true,
+            updatedAt: true
+          }
+        });
 
     if (!vehicle) {
       throw new NotFoundException("Vehicle not found");
@@ -1071,12 +1113,21 @@ export class VehiclesService {
   }
 
   async assignDriver(id: string, driverId: string) {
+    const tenantId = this.currentTenantId();
     const vehicle = await this.findOne(id);
 
-    const driver = await this.prisma.driver.findUnique({
-      where: { id: driverId },
-      include: { user: true }
-    });
+    const driver = tenantId
+      ? await this.prisma.driver.findFirst({
+          where: {
+            id: driverId,
+            tenantId
+          },
+          include: { user: true }
+        })
+      : await this.prisma.driver.findUnique({
+          where: { id: driverId },
+          include: { user: true }
+        });
 
     if (!driver) {
       throw new NotFoundException("Driver not found");
@@ -1133,7 +1184,8 @@ export class VehiclesService {
     });
   }
 
-  fuelLogs(id: string, filters?: { startDate?: Date; endDate?: Date; driverId?: string }) {
+  async fuelLogs(id: string, filters?: { startDate?: Date; endDate?: Date; driverId?: string }) {
+    await this.findOne(id);
     return this.prisma.fuelLog.findMany({
       where: {
         vehicleId: id,
@@ -1252,11 +1304,20 @@ export class VehiclesService {
   }
 
   private async resolveFuelDriverId(driverId?: string) {
+    const tenantId = this.currentTenantId();
     if (!driverId) {
       return undefined;
     }
 
-    const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { id: true } });
+    const driver = tenantId
+      ? await this.prisma.driver.findFirst({
+          where: {
+            id: driverId,
+            tenantId
+          },
+          select: { id: true }
+        })
+      : await this.prisma.driver.findUnique({ where: { id: driverId }, select: { id: true } });
     if (!driver) {
       throw new NotFoundException("Driver not found");
     }
@@ -1265,6 +1326,7 @@ export class VehiclesService {
   }
 
   async tripStart(id: string, data: { driverId: string; startLocation: string; endLocation: string; startMileage: number; purpose?: string }) {
+    await this.resolveFuelDriverId(data.driverId);
     const vehicle = await this.findOne(id);
 
     if (vehicle.status === VehicleStatus.UNDER_MAINTENANCE) {
@@ -1312,6 +1374,16 @@ export class VehiclesService {
   }
 
   async tripEnd(id: string, data: { tripId: string; endMileage: number; notes?: string }) {
+    const tenantId = this.currentTenantId();
+    if (tenantId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id, tenantId },
+        select: { id: true }
+      });
+      if (!vehicle) {
+        throw new NotFoundException("Vehicle not found");
+      }
+    }
     const trip = await this.prisma.tripLog.findUnique({ where: { id: data.tripId } });
 
     if (!trip || trip.vehicleId !== id) {
@@ -1386,19 +1458,13 @@ export class VehiclesService {
     });
   }
 
-  trips(id: string) {
+  async trips(id: string) {
+    await this.findOne(id);
     return this.prisma.tripLog.findMany({ where: { vehicleId: id }, orderBy: { createdAt: "desc" } });
   }
 
   async history(id: string, query: VehicleHistoryQuery = {}) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
-      select: { id: true }
-    });
-
-    if (!vehicle) {
-      throw new NotFoundException("Vehicle not found");
-    }
+    await this.findOne(id);
 
     const where: Prisma.GpsLocationWhereInput = { vehicleId: id };
     const from = query.from ? this.parseDateOrThrow(query.from, "from") : null;
@@ -1433,7 +1499,7 @@ export class VehiclesService {
     });
   }
 
-  gpsUpdate(
+  async gpsUpdate(
     id: string,
     data: {
       latitude: number;
@@ -1445,6 +1511,7 @@ export class VehiclesService {
       batteryVoltage?: number;
     }
   ) {
+    await this.findOne(id);
     return this.fleetService.updateGps(id, data);
   }
 

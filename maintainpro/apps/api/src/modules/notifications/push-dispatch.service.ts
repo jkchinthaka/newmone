@@ -19,7 +19,7 @@ export interface PushDeviceRegistration {
 export interface PushProviderSummary {
   id: string;
   configured: boolean;
-  mode: "noop" | "active";
+  mode: "disabled" | "mock" | "active" | "misconfigured";
   description: string;
 }
 
@@ -40,7 +40,7 @@ type PushDeliveryResult = {
   attempted: number;
   delivered: number;
   skipped: number;
-  mode: "noop" | "active";
+  mode: "disabled" | "mock" | "active" | "misconfigured";
 };
 
 @Injectable()
@@ -51,8 +51,8 @@ export class NoopPushProvider {
     return {
       id: "noop",
       configured: false,
-      mode: "noop",
-      description: "Log-only push provider placeholder for future FCM/APNs/Web Push wiring"
+      mode: "mock",
+      description: "Mock push provider is enabled (no external push vendor calls)"
     };
   }
 
@@ -68,7 +68,7 @@ export class NoopPushProvider {
       attempted: payload.devices.length,
       delivered: 0,
       skipped: payload.devices.length,
-      mode: "noop"
+      mode: "mock"
     };
   }
 }
@@ -84,10 +84,10 @@ export class HttpPushProvider {
     return {
       id: this.providerId,
       configured,
-      mode: configured ? "active" : "noop",
+      mode: configured ? "active" : "misconfigured",
       description: configured
         ? "Generic HTTP push provider is configured"
-        : "Generic HTTP push provider is disabled or missing provider settings"
+        : "PUSH_MODE=live but required push provider settings are missing"
     };
   }
 
@@ -98,7 +98,7 @@ export class HttpPushProvider {
         attempted: 0,
         delivered: 0,
         skipped: payload.devices.length,
-        mode: "noop"
+        mode: "misconfigured"
       };
     }
 
@@ -143,10 +143,6 @@ export class HttpPushProvider {
   }
 
   private isConfigured(): boolean {
-    if (!this.configService.get<boolean>("PUSH_PROVIDER_ENABLED", false)) {
-      return false;
-    }
-
     return ["PUSH_PROVIDER_API_URL", "PUSH_PROVIDER_API_KEY"].every((key) => this.hasConfigValue(key));
   }
 
@@ -172,11 +168,30 @@ export class PushDispatchService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
     private readonly noopPushProvider: NoopPushProvider,
     private readonly httpPushProvider: HttpPushProvider
   ) {}
 
   async dispatch(payload: PushDispatchPayload) {
+    if (this.mode === "disabled") {
+      return {
+        deviceCount: 0,
+        deliveries: [
+          {
+            providerId: "push-disabled",
+            attempted: 0,
+            delivered: 0,
+            skipped: 0,
+            mode: "disabled" as const
+          }
+        ]
+      };
+    }
+    if (this.mode === "mock" && !this.isMockAllowed()) {
+      throw new Error("Push mock mode is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true");
+    }
+
     const devices = await this.getRegisteredDevices(payload.userId);
     if (devices.length === 0) {
       return {
@@ -201,6 +216,26 @@ export class PushDispatchService {
   }
 
   describeProviders(): PushProviderSummary[] {
+    if (this.mode === "disabled") {
+      return [
+        {
+          id: "push-disabled",
+          configured: false,
+          mode: "disabled",
+          description: "Push delivery is disabled by PUSH_MODE=disabled"
+        }
+      ];
+    }
+    if (this.mode === "mock" && !this.isMockAllowed()) {
+      return [
+        {
+          id: "push-mock-blocked",
+          configured: false,
+          mode: "misconfigured",
+          description: "Push mock mode is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true"
+        }
+      ];
+    }
     return this.providers.map((provider) => provider.describe());
   }
 
@@ -285,7 +320,33 @@ export class PushDispatchService {
   }
 
   private get providers() {
-    const httpProvider = this.httpPushProvider.describe();
-    return httpProvider.configured ? [this.httpPushProvider] : [this.noopPushProvider];
+    if (this.mode === "mock") {
+      return [this.noopPushProvider];
+    }
+
+    return [this.httpPushProvider];
+  }
+
+  private get mode(): "disabled" | "mock" | "live" {
+    const explicit = this.prismaConfigMode();
+    if (explicit) return explicit;
+    return this.configService.get<boolean>("PUSH_PROVIDER_ENABLED", false) ? "live" : "disabled";
+  }
+
+  private prismaConfigMode(): "disabled" | "mock" | "live" | null {
+    const explicit = this.configService
+      .get<string>("PUSH_MODE", "")
+      .trim()
+      .toLowerCase();
+    if (explicit === "disabled" || explicit === "mock" || explicit === "live") {
+      return explicit;
+    }
+    return null;
+  }
+
+  private isMockAllowed(): boolean {
+    const isProduction = this.configService.get<string>("NODE_ENV", "development") === "production";
+    if (!isProduction) return true;
+    return this.configService.get<boolean>("ALLOW_MOCK_IN_PRODUCTION", false);
   }
 }

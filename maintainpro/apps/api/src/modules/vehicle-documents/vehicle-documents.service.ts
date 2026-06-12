@@ -37,7 +37,7 @@ export class VehicleDocumentsService {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId && vehicle.tenantId !== tenantId) {
+    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
       throw new ForbiddenException("Vehicle not in your tenant");
     }
     return vehicle;
@@ -59,7 +59,7 @@ export class VehicleDocumentsService {
     const doc = await this.prisma.vehicleDocument.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException("Document not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && doc.tenantId && doc.tenantId !== tenantId) {
+    if (tenantId !== undefined && doc.tenantId !== tenantId) {
       throw new ForbiddenException("Document not in your tenant");
     }
     return doc;

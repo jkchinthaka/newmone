@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
-export type ErpProviderMode = "mock" | "http";
+export type ErpProviderMode = "disabled" | "mock" | "live";
 
 export type ErpProviderSummary = {
   providerId: string;
   mode: ErpProviderMode;
   configured: boolean;
   mockAllowedInProduction: boolean;
+  blockedInProduction: boolean;
   description: string;
 };
 
@@ -31,38 +32,55 @@ export class ErpSyncProviderService {
 
   describeProvider(): ErpProviderSummary {
     const mode = this.mode;
-    const configured = mode === "mock" ? this.isMockAllowed() : this.isHttpConfigured();
+    const blockedInProduction = mode === "mock" && !this.isMockAllowed();
+    const configured =
+      mode === "disabled"
+        ? true
+        : mode === "mock"
+          ? !blockedInProduction
+          : this.isHttpConfigured();
 
     return {
-      providerId: mode === "mock" ? "MOCK_ERP" : this.configService.get<string>("ERP_PROVIDER_ID", "HTTP_ERP"),
+      providerId:
+        mode === "disabled"
+          ? "ERP_DISABLED"
+          : mode === "mock"
+            ? "MOCK_ERP"
+            : this.configService.get<string>("ERP_PROVIDER_ID", "HTTP_ERP"),
       mode,
       configured,
       mockAllowedInProduction: this.mockAllowedInProduction,
+      blockedInProduction,
       description:
-        mode === "mock"
+        mode === "disabled"
+          ? "ERP integration is disabled by ERP_MODE=disabled"
+          : mode === "mock"
           ? configured
             ? "Mock ERP provider is enabled for this environment"
             : "Mock ERP provider is blocked in production unless explicitly allowed"
           : configured
-            ? "HTTP ERP provider is configured"
-            : "HTTP ERP provider is missing ERP_API_URL or ERP_API_KEY"
+            ? "Live ERP provider is configured"
+            : "Live ERP provider is missing ERP_API_URL or ERP_API_KEY"
     };
   }
 
   assertCanUseSelectedProvider(): void {
     const summary = this.describeProvider();
+    if (summary.mode === "disabled") {
+      throw new Error("ERP integration is disabled (ERP_MODE=disabled)");
+    }
     if (!summary.configured) {
       throw new Error(summary.description);
     }
   }
 
   async syncPurchaseOrder(payload: ErpSyncRequest): Promise<ErpSyncResponse> {
-    if (this.mode !== "http") {
-      throw new Error("HTTP ERP provider is not selected");
+    if (this.mode !== "live") {
+      throw new Error("Live ERP provider is not selected");
     }
 
     if (!this.isHttpConfigured()) {
-      throw new Error("ERP_API_URL and ERP_API_KEY are required for HTTP ERP sync");
+      throw new Error("ERP_API_URL and ERP_API_KEY are required for live ERP sync");
     }
 
     const response = await fetch(this.configService.get<string>("ERP_API_URL", ""), {
@@ -86,8 +104,14 @@ export class ErpSyncProviderService {
   }
 
   get mode(): ErpProviderMode {
-    const configured = this.configService.get<string>("ERP_SYNC_PROVIDER", "mock").trim().toLowerCase();
-    return configured === "http" || configured === "real" ? "http" : "mock";
+    const explicit = this.configService.get<string>("ERP_MODE", "").trim().toLowerCase();
+    if (explicit === "disabled" || explicit === "mock" || explicit === "live") {
+      return explicit;
+    }
+
+    // Backward compatibility with legacy ERP_SYNC_PROVIDER config.
+    const legacy = this.configService.get<string>("ERP_SYNC_PROVIDER", "mock").trim().toLowerCase();
+    return legacy === "http" || legacy === "real" ? "live" : "mock";
   }
 
   private isMockAllowed(): boolean {
@@ -95,7 +119,10 @@ export class ErpSyncProviderService {
   }
 
   private get mockAllowedInProduction(): boolean {
-    return this.configService.get<boolean>("ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION", false);
+    return (
+      this.configService.get<boolean>("ALLOW_MOCK_IN_PRODUCTION", false) ||
+      this.configService.get<boolean>("ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION", false)
+    );
   }
 
   private isHttpConfigured(): boolean {

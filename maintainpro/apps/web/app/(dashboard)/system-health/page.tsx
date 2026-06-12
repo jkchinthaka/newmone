@@ -14,7 +14,14 @@ import {
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 
-type CheckStatus = "operational" | "degraded" | "unconfigured";
+type CheckStatus =
+  | "operational"
+  | "degraded"
+  | "failed"
+  | "mock"
+  | "misconfigured"
+  | "unconfigured"
+  | "disabled";
 
 type SystemCheck = {
   key: string;
@@ -48,7 +55,11 @@ type SystemHealth = {
   summary: {
     operational: number;
     degraded: number;
+    failed: number;
+    mock: number;
+    misconfigured: number;
     unconfigured: number;
+    disabled: number;
     required: number;
   };
   dependencies: SystemCheck[];
@@ -64,13 +75,21 @@ type ApiEnvelope<T> = {
 const statusStyles: Record<CheckStatus, string> = {
   operational: "border-emerald-200 bg-emerald-50 text-emerald-700",
   degraded: "border-amber-200 bg-amber-50 text-amber-700",
-  unconfigured: "border-slate-200 bg-slate-50 text-slate-600"
+  failed: "border-rose-200 bg-rose-50 text-rose-700",
+  mock: "border-amber-200 bg-amber-50 text-amber-700",
+  misconfigured: "border-rose-200 bg-rose-50 text-rose-700",
+  unconfigured: "border-slate-200 bg-slate-50 text-slate-600",
+  disabled: "border-slate-200 bg-slate-50 text-slate-600"
 };
 
 const statusLabels: Record<CheckStatus, string> = {
   operational: "Operational",
   degraded: "Needs attention",
-  unconfigured: "Not configured"
+  failed: "Failed",
+  mock: "Mock",
+  misconfigured: "Misconfigured",
+  unconfigured: "Not configured",
+  disabled: "Disabled"
 };
 
 function formatTime(value?: string) {
@@ -99,7 +118,8 @@ function asReplicationDetails(check?: SystemCheck): ReplicationDetails | null {
 
 function statusIcon(status: CheckStatus) {
   if (status === "operational") return <CheckCircle2 size={18} />;
-  if (status === "degraded") return <AlertTriangle size={18} />;
+  if (status === "failed" || status === "misconfigured") return <AlertTriangle size={18} />;
+  if (status === "degraded" || status === "mock") return <AlertTriangle size={18} />;
   return <Settings2 size={18} />;
 }
 
@@ -268,7 +288,11 @@ export default function SystemHealthPage() {
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Attention</p>
               <p className="mt-2 text-lg font-semibold text-slate-900">
-                {healthQuery.data.summary.degraded + healthQuery.data.summary.unconfigured}
+                {healthQuery.data.summary.degraded +
+                  healthQuery.data.summary.failed +
+                  healthQuery.data.summary.misconfigured +
+                  healthQuery.data.summary.mock +
+                  healthQuery.data.summary.unconfigured}
               </p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">

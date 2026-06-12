@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { RoleName } from "@prisma/client";
+import { RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
 
@@ -17,18 +18,68 @@ export class UsersService {
     return publicUser;
   }
 
-  private async ensureRoleExists(roleId: string): Promise<void> {
+  private currentTenantScope(): { tenantId: string | null; isSuperAdmin: boolean } {
+    const ctx = requestContext.get();
+    const tenantId = ctx?.tenantId ?? null;
+    const isSuperAdmin = ctx?.actorRole === RoleName.SUPER_ADMIN;
+    return { tenantId, isSuperAdmin };
+  }
+
+  private requiredTenantIdForNonSuperAdmin(): string | null {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    if (!isSuperAdmin && !tenantId) {
+      throw new BadRequestException("Tenant context is required");
+    }
+    return tenantId;
+  }
+
+  private async ensureRoleExists(roleId: string): Promise<{ id: string; name: RoleName }> {
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
-      select: { id: true }
+      select: { id: true, name: true }
     });
 
     if (!role) {
       throw new BadRequestException("Role not found");
     }
+
+    return role;
+  }
+
+  private membershipRoleForRole(roleName: RoleName): TenantMembershipRole {
+    if (roleName === RoleName.SUPER_ADMIN || roleName === RoleName.ADMIN) {
+      return TenantMembershipRole.ADMIN;
+    }
+    return TenantMembershipRole.MEMBER;
+  }
+
+  private async assertTenantUserAccessOrThrow(userId: string): Promise<void> {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    if (isSuperAdmin || !tenantId) {
+      return;
+    }
+
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId
+        }
+      },
+      select: { id: true }
+    });
+
+    if (!membership) {
+      throw new NotFoundException("User not found");
+    }
   }
 
   async findAll(params: { q?: string; pageSize?: number; roleName?: string } = {}) {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    if (!isSuperAdmin && !tenantId) {
+      return [];
+    }
+
     const q = params.q?.trim();
     const roleName = this.parseRoleName(params.roleName);
     const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
@@ -44,7 +95,8 @@ export class UsersService {
                 ]
               }
             : {},
-          roleName ? { role: { is: { name: roleName } } } : {}
+          roleName ? { role: { is: { name: roleName } } } : {},
+          !isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {}
         ]
       },
       include: { role: true },
@@ -70,7 +122,14 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id }, include: { role: true } });
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id,
+        ...(!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {})
+      },
+      include: { role: true }
+    });
 
     if (!user) {
       throw new NotFoundException("User not found");
@@ -80,6 +139,7 @@ export class UsersService {
   }
 
   async create(data: CreateUserDto) {
+    const tenantId = this.requiredTenantIdForNonSuperAdmin();
     const email = data.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({
       where: { email },
@@ -90,25 +150,41 @@ export class UsersService {
       throw new BadRequestException("Email already in use");
     }
 
-    await this.ensureRoleExists(data.roleId);
+    const role = await this.ensureRoleExists(data.roleId);
 
     const passwordHash = await bcrypt.hash(data.password, 12);
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        roleId: data.roleId,
-        phone: data.phone?.trim() || undefined
-      },
-      include: { role: true }
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          roleId: data.roleId,
+          phone: data.phone?.trim() || undefined,
+          tenantId: tenantId ?? undefined
+        },
+        include: { role: true }
+      });
+
+      if (tenantId) {
+        await tx.tenantMembership.create({
+          data: {
+            tenantId,
+            userId: created.id,
+            membershipRole: this.membershipRoleForRole(role.name)
+          }
+        });
+      }
+
+      return created;
     });
 
     return this.toPublicUser(user);
   }
 
   async invite(data: InviteUserDto) {
+    const tenantId = this.requiredTenantIdForNonSuperAdmin();
     const email = data.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({
       where: { email },
@@ -119,30 +195,46 @@ export class UsersService {
       throw new BadRequestException("Email already in use");
     }
 
-    await this.ensureRoleExists(data.roleId);
+    const role = await this.ensureRoleExists(data.roleId);
 
     const tempPassword = `Invite-${randomUUID().slice(0, 8)}`;
     const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        roleId: data.roleId,
-        phone: data.phone?.trim() || undefined,
-        passwordHash,
-        isActive: true
-      },
-      include: {
-        role: true
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          roleId: data.roleId,
+          phone: data.phone?.trim() || undefined,
+          passwordHash,
+          isActive: true,
+          tenantId: tenantId ?? undefined
+        },
+        include: {
+          role: true
+        }
+      });
+
+      if (tenantId) {
+        await tx.tenantMembership.create({
+          data: {
+            tenantId,
+            userId: created.id,
+            membershipRole: this.membershipRoleForRole(role.name)
+          }
+        });
       }
+
+      return created;
     });
 
     return this.toPublicUser(user);
   }
 
   async update(id: string, data: UpdateUserDto) {
+    await this.assertTenantUserAccessOrThrow(id);
     await this.findOne(id);
 
     if (data.roleId) {
@@ -164,6 +256,7 @@ export class UsersService {
   }
 
   async setActive(id: string, isActive: boolean) {
+    await this.assertTenantUserAccessOrThrow(id);
     await this.findOne(id);
 
     const user = await this.prisma.user.update({
@@ -176,9 +269,12 @@ export class UsersService {
   }
 
   async remove(id: string) {
+    await this.assertTenantUserAccessOrThrow(id);
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
     const openWorkOrders = await this.prisma.workOrder.count({
       where: {
         technicianId: id,
+        ...(!isSuperAdmin && tenantId ? { tenantId } : {}),
         status: {
           in: ["OPEN", "IN_PROGRESS", "ON_HOLD"]
         }

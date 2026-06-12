@@ -49,6 +49,7 @@ model Tenant {
   accidentReports   AccidentReport[]
   insuranceClaims   InsuranceClaim[]
   trafficFines      TrafficFine[]
+  refreshTokens     RefreshToken[]
 }
 
 model AuditLog {
@@ -175,6 +176,8 @@ model User {
   department     Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   isActive       Boolean     @default(true)
   lastLogin      DateTime?
+  failedLoginAttempts Int    @default(0)
+  lockedUntil    DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -208,10 +211,48 @@ model User {
   accidentEvidenceUploaded  AccidentEvidence[]      @relation("AccidentEvidenceUploader")
   insuranceClaimsFiled      InsuranceClaim[]        @relation("InsuranceClaimFiler")
   trafficFinesReported      TrafficFine[]           @relation("TrafficFineReporter")
+  refreshTokens             RefreshToken[]
+  passwordResetTokens       PasswordResetToken[]
 
   @@index([tenantId])
   @@index([roleId])
   @@index([departmentId])
+}
+
+model RefreshToken {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash  String    @unique
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId   String?   @db.ObjectId
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id])
+  deviceInfo String?
+  ipAddress  String?
+  userAgent  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash  String   @unique
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model Role {

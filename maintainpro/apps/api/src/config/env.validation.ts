@@ -25,6 +25,16 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
   REDIS_URL: Joi.string().empty("").default(""),
   REDIS_REQUIRED_FOR_READINESS: Joi.boolean().default(false),
+  REDIS_REQUIRED_IN_PRODUCTION: Joi.boolean().default(true),
+  ALLOW_MOCK_IN_PRODUCTION: Joi.boolean().default(false),
+  ERP_MODE: Joi.string().valid("disabled", "mock", "live").default("mock"),
+  BILLING_MODE: Joi.string().valid("disabled", "mock", "live").default("mock"),
+  EMAIL_MODE: Joi.string().valid("disabled", "live").default("disabled"),
+  SMS_MODE: Joi.string().valid("disabled", "mock", "live").default("disabled"),
+  PUSH_MODE: Joi.string().valid("disabled", "mock", "live").default("disabled"),
+  STORAGE_MODE: Joi.string()
+    .valid("local", "r2", "s3", "minio", "cloudinary")
+    .default("local"),
   MONGODB_URI: Joi.string().allow(""),
   MONGO_SYNC_ON_STARTUP: Joi.boolean().default(false),
   MAINTAINPRO_SEED_PASSWORD: Joi.string().allow(""),
@@ -36,6 +46,7 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRES: Joi.string().default("15m"),
   JWT_REFRESH_EXPIRES: Joi.string().default("7d"),
   ALLOW_PUBLIC_REGISTRATION: Joi.boolean().default(false),
+  ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION: Joi.boolean().default(false),
   STRIPE_SECRET_KEY: Joi.string().allow(""),
   STRIPE_WEBHOOK_SECRET: Joi.string().allow(""),
   GOOGLE_CLIENT_ID: Joi.string().allow(""),
@@ -96,5 +107,80 @@ export const envValidationSchema = Joi.object({
   SWAGGER_PASSWORD: Joi.string().allow(""),
   READINESS_API_KEY: Joi.string().allow("")
 })
+  .custom((value, helpers) => {
+    const nodeEnv = String(value.NODE_ENV ?? "development");
+    const redisUrl = String(value.REDIS_URL ?? "").trim();
+    const redisRequiredInProduction = Boolean(value.REDIS_REQUIRED_IN_PRODUCTION);
+    const allowMockInProduction = Boolean(value.ALLOW_MOCK_IN_PRODUCTION);
+
+    if (nodeEnv === "production" && redisRequiredInProduction && redisUrl.length === 0) {
+      return helpers.error("any.invalid", {
+        message: "REDIS_URL must be configured in production when REDIS_REQUIRED_IN_PRODUCTION=true"
+      });
+    }
+
+    const mockModes = [
+      ["ERP_MODE", value.ERP_MODE],
+      ["BILLING_MODE", value.BILLING_MODE],
+      ["SMS_MODE", value.SMS_MODE],
+      ["PUSH_MODE", value.PUSH_MODE]
+    ].filter(([, mode]) => String(mode) === "mock");
+
+    if (nodeEnv === "production" && !allowMockInProduction && mockModes.length > 0) {
+      return helpers.error("any.invalid", {
+        message: `Mock integration modes are blocked in production. Set ALLOW_MOCK_IN_PRODUCTION=true only for controlled temporary operation. Offending keys: ${mockModes.map(([key]) => key).join(", ")}`
+      });
+    }
+
+    const requireKeys = (modeKey: string, mode: unknown, keys: string[]) => {
+      if (String(mode) !== "live") return;
+      const missing = keys.filter((key) => String(value[key] ?? "").trim().length === 0);
+      if (missing.length > 0) {
+        return helpers.error("any.invalid", {
+          message: `${modeKey}=live requires: ${missing.join(", ")}`
+        });
+      }
+    };
+
+    const errors = [
+      requireKeys("ERP_MODE", value.ERP_MODE, ["ERP_API_URL", "ERP_API_KEY"]),
+      requireKeys("BILLING_MODE", value.BILLING_MODE, ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]),
+      requireKeys("EMAIL_MODE", value.EMAIL_MODE, ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"]),
+      requireKeys("SMS_MODE", value.SMS_MODE, ["SMS_API_URL", "SMS_API_KEY", "SMS_SENDER_ID"]),
+      requireKeys("PUSH_MODE", value.PUSH_MODE, ["PUSH_PROVIDER_API_URL", "PUSH_PROVIDER_API_KEY"])
+    ].filter(Boolean);
+
+    if (errors.length > 0) {
+      return errors[0];
+    }
+
+    const storageMode = String(value.STORAGE_MODE ?? "local");
+    if (storageMode === "cloudinary") {
+      const missing = ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].filter(
+        (key) => String(value[key] ?? "").trim().length === 0
+      );
+      if (missing.length > 0) {
+        return helpers.error("any.invalid", {
+          message: `STORAGE_MODE=cloudinary requires: ${missing.join(", ")}`
+        });
+      }
+    }
+
+    if (storageMode === "minio") {
+      const missing = ["MINIO_ENDPOINT", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_BUCKET"].filter(
+        (key) => String(value[key] ?? "").trim().length === 0
+      );
+      if (missing.length > 0) {
+        return helpers.error("any.invalid", {
+          message: `STORAGE_MODE=minio requires: ${missing.join(", ")}`
+        });
+      }
+    }
+
+    return value;
+  }, "production redis queue requirement")
   .or("JWT_SECRET", "JWT_ACCESS_SECRET")
-  .or("JWT_SECRET", "JWT_REFRESH_SECRET");
+  .or("JWT_SECRET", "JWT_REFRESH_SECRET")
+  .messages({
+    "any.invalid": "{{#message}}"
+  });

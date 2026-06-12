@@ -1,25 +1,34 @@
 import { Injectable } from "@nestjs/common";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
 export class DriversService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private currentTenantId(): string | null {
+    return requestContext.get()?.tenantId ?? null;
+  }
+
   findAll(params: { q?: string; pageSize?: number } = {}) {
+    const tenantId = this.currentTenantId();
     const q = params.q?.trim();
     const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
     return this.prisma.driver.findMany({
-      where: q
-        ? {
-            OR: [
-              { licenseNumber: { contains: q, mode: "insensitive" } },
-              { user: { is: { firstName: { contains: q, mode: "insensitive" } } } },
-              { user: { is: { lastName: { contains: q, mode: "insensitive" } } } },
-              { user: { is: { email: { contains: q, mode: "insensitive" } } } }
-            ]
-          }
-        : undefined,
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        ...(q
+          ? {
+              OR: [
+                { licenseNumber: { contains: q, mode: "insensitive" } },
+                { user: { is: { firstName: { contains: q, mode: "insensitive" } } } },
+                { user: { is: { lastName: { contains: q, mode: "insensitive" } } } },
+                { user: { is: { email: { contains: q, mode: "insensitive" } } } }
+              ]
+            }
+          : {})
+      },
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take
@@ -27,8 +36,10 @@ export class DriversService {
   }
 
   create(data: { userId: string; licenseNumber: string; licenseClass: string; licenseExpiry: string }) {
+    const tenantId = this.currentTenantId();
     return this.prisma.driver.create({
       data: {
+        tenantId: tenantId ?? undefined,
         userId: data.userId,
         licenseNumber: data.licenseNumber,
         licenseClass: data.licenseClass,
@@ -38,6 +49,13 @@ export class DriversService {
   }
 
   findOne(id: string) {
-    return this.prisma.driver.findUnique({ where: { id }, include: { user: true, vehicles: true } });
+    const tenantId = this.currentTenantId();
+    return this.prisma.driver.findFirst({
+      where: {
+        id,
+        ...(tenantId ? { tenantId } : {})
+      },
+      include: { user: true, vehicles: true }
+    });
   }
 }

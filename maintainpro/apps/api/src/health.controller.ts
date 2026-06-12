@@ -1,6 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 
 import { Public } from "./common/decorators/public.decorator";
+import { Roles } from "./common/decorators/roles.decorator";
 import { HealthService } from "./health.service";
 
 @Controller("health")
@@ -16,7 +17,7 @@ export class HealthController {
     };
   }
 
-  @Public()
+  @Roles("SUPER_ADMIN", "ADMIN")
   @Get("readiness")
   async readiness() {
     return {

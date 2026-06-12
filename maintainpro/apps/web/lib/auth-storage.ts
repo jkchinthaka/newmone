@@ -1,11 +1,11 @@
 export const ACCESS_TOKEN_KEY = "maintainpro_access_token";
-export const REFRESH_TOKEN_KEY = "maintainpro_refresh_token";
 export const USER_KEY = "maintainpro_user";
+const LEGACY_REFRESH_TOKEN_KEY = "maintainpro_refresh_token";
 
 export function clearStoredTokens() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
 }
 
 export function getAccessToken() {
@@ -20,16 +20,12 @@ export function getAccessToken() {
 
 export function setAuthSession(payload: {
   accessToken: string;
-  refreshToken?: string;
   user?: unknown;
 }) {
   if (typeof window === "undefined") return;
   localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken);
-  if (payload.refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
-  } else {
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
+  // Refresh token is cookie-only (HttpOnly) and should never be stored in Web Storage.
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   if (payload.user) {
     localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
   }

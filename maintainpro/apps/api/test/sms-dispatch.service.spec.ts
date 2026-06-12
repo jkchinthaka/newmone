@@ -26,7 +26,7 @@ describe("SmsDispatchService", () => {
 
     const service = new SmsDispatchService(
       configService({
-        SMS_ENABLED: true,
+        SMS_MODE: "live",
         SMS_API_URL: "https://sms.example.com/send",
         SMS_API_KEY: "sms-key",
         SMS_AUTH_HEADER: "X-Api-Key",
@@ -60,7 +60,7 @@ describe("SmsDispatchService", () => {
 
     const result = await service.dispatch({ userId: "user-1", message: "Ignored" });
 
-    expect(result).toMatchObject({ attempted: 0, delivered: 0, skipped: 1, mode: "noop" });
+    expect(result).toMatchObject({ attempted: 0, delivered: 0, skipped: 1, mode: "disabled" });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

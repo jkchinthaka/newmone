@@ -59,7 +59,7 @@ export class TrafficFinesService {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId && vehicle.tenantId !== tenantId) {
+    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
       throw new ForbiddenException("Vehicle not in your tenant");
     }
     return vehicle;
@@ -69,7 +69,7 @@ export class TrafficFinesService {
     const fine = await this.prisma.trafficFine.findUnique({ where: { id }, include: { workOrders: true } });
     if (!fine) throw new NotFoundException("Traffic fine not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && fine.tenantId && fine.tenantId !== tenantId) {
+    if (tenantId !== undefined && fine.tenantId !== tenantId) {
       throw new ForbiddenException("Fine not in your tenant");
     }
     return this.withPrimaryWorkOrder(fine);

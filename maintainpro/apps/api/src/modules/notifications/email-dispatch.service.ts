@@ -16,13 +16,13 @@ type EmailDeliveryResult = {
   attempted: number;
   delivered: number;
   skipped: number;
-  mode: "noop" | "active";
+  mode: "disabled" | "active" | "misconfigured";
 };
 
 export type EmailProviderSummary = {
   id: string;
   configured: boolean;
-  mode: "noop" | "active";
+  mode: "disabled" | "active" | "misconfigured";
   description: string;
 };
 
@@ -36,21 +36,39 @@ export class EmailDispatchService {
   ) {}
 
   describeProvider(): EmailProviderSummary {
-    const configured = this.isConfigured();
+    const mode = this.integrationMode;
+    const configured = mode === "live" ? this.hasLiveConfig() : false;
+    if (mode === "disabled") {
+      return {
+        id: "smtp",
+        configured: false,
+        mode: "disabled",
+        description: "Email delivery is disabled by EMAIL_MODE=disabled"
+      };
+    }
+
     return {
       id: "smtp",
       configured,
-      mode: configured ? "active" : "noop",
+      mode: configured ? "active" : "misconfigured",
       description: configured
         ? "SMTP email delivery is configured"
-        : "SMTP email delivery is disabled or missing required SMTP settings"
+        : "EMAIL_MODE=live but required SMTP settings are missing"
     };
   }
 
   async dispatch(payload: EmailDispatchPayload): Promise<EmailDeliveryResult> {
-    if (!this.isConfigured()) {
-      this.logger.warn(`Skipped email notification for user ${payload.userId}: SMTP is not configured`);
-      return this.result(0, 0, 1, "noop");
+    const mode = this.integrationMode;
+    if (mode === "disabled") {
+      this.logger.warn(`Skipped email notification for user ${payload.userId}: EMAIL_MODE=disabled`);
+      return this.result(0, 0, 1, "disabled");
+    }
+
+    if (!this.hasLiveConfig()) {
+      this.logger.error(
+        `Email dispatch misconfigured for user ${payload.userId}: EMAIL_MODE=live but SMTP settings are incomplete`
+      );
+      throw new Error("EMAIL_MODE=live requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM");
     }
 
     const user = await this.prisma.user.findUnique({
@@ -92,11 +110,16 @@ export class EmailDispatchService {
     return this.result(1, 1, 0, "active");
   }
 
-  private isConfigured(): boolean {
-    if (!this.configService.get<boolean>("SMTP_ENABLED", true)) {
-      return false;
+  private get integrationMode(): "disabled" | "live" {
+    const explicit = this.configService.get<string>("EMAIL_MODE", "").trim().toLowerCase();
+    if (explicit === "disabled" || explicit === "live") {
+      return explicit;
     }
+    // Backward compatibility with older SMTP_ENABLED flag.
+    return this.configService.get<boolean>("SMTP_ENABLED", false) ? "live" : "disabled";
+  }
 
+  private hasLiveConfig(): boolean {
     return ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].every((key) =>
       this.hasConfigValue(key)
     );
@@ -124,7 +147,7 @@ export class EmailDispatchService {
     attempted: number,
     delivered: number,
     skipped: number,
-    mode: "noop" | "active"
+    mode: "disabled" | "active" | "misconfigured"
   ): EmailDeliveryResult {
     return {
       providerId: "smtp",

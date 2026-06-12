@@ -17,29 +17,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import { getAccessJwtSecret } from "./config/jwt-secrets";
 import { HealthService } from "./health.service";
-
-// Swallow Redis/ioredis connection errors so a missing Redis doesn't crash the API.
-// Queue operations are wrapped in try/catch and degrade gracefully.
-process.on("unhandledRejection", (reason: unknown) => {
-  const err = reason as { code?: string; message?: string } | undefined;
-  if (err && (err.code === "ECONNREFUSED" || /ECONNREFUSED|Redis|ioredis/i.test(err.message ?? ""))) {
-    // eslint-disable-next-line no-console
-    console.warn("[bootstrap] Suppressed Redis connection error:", err.message ?? err.code);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.error("[bootstrap] Unhandled rejection:", reason);
-});
-
-process.on("uncaughtException", (err: Error & { code?: string }) => {
-  if (err && (err.code === "ECONNREFUSED" || /ECONNREFUSED|Redis|ioredis/i.test(err.message ?? ""))) {
-    // eslint-disable-next-line no-console
-    console.warn("[bootstrap] Suppressed Redis uncaught exception:", err.message);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.error("[bootstrap] Uncaught exception:", err);
-});
+import { QueueHealthService } from "./modules/queues/queue-health.service";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -101,7 +79,24 @@ async function bootstrap(): Promise<void> {
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   const healthService = app.get(HealthService);
+  const queueHealthService = app.get(QueueHealthService);
   const configService = app.get(ConfigService);
+
+  process.on("unhandledRejection", (reason: unknown) => {
+    if (queueHealthService.captureBootstrapRedisError("unhandledRejection", reason)) {
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.error("[bootstrap] Unhandled rejection:", reason);
+  });
+
+  process.on("uncaughtException", (err: Error) => {
+    if (queueHealthService.captureBootstrapRedisError("uncaughtException", err)) {
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.error("[bootstrap] Uncaught exception:", err);
+  });
 
   type ExpressRequest = {
     headers: Record<string, string | string[] | undefined>;

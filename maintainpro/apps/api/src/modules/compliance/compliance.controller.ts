@@ -32,8 +32,8 @@ export class ComplianceController {
 
   @Get("vehicles/:vehicleId")
   @Permissions("compliance.view")
-  async vehicleCompliance(@Param("vehicleId") vehicleId: string) {
-    const data = await this.compliance.getVehicleCompliance(vehicleId);
+  async vehicleCompliance(@Req() req: AuthedRequest, @Param("vehicleId") vehicleId: string) {
+    const data = await this.compliance.getVehicleCompliance(vehicleId, req.user);
     return { data, message: "Vehicle compliance" };
   }
 }

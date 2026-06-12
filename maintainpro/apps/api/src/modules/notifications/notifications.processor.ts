@@ -1,8 +1,9 @@
-import { Process, Processor } from "@nestjs/bull";
+import { OnQueueFailed, Process, Processor } from "@nestjs/bull";
 import { Job } from "bull";
 import { Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
+import { QueueHealthService } from "../queues/queue-health.service";
 import { EmailDispatchService } from "./email-dispatch.service";
 import { PushDispatchService } from "./push-dispatch.service";
 import { SmsDispatchService } from "./sms-dispatch.service";
@@ -14,7 +15,8 @@ export class NotificationsProcessor {
   constructor(
     private readonly pushDispatchService: PushDispatchService,
     private readonly emailDispatchService: EmailDispatchService,
-    private readonly smsDispatchService: SmsDispatchService
+    private readonly smsDispatchService: SmsDispatchService,
+    private readonly queueHealthService: QueueHealthService
   ) {}
 
   @Process("send")
@@ -71,5 +73,20 @@ export class NotificationsProcessor {
     }
 
     this.logger.log(`Processing notification for user ${job.data.userId} via ${job.data.channel}`);
+  }
+
+  @OnQueueFailed()
+  onQueueFailed(
+    job: Job<{
+      channel: string;
+      userId: string;
+      notificationId?: string;
+    }>,
+    error: Error
+  ): void {
+    this.queueHealthService.markQueueProcessorFailure("notification", error);
+    this.logger.error(
+      `Notification queue processing failed for job ${job.id} (channel=${job.data.channel}, userId=${job.data.userId}, notificationId=${job.data.notificationId ?? "n/a"})`
+    );
   }
 }

@@ -46,7 +46,6 @@ export default function RegisterPage() {
 
       setAuthSession({
         accessToken: payload.accessToken,
-        refreshToken: payload.refreshToken,
         user: payload.user
       });
 

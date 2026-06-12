@@ -16,8 +16,8 @@ describe("ErpSyncProviderService", () => {
     const service = new ErpSyncProviderService(
       configService({
         NODE_ENV: "production",
-        ERP_SYNC_PROVIDER: "mock",
-        ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION: false
+        ERP_MODE: "mock",
+        ALLOW_MOCK_IN_PRODUCTION: false
       }) as never
     );
 
@@ -35,7 +35,7 @@ describe("ErpSyncProviderService", () => {
     const service = new ErpSyncProviderService(
       configService({
         NODE_ENV: "production",
-        ERP_SYNC_PROVIDER: "http",
+        ERP_MODE: "live",
         ERP_API_URL: "https://erp.example.com/purchase-orders",
         ERP_API_KEY: "erp-key",
         ERP_AUTH_HEADER: "Authorization",

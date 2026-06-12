@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException
 } from "@nestjs/common";
@@ -10,11 +11,12 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
+import { EmailDispatchService } from "../notifications/email-dispatch.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -23,13 +25,13 @@ import type { AuthTokens, JwtPayload } from "./auth.types";
 
 @Injectable()
 export class AuthService {
-  private readonly refreshTokenStore = new Map<string, { userId: string; expiresAt: number }>();
-  private readonly resetTokenStore = new Map<string, string>();
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwtService: JwtService,
-    @Inject(ConfigService) private readonly configService: ConfigService
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService
   ) {}
 
   private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
@@ -49,6 +51,45 @@ export class AuthService {
       .filter((key) => typeof key === "string" && key.trim().length > 0);
   }
 
+  private hashToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  private decodeTokenExpiry(refreshToken: string): Date {
+    const decoded = this.jwtService.decode(refreshToken) as { exp?: number } | null;
+    if (!decoded?.exp) {
+      throw new UnauthorizedException("Refresh token expiry metadata is invalid");
+    }
+    return new Date(decoded.exp * 1000);
+  }
+
+  private getSessionMeta(): { deviceInfo?: string; ipAddress?: string; userAgent?: string } {
+    const ctx = requestContext.get();
+    return {
+      deviceInfo: ctx?.userAgent ?? undefined,
+      ipAddress: ctx?.ipAddress ?? undefined,
+      userAgent: ctx?.userAgent ?? undefined
+    };
+  }
+
+  private async persistRefreshToken(refreshToken: string, payload: JwtPayload): Promise<void> {
+    const tokenHash = this.hashToken(refreshToken);
+    const expiresAt = this.decodeTokenExpiry(refreshToken);
+    const sessionMeta = this.getSessionMeta();
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash,
+        userId: payload.sub,
+        tenantId: payload.tenantId ?? null,
+        expiresAt,
+        deviceInfo: sessionMeta.deviceInfo,
+        ipAddress: sessionMeta.ipAddress,
+        userAgent: sessionMeta.userAgent
+      }
+    });
+  }
+
   private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: getAccessJwtSecret(this.configService),
@@ -60,10 +101,7 @@ export class AuthService {
       expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES", "7d")
     });
 
-    this.refreshTokenStore.set(refreshToken, {
-      userId: payload.sub,
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
-    });
+    await this.persistRefreshToken(refreshToken, payload);
 
     return { accessToken, refreshToken };
   }
@@ -79,6 +117,20 @@ export class AuthService {
       default:
         return RoleName.TECHNICIAN;
     }
+  }
+
+  private isPublicRegistrationEnabled(): boolean {
+    const allowPublic = this.configService.get<boolean>("ALLOW_PUBLIC_REGISTRATION", false);
+    if (!allowPublic) {
+      return false;
+    }
+
+    const nodeEnv = this.configService.get<string>("NODE_ENV", "development");
+    if (nodeEnv !== "production") {
+      return true;
+    }
+
+    return this.configService.get<boolean>("ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION", false);
   }
 
   async register(dto: RegisterDto) {
@@ -104,7 +156,7 @@ export class AuthService {
       if (!isUsable) {
         throw new BadRequestException("Invitation is invalid, expired, or does not match this email");
       }
-    } else if (!this.configService.get<boolean>("ALLOW_PUBLIC_REGISTRATION", false)) {
+    } else if (!this.isPublicRegistrationEnabled()) {
       throw new ForbiddenException("Registration is by invitation only. Please contact your administrator.");
     }
 
@@ -195,6 +247,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    const now = new Date();
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: {
@@ -210,19 +263,32 @@ export class AuthService {
       }
     });
 
-    if (!user) {
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("Invalid email or password");
+    }
+
+    if (user.lockedUntil && user.lockedUntil > now) {
       throw new UnauthorizedException("Invalid email or password");
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!valid) {
+      const nextFailedAttempts = user.failedLoginAttempts + 1;
+      const shouldLock = nextFailedAttempts >= 5;
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: nextFailedAttempts,
+          lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
+        }
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() }
+      data: { lastLogin: now, failedLoginAttempts: 0, lockedUntil: null }
     });
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
@@ -248,9 +314,13 @@ export class AuthService {
   }
 
   async refresh(dto: { refreshToken: string }) {
-    const tokenInStore = this.refreshTokenStore.get(dto.refreshToken);
+    const tokenHash = this.hashToken(dto.refreshToken);
+    const now = new Date();
+    const storedToken = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash }
+    });
 
-    if (!tokenInStore || tokenInStore.expiresAt < Date.now()) {
+    if (!storedToken || storedToken.revokedAt || storedToken.expiresAt <= now) {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
@@ -273,10 +343,26 @@ export class AuthService {
       }
     });
 
-    if (!user) {
-      this.refreshTokenStore.delete(dto.refreshToken);
+    if (!user || !user.isActive) {
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
       throw new UnauthorizedException("Invalid refresh token");
     }
+
+    if (decoded.sub !== storedToken.userId) {
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: now, lastUsedAt: now }
+    });
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
@@ -295,11 +381,41 @@ export class AuthService {
   }
 
   async logout(dto: { refreshToken: string }) {
-    this.refreshTokenStore.delete(dto.refreshToken);
+    const token = dto.refreshToken?.trim();
+    if (token.length > 0) {
+      const tokenHash = this.hashToken(token);
+      const now = new Date();
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+    }
 
     return {
       data: { loggedOut: true },
       message: "Logout successful"
+    };
+  }
+
+  async logoutAll(userId: string) {
+    const now = new Date();
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now
+        }
+      },
+      data: {
+        revokedAt: now,
+        lastUsedAt: now
+      }
+    });
+
+    return {
+      data: { loggedOutAll: true, revokedSessions: result.count },
+      message: "All sessions revoked"
     };
   }
 
@@ -309,34 +425,116 @@ export class AuthService {
     if (!user) {
       return {
         data: { accepted: true },
-        message: "If the email exists, a reset link will be sent"
+        message: "If this email exists, a reset link has been sent"
       };
     }
 
-    const token = randomUUID();
-    this.resetTokenStore.set(token, user.id);
+    const ctx = requestContext.get();
+    const now = new Date();
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.prisma.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        expiresAt: {
+          gt: now
+        }
+      },
+      data: {
+        usedAt: now
+      }
+    });
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        tokenHash,
+        userId: user.id,
+        expiresAt,
+        ipAddress: ctx?.ipAddress ?? undefined
+      }
+    });
+
+    const frontendBase =
+      this.configService.get<string>("FRONTEND_URL") ??
+      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3001").split(",")[0].trim();
+    const resetLink = `${frontendBase.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+
+    try {
+      await this.emailDispatchService.dispatch({
+        userId: user.id,
+        title: "MaintainPro password reset",
+        message:
+          `We received a password reset request for your MaintainPro account.\n\n` +
+          `Reset link: ${resetLink}\n\n` +
+          `This link expires in 15 minutes. If you did not request this, you can ignore this email.`
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Password reset email dispatch failed for user ${user.id}: ${(error as Error).message}`
+      );
+    }
 
     return {
-      data: { token },
-      message: "Password reset token generated"
+      data: { accepted: true },
+      message: "If this email exists, a reset link has been sent"
     };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const userId = this.resetTokenStore.get(dto.token);
+    const tokenHash = this.hashToken(dto.token);
+    const now = new Date();
+    const passwordResetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash }
+    });
 
-    if (!userId) {
-      throw new BadRequestException("Invalid reset token");
+    if (!passwordResetToken || passwordResetToken.usedAt || passwordResetToken.expiresAt <= now) {
+      throw new BadRequestException("Invalid or expired reset token");
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    const ctx = requestContext.get();
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: passwordResetToken.userId },
+        data: { passwordHash }
+      });
+
+      await tx.passwordResetToken.update({
+        where: { id: passwordResetToken.id },
+        data: { usedAt: now }
+      });
+
+      await tx.refreshToken.updateMany({
+        where: {
+          userId: passwordResetToken.userId,
+          revokedAt: null
+        },
+        data: {
+          revokedAt: now,
+          lastUsedAt: now
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tenantId: null,
+          actorId: passwordResetToken.userId,
+          module: "auth",
+          entity: "USER",
+          entityId: passwordResetToken.userId,
+          action: AuditAction.UPDATE,
+          reason: "Password reset completed",
+          ipAddress: ctx?.ipAddress ?? undefined,
+          userAgent: ctx?.userAgent ?? undefined,
+          requestPath: ctx?.requestPath ?? undefined,
+          afterData: { passwordResetAt: now.toISOString(), refreshSessionsRevoked: true }
+        }
+      });
     });
-
-    this.resetTokenStore.delete(dto.token);
 
     return {
       data: { changed: true },

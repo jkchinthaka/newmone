@@ -362,7 +362,7 @@ export class DriverIntelligenceService {
     }
 
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && driver.tenantId && driver.tenantId !== tenantId) {
+    if (tenantId !== undefined && driver.tenantId !== tenantId) {
       throw new ForbiddenException("Driver not in your tenant");
     }
 
@@ -396,7 +396,7 @@ export class DriverIntelligenceService {
     }
 
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId && vehicle.tenantId !== tenantId) {
+    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
       throw new ForbiddenException("Vehicle not in your tenant");
     }
 

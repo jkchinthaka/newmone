@@ -31,7 +31,7 @@ export class InsuranceClaimsService {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId && vehicle.tenantId !== tenantId) {
+    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
       throw new ForbiddenException("Vehicle not in your tenant");
     }
     return vehicle;
@@ -41,7 +41,7 @@ export class InsuranceClaimsService {
     const claim = await this.prisma.insuranceClaim.findUnique({ where: { id } });
     if (!claim) throw new NotFoundException("Insurance claim not found");
     const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && claim.tenantId && claim.tenantId !== tenantId) {
+    if (tenantId !== undefined && claim.tenantId !== tenantId) {
       throw new ForbiddenException("Claim not in your tenant");
     }
     return claim;

@@ -1,109 +1,99 @@
 # MaintainPro Manual QA Checklist
 
-Status of each section reflects current (2026-06-12) feature maturity. Checklists for
-features that don't exist yet are written as the target acceptance criteria — they will
-be exercised once the corresponding TODO tasks are implemented.
+## 1) Login
+- [ ] Login with valid work email/password succeeds.
+- [ ] Invalid credentials return generic error message (no account enumeration).
+- [ ] Login has no public demo credentials in production mode.
+- [ ] Refresh-token cookie + CSRF flow works (`/auth/refresh` requires valid CSRF token/header pairing).
+- [ ] Logout clears auth cookies/session and prevents token reuse.
+- [ ] Forgot password flow always returns generic accepted message.
+- [ ] Reset password token is one-time use and expires correctly.
+- [ ] Account lockout behavior works after repeated failed attempts.
 
----
+## 2) Role-Based Routing
+- [ ] SUPER_ADMIN is routed to admin workspace.
+- [ ] ADMIN/MANAGER are routed to operational dashboard.
+- [ ] TECHNICIAN/CLEANER/SECURITY roles route to role-specific pages.
+- [ ] Unauthorized route access is blocked by role/permission checks.
+- [ ] Sidebar/menu items match role permissions.
 
-## 1. Login
+## 3) Work Order Lifecycle
+- [ ] Request -> Approval -> Assignment -> In Progress transitions work.
+- [ ] Pause/Resume and time tracking are recorded.
+- [ ] Parts request/issue affects inventory and work-order costing.
+- [ ] Completion requires required fields and evidence.
+- [ ] Supervisor verification and requester confirmation flow works.
+- [ ] Reopen path captures reason and updates timeline.
 
-- [ ] Login page shows no demo/admin credentials in production build (SEC-001)
-- [ ] Field labeled "Work Email" (not "Username"), no silent domain append (UX-003)
-- [ ] Invalid credentials show generic error (no user-enumeration)
-- [ ] 6th failed attempt within lockout window is blocked with generic message (SEC-004)
-- [ ] Successful login redirects based on role, not hardcoded `/home` (UX-004)
-- [ ] Refresh token persists across page reload via HttpOnly cookie, not localStorage (SEC-010)
-- [ ] Deactivated user cannot log in or use an existing access token (SEC-009)
+## 4) Building Repair Request
+- [ ] Public request form submits issue with reference number.
+- [ ] Location selection and category/priority capture works.
+- [ ] Photo attachments (if enabled) upload and link correctly.
+- [ ] Request status tracking page shows valid timeline.
+- [ ] Request can be converted into a work order by authorized staff.
 
-## 2. Role-based routing
+## 5) Admin User Management
+- [ ] Create/invite user with role and department assignment.
+- [ ] Activate/deactivate user with reason and audit trail.
+- [ ] Force password reset operation works safely.
+- [ ] Session revocation (single/all sessions) works.
+- [ ] Invitation resend/revoke and token validation work.
 
-- [ ] SUPER_ADMIN → `/admin/overview`
-- [ ] ADMIN/MANAGER → `/dashboard`
-- [ ] FACILITY_MANAGER → `/facility`
-- [ ] TECHNICIAN → `/work-orders/my-jobs`
-- [ ] CLEANER → `/cleaning/my-tasks`
-- [ ] VENDOR → `/vendor/dashboard`
-- [ ] Sidebar shows only items the current role/permission set allows (UX-006)
-- [ ] Direct URL navigation to a disallowed route redirects/403s gracefully
+## 6) File Upload
+- [ ] Allowed MIME/types upload successfully.
+- [ ] Invalid MIME/extension/size are blocked with clear errors.
+- [ ] Uploaded files can be previewed/downloaded via authorized URLs.
+- [ ] Delete/replace actions update links and preserve audit trace.
+- [ ] Tenant A cannot access Tenant B documents.
 
-## 3. Work order lifecycle
+## 7) Mobile Responsiveness
+- [ ] Main pages render cleanly at mobile/tablet/desktop widths.
+- [ ] No horizontal overflow on key workflows.
+- [ ] Tables/cards are usable on touch screens.
+- [ ] Navigation drawer/bottom actions are accessible.
+- [ ] Forms and dialogs remain usable on small screens.
 
-- [ ] Create work order (DRAFT/SUBMITTED) as REQUESTER/TECHNICIAN
-- [ ] Approve/reject as supervisor (PENDING_APPROVAL → APPROVED/REJECTED)
-- [ ] Assign technician (ASSIGNED)
-- [ ] Start/pause/resume time tracking, capture delay reason
-- [ ] Add parts — stock deducted, cost calculated, blocked if insufficient unless override
-- [ ] Complete with note + actual hours + before/after photos (COMPLETED_PENDING_VERIFICATION)
-- [ ] Supervisor verifies (VERIFIED) or requests rework (back to IN_PROGRESS)
-- [ ] Requester confirms (CLOSED) or reopens with reason+photos (REOPENED)
-- [ ] Activity timeline shows every transition with actor + timestamp
-- [ ] AuditLog has entries for create/approve/assign/complete/verify/close
+## 8) Tenant Isolation
+- [ ] Every tenant-owned list returns only actor tenant data.
+- [ ] Direct ID access across tenants returns forbidden/not-found.
+- [ ] Websocket events are tenant-scoped.
+- [ ] WebSocket connection without valid auth is rejected.
+- [ ] Cross-tenant super-admin access is explicit and auditable.
+- [ ] Tenant switch updates data scope correctly without stale leakage.
 
-## 4. Building repair request (public portal)
+## 9) Reports
+- [ ] Report filters (date/status/role/tenant) work correctly.
+- [ ] Pagination/search/sort behave consistently.
+- [ ] Export generation works without request timeouts.
+- [ ] Currency/date/timezone formats follow configured tenant locale.
+- [ ] Drill-down from KPI cards opens correctly filtered pages.
 
-- [ ] `/request?roomId=` loads with location pre-filled from QR
-- [ ] Submitting creates a FacilityIssue with reference number
-- [ ] `/request/track?ref=` shows status timeline without login
-- [ ] Supervisor receives notification on submission
-- [ ] Approved request converts to a Work Order, linked back to the FacilityIssue
+## 10) Notifications
+- [ ] In-app notifications are created and delivered.
+- [ ] Email/SMS/Push behavior follows enabled provider flags.
+- [ ] Queue failures are visible in logs/health (no silent failures).
+- [ ] User preferences (channel mute/priority) are respected.
+- [ ] Notification actions (ack/assign/schedule/create WO) work.
 
-## 5. Admin user management
+## 11) Redis/Queue Health Degradation
+- [ ] With Redis reachable, readiness reports `queues.redis.status=active` and notification queue status active.
+- [ ] With Redis intentionally disabled (`REDIS_URL` empty + readiness flag off), readiness reports queue mode `disabled`.
+- [ ] With Redis expected but unavailable, readiness reports queue mode `failed` or `degraded` and captures safe last error metadata.
+- [ ] System health UI reflects queue/Redis state changes without exposing secrets/connection strings.
+- [ ] Notification send path shows explicit fallback/log behavior when queue enqueue fails.
+- [ ] Readiness/system health responses do not expose secrets (no passwords/tokens/connection strings in payload).
 
-- [ ] Create user, assign role/department/site
-- [ ] Invite user via email (TenantInvitation), resend/revoke invite
-- [ ] Bulk CSV import with dry-run preview
-- [ ] Deactivate user with reason; deactivated user immediately loses access
-- [ ] Force password reset
-- [ ] View active sessions, revoke individual session and "logout all"
-- [ ] Per-user audit timeline visible
+## 12) Integration Modes (SEC-013)
+- [ ] In production with `ALLOW_MOCK_IN_PRODUCTION=false`, mock mode envs are rejected at startup.
+- [ ] In development, approved mock modes (`ERP_MODE=mock`, `BILLING_MODE=mock`, etc.) are allowed and clearly visible in system health.
+- [ ] `BILLING_MODE=live` without Stripe credentials is shown as `misconfigured` and does not silently activate subscriptions.
+- [ ] `ERP_MODE=live` without ERP credentials is shown as `misconfigured` and does not report successful sync.
+- [ ] `EMAIL_MODE=disabled`, `SMS_MODE=disabled`, and `PUSH_MODE=disabled` are surfaced as `disabled` (not fake-success/no-op ambiguity).
+- [ ] System health UI shows `mock`/`misconfigured`/`disabled` badges for integration checks.
 
-## 6. File upload
-
-- [ ] Upload image/PDF (within 10MB, allowed MIME types) to a work order/asset/document
-- [ ] Reject disallowed file types/oversized files with clear error
-- [ ] Uploaded file accessible via signed URL, not public-by-default
-- [ ] Upload recorded in audit log
-- [ ] Delete/replace file updates linked record
-
-## 7. Mobile responsiveness
-
-- [ ] Sidebar collapses to drawer below 1280px / hamburger on mobile
-- [ ] Tables render as stacked cards below 768px
-- [ ] No horizontal overflow on key pages (dashboard, work-orders, inventory) at 360px width
-- [ ] Touch targets ≥44×44px on mobile action buttons
-- [ ] PWA installs and caches recent work orders for offline view
-
-## 8. Tenant isolation
-
-- [ ] Tenant A user cannot see Tenant B's: utility meters/readings (SEC-007), fleet live map,
-      work orders, assets, vehicles, inventory, vendors, budgets
-- [ ] WebSocket events (notifications, fleet) only delivered to sockets in the correct
-      `tenant-{tenantId}` room (SEC-011)
-- [ ] Switching active tenant (X-Tenant-Id) immediately changes all list data, no stale
-      cross-tenant cache
-- [ ] Super-admin cross-tenant access is explicit and produces an AuditLog entry
-
-## 9. Reports
-
-- [ ] Each report respects tenant + role/permission filters
-- [ ] Pagination/meta present on list-backed reports
-- [ ] Export to PDF/XLSX includes logo, tenant name, date range, currency (LKR), timezone
-- [ ] Heavy report generation runs via background job (Bull), not inline in request handler
-- [ ] Drill-down from a dashboard KPI opens the correctly filtered list page
-
-## 10. Notifications
-
-- [ ] In-app notification appears in real time via authenticated WebSocket
-- [ ] Email notification sent when SMTP configured; gracefully no-ops (logged) when not
-- [ ] SMS notification sent when SMS_ENABLED; gracefully no-ops when not
-- [ ] Push notification delivered to mobile device registered via DeviceToken
-- [ ] Notification preferences per user (channel opt-in/out) respected
-
-## 11. Vendor portal
-
-- [ ] Vendor user logs in via separate vendor auth, sees only their own jobs/invoices
-- [ ] Vendor cannot access any tenant-internal data beyond assigned jobs
-- [ ] Vendor accepts job, updates progress, submits completion proof
-- [ ] Internal user verifies vendor completion and approves invoice
-- [ ] Vendor performance metrics (SLA compliance, rating) visible internally on `/vendors/[id]`
+## 13) Vendor Portal
+- [ ] Vendor authentication is isolated from internal tenant users.
+- [ ] Vendor sees only assigned jobs/documents/invoices.
+- [ ] Vendor job status updates sync to internal workflows.
+- [ ] Invoice submission/approval path is auditable.
+- [ ] Vendor performance metrics update from real activity.

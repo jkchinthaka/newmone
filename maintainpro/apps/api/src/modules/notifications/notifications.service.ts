@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bull";
 import {
   AppSettingScope,
@@ -11,8 +11,11 @@ import {
 import { Queue } from "bull";
 
 import { PrismaService } from "../../database/prisma.service";
+import { QueueHealthService } from "../queues/queue-health.service";
+import { EmailDispatchService } from "./email-dispatch.service";
 import { NotificationsGateway } from "./notifications.gateway";
 import { PushDeviceRegistration, PushDispatchService } from "./push-dispatch.service";
+import { SmsDispatchService } from "./sms-dispatch.service";
 
 export interface NotificationPreference {
   inApp: boolean;
@@ -119,11 +122,16 @@ const DEFAULT_RULES: NotificationRuleSet = {
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsGateway: NotificationsGateway,
     @InjectQueue("notifications") private readonly notificationsQueue: Queue,
-    private readonly pushDispatchService: PushDispatchService
+    private readonly pushDispatchService: PushDispatchService,
+    private readonly queueHealthService: QueueHealthService,
+    private readonly emailDispatchService: EmailDispatchService,
+    private readonly smsDispatchService: SmsDispatchService
   ) {}
 
   async findAll(userId: string, query: NotificationQuery) {
@@ -663,6 +671,11 @@ export class NotificationsService {
     notificationId?: string;
     metadata?: Prisma.JsonValue | null;
   }) {
+    if (!this.queueHealthService.isQueueOperational("notification")) {
+      await this.dispatchWithoutQueue(payload);
+      return;
+    }
+
     try {
       await this.notificationsQueue.add("send", payload, {
         attempts: payload.channel === "IN_APP" ? 1 : 3,
@@ -674,10 +687,55 @@ export class NotificationsService {
         removeOnFail: false
       });
     } catch (err) {
-      // Redis/queue unavailable — degrade gracefully so business logic still completes.
-      // eslint-disable-next-line no-console
-      console.warn("[notifications] queue.add failed (continuing):", (err as Error)?.message);
+      this.queueHealthService.markQueueProcessorFailure("notification", err);
+      this.logger.warn(
+        `[notifications] queue.add failed for channel=${payload.channel} user=${payload.userId}; falling back to direct dispatch`
+      );
+      await this.dispatchWithoutQueue(payload);
     }
+  }
+
+  private async dispatchWithoutQueue(payload: {
+    channel: string;
+    userId: string;
+    message: string;
+    title?: string;
+    notificationId?: string;
+    metadata?: Prisma.JsonValue | null;
+  }) {
+    if (payload.channel === "EMAIL") {
+      await this.emailDispatchService.dispatch({
+        userId: payload.userId,
+        title: payload.title,
+        message: payload.message,
+        notificationId: payload.notificationId
+      });
+      return;
+    }
+
+    if (payload.channel === "SMS") {
+      await this.smsDispatchService.dispatch({
+        userId: payload.userId,
+        message: payload.message,
+        notificationId: payload.notificationId
+      });
+      return;
+    }
+
+    if (payload.channel === "PUSH") {
+      await this.pushDispatchService.dispatch({
+        userId: payload.userId,
+        title: payload.title,
+        message: payload.message,
+        notificationId: payload.notificationId,
+        metadata: payload.metadata ?? null
+      });
+      return;
+    }
+
+    this.logger.warn(
+      `[notifications] queue unavailable; skipped direct fallback for channel=${payload.channel} user=${payload.userId}`
+    );
   }
 
   private isOverdue(value: Date | null | undefined): boolean {

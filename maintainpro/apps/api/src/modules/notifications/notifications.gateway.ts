@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { RoleName } from "@prisma/client";
 import {
   OnGatewayConnection,
   WebSocketGateway,
@@ -8,9 +9,12 @@ import {
 import { verify } from "jsonwebtoken";
 import type { Server, Socket } from "socket.io";
 import { getAccessJwtSecret } from "../../config/jwt-secrets";
+import { PrismaService } from "../../database/prisma.service";
 
 type JwtPayload = {
   sub?: string;
+  role?: RoleName;
+  tenantId?: string | null;
 };
 
 @Injectable()
@@ -25,14 +29,20 @@ type JwtPayload = {
   }
 })
 export class NotificationsGateway implements OnGatewayConnection {
+  private static readonly USER_ROOM_PREFIX = "user:";
+  private static readonly TENANT_ROOM_PREFIX = "tenant:";
+
   @WebSocketServer()
   server!: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
 
-  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
+  constructor(
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(PrismaService) private readonly prisma: PrismaService
+  ) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const token = this.extractToken(client);
 
     if (!token) {
@@ -51,7 +61,25 @@ export class NotificationsGateway implements OnGatewayConnection {
         return;
       }
 
-      client.join(payload.sub);
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { isActive: true }
+      });
+
+      if (!user?.isActive) {
+        client.disconnect(true);
+        return;
+      }
+
+      if (!payload.tenantId && payload.role !== RoleName.SUPER_ADMIN) {
+        client.disconnect(true);
+        return;
+      }
+
+      client.join(this.userRoom(payload.sub));
+      if (payload.tenantId) {
+        client.join(this.tenantRoom(payload.tenantId));
+      }
     } catch {
       this.logger.warn("Rejected notifications socket connection due to invalid JWT token");
       client.disconnect(true);
@@ -59,11 +87,11 @@ export class NotificationsGateway implements OnGatewayConnection {
   }
 
   emitToUser(userId: string, payload: unknown): void {
-    this.server.to(userId).emit("notifications.new", payload);
+    this.server.to(this.userRoom(userId)).emit("notifications.new", payload);
   }
 
   emitMarkRead(userId: string, payload: unknown): void {
-    this.server.to(userId).emit("notifications.updated", payload);
+    this.server.to(this.userRoom(userId)).emit("notifications.updated", payload);
   }
 
   private extractToken(client: Socket): string | null {
@@ -90,5 +118,13 @@ export class NotificationsGateway implements OnGatewayConnection {
     }
 
     return null;
+  }
+
+  private userRoom(userId: string): string {
+    return `${NotificationsGateway.USER_ROOM_PREFIX}${userId}`;
+  }
+
+  private tenantRoom(tenantId: string): string {
+    return `${NotificationsGateway.TENANT_ROOM_PREFIX}${tenantId}`;
   }
 }

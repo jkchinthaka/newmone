@@ -25,6 +25,7 @@ import ExcelJS from "exceljs";
 import { randomUUID } from "node:crypto";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 
@@ -99,6 +100,17 @@ export class CleaningService {
     @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
     @Inject(NotificationsService) private readonly notificationsService: NotificationsService
   ) {}
+
+  private currentTenantId(): string | null {
+    return requestContext.get()?.tenantId ?? null;
+  }
+
+  private assertTenantAccessOrThrow(resourceTenantId: string | null | undefined, notFoundMessage: string) {
+    const actorTenantId = this.currentTenantId();
+    if (actorTenantId && resourceTenantId !== actorTenantId) {
+      throw new NotFoundException(notFoundMessage);
+    }
+  }
 
   async listAssignableCleaners(tenantId: string | null) {
     return this.prisma.user.findMany({
@@ -280,6 +292,7 @@ export class CleaningService {
     if (!location) {
       throw new NotFoundException("Cleaning location not found");
     }
+    this.assertTenantAccessOrThrow(location.tenantId, "Cleaning location not found");
 
     return {
       ...location,
@@ -293,6 +306,7 @@ export class CleaningService {
       where: { id },
       select: {
         id: true,
+        tenantId: true,
         name: true,
         qrCode: true,
         qrCodeUrl: true
@@ -302,6 +316,7 @@ export class CleaningService {
     if (!location) {
       throw new NotFoundException("Cleaning location not found");
     }
+    this.assertTenantAccessOrThrow(location.tenantId, "Cleaning location not found");
 
     const scanUrl = this.getScanUrlForLocation(location.qrCode, location.qrCodeUrl);
     const buffer = await this.qrCodeService.toBuffer(scanUrl, {
@@ -321,6 +336,7 @@ export class CleaningService {
     if (!location) {
       throw new NotFoundException("Cleaning location not found");
     }
+    this.assertTenantAccessOrThrow(location.tenantId, "Cleaning location not found");
 
     const qrCode = randomUUID();
     const scanUrl = this.buildScanUrl(qrCode);
@@ -360,6 +376,7 @@ export class CleaningService {
     if (!existing) {
       throw new NotFoundException("Cleaning location not found");
     }
+    this.assertTenantAccessOrThrow(existing.tenantId, "Cleaning location not found");
 
     if (dto.assignedCleanerId) {
       await this.ensureAssignableCleaner(existing.tenantId, dto.assignedCleanerId);
@@ -421,6 +438,7 @@ export class CleaningService {
     if (!existing) {
       throw new NotFoundException("Cleaning location not found");
     }
+    this.assertTenantAccessOrThrow(existing.tenantId, "Cleaning location not found");
 
     await this.prisma.cleaningLocation.update({
       where: { id },
@@ -748,6 +766,7 @@ export class CleaningService {
     if (!visit) {
       throw new NotFoundException("Visit not found");
     }
+    this.assertTenantAccessOrThrow(visit.tenantId, "Visit not found");
     if (visit.status !== CleaningVisitStatus.SUBMITTED) {
       throw new BadRequestException("Only submitted visits can be signed off");
     }
@@ -932,11 +951,22 @@ export class CleaningService {
     if (!visit) {
       throw new NotFoundException("Visit not found");
     }
+    this.assertTenantAccessOrThrow(visit.tenantId, "Visit not found");
 
     return visit;
   }
 
   async createIssue(reportedById: string, tenantId: string | null, dto: CreateFacilityIssueDto) {
+    if (dto.locationId) {
+      const location = await this.prisma.cleaningLocation.findUnique({
+        where: { id: dto.locationId },
+        select: { id: true, tenantId: true, isActive: true }
+      });
+      if (!location || !location.isActive || (tenantId && location.tenantId !== tenantId)) {
+        throw new BadRequestException("Location is invalid for this tenant");
+      }
+    }
+
     if (dto.assignedToId) {
       await this.ensureAssignableCleaner(tenantId, dto.assignedToId);
     }
@@ -1021,6 +1051,7 @@ export class CleaningService {
     if (!issue) {
       throw new NotFoundException("Issue not found");
     }
+    this.assertTenantAccessOrThrow(issue.tenantId, "Issue not found");
 
     if (dto.assignedToId) {
       await this.ensureAssignableCleaner(issue.tenantId, dto.assignedToId);

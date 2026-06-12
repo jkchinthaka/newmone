@@ -39,7 +39,7 @@ describe("EmailDispatchService", () => {
 
     const service = new EmailDispatchService(
       configService({
-        SMTP_ENABLED: true,
+        EMAIL_MODE: "live",
         SMTP_HOST: "smtp.example.com",
         SMTP_PORT: 587,
         SMTP_SECURE: false,
@@ -77,7 +77,7 @@ describe("EmailDispatchService", () => {
 
     const result = await service.dispatch({ userId: "user-1", message: "Ignored" });
 
-    expect(result).toMatchObject({ attempted: 0, delivered: 0, skipped: 1, mode: "noop" });
+    expect(result).toMatchObject({ attempted: 0, delivered: 0, skipped: 1, mode: "disabled" });
     expect(createTransport).not.toHaveBeenCalled();
   });
 });

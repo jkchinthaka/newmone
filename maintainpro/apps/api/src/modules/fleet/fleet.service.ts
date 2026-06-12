@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import {
   type FleetAlertSeverity,
@@ -78,6 +79,7 @@ type TelemetryInput = {
 
 interface VehicleRuntimeState {
   vehicleId: string;
+  tenantId: string | null;
   registrationNo: string;
   driverName: string;
   lastLat: number;
@@ -96,6 +98,7 @@ interface VehicleRuntimeState {
 }
 
 interface VehicleMeta {
+  tenantId: string | null;
   registrationNo: string;
   driverName: string;
 }
@@ -127,6 +130,7 @@ export class FleetService implements OnModuleDestroy {
   async updateGps(vehicleId: string, data: TelemetryInput) {
     this.validateCoordinate(data.latitude, -90, 90, "latitude");
     this.validateCoordinate(data.longitude, -180, 180, "longitude");
+    const vehicleMeta = await this.fetchVehicleMeta(vehicleId);
 
     const saved = await this.prisma.gpsLocation.create({
       data: {
@@ -138,7 +142,6 @@ export class FleetService implements OnModuleDestroy {
       }
     });
 
-    const vehicleMeta = await this.fetchVehicleMeta(vehicleId);
     const previousState = this.runtimeStateByVehicle.get(vehicleId);
 
     const nextState = this.upsertRuntimeState({
@@ -163,13 +166,23 @@ export class FleetService implements OnModuleDestroy {
       intelligence: this.toLiveIntelligence(nextState, false)
     };
 
-    this.fleetGateway.broadcastLocationUpdate(socketPayload);
+    this.fleetGateway.broadcastLocationUpdate(socketPayload, vehicleMeta.tenantId);
 
     return saved;
   }
 
   async liveMap() {
+    const tenantId = requestContext.get()?.tenantId ?? null;
     const latestByVehicle = await this.prisma.gpsLocation.findMany({
+      where: tenantId
+        ? {
+            vehicle: {
+              is: {
+                tenantId
+              }
+            }
+          }
+        : {},
       distinct: ["vehicleId"],
       orderBy: [{ vehicleId: "asc" }, { timestamp: "desc" }],
       include: {
@@ -382,6 +395,7 @@ export class FleetService implements OnModuleDestroy {
 
     const nextState: VehicleRuntimeState = {
       vehicleId: input.vehicleId,
+      tenantId: input.vehicleMeta.tenantId,
       registrationNo: input.vehicleMeta.registrationNo,
       driverName: input.vehicleMeta.driverName,
       lastLat: input.data.latitude,
@@ -610,6 +624,7 @@ export class FleetService implements OnModuleDestroy {
     },
     throttleMs: number
   ) {
+    const tenantId = this.runtimeStateByVehicle.get(alertInput.vehicleId)?.tenantId ?? null;
     const recent = this.alerts.find(
       (alert) =>
         alert.vehicleId === alertInput.vehicleId &&
@@ -637,13 +652,18 @@ export class FleetService implements OnModuleDestroy {
       this.alerts.splice(MAX_ALERTS);
     }
 
-    this.fleetGateway.broadcastAlertCreated(alert);
+    this.fleetGateway.broadcastAlertCreated(alert, tenantId);
   }
 
   private async fetchVehicleMeta(vehicleId: string): Promise<VehicleMeta> {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id: vehicleId },
+    const tenantId = requestContext.get()?.tenantId ?? null;
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        ...(tenantId ? { tenantId } : {})
+      },
       select: {
+        tenantId: true,
         registrationNo: true,
         driver: {
           select: {
@@ -659,16 +679,14 @@ export class FleetService implements OnModuleDestroy {
     });
 
     if (!vehicle) {
-      return {
-        registrationNo: vehicleId,
-        driverName: "Unknown Driver"
-      };
+      throw new NotFoundException("Vehicle not found");
     }
 
     const firstName = vehicle.driver?.user?.firstName?.trim() ?? "";
     const lastName = vehicle.driver?.user?.lastName?.trim() ?? "";
 
     return {
+      tenantId: vehicle.tenantId,
       registrationNo: vehicle.registrationNo,
       driverName: `${firstName} ${lastName}`.trim() || "Unknown Driver"
     };

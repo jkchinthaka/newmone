@@ -46,6 +46,7 @@ import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OperationsModule } from "./modules/operations/operations.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
+import { QueuesModule } from "./modules/queues/queues.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
@@ -72,6 +73,7 @@ normalizeDatabaseEnvironment();
       isGlobal: true,
       validationSchema: envValidationSchema
     }),
+    QueuesModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
