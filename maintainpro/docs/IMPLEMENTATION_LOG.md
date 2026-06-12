@@ -1020,3 +1020,56 @@ Record each completed task with:
 - Remaining risks:
   - Fixed-position Assets menus may overlap iOS home indicator on smallest devices; manual device QA still recommended.
   - Unmigrated legacy tables may still horizontally scroll on mobile.
+
+## 2026-06-12 | UX-013 | WCAG 2.1 AA accessibility polish
+- Audit findings:
+  - Auth pages mostly labeled; register/forgot-password lacked explicit `htmlFor`/`id` pairs; login busy state not announced to screen readers.
+  - Topbar mobile menu button missing `aria-expanded` / `aria-controls`; drawer lacked stable `id`.
+  - Breadcrumbs had `aria-current` but truncated visible text could lose full meaning for assistive tech.
+  - DataTable sort headers lacked shared `aria-sort` helper usage consistency; desktop clickable rows had no keyboard support; column headers missing `scope="col"`.
+  - PromptDialog validation errors not associated with input via `aria-describedby` / `aria-invalid`.
+  - Empty/success page states used generic `region` role instead of `status` where appropriate.
+- Fixes applied:
+  - Added `lib/accessibility.ts` helpers (`toAriaExpanded`, `toNavAriaCurrent`, `toBreadcrumbAriaCurrent`, `toSortAriaSort`, `getAccessibleLabel`, `joinAriaDescribedBy`).
+  - Navigation: mobile menu `aria-expanded`/`aria-controls`, drawer `id`, nav links use shared `aria-current` helper.
+  - Breadcrumbs: full-label `aria-label` when truncated; shared current-page helper.
+  - DataTable: `scope="col"`, keyboard-activatable rows when `onRowClick`, optional `getRowLabel`, sort/pagination focus rings, pagination `nav` landmark.
+  - Dialogs: confirm `aria-busy`; prompt input linked to description + error ids.
+  - Page states: Empty/Success use `role="status"`; Error retains `role="alert"`.
+  - Auth: explicit label associations, focus-visible rings, busy status announcements, password toggle `aria-hidden` icons.
+  - Assets table: row menu `aria-controls`, disposal reason label, QR button accessible name.
+- Skipped/deferred:
+  - Full focus trap in mobile drawer/dialogs (existing Escape/backdrop retained; trap deemed higher regression risk).
+  - Legacy unmigrated pages and modal-only detail flows not individually audited.
+  - Automated axe/Lighthouse CI not added in this pass.
+- Files changed:
+  - `maintainpro/apps/web/lib/accessibility.ts` (new)
+  - `maintainpro/apps/web/components/layout/topbar.tsx`
+  - `maintainpro/apps/web/components/layout/mobile-nav.tsx`
+  - `maintainpro/apps/web/components/layout/nav-links.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/layout.tsx`
+  - `maintainpro/apps/web/components/ui/breadcrumbs.tsx`
+  - `maintainpro/apps/web/components/ui/data-table.tsx`
+  - `maintainpro/apps/web/components/ui/confirm-dialog.tsx`
+  - `maintainpro/apps/web/components/ui/prompt-dialog.tsx`
+  - `maintainpro/apps/web/components/ui/page-state.tsx`
+  - `maintainpro/apps/web/components/assets/assets-table.tsx`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/register-form-card.tsx`
+  - `maintainpro/apps/web/app/(auth)/forgot-password/page.tsx`
+  - `maintainpro/apps/api/test/accessibility.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 49 suites, 239 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Focus management on route changes and complex nested widgets still needs manual screen-reader QA.
+  - Color contrast on legacy pages not fully audited.

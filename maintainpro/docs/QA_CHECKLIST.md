@@ -133,6 +133,18 @@
 - [ ] PWA manifest shows MaintainPro name and canonical description; icons resolve (`/pwa-192x192.svg`, `/pwa-512x512.svg`).
 - [ ] Install/add-to-home-screen metadata uses MaintainPro branding (no legacy FMS/Maintenance Job labels).
 
+## 2j) Accessibility (UX-013)
+- [ ] Keyboard-only user can tab through login/register/forgot-password and submit forms.
+- [ ] Login field errors are announced; password show/hide button has an accessible name.
+- [ ] Mobile menu button exposes expanded/collapsed state; drawer close works via keyboard (Escape) and close button.
+- [ ] Active sidebar/mobile nav item exposes `aria-current="page"`.
+- [ ] Breadcrumb current page exposes `aria-current="page"`; truncated crumbs retain full meaning via accessible name.
+- [ ] DataTable sort buttons expose sort state; pagination previous/next have accessible names.
+- [ ] Assets row selection checkboxes and row action menu have accessible names.
+- [ ] ConfirmDialog and PromptDialog titles/descriptions are read by screen reader; prompt validation errors associate with input.
+- [ ] Loading/error/empty states use appropriate status/alert semantics without leaking technical details.
+- [ ] Visible focus rings appear on keyboard navigation for nav links, table controls, dialogs, and auth inputs.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

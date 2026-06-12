@@ -5,13 +5,15 @@ import { X } from "lucide-react";
 
 import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
 import { NavLinks } from "@/components/layout/nav-links";
+import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
 
 type MobileNavProps = {
   open: boolean;
   onClose: () => void;
+  id?: string;
 };
 
-export function MobileNav({ open, onClose }: MobileNavProps) {
+export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNavProps) {
   useEffect(() => {
     if (!open) {
       return;
@@ -47,6 +49,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         onClick={onClose}
       />
       <aside
+        id={id}
         aria-label="Mobile navigation"
         aria-modal="true"
         role="dialog"

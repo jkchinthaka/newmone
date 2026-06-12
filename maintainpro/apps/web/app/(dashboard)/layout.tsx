@@ -52,7 +52,11 @@ export default function DashboardLayout({
 
   if (!ready) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600">
+      <div
+        className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600"
+        role="status"
+        aria-live="polite"
+      >
         Verifying session...
       </div>
     );
@@ -65,8 +69,13 @@ export default function DashboardLayout({
           <Sidebar />
           <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
-            <main className="flex-1 overflow-x-hidden p-4 sm:p-6">{children}</main>
+            <Topbar
+              mobileNavOpen={mobileNavOpen}
+              onOpenMobileNav={() => setMobileNavOpen(true)}
+            />
+            <main id="main-content" className="flex-1 overflow-x-hidden p-4 sm:p-6">
+              {children}
+            </main>
           </div>
         </div>
       </div>

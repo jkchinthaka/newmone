@@ -78,12 +78,12 @@ export function RegisterFormCard() {
         </p>
 
         <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">User ID</span><input {...register("userId")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="text" /></label>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">Email</span><input {...register("email")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="email" /></label>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">First Name</span><input {...register("firstName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="text" /></label>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">Last Name</span><input {...register("lastName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="text" /></label>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">Password</span><input {...register("password")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="password" /></label>
-          <label className="text-sm text-slate-600"><span className="mb-2 block">Confirm Password</span><input {...register("confirmPassword")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100" type="password" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-user-id"><span className="mb-2 block">User ID</span><input {...register("userId")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-user-id" type="text" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-email"><span className="mb-2 block">Email</span><input {...register("email")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-email" type="email" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-first-name"><span className="mb-2 block">First Name</span><input {...register("firstName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-first-name" type="text" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-last-name"><span className="mb-2 block">Last Name</span><input {...register("lastName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-last-name" type="text" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-password"><span className="mb-2 block">Password</span><input {...register("password")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-password" type="password" /></label>
+          <label className="text-sm text-slate-600" htmlFor="register-confirm-password"><span className="mb-2 block">Confirm Password</span><input {...register("confirmPassword")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-confirm-password" type="password" /></label>
 
           <div className="md:col-span-2 flex items-center justify-between gap-3 pt-2">
             <p className="text-sm text-slate-500">Already have an account? <a href="/login" className="font-medium text-brand-700 hover:text-brand-800">Login</a></p>
@@ -92,7 +92,7 @@ export function RegisterFormCard() {
             </button>
           </div>
 
-          {error ? <p className="md:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+          {error ? <p className="md:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">{error}</p> : null}
         </form>
       </section>
     </main>

@@ -124,17 +124,19 @@ function AssetRowActions<T extends AssetTableRow>({
   const deleteAllowed = canDelete && (asset.openWorkOrderCount ?? 0) === 0;
   const statusPromptForRow = statusPrompt?.assetId === asset.id ? statusPrompt : null;
   const menuOpen = openRowMenuId === asset.id;
+  const menuId = `asset-row-menu-${asset.id}`;
 
   return (
     <div className="relative inline-flex w-full justify-end md:w-auto">
       <button
         type="button"
         onClick={() => onToggleMenu(asset.id)}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         aria-label="Open row actions"
         aria-expanded={menuOpen}
+        aria-controls={menuOpen ? menuId : undefined}
       >
-        <Ellipsis size={14} />
+        <Ellipsis aria-hidden size={14} />
       </button>
 
       {menuOpen ? (
@@ -145,7 +147,10 @@ function AssetRowActions<T extends AssetTableRow>({
             className="fixed inset-0 z-40 bg-slate-900/25 md:hidden"
             onClick={() => onToggleMenu(asset.id)}
           />
-          <div className="fixed inset-x-4 bottom-4 z-50 max-h-[min(70vh,24rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-11 md:w-64 md:max-h-none">
+          <div
+            id={menuId}
+            className="fixed inset-x-4 bottom-4 z-50 max-h-[min(70vh,24rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-11 md:w-64 md:max-h-none"
+          >
           <button
             type="button"
             onClick={() => onOpenDetails(asset.id)}
@@ -196,7 +201,8 @@ function AssetRowActions<T extends AssetTableRow>({
                       value={statusPromptForRow.reason}
                       onChange={(event) => onDisposalReasonChange(event.target.value)}
                       placeholder="Disposal reason"
-                      className="mt-2 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none"
+                      aria-label="Disposal reason"
+                      className="mt-2 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                     />
                   ) : null}
                   <div className="mt-2 flex gap-2">
@@ -413,9 +419,10 @@ export function AssetsTable<T extends AssetTableRow>({
               event.stopPropagation();
               onViewQr(asset);
             }}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100"
+            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            aria-label={`View QR code for ${asset.assetTag}`}
           >
-            <QrCode size={14} /> View
+            <QrCode aria-hidden size={14} /> View
           </button>
         )
       });
@@ -442,6 +449,7 @@ export function AssetsTable<T extends AssetTableRow>({
         />
       }
       getRowId={(row) => row.id}
+      getRowLabel={(asset) => `Open details for ${asset.assetTag}`}
       leadingHeader={
         <input
           type="checkbox"

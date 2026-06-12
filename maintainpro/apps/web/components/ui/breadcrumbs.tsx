@@ -4,6 +4,10 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ChevronRight } from "lucide-react";
 
+import {
+  getAccessibleLabel,
+  toBreadcrumbAriaCurrent
+} from "@/lib/accessibility";
 import { truncateBreadcrumbLabel, type BreadcrumbItem } from "@/lib/breadcrumbs";
 
 export type BreadcrumbsProps = {
@@ -22,6 +26,7 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           const label = truncateBreadcrumbLabel(item.label);
+          const accessibleLabel = getAccessibleLabel(label, item.label);
 
           return (
             <li key={`${item.label}-${index}`} className="inline-flex min-w-0 max-w-full items-center gap-1">
@@ -30,7 +35,8 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
               ) : null}
               {isLast || !item.href ? (
                 <span
-                  aria-current={isLast ? "page" : undefined}
+                  aria-current={toBreadcrumbAriaCurrent(isLast)}
+                  aria-label={accessibleLabel}
                   className="truncate font-medium text-slate-800"
                   title={item.label}
                 >
@@ -39,6 +45,7 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
               ) : (
                 <Link
                   href={item.href as Route}
+                  aria-label={accessibleLabel}
                   className="truncate rounded-sm text-slate-600 transition hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                   title={item.label}
                 >

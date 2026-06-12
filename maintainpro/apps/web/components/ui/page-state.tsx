@@ -147,7 +147,13 @@ export function EmptyState({
   onAction
 }: EmptyStateProps) {
   return (
-    <PageStateShell description={description} icon={Inbox} iconClassName="text-slate-400" title={title}>
+    <PageStateShell
+      description={description}
+      icon={Inbox}
+      iconClassName="text-slate-400"
+      role="status"
+      title={title}
+    >
       {actionLabel && onAction ? (
         <button
           type="button"
@@ -171,9 +177,11 @@ type SuccessStateProps = {
 export function SuccessState({ title, description, actionLabel, onAction }: SuccessStateProps) {
   return (
     <PageStateShell
+      ariaLive="polite"
       description={description}
       icon={CheckCircle2}
       iconClassName="text-emerald-600"
+      role="status"
       title={title}
     >
       {actionLabel && onAction ? (

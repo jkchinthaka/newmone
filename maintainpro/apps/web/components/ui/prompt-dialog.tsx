@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { validatePromptInput } from "@/lib/prompt-validation";
+import { joinAriaDescribedBy } from "@/lib/accessibility";
 
 export { validatePromptInput } from "@/lib/prompt-validation";
 
@@ -42,6 +43,7 @@ export function PromptDialog({
 }: PromptDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const errorId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(defaultValue);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function PromptDialog({
         disabled={isSubmitting}
       />
       <div
-        aria-describedby={description ? descriptionId : undefined}
+        aria-describedby={joinAriaDescribedBy(description ? descriptionId : undefined, error ? errorId : undefined)}
         aria-labelledby={titleId}
         aria-modal="true"
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-h-none"
@@ -126,6 +128,8 @@ export function PromptDialog({
             value={value}
             placeholder={placeholder}
             disabled={isSubmitting}
+            aria-invalid={error ? "true" : "false"}
+            aria-describedby={joinAriaDescribedBy(description ? descriptionId : undefined, error ? errorId : undefined)}
             onChange={(event) => {
               setValue(event.target.value);
               if (error) {
@@ -138,10 +142,10 @@ export function PromptDialog({
                 handleSubmit();
               }
             }}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100 disabled:opacity-60"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:opacity-60"
           />
           {error ? (
-            <p className="text-sm text-rose-600" role="alert">
+            <p id={errorId} className="text-sm text-rose-600" role="alert">
               {error}
             </p>
           ) : null}

@@ -15,6 +15,11 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 import { useCurrentUser } from "@/lib/use-current-user";
+import {
+  MOBILE_MENU_BUTTON_ID,
+  MOBILE_NAV_DRAWER_ID,
+  toAriaExpanded
+} from "@/lib/accessibility";
 
 type NotificationsEnvelope = {
   data?: {
@@ -60,6 +65,8 @@ export const TOPBAR_TENANT_QUERY_KEY = ["tenants", "context"] as const;
 
 type TopbarProps = {
   onOpenMobileNav?: () => void;
+  mobileNavOpen?: boolean;
+  mobileNavId?: string;
 };
 
 function formatUserLabel(email: string | null, role: string | null): string {
@@ -78,7 +85,11 @@ function formatUserLabel(email: string | null, role: string | null): string {
   return "Signed in";
 }
 
-export function Topbar({ onOpenMobileNav }: TopbarProps) {
+export function Topbar({
+  onOpenMobileNav,
+  mobileNavOpen = false,
+  mobileNavId = MOBILE_NAV_DRAWER_ID
+}: TopbarProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
@@ -166,7 +177,10 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
+            id={MOBILE_MENU_BUTTON_ID}
             aria-label="Open navigation menu"
+            aria-controls={mobileNavId}
+            aria-expanded={toAriaExpanded(mobileNavOpen)}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 xl:hidden"
             onClick={onOpenMobileNav}
           >

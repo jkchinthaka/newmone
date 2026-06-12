@@ -100,7 +100,7 @@ export default function LoginPage() {
             noValidate
             onSubmit={handleSubmit(onSubmit)}
           >
-            <label className="block text-sm">
+            <label className="block text-sm" htmlFor="login-email">
               <span className="mb-2 block font-medium text-slate-700">Work Email</span>
               <input
                 {...register("email", {
@@ -124,7 +124,7 @@ export default function LoginPage() {
               ) : null}
             </label>
 
-            <label className="block text-sm">
+            <label className="block text-sm" htmlFor="login-password">
               <span className="mb-2 block font-medium text-slate-700">Password</span>
               <div className="relative">
                 <input
@@ -152,7 +152,7 @@ export default function LoginPage() {
                   onClick={() => setShowPassword((value) => !value)}
                   type="button"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff aria-hidden size={18} /> : <Eye aria-hidden size={18} />}
                 </button>
               </div>
               {errors.password?.message ? (
@@ -161,6 +161,12 @@ export default function LoginPage() {
                 </p>
               ) : null}
             </label>
+
+            {busy ? (
+              <p className="sr-only" role="status" aria-live="polite">
+                Signing in...
+              </p>
+            ) : null}
 
             <div className="flex items-center justify-end text-sm">
               <a

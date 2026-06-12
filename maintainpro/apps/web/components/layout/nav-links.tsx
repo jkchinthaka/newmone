@@ -43,6 +43,7 @@ import {
   type NavCategory,
   type NavigationItem
 } from "@/lib/navigation";
+import { toNavAriaCurrent } from "@/lib/accessibility";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
@@ -151,7 +152,7 @@ function NavItemLink({
     <Link
       href={item.href as Route}
       onClick={onNavigate}
-      aria-current={active ? "page" : undefined}
+      aria-current={toNavAriaCurrent(active)}
       title={item.description}
       className={`flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
         active ? activeClass : idleClass

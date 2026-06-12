@@ -42,24 +42,28 @@ export default function ForgotPasswordPage() {
         </p>
 
         <form className="mt-8 space-y-4" onSubmit={handleSubmit(onSubmit)}>
-          <label className="block text-sm text-slate-600">
+          <label className="block text-sm text-slate-600" htmlFor="forgot-password-email">
             <span className="mb-2 block font-medium text-slate-700">Work Email</span>
             <input
               {...register("email")}
               autoComplete="email"
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+              className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              id="forgot-password-email"
               type="email"
             />
           </label>
           <button
-            className="min-h-11 w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="min-h-11 w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={busy}
             type="submit"
           >
             {busy ? (
               <span className="inline-flex items-center justify-center gap-2">
                 <Loader2 aria-hidden className="animate-spin" size={16} />
-                Sending...
+                <span>Sending...</span>
+                <span className="sr-only" role="status" aria-live="polite">
+                  Sending reset link
+                </span>
               </span>
             ) : (
               "Send reset link"

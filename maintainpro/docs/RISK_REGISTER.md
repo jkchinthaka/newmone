@@ -241,3 +241,17 @@
 - **Residual Risk:** Cleaning/farm/utilities and other legacy table pages may still scroll horizontally; iOS safe-area overlap on bottom sheets not fully tested.
 - **Owner:** Web Platform
 - **Review Cadence:** Before release QA on real devices (375px–430px) and after migrating additional tables.
+
+### RISK-UX-013-A11Y-REGRESSION
+- **Category:** UX / Accessibility / Compliance
+- **Description:** Incremental ARIA/focus/semantics changes may regress keyboard flows, screen reader announcements, or visible focus indicators on unmigrated pages.
+- **Impact:** Users relying on assistive tech cannot complete auth, navigation, or high-impact table/dialog workflows; potential WCAG compliance gaps.
+- **Likelihood:** Low-Medium on legacy routes; Low on updated core components after UX-013.
+- **Current Mitigation:**
+  - Centralized helpers in `lib/accessibility.ts` with unit tests (`accessibility.spec.ts`).
+  - Core shell/auth/nav/breadcrumb/DataTable/dialog/page-state updates only; no business logic changes.
+  - QA checklist section 2j for keyboard, screen reader, and focus-visible verification.
+  - Existing mobile/PWA/dialog tests retained.
+- **Residual Risk:** No automated axe/Lighthouse gate yet; legacy module pages and modal-only flows not fully audited; focus trap not implemented in drawer.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding new interactive components or migrating additional pages.

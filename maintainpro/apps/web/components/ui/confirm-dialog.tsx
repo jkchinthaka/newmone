@@ -74,6 +74,7 @@ export function ConfirmDialog({
         disabled={isSubmitting}
       />
       <div
+        aria-busy={isSubmitting}
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
