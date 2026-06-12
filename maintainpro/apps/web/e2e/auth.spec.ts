@@ -283,4 +283,36 @@ test.describe("authentication", () => {
     await expect(page.getByRole("link", { name: /Go to MaintainPro Dashboard/i }).first()).toBeVisible();
     await expect(page).toHaveURL(/\/home$/);
   });
+
+  test("admin navigation shows role-aware items without primary Home link", async ({ page }) => {
+    await mockAuthenticatedShell(page);
+    await page.addInitScript((user) => {
+      localStorage.setItem("maintainpro_user", JSON.stringify(user));
+    }, adminUser);
+
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/dashboard");
+
+    const mainNav = page.getByRole("navigation", { name: "Main navigation" });
+    await expect(mainNav.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Work Orders" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "System Health" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Home", exact: true })).toHaveCount(0);
+  });
+
+  test("mobile navigation drawer opens and shows Work Orders for admin", async ({ page }) => {
+    await mockAuthenticatedShell(page);
+    await page.addInitScript((user) => {
+      localStorage.setItem("maintainpro_user", JSON.stringify(user));
+    }, adminUser);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard");
+
+    await page.getByRole("button", { name: "Open navigation menu" }).click();
+    const mobileNav = page.getByRole("dialog", { name: "Mobile navigation" });
+    await expect(mobileNav.getByRole("link", { name: "Work Orders" })).toBeVisible();
+    await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
+    await expect(page.getByRole("dialog", { name: "Mobile navigation" })).toHaveCount(0);
+  });
 });

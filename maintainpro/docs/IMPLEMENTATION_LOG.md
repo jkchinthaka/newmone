@@ -687,3 +687,39 @@ Record each completed task with:
   - `/home` remains reachable for archived/demo workflows and must stay clearly labelled to avoid user confusion.
   - Role-aware dashboard replacement remains deferred (see TODO known issues).
   - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-006 | Responsive role-aware navigation foundation
+- What changed:
+  - Added centralized navigation config in `lib/navigation.ts` with role-based visibility, category grouping, active-route matching, and legacy archive handling.
+  - Rebuilt dashboard shell navigation:
+    - Desktop sidebar uses MaintainPro branding + role-filtered `NavLinks`.
+    - Mobile drawer navigation with accessible open/close controls and Escape support.
+    - Topbar adds mobile menu trigger, compact branding, and minimal user email/role display.
+  - Logout, tenant switch, notifications, and session gate behavior unchanged.
+  - Legacy `/home` is not shown as primary Home; admin-only “Legacy FMS Archive” under Archived section.
+  - Added unit tests (`navigation.spec.ts`) and Playwright nav coverage for admin desktop/mobile menus.
+- Files changed:
+  - `maintainpro/apps/web/lib/navigation.ts` (new)
+  - `maintainpro/apps/web/components/layout/nav-links.tsx` (new)
+  - `maintainpro/apps/web/components/layout/mobile-nav.tsx` (new)
+  - `maintainpro/apps/web/components/layout/sidebar.tsx`
+  - `maintainpro/apps/web/components/layout/topbar.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/layout.tsx`
+  - `maintainpro/apps/api/test/navigation.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/apps/web/e2e/auth.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 39 suites, 195 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Frontend nav visibility is UX-only; backend RBAC must continue to enforce route access.
+  - Topbar billing link remains visible on larger screens for all roles (sidebar is role-filtered).
+  - `SEC-006` tenant-isolation final sweep remains in progress.

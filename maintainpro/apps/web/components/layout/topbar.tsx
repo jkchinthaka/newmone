@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Building2, CreditCard, Search, UserCircle2 } from "lucide-react";
+import { Bell, Building2, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import {
   clearAuthSession,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/auth-storage";
 import { apiClient } from "@/lib/api-client";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 type NotificationsEnvelope = {
   data?: {
@@ -56,9 +58,30 @@ type TenantSwitchEnvelope = {
 export const TOPBAR_UNREAD_QUERY_KEY = ["notifications", "unread-count"] as const;
 export const TOPBAR_TENANT_QUERY_KEY = ["tenants", "context"] as const;
 
-export function Topbar() {
+type TopbarProps = {
+  onOpenMobileNav?: () => void;
+};
+
+function formatUserLabel(email: string | null, role: string | null): string {
+  if (email && role) {
+    return `${email} · ${role.replace(/_/g, " ")}`;
+  }
+
+  if (email) {
+    return email;
+  }
+
+  if (role) {
+    return role.replace(/_/g, " ");
+  }
+
+  return "Signed in";
+}
+
+export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const currentUser = useCurrentUser();
 
   const unreadQuery = useQuery({
     queryKey: TOPBAR_UNREAD_QUERY_KEY,
@@ -93,7 +116,7 @@ export function Topbar() {
       );
       return response.data.data;
     },
-    onSuccess: (payload, tenantId) => {
+    onSuccess: (_payload, tenantId) => {
       setActiveTenantId(tenantId);
       updateStoredUserTenant(tenantId);
 
@@ -135,16 +158,37 @@ export function Topbar() {
   const selectedTenantId =
     tenantContextQuery.data?.activeTenant?.id ?? getActiveTenantId() ?? "";
 
+  const userLabel = formatUserLabel(currentUser.email, currentUser.role);
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 lg:flex">
-          <Search size={16} />
-          <span>Search assets, work orders, vehicles...</span>
+      <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 xl:hidden"
+            onClick={onOpenMobileNav}
+          >
+            <Menu aria-hidden size={20} />
+          </button>
+          <div className="xl:hidden">
+            <MaintainProLogo size="sm" />
+          </div>
+          <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 lg:flex">
+            <Search size={16} />
+            <span>Search assets, work orders, vehicles...</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-            <Building2 size={16} className="text-slate-500" />
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <p
+            className="hidden max-w-48 truncate text-xs text-slate-500 md:block lg:max-w-64"
+            title={userLabel}
+          >
+            {userLabel}
+          </p>
+          <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 sm:flex">
+            <Building2 size={16} className="shrink-0 text-slate-500" />
             <select
               value={selectedTenantId}
               onChange={(event) => {
@@ -154,7 +198,7 @@ export function Topbar() {
                 }
                 switchTenantMutation.mutate(nextTenantId);
               }}
-              className="max-w-48 bg-transparent text-sm text-slate-700 outline-none"
+              className="max-w-40 bg-transparent text-sm text-slate-700 outline-none lg:max-w-48"
               aria-label="Switch organization"
               disabled={switchTenantMutation.isPending}
             >
@@ -166,16 +210,16 @@ export function Topbar() {
               ))}
             </select>
           </div>
-          <a
+          <Link
             href="/billing"
-            className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 sm:inline-flex"
+            className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 lg:inline-flex"
           >
             <CreditCard size={16} />
             <span>Billing</span>
-          </a>
+          </Link>
           <Link
             href="/notifications"
-            className="relative rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
+            className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             aria-label="Open notifications"
           >
             <Bell size={18} />
@@ -186,11 +230,12 @@ export function Topbar() {
             ) : null}
           </Link>
           <button
+            type="button"
             onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <UserCircle2 size={18} />
-            <span>Logout</span>
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </div>

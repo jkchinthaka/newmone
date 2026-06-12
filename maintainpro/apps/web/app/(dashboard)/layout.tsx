@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
@@ -16,6 +18,7 @@ export default function DashboardLayout({
 }>) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -60,9 +63,10 @@ export default function DashboardLayout({
       <div className="min-h-screen bg-slate-100">
         <div className="flex min-h-screen">
           <Sidebar />
+          <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar />
-            <main className="flex-1 p-4 sm:p-6">{children}</main>
+            <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+            <main className="flex-1 overflow-x-hidden p-4 sm:p-6">{children}</main>
           </div>
         </div>
       </div>

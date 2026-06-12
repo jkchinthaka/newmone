@@ -37,6 +37,19 @@
 - [ ] Unauthorized route access is blocked by role/permission checks.
 - [ ] Sidebar/menu items match role permissions.
 
+## 2b) Role-Aware Navigation (UX-006)
+- [ ] ADMIN sidebar shows Dashboard, System Health, Work Orders, Inventory, Reports (not legacy Home).
+- [ ] TECHNICIAN sidebar shows Work Orders and Assets only (no Dashboard/Inventory).
+- [ ] CLEANER sidebar shows Cleaning routes only (Overview, Facility Issues).
+- [ ] INVENTORY_KEEPER / STOREKEEPER sidebar shows Inventory and Procurement only.
+- [ ] Mobile/tablet: menu button opens navigation drawer and closes on link selection or Escape.
+- [ ] Active nav item highlights on current route and nested paths (e.g. `/work-orders/123`).
+- [ ] No primary nav item labelled "Home" pointing to `/home`.
+- [ ] Legacy FMS Archive appears only under Archived section for admin roles (if visible).
+- [ ] Sidebar/header show MaintainPro branding and enterprise tagline on desktop.
+- [ ] Logout from topbar still clears session and returns to login.
+- [ ] Frontend nav hiding is UX-only; direct URL access still requires backend authorization.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

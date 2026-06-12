@@ -135,3 +135,18 @@
 - **Residual Risk:** Legacy module routes (`/machinery`, `/service`, etc.) remain until a later archival/removal decision.
 - **Owner:** Web Platform
 - **Review Cadence:** When legacy FMS module is retired or further isolated.
+
+### RISK-UX-006-NAV-VS-AUTHORIZATION
+- **Category:** UX / Security / Authorization Clarity
+- **Description:** Role-aware navigation visibility may be mistaken for backend authorization; users may assume hidden modules are inaccessible server-side or that visible modules grant full permissions.
+- **Impact:** Support confusion, attempted unauthorized actions, or false confidence in access controls.
+- **Likelihood:** Medium while frontend RBAC UX evolves ahead of complete route coverage.
+- **Current Mitigation:**
+  - Navigation config documented as frontend UX only; backend RBAC remains authoritative.
+  - Unknown/missing roles fall back to minimal Dashboard-only navigation.
+  - Legacy `/home` is not exposed as primary Home; archived label used when shown to admins.
+  - Unit tests for role-to-nav mapping, active route matching, and no primary `/home` nav.
+  - QA checklist covers per-role nav visibility and logout behavior.
+- **Residual Risk:** New routes/roles must update centralized nav config; direct URL access must remain server-enforced.
+- **Owner:** Web Platform
+- **Review Cadence:** Every navigation release and when new modules/roles are added.
