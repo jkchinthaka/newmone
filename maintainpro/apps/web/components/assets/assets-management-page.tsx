@@ -14,7 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Ellipsis,
   Eye,
   FileDown,
   FileSpreadsheet,
@@ -36,7 +35,8 @@ import { apiClient } from "@/lib/api-client";
 import { USER_KEY } from "@/lib/auth-storage";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { EmptyState } from "@/components/ui/page-state";
+import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { AssetsTable } from "./assets-table";
 import {
   hasActiveFilters,
   useAssetPageStore,
@@ -215,12 +215,6 @@ const STATUS_FORM_OPTIONS: Array<{ label: string; value: AssetStatus }> = [
   { label: "Disposed", value: "DISPOSED" }
 ];
 
-const QUICK_STATUS_OPTIONS: Array<{ label: string; value: AssetStatus }> = [
-  { label: "Active", value: "ACTIVE" },
-  { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
-  { label: "Retired", value: "RETIRED" },
-  { label: "Disposed", value: "DISPOSED" }
-];
 
 const CONDITION_OPTIONS: Array<{ label: string; value: AssetCondition }> = [
   { label: "Good", value: "GOOD" },
@@ -1147,7 +1141,6 @@ export default function AssetsManagementPage() {
   }, [listQuery.data?.items, hiddenRowIds]);
 
   const selectedCount = selectedIds.length;
-  const allRowsSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
 
   const summaryCounts = useMemo(() => {
     return rows.reduce(
@@ -1181,8 +1174,6 @@ export default function AssetsManagementPage() {
   }, [rows]);
 
   const locationOptions = optionsQuery.data?.locations ?? [];
-
-  const selectedRowIdsOnPage = rows.map((asset) => asset.id);
 
   const detailsAsset = detailsQuery.data;
 
@@ -1620,293 +1611,87 @@ export default function AssetsManagementPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={allRowsSelected}
-                      onChange={(event) => toggleManySelection(selectedRowIdsOnPage, event.target.checked)}
-                    />
-                  </th>
-                  {visibleColumns.assetTag && <th className="px-4 py-3">Asset Tag</th>}
-                  {visibleColumns.name && <th className="px-4 py-3">Name</th>}
-                  {visibleColumns.category && <th className="px-4 py-3">Category</th>}
-                  {visibleColumns.status && <th className="px-4 py-3">Status</th>}
-                  {visibleColumns.location && <th className="px-4 py-3">Location</th>}
-                  {visibleColumns.condition && <th className="px-4 py-3">Condition</th>}
-                  {visibleColumns.lastServiceDate && <th className="px-4 py-3">Last Service</th>}
-                  {visibleColumns.qr && <th className="px-4 py-3">QR</th>}
-                  {visibleColumns.actions && <th className="px-4 py-3 text-right">Actions</th>}
-                </tr>
-              </thead>
-
-              <tbody>
-                {listQuery.isLoading ? (
-                  <TableSkeletonRows columnCount={Object.values(visibleColumns).filter(Boolean).length + 1} />
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1}>
-                      <div className="px-4 py-6">
-                        <EmptyState
-                          actionLabel="Clear filters"
-                          description={filterSummary}
-                          onAction={() => {
-                            clearFilters();
-                            setSearchDraft("");
-                          }}
-                          title="No assets matched the current filters"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <AnimatePresence initial={false}>
-                    {rows.map((asset) => {
-                      const rowIsHighlighted = highlightedRowId === asset.id;
-                      const rowIsSelected = selectedIds.includes(asset.id);
-                      const deleteAllowed = canDelete && (asset.openWorkOrderCount ?? 0) === 0;
-                      const statusPromptForRow = statusPrompt?.assetId === asset.id ? statusPrompt : null;
-
-                      return (
-                        <motion.tr
-                          key={asset.id}
-                          layout
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8, height: 0 }}
-                          className={`border-t border-slate-100 transition hover:bg-slate-50 ${
-                            rowIsHighlighted ? "bg-sky-50/70" : ""
-                          }`}
-                        >
-                          <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={rowIsSelected}
-                              onChange={() => toggleSelection(asset.id)}
-                            />
-                          </td>
-
-                          {visibleColumns.assetTag && (
-                            <td className="cursor-pointer px-4 py-3 font-medium text-slate-900" onClick={() => openDetails(asset.id)}>
-                              {asset.assetTag}
-                            </td>
-                          )}
-                          {visibleColumns.name && (
-                            <td className="cursor-pointer px-4 py-3 text-slate-800" onClick={() => openDetails(asset.id)}>
-                              {asset.name}
-                            </td>
-                          )}
-                          {visibleColumns.category && (
-                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
-                              {asset.category === "INFRASTRUCTURE" ? "Facility" : formatEnumLabel(asset.category)}
-                            </td>
-                          )}
-                          {visibleColumns.status && (
-                            <td className="cursor-pointer px-4 py-3" onClick={() => openDetails(asset.id)}>
-                              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[asset.status]}`}>
-                                {formatEnumLabel(asset.status)}
-                              </span>
-                            </td>
-                          )}
-                          {visibleColumns.location && (
-                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
-                              {asset.location || "-"}
-                            </td>
-                          )}
-                          {visibleColumns.condition && (
-                            <td className="cursor-pointer px-4 py-3" onClick={() => openDetails(asset.id)}>
-                              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${CONDITION_STYLES[asset.condition]}`}>
-                                {formatEnumLabel(asset.condition)}
-                              </span>
-                            </td>
-                          )}
-                          {visibleColumns.lastServiceDate && (
-                            <td className="cursor-pointer px-4 py-3 text-slate-600" onClick={() => openDetails(asset.id)}>
-                              {asset.lastServiceDate ? formatDate(asset.lastServiceDate) : "Never"}
-                            </td>
-                          )}
-                          {visibleColumns.qr && (
-                            <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                              <button
-                                onClick={() => setQrTarget(asset)}
-                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100"
-                              >
-                                <QrCode size={14} /> View
-                              </button>
-                            </td>
-                          )}
-
-                          {visibleColumns.actions && (
-                            <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
-                              <div className="relative inline-flex justify-end">
-                                <button
-                                  onClick={() => {
-                                    setOpenRowMenuId((current) => (current === asset.id ? null : asset.id));
-                                    setStatusPrompt(null);
-                                  }}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100"
-                                  aria-label="Open row actions"
-                                >
-                                  <Ellipsis size={14} />
-                                </button>
-
-                                {openRowMenuId === asset.id && (
-                                  <div className="absolute right-0 top-10 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
-                                    <button
-                                      onClick={() => {
-                                        openDetails(asset.id);
-                                        setOpenRowMenuId(null);
-                                      }}
-                                      className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                    >
-                                      View details
-                                    </button>
-
-                                    {canEditFields && (
-                                      <button
-                                        onClick={() => {
-                                          setEditingAsset(asset);
-                                          setShowFormModal(true);
-                                          setOpenRowMenuId(null);
-                                        }}
-                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                      >
-                                        Edit
-                                      </button>
-                                    )}
-
-                                    {canChangeStatus && (
-                                      <div className="rounded-xl px-2 py-2">
-                                        <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Change status</p>
-                                        <div className="space-y-1">
-                                          {QUICK_STATUS_OPTIONS.map((option) => (
-                                            <button
-                                              key={option.value}
-                                              onClick={() => {
-                                                setStatusPrompt({
-                                                  assetId: asset.id,
-                                                  status: option.value,
-                                                  reason: ""
-                                                });
-                                              }}
-                                              className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
-                                            >
-                                              {option.label}
-                                            </button>
-                                          ))}
-                                        </div>
-
-                                        {statusPromptForRow && (
-                                          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-sm text-slate-700">
-                                            <p>Change status to {formatEnumLabel(statusPromptForRow.status)}?</p>
-                                            {statusPromptForRow.status === "DISPOSED" && (
-                                              <input
-                                                value={statusPromptForRow.reason}
-                                                onChange={(event) =>
-                                                  setStatusPrompt((current) =>
-                                                    current
-                                                      ? {
-                                                          ...current,
-                                                          reason: event.target.value
-                                                        }
-                                                      : current
-                                                  )
-                                                }
-                                                placeholder="Disposal reason"
-                                                className="mt-2 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none"
-                                              />
-                                            )}
-                                            <div className="mt-2 flex gap-2">
-                                              <button
-                                                onClick={() => {
-                                                  if (
-                                                    statusPromptForRow.status === "DISPOSED" &&
-                                                    !statusPromptForRow.reason.trim()
-                                                  ) {
-                                                    toast.error("Disposal reason is required.");
-                                                    return;
-                                                  }
-                                                  statusMutation.mutate({
-                                                    assetId: asset.id,
-                                                    status: statusPromptForRow.status,
-                                                    reason: statusPromptForRow.reason
-                                                  });
-                                                }}
-                                                className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white"
-                                              >
-                                                Confirm
-                                              </button>
-                                              <button
-                                                onClick={() => setStatusPrompt(null)}
-                                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
-                                              >
-                                                Cancel
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {canCreate && (
-                                      <button
-                                        onClick={() => {
-                                          void handleCreateWorkOrder(asset);
-                                          setOpenRowMenuId(null);
-                                        }}
-                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                      >
-                                        Create work order
-                                      </button>
-                                    )}
-
-                                    {canCreate && (
-                                      <button
-                                        onClick={() => {
-                                          void handleScheduleMaintenance(asset);
-                                          setOpenRowMenuId(null);
-                                        }}
-                                        className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                      >
-                                        Schedule maintenance
-                                      </button>
-                                    )}
-
-                                    <button
-                                      onClick={() => {
-                                        setQrTarget(asset);
-                                        setOpenRowMenuId(null);
-                                      }}
-                                      className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                                    >
-                                      View QR
-                                    </button>
-
-                                    {deleteAllowed && (
-                                      <button
-                                        onClick={() => {
-                                          handleDeleteClick(asset);
-                                          setOpenRowMenuId(null);
-                                        }}
-                                        className="block w-full rounded-xl px-3 py-2 text-sm text-rose-700 transition hover:bg-rose-50"
-                                      >
-                                        Delete
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          )}
-                        </motion.tr>
-                      );
-                    })}
-                  </AnimatePresence>
-                )}
-              </tbody>
-            </table>
+            {listQuery.isLoading && !listQuery.data ? (
+              <div className="px-4 py-8">
+                <LoadingState
+                  description="Fetching asset registry rows with current filters."
+                  title="Loading assets"
+                />
+              </div>
+            ) : listQuery.isError ? (
+              <div className="px-4 py-6">
+                <ErrorState
+                  error={listQuery.error}
+                  onRetry={() => listQuery.refetch()}
+                  title="Unable to load assets"
+                  description={toSafeApiErrorMessage(listQuery.error, "Unable to load assets.")}
+                />
+              </div>
+            ) : (
+              <AssetsTable<AssetListItem>
+                rows={rows}
+                visibleColumns={visibleColumns}
+                selectedIds={selectedIds}
+                highlightedRowId={highlightedRowId}
+                openRowMenuId={openRowMenuId}
+                statusPrompt={statusPrompt}
+                canEditFields={canEditFields}
+                canChangeStatus={canChangeStatus}
+                canCreate={canCreate}
+                canDelete={canDelete}
+                emptyDescription={filterSummary}
+                onClearFilters={() => {
+                  clearFilters();
+                  setSearchDraft("");
+                }}
+                onToggleRowSelection={toggleSelection}
+                onTogglePageSelection={toggleManySelection}
+                onOpenDetails={(assetId) => {
+                  openDetails(assetId);
+                  setOpenRowMenuId(null);
+                }}
+                onToggleMenu={(assetId) => {
+                  setOpenRowMenuId((current) => (current === assetId ? null : assetId));
+                  setStatusPrompt(null);
+                }}
+                onEdit={(asset) => {
+                  setEditingAsset(asset);
+                  setShowFormModal(true);
+                  setOpenRowMenuId(null);
+                }}
+                onSetStatusPrompt={setStatusPrompt}
+                onDisposalReasonChange={(reason) =>
+                  setStatusPrompt((current) => (current ? { ...current, reason } : current))
+                }
+                onConfirmStatus={(input) => {
+                  if (input.status === "DISPOSED" && !input.reason?.trim()) {
+                    toast.error("Disposal reason is required.");
+                    return;
+                  }
+                  statusMutation.mutate({
+                    assetId: input.assetId,
+                    status: input.status,
+                    reason: input.reason
+                  });
+                }}
+                onCreateWorkOrder={(asset) => {
+                  void handleCreateWorkOrder(asset);
+                  setOpenRowMenuId(null);
+                }}
+                onScheduleMaintenance={(asset) => {
+                  void handleScheduleMaintenance(asset);
+                  setOpenRowMenuId(null);
+                }}
+                onViewQr={(asset) => {
+                  setQrTarget(asset);
+                  setOpenRowMenuId(null);
+                }}
+                onDelete={(asset) => {
+                  handleDeleteClick(asset);
+                  setOpenRowMenuId(null);
+                }}
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
@@ -2071,20 +1856,6 @@ function MetricCard({
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
     </article>
-  );
-}
-
-function TableSkeletonRows({ columnCount }: { columnCount: number }) {
-  return (
-    <>
-      {Array.from({ length: 8 }).map((_, rowIndex) => (
-        <tr key={`skeleton-${rowIndex}`} className="border-t border-slate-100">
-          <td colSpan={columnCount} className="px-4 py-3">
-            <div className="h-8 animate-pulse rounded-xl bg-slate-100" />
-          </td>
-        </tr>
-      ))}
-    </>
   );
 }
 

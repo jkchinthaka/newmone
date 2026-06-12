@@ -171,16 +171,31 @@
 ### RISK-UX-009-TABLE-REFACTOR-REGRESSION
 - **Category:** UX / Regression
 - **Description:** Shared DataTable rollout may hide row actions, break selection, or display mismatched columns on mobile card fallback.
-- **Impact:** Users unable to complete workflows (approve PO, assign technician, stock in/out) from list views.
+- **Impact:** Users unable to complete workflows (approve PO, assign technician, stock in/out, change asset status) from list views.
 - **Likelihood:** Low-Medium during incremental rollout.
 - **Current Mitigation:**
-  - Limited rollout to Work Orders, Inventory, Procurement only; Assets deferred.
+  - Rolled out to Work Orders, Inventory, Procurement, and Assets (UX-009B partial migration).
+  - Assets: column picker filters columns before DataTable render; server pagination kept outside DataTable; row actions/status prompts preserved in `AssetRowActions`; selection via leading checkboxes.
   - Existing row actions and callbacks preserved; no API/query changes.
   - Mobile card fallback renders same cell content and action slots.
-  - Unit tests for client-table helpers; QA checklist for row actions and pagination.
-- **Residual Risk:** Assets and other legacy tables remain on old patterns until follow-up rollout.
+  - Unit tests for client-table helpers and assets column visibility helper; QA checklist for row actions and pagination.
+- **Residual Risk:** Other legacy tables remain on old patterns until follow-up rollout; Assets row motion animations simplified (no framer-motion table rows).
 - **Owner:** Web Platform
 - **Review Cadence:** Before each additional table migration.
+
+### RISK-UX-009B-ASSETS-TABLE-REGRESSION
+- **Category:** UX / Regression
+- **Description:** Assets table migration is high-complexity (column picker, inline status prompts, bulk selection, custom pagination). Regression may break status changes, QR actions, or bulk workflows.
+- **Impact:** Asset registry workflows blocked or data actions misfire (wrong status, failed bulk export/delete).
+- **Likelihood:** Low-Medium immediately after migration; monitor first production use.
+- **Current Mitigation:**
+  - Scoped change to list UI only (`assets-table.tsx` + page wiring); no backend/API changes.
+  - Preserved column picker, filters, server-side pagination footer, bulk bar, row menu actions, disposal reason validation.
+  - Added list-level LoadingState/ErrorState (UX-011); empty state via shared EmptyState.
+  - `assets-table-columns.spec.ts` covers column visibility helper; QA checklist section 2e for manual Assets table verification.
+- **Residual Risk:** Dropdown row menus on mobile cards may overlap viewport edges; inline status prompt UX differs slightly without motion row exit animations.
+- **Owner:** Web Platform
+- **Review Cadence:** After first manual QA pass on Assets desktop + mobile.
 
 ### RISK-UX-010-DIALOG-REGRESSION
 - **Category:** UX / Safety / Regression

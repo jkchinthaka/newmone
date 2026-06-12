@@ -929,3 +929,40 @@ Record each completed task with:
 - Remaining risks:
   - Static breadcrumb labels may drift from page titles on unmigrated routes.
   - New routes must register patterns in `lib/breadcrumbs.ts` or pass explicit `items`.
+
+## 2026-06-12 | UX-009B | Migrate Assets table to shared DataTable baseline
+- Audit findings:
+  - Assets list lived inline in `assets-management-page.tsx` (~370 lines of table markup) with column picker, server-side filters/sort/pagination, row selection + bulk bar, ellipsis row menu (view/edit/status/WO/maintenance/QR/delete), inline status confirm with disposal reason, framer-motion row enter/exit, QR column, and optimistic delete row hiding via `hiddenRowIds`.
+  - Shared DataTable supports selection slots, row actions, mobile cards, empty state, row click, and row className — but not numbered pagination, loading skeleton in tbody, or motion rows.
+  - No browser-native dialogs in Assets table flows (delete uses existing modal).
+- Migration approach:
+  - **Partial wrap:** new `AssetsTable` component delegates rendering to shared `DataTable`; page retains column picker, filter bar, bulk actions, and custom numbered pagination footer.
+  - Column visibility: filter `columns` array by `visibleColumns` before passing to DataTable; column picker unchanged in page header.
+  - List fetch states: initial load uses UX-011 `LoadingState`; query errors use `ErrorState` with refetch (new vs prior inline skeleton-only loading).
+  - Motion: removed `motion.tr` enter/exit animations to avoid hydration/complexity risk; kept row highlight + selection styling via `rowClassName`.
+- Preserved behaviors:
+  - All data columns, QR column, actions column, column picker, server-side search/filters/sort, page size + numbered pagination, row/header selection, bulk bar, row menu actions, inline status change with disposal reason validation, row click → details drawer, QR view, delete guard when open WOs exist, `hiddenRowIds` optimistic delete filter, breadcrumbs.
+- Skipped/deferred:
+  - DataTable built-in prev/next pagination not used (Assets keeps numbered pages).
+  - Column header sort not enabled (server sort remains in filter bar only).
+  - Row motion animations simplified/removed.
+- Files changed:
+  - `maintainpro/apps/web/components/assets/assets-table.tsx` (new)
+  - `maintainpro/apps/web/components/assets/assets-table-columns.ts` (new)
+  - `maintainpro/apps/web/components/assets/assets-management-page.tsx`
+  - `maintainpro/apps/api/test/assets-table.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Row action dropdown positioning on small mobile cards may need polish.
+  - Other unmigrated legacy tables still use inline patterns.

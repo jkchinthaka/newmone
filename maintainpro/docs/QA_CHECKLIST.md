@@ -70,9 +70,22 @@
 - [ ] Procurement row click still selects PO for detail panel.
 - [ ] Empty table states use shared EmptyState messaging.
 - [ ] No horizontal overflow issues on mobile for rolled-out tables.
-- [ ] Assets page unchanged in this pass (deferred due to complexity).
+- [ ] Work Orders, Inventory, and Procurement tables still behave as in UX-009 (no regression from Assets migration).
 
-## 2e) Dialog & Confirmation UX (UX-010)
+## 2e) Assets Data Table (UX-009B)
+- [ ] Assets registry table renders core columns (tag, name, category, status) on desktop.
+- [ ] Column picker toggles visibility without crash; hidden columns disappear from table/mobile cards.
+- [ ] Server-side search/filters/sort unchanged; clearing filters restores rows.
+- [ ] Row checkbox selection and header select-all-on-page still work; bulk action bar appears when rows selected.
+- [ ] Row ellipsis menu: view details, edit, change status (with disposal reason), create WO, schedule maintenance, view QR, delete (when allowed).
+- [ ] Inline status confirm/cancel in row menu still calls existing status mutation payloads.
+- [ ] Custom numbered pagination + page size selector still works (outside DataTable footer).
+- [ ] Loading uses shared LoadingState; list fetch errors use ErrorState with retry.
+- [ ] Empty registry uses shared EmptyState with clear-filters action.
+- [ ] Mobile card layout shows visible columns and row actions without horizontal overflow.
+- [ ] Row click opens details drawer; checkbox/QR/actions do not trigger drawer accidentally.
+
+## 2f) Dialog & Confirmation UX (UX-010)
 - [ ] Destructive actions (delete vehicle, delete work order, deactivate department/job code) show ConfirmDialog with clear title and description.
 - [ ] Cancel on destructive confirmation does not call the API or mutate data.
 - [ ] Confirm on destructive action submits once (no double-delete on rapid clicks).
@@ -85,7 +98,7 @@
 - [ ] Keyboard: Escape closes dialog when safe; Tab moves focus between cancel/confirm; Enter submits prompt dialog.
 - [ ] No `window.alert`, `window.confirm`, or `window.prompt` in high-impact migrated flows.
 
-## 2f) Tenant Isolation (SEC-006)
+## 2g) Tenant Isolation (SEC-006)
 - [ ] Tenant A user cannot list Tenant B vehicles, work orders, or trips (404/403, not partial data leak).
 - [ ] Tenant A user cannot read Tenant B record by direct ID URL/API call.
 - [ ] Tenant A user cannot update/delete Tenant B vehicle or work order.
@@ -95,7 +108,7 @@
 - [ ] SUPER_ADMIN cross-tenant access is intentional only (explicit tenant header or global null context), not default for tenant users.
 - [ ] Reports/dashboard counts for tenant user exclude other tenants' records.
 
-## 2g) Breadcrumbs (UX-007)
+## 2h) Breadcrumbs (UX-007)
 - [ ] Breadcrumbs visible on desktop for rolled-out pages (work orders, assets, inventory, procurement, fleet, vehicles, reports, system health).
 - [ ] Breadcrumbs wrap/truncate cleanly on mobile without horizontal page overflow.
 - [ ] Deep pages show parent links (e.g. Vehicles → Vehicle Details → Documents).
