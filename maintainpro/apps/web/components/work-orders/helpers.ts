@@ -1,3 +1,8 @@
+import {
+  formatCurrency as formatCurrencyLk,
+  formatDate as formatDateLk
+} from "@/lib/localization";
+
 import type {
   SortDirection,
   WorkOrder,
@@ -39,20 +44,7 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function formatDate(value?: string | null): string {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit"
-  }).format(date);
+  return formatDateLk(value, { fallback: "-" });
 }
 
 export function asDateInputValue(value?: string | null): string {
@@ -69,17 +61,7 @@ export function asDateInputValue(value?: string | null): string {
 }
 
 export function formatCurrency(value?: string | number | null): string {
-  const numeric = toNumber(value);
-  if (numeric === null) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(numeric);
+  return formatCurrencyLk(value, { fallback: "-" });
 }
 
 export function toNumber(value?: string | number | null): number | null {

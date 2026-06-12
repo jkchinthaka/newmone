@@ -24,6 +24,7 @@ import {
 import { StatePanel, SummaryCards } from "@/components/reports/report-ui";
 import { toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { getDriverManagementDashboard } from "@/lib/driver-intelligence-api";
+import { formatCurrency } from "@/lib/localization";
 
 const riskPalette: Record<string, string> = {
   LOW: "#059669",
@@ -49,14 +50,6 @@ function defaultRange() {
   const start = new Date(end);
   start.setDate(end.getDate() - 89);
   return { startDate: toInputDate(start), endDate: toInputDate(end) };
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2
-  }).format(value || 0);
 }
 
 export default function DashboardPage() {

@@ -1,5 +1,11 @@
 import * as XLSX from "xlsx";
 
+import {
+  formatCurrency as formatCurrencyLk,
+  formatDate as formatDateLk,
+  formatDateTime as formatDateTimeLk
+} from "@/lib/localization";
+
 import { InventoryFilters, InventoryInsights, InventoryPart, InventorySummary, PurchaseOrder, StockMovement, StockStatus, TopUsedPartPoint, UsageTrendPoint } from "./types";
 
 export const INVENTORY_FILTERS_STORAGE_KEY = "inventory-filters-v1";
@@ -7,49 +13,15 @@ export const INVENTORY_FILTERS_STORAGE_KEY = "inventory-filters-v1";
 const PENDING_PO_STATUSES = new Set(["PENDING", "ORDERED", "PARTIALLY_RECEIVED"]);
 
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2
-  }).format(Number.isFinite(value) ? value : 0);
+  return formatCurrencyLk(Number.isFinite(value) ? value : 0, { fallback: "-" });
 }
 
 export function formatDate(value?: string | null): string {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric"
-  }).format(date);
+  return formatDateLk(value, { fallback: "-" });
 }
 
 export function formatDateTime(value?: string | null): string {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
+  return formatDateTimeLk(value, { fallback: "-" });
 }
 
 export function getLastMovementDate(part: InventoryPart): string | null {

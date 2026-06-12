@@ -32,6 +32,7 @@ import {
   X
 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -297,27 +298,11 @@ function useDebouncedValue<T>(value: T, delay: number) {
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  }).format(parsed);
+  return formatDateLk(value, { fallback: "-" });
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(parsed);
+  return formatDateTimeLk(value, { fallback: "-" });
 }
 
 function formatEnumLabel(value?: string | null) {

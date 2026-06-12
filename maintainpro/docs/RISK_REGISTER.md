@@ -270,3 +270,17 @@
 - **Residual Risk:** Backend remains authoritative; palette is UX convenience only. Entity search and cross-module actions not included.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding routes, roles, or nav items.
+
+### RISK-UX-014-LOCALIZATION-DRIFT
+- **Category:** UX / Locale / Data Presentation
+- **Description:** Date, time, currency, and number formatting remains partially hardcoded across unmigrated pages (`en-US`, `USD`, `$`, browser-default `Intl`) while rolled-out modules use centralized `en-LK` / `Asia/Colombo` / `LKR` helpers.
+- **Impact:** Users see inconsistent amounts and timestamps across modules; finance/reporting views may imply wrong currency; timezone confusion for operational dates.
+- **Likelihood:** Medium until remaining high-traffic pages migrate to `lib/localization.ts`.
+- **Current Mitigation:**
+  - Shared helpers in `apps/web/lib/localization.ts` with safe fallbacks and unit tests (`localization.spec.ts`).
+  - Controlled rollout to inventory, work orders, assets, procurement, reports summary formatting, and dashboard fleet costs.
+  - English UI default preserved; `ui-copy.ts` documents future Sinhala/Tamil approach without changing API payloads.
+  - QA checklist section 2l for LKR/date/fallback verification.
+- **Residual Risk:** Farm, vehicles, fuel, predictive-ai, and legacy FMS pages still use ad hoc formatting; full translation not started.
+- **Owner:** Web Platform
+- **Review Cadence:** When touching date/currency display in any module; migrate to shared helpers before adding new formatted fields.

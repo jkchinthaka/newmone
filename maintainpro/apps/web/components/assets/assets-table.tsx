@@ -5,6 +5,7 @@ import { Ellipsis, QrCode } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/page-state";
+import { formatDate as formatDateLk } from "@/lib/localization";
 import type { AssetColumnKey } from "./use-asset-page-store";
 
 export { resolveAssetDataColumnKeys } from "./assets-table-columns";
@@ -64,13 +65,7 @@ const CONDITION_STYLES: Record<AssetTableCondition, string> = {
 
 function formatDate(value?: string | null) {
   if (!value) return "Never";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  }).format(parsed);
+  return formatDateLk(value, { fallback: "-" });
 }
 
 function formatEnumLabel(value?: string | null) {

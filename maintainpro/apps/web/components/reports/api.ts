@@ -1,4 +1,10 @@
 import { apiClient } from "@/lib/api-client";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatPercent
+} from "@/lib/localization";
 
 import {
   ReportExportFormat,
@@ -106,25 +112,19 @@ export function formatReportValue(value: string | number | null | undefined, typ
   }
 
   if (type === "currency") {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(value) || 0);
+    return formatCurrency(Number(value) || 0, { fallback: "-" });
   }
 
   if (type === "percent") {
-    return `${Number(value).toFixed(1)}%`;
+    return formatPercent(Number(value), { fallback: "-" });
   }
 
-  if (type === "date" || type === "datetime") {
-    const date = new Date(String(value));
-    if (Number.isNaN(date.getTime())) {
-      return String(value);
-    }
+  if (type === "date") {
+    return formatDate(value, { fallback: "-" });
+  }
 
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-      ...(type === "datetime" ? { hour: "2-digit", minute: "2-digit" } : {})
-    }).format(date);
+  if (type === "datetime") {
+    return formatDateTime(value, { fallback: "-" });
   }
 
   return String(value);

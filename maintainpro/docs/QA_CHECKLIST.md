@@ -161,6 +161,14 @@
 - [ ] Palette is usable on mobile (scroll, tap, no horizontal overflow).
 - [ ] No destructive or mutating commands appear in palette.
 
+## 2l) Sri Lanka Localization Readiness (UX-014)
+- [ ] Inventory, Work Orders, Procurement, Reports, Assets, and Dashboard fleet cost areas show LKR currency (not `$` / USD).
+- [ ] Dates and datetimes on rolled-out pages display in Sri Lanka-friendly English (`en-LK`) with sensible day/month ordering.
+- [ ] Invalid, null, or empty date/currency values show safe fallback (`—` or module-specific `-` / `Never`) without console errors.
+- [ ] Desktop and mobile show consistent formatted values for the same record.
+- [ ] Visible UI labels remain English (no partial Sinhala/Tamil translation drift).
+- [ ] Screen readers announce formatted currency/date text naturally (no icon-only replacements).
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

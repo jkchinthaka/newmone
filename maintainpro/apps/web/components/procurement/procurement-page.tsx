@@ -21,6 +21,7 @@ import {
 } from "./api";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { filterRowsBySearch } from "@/lib/client-table";
+import { formatCurrency } from "@/lib/localization";
 
 type Filter = "ALL" | "PENDING_OPERATIONAL" | "PENDING_FINANCE" | "APPROVED" | "REJECTED";
 
@@ -120,7 +121,7 @@ export default function ProcurementWorkflowPage() {
         id: "total",
         header: "Total",
         mobileLabel: "Total",
-        cell: (po) => `$${po.totalAmount.toLocaleString()}`
+        cell: (po) => formatCurrency(po.totalAmount, { fallback: "-" })
       },
       {
         id: "status",
@@ -303,7 +304,7 @@ export default function ProcurementWorkflowPage() {
                 <p className="text-xs text-slate-500">
                   Supplier: {detail.supplier?.name ?? "Unknown"} · Tenant: {detail.tenantId ?? "—"}
                 </p>
-                <p className="text-xs text-slate-500">Total: ${detail.totalAmount.toLocaleString()}</p>
+                <p className="text-xs text-slate-500">Total: {formatCurrency(detail.totalAmount, { fallback: "-" })}</p>
                 <span className={`mt-2 inline-block rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClass(detail.workflowStatus)}`}>
                   {detail.workflowStatus.replace("_", " ")}
                 </span>

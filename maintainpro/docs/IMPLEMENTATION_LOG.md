@@ -1116,3 +1116,53 @@ Record each completed task with:
 - Remaining risks:
   - Frontend command visibility mirrors nav config only; backend RBAC still required on route access.
   - Command keywords may drift from nav labels until both share one source (currently same item list).
+
+## 2026-06-12 | UX-014 | Sri Lanka localization readiness
+- Audit findings:
+  - Scattered `en-US` / `USD` / `$` formatting in inventory helpers, work-order helpers, dashboard fleet cost summary, reports `formatReportValue`, and procurement totals.
+  - Assets tables used browser-default `Intl.DateTimeFormat(undefined, …)` without `Asia/Colombo` timezone.
+  - Partial prior alignment in `lib/farm-api.ts` and maintenance-job screens (`en-LK` / `LKR`); farm/vehicles/predictive-ai pages still use raw `toLocaleDateString()` (deferred mass migration).
+- Helper functions added:
+  - `apps/web/lib/localization.ts`: `DEFAULT_LOCALE` (`en-LK`), `DEFAULT_TIME_ZONE` (`Asia/Colombo`), `DEFAULT_CURRENCY` (`LKR`), `formatDate`, `formatTime`, `formatDateTime`, `formatCurrency`, `formatNumber`, `formatPercent`, `formatRelativeDateLabel`, safe parsing/coercion, `EMPTY_DISPLAY` (`—`) fallback.
+  - `apps/web/lib/ui-copy.ts`: minimal English-default language readiness constants (`SUPPORTED_UI_LANGUAGES`, labels) — no full translation catalogs.
+  - Root layout `lang="en-LK"` for document locale metadata (English UI unchanged).
+- Limited rollout locations:
+  - `components/inventory/helpers.ts` — date/datetime/currency formatters delegate to localization (fallback `-` preserved in module wrappers).
+  - `components/work-orders/helpers.ts` — date/currency formatters delegate to localization.
+  - `components/assets/assets-table.tsx` — last service date uses shared formatter (`Never` empty label preserved).
+  - `components/assets/assets-management-page.tsx` — local date/datetime formatters delegate to localization.
+  - `app/(dashboard)/dashboard/page.tsx` — fleet cost breakdown uses `formatCurrency`.
+  - `components/reports/api.ts` — `formatReportValue` uses currency/date/datetime/percent helpers.
+  - `components/procurement/procurement-page.tsx` — PO totals use LKR `formatCurrency` instead of `$` prefix.
+- Skipped/deferred:
+  - Full Sinhala/Tamil UI translation and heavy i18n library.
+  - Mass replace of every `toLocaleDateString` / `Intl` usage across farm, vehicles, predictive-ai, fuel, and legacy FMS pages.
+  - Backend/API/database/schema changes; stored timestamp formats and API payloads unchanged.
+  - PWA manifest translation (MaintainPro branding retained from UX-012).
+- Files changed:
+  - `maintainpro/apps/web/lib/localization.ts` (new)
+  - `maintainpro/apps/web/lib/ui-copy.ts` (new)
+  - `maintainpro/apps/web/app/layout.tsx`
+  - `maintainpro/apps/web/components/inventory/helpers.ts`
+  - `maintainpro/apps/web/components/work-orders/helpers.ts`
+  - `maintainpro/apps/web/components/assets/assets-table.tsx`
+  - `maintainpro/apps/web/components/assets/assets-management-page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/dashboard/page.tsx`
+  - `maintainpro/apps/web/components/reports/api.ts`
+  - `maintainpro/apps/web/components/procurement/procurement-page.tsx`
+  - `maintainpro/apps/api/test/localization.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Unmigrated pages may still show USD/browser-default formatting until individually rolled out.
+  - Relative date labels use English-only strings (`Today`, `Yesterday`) until future i18n catalogs exist.
