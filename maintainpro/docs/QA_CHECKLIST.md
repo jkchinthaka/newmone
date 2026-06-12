@@ -95,6 +95,15 @@
 - [ ] SUPER_ADMIN cross-tenant access is intentional only (explicit tenant header or global null context), not default for tenant users.
 - [ ] Reports/dashboard counts for tenant user exclude other tenants' records.
 
+## 2g) Breadcrumbs (UX-007)
+- [ ] Breadcrumbs visible on desktop for rolled-out pages (work orders, assets, inventory, procurement, fleet, vehicles, reports, system health).
+- [ ] Breadcrumbs wrap/truncate cleanly on mobile without horizontal page overflow.
+- [ ] Deep pages show parent links (e.g. Vehicles → Vehicle Details → Documents).
+- [ ] Current page crumb is not clickable and uses `aria-current="page"`.
+- [ ] Parent crumbs navigate correctly when clicked.
+- [ ] `/home` is not shown as main Home/Dashboard breadcrumb; legacy label is “Legacy FMS Archive” only if ever mapped.
+- [ ] Breadcrumbs do not duplicate page titles awkwardly on list pages.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

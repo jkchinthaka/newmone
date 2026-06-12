@@ -30,6 +30,7 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { getStoredPermissions } from "@/lib/user-role";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 interface VehicleDocument {
   id: string;
@@ -156,6 +157,17 @@ export default function VehicleDocumentsPage({
 
   return (
     <div className="space-y-6">
+      <PageBreadcrumbs
+        items={
+          vehicle
+            ? [
+                { label: "Vehicles", href: "/vehicles" },
+                { label: vehicle.registrationNo, href: `/vehicles/${vehicleId}` },
+                { label: "Documents" }
+              ]
+            : undefined
+        }
+      />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <Link

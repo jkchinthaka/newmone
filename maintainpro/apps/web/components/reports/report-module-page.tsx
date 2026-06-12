@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import { defaultReportFilters, getReportModule, isReportModuleSlug, REPORT_MODULES } from "./api";
 import { ExportActions, InsightsPanel, ReportCharts, ReportFiltersBar, ReportHeader, ReportTableView, StatePanel, SummaryCards } from "./report-ui";
@@ -47,6 +48,7 @@ export function ReportModulePage({ module }: { module: string }) {
 
   return (
     <div className="space-y-5 print:bg-white">
+      <PageBreadcrumbs />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <ReportHeader title={report?.title ?? definition.label} description={report?.description ?? definition.description} generatedAt={report?.generatedAt} backHref="/reports" />
         <ExportActions module={moduleSlug as ReportModuleSlug} filters={filters} isExporting={isExporting} setIsExporting={setIsExporting} />

@@ -35,6 +35,7 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { USER_KEY } from "@/lib/auth-storage";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState } from "@/components/ui/page-state";
 import {
   hasActiveFilters,
@@ -1274,6 +1275,7 @@ export default function AssetsManagementPage() {
   return (
     <>
       <div className="space-y-6">
+        <PageBreadcrumbs />
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>

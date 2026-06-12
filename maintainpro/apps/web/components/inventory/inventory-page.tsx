@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import {
   applyInventoryFilters,
@@ -450,6 +451,7 @@ export default function InventoryManagementPage() {
 
   return (
     <div className="space-y-5 pb-10">
+      <PageBreadcrumbs />
       <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-sky-800 p-6 text-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

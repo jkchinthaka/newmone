@@ -884,3 +884,48 @@ Record each completed task with:
   - Fleet geofences remain in-memory (now tenant-scoped at API layer); DB persistence recommended for multi-instance deployments.
   - Notification reads are user-scoped (not tenant-column); reference mutations now tenant-guarded.
   - New modules must adopt the same tenant patterns — monitor via code review.
+
+## 2026-06-12 | UX-007 | Breadcrumbs on deep pages
+- What changed:
+  - Added reusable breadcrumb foundation:
+    - `lib/breadcrumbs.ts` — route-to-crumb helper with static labels, dynamic vehicle/report patterns, label truncation, legacy `/home` handling.
+    - `components/ui/breadcrumbs.tsx` — accessible `nav` with current-page state, optional links, mobile-safe truncation.
+    - `components/layout/page-breadcrumbs.tsx` — pathname-aware wrapper with optional item overrides.
+  - Rolled out to high-impact pages:
+    - Work Orders, Assets, Inventory, Procurement, Fleet, Vehicles list, Vehicle detail, Vehicle documents, Reports dashboard, Report modules, System Health.
+  - Vehicle detail/documents use registration number from already-loaded page data (no new API calls).
+  - `/home` maps to “Legacy FMS Archive” only; not used as main dashboard breadcrumb.
+- Files changed:
+  - `maintainpro/apps/web/lib/breadcrumbs.ts` (new)
+  - `maintainpro/apps/web/components/ui/breadcrumbs.tsx` (new)
+  - `maintainpro/apps/web/components/layout/page-breadcrumbs.tsx` (new)
+  - `maintainpro/apps/web/components/work-orders/work-orders-page.tsx`
+  - `maintainpro/apps/web/components/assets/assets-management-page.tsx`
+  - `maintainpro/apps/web/components/inventory/inventory-page.tsx`
+  - `maintainpro/apps/web/components/procurement/procurement-page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/fleet/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/[id]/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/[id]/documents/page.tsx`
+  - `maintainpro/apps/web/components/reports/reports-dashboard-page.tsx`
+  - `maintainpro/apps/web/components/reports/report-module-page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/system-health/page.tsx`
+  - `maintainpro/apps/api/test/breadcrumbs.spec.ts` (new)
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Routes intentionally skipped:
+  - Work order / asset / procurement detail (modal or inline panel — no dedicated routes).
+  - Legacy FMS workspace pages (out of scope for this pass).
+  - Cleaning, farm, utilities nested routes (deferred follow-up rollout).
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 46 suites, 225 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Static breadcrumb labels may drift from page titles on unmigrated routes.
+  - New routes must register patterns in `lib/breadcrumbs.ts` or pass explicit `items`.

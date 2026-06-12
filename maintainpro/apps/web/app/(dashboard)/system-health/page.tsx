@@ -14,6 +14,7 @@ import {
 
 import { apiClient } from "@/lib/api-client";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 type CheckStatus =
   | "operational"
@@ -245,6 +246,7 @@ export default function SystemHealthPage() {
 
   return (
     <div className="space-y-6">
+      <PageBreadcrumbs />
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

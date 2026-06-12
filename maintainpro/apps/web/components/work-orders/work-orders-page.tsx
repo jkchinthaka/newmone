@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { USER_KEY } from "@/lib/auth-storage";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
@@ -322,6 +323,7 @@ export default function WorkOrdersPage() {
 
   return (
     <div className="space-y-4">
+      <PageBreadcrumbs />
       <WorkOrderFiltersBar
         filters={filters}
         technicians={technicians}

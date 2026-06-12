@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { ErrorState, InlineLoadingState, toSafeDisplayMessage } from "@/components/ui/page-state";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { TableToolbar } from "@/components/ui/table-toolbar";
 
 import {
@@ -216,6 +217,7 @@ export default function ProcurementWorkflowPage() {
 
   return (
     <div className="space-y-6">
+      <PageBreadcrumbs />
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Procurement Workflow</h1>

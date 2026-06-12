@@ -198,3 +198,17 @@
   - Pages outside high-impact audit may still use native dialogs until migrated.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding new destructive actions or inline input flows.
+
+### RISK-UX-007-BREADCRUMB-ROUTE-MISMATCH
+- **Category:** UX / Navigation
+- **Description:** Breadcrumb labels or parent links may not match actual routes after refactors, or unmigrated pages may lack breadcrumbs entirely.
+- **Impact:** User confusion, broken navigation links, or misleading location context.
+- **Likelihood:** Low-Medium as new routes are added without updating `lib/breadcrumbs.ts`.
+- **Current Mitigation:**
+  - Centralized route helper with explicit patterns for high-impact pages.
+  - `PageBreadcrumbs` supports per-page `items` overrides when entity labels are already loaded.
+  - Legacy `/home` labeled “Legacy FMS Archive” only; dashboard uses `/dashboard`.
+  - Unit tests for known route mappings; QA checklist for link/current-page behavior.
+- **Residual Risk:** Modal-only detail flows (work orders, assets) have no deep-route crumbs until dedicated routes exist.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding or renaming dashboard routes.

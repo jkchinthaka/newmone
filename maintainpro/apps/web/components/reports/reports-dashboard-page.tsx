@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getApiErrorMessage } from "@/lib/api-client";
 import { toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import { defaultReportFilters, getReportsDashboard, REPORT_MODULES } from "./api";
 import { ReportFiltersBar, ReportHeader, StatePanel, SummaryCards } from "./report-ui";
@@ -34,6 +35,7 @@ export function ReportsDashboardPage() {
 
   return (
     <div className="space-y-5 print:bg-white">
+      <PageBreadcrumbs />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <ReportHeader
           title="Reports"

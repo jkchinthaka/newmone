@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import { apiClient } from "@/lib/api-client";
 import {
@@ -623,6 +624,16 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
 
   return (
     <div className="space-y-5">
+      <PageBreadcrumbs
+        items={
+          vehicle
+            ? [
+                { label: "Vehicles", href: "/vehicles" },
+                { label: vehicle.registrationNo }
+              ]
+            : undefined
+        }
+      />
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-5 py-5 text-white shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
