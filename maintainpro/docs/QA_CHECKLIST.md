@@ -72,6 +72,19 @@
 - [ ] No horizontal overflow issues on mobile for rolled-out tables.
 - [ ] Assets page unchanged in this pass (deferred due to complexity).
 
+## 2e) Dialog & Confirmation UX (UX-010)
+- [ ] Destructive actions (delete vehicle, delete work order, deactivate department/job code) show ConfirmDialog with clear title and description.
+- [ ] Cancel on destructive confirmation does not call the API or mutate data.
+- [ ] Confirm on destructive action submits once (no double-delete on rapid clicks).
+- [ ] Prompt dialog for document rejection requires a reason before submit.
+- [ ] Prompt dialog for notification user assignment requires user ID.
+- [ ] Prompt dialog for schedule task validates ISO date when provided; empty optional due date allowed on submit.
+- [ ] Success actions show Sonner toast (not browser alert).
+- [ ] Error failures show safe toast or inline error (no stack traces or tokens).
+- [ ] Mobile: dialog fits viewport, buttons are tappable (min-height), backdrop dismiss works when not submitting.
+- [ ] Keyboard: Escape closes dialog when safe; Tab moves focus between cancel/confirm; Enter submits prompt dialog.
+- [ ] No `window.alert`, `window.confirm`, or `window.prompt` in high-impact migrated flows.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

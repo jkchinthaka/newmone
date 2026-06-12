@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient } from "@/lib/api-client";
 import {
   getStoredPermissions,
@@ -187,6 +188,7 @@ const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
 ];
 
 export default function VehiclesPage() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [role, setRole] = useState<DashboardRole>("VIEWER");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [rows, setRows] = useState<Vehicle[]>([]);
@@ -398,7 +400,13 @@ export default function VehiclesPage() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete vehicle ${vehicle.registrationNo}? This action cannot be undone.`);
+    const confirmed = await confirm({
+      title: `Delete ${vehicle.registrationNo}?`,
+      description: "This vehicle record will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete vehicle",
+      cancelLabel: "Keep vehicle",
+      variant: "destructive"
+    });
     if (!confirmed) {
       return;
     }
@@ -1049,6 +1057,7 @@ export default function VehiclesPage() {
           }}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

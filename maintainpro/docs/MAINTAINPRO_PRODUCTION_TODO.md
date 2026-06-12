@@ -40,7 +40,7 @@
 | UX-007 | P2 | UX/Nav | Breadcrumbs on deep pages | NOT_STARTED | shared components + pages | Manual UI test | |
 | UX-008 | P2 | UX/Nav | Global command palette | NOT_STARTED | new UI + search APIs | Manual keyboard test | |
 | UX-009 | P2 | UX/Tables | Reusable data-table + rollout | DONE | components/ui/data-table.tsx, work-orders/inventory/procurement tables | Manual table QA, web/full build, data-table.spec.ts | Shared DataTable baseline with mobile cards; rolled out to Work Orders, Inventory, Procurement. Assets deferred (high complexity). |
-| UX-010 | P2 | UX/Dialogs | Replace window.prompt/confirm/alert | NOT_STARTED | apps/web | Grep + manual UI test | |
+| UX-010 | P2 | UX/Dialogs | Replace window.prompt/confirm/alert | DONE | components/ui/confirm-dialog.tsx, prompt-dialog.tsx, use-*-dialog hooks, high-impact pages | Grep + manual UI test, dialog-validation.spec.ts | Professional ConfirmDialog/PromptDialog + Sonner toasts; all 10 native dialog usages replaced across 7 files. |
 | UX-011 | P2 | UX/States | Standard loading/error/empty/success states | DONE | components/ui/page-state.tsx, core list pages | Manual route QA, web/full build, page-state.spec.ts | Reusable page states applied to dashboard, work orders, inventory, procurement, system health, assets, reports. |
 | UX-012 | P2 | UX/Mobile | Mobile responsiveness + PWA improvements | NOT_STARTED | web routes/components | Manual device test | |
 | UX-013 | P2 | UX/A11y | WCAG 2.1 AA improvements | NOT_STARTED | web components | Manual a11y test | |

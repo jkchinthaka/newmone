@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import { apiClient } from "@/lib/api-client";
 
@@ -193,6 +194,7 @@ function relativeTime(value: string | null) {
 const UNREAD_QUERY_KEY = ["notifications", "unread-count"] as const;
 
 export default function NotificationsPage() {
+  const { prompt, dialog: promptDialog } = usePromptDialog();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<NotificationStatus>("ALL");
   const [type, setType] = useState<string>("ALL");
@@ -391,22 +393,49 @@ export default function NotificationsPage() {
     setSearch(searchInput.trim());
   };
 
-  const handleAction = (item: NotificationItem, action: NotificationActionType) => {
+  const handleAction = async (item: NotificationItem, action: NotificationActionType) => {
     if (action === "ASSIGN_USER") {
-      const userId = window.prompt("Enter user ID to assign:", "");
+      const userId = await prompt({
+        title: "Assign user",
+        description: "Enter the user ID to assign this notification to.",
+        label: "User ID",
+        placeholder: "e.g. usr_abc123",
+        submitLabel: "Assign user",
+        cancelLabel: "Cancel",
+        required: true,
+        requiredMessage: "User ID is required."
+      });
       if (!userId) {
         return;
       }
-      actionMutation.mutate({ id: item.id, action, body: { userId: userId.trim() } });
+      actionMutation.mutate({ id: item.id, action, body: { userId } });
       return;
     }
 
     if (action === "SCHEDULE_TASK") {
-      const dueDate = window.prompt("Optional due date (ISO format), e.g. 2026-05-02T15:00:00.000Z", "");
+      const dueDate = await prompt({
+        title: "Schedule task",
+        description: "Optionally set a due date in ISO format (UTC). Leave blank to schedule without a due date.",
+        label: "Due date (ISO)",
+        placeholder: "2026-05-02T15:00:00.000Z",
+        submitLabel: "Schedule task",
+        cancelLabel: "Cancel",
+        required: false,
+        validate: (value) => {
+          if (!value) {
+            return null;
+          }
+          const parsed = Date.parse(value);
+          if (Number.isNaN(parsed)) {
+            return "Enter a valid ISO date, e.g. 2026-05-02T15:00:00.000Z";
+          }
+          return null;
+        }
+      });
       actionMutation.mutate({
         id: item.id,
         action,
-        body: dueDate && dueDate.trim() ? { dueDate: dueDate.trim() } : undefined
+        body: dueDate ? { dueDate } : undefined
       });
       return;
     }
@@ -611,7 +640,7 @@ export default function NotificationsPage() {
                     {item.actions.map((action) => (
                       <button
                         key={`${item.id}-${action.key}`}
-                        onClick={() => handleAction(item, action.key)}
+                        onClick={() => void handleAction(item, action.key)}
                         disabled={isBusy}
                         className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -811,6 +840,7 @@ export default function NotificationsPage() {
           </article>
         </div>
       </section>
+      {promptDialog}
     </div>
   );
 }

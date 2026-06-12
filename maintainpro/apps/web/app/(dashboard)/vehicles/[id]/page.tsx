@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+
 import { apiClient } from "@/lib/api-client";
 import {
   getStoredRole,
@@ -189,6 +191,7 @@ const DEFAULT_FUEL_ANALYTICS: FuelAnalytics = {
 };
 
 export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const vehicleId = params.id;
 
   const [role, setRole] = useState<DashboardRole>("VIEWER");
@@ -469,7 +472,14 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
       return;
     }
 
-    if (!window.confirm(`Delete ${vehicle.registrationNo}? This action cannot be undone.`)) {
+    const confirmed = await confirm({
+      title: `Delete ${vehicle.registrationNo}?`,
+      description: "This vehicle record will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete vehicle",
+      cancelLabel: "Keep vehicle",
+      variant: "destructive"
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -1190,6 +1200,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
           </article>
         </section>
       )}
+      {confirmDialog}
     </div>
   );
 }

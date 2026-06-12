@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { USER_KEY } from "@/lib/auth-storage";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
@@ -67,6 +68,7 @@ function LoadingSkeleton() {
 }
 
 export default function WorkOrdersPage() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("kanban");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -149,7 +151,13 @@ export default function WorkOrdersPage() {
   };
 
   const handleDelete = async (workOrder: WorkOrder) => {
-    const confirmed = window.confirm(`Delete ${workOrder.woNumber}? This action cannot be undone.`);
+    const confirmed = await confirm({
+      title: `Delete ${workOrder.woNumber}?`,
+      description: "This work order will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete work order",
+      cancelLabel: "Keep work order",
+      variant: "destructive"
+    });
     if (!confirmed) {
       return;
     }
@@ -177,7 +185,13 @@ export default function WorkOrdersPage() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${selectedIds.length} selected work orders?`);
+    const confirmed = await confirm({
+      title: `Delete ${selectedIds.length} work orders?`,
+      description: "Selected work orders will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete selected",
+      cancelLabel: "Keep selected",
+      variant: "destructive"
+    });
     if (!confirmed) {
       return;
     }
@@ -423,6 +437,7 @@ export default function WorkOrdersPage() {
       />
 
       {busy ? <div className="fixed bottom-4 right-4 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">Processing...</div> : null}
+      {confirmDialog}
     </div>
   );
 }

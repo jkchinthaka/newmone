@@ -6,6 +6,7 @@ import type { Route } from "next";
 import { ArrowLeft, Building2, ChevronDown, ChevronRight, Loader2, Pencil, Plus, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient } from "@/lib/api-client";
 import { EntityPicker } from "@/components/ui/entity-picker";
 
@@ -43,6 +44,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function DepartmentsPage() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -121,9 +123,14 @@ export default function DepartmentsPage() {
   };
 
   const handleDeactivate = async (dept: Department) => {
-    if (
-      !window.confirm(`Deactivate department "${dept.name}"? It will no longer appear in dropdowns.`)
-    ) return;
+    const confirmed = await confirm({
+      title: `Deactivate ${dept.name}?`,
+      description: "This department will no longer appear in dropdowns. Existing records are not deleted.",
+      confirmLabel: "Deactivate department",
+      cancelLabel: "Keep active",
+      variant: "destructive"
+    });
+    if (!confirmed) return;
     try {
       await apiClient.delete(`/departments/${dept.id}`);
       toast.success(`"${dept.name}" deactivated`);
@@ -411,6 +418,7 @@ export default function DepartmentsPage() {
           </ul>
         )}
       </section>
+      {confirmDialog}
     </div>
   );
 }

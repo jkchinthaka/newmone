@@ -178,3 +178,20 @@
 - **Residual Risk:** Assets and other legacy tables remain on old patterns until follow-up rollout.
 - **Owner:** Web Platform
 - **Review Cadence:** Before each additional table migration.
+
+### RISK-UX-010-DIALOG-REGRESSION
+- **Category:** UX / Safety / Regression
+- **Description:** Replacing browser-native dialogs with custom components may accidentally skip confirmations, allow double-submit, or change cancel semantics on destructive flows.
+- **Impact:** Accidental data loss (delete vehicle/work order), unintended deactivations, or users proceeding without required input (rejection reason).
+- **Likelihood:** Low-Medium during dialog rollout and future feature work.
+- **Current Mitigation:**
+  - Reusable `ConfirmDialog` / `PromptDialog` with destructive variant, loading state, and keyboard/backdrop handling.
+  - `useConfirmDialog` / `usePromptDialog` hooks preserve async confirm-before-action pattern.
+  - Destructive actions retain explicit confirmation; prompt flows validate required fields.
+  - Regression test greps high-impact paths for native dialog usage; `validatePromptInput` unit tests.
+  - QA checklist covers cancel/confirm behavior and mobile/keyboard usability.
+- **Residual Risk:**
+  - Legacy SCHEDULE_TASK cancel still schedules without due date (preserved from `window.prompt` behavior); consider UX fix in follow-up.
+  - Pages outside high-impact audit may still use native dialogs until migrated.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding new destructive actions or inline input flows.

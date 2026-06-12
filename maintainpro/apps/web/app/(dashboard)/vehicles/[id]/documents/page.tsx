@@ -28,6 +28,8 @@ import {
 } from "@/lib/phase4-api";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { getStoredPermissions } from "@/lib/user-role";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 
 interface VehicleDocument {
   id: string;
@@ -69,6 +71,8 @@ export default function VehicleDocumentsPage({
   params: { id: string };
 }) {
   const vehicleId = params.id;
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { prompt, dialog: promptDialog } = usePromptDialog();
   const [docs, setDocs] = useState<VehicleDocument[]>([]);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [compliance, setCompliance] = useState<ComplianceDetail | null>(null);
@@ -112,10 +116,19 @@ export default function VehicleDocumentsPage({
   };
 
   const onReject = async (id: string) => {
-    const reason = window.prompt("Reason for rejection");
-    if (!reason || !reason.trim()) return;
+    const reason = await prompt({
+      title: "Reject document?",
+      description: "Provide a reason so the submitter knows what to fix.",
+      label: "Reason for rejection",
+      placeholder: "e.g. Expiry date is unclear on the uploaded file",
+      submitLabel: "Reject document",
+      cancelLabel: "Keep document",
+      required: true,
+      requiredMessage: "A rejection reason is required."
+    });
+    if (!reason) return;
     try {
-      await p4Post(`/vehicle-documents/${id}/reject`, { reason: reason.trim() });
+      await p4Post(`/vehicle-documents/${id}/reject`, { reason });
       toast.success("Document rejected");
       refresh();
     } catch (err) {
@@ -124,7 +137,14 @@ export default function VehicleDocumentsPage({
   };
 
   const onRemove = async (id: string) => {
-    if (!window.confirm("Delete this document?")) return;
+    const confirmed = await confirm({
+      title: "Delete document?",
+      description: "This document will be permanently removed from the vehicle record.",
+      confirmLabel: "Delete document",
+      cancelLabel: "Keep document",
+      variant: "destructive"
+    });
+    if (!confirmed) return;
     try {
       await p4Delete(`/vehicle-documents/${id}`);
       toast.success("Document deleted");
@@ -302,6 +322,8 @@ export default function VehicleDocumentsPage({
           }}
         />
       ) : null}
+      {confirmDialog}
+      {promptDialog}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ChevronRight, Layers, Loader2, Pencil, Plus, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient } from "@/lib/api-client";
 
 interface JobCode {
@@ -42,6 +43,7 @@ async function fetchJobs(parentId?: string | "null", q?: string): Promise<JobCod
 }
 
 export default function JobCodesPage() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [mainJobs, setMainJobs] = useState<JobCode[]>([]);
   const [subJobs, setSubJobs] = useState<JobCode[]>([]);
   const [selectedMain, setSelectedMain] = useState<JobCode | null>(null);
@@ -158,7 +160,14 @@ export default function JobCodesPage() {
   };
 
   const handleDeactivate = async (job: JobCode) => {
-    if (!window.confirm(`Deactivate "${job.code} — ${job.name}"?`)) return;
+    const confirmed = await confirm({
+      title: `Deactivate ${job.code}?`,
+      description: `"${job.name}" will no longer be available for new maintenance or work order entries.`,
+      confirmLabel: "Deactivate job code",
+      cancelLabel: "Keep active",
+      variant: "destructive"
+    });
+    if (!confirmed) return;
     try {
       await apiClient.patch(`/job-codes/${job.id}`, { isActive: false });
       toast.success("Job code deactivated");
@@ -383,6 +392,7 @@ export default function JobCodesPage() {
           )}
         </section>
       </div>
+      {confirmDialog}
     </div>
   );
 }

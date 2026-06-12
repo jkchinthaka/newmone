@@ -801,3 +801,49 @@ Record each completed task with:
   - Assets list not migrated (complex inline editing/column picker); follow-up rollout needed.
   - Client-side search on Procurement filters already-loaded rows only (no API change).
   - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-010 | Replace browser dialogs with professional confirmations
+- What changed:
+  - Added reusable dialog foundation:
+    - `components/ui/confirm-dialog.tsx` — accessible alertdialog with destructive variant and loading state.
+    - `components/ui/prompt-dialog.tsx` — inline input dialog with validation via `validatePromptInput`.
+    - `components/ui/use-confirm-dialog.tsx` / `use-prompt-dialog.tsx` — promise-based hooks for async flows.
+    - `components/ui/action-feedback.ts` — Sonner toast helpers using safe display messages.
+  - Replaced all 10 browser-native dialog usages across 7 high-impact files:
+    - Work Orders — delete single + bulk delete confirmations.
+    - Vehicles list + detail — delete vehicle confirmations.
+    - Vehicle documents — reject reason prompt + delete document confirmation.
+    - Notifications — assign user prompt + schedule task prompt (ISO validation on submit).
+    - Departments — deactivate confirmation.
+    - Job codes — deactivate confirmation.
+  - No `window.alert`, `window.confirm`, or `window.prompt` remain in audited web app paths.
+- Files changed:
+  - `maintainpro/apps/web/components/ui/confirm-dialog.tsx` (new)
+  - `maintainpro/apps/web/components/ui/prompt-dialog.tsx` (new)
+  - `maintainpro/apps/web/components/ui/use-confirm-dialog.tsx` (new)
+  - `maintainpro/apps/web/components/ui/use-prompt-dialog.tsx` (new)
+  - `maintainpro/apps/web/components/ui/action-feedback.ts` (new)
+  - `maintainpro/apps/web/lib/prompt-validation.ts` (new)
+  - `maintainpro/apps/web/components/work-orders/work-orders-page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/[id]/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/vehicles/[id]/documents/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/notifications/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/master-data/departments/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/maintenance/job-codes/page.tsx`
+  - `maintainpro/apps/api/test/dialog-validation.spec.ts` (new)
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 42 suites, 210 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - SCHEDULE_TASK dialog cancel still schedules without due date (legacy `window.prompt` semantics preserved).
+  - Assets table not migrated (UX-009 deferral; no native dialogs found there).
+  - `SEC-006` tenant-isolation final sweep remains in progress.
