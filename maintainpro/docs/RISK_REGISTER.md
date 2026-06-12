@@ -193,7 +193,7 @@
   - Preserved column picker, filters, server-side pagination footer, bulk bar, row menu actions, disposal reason validation.
   - Added list-level LoadingState/ErrorState (UX-011); empty state via shared EmptyState.
   - `assets-table.spec.ts` covers column visibility helper; QA checklist section 2e for manual Assets table verification.
-- **Residual Risk:** Dropdown row menus on mobile cards may overlap viewport edges; inline status prompt UX differs slightly without motion row exit animations.
+- **Residual Risk:** Inline status prompt inside mobile bottom sheet may require scroll on very small screens; manual device QA recommended.
 - **Owner:** Web Platform
 - **Review Cadence:** After first manual QA pass on Assets desktop + mobile.
 
@@ -227,3 +227,17 @@
 - **Residual Risk:** Modal-only detail flows (work orders, assets) have no deep-route crumbs until dedicated routes exist.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding or renaming dashboard routes.
+
+### RISK-UX-012-MOBILE-LAYOUT-REGRESSION
+- **Category:** UX / Mobile / Regression
+- **Description:** Responsive polish may still miss edge cases on unmigrated pages, fixed-position menus, or legacy tables without mobile card fallbacks.
+- **Impact:** Horizontal overflow, clipped actions, or hard-to-tap controls on phones/tablets.
+- **Likelihood:** Low-Medium on legacy routes; Low on modernized DataTable/auth/shell surfaces after UX-012.
+- **Current Mitigation:**
+  - Shared DataTable mobile card improvements (wrap, overflow-visible actions, touch-leading cells).
+  - Assets mobile row menu uses bottom sheet + backdrop; auth/nav/dialog touch targets standardized to min 44px where updated.
+  - Root viewport + PWA metadata centralized in `lib/pwa-metadata.ts`; `mobile-pwa.spec.ts` guards branding/helpers.
+  - QA checklist section 2i covers login, drawer, breadcrumbs, DataTable pages, dialogs, and PWA metadata.
+- **Residual Risk:** Cleaning/farm/utilities and other legacy table pages may still scroll horizontally; iOS safe-area overlap on bottom sheets not fully tested.
+- **Owner:** Web Platform
+- **Review Cadence:** Before release QA on real devices (375px–430px) and after migrating additional tables.

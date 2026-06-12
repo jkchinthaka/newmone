@@ -1610,7 +1610,7 @@ export default function AssetsManagementPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="md:overflow-x-auto">
             {listQuery.isLoading && !listQuery.data ? (
               <div className="px-4 py-8">
                 <LoadingState

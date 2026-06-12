@@ -117,6 +117,22 @@
 - [ ] `/home` is not shown as main Home/Dashboard breadcrumb; legacy label is “Legacy FMS Archive” only if ever mapped.
 - [ ] Breadcrumbs do not duplicate page titles awkwardly on list pages.
 
+## 2i) Mobile & PWA Polish (UX-012)
+- [ ] Login page fits 375px width without clipped content; Sign in and password toggle are tappable (44px targets).
+- [ ] Register and forgot-password forms remain usable on 375px/390px widths.
+- [ ] Mobile hamburger opens drawer; backdrop/Escape/close button dismiss it.
+- [ ] Mobile drawer nav items do not overflow horizontally.
+- [ ] Breadcrumbs wrap/truncate on mobile without causing page horizontal scroll.
+- [ ] Work Orders mobile cards show actions (edit/complete/delete) and remain tappable.
+- [ ] Inventory mobile cards show icon action buttons without clipping.
+- [ ] Procurement mobile list remains readable with client-side search.
+- [ ] Assets mobile card row menu opens as bottom sheet; backdrop closes menu; status/QR/delete actions reachable.
+- [ ] ConfirmDialog and PromptDialog fit small screens with scroll when needed; cancel/confirm remain tappable.
+- [ ] Toasts appear centered and readable on mobile.
+- [ ] No accidental full-page horizontal scroll on assets/work orders/inventory/procurement list pages.
+- [ ] PWA manifest shows MaintainPro name and canonical description; icons resolve (`/pwa-192x192.svg`, `/pwa-512x512.svg`).
+- [ ] Install/add-to-home-screen metadata uses MaintainPro branding (no legacy FMS/Maintenance Job labels).
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

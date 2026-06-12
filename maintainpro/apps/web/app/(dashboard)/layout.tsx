@@ -70,7 +70,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </div>
-      <Toaster position="top-right" richColors duration={4_000} />
+      <Toaster closeButton position="top-center" richColors duration={4_000} />
     </QueryClientProvider>
   );
 }

@@ -87,7 +87,7 @@ export function RegisterFormCard() {
 
           <div className="md:col-span-2 flex items-center justify-between gap-3 pt-2">
             <p className="text-sm text-slate-500">Already have an account? <a href="/login" className="font-medium text-brand-700 hover:text-brand-800">Login</a></p>
-            <button className="rounded-2xl bg-brand-600 px-5 py-3 text-sm font-medium text-white hover:bg-brand-700" type="submit">
+            <button className="min-h-11 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-medium text-white hover:bg-brand-700" type="submit">
               {busy ? <span className="inline-flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Registering...</span> : "REGISTER"}
             </button>
           </div>

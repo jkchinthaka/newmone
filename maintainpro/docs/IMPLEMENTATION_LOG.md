@@ -966,3 +966,57 @@ Record each completed task with:
 - Remaining risks:
   - Row action dropdown positioning on small mobile cards may need polish.
   - Other unmigrated legacy tables still use inline patterns.
+
+## 2026-06-12 | UX-012 | Mobile responsiveness and PWA polish
+- Audit findings:
+  - Mobile nav/topbar already had 44px menu targets; Assets row action flyout clipped inside DataTable `overflow-hidden` on mobile cards.
+  - DataTable mobile cards lacked `break-words`/`min-w-0` on values; selection checkboxes had small hit areas.
+  - Breadcrumbs wrapped but used fixed `text-sm` on very narrow screens.
+  - Auth pages generally responsive; submit/toggle controls needed explicit min-height on small screens.
+  - PWA manifest/meta already used MaintainPro name; description was longer than canonical tagline; viewport lacked explicit `device-width`.
+  - Service worker left unchanged (low-risk static shell only).
+- Fixes applied:
+  - DataTable: mobile overflow-visible cards, word wrapping, touch-friendly leading cells, shared `getVisibleMobileColumns` helper.
+  - Assets row actions: mobile bottom-sheet menu with backdrop; desktop keeps anchored dropdown; 44px action trigger/menu items.
+  - Breadcrumbs: responsive text size + max-width guard.
+  - Mobile nav close button, confirm/prompt dialogs, login/register/forgot-password touch targets, dashboard toasts centered for mobile.
+  - Root layout viewport + metadata aligned to `pwa-metadata` / branding constants; manifest description uses canonical tagline.
+  - Global `overflow-x: clip` on html/body to reduce accidental horizontal page scroll.
+  - Assets registry table wrapper uses horizontal scroll on desktop only.
+- Skipped/deferred:
+  - No service-worker caching strategy changes.
+  - Legacy non-DataTable pages (cleaning, farm, utilities tables) not migrated in this pass.
+  - Vehicles and other dashboard pages beyond shared shell/DataTable/auth not individually redesigned.
+- Files changed:
+  - `maintainpro/apps/web/lib/pwa-metadata.ts` (new)
+  - `maintainpro/apps/web/lib/data-table-mobile.ts` (new)
+  - `maintainpro/apps/web/app/layout.tsx`
+  - `maintainpro/apps/web/app/manifest.ts`
+  - `maintainpro/apps/web/app/globals.css`
+  - `maintainpro/apps/web/app/(dashboard)/layout.tsx`
+  - `maintainpro/apps/web/app/(auth)/login/page.tsx`
+  - `maintainpro/apps/web/app/(auth)/register/register-form-card.tsx`
+  - `maintainpro/apps/web/app/(auth)/forgot-password/page.tsx`
+  - `maintainpro/apps/web/components/ui/data-table.tsx`
+  - `maintainpro/apps/web/components/ui/breadcrumbs.tsx`
+  - `maintainpro/apps/web/components/ui/confirm-dialog.tsx`
+  - `maintainpro/apps/web/components/ui/prompt-dialog.tsx`
+  - `maintainpro/apps/web/components/layout/mobile-nav.tsx`
+  - `maintainpro/apps/web/components/assets/assets-table.tsx`
+  - `maintainpro/apps/web/components/assets/assets-management-page.tsx`
+  - `maintainpro/apps/api/test/mobile-pwa.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 48 suites, 233 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Fixed-position Assets menus may overlap iOS home indicator on smallest devices; manual device QA still recommended.
+  - Unmigrated legacy tables may still horizontally scroll on mobile.

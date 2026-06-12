@@ -1,26 +1,38 @@
 import type { MetadataRoute } from "next";
 
+import {
+  PWA_BACKGROUND_COLOR,
+  PWA_DESCRIPTION,
+  PWA_DISPLAY,
+  PWA_ICON_PATHS,
+  PWA_NAME,
+  PWA_ORIENTATION,
+  PWA_SCOPE,
+  PWA_SHORT_NAME,
+  PWA_START_URL,
+  PWA_THEME_COLOR
+} from "@/lib/pwa-metadata";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MaintainPro",
-    short_name: "MaintainPro",
-    description:
-      "Enterprise Maintenance & Facility Operations Platform for maintenance, facility, fleet, and operations teams.",
-    start_url: "/splash",
-    scope: "/",
-    display: "standalone",
-    background_color: "#f1f5f9",
-    theme_color: "#0f172a",
-    orientation: "portrait",
+    name: PWA_NAME,
+    short_name: PWA_SHORT_NAME,
+    description: PWA_DESCRIPTION,
+    start_url: PWA_START_URL,
+    scope: PWA_SCOPE,
+    display: PWA_DISPLAY,
+    background_color: PWA_BACKGROUND_COLOR,
+    theme_color: PWA_THEME_COLOR,
+    orientation: PWA_ORIENTATION,
     icons: [
       {
-        src: "/pwa-192x192.svg",
+        src: PWA_ICON_PATHS.icon192,
         sizes: "192x192",
         type: "image/svg+xml",
         purpose: "maskable"
       },
       {
-        src: "/pwa-512x512.svg",
+        src: PWA_ICON_PATHS.icon512,
         sizes: "512x512",
         type: "image/svg+xml",
         purpose: "maskable"

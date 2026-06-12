@@ -17,8 +17,8 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
   }
 
   return (
-    <nav aria-label="Breadcrumb" className={className}>
-      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-slate-500">
+    <nav aria-label="Breadcrumb" className={`max-w-full ${className}`.trim()}>
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-500 sm:text-sm">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           const label = truncateBreadcrumbLabel(item.label);

@@ -126,11 +126,11 @@ function AssetRowActions<T extends AssetTableRow>({
   const menuOpen = openRowMenuId === asset.id;
 
   return (
-    <div className="relative inline-flex justify-end">
+    <div className="relative inline-flex w-full justify-end md:w-auto">
       <button
         type="button"
         onClick={() => onToggleMenu(asset.id)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100"
         aria-label="Open row actions"
         aria-expanded={menuOpen}
       >
@@ -138,11 +138,18 @@ function AssetRowActions<T extends AssetTableRow>({
       </button>
 
       {menuOpen ? (
-        <div className="absolute right-0 top-10 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
+        <>
+          <button
+            type="button"
+            aria-label="Close row actions menu"
+            className="fixed inset-0 z-40 bg-slate-900/25 md:hidden"
+            onClick={() => onToggleMenu(asset.id)}
+          />
+          <div className="fixed inset-x-4 bottom-4 z-50 max-h-[min(70vh,24rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-11 md:w-64 md:max-h-none">
           <button
             type="button"
             onClick={() => onOpenDetails(asset.id)}
-            className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+            className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
           >
             View details
           </button>
@@ -151,7 +158,7 @@ function AssetRowActions<T extends AssetTableRow>({
             <button
               type="button"
               onClick={() => onEdit(asset)}
-              className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+              className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
             >
               Edit
             </button>
@@ -174,7 +181,7 @@ function AssetRowActions<T extends AssetTableRow>({
                         reason: ""
                       })
                     }
-                    className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                    className="block min-h-11 w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
                   >
                     {option.label}
                   </button>
@@ -202,14 +209,14 @@ function AssetRowActions<T extends AssetTableRow>({
                           reason: statusPromptForRow.reason
                         })
                       }
-                      className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+                      className="min-h-11 rounded-full bg-slate-900 px-3 py-2 text-xs font-medium text-white"
                     >
                       Confirm
                     </button>
                     <button
                       type="button"
                       onClick={() => onSetStatusPrompt(null)}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                      className="min-h-11 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
                     >
                       Cancel
                     </button>
@@ -223,7 +230,7 @@ function AssetRowActions<T extends AssetTableRow>({
             <button
               type="button"
               onClick={() => onCreateWorkOrder(asset)}
-              className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+              className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
             >
               Create work order
             </button>
@@ -233,7 +240,7 @@ function AssetRowActions<T extends AssetTableRow>({
             <button
               type="button"
               onClick={() => onScheduleMaintenance(asset)}
-              className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+              className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
             >
               Schedule maintenance
             </button>
@@ -242,7 +249,7 @@ function AssetRowActions<T extends AssetTableRow>({
           <button
             type="button"
             onClick={() => onViewQr(asset)}
-            className="block w-full rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+            className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
           >
             View QR
           </button>
@@ -251,12 +258,13 @@ function AssetRowActions<T extends AssetTableRow>({
             <button
               type="button"
               onClick={() => onDelete(asset)}
-              className="block w-full rounded-xl px-3 py-2 text-sm text-rose-700 transition hover:bg-rose-50"
+              className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-700 transition hover:bg-rose-50"
             >
               Delete
             </button>
           ) : null}
-        </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

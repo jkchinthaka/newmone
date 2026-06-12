@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/page-state";
+import { getVisibleMobileColumns } from "@/lib/data-table-mobile";
 import { getPaginationMeta, type SortDirection } from "@/lib/client-table";
 
 export type { SortDirection };
@@ -134,7 +135,7 @@ export function DataTable<T>({
   pagination,
   className = ""
 }: DataTableProps<T>) {
-  const visibleMobileColumns = columns.filter((column) => !column.hideOnMobile);
+  const visibleMobileColumns = getVisibleMobileColumns(columns);
   const hasActions = Boolean(renderActions);
 
   const emptyContent =
@@ -149,7 +150,7 @@ export function DataTable<T>({
     );
 
   return (
-    <div className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
+    <div className={`overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
       {/* Desktop table */}
       <div className="hidden md:block">
         <div className="overflow-x-auto">
@@ -160,7 +161,11 @@ export function DataTable<T>({
           >
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {leadingHeader ? <th className="px-3 py-3">{leadingHeader}</th> : null}
+                {leadingHeader ? (
+                  <th className="px-3 py-3">
+                    <div className="flex min-h-11 min-w-11 items-center">{leadingHeader}</div>
+                  </th>
+                ) : null}
                 {columns.map((column) => (
                   <th key={column.id} className={`px-3 py-3 ${column.headerClassName ?? ""}`.trim()}>
                     {column.sortable && onSortChange ? (
@@ -204,7 +209,7 @@ export function DataTable<T>({
                   >
                     {renderLeadingCell ? (
                       <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                        {renderLeadingCell(row)}
+                        <div className="flex min-h-11 min-w-11 items-center">{renderLeadingCell(row)}</div>
                       </td>
                     ) : null}
                     {columns.map((column) => (
@@ -226,15 +231,15 @@ export function DataTable<T>({
       </div>
 
       {/* Mobile cards */}
-      <div className="md:hidden">
+      <div className="overflow-visible md:hidden">
         {rows.length === 0 ? (
           <div className="p-4">{emptyContent}</div>
         ) : (
           <ul className="divide-y divide-slate-200">
             {rows.map((row) => (
-              <li key={getRowId(row)}>
+              <li key={getRowId(row)} className="overflow-visible">
                 <div
-                  className={`space-y-3 p-4 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
+                  className={`space-y-3 overflow-visible p-4 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   onKeyDown={
                     onRowClick
@@ -250,21 +255,26 @@ export function DataTable<T>({
                   tabIndex={onRowClick ? 0 : undefined}
                 >
                   {renderLeadingCell ? (
-                    <div onClick={(event) => event.stopPropagation()}>{renderLeadingCell(row)}</div>
+                    <div className="flex min-h-11 items-center" onClick={(event) => event.stopPropagation()}>
+                      {renderLeadingCell(row)}
+                    </div>
                   ) : null}
                   <dl className="space-y-2">
                     {visibleMobileColumns.map((column) => (
-                      <div key={column.id} className="grid grid-cols-[minmax(0,34%)_1fr] gap-3 text-sm">
+                      <div key={column.id} className="grid min-w-0 grid-cols-[minmax(0,34%)_1fr] gap-3 text-sm">
                         <dt className="font-medium text-slate-500">
                           {column.mobileLabel ??
                             (typeof column.header === "string" ? column.header : column.id)}
                         </dt>
-                        <dd className="text-slate-800">{column.cell(row)}</dd>
+                        <dd className="min-w-0 break-words text-slate-800">{column.cell(row)}</dd>
                       </div>
                     ))}
                   </dl>
                   {renderActions ? (
-                    <div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+                    <div
+                      className="flex w-full flex-wrap gap-2 overflow-visible"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {renderActions(row)}
                     </div>
                   ) : null}

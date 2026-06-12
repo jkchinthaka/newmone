@@ -57,7 +57,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           <button
             type="button"
             aria-label="Close navigation menu"
-            className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             onClick={onClose}
           >
             <X aria-hidden size={18} />

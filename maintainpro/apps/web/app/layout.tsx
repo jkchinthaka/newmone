@@ -1,33 +1,36 @@
 import type { Metadata, Viewport } from "next";
 
 import { ServiceWorkerRegistrar } from "../components/pwa/service-worker-registrar";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../lib/branding";
+import { PWA_ICON_PATHS, PWA_THEME_COLOR } from "../lib/pwa-metadata";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "MaintainPro",
-    template: "%s | MaintainPro"
+    default: PRODUCT_NAME,
+    template: `%s | ${PRODUCT_NAME}`
   },
-  description:
-    "Enterprise Maintenance & Facility Operations Platform for maintenance, facility, fleet, and operations teams.",
-  applicationName: "MaintainPro",
+  description: PRODUCT_TAGLINE,
+  applicationName: PRODUCT_NAME,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "MaintainPro"
+    title: PRODUCT_NAME
   },
   other: {
     "mobile-web-app-capable": "yes"
   },
   icons: {
-    icon: "/favicon.svg",
-    apple: "/pwa-192x192.svg"
+    icon: PWA_ICON_PATHS.favicon,
+    apple: PWA_ICON_PATHS.icon192
   }
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
+  themeColor: PWA_THEME_COLOR,
   colorScheme: "light"
 };
 
