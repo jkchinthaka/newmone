@@ -765,3 +765,39 @@ Record each completed task with:
   - Not all routes migrated yet; legacy inline loading/error patterns remain on lower-traffic pages.
   - Over-sanitized errors may reduce user-facing detail for rare edge cases (see RISK-UX-011).
   - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-009 | Reusable data-table baseline
+- What changed:
+  - Added shared table foundation:
+    - `components/ui/data-table.tsx` — sortable headers, pagination bar, desktop table + mobile card fallback, EmptyState integration.
+    - `components/ui/table-toolbar.tsx` — accessible search input.
+    - `lib/client-table.ts` — client-side search/sort/pagination helpers.
+  - Rolled out to 3 high-impact list pages (Assets deferred — column picker, motion rows, inline status prompts too risky for this pass):
+    - Work Orders table — preserved sort, selection, status/assign controls, row actions; mobile card layout added.
+    - Inventory table — preserved pagination, selection, stock visuals, row actions; mobile card layout added.
+    - Procurement list — converted to DataTable with client-side PO/supplier search; row click selection preserved.
+  - Reused UX-011 `EmptyState` inside DataTable for consistent empty messaging.
+- Files changed:
+  - `maintainpro/apps/web/components/ui/data-table.tsx` (new)
+  - `maintainpro/apps/web/components/ui/table-toolbar.tsx` (new)
+  - `maintainpro/apps/web/lib/client-table.ts` (new)
+  - `maintainpro/apps/web/components/work-orders/work-order-table.tsx`
+  - `maintainpro/apps/web/components/inventory/inventory-table.tsx`
+  - `maintainpro/apps/web/components/procurement/procurement-page.tsx`
+  - `maintainpro/apps/api/test/data-table.spec.ts` (new)
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 41 suites, 205 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Assets list not migrated (complex inline editing/column picker); follow-up rollout needed.
+  - Client-side search on Procurement filters already-loaded rows only (no API change).
+  - `SEC-006` tenant-isolation final sweep remains in progress.

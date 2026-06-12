@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, CheckCircle2, XCircle, Send, Repeat } from "lucide-react";
 import { toast } from "sonner";
 
-import { EmptyState, ErrorState, InlineLoadingState, toSafeDisplayMessage } from "@/components/ui/page-state";
+import { ErrorState, InlineLoadingState, toSafeDisplayMessage } from "@/components/ui/page-state";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { TableToolbar } from "@/components/ui/table-toolbar";
 
 import {
   approveFinance,
@@ -17,6 +19,7 @@ import {
   retryErpSync
 } from "./api";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { filterRowsBySearch } from "@/lib/client-table";
 
 type Filter = "ALL" | "PENDING_OPERATIONAL" | "PENDING_FINANCE" | "APPROVED" | "REJECTED";
 
@@ -45,6 +48,7 @@ export default function ProcurementWorkflowPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -89,9 +93,47 @@ export default function ProcurementWorkflowPage() {
   }, [selectedId, loadDetail]);
 
   const filtered = useMemo(() => {
-    if (filter === "ALL") return orders;
-    return orders.filter((o) => o.workflowStatus === filter);
-  }, [orders, filter]);
+    const byStatus =
+      filter === "ALL" ? orders : orders.filter((order) => order.workflowStatus === filter);
+
+    return filterRowsBySearch(byStatus, searchQuery, (order) =>
+      [order.poNumber, order.supplier?.name ?? "", order.workflowStatus.replace(/_/g, " ")].join(" ")
+    );
+  }, [orders, filter, searchQuery]);
+
+  const procurementColumns: DataTableColumn<PurchaseOrderWorkflowRecord>[] = useMemo(
+    () => [
+      {
+        id: "poNumber",
+        header: "PO Number",
+        mobileLabel: "PO Number",
+        cell: (po) => <span className="font-semibold text-slate-900">{po.poNumber}</span>
+      },
+      {
+        id: "supplier",
+        header: "Supplier",
+        mobileLabel: "Supplier",
+        cell: (po) => po.supplier?.name ?? "Unknown supplier"
+      },
+      {
+        id: "total",
+        header: "Total",
+        mobileLabel: "Total",
+        cell: (po) => `$${po.totalAmount.toLocaleString()}`
+      },
+      {
+        id: "status",
+        header: "Status",
+        mobileLabel: "Status",
+        cell: (po) => (
+          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClass(po.workflowStatus)}`}>
+            {po.workflowStatus.replace(/_/g, " ")}
+          </span>
+        )
+      }
+    ],
+    []
+  );
 
   async function withBusy(id: string, fn: () => Promise<void>) {
     setBusyId(id);
@@ -207,52 +249,41 @@ export default function ProcurementWorkflowPage() {
         ))}
       </div>
 
+      <TableToolbar
+        onSearchChange={setSearchQuery}
+        searchAriaLabel="Search purchase orders"
+        searchPlaceholder="Search PO number or supplier..."
+        searchValue={searchQuery}
+      />
+
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div>
+          <div className="mb-2 px-1 text-sm font-semibold text-slate-700">
             Purchase Orders ({filtered.length})
           </div>
           {loading ? (
-            <InlineLoadingState label="Loading purchase orders..." />
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <InlineLoadingState label="Loading purchase orders..." />
+            </div>
           ) : loadError ? (
-            <div className="p-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <ErrorState
                 description={loadError}
                 onRetry={() => void refresh()}
                 title="Could not load purchase orders"
               />
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-4">
-              <EmptyState
-                description="No purchase orders match the current filter. Try another status or refresh the list."
-                title="No purchase orders to show"
-              />
-            </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
-              {filtered.map((po) => (
-                <li key={po.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(po.id)}
-                    className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50 ${
-                      selectedId === po.id ? "bg-slate-50" : ""
-                    }`}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{po.poNumber}</p>
-                      <p className="text-xs text-slate-500">
-                        {po.supplier?.name ?? "Unknown supplier"} · Total ${po.totalAmount.toLocaleString()}
-                      </p>
-                    </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClass(po.workflowStatus)}`}>
-                      {po.workflowStatus.replace("_", " ")}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <DataTable
+              ariaLabel="Purchase orders"
+              columns={procurementColumns}
+              emptyDescription="No purchase orders match the current filter or search. Try another status or refresh the list."
+              emptyTitle="No purchase orders to show"
+              getRowId={(po) => po.id}
+              onRowClick={(po) => setSelectedId(po.id)}
+              rowClassName={(po) => (selectedId === po.id ? "bg-slate-50" : undefined)}
+              rows={filtered}
+            />
           )}
         </div>
 

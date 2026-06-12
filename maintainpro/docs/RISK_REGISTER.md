@@ -164,3 +164,17 @@
 - **Residual Risk:** New pages must adopt shared helpers; server logs remain the source of truth for detailed diagnostics.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding new data-fetching pages or changing error handling.
+
+### RISK-UX-009-TABLE-REFACTOR-REGRESSION
+- **Category:** UX / Regression
+- **Description:** Shared DataTable rollout may hide row actions, break selection, or display mismatched columns on mobile card fallback.
+- **Impact:** Users unable to complete workflows (approve PO, assign technician, stock in/out) from list views.
+- **Likelihood:** Low-Medium during incremental rollout.
+- **Current Mitigation:**
+  - Limited rollout to Work Orders, Inventory, Procurement only; Assets deferred.
+  - Existing row actions and callbacks preserved; no API/query changes.
+  - Mobile card fallback renders same cell content and action slots.
+  - Unit tests for client-table helpers; QA checklist for row actions and pagination.
+- **Residual Risk:** Assets and other legacy tables remain on old patterns until follow-up rollout.
+- **Owner:** Web Platform
+- **Review Cadence:** Before each additional table migration.

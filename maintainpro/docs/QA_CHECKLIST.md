@@ -61,6 +61,17 @@
 - [ ] Mobile view: loading/error/empty panels remain readable and buttons are tappable.
 - [ ] Logout and auth/session behavior unchanged after state component rollout.
 
+## 2d) Data Table Baseline (UX-009)
+- [ ] Work Orders table shows sortable headers and row actions on desktop.
+- [ ] Work Orders table renders mobile card layout without losing edit/complete/delete actions.
+- [ ] Inventory table pagination previous/next works and selection checkboxes still function.
+- [ ] Inventory row action buttons (view, stock in/out, edit, delete) still work.
+- [ ] Procurement search filters PO number/supplier client-side without API changes.
+- [ ] Procurement row click still selects PO for detail panel.
+- [ ] Empty table states use shared EmptyState messaging.
+- [ ] No horizontal overflow issues on mobile for rolled-out tables.
+- [ ] Assets page unchanged in this pass (deferred due to complexity).
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

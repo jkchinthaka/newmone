@@ -39,7 +39,7 @@
 | UX-006 | P2 | UX/Nav | Professional responsive role-aware navigation | DONE | lib/navigation.ts, layout/sidebar/topbar/mobile-nav | Manual responsive QA, web/full build, navigation.spec.ts | Centralized nav config with role visibility, mobile drawer, active states, MaintainPro branding. |
 | UX-007 | P2 | UX/Nav | Breadcrumbs on deep pages | NOT_STARTED | shared components + pages | Manual UI test | |
 | UX-008 | P2 | UX/Nav | Global command palette | NOT_STARTED | new UI + search APIs | Manual keyboard test | |
-| UX-009 | P2 | UX/Tables | Reusable data-table + rollout | NOT_STARTED | components/ui/data-table.tsx + pages | Manual UI + pagination test | |
+| UX-009 | P2 | UX/Tables | Reusable data-table + rollout | DONE | components/ui/data-table.tsx, work-orders/inventory/procurement tables | Manual table QA, web/full build, data-table.spec.ts | Shared DataTable baseline with mobile cards; rolled out to Work Orders, Inventory, Procurement. Assets deferred (high complexity). |
 | UX-010 | P2 | UX/Dialogs | Replace window.prompt/confirm/alert | NOT_STARTED | apps/web | Grep + manual UI test | |
 | UX-011 | P2 | UX/States | Standard loading/error/empty/success states | DONE | components/ui/page-state.tsx, core list pages | Manual route QA, web/full build, page-state.spec.ts | Reusable page states applied to dashboard, work orders, inventory, procurement, system health, assets, reports. |
 | UX-012 | P2 | UX/Mobile | Mobile responsiveness + PWA improvements | NOT_STARTED | web routes/components | Manual device test | |
