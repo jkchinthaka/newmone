@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CarFront, Cog, Factory, PlusCircle, Users } from "lucide-react";
+import { ArrowRight, CarFront, Cog, Factory, PlusCircle, Users } from "lucide-react";
 
 import { createRequestDraft, useMaintenanceJobApp } from "@/components/maintenance-job/provider";
 import type { PendingRequest, RequestType } from "@/components/maintenance-job/types";
+import { LEGACY_FMS_HOME_PATH } from "@/lib/role-redirect";
 
 const filters: Array<{ label: string; value: RequestType | "ALL" }> = [
   { label: "All", value: "ALL" },
@@ -46,11 +48,31 @@ export default function MaintenanceHomePage() {
 
   return (
     <div className="space-y-5">
+      <section
+        aria-label="Legacy workspace notice"
+        className="rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5"
+      >
+        <p className="text-sm font-semibold text-amber-950">Legacy FMS Workspace</p>
+        <p className="mt-2 text-sm leading-6 text-amber-900">
+          Read-only archived workspace at {LEGACY_FMS_HOME_PATH}. Use the main MaintainPro dashboard
+          for current operations, work orders, inventory, and procurement.
+        </p>
+        <Link
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200"
+          href="/dashboard"
+        >
+          Go to MaintainPro Dashboard
+          <ArrowRight aria-hidden size={16} />
+        </Link>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
         <div className="card rounded-[26px] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Home</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+                Legacy FMS · Archived
+              </p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Pending Requests</h2>
               <p className="mt-2 text-sm text-slate-500">Overdue items are automatically pinned to the top so the team acts on the oldest commitments first.</p>
             </div>

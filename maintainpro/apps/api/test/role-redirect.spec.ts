@@ -2,6 +2,7 @@ import {
   DEFAULT_POST_LOGIN_REDIRECT,
   extractRoleName,
   getPostLoginRedirect,
+  LEGACY_FMS_HOME_PATH,
   resolvePostLoginPath
 } from "../../web/lib/role-redirect";
 
@@ -46,8 +47,8 @@ describe("role-redirect helper", () => {
   });
 
   it("never resolves to legacy /home", () => {
-    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).not.toBe("/home");
-    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).not.toBe("/home");
+    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).not.toBe(LEGACY_FMS_HOME_PATH);
+    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).not.toBe(LEGACY_FMS_HOME_PATH);
     expect(resolvePostLoginPath(["/home", DEFAULT_POST_LOGIN_REDIRECT])).toBe(
       DEFAULT_POST_LOGIN_REDIRECT
     );

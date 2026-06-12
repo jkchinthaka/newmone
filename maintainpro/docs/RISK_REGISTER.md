@@ -121,3 +121,17 @@
 - **Residual Risk:** New roles/routes must update the centralized map; backend RBAC remains mandatory for actual access control.
 - **Owner:** Web Platform
 - **Review Cadence:** Every auth/navigation release and when new role landing pages are added.
+
+### RISK-UX-005-LEGACY-HOME-CONFUSION
+- **Category:** UX / Product Clarity
+- **Description:** Users may still discover archived `/home` (legacy FMS) via bookmarks, old links, or legacy module navigation and mistake it for the primary product dashboard.
+- **Impact:** Operational confusion, duplicated workflows, and reduced trust in platform navigation.
+- **Likelihood:** Low-Medium while legacy module remains accessible.
+- **Current Mitigation:**
+  - `/home` no longer used for login/register/splash/maintenance default redirects.
+  - Legacy page, FMS layout, and maintenance shell clearly label archive/read-only status.
+  - Prominent CTA links from legacy surfaces to `/dashboard`.
+  - QA checklist covers non-`/home` post-login routing and legacy labelling.
+- **Residual Risk:** Legacy module routes (`/machinery`, `/service`, etc.) remain until a later archival/removal decision.
+- **Owner:** Web Platform
+- **Review Cadence:** When legacy FMS module is retired or further isolated.

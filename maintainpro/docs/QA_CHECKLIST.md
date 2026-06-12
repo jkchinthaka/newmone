@@ -30,6 +30,10 @@
 - [ ] VIEWER / AUDITOR login lands on `/reports`.
 - [ ] Unknown or missing role login safely lands on `/dashboard`.
 - [ ] Post-login redirect uses login response role (frontend landing only; backend RBAC still enforced on routes).
+- [ ] Login/register/splash success does **not** redirect to legacy `/home`.
+- [ ] Splash authenticated redirect uses role-aware helper (typically `/dashboard` or role module route).
+- [ ] Legacy `/home` page shows "Legacy FMS Workspace" archive label and dashboard CTA.
+- [ ] `/maintenance` route redirects to `/dashboard` (not `/home`).
 - [ ] Unauthorized route access is blocked by role/permission checks.
 - [ ] Sidebar/menu items match role permissions.
 

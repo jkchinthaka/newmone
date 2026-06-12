@@ -1,13 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, BellRing, CarFront, Factory, List, ShieldCheck, UserCircle2, Wrench } from "lucide-react";
+import Link from "next/link";
+import { Activity, BarChart3, BellRing, CarFront, Factory, LayoutDashboard, List, ShieldCheck, UserCircle2, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useMaintenanceJobApp } from "./provider";
 
 const bottomNav = [
-  { href: "/home", label: "Home", icon: Activity },
+  { href: "/home", label: "Legacy", icon: Activity },
   { href: "/machinery", label: "Machinery", icon: Factory },
   { href: "/service", label: "Service", icon: Wrench },
   { href: "/vehicle", label: "Vehicle", icon: CarFront }
@@ -27,12 +28,20 @@ export function MaintenanceJobShell({ children }: { children: ReactNode }) {
       <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-[#0f2b46] via-[#115ea8] to-[#b8860b] text-white shadow-[0_24px_60px_rgba(15,43,70,0.28)]">
         <div className="grid gap-5 p-5 lg:grid-cols-[1.45fr_0.95fr] lg:p-7">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Maintenance Job</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Fleet & Facility Maintenance Management System</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Legacy FMS Workspace</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Archived Maintenance Job Module</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/82">
-              Pending requests, machinery jobs, service jobs, vehicle jobs, scheduling, costing, and completion tracking in one connected web workspace.
+              Read-only archived workspace for legacy pending requests and job demos. Current
+              operations live in MaintainPro dashboards, work orders, inventory, and procurement.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
+              <Link
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
+                href="/dashboard"
+              >
+                <LayoutDashboard size={14} />
+                MaintainPro Dashboard
+              </Link>
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Role: {role.replaceAll("_", " ")}</span>
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Responsive web workflow</span>
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Overdue-first queueing</span>

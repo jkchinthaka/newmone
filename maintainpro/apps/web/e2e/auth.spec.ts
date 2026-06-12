@@ -268,9 +268,19 @@ test.describe("authentication", () => {
       });
     });
 
-    await page.goto("/home");
+    await page.goto("/dashboard");
 
     await expect(page).toHaveURL(/\/login\?reason=session_expired$/);
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  });
+
+  test("legacy /home route shows archive label and dashboard link", async ({ page }) => {
+    await mockAuthenticatedShell(page);
+
+    await page.goto("/home");
+
+    await expect(page.getByText("Legacy FMS Workspace").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Go to MaintainPro Dashboard/i }).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/home$/);
   });
 });

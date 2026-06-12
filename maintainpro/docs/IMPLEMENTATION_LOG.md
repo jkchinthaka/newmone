@@ -646,5 +646,44 @@ Record each completed task with:
 - Remaining risks:
   - Frontend landing redirect is UX-only; route-level authorization must remain enforced server-side.
   - Several role-specific target routes are not built yet and currently fall back to `/dashboard` or nearest existing module route.
-  - Legacy `/home` and splash redirect cleanup deferred to UX-005.
+  - `SEC-006` tenant-isolation final sweep remains in progress.
+
+## 2026-06-12 | UX-005 | Legacy `/home` routing cleanup
+- What changed:
+  - Audited web references to `/home` and legacy FMS branding.
+  - Removed `/home` as a default/automatic destination:
+    - Splash authenticated redirect now uses `getPostLoginRedirect()` from `/auth/me` (role-aware, never `/home`).
+    - `/maintenance` server redirect now targets `/dashboard` instead of `/home`.
+    - Login/register already used role redirect helper from UX-004 (verified unchanged).
+  - Retained `/home` as an archived legacy FMS workspace with clearer labelling:
+    - Added archive banner + “Go to MaintainPro Dashboard” CTA on `(fms)/home` page.
+    - Updated FMS layout banner with dashboard link.
+    - Updated maintenance-job shell hero copy to “Legacy FMS Workspace / Archived Maintenance Job Module”.
+    - Renamed bottom nav label from “Home” to “Legacy” (href remains `/home` for archived navigation only).
+  - Updated splash branding from legacy “Maintenance Job” copy to MaintainPro identity.
+  - Added `LEGACY_FMS_HOME_PATH` constant in `role-redirect.ts` documenting non-default status.
+  - Updated e2e auth tests: protected-route check uses `/dashboard`; added legacy `/home` archive label test.
+- Files changed:
+  - `maintainpro/apps/web/app/splash/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/maintenance/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/(fms)/home/page.tsx`
+  - `maintainpro/apps/web/app/(dashboard)/(fms)/layout.tsx`
+  - `maintainpro/apps/web/components/maintenance-job/shell.tsx`
+  - `maintainpro/apps/web/lib/role-redirect.ts`
+  - `maintainpro/apps/web/e2e/auth.spec.ts`
+  - `maintainpro/apps/api/test/role-redirect.spec.ts`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run test --workspace @maintainpro/api` (pass; 38 suites, 186 tests)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - `/home` remains reachable for archived/demo workflows and must stay clearly labelled to avoid user confusion.
+  - Role-aware dashboard replacement remains deferred (see TODO known issues).
   - `SEC-006` tenant-isolation final sweep remains in progress.

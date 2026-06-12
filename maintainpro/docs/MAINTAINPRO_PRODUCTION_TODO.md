@@ -10,6 +10,7 @@
 
 ## Known Issues / Blockers
 - `SEC-006` tenant-isolation final sweep remains in progress and must be completed before final security sign-off.
+- Role-aware dashboard replacement (original dashboard UX scope) remains deferred after `/home` legacy routing cleanup.
 
 ## Next Recommended Phase
 - Phase 2 UI/UX foundation can start now (navigation, auth UX refinements, reusable tables/states, responsive polish).
@@ -34,7 +35,7 @@
 | UX-002 | P2 | UX/Auth | Rebuild enterprise login page | DONE | apps/web/app/(auth)/login/page.tsx, auth components | Manual responsive test, web/full build | Professional enterprise login with accessible form, password toggle, invitation-only guidance, no public sign-up link or demo credentials. |
 | UX-003 | P2 | UX/Auth | Change Username to Work Email behavior | DONE | login/page.tsx, lib/login-identifier.ts, e2e/auth.spec.ts | Manual UI test, web/full build, e2e auth | Email-only login aligned with backend `LoginDto`; removed silent production alias; optional dev alias via `NEXT_PUBLIC_LOGIN_DEV_LOCAL_ALIAS`. |
 | UX-004 | P2 | UX/Nav | Role-based login redirect routing | DONE | login/page.tsx, register-form-card.tsx, lib/role-redirect.ts | Manual role test, web/full build, `role-redirect.spec.ts` | Centralized post-login role landing map; auth success no longer redirects to legacy `/home`. |
-| UX-005 | P2 | UX/Routing | Clean up legacy `/home` default routing | IN_PROGRESS | splash, fms/home, maintenance redirect, maintenance-job shell | Manual QA, web/full build | Remove `/home` as default destination; label retained legacy FMS workspace and link to `/dashboard`. |
+| UX-005 | P2 | UX/Routing | Clean up legacy `/home` default routing | DONE | splash, fms/home, maintenance redirect, maintenance-job shell | Manual QA, web/full build, role-redirect tests | Removed `/home` as default destination; retained legacy FMS workspace with archive labelling and dashboard CTA. |
 | UX-006 | P2 | UX/Nav | Professional responsive role-aware navigation | NOT_STARTED | layout/sidebar/topbar | Manual responsive test | |
 | UX-007 | P2 | UX/Nav | Breadcrumbs on deep pages | NOT_STARTED | shared components + pages | Manual UI test | |
 | UX-008 | P2 | UX/Nav | Global command palette | NOT_STARTED | new UI + search APIs | Manual keyboard test | |
