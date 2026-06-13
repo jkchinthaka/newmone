@@ -330,3 +330,18 @@
 - **Residual Risk:** Existing `GET /users` still returns broader user objects for permissioned callers; admin mutations remain in Settings outside this view.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When extending admin user views or changing User model/API responses.
+
+### RISK-ADMIN-002B-STATUS-MUTATION-MISUSE
+- **Category:** Security / Admin / Authorization
+- **Description:** Admin user status mutation (`PATCH /admin/users/:id/status`) could be misused to lock out tenants, super admins, or cross-tenant users if RBAC, tenant scoping, or protection rules drift from the sanitized DTO contract.
+- **Impact:** Unauthorized account lockout, tenant admin denial-of-service, privilege escalation attempts, or exposure of sensitive user fields if response sanitization regresses.
+- **Likelihood:** Low with current guards/tests; Medium if settings `/users/:id/status` and admin endpoint diverge or frontend-only checks replace backend enforcement.
+- **Current Mitigation:**
+  - Dedicated admin status endpoint with `@Roles(ADMIN, SUPER_ADMIN)` and `UsersService.updateAdminUserStatus()` protection rules (self-deactivation block, ADMIN vs SUPER_ADMIN block, last active SUPER_ADMIN block, tenant membership scope for ADMIN).
+  - Returns sanitized `AdminUserAccessRow` only; no password/token/internal auth fields.
+  - Frontend action visibility via `canShowAdminUserStatusAction()` is UX-only; ConfirmDialog required for mutations.
+  - Tests in `admin-users-status.spec.ts`, `admin-users-access.spec.ts`, and `admin-users.spec.ts`.
+  - QA checklist section 2p for manual verification.
+- **Residual Risk:** Settings page still exposes separate user status mutation paths; invite/create/delete/role/password flows remain outside admin console scope.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When adding admin user mutations, changing User model status fields, or altering admin DTO allowlists.

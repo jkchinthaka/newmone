@@ -1,9 +1,10 @@
-import { Body, Controller, Get, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { RoleName } from "@prisma/client";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { UpdateUserStatusDto } from "../users/dto/users.dto";
 import { UsersService } from "../users/users.service";
 
 @ApiTags("Admin")
@@ -18,5 +19,12 @@ export class AdminAccessController {
   async listUsersForAccessReview() {
     const users = await this.usersService.findAllForAdminAccessView();
     return { data: users, message: "Admin user access list fetched" };
+  }
+
+  @Patch("users/:id/status")
+  @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  async updateUserStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
+    const user = await this.usersService.updateAdminUserStatus(id, body.isActive);
+    return { data: user, message: "User status updated" };
   }
 }

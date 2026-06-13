@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
@@ -156,6 +156,77 @@ export class UsersService {
     });
 
     return users.map((user) => this.toAdminUserAccessRow(user, isSuperAdmin));
+  }
+
+  async updateAdminUserStatus(userId: string, isActive: boolean): Promise<AdminUserAccessRow> {
+    const actorId = requestContext.getActorId();
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    const target = await this.findAdminMutationTarget(userId);
+
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+
+    if (actorId && actorId === userId && !isActive) {
+      throw new BadRequestException("You cannot deactivate your own account");
+    }
+
+    if (!isSuperAdmin && target.role.name === RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("Administrators cannot modify super admin accounts");
+    }
+
+    if (!isActive && target.role.name === RoleName.SUPER_ADMIN) {
+      const activeSuperAdminCount = await this.prisma.user.count({
+        where: {
+          isActive: true,
+          role: { name: RoleName.SUPER_ADMIN }
+        }
+      });
+
+      if (activeSuperAdminCount <= 1) {
+        throw new BadRequestException("Cannot deactivate the last active super admin");
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive },
+      include: {
+        role: { select: { name: true } },
+        tenant: { select: { id: true, name: true } },
+        memberships: {
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          include: {
+            tenant: { select: { id: true, name: true } }
+          }
+        }
+      }
+    });
+
+    return this.toAdminUserAccessRow(updated, isSuperAdmin);
+  }
+
+  private async findAdminMutationTarget(userId: string) {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+
+    return this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        ...(!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {})
+      },
+      include: {
+        role: { select: { name: true } },
+        tenant: { select: { id: true, name: true } },
+        memberships: {
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          include: {
+            tenant: { select: { id: true, name: true } }
+          }
+        }
+      }
+    });
   }
 
   private toAdminUserAccessRow(

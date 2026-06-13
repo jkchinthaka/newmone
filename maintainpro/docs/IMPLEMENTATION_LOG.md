@@ -1318,3 +1318,33 @@ Record each completed task with:
 - Remaining risks:
   - Legacy `GET /users` response shape remains broader for settings callers.
   - No dedicated user detail route; list-only review in this pass.
+
+## 2026-06-12 | ADMIN-002B | Safe deactivate/reactivate user flow
+- Audit findings:
+  - User model already has `isActive`; no schema change required.
+  - ADMIN-002A `GET /admin/users` returns sanitized `AdminUserAccessRow` via allowlist mapping in `UsersService.toAdminUserAccessRow()`.
+  - Existing `PATCH /users/:id/status` in settings lacks admin-specific protections (self-deactivation, SUPER_ADMIN rules, last super-admin guard); not duplicated under admin.
+  - Request context supplies `actorId`, `actorRole`, and `tenantId` for tenant-scoped enforcement.
+- Endpoint/route added:
+  - `PATCH /admin/users/:id/status` with `{ isActive: boolean }` on `AdminAccessController`, delegating to `UsersService.updateAdminUserStatus()`.
+- Protection rules:
+  - `@Roles(SUPER_ADMIN, ADMIN)` on endpoint; non-admin blocked by RolesGuard.
+  - ADMIN: tenant membership filter on mutation target lookup.
+  - SUPER_ADMIN: cross-tenant mutation allowed when target found.
+  - Reject self-deactivation (`actorId === userId && !isActive`).
+  - Reject ADMIN mutating SUPER_ADMIN targets.
+  - Reject deactivating last active SUPER_ADMIN (count guard).
+  - Return sanitized `AdminUserAccessRow` only.
+- Frontend changes:
+  - `/admin/users` row Deactivate/Reactivate button with UX-010 ConfirmDialog copy.
+  - `canShowAdminUserStatusAction()` hides self, SUPER_ADMIN (for ADMIN), and missing-context actions.
+  - Mutation via `updateAdminUserStatus()`; optimistic list row refresh + toast feedback.
+  - DataTable actions column preserved with mobile card accessibility labels.
+- Tests/checks run:
+  - `admin-users-status.spec.ts` (service protections + RolesGuard on endpoint).
+  - Extended `admin-users.spec.ts` (action visibility helper + labels).
+  - Existing `admin-users-access.spec.ts` unchanged and passing.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Deferred mutation flows:
+  - No invite/create/delete/role-edit/password-reset/tenant admin workspace in admin console.
+  - Settings user mutation flows unchanged.

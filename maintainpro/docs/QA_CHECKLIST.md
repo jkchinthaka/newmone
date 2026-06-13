@@ -202,6 +202,18 @@
 - [ ] Mobile card layout remains readable and tappable.
 - [ ] No invite/create/edit/delete user actions appear on `/admin/users`.
 
+## 2p) Admin User Status Controls (ADMIN-002B)
+- [ ] ADMIN can deactivate an own-tenant user from `/admin/users` after ConfirmDialog confirmation.
+- [ ] ADMIN can reactivate an inactive own-tenant user with non-destructive confirmation copy.
+- [ ] ADMIN cannot mutate a user from another tenant (backend returns not found/forbidden; no UI action for out-of-scope rows).
+- [ ] ADMIN cannot mutate SUPER_ADMIN users (no action shown; backend rejects if forced).
+- [ ] Current user cannot deactivate themselves (no self action; backend rejects self-deactivation).
+- [ ] Last active SUPER_ADMIN cannot be deactivated (backend protection; SUPER_ADMIN-only scenario).
+- [ ] Mobile card layout shows a tappable Deactivate/Reactivate button with accessible label.
+- [ ] Success and error feedback appear after status change; list refreshes updated row.
+- [ ] No password, token, hash, or internal auth fields appear in UI or network payload.
+- [ ] No invite/create/delete/role-edit/password-reset actions appear on `/admin/users`.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

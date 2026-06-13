@@ -3,13 +3,17 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
-import { fetchAdminUserAccessList } from "@/lib/admin-users-api";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { fetchAdminUserAccessList, updateAdminUserStatus } from "@/lib/admin-users-api";
 import { isAdminConsoleRole } from "@/lib/admin-console";
+import { getApiErrorMessage } from "@/lib/api-client";
+import type { AdminUserAccessRow } from "@/lib/admin-users";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
@@ -21,12 +25,28 @@ export function AdminUsersPage() {
   const isAdmin = isAdminConsoleRole(roleName);
   const isSuperAdmin = roleName === "SUPER_ADMIN";
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const query = useQuery({
     queryKey: ["admin", "users"],
     queryFn: fetchAdminUserAccessList,
     enabled: isAdmin,
     refetchInterval: 60_000
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
+      updateAdminUserStatus(userId, isActive),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<AdminUserAccessRow[]>(["admin", "users"], (current = []) =>
+        current.map((row) => (row.id === updatedUser.id ? updatedUser : row))
+      );
+      toast.success(updatedUser.isActive ? "User reactivated" : "User deactivated");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Could not update user status."));
+    }
   });
 
   const filteredRows = useMemo(() => {
@@ -44,6 +64,34 @@ export function AdminUsersPage() {
     );
   }, [query.data, search]);
 
+  const handleStatusAction = async (row: AdminUserAccessRow) => {
+    const nextActive = !row.isActive;
+    const confirmed = await confirm(
+      nextActive
+        ? {
+            title: "Reactivate user?",
+            description:
+              "This will allow the user to access MaintainPro again if their account and tenant are valid.",
+            confirmLabel: "Reactivate user",
+            cancelLabel: "Keep inactive",
+            variant: "default"
+          }
+        : {
+            title: "Deactivate user?",
+            description: "This will prevent the user from accessing MaintainPro until they are reactivated.",
+            confirmLabel: "Deactivate user",
+            cancelLabel: "Keep active",
+            variant: "destructive"
+          }
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    statusMutation.mutate({ userId: row.id, isActive: nextActive });
+  };
+
   if (!isAdmin) {
     return (
       <div className="space-y-5">
@@ -59,6 +107,7 @@ export function AdminUsersPage() {
   return (
     <div className="space-y-5">
       <PageBreadcrumbs />
+      {confirmDialog}
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -70,8 +119,8 @@ export function AdminUsersPage() {
           </Link>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">Users & Access</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Review users, roles, tenant association, and access status. This view is read-only; user invitations and
-            status changes remain in Settings until dedicated admin mutation flows ship.
+            Review users, roles, tenant association, and access status. Deactivate or reactivate users with confirmation;
+            invite, delete, role edits, and password resets remain deferred.
           </p>
         </div>
         <button
@@ -87,12 +136,12 @@ export function AdminUsersPage() {
         {isSuperAdmin ? (
           <p>
             <span className="font-semibold text-slate-900">SUPER_ADMIN scope:</span> showing users across all tenants
-            where the backend returns them. Tenant columns are visible for cross-tenant review.
+            where the backend returns them. Status changes enforce super-admin protection rules on the server.
           </p>
         ) : (
           <p>
-            <span className="font-semibold text-slate-900">Tenant scope:</span> showing users associated with your
-            active tenant only.
+            <span className="font-semibold text-slate-900">Tenant scope:</span> showing and updating users associated
+            with your active tenant only. Super admin accounts cannot be modified by tenant admins.
           </p>
         )}
       </div>
@@ -113,7 +162,16 @@ export function AdminUsersPage() {
       ) : query.isError ? (
         <ErrorState title="Could not load users" error={query.error} onRetry={() => query.refetch()} />
       ) : (
-        <UserAccessTable rows={filteredRows} showTenantColumns={isSuperAdmin} />
+        <UserAccessTable
+          actionContext={{
+            viewerUserId: user.id,
+            viewerRoleName: roleName
+          }}
+          onStatusAction={handleStatusAction}
+          pendingUserId={statusMutation.isPending ? statusMutation.variables?.userId ?? null : null}
+          rows={filteredRows}
+          showTenantColumns={isSuperAdmin}
+        />
       )}
     </div>
   );

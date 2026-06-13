@@ -42,3 +42,31 @@ export function adminUserAccessTableUsesSensitiveFields(): boolean {
 export function formatAdminUserStatus(isActive: boolean): string {
   return isActive ? "Active" : "Inactive";
 }
+
+export type AdminUserStatusActionContext = {
+  viewerUserId: string | null;
+  viewerRoleName: string | null;
+};
+
+export function canShowAdminUserStatusAction(
+  row: AdminUserAccessRow,
+  context: AdminUserStatusActionContext
+): boolean {
+  if (!context.viewerUserId || !context.viewerRoleName) {
+    return false;
+  }
+
+  if (row.id === context.viewerUserId) {
+    return false;
+  }
+
+  if (context.viewerRoleName !== "SUPER_ADMIN" && row.roleName === "SUPER_ADMIN") {
+    return false;
+  }
+
+  return true;
+}
+
+export function getAdminUserStatusActionLabel(isActive: boolean): string {
+  return isActive ? "Deactivate" : "Reactivate";
+}

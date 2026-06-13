@@ -49,6 +49,7 @@
 | DASH-001 | P2 | UX/Dashboard | Role-aware dashboard content | DONE | lib/dashboard-roles.ts, components/dashboard/*, dashboard/page.tsx | Manual role QA, dashboard-roles.spec.ts, web/full build | Role-specific dashboard composition using existing APIs only; no backend changes or fake metrics. |
 | ADMIN-001 | P2 | Admin | Dedicated /admin console | DONE | app/(dashboard)/admin, lib/admin-console.ts, navigation/command palette | Manual admin RBAC QA, admin-console.spec.ts, web/full build | Read-only admin foundation with section placeholders; ADMIN/SUPER_ADMIN nav visibility; no user/tenant/RBAC mutations. |
 | ADMIN-002A | P2 | Admin | Read-only Users & Access view | DONE | admin/users route, GET /admin/users, admin-users UI | Manual admin users QA, admin-users*.spec.ts, web/full build | Sanitized read-only user list; ADMIN tenant-scoped; SUPER_ADMIN cross-tenant; no mutations. |
+| ADMIN-002B | P2 | Admin | Safe deactivate/reactivate user flow | DONE | PATCH /admin/users/:id/status, admin users UI actions | Manual status QA, admin-users-status.spec.ts, web/full build | Status-only mutation with RBAC, tenant scope, self/super-admin protections; sanitized DTO; ConfirmDialog UX. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |
