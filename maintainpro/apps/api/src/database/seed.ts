@@ -15,6 +15,11 @@ import {
 import * as bcrypt from "bcryptjs";
 
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
+import {
+  BUILDING_SUPERVISOR_PERMISSIONS,
+  FACILITY_MANAGER_PERMISSIONS,
+  FACILITY_PERMISSION_KEYS
+} from "./facility-seed.constants";
 
 const prisma = new PrismaClient();
 
@@ -83,6 +88,9 @@ const permissionCatalog = [
   "cleaning.log_visit",
   "cleaning.sign_off",
   "cleaning.report_issue",
+
+  // Building / Facility module — BUILD-002 foundation
+  ...FACILITY_PERMISSION_KEYS,
 
   // Phase 4 — vehicle compliance, documents, accidents, claims, fines
   "compliance.view",
@@ -269,7 +277,10 @@ const rolePermissions: Record<RoleName, string[]> = {
     "fuel_analytics.view",
     "vehicle_cost_analytics.view",
     "operations.scan_lookup",
-    "predictive_insights.view"
+    "predictive_insights.view",
+    "facilities.view",
+    "facility_issues.view",
+    "facility_issues.manage"
   ],
   TECHNICIAN: [
     "dashboard.view",
@@ -348,7 +359,11 @@ const rolePermissions: Record<RoleName, string[]> = {
     "driver_intelligence.view",
     "driver_intelligence.manage",
     "operations.scan_lookup",
-    "predictive_insights.view"
+    "predictive_insights.view",
+    "facilities.view",
+    "facility_issues.view",
+    "facility_issues.manage",
+    "facility_inspections.view"
   ],
   SECURITY_OFFICER: [
     "dashboard.view",
@@ -358,7 +373,7 @@ const rolePermissions: Record<RoleName, string[]> = {
     "operations.scan_lookup",
     "predictive_insights.view"
   ],
-  CLEANER: ["cleaning.log_visit", "cleaning.report_issue"],
+  CLEANER: ["cleaning.log_visit", "cleaning.report_issue", "facility_issues.report"],
   DRIVER: [
     "dashboard.view",
     "fleet.log_fuel_trip",
@@ -377,7 +392,23 @@ const rolePermissions: Record<RoleName, string[]> = {
     "operations.scan_lookup",
     "predictive_insights.view"
   ],
-  VIEWER: ["dashboard.view", "dashboard_analytics.view", "modules.view_all", "reports.view", "vehicles.view", "part_requests.view", "settings.view", "driver_intelligence.view", "fuel_analytics.view", "vehicle_cost_analytics.view"],
+  VIEWER: [
+    "dashboard.view",
+    "dashboard_analytics.view",
+    "modules.view_all",
+    "reports.view",
+    "vehicles.view",
+    "part_requests.view",
+    "settings.view",
+    "driver_intelligence.view",
+    "fuel_analytics.view",
+    "vehicle_cost_analytics.view",
+    "facilities.view",
+    "facility_issues.view",
+    "facility_inspections.view"
+  ],
+  FACILITY_MANAGER: [...FACILITY_MANAGER_PERMISSIONS],
+  BUILDING_SUPERVISOR: [...BUILDING_SUPERVISOR_PERMISSIONS],
   FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
     "dashboard.view",
@@ -580,7 +611,9 @@ async function verifySeedBaseline(tenantId: string) {
     RoleName.MANAGER,
     RoleName.SECURITY_OFFICER,
     RoleName.DRIVER,
-    RoleName.TECHNICIAN
+    RoleName.TECHNICIAN,
+    RoleName.FACILITY_MANAGER,
+    RoleName.BUILDING_SUPERVISOR
   ];
 
   const [roles, permissions, systemConfiguration, usersCount, tenantsCount] = await Promise.all([

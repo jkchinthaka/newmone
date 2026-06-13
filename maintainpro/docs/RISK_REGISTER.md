@@ -501,3 +501,39 @@
 - **Residual Risk:** Legacy role alias mapping (`COMPATIBLE_PERMISSION_ALIASES`) may need facility permission entries.
 - **Owner:** Web Platform + API
 - **Review Cadence:** At BUILD-002 role seed and BUILD-006 web route launch.
+
+### RISK-BUILD-002-FACILITY-HIERARCHY-TENANT-ISOLATION
+- **Category:** Security / Multi-tenancy
+- **Description:** New Property/Building/Floor/Room models must remain tenant-scoped on every query path once APIs ship.
+- **Impact:** Cross-tenant facility data exposure if `tenantId` filters are omitted in BUILD-003+ services.
+- **Likelihood:** Low after direct `tenantId` fields and compound indexes; Medium during new module introduction.
+- **Current Mitigation:**
+  - All hierarchy models include required `tenantId` with cascade delete and tenant-scoped indexes.
+  - BUILD-001/002 plan mandates tenant isolation tests per endpoint before UI rollout.
+- **Residual Risk:** Parent/child FK validation across tenants must be enforced in service layer (BUILD-003).
+- **Owner:** API Platform
+- **Review Cadence:** At BUILD-003 hierarchy CRUD implementation.
+
+### RISK-BUILD-002-FACILITY-MIGRATION-BACKFILL
+- **Category:** Data / Migration
+- **Description:** Existing `CleaningLocation.building`/`floor` strings and `FacilityIssue.locationId` must be migrated to Room FKs in later phases.
+- **Impact:** Split location data, duplicate hierarchy entries, broken issue/location joins if migration is rushed.
+- **Likelihood:** Medium when BUILD-004 links issues to rooms without backfill plan.
+- **Current Mitigation:**
+  - BUILD-002 adds parallel hierarchy only; no destructive migration in this pass.
+  - Plan documents gradual `roomId` adoption on CleaningLocation and FacilityIssue.
+- **Residual Risk:** Operators may create duplicate spatial records until migration tooling exists.
+- **Owner:** Product + API
+- **Review Cadence:** Before BUILD-004 issue extensions.
+
+### RISK-BUILD-002-FACILITY-ROLE-PERMISSION-DRIFT
+- **Category:** Security / RBAC
+- **Description:** Frontend facility roles now align with Prisma enum, but permission guards and API endpoints do not consume new keys until BUILD-003+.
+- **Impact:** Users with facility roles may appear authorized in UI before backend enforcement exists.
+- **Likelihood:** Medium until facility module ships; Low after endpoint `@Permissions` wiring.
+- **Current Mitigation:**
+  - Conservative permission assignments in `facility-seed.constants.ts` with tests in `building-schema-seed.spec.ts`.
+  - Seed verification requires FACILITY_MANAGER and BUILDING_SUPERVISOR roles.
+- **Residual Risk:** `/facility` routes still missing; role redirects remain broken until BUILD-006.
+- **Owner:** Web Platform + API
+- **Review Cadence:** At BUILD-003 API RBAC and BUILD-006 route launch.

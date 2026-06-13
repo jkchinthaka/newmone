@@ -404,3 +404,52 @@ flowchart LR
 ## 18. BUILD-001 completion statement
 
 This planning pass produced documentation and roadmap updates only. **No Prisma schema changes, no new API modules, and no new web routes were added.** Implementation begins with **BUILD-002**.
+
+---
+
+## 19. BUILD-002 implementation (schema + seed foundation)
+
+**Status:** Complete — schema and seed alignment only; no API/UI.
+
+### Models added (`prisma/schema.prisma`)
+
+| Model | Key fields | Tenant scoping |
+|-------|------------|----------------|
+| **Property** | `name`, `code`, `address?`, `isActive` | `tenantId` + `@@unique([tenantId, code])` |
+| **Building** | `propertyId`, `name`, `code`, `description?`, `isActive` | `tenantId` + `@@unique([tenantId, code])` |
+| **Floor** | `buildingId`, `name`, `levelNumber?`, `isActive` | `tenantId` + indexes on `buildingId` |
+| **Room** | `floorId`, `name`, `code?`, `roomType?` (`FacilityRoomType`), `isActive` | `tenantId` + indexes on `floorId` |
+
+All models include `createdAt`/`updatedAt`, cascade delete from parent hierarchy, and direct `tenantId` for secure listing queries.
+
+### Role enum alignment
+
+Added to `RoleName`:
+
+- `FACILITY_MANAGER`
+- `BUILDING_SUPERVISOR`
+
+### Permission seed keys (`facility-seed.constants.ts`)
+
+- `facilities.view`, `facilities.manage`
+- `facility_issues.view`, `facility_issues.report`, `facility_issues.manage`
+- `facility_inspections.view`, `facility_inspections.manage`
+
+### Role permission assignments (conservative)
+
+| Role | Facility permissions |
+|------|---------------------|
+| **SUPER_ADMIN / ADMIN** | All catalog keys (ADMIN excludes `system.configure`) |
+| **FACILITY_MANAGER** | Full facility + issue + inspection manage; `cleaning.report_issue`, `cleaning.manage` |
+| **BUILDING_SUPERVISOR** | View/manage issues & inspections; no `facilities.manage` or `users.view` |
+| **MANAGER** | `facilities.view`, `facility_issues.view`, `facility_issues.manage` |
+| **SUPERVISOR** | View/manage issues; `facility_inspections.view` |
+| **CLEANER** | `facility_issues.report` (plus existing `cleaning.report_issue`) |
+| **VIEWER** | Read-only facility/issue/inspection view keys |
+
+### Deferred to BUILD-003+
+
+- `FacilityIssue.roomId`, `workOrderId`, categories
+- `CleaningLocation.roomId` migration
+- Facility API endpoints and `/facilities` UI
+- Work Order bridge and reports

@@ -43,6 +43,10 @@ model Tenant {
   cleaningLocations CleaningLocation[]
   cleaningVisits    CleaningVisit[]
   facilityIssues    FacilityIssue[]
+  properties        Property[]
+  buildings         Building[]
+  floors            Floor[]
+  rooms             Room[]
   jobCodes          JobCode[]
   departments       Department[]
   vehicleDocuments  VehicleDocument[]
@@ -294,6 +298,8 @@ enum RoleName {
   FARM_WORKER
   IRRIGATION_OPERATOR
   HARVEST_CREW
+  FACILITY_MANAGER
+  BUILDING_SUPERVISOR
 }
 
 model TenantMembership {
@@ -1601,6 +1607,101 @@ enum RiskLevel {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+// ============================================================
+// FACILITY / BUILDING HIERARCHY — BUILD-002 foundation
+// ============================================================
+
+enum FacilityRoomType {
+  OFFICE
+  RESTROOM
+  PLANT_ROOM
+  CORRIDOR
+  LOBBY
+  STORAGE
+  MEETING_ROOM
+  OTHER
+}
+
+model Property {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String     @db.ObjectId
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  code      String
+  address   String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  buildings Building[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, name])
+}
+
+model Building {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  propertyId  String   @db.ObjectId
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name        String
+  code        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  floors Floor[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, propertyId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, name])
+}
+
+model Floor {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildingId  String   @db.ObjectId
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  name        String
+  levelNumber Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms Room[]
+
+  @@index([tenantId])
+  @@index([tenantId, buildingId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, name])
+}
+
+model Room {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String            @db.ObjectId
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  floorId    String            @db.ObjectId
+  floor      Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  name       String
+  code       String?
+  roomType   FacilityRoomType?
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, floorId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, name])
 }
 
 // ============================================================

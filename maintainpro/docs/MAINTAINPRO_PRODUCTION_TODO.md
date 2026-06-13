@@ -58,7 +58,8 @@
 | ADMIN-004A | P2 | Admin | Read-only roles & permissions matrix | DONE | GET /admin/roles-permissions, /admin/roles UI | Manual roles matrix QA, admin-roles*.spec.ts, web/full build | Global permission catalog + tenant-scoped roles; coverage matrix; no mutations. |
 | ADMIN-004B | P2 | Admin | Harden legacy role/permission read responses | DONE | roles.service.ts, GET /roles, GET /roles/permissions | Manual settings/admin QA, roles-legacy-hardening.spec.ts, web/full build | PublicRoleResponse/PublicPermissionResponse allowlists; Settings-compatible summaries. |
 | BUILD-001 | P2 | Facility | Building/facility module planning | DONE | docs/BUILDING_FACILITY_MODULE_PLAN.md | Plan review, no runtime changes | Audit complete; reuse vs new-build documented; BUILD-002 next. |
-| BUILD-002 | P2 | Facility | Schema foundation + facility roles seed | NOT_STARTED | prisma/schema, roles seed | Schema + RBAC tests | Property/Building/Floor/Room models; FACILITY_MANAGER/BUILDING_SUPERVISOR in RoleName. |
+| BUILD-002 | P2 | Facility | Schema foundation + facility roles seed | DONE | prisma/schema, roles seed | Schema + RBAC tests, prisma validate | Property/Building/Floor/Room models; FACILITY_MANAGER/BUILDING_SUPERVISOR in RoleName. |
+| BUILD-003 | P2 | Facility | Facility hierarchy API module | NOT_STARTED | facility module, GET/POST /facilities/* | Tenant isolation tests, web/full build | Hierarchy CRUD only; no issue/WO bridge yet. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

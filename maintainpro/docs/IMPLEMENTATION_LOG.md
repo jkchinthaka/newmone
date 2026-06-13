@@ -1563,3 +1563,21 @@ Record each completed task with:
   - No schema migration, no API modules, no web routes, no seed changes in BUILD-001.
 - Tests/checks run:
   - Documentation-only change; verification: typecheck, lint, web build, API build, full build, API tests.
+
+## 2026-06-13 | BUILD-002 | Facility schema foundation + roles seed
+- Audit findings:
+  - BUILD-001 plan approved Property→Building→Floor→Room hierarchy with direct `tenantId` on each model.
+  - Frontend already referenced `FACILITY_MANAGER` / `BUILDING_SUPERVISOR`; Prisma enum lacked both values.
+  - Seed uses idempotent `permissionCatalog` + `rolePermissions` loop over all `RoleName` values.
+  - `FacilityIssue` / `CleaningLocation` extensions deferred to BUILD-004 to avoid premature workflow coupling.
+- Schema models added:
+  - `Property`, `Building`, `Floor`, `Room`, enum `FacilityRoomType`; Tenant relations for all four models.
+- Role/permission seed changes:
+  - Added 7 facility permission keys to catalog; `FACILITY_MANAGER` and `BUILDING_SUPERVISOR` role mappings in `facility-seed.constants.ts`.
+  - Extended MANAGER, SUPERVISOR, CLEANER, VIEWER with conservative facility permissions.
+  - `verifySeedBaseline` now requires FACILITY_MANAGER and BUILDING_SUPERVISOR roles.
+- Deferred API/UI work:
+  - No facility module, endpoints, `/facilities` routes, issue/WO bridge, or fake business seed data.
+- Tests/checks run:
+  - `building-schema-seed.spec.ts` for RoleName enum, permission keys, and role permission assignments.
+  - `npx prisma validate`, typecheck, lint, web build, API build, full build, API tests.

@@ -296,6 +296,13 @@
 - [ ] BUILDING_SUPERVISOR and FACILITY_MANAGER redirects resolve to real routes.
 - [ ] Mobile issue form and photo capture remain usable.
 
+## 2y) Building / Facility Schema Foundation (BUILD-002 — schema only, no UI yet)
+- [ ] `npx prisma db push` applies Property/Building/Floor/Room models without errors.
+- [ ] Seed includes FACILITY_MANAGER and BUILDING_SUPERVISOR roles with facility permission keys.
+- [ ] No `/facilities` routes or facility API endpoints exist yet (expected).
+- [ ] Existing cleaning/issues and work-order flows still work unchanged.
+- [ ] Role redirect targets for FACILITY_MANAGER/BUILDING_SUPERVISOR still 404 until BUILD-006 (expected).
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.
