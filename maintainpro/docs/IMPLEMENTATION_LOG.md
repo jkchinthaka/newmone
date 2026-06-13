@@ -1729,3 +1729,39 @@ Record each completed task with:
 - Issue UI room selector (BUILD-006)
 - CleaningLocation → Room backfill
 - Work Order bridge, QR public routes, photo upload, dashboards
+
+---
+
+## BUILD-006 — Facility issue room selector UI (2026-06-13)
+
+**Status:** DONE — `/cleaning/issues` UI only; no backend changes.
+
+### Audit findings
+
+- Page was monolithic with location-only create; no category or room fields.
+- BUILD-005 API already exposes `roomId`, `category`, flat room summary — UI was the gap.
+- Facilities list APIs from BUILD-003/004 available via `facilities-api.ts`.
+- PATCH supports nullable `roomId` clear from BUILD-005.
+
+### UI changes
+
+- `components/cleaning/facility-issues-page.tsx` — create form, list badges, category filter, edit panel
+- `components/cleaning/facility-issue-room-selector.tsx` — cascading hierarchy selects
+- `lib/facility-issue-ui.ts` — payload builders, display helpers, filter utilities
+- Route wrapper: `app/(dashboard)/cleaning/issues/page.tsx`
+
+### Legacy compatibility
+
+- Cleaning location selector unchanged on create.
+- Issues without roomId/category display safely.
+- Facilities API errors isolated to room selector warning; issue load/create unaffected.
+- No tenantId in create/update payloads.
+
+### Tests/checks run
+
+- `facility-issue-ui.spec.ts` (12 cases)
+- typecheck, lint, prisma validate, web/api/full build, full API test suite
+
+### Recommended next task
+
+- **BUILD-007** — Issue → Work Order bridge.

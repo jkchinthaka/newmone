@@ -525,7 +525,7 @@
   - BUILD-006 UI should document optional room link vs legacy location.
 - **Residual Risk:** Operators may create duplicate spatial records until migration tooling exists.
 - **Owner:** Product + API
-- **Review Cadence:** Before BUILD-006 issue UI and backfill tooling.
+- **Review Cadence:** BUILD-006 UI shipped; revisit at backfill tooling.
 
 ### RISK-BUILD-005-CROSS-TENANT-ROOM-LINK
 - **Category:** Security / Tenant isolation
@@ -543,14 +543,39 @@
 - **Category:** Data / Product
 - **Description:** New optional `category` coexists with legacy issues lacking category; severity enum pre-existed but update path now exposes severity PATCH.
 - **Impact:** Inconsistent reporting until UI captures category; accidental severity changes via API.
-- **Likelihood:** Medium until BUILD-006 UI ships.
+- **Likelihood:** Medium; reduced now that BUILD-006 category UI exists.
 - **Current Mitigation:**
-  - Category nullable; old records unaffected.
+  - Category optional on create/edit with client filter and badges.
   - Severity default MEDIUM unchanged on create.
-  - Allowlisted responses; no UI changes in BUILD-005.
-- **Residual Risk:** Operators may omit category until UI enforces it.
+  - Allowlisted API responses.
+- **Residual Risk:** Legacy issues remain null category until edited.
 - **Owner:** Product + API
-- **Review Cadence:** At BUILD-006 issue form work.
+- **Review Cadence:** At BUILD-008 reports work.
+
+### RISK-BUILD-006-DUAL-LOCATION-MODEL
+- **Category:** Product / UX
+- **Description:** CleaningLocation and Room hierarchy can both be set on the same issue, causing dual location context.
+- **Impact:** Operator confusion; inconsistent reporting until backfill guidance exists.
+- **Likelihood:** Medium.
+- **Current Mitigation:**
+  - Room section labeled optional; legacy cleaning location unchanged.
+  - List shows room first with legacy note when both present.
+  - Empty/unavailable hierarchy helper text on create form.
+- **Residual Risk:** No enforced mutual exclusivity between location types.
+- **Owner:** Product + Web
+- **Review Cadence:** After tenant QA on `/cleaning/issues`.
+
+### RISK-BUILD-006-ROOM-SELECTOR-UX
+- **Category:** UX
+- **Description:** Four-level cascade may be cumbersome on mobile or large tenants.
+- **Impact:** Skipped room linkage; incomplete hierarchy adoption.
+- **Likelihood:** Medium at scale.
+- **Current Mitigation:**
+  - Optional flow; facilities API failure does not block legacy create.
+  - Responsive selector layout; clear-room action on edit.
+- **Residual Risk:** Typeahead/search may be needed for large room lists.
+- **Owner:** Web Platform
+- **Review Cadence:** At large-tenant hierarchy QA.
 
 ### RISK-BUILD-002-FACILITY-ROLE-PERMISSION-DRIFT
 - **Category:** Security / RBAC

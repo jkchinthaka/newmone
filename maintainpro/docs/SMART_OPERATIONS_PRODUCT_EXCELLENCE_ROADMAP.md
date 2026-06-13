@@ -24,7 +24,13 @@ This document tracks strategic “smart operations” capabilities that make Mai
 - Optional `FacilityIssueCategory` enum on issues
 - Allowlisted issue API responses with room hierarchy summary fields
 - Backward-compatible cleaning issue create/list/update (`/cleaning/issues`)
-- **Deferred:** issue UI room selector, CleaningLocation backfill, WO bridge, QR public routes
+- **Deferred:** issue UI room selector, CleaningLocation backfill, WO bridge, QR public routes, photo upload, dashboards
+
+## Delivered in BUILD-006 (2026-06-13)
+
+- `/cleaning/issues` optional category + room hierarchy selector on create
+- Inline edit for room/category with clear-room support
+- Legacy CleaningLocation selector preserved; facilities API failure does not block create
 
 ## High-value future features (ordered)
 
@@ -33,9 +39,9 @@ This document tracks strategic “smart operations” capabilities that make Mai
 1. **BUILD-003** — Facility hierarchy API — **DONE** (`/api/facilities/*`)
 2. **BUILD-004** — Facility hierarchy web UI — **DONE** (`/facilities`)
 3. **BUILD-005** — FacilityIssue room linkage foundation — **DONE** (nullable `roomId`, category)
-4. **BUILD-006** — Issue reporting UI + room selector in cleaning issues
-5. **BUILD-007** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
-6. **BUILD-008** — Issue → work order bridge
+4. **BUILD-006** — Issue reporting UI + room selector — **DONE** (`/cleaning/issues`)
+5. **BUILD-007** — Issue → work order bridge
+6. **BUILD-008** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
 7. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
 8. **OPS-003** — Duplicate issue detection (same room/asset within time window)
 
@@ -96,7 +102,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 |---|---|
 | New Action Center backend endpoints | Existing dashboard/work-order/inventory/health/admin APIs sufficient |
 | Facility hierarchy UI | **DONE** — `/facilities` (BUILD-004) |
-| Public QR scan routes | Security review + BUILD-006 |
+| Public QR scan routes | Security review + BUILD-008 |
 | Photo upload/evidence storage | No approved storage integration in scope |
 | AI/IoT/paid external APIs | Explicitly out of scope |
 | Fake KPIs or demo metrics | Violates production honesty policy |
@@ -105,10 +111,9 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **BUILD-006** — Issue reporting UI (room selector + category in `/cleaning/issues`)
-2. **BUILD-007** — QR issue reporting (web scan + `qr-readiness` integration)
-3. **BUILD-008** — Issue → work order bridge
-4. **OPS-002** — SLA/aging heatmap
+1. **BUILD-007** — Issue → work order bridge
+2. **BUILD-008** — QR issue reporting (web scan + `qr-readiness` integration)
+3. **OPS-002** — SLA/aging heatmap
 5. **OPS-003** — Duplicate issue detection
 6. **NOTIFY-001** — Email/SMS production setup
 7. **ERP-001** — ERP inventory integration

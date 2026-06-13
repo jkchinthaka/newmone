@@ -366,8 +366,9 @@ flowchart LR
 | **BUILD-003** | Facility API module (hierarchy CRUD) | BUILD-002 | `GET/POST /facilities/*` |
 | **BUILD-004** | Facility hierarchy web UI | BUILD-003 | `/facilities` UI; issue migration audit |
 | **BUILD-005** | FacilityIssue migration + issue extensions | BUILD-002 | `roomId`, categories, cleaning backfill |
-| **BUILD-006** | Issue → Work Order bridge | BUILD-005, WO module | `create-work-order` action |
-| **BUILD-007** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
+| **BUILD-006** | Issue reporting UI + room selector | BUILD-004, BUILD-005 | `/cleaning/issues` category + room linkage |
+| **BUILD-007** | Issue → Work Order bridge | BUILD-005, WO module | `create-work-order` action |
+| **BUILD-008** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
 | **BUILD-008** | Public repair portal | BUILD-005, REQ-INTAKE | `/public/repair-request` |
 | **FAC-001–010** | Map to BUILD-002–008 | See MAINTAINPRO_PRODUCTION_TODO | Incremental FAC items |
 
@@ -482,7 +483,21 @@ First professional hierarchy browser at `/facilities` consuming BUILD-003 API.
 | **Responses** | `facility-issue.mapper.ts` allowlist with flat room summary fields |
 | **Backfill** | Not required in BUILD-005 |
 
-**Still deferred:** CleaningLocation→Room backfill, issue UI room selector (BUILD-006), WO bridge, QR routes.
+**Still deferred:** CleaningLocation→Room backfill, WO bridge, QR routes.
+
+### BUILD-006 issue UI (2026-06-13) — DONE
+
+| Area | Decision |
+|------|----------|
+| **Route** | `/cleaning/issues` — enhanced create form + inline room/category edit |
+| **Category** | Optional select on create; badge in list; client-side category filter |
+| **Room link** | Cascading Property → Building → Floor → Room via `facilities-api` |
+| **Legacy location** | Cleaning location selector unchanged; both can coexist |
+| **Failure mode** | Facilities API errors show warning only; legacy issue create still works |
+| **Clear room** | PATCH `roomId: null` supported via edit panel |
+| **Out of scope** | WO bridge, QR scan, photo upload, backfill tooling |
+
+**Web files:** `components/cleaning/facility-issues-page.tsx`, `facility-issue-room-selector.tsx`, `lib/facility-issue-ui.ts`.
 
 ### BUILD-003 API foundation (2026-06-13) — DONE
 

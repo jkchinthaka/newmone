@@ -433,6 +433,18 @@
 - [ ] API responses exclude Prisma relation payloads (allowlisted DTO only).
 - [ ] Request body cannot override `tenantId` (forbidden by ValidationPipe whitelist).
 
+## 23) Facility Issue Room Selector UI (BUILD-006)
+- [ ] Create issue with legacy cleaning location only (no roomId) still works.
+- [ ] Create issue with optional room + category submits roomId/category without tenantId.
+- [ ] Create issue when facilities API unavailable still works with location-only flow.
+- [ ] Empty facility hierarchy shows helper text; legacy location still available.
+- [ ] Issue list shows category badge and room label when present.
+- [ ] Edit room/category panel saves via PATCH; clear room sets roomId null.
+- [ ] Existing issues without roomId open and display safely.
+- [ ] Category client filter works without breaking list.
+- [ ] Mobile: cascading selectors stack/readably on small screens.
+- [ ] No Work Order, QR scan, or photo upload actions added.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.
