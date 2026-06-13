@@ -12,6 +12,7 @@ describe("navigation config", () => {
     const hrefs = adminItems.map((item) => item.href);
 
     expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/action-center");
     expect(hrefs).toContain("/admin");
     expect(hrefs).toContain("/system-health");
     expect(hrefs).toContain("/work-orders");
@@ -22,7 +23,7 @@ describe("navigation config", () => {
     const technicianItems = getVisibleNavigationItems("TECHNICIAN");
     const hrefs = technicianItems.map((item) => item.href);
 
-    expect(hrefs).toEqual(expect.arrayContaining(["/work-orders", "/assets"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/work-orders", "/assets", "/action-center"]));
     expect(hrefs).not.toContain("/dashboard");
     expect(hrefs).not.toContain("/inventory");
   });

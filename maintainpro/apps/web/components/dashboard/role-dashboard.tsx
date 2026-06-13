@@ -16,6 +16,7 @@ import {
 import { useCurrentUser } from "@/lib/use-current-user";
 
 import { DashboardQuickLinks } from "./dashboard-quick-links";
+import { MorningBriefing } from "./morning-briefing";
 import { DriverIntelligenceDashboard } from "./driver-intelligence-dashboard";
 import { InventorySummary } from "./inventory-summary";
 import { ReportsSummary } from "./reports-summary";
@@ -36,6 +37,8 @@ export function RoleDashboard() {
         <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>
       </header>
+
+      <MorningBriefing />
 
       {dashboardShowsSystemHealthSummary(variant) ? <SystemHealthSummary /> : null}
 

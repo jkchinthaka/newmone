@@ -81,9 +81,28 @@ const DASHBOARD_ROLES = mergeRoles(
   ASSET_ROLES
 );
 
+const ACTION_CENTER_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  SUPERVISOR_ROLES,
+  TECHNICIAN_ROLES,
+  CLEANING_ROLES,
+  FACILITY_ROLES,
+  SECURITY_ROLES,
+  INVENTORY_ROLES,
+  PROCUREMENT_ROLES,
+  READ_ONLY_ROLES,
+  DRIVER_ROLES,
+  FARM_ROLES,
+  FLEET_ROLES,
+  COMPLIANCE_ROLES,
+  ASSET_ROLES
+);
+
 /** Confirmed App Router paths (2026-06-12 audit). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
   "/dashboard",
+  "/action-center",
   "/admin",
   "/system-health",
   "/work-orders",
@@ -145,6 +164,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "LayoutDashboard",
     allowedRoles: DASHBOARD_ROLES,
     category: "core",
+    activeMatch: "exact"
+  },
+  {
+    id: "action-center",
+    label: "Action Center",
+    href: "/action-center",
+    icon: "BellRing",
+    allowedRoles: ACTION_CENTER_ROLES,
+    category: "core",
+    description: "Role-aware operational priorities and attention items",
     activeMatch: "exact"
   },
   {

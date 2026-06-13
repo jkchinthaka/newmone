@@ -1581,3 +1581,35 @@ Record each completed task with:
 - Tests/checks run:
   - `building-schema-seed.spec.ts` for RoleName enum, permission keys, and role permission assignments.
   - `npx prisma validate`, typecheck, lint, web build, API build, full build, API tests.
+
+## 2026-06-13 | SMART-OPS-001 | Product excellence / smart operations sprint
+- Audit findings:
+  - Role-aware dashboard (DASH-001) already consumes work orders, inventory, reports, and system health APIs without fake metrics.
+  - No `window.confirm` / `window.prompt` / `window.alert` usages remain in web app.
+  - `FACILITY_MANAGER` / `BUILDING_SUPERVISOR` post-login preferences referenced missing `/facility` routes (404 risk).
+  - Cleaning issue API (`/cleaning/issues`) and admin invitation review API available for operational attention signals.
+  - No dedicated Action Center route; technicians/inventory roles lacked consolidated priority view.
+- Smart features implemented:
+  - **Action Center** (`/action-center`): role-aware sections from existing APIs; admin system health + invitations; work order/inventory/facility/driver/report links.
+  - **Morning Briefing** dashboard card for admin/management/inventory variants with link to Action Center.
+  - **QR readiness** helper (`lib/qr-readiness.ts`) with encode/parse validation and secret-field rejection.
+  - **Evidence timeline** reusable read-only component + `mapWorkOrderDatesToEvidenceTimeline()` helper.
+  - Navigation/command palette/breadcrumb integration for Action Center; `BellRing` nav icon.
+- Gap closure / security sweep:
+  - Fixed facility role post-login preferences to use `/cleaning/issues` and `/action-center` instead of missing `/facility` paths.
+  - Action Center admin sections gated to ADMIN/SUPER_ADMIN only; no invitation tokens exposed.
+- Skipped/deferred:
+  - No new backend endpoints, schema changes, public QR routes, photo upload, AI/IoT, ERP posting, or fake KPIs.
+  - Facility hierarchy UI/API remains BUILD-003+; Action Center shows “Facility module planned” state for facility roles.
+- Files changed:
+  - `apps/web/lib/action-center.ts`, `action-center-api.ts`, `qr-readiness.ts`
+  - `apps/web/components/action-center/*`, `components/dashboard/morning-briefing.tsx`, `components/ui/evidence-timeline.tsx`
+  - `apps/web/app/(dashboard)/action-center/page.tsx`
+  - `apps/web/lib/navigation.ts`, `command-palette.ts`, `breadcrumbs.ts`, `role-redirect.ts`
+  - `apps/web/components/dashboard/role-dashboard.tsx`, `components/layout/nav-links.tsx`
+  - `apps/api/test/action-center.spec.ts`, `qr-readiness.spec.ts`
+  - `docs/SMART_OPERATIONS_PRODUCT_EXCELLENCE_ROADMAP.md`, `MAINTAINPRO_PRODUCTION_TODO.md`, `QA_CHECKLIST.md`, `RISK_REGISTER.md`
+- Tests/checks run:
+  - `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/web`, `npm run build --workspace @maintainpro/api`, `npm run build`, `npm run test --workspace @maintainpro/api`
+- Recommended next task:
+  - **BUILD-003** — Facility hierarchy API module (see `BUILDING_FACILITY_MODULE_PLAN.md`).

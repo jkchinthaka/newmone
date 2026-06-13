@@ -537,3 +537,88 @@
 - **Residual Risk:** `/facility` routes still missing; role redirects remain broken until BUILD-006.
 - **Owner:** Web Platform + API
 - **Review Cadence:** At BUILD-003 API RBAC and BUILD-006 route launch.
+
+### RISK-SMART-OPS-001-SCOPE-CREEP
+- **Category:** Delivery / Product
+- **Description:** Smart operations features could expand into schema-heavy facility work or fake KPI dashboards, blocking BUILD-003+ and eroding trust.
+- **Impact:** Delayed facility delivery, unstable releases, misleading operational signals.
+- **Likelihood:** Medium without roadmap discipline; Low with SMART-OPS-001 boundaries.
+- **Current Mitigation:**
+  - Action Center uses existing APIs only; failed connections show “Not connected yet”.
+  - Roadmap document defines deferred items and BUILD sequence ownership.
+  - No schema changes in SMART-OPS-001 sprint.
+- **Residual Risk:** Future Action Center widgets must follow same “real data or empty state” rule.
+- **Owner:** Web Platform + Product
+- **Review Cadence:** Each smart-ops enhancement.
+
+### RISK-SMART-OPS-001-FAKE-METRICS
+- **Category:** Product / Trust
+- **Description:** Operational dashboards could display placeholder or invented counts when APIs are unavailable.
+- **Impact:** Incorrect prioritization, audit failures, loss of user trust.
+- **Likelihood:** Low (explicit empty states); Medium if future widgets bypass API validation.
+- **Current Mitigation:**
+  - Morning Briefing and Action Center derive counts from live fetches only.
+  - QA checklist requires “no fake metrics” verification.
+- **Residual Risk:** Scheduled digests (future) must reuse same data sources.
+- **Owner:** Web Platform
+- **Review Cadence:** Each dashboard/action-center change.
+
+### RISK-SMART-OPS-001-QR-PAYLOAD-MISUSE
+- **Category:** Security / Operations
+- **Description:** QR payloads could be extended to carry auth tokens, invitation links, or PII if validation is bypassed.
+- **Impact:** Credential leakage via printed labels; unauthorized access via scanned codes.
+- **Likelihood:** Low with `qr-readiness.ts` forbidden-field checks; Medium if public routes encode secrets.
+- **Current Mitigation:**
+  - `createMaintainProQrPayload` / `parseMaintainProQrPayload` reject secret-like keys.
+  - Automated tests in `qr-readiness.spec.ts`.
+  - Public QR routes deferred to BUILD-005 with security review.
+- **Residual Risk:** BUILD-005 must reuse helper and avoid embedding session tokens in URLs.
+- **Owner:** Web Platform + Security
+- **Review Cadence:** At BUILD-005 QR rollout.
+
+### RISK-SMART-OPS-001-PUBLIC-REPAIR-INTAKE
+- **Category:** Security / Abuse
+- **Description:** Public repair request portals and unauthenticated QR intake can be spammed or used for tenant enumeration.
+- **Impact:** Noise in issue queues, DoS, data quality degradation.
+- **Likelihood:** N/A until portal ships; Medium when implemented without rate limits.
+- **Current Mitigation:**
+  - Public intake explicitly deferred; authenticated flows first per roadmap.
+- **Residual Risk:** Requires CAPTCHA, rate limiting, and tenant routing review before launch.
+- **Owner:** Product + Security
+- **Review Cadence:** Before FAC-006 / BUILD-008 public portal.
+
+### RISK-SMART-OPS-001-INVITATION-LINK-EXPOSURE
+- **Category:** Security / Onboarding
+- **Description:** Action Center admin invitation counts could tempt displaying raw invitation links/tokens in UI.
+- **Impact:** Account takeover via leaked invitation links.
+- **Likelihood:** Low (ADMIN-003B/D hardening); Medium if new admin widgets bypass DTO allowlists.
+- **Current Mitigation:**
+  - Action Center uses review list API with token-free DTO; counts only.
+  - `ADMIN_INVITATION_SENSITIVE_FIELDS` documented in admin module.
+- **Residual Risk:** Future “quick invite” widgets must not re-expose tokens in list views.
+- **Owner:** Admin Platform
+- **Review Cadence:** Each admin/onboarding UI change.
+
+### RISK-SMART-OPS-001-FACILITY-SEQUENCE-OVERLAP
+- **Category:** Delivery / Architecture
+- **Description:** Smart ops work could duplicate BUILD-003+ facility hierarchy or issue bridge implementations.
+- **Impact:** Merge conflicts, inconsistent data models, rework.
+- **Likelihood:** Low with SMART-OPS-001 scope lock; Medium without roadmap adherence.
+- **Current Mitigation:**
+  - Facility module planned state in Action Center; no hierarchy CRUD added.
+  - BUILD-002 schema foundation complete; BUILD-003 is next explicit task.
+- **Residual Risk:** QR/issue features must integrate with BUILD-004/006 models, not parallel implementations.
+- **Owner:** Product + API
+- **Review Cadence:** At BUILD-003 kickoff.
+
+### RISK-SMART-OPS-001-EXTERNAL-DEPENDENCY-GAPS
+- **Category:** Operations / Integrations
+- **Description:** Email/SMS/ERP dependencies remain unconfigured in production; Action Center cannot surface delivery guarantees.
+- **Impact:** Operators assume notifications/ERP sync work when integrations are disabled.
+- **Likelihood:** Medium in current deployment; Lower with system health visibility.
+- **Current Mitigation:**
+  - SEC-012/013 integration mode surfacing in system health (admin Action Center links there).
+  - NOTIFY-001 and ERP-001 tracked explicitly in roadmap.
+- **Residual Risk:** Production env setup still manual; Action Center does not replace integration configuration.
+- **Owner:** DevOps + Platform
+- **Review Cadence:** At NOTIFY-001 and ERP-001 implementation.

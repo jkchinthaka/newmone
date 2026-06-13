@@ -389,3 +389,34 @@
 - [ ] Vendor job status updates sync to internal workflows.
 - [ ] Invoice submission/approval path is auditable.
 - [ ] Vendor performance metrics update from real activity.
+
+## 15) Smart Operations Action Center (SMART-OPS-001)
+- [ ] `/action-center` loads with role-appropriate sections (admin, manager, technician, inventory, cleaner, driver, viewer).
+- [ ] ADMIN sees system health, invitations, work orders, and inventory sections; non-admin does **not** see admin invitation review data.
+- [ ] Metrics reflect live API data only — no fabricated counts when APIs fail (shows “Not connected yet”).
+- [ ] Overdue/high-priority work order cards link to `/work-orders`.
+- [ ] Low-stock and pending PO cards link to `/inventory` and `/procurement`.
+- [ ] Facility/cleaner roles see cleaning issue links and “Facility module planned” guidance (not fake hierarchy data).
+- [ ] Mobile Action Center: cards stack in single column; links remain tappable.
+- [ ] Command palette (Ctrl/Cmd+K) includes Action Center for eligible roles; hidden from unauthorized roles.
+- [ ] Sidebar Action Center nav item visible for operational roles; not shown to roles without access.
+
+## 16) Dashboard Morning Briefing (SMART-OPS-001)
+- [ ] Admin/management/inventory dashboards show compact Morning Briefing card.
+- [ ] Briefing shows open/overdue work orders and low-stock counts when APIs return data.
+- [ ] Admin briefing includes system health line when readiness API succeeds.
+- [ ] “Open Action Center” link navigates to `/action-center`.
+- [ ] Technician/cleaner/driver dashboards do **not** show duplicate briefing card (Action Center remains available via nav).
+
+## 17) QR Readiness Helper (SMART-OPS-001)
+- [ ] `qr-readiness.spec.ts` passes (payload generation, parse rejection, secret field blocking, supported types).
+- [ ] Encoded payloads contain no auth tokens, passwords, or invitation links.
+
+## 18) Evidence Timeline Foundation (SMART-OPS-001)
+- [ ] `EvidenceTimeline` renders empty state when no events provided (no fake timeline rows).
+- [ ] `mapWorkOrderDatesToEvidenceTimeline()` produces events only from existing date fields.
+
+## 19) Smart Ops Security Checks (SMART-OPS-001)
+- [ ] Action Center and briefing responses do not expose invitation tokens, refresh tokens, or internal auth fields.
+- [ ] FACILITY_MANAGER / BUILDING_SUPERVISOR post-login no longer targets missing `/facility` routes.
+- [ ] No new native browser dialogs introduced in touched files.
