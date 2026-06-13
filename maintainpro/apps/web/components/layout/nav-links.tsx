@@ -9,6 +9,7 @@ import {
   Bell,
   BellRing,
   Bot,
+  Building2,
   ChartColumnBig,
   ClipboardCheck,
   ClipboardList,
@@ -79,7 +80,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Sun,
   Users,
   Wallet,
-  Archive
+  Archive,
+  Building2
 };
 
 const GROUP_SURFACE: Record<

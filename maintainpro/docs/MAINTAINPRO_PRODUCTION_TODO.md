@@ -61,11 +61,12 @@
 | BUILD-002 | P2 | Facility | Schema foundation + facility roles seed | DONE | prisma/schema, roles seed | Schema + RBAC tests, prisma validate | Property/Building/Floor/Room models; FACILITY_MANAGER/BUILDING_SUPERVISOR in RoleName. |
 | SMART-OPS-001 | P2 | Smart Ops | Product excellence sprint — Action Center + briefing + QR/evidence foundations | DONE | action-center, morning-briefing, qr-readiness, evidence-timeline, docs | Manual role QA, action-center.spec.ts, qr-readiness.spec.ts, web/full build, API tests | Role-aware Action Center from existing APIs; no fake metrics; facility post-login route fix. |
 | BUILD-003 | P2 | Facility | Facility hierarchy API module | DONE | facility module, GET/POST /facilities/* | Tenant isolation tests, web/full build | Hierarchy CRUD only; no issue/WO bridge yet. |
-| BUILD-004 | P2 | Facility | Facility hierarchy UI + issue migration | NOT_STARTED | FacilityIssue, CleaningLocation, web routes | Schema/API tests, manual UI QA | roomId + categories; first `/facilities` UI pass. |
-| BUILD-005 | P2 | Facility | QR issue reporting | NOT_STARTED | qr-readiness integration, scan routes | QR helper + manual scan QA | Uses SMART-OPS-001 payload contract. |
-| BUILD-006 | P2 | Facility | Issue → work order bridge + facility UI routes | NOT_STARTED | facility web routes, WO bridge | E2E workflow test | `/facility` routes; cleaning issue bridge. |
+| BUILD-004 | P2 | Facility | Facility hierarchy web UI | DONE | `/facilities`, facilities-api, navigation | Manual UI QA, facilities-web-config.spec.ts, web/full build | Hierarchy browser; FacilityIssue migration deferred to BUILD-005. |
+| BUILD-005 | P2 | Facility | FacilityIssue migration + issue extensions | NOT_STARTED | FacilityIssue, CleaningLocation, cleaning API | Schema/API backward-compat tests | Nullable roomId, categories, cleaning location backfill plan. |
+| BUILD-006 | P2 | Facility | QR issue reporting | NOT_STARTED | qr-readiness integration, scan routes | QR helper + manual scan QA | Uses SMART-OPS-001 payload contract; public scan deferred. |
+| BUILD-007 | P2 | Facility | Issue → work order bridge | NOT_STARTED | facility issues, WO module | E2E workflow test | Depends on BUILD-005 issue model. |
 | OPS-002 | P2 | Smart Ops | SLA/aging heatmap | NOT_STARTED | reports/dashboard widgets | Manual KPI validation | Depends on WO-004 SLA engine for full accuracy. |
-| OPS-003 | P2 | Smart Ops | Duplicate issue detection | NOT_STARTED | facility issues service | API tests | Requires BUILD-004 room/category fields. |
+| OPS-003 | P2 | Smart Ops | Duplicate issue detection | NOT_STARTED | facility issues service | API tests | Requires BUILD-005 room/category fields. |
 | NOTIFY-001 | P2 | Notifications | Email/SMS production setup | NOT_STARTED | env + dispatch services | Integration smoke test | SEC-012/013 readiness exists; production credentials needed. |
 | ERP-001 | P3 | ERP | ERP inventory integration | NOT_STARTED | erp-sync module | Integration tests | Read/sync first; no production posting without governance. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |

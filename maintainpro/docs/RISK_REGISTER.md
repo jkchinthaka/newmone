@@ -476,7 +476,7 @@
   - Plan documents signed/expiring URL requirement for object storage.
 - **Residual Risk:** No dedicated facility attachment retention policy yet.
 - **Owner:** API + DevOps
-- **Review Cadence:** At BUILD-004 issue API implementation.
+- **Review Cadence:** At BUILD-005 issue API implementation.
 
 ### RISK-BUILD-001-FACILITY-ERP-INVENTORY-GAP
 - **Category:** Integration / Operations
@@ -518,13 +518,13 @@
 - **Category:** Data / Migration
 - **Description:** Existing `CleaningLocation.building`/`floor` strings and `FacilityIssue.locationId` must be migrated to Room FKs in later phases.
 - **Impact:** Split location data, duplicate hierarchy entries, broken issue/location joins if migration is rushed.
-- **Likelihood:** Medium when BUILD-004 links issues to rooms without backfill plan.
+- **Likelihood:** Medium when BUILD-005 links issues to rooms without backfill plan.
 - **Current Mitigation:**
-  - BUILD-002 adds parallel hierarchy only; no destructive migration in this pass.
-  - Plan documents gradual `roomId` adoption on CleaningLocation and FacilityIssue.
+  - BUILD-004 shipped hierarchy UI only; no schema change.
+  - BUILD-005 migration plan documented in `BUILDING_FACILITY_MODULE_PLAN.md`.
 - **Residual Risk:** Operators may create duplicate spatial records until migration tooling exists.
 - **Owner:** Product + API
-- **Review Cadence:** Before BUILD-004 issue extensions.
+- **Review Cadence:** Before BUILD-005 issue extensions.
 
 ### RISK-BUILD-002-FACILITY-ROLE-PERMISSION-DRIFT
 - **Category:** Security / RBAC
@@ -548,19 +548,57 @@
   - `facilities-hierarchy.spec.ts` covers cross-tenant rejection cases.
 - **Residual Risk:** BUILD-004 bulk import or migration scripts must reuse the same validation helpers.
 - **Owner:** API Platform
-- **Review Cadence:** At BUILD-004 migration tooling.
+- **Review Cadence:** At BUILD-005 migration tooling.
 
 ### RISK-BUILD-003-NO-UI-YET
 - **Category:** Product / Delivery
-- **Description:** Hierarchy API exists without web UI; operators cannot manage buildings/rooms through dashboard yet.
-- **Impact:** Perceived incomplete facility module; Action Center still shows planned-state messaging.
-- **Likelihood:** High until BUILD-004/006 UI ships.
+- **Description:** ~~Hierarchy API exists without web UI~~ **Mitigated in BUILD-004** — `/facilities` route live.
+- **Impact:** Reduced; operators can manage hierarchy in dashboard.
+- **Likelihood:** Low (BUILD-004 complete).
 - **Current Mitigation:**
-  - API-only scope documented; BUILD-004 tracked as next task.
-  - Action Center uses cleaning issues + planned messaging, not fake hierarchy data.
-- **Residual Risk:** Manual API testing required for early adopters.
+  - `/facilities` UI consumes BUILD-003 API with role-aware manage/view gates.
+  - Action Center links to live hierarchy route.
+- **Residual Risk:** Empty tenants need manual hierarchy setup; no seed data added.
 - **Owner:** Web Platform + Product
-- **Review Cadence:** At BUILD-004 UI kickoff.
+- **Review Cadence:** At BUILD-005 issue migration.
+
+### RISK-BUILD-004-HIERARCHY-UX-COMPLEXITY
+- **Category:** Product / UX
+- **Description:** Four-level drill-down (Property → Building → Floor → Room) may confuse users on mobile or large tenants.
+- **Impact:** Mis-clicks, difficulty finding rooms, support burden.
+- **Likelihood:** Medium for large hierarchies.
+- **Current Mitigation:**
+  - In-page breadcrumbs, search filter, include-inactive toggle.
+  - Empty/loading/error states via shared `page-state` patterns.
+  - No delete UI — deactivate only with ConfirmDialog.
+- **Residual Risk:** Bulk import and floor/room list pagination may be needed later.
+- **Owner:** Web Platform + Product
+- **Review Cadence:** After first tenant onboarding QA.
+
+### RISK-BUILD-004-ACTION-CENTER-FACILITY-DATA
+- **Category:** Product / Data honesty
+- **Description:** Action Center facility section mixes hierarchy link with cleaning issue metrics; issue feed may be disconnected while hierarchy works.
+- **Impact:** Users may expect issue counts when only hierarchy is available.
+- **Likelihood:** Medium when `facilityIssues` connection fails.
+- **Current Mitigation:**
+  - Hierarchy link always shown; issue metrics only when API connected.
+  - “Not connected yet” empty state when issue feed unavailable.
+- **Residual Risk:** BUILD-005 should unify issue + room context in Action Center.
+- **Owner:** Web Platform
+- **Review Cadence:** At BUILD-005 issue migration.
+
+### RISK-BUILD-004-ROLE-PERMISSION-DRIFT
+- **Category:** Security / RBAC
+- **Description:** Frontend `canManageFacilities` uses role fallbacks when JWT permissions list is empty; could show manage buttons briefly before permissions load.
+- **Impact:** UI suggests actions backend will reject; minor UX confusion, not tenant isolation breach.
+- **Likelihood:** Low; backend `@Permissions` remains authoritative.
+- **Current Mitigation:**
+  - Conservative manage roles: SUPER_ADMIN, ADMIN, FACILITY_MANAGER only.
+  - BUILDING_SUPERVISOR view-only in seed and UI helpers.
+  - API tests for manage vs view roles unchanged from BUILD-003.
+- **Residual Risk:** Permission cache staleness after role changes until re-login.
+- **Owner:** Web + API Platform
+- **Review Cadence:** At ADMIN-005 tenant-aware RBAC work.
 
 ### RISK-SMART-OPS-001-SCOPE-CREEP
 - **Category:** Delivery / Product
@@ -631,9 +669,9 @@
 - **Current Mitigation:**
   - Facility module planned state in Action Center; no hierarchy CRUD added.
   - BUILD-002 schema foundation complete; BUILD-003 is next explicit task.
-- **Residual Risk:** QR/issue features must integrate with BUILD-004/006 models, not parallel implementations.
+- **Residual Risk:** QR/issue features must integrate with BUILD-005+ models, not parallel implementations.
 - **Owner:** Product + API
-- **Review Cadence:** At BUILD-003 kickoff.
+- **Review Cadence:** At BUILD-005 kickoff.
 
 ### RISK-SMART-OPS-001-EXTERNAL-DEPENDENCY-GAPS
 - **Category:** Operations / Integrations

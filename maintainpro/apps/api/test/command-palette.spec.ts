@@ -12,6 +12,21 @@ import {
 import { DEFAULT_POST_LOGIN_REDIRECT, LEGACY_FMS_HOME_PATH } from "../../web/lib/role-redirect";
 
 describe("command palette helpers", () => {
+  it("includes Facilities command for facility manager roles", () => {
+    const commands = getCommandPaletteItems("FACILITY_MANAGER");
+    const facilities = commands.find((item) => item.href === "/facilities");
+
+    expect(facilities).toBeDefined();
+    expect(facilities?.label).toBe("Facilities");
+  });
+
+  it("finds Facilities via hierarchy keyword search", () => {
+    const commands = getCommandPaletteItems("ADMIN");
+    const matches = filterCommandPaletteItems(commands, "hierarchy");
+
+    expect(matches.some((item) => item.href === "/facilities")).toBe(true);
+  });
+
   it("builds role-filtered commands from navigation config", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
     const technicianCommands = getCommandPaletteItems("TECHNICIAN");

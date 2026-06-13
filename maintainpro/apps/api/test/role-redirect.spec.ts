@@ -46,10 +46,14 @@ describe("role-redirect helper", () => {
     expect(getPostLoginRedirect(null)).toBe(DEFAULT_POST_LOGIN_REDIRECT);
   });
 
+  it("maps facility manager to facilities hierarchy", () => {
+    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/facilities");
+    expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/facilities");
+  });
+
   it("never resolves to legacy /home", () => {
     expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).not.toBe(LEGACY_FMS_HOME_PATH);
     expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).not.toBe(LEGACY_FMS_HOME_PATH);
-    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/cleaning/issues");
     expect(resolvePostLoginPath(["/home", DEFAULT_POST_LOGIN_REDIRECT])).toBe(
       DEFAULT_POST_LOGIN_REDIRECT
     );

@@ -433,7 +433,15 @@
 - [ ] API responses exclude Prisma relation payloads (allowlisted DTO only).
 - [ ] Request body cannot override `tenantId` (forbidden by ValidationPipe whitelist).
 
-## 21) Facility Hierarchy UI (BUILD-004 — future)
-- [ ] `/facilities` web routes render hierarchy browser once UI ships.
-- [ ] Action Center can link to live facility data after UI integration.
+## 21) Facility Hierarchy UI (BUILD-004)
+- [ ] ADMIN can create property → building → floor → room chain via `/facilities`.
+- [ ] FACILITY_MANAGER can create/update/deactivate hierarchy records.
+- [ ] BUILDING_SUPERVISOR sees hierarchy read-only (no create/edit/deactivate buttons).
+- [ ] CLEANER does not see Facilities in navigation or command palette.
+- [ ] Mobile: hierarchy breadcrumbs and tables remain usable (scroll/stack).
+- [ ] Empty state shows “No facilities created yet” with create CTA for manage roles only.
+- [ ] No delete action in UI; deactivate uses ConfirmDialog.
+- [ ] Action Center “Open facility hierarchy” navigates to `/facilities`.
+- [ ] FACILITY_MANAGER post-login redirect lands on `/facilities`.
+- [ ] API create payloads from web client do not include `tenantId`.
 - [ ] No new native browser dialogs introduced in touched files.

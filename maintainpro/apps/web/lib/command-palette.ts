@@ -18,6 +18,7 @@ export type CommandPaletteItem = {
 const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
   dashboard: ["overview", "summary"],
   "action-center": ["priorities", "attention", "operations", "briefing"],
+  facilities: ["buildings", "rooms", "property", "hierarchy", "facility"],
   "work-orders": ["wo", "maintenance jobs", "jobs"],
   assets: ["equipment", "registry"],
   inventory: ["parts", "stock", "spares"],

@@ -10,6 +10,7 @@ export const DEFAULT_POST_LOGIN_REDIRECT = "/dashboard";
 
 /** App Router paths confirmed to exist today (2026-06-12 audit). */
 export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
+  "/facilities",
   "/dashboard",
   "/admin",
   "/system-health",
@@ -50,8 +51,8 @@ export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
   ADMIN: [DEFAULT_POST_LOGIN_REDIRECT],
   MANAGER: ["/dashboard/manager", DEFAULT_POST_LOGIN_REDIRECT],
   OPERATIONS_MANAGER: [DEFAULT_POST_LOGIN_REDIRECT],
-  FACILITY_MANAGER: ["/cleaning/issues", "/action-center", DEFAULT_POST_LOGIN_REDIRECT],
-  BUILDING_SUPERVISOR: ["/cleaning/issues", "/action-center", DEFAULT_POST_LOGIN_REDIRECT],
+  FACILITY_MANAGER: ["/facilities", "/cleaning/issues", "/action-center", DEFAULT_POST_LOGIN_REDIRECT],
+  BUILDING_SUPERVISOR: ["/facilities", "/cleaning/issues", "/action-center", DEFAULT_POST_LOGIN_REDIRECT],
   MAINTENANCE_SUPERVISOR: ["/work-orders", DEFAULT_POST_LOGIN_REDIRECT],
   TECHNICIAN: ["/work-orders/my-jobs", "/work-orders", DEFAULT_POST_LOGIN_REDIRECT],
   MECHANIC: ["/work-orders/my-jobs", "/work-orders", DEFAULT_POST_LOGIN_REDIRECT],

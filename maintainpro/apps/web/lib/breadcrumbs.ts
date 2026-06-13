@@ -48,6 +48,7 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   ],
   "/dashboard": [{ label: "Dashboard" }],
   "/action-center": [{ label: "Action Center" }],
+  "/facilities": [{ label: "Facilities" }],
   [LEGACY_FMS_HOME_PATH]: [{ label: LEGACY_FMS_BREADCRUMB_LABEL }]
 };
 

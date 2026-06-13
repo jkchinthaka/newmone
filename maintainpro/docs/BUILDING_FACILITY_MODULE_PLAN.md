@@ -364,11 +364,11 @@ flowchart LR
 | **BUILD-001** | Planning (this doc) | — | Plan + roadmap |
 | **BUILD-002** | Schema foundation + roles seed | BUILD-001 | Property/Building/Floor/Room models; RoleName seed |
 | **BUILD-003** | Facility API module (hierarchy CRUD) | BUILD-002 | `GET/POST /facilities/*` |
-| **BUILD-004** | Issue API migration + extensions | BUILD-002 | `facility-issues` endpoints; cleaning alias |
-| **BUILD-005** | Issue → Work Order bridge | BUILD-004, WO module | `create-work-order` action |
-| **BUILD-006** | Web facility routes + navigation | BUILD-003, BUILD-004 | `/facilities/*` UI |
-| **BUILD-007** | Dashboard + reports | BUILD-004 | KPI widgets, report module key |
-| **BUILD-008** | Public repair portal | BUILD-004, REQ-INTAKE | `/public/repair-request` |
+| **BUILD-004** | Facility hierarchy web UI | BUILD-003 | `/facilities` UI; issue migration audit |
+| **BUILD-005** | FacilityIssue migration + issue extensions | BUILD-002 | `roomId`, categories, cleaning backfill |
+| **BUILD-006** | Issue → Work Order bridge | BUILD-005, WO module | `create-work-order` action |
+| **BUILD-007** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
+| **BUILD-008** | Public repair portal | BUILD-005, REQ-INTAKE | `/public/repair-request` |
 | **FAC-001–010** | Map to BUILD-002–008 | See MAINTAINPRO_PRODUCTION_TODO | Incremental FAC items |
 
 ---
@@ -397,7 +397,7 @@ flowchart LR
 - `maintainpro/apps/api/src/modules/work-orders/` — repair execution
 - `maintainpro/apps/web/app/(dashboard)/cleaning/issues/` — current issue UI
 - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md` — FAC-001 through FAC-010 backlog
-- `maintainpro/apps/web/lib/role-redirect.ts` — facility role redirects (routes missing)
+- `maintainpro/apps/web/lib/role-redirect.ts` — facility role redirects to `/facilities`
 
 ---
 
@@ -447,12 +447,38 @@ Added to `RoleName`:
 | **CLEANER** | `facility_issues.report` (plus existing `cleaning.report_issue`) |
 | **VIEWER** | Read-only facility/issue/inspection view keys |
 
-### Deferred to BUILD-004+
+### Deferred to BUILD-005+
 
 - `FacilityIssue.roomId`, `workOrderId`, categories
 - `CleaningLocation.roomId` migration
-- `/facilities` web UI (BUILD-006)
 - Work Order bridge and reports
+
+### BUILD-004 web UI (2026-06-13) — DONE
+
+First professional hierarchy browser at `/facilities` consuming BUILD-003 API.
+
+| Area | Decision |
+|------|----------|
+| **Route** | `/facilities` — single page with drill-down Property → Building → Floor → Room |
+| **Manage** | Create/edit/deactivate only; no DELETE UI |
+| **RBAC** | `canViewFacilities` / `canManageFacilities` with BUILD-002 role fallbacks; BUILDING_SUPERVISOR view-only |
+| **Navigation** | Facilities nav item (cleaning category); command palette keywords; breadcrumbs |
+| **Post-login** | FACILITY_MANAGER and BUILDING_SUPERVISOR prefer `/facilities` |
+| **Action Center** | “Open facility hierarchy” links to `/facilities` (no fake counts) |
+| **FacilityIssue migration** | **Deferred to BUILD-005** — existing issues use `CleaningLocation.locationId` only; schema change risks cleaning workflows |
+
+**Web files:** `apps/web/app/(dashboard)/facilities/page.tsx`, `components/facilities/*`, `lib/facilities.ts`, `lib/facilities-api.ts`.
+
+**Out of scope (unchanged):** WO bridge, QR public scan, photo upload, reports, public repair portal, seed data.
+
+### BUILD-005 migration plan (deferred from BUILD-004 audit)
+
+1. Add nullable `FacilityIssue.roomId` FK to `Room` (optional `category`, severity enums).
+2. Keep `locationId` for backward compatibility; do not force backfill on existing records.
+3. Map `CleaningLocation` → `Room` where unambiguous; document manual backfill for ambiguous sites.
+4. Extend cleaning/facility issue create API to accept optional `roomId`.
+5. Add tenant isolation + backward compatibility tests before UI changes.
+6. Update issue list/create UI only after API tests pass.
 
 ### BUILD-003 API foundation (2026-06-13) — DONE
 

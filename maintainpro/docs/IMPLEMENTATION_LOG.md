@@ -1643,3 +1643,44 @@ Record each completed task with:
   - typecheck, lint, prisma validate, API/web/full build.
 - Recommended next task:
   - **BUILD-004** — Facility hierarchy UI + `FacilityIssue.roomId` migration.
+
+---
+
+## BUILD-004 — Facility hierarchy web UI (2026-06-13)
+
+**Status:** DONE — web UI shipped; FacilityIssue migration deferred to BUILD-005.
+
+### Audit findings
+
+- `FacilityIssue` links to `CleaningLocation` via `locationId` only; cleaning issue API/UI unchanged.
+- Adding nullable `roomId` now would touch cleaning workflows, issue creation, and backfill without UI benefit in this pass.
+- **Decision:** defer schema/API migration to **BUILD-005** with documented backfill plan in `BUILDING_FACILITY_MODULE_PLAN.md`.
+
+### UI routes/components added
+
+- Route: `apps/web/app/(dashboard)/facilities/page.tsx`
+- Components: `components/facilities/facilities-page.tsx`, `facility-hierarchy-panel.tsx`, `facility-entity-table.tsx`, `facility-entity-dialog.tsx`
+- Lib: `lib/facilities.ts`, `lib/facilities-api.ts`, `lib/facility-ui.ts`
+
+### Navigation / Action Center updates
+
+- Nav item “Facilities” (`/facilities`) for facility/admin/manager roles
+- Command palette keywords: buildings, rooms, property, hierarchy
+- Breadcrumbs: `/facilities`
+- Role redirect: FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities`
+- Action Center: “Open facility hierarchy” → `/facilities` (replaces planned-module placeholder)
+
+### Permission / RBAC behavior
+
+- View: `facilities.view` or role fallback (ADMIN, FACILITY_MANAGER, BUILDING_SUPERVISOR, MANAGER, VIEWER, etc.)
+- Manage: `facilities.manage` or ADMIN/SUPER_ADMIN/FACILITY_MANAGER only
+- BUILDING_SUPERVISOR remains view-only per BUILD-002 seed
+
+### Tests/checks run
+
+- `facilities-web-config.spec.ts`, extended `navigation.spec.ts`, `command-palette.spec.ts`, `role-redirect.spec.ts`, `action-center.spec.ts`
+- typecheck, lint, prisma validate, web/api/full build, full API test suite
+
+### Recommended next task
+
+- **BUILD-005** — FacilityIssue migration (`roomId`, categories, cleaning location backfill).

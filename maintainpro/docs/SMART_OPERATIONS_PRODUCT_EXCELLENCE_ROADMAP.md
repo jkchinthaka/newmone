@@ -14,19 +14,27 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | Manager Morning Briefing | DONE | `components/dashboard/morning-briefing.tsx` | Compact dashboard card for admin/management/inventory; links to Action Center |
 | QR readiness foundation | DONE | `lib/qr-readiness.ts`, `test/qr-readiness.spec.ts` | Safe internal payload encode/parse; no public routes yet |
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
-| Facility post-login route fix | DONE | `lib/role-redirect.ts` | Removed broken `/facility` preferences until BUILD-006 |
+| Facility post-login route fix | DONE | `lib/role-redirect.ts` | FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities` |
 | Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
+| Facility hierarchy web UI (BUILD-004) | DONE | `/facilities`, `components/facilities/*`, `lib/facilities*.ts` | Drill-down browser; Action Center links live; issue migration deferred |
+
+## Delivered in BUILD-004 (2026-06-13)
+
+- `/facilities` route live for authorized roles
+- Action Center “Open facility hierarchy” → `/facilities`
+- FacilityIssue `roomId` migration **not** implemented (deferred to BUILD-005)
 
 ## High-value future features (ordered)
 
 ### Phase A — Facility & issue intelligence (BUILD sequence)
 
-1. **BUILD-003** — Facility hierarchy API (`Property` → `Building` → `Floor` → `Room`) — **DONE** (`/api/facilities/*`)
-2. **BUILD-004** — Facility issue migration (`FacilityIssue.roomId`, categories) + hierarchy UI
-3. **BUILD-005** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
-4. **BUILD-006** — Issue → work order bridge + `/facility` web routes
-5. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
-6. **OPS-003** — Duplicate issue detection (same room/asset within time window)
+1. **BUILD-003** — Facility hierarchy API — **DONE** (`/api/facilities/*`)
+2. **BUILD-004** — Facility hierarchy web UI — **DONE** (`/facilities`)
+3. **BUILD-005** — FacilityIssue migration (`roomId`, categories) + cleaning backfill
+4. **BUILD-006** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
+5. **BUILD-007** — Issue → work order bridge
+6. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
+7. **OPS-003** — Duplicate issue detection (same room/asset within time window)
 
 ### Phase B — Operations excellence
 
@@ -58,7 +66,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Duplicate issue detection plan
 
-- Compare open issues by `roomId` + category + title similarity (BUILD-004 dependency)
+- Compare open issues by `roomId` + category + title similarity (BUILD-005 dependency)
 - Surface duplicates in Action Center and facility issue list
 - Admin-configurable time window (default 24h)
 
@@ -84,8 +92,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | Item | Reason |
 |---|---|
 | New Action Center backend endpoints | Existing dashboard/work-order/inventory/health/admin APIs sufficient |
-| Facility hierarchy UI | BUILD-003 through BUILD-006 sequence |
-| Public QR scan routes | Security review + BUILD-005 |
+| Facility hierarchy UI | **DONE** — `/facilities` (BUILD-004) |
+| Public QR scan routes | Security review + BUILD-006 |
 | Photo upload/evidence storage | No approved storage integration in scope |
 | AI/IoT/paid external APIs | Explicitly out of scope |
 | Fake KPIs or demo metrics | Violates production honesty policy |
@@ -94,14 +102,14 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **BUILD-004** — Facility hierarchy UI + issue migration (`FacilityIssue.roomId`)
-2. **BUILD-005** — QR issue reporting (web scan + `qr-readiness` integration)
-3. **BUILD-006** — Issue → work order bridge + facility web routes
-5. **OPS-002** — SLA/aging heatmap
-6. **OPS-003** — Duplicate issue detection
-7. **NOTIFY-001** — Email/SMS production setup
-8. **ERP-001** — ERP inventory integration
-9. **WO-011** — Work order activity timeline + evidence integration
+1. **BUILD-005** — FacilityIssue migration (`FacilityIssue.roomId`, categories, cleaning backfill)
+2. **BUILD-006** — QR issue reporting (web scan + `qr-readiness` integration)
+3. **BUILD-007** — Issue → work order bridge
+4. **OPS-002** — SLA/aging heatmap
+5. **OPS-003** — Duplicate issue detection
+6. **NOTIFY-001** — Email/SMS production setup
+7. **ERP-001** — ERP inventory integration
+8. **WO-011** — Work order activity timeline + evidence integration
 
 ## Verification notes (SMART-OPS-001)
 

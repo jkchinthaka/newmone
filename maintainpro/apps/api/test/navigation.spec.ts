@@ -7,12 +7,23 @@ import {
 } from "../../web/lib/navigation";
 
 describe("navigation config", () => {
+  it("maps facility roles to facilities navigation", () => {
+    const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
+    const buildingSupervisorItems = getVisibleNavigationItems("BUILDING_SUPERVISOR");
+    const cleanerItems = getVisibleNavigationItems("CLEANER");
+
+    expect(facilityManagerItems.map((item) => item.href)).toContain("/facilities");
+    expect(buildingSupervisorItems.map((item) => item.href)).toContain("/facilities");
+    expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
+  });
+
   it("maps admin roles to dashboard and system health", () => {
     const adminItems = getVisibleNavigationItems("ADMIN");
     const hrefs = adminItems.map((item) => item.href);
 
     expect(hrefs).toContain("/dashboard");
     expect(hrefs).toContain("/action-center");
+    expect(hrefs).toContain("/facilities");
     expect(hrefs).toContain("/admin");
     expect(hrefs).toContain("/system-health");
     expect(hrefs).toContain("/work-orders");

@@ -470,12 +470,12 @@ function buildInvitationsSection(snapshot: ActionCenterSnapshot): ActionCenterSe
 }
 
 function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSection {
-  const facilityModulePlanned = {
-    id: "facility-module",
-    title: "Facility hierarchy module planned",
-    description: "Property, building, floor, and room management arrives with BUILD-003 through BUILD-006.",
-    href: "/cleaning/issues",
-    tone: "info" as const
+  const facilityHierarchyLink: ActionCenterItem = {
+    id: "facility-hierarchy",
+    title: "Open facility hierarchy",
+    description: "Browse properties, buildings, floors, and rooms for your tenant.",
+    href: "/facilities",
+    tone: "info"
   };
 
   if (!snapshot.connections.facilityIssues || !snapshot.facilityIssues) {
@@ -483,14 +483,14 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
       id: "facility",
       title: "Cleaning & facility issues",
       description: "Issue reporting workflows available today via Cleaning Management.",
-      items: [facilityModulePlanned],
+      items: [facilityHierarchyLink],
       emptyTitle: "Issue feed not connected",
-      emptyDescription: "Facility issue data is unavailable right now. Cleaning issues may still be accessible from the module."
+      emptyDescription: "Facility issue data is unavailable right now. You can still open the hierarchy module."
     };
   }
 
   const stats = snapshot.facilityIssues;
-  const items: ActionCenterItem[] = [facilityModulePlanned];
+  const items: ActionCenterItem[] = [facilityHierarchyLink];
 
   if (stats.open > 0) {
     items.push({

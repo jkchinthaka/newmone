@@ -141,6 +141,29 @@ describe("action center section builders", () => {
     expect(morningBriefingSupported("technician")).toBe(false);
   });
 
+  it("links facility section to live hierarchy route", () => {
+    const sections = buildActionCenterSections(
+      baseSnapshot({
+        variant: "management",
+        roleName: "FACILITY_MANAGER",
+        connections: {
+          workOrders: true,
+          inventory: true,
+          systemHealth: false,
+          invitations: false,
+          facilityIssues: false
+        },
+        facilityIssues: null
+      })
+    );
+
+    const facility = sections.find((section) => section.id === "facility");
+    const hierarchyLink = facility?.items.find((item) => item.id === "facility-hierarchy");
+
+    expect(hierarchyLink?.href).toBe("/facilities");
+    expect(hierarchyLink?.title).toBe("Open facility hierarchy");
+  });
+
   it("uses role-specific action center titles", () => {
     expect(getActionCenterTitle("technician")).toBe("My Action Center");
     expect(getActionCenterTitle("inventory")).toBe("Inventory Action Center");

@@ -101,6 +101,7 @@ const ACTION_CENTER_ROLES = mergeRoles(
 
 /** Confirmed App Router paths (2026-06-12 audit). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
+  "/facilities",
   "/dashboard",
   "/action-center",
   "/admin",
@@ -364,6 +365,22 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Settings",
     allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES),
     category: "admin"
+  },
+  {
+    id: "facilities",
+    label: "Facilities",
+    href: "/facilities",
+    icon: "Building2",
+    allowedRoles: mergeRoles(
+      ADMIN_ROLES,
+      MANAGEMENT_ROLES,
+      FACILITY_ROLES,
+      SUPERVISOR_ROLES,
+      READ_ONLY_ROLES
+    ),
+    category: "cleaning",
+    description: "Property, building, floor, and room hierarchy",
+    activeMatch: "startsWith"
   },
   {
     id: "cleaning-overview",
