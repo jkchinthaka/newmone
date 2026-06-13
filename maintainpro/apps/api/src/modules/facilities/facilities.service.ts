@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { FacilityRoomType, Prisma } from "@prisma/client";
+import { FacilityIssueStatus, FacilityRoomType, IssueSeverity, Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import { CreateBuildingDto } from "./dto/create-building.dto";
@@ -20,6 +20,13 @@ import {
   type PublicPropertyResponse,
   type PublicRoomResponse
 } from "./facility-hierarchy.mapper";
+import {
+  mapCategoryBreakdown,
+  mapEnumBreakdown,
+  toPublicFacilityIssuePreview,
+  type FacilityDashboardTopRoomRow,
+  type PublicFacilityDashboardSummary
+} from "./facility-dashboard.mapper";
 
 type ListParams = {
   includeInactive?: boolean;
@@ -471,6 +478,203 @@ export class FacilitiesService {
     });
 
     return toPublicRoomResponse(row);
+  }
+
+  async getDashboardSummary(tenantId: string | null | undefined): Promise<PublicFacilityDashboardSummary> {
+    const scopedTenantId = this.requireTenantId(tenantId);
+    const now = new Date();
+    const tenantWhere = { tenantId: scopedTenantId };
+    const activeIssueStatuses = [FacilityIssueStatus.OPEN, FacilityIssueStatus.IN_PROGRESS];
+    const activeIssueWhere = {
+      ...tenantWhere,
+      status: { in: activeIssueStatuses }
+    };
+    const overdueWhere = {
+      ...activeIssueWhere,
+      slaTargetAt: { lt: now }
+    };
+
+    const issuePreviewSelect = {
+      id: true,
+      title: true,
+      severity: true,
+      status: true,
+      category: true,
+      slaTargetAt: true,
+      workOrderId: true,
+      createdAt: true,
+      room: { select: { name: true } },
+      workOrder: { select: { woNumber: true } }
+    } as const;
+
+    const [
+      propertyCount,
+      buildingCount,
+      floorCount,
+      roomCount,
+      inactiveRoomCount,
+      totalIssueCount,
+      openIssueCount,
+      inProgressIssueCount,
+      resolvedIssueCount,
+      closedIssueCount,
+      overdueIssueCount,
+      roomLinkedIssueCount,
+      unlinkedIssueCount,
+      linkedWorkOrderCount,
+      criticalOpenIssueCount,
+      unlinkedOpenIssueCount,
+      categoryGroups,
+      severityGroups,
+      statusGroups,
+      topRoomGroups,
+      overduePreviewRows,
+      criticalPreviewRows,
+      unlinkedPreviewRows
+    ] = await Promise.all([
+      this.prisma.property.count({ where: { ...tenantWhere, isActive: true } }),
+      this.prisma.building.count({ where: { ...tenantWhere, isActive: true } }),
+      this.prisma.floor.count({ where: { ...tenantWhere, isActive: true } }),
+      this.prisma.room.count({ where: { ...tenantWhere, isActive: true } }),
+      this.prisma.room.count({ where: { ...tenantWhere, isActive: false } }),
+      this.prisma.facilityIssue.count({ where: tenantWhere }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, status: FacilityIssueStatus.OPEN } }),
+      this.prisma.facilityIssue.count({
+        where: { ...tenantWhere, status: FacilityIssueStatus.IN_PROGRESS }
+      }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, status: FacilityIssueStatus.RESOLVED } }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, status: FacilityIssueStatus.CLOSED } }),
+      this.prisma.facilityIssue.count({ where: overdueWhere }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, roomId: { not: null } } }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, roomId: null } }),
+      this.prisma.facilityIssue.count({ where: { ...tenantWhere, workOrderId: { not: null } } }),
+      this.prisma.facilityIssue.count({
+        where: {
+          ...tenantWhere,
+          severity: IssueSeverity.CRITICAL,
+          status: { in: activeIssueStatuses }
+        }
+      }),
+      this.prisma.facilityIssue.count({
+        where: {
+          ...activeIssueWhere,
+          workOrderId: null
+        }
+      }),
+      this.prisma.facilityIssue.groupBy({
+        by: ["category"],
+        where: tenantWhere,
+        _count: { _all: true }
+      }),
+      this.prisma.facilityIssue.groupBy({
+        by: ["severity"],
+        where: tenantWhere,
+        _count: { _all: true }
+      }),
+      this.prisma.facilityIssue.groupBy({
+        by: ["status"],
+        where: tenantWhere,
+        _count: { _all: true }
+      }),
+      this.prisma.facilityIssue.groupBy({
+        by: ["roomId"],
+        where: {
+          ...activeIssueWhere,
+          roomId: { not: null }
+        },
+        _count: { _all: true },
+        orderBy: { _count: { roomId: "desc" } },
+        take: 5
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: overdueWhere,
+        orderBy: [{ slaTargetAt: "asc" }],
+        take: 5,
+        select: issuePreviewSelect
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: {
+          ...tenantWhere,
+          severity: IssueSeverity.CRITICAL,
+          status: { in: activeIssueStatuses }
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 5,
+        select: issuePreviewSelect
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: {
+          ...activeIssueWhere,
+          workOrderId: null
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 5,
+        select: issuePreviewSelect
+      })
+    ]);
+
+    const roomIds = topRoomGroups
+      .map((row) => row.roomId)
+      .filter((roomId): roomId is string => Boolean(roomId));
+    const rooms =
+      roomIds.length > 0
+        ? await this.prisma.room.findMany({
+            where: { tenantId: scopedTenantId, id: { in: roomIds } },
+            select: { id: true, name: true }
+          })
+        : [];
+    const roomNameById = new Map(rooms.map((room) => [room.id, room.name]));
+
+    const topRoomsByOpenIssues: FacilityDashboardTopRoomRow[] = topRoomGroups
+      .filter((row) => row.roomId)
+      .map((row) => ({
+        roomId: row.roomId as string,
+        roomName: roomNameById.get(row.roomId as string) ?? "Unknown room",
+        openIssueCount: row._count._all
+      }));
+
+    return {
+      generatedAt: now.toISOString(),
+      hierarchy: {
+        propertyCount,
+        buildingCount,
+        floorCount,
+        roomCount,
+        inactiveRoomCount
+      },
+      issues: {
+        totalIssueCount,
+        openIssueCount,
+        inProgressIssueCount,
+        resolvedIssueCount,
+        closedIssueCount,
+        overdueIssueCount,
+        criticalOpenIssueCount,
+        roomLinkedIssueCount,
+        unlinkedIssueCount
+      },
+      workOrderBridge: {
+        linkedWorkOrderCount,
+        unlinkedOpenIssueCount
+      },
+      breakdowns: {
+        byCategory: mapCategoryBreakdown(categoryGroups),
+        bySeverity: mapEnumBreakdown(
+          severityGroups.map((row) => ({ key: row.severity, _count: row._count })),
+          (key) => key ?? "UNKNOWN"
+        ),
+        byStatus: mapEnumBreakdown(
+          statusGroups.map((row) => ({ key: row.status, _count: row._count })),
+          (key) => key ?? "UNKNOWN"
+        )
+      },
+      attention: {
+        topRoomsByOpenIssues,
+        overdueIssuesPreview: overduePreviewRows.map(toPublicFacilityIssuePreview),
+        criticalIssuesPreview: criticalPreviewRows.map(toPublicFacilityIssuePreview),
+        unlinkedOpenIssuesPreview: unlinkedPreviewRows.map(toPublicFacilityIssuePreview)
+      }
+    };
   }
 
   private async assertPropertyInTenant(tenantId: string, propertyId: string): Promise<void> {

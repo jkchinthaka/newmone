@@ -1855,3 +1855,47 @@ Record each completed task with:
 ### Recommended next task
 
 - **BUILD-009** — Facility dashboard + reporting KPIs.
+
+---
+
+## BUILD-009 — Facility dashboard + reporting (2026-06-13)
+
+### Audit findings
+
+- Hierarchy counts available via Property/Building/Floor/Room models (tenant-scoped).
+- FacilityIssue has `status`, `severity`, `category`, `slaTargetAt`, `roomId`, `workOrderId`.
+- Overdue computable from `slaTargetAt < now` for OPEN/IN_PROGRESS issues (same rule as cleaning issues UI).
+- Frontend aggregation would be inefficient; read-only backend summary endpoint chosen.
+
+### Metrics implemented
+
+- Hierarchy: property/building/floor/room counts + inactive rooms.
+- Issues: totals by status, overdue, critical open, room-linked vs unlinked.
+- Work order bridge: linked count, unlinked open count.
+- Breakdowns: category, severity, status (`groupBy`).
+- Attention previews: top rooms, overdue/critical/unlinked open issues (limit 5, allowlisted fields only).
+
+### Endpoint / UI
+
+- `GET /facilities/dashboard` → `PublicFacilityDashboardSummary` DTO.
+- `/facilities/reports` dashboard page with KPI cards, breakdown tables, attention lists.
+- Navigation, command palette, Action Center, and `/facilities` header link updated.
+
+### Permissions
+
+- `@Permissions("facilities.view")` + existing facility read roles; DRIVER blocked on web helper.
+
+### Tests / checks
+
+- `facility-dashboard.spec.ts`, `facility-dashboard-ui.spec.ts`, updated `action-center.spec.ts`, `facilities-web-config.spec.ts`
+- typecheck, lint, prisma validate, web/api/full build, full API test suite
+
+### Deferred
+
+- SLA heatmap / advanced analytics (OPS-002)
+- Issue ↔ work order status sync
+- Public QR reporting
+
+### Recommended next task
+
+- **OPS-002** — SLA/aging heatmap for work orders and facility issues.

@@ -38,6 +38,15 @@ const FACILITY_MANAGE_ROLES = ["SUPER_ADMIN", "ADMIN", "FACILITY_MANAGER"] as co
 export class FacilitiesController {
   constructor(private readonly facilitiesService: FacilitiesService) {}
 
+  @Get("dashboard")
+  @Header("Cache-Control", "private, max-age=15")
+  @Roles(...FACILITY_READ_ROLES)
+  @Permissions("facilities.view")
+  async getDashboard(@Req() req: AuthedRequest) {
+    const data = await this.facilitiesService.getDashboardSummary(req.user.tenantId ?? null);
+    return { data, message: "Facility dashboard summary fetched" };
+  }
+
   @Get("properties")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)

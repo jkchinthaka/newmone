@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, Pencil, Plus, Power, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +28,7 @@ import {
 import {
   canManageFacilities,
   canViewFacilities,
+  canViewFacilityReports,
   formatFacilityRoomType,
   getFacilityLevelLabel,
   type FacilityBuilding,
@@ -102,6 +105,7 @@ export function FacilitiesPage() {
 
   const canView = canViewFacilities(roleName, permissions.length ? permissions : getStoredPermissions());
   const canManage = canManageFacilities(roleName, permissions.length ? permissions : getStoredPermissions());
+  const canViewReports = canViewFacilityReports(roleName, permissions.length ? permissions : getStoredPermissions());
   const showQrIssueLink = canCopyFacilitiesQrIssueLink({
     level,
     canViewFacilities: canView,
@@ -441,6 +445,14 @@ export function FacilitiesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canViewReports ? (
+            <Link
+              href={"/facilities/reports" as Route}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Facility reports
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => void loadRows()}

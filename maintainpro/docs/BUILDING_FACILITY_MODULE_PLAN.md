@@ -369,7 +369,7 @@ flowchart LR
 | **BUILD-006** | Issue reporting UI + room selector | BUILD-004, BUILD-005 | `/cleaning/issues` category + room linkage |
 | **BUILD-007** | Issue → Work Order bridge | BUILD-005, WO module | **DONE** — `POST /cleaning/issues/:id/create-work-order` |
 | **BUILD-008** | Authenticated QR issue reporting | BUILD-006, qr-readiness | **DONE** — `/qr/report-issue`; public scan deferred |
-| **BUILD-009** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
+| **BUILD-009** | Dashboard + reports | BUILD-007, BUILD-008 | **DONE** — `GET /facilities/dashboard`, `/facilities/reports` |
 | **FAC-001–010** | Map to BUILD-002–008 | See MAINTAINPRO_PRODUCTION_TODO | Incremental FAC items |
 
 ---

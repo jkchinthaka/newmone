@@ -103,6 +103,15 @@ export function canManageFacilities(roleName: string | null, permissions: readon
   return role != null && (FACILITY_MANAGE_FALLBACK_ROLES as readonly string[]).includes(role);
 }
 
+export function canViewFacilityReports(roleName: string | null, permissions: readonly string[]): boolean {
+  const role = roleName?.trim().toUpperCase();
+  if (role === "DRIVER") {
+    return false;
+  }
+
+  return canViewFacilities(roleName, permissions);
+}
+
 export function getFacilityLevelLabel(level: FacilityHierarchyLevel): string {
   switch (level) {
     case "property":

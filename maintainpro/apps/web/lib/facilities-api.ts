@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import type { PublicFacilityDashboardSummary } from "./facility-dashboard-types";
 import type {
   FacilityBuilding,
   FacilityFloor,
@@ -161,5 +162,10 @@ export async function getFloor(floorId: string): Promise<FacilityFloor> {
 
 export async function getRoom(roomId: string): Promise<FacilityRoom> {
   const response = await apiClient.get<ApiEnvelope<FacilityRoom>>(`/facilities/rooms/${roomId}`);
+  return response.data.data;
+}
+
+export async function getFacilityDashboardSummary(): Promise<PublicFacilityDashboardSummary> {
+  const response = await apiClient.get<ApiEnvelope<PublicFacilityDashboardSummary>>("/facilities/dashboard");
   return response.data.data;
 }

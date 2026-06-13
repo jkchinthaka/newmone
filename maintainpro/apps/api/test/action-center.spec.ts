@@ -162,6 +162,7 @@ describe("action center section builders", () => {
 
     expect(hierarchyLink?.href).toBe("/facilities");
     expect(hierarchyLink?.title).toBe("Open facility hierarchy");
+    expect(facility?.items.some((item) => item.href === "/facilities/reports")).toBe(true);
   });
 
   it("uses role-specific action center titles", () => {

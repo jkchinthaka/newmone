@@ -1,6 +1,7 @@
 import {
   canManageFacilities,
   canViewFacilities,
+  canViewFacilityReports,
   FACILITY_CREATE_PAYLOAD_KEYS,
   FACILITY_MANAGE_FALLBACK_ROLES,
   FACILITY_VIEW_FALLBACK_ROLES,
@@ -35,6 +36,11 @@ describe("facilities web role helpers", () => {
   it("does not grant manage access to CLEANER by default", () => {
     expect(canViewFacilities("CLEANER", [])).toBe(false);
     expect(canManageFacilities("CLEANER", [])).toBe(false);
+  });
+
+  it("blocks drivers from facility reports while allowing viewers", () => {
+    expect(canViewFacilityReports("VIEWER", [])).toBe(true);
+    expect(canViewFacilityReports("DRIVER", [])).toBe(false);
   });
 });
 

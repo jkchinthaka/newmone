@@ -470,6 +470,19 @@
 - [ ] Existing `/cleaning/issues`, WorkOrder bridge, and `/facilities` CRUD unchanged.
 - [ ] No public `/public/*` QR route added.
 
+## 26) Facility Dashboard + Reporting (BUILD-009)
+- [ ] `/facilities/reports` loads for roles with `facilities.view` (FACILITY_MANAGER, ADMIN, VIEWER, etc.).
+- [ ] DRIVER cannot access facility reports in navigation or page permission state.
+- [ ] KPI counts match known tenant data (hierarchy + issues); zero tenant shows explicit empty message (no fake metrics).
+- [ ] Overdue count reflects issues with past `slaTargetAt` and OPEN/IN_PROGRESS status only.
+- [ ] Category/severity/status breakdown tables show real counts only.
+- [ ] Work order linkage KPIs match issues with/without `workOrderId`.
+- [ ] Attention previews list at most 5 items without raw relation payloads.
+- [ ] Action Center and command palette link to `/facilities/reports` for allowed roles only.
+- [ ] Mobile layout: KPI cards stack; tables scroll horizontally if needed.
+- [ ] Refresh reloads summary from `GET /facilities/dashboard`.
+- [ ] Existing `/facilities`, `/cleaning/issues`, QR reporting, and WO bridge unchanged.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

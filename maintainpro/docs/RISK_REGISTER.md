@@ -804,6 +804,46 @@
 - **Owner:** API + Security
 - **Review Cadence:** With each new QR entry point.
 
+### RISK-BUILD-009-KPI-MISINTERPRETATION
+- **Category:** Operations
+- **Description:** Facility dashboard KPIs may be misread as real-time operational truth without understanding SLA/overdue rules.
+- **Impact:** Incorrect prioritization or false confidence in facility coverage.
+- **Likelihood:** Medium for new dashboard users.
+- **Current Mitigation:** Overdue rule documented (SLA target + open/in-progress only); empty tenant shows explicit no-data message.
+- **Residual Risk:** Training and tooltips may still be needed for supervisors.
+- **Owner:** Product + Operations
+- **Review Cadence:** After OPS-002 heatmap work.
+
+### RISK-BUILD-009-SLA-OVERDUE-DRIFT
+- **Category:** Operations
+- **Description:** Dashboard overdue counts use issue `slaTargetAt` while work orders use separate due dates without sync.
+- **Impact:** Issue overdue KPI may diverge from linked work order overdue views.
+- **Likelihood:** Medium until unified SLA engine (OPS-002/WO-004).
+- **Current Mitigation:** BUILD-009 does not sync statuses; dashboard labels SLA source explicitly.
+- **Residual Risk:** OPS-002 should align heatmap rules with dashboard overdue definition.
+- **Owner:** API + Product
+- **Review Cadence:** OPS-002 implementation.
+
+### RISK-BUILD-009-AGGREGATION-PERFORMANCE
+- **Category:** Performance
+- **Description:** Dashboard endpoint runs multiple counts/groupBy queries per request.
+- **Impact:** Slow reports page for large tenants.
+- **Likelihood:** Low initially; Medium at scale.
+- **Current Mitigation:** Private cache header (15s); preview lists capped at 5; tenant-scoped indexes on issue fields.
+- **Residual Risk:** May need materialized summaries or caching layer for very large tenants.
+- **Owner:** API Platform
+- **Review Cadence:** When tenant issue volume exceeds low thousands.
+
+### RISK-BUILD-009-REPORT-PERMISSION-DRIFT
+- **Category:** Security
+- **Description:** Navigation/Action Center visibility could drift from backend `@Permissions("facilities.view")` enforcement.
+- **Impact:** Unauthorized users see links that fail on load, or authorized users miss navigation.
+- **Likelihood:** Low with shared `canViewFacilityReports` helper tests.
+- **Current Mitigation:** Backend authoritative; web tests for navigation and DRIVER block.
+- **Residual Risk:** New roles must update FACILITY_VIEW_FALLBACK_ROLES and navigation allowedRoles together.
+- **Owner:** Web + Security
+- **Review Cadence:** On RBAC seed changes.
+
 ### RISK-SMART-OPS-001-EXTERNAL-DEPENDENCY-GAPS
 - **Category:** Operations / Integrations
 - **Description:** Email/SMS/ERP dependencies remain unconfigured in production; Action Center cannot surface delivery guarantees.
