@@ -572,7 +572,7 @@
 - [ ] Activity timeline still loads when evidence fetch fails.
 - [ ] No public/anonymous upload route exists.
 
-## 37) Staging Database Smoke (DEPLOY-002)
+## 37) Staging Database Smoke (DEPLOY-002 / DEPLOY-002B)
 - [ ] `DATABASE_URL` set only in secret manager / local `.env` (never committed).
 - [ ] Atlas URI includes explicit database name (`maintainpro_staging` recommended for UAT).
 - [ ] `npm run db:smoke` returns `connected: true` with tenant/user counts (no connection string in output).
@@ -580,9 +580,19 @@
 - [ ] `/health` reports `database.status=operational`.
 - [ ] `/health/readiness` loads without crash (auth as required in production).
 - [ ] Evidence/ERP/notification readiness endpoints still respond when DB is healthy.
-- [ ] `npm run db:seed` not run unless explicitly approved (requires `MAINTAINPRO_SEED_PASSWORD`).
 - [ ] No destructive reset/drop performed.
 - [ ] Temporary Atlas credential rotated after sign-off.
+
+## 38) Staging Seed + Login Smoke (DEPLOY-002C)
+- [ ] Empty staging DB confirmed before seed (`tenantCount=0` via `npm run db:smoke`) or operator explicitly approves re-seed on non-empty DB.
+- [ ] `MAINTAINPRO_SEED_PASSWORD` set in shell/secret manager only (min 12 chars; never committed).
+- [ ] `npm run db:seed` completes (`Seed complete`) without drop/reset commands.
+- [ ] Post-seed `npm run db:smoke` shows `tenantCount>0`, `userCount>0`, `workOrderCount>0`.
+- [ ] RBAC baseline present (permissions + core roles for default tenant).
+- [ ] `/health` remains `database.status=operational` after seed.
+- [ ] API login smoke: `POST /auth/login` with seed admin email succeeds (token returned; no passwordHash in response).
+- [ ] Dashboard browser login manually verified in staging when web is deployed (or run `smoke:local` with web dev server).
+- [ ] Seed password stored in operator secret manager; temporary Atlas credential rotation scheduled after UAT.
 
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).

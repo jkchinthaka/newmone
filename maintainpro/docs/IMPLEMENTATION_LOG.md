@@ -2021,6 +2021,26 @@ Record each completed task with:
   - **Rotate temporary Atlas password after UAT** and revoke old credential.
 - Recommended next task: re-run `npm run db:smoke` + `/health` after Atlas env is wired, then **DEPLOY-003** hosted staging deploy smoke (`smoke:deploy`).
 
+## 2026-06-13 | DEPLOY-002B | Atlas staging connection smoke (operator env)
+
+- Operator wired `DATABASE_URL` through shell/local `.env` only (not committed).
+- `npm run db:smoke`: `connected: true` against `maintainpro_staging`; initial counts `tenantCount=0`, `userCount=0`, `workOrderCount=0`.
+- API restarted with Atlas env; `/health` `database.status=operational`; `/health/readiness` primary MongoDB operational (overall readiness still degraded for expected local/staging gaps: backup replication, disabled email/SMS).
+- No seed, reset, drop, or destructive push executed in this step.
+- Recommended next task: **DEPLOY-002C** safe staging seed + login smoke.
+
+## 2026-06-13 | DEPLOY-002C | Safe staging seed and login smoke
+
+- Audit: branch `main`, clean working tree, `.env` gitignored; seed script (`apps/api/src/database/seed.ts`) is upsert-only (no drop/reset); `MAINTAINPRO_SEED_PASSWORD` required via shell env only.
+- Seed: `npm run db:seed` completed against Atlas `maintainpro_staging` using env-only credentials (password not committed or logged).
+- Post-seed `npm run db:smoke`: `connected: true`, `tenantCount=1`, `userCount=8`, `workOrderCount=5`.
+- Seed baseline includes default tenant (`slug=default`), RBAC permissions/roles, and seeded admin users (`superadmin@maintainpro.local`, `admin@maintainpro.local`, plus sample roles).
+- API health after seed: `node scripts/healthcheck.mjs` OK; `/health` database operational; `/health/readiness` primary MongoDB operational (overall still degraded for optional deps).
+- Login smoke: API `POST /auth/login` for seed super-admin succeeded (access token returned); dashboard browser smoke pending unless web dev server is running (`smoke:local` web check not run).
+- Safety: no destructive reset/drop; no secrets in git diff; smoke script continues to redact Mongo URIs in errors.
+- Operator follow-up: rotate temporary Atlas password after UAT; store `MAINTAINPRO_SEED_PASSWORD` in secret manager (not repo); re-run seed password is session-only unless operator records it securely.
+- Recommended next task: **DEPLOY-003** hosted staging deploy smoke (`npm run smoke:deploy`).
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

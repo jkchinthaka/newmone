@@ -1031,8 +1031,9 @@
 - **Impact:** Unauthorized database access, data exposure, compliance breach.
 - **Likelihood:** Medium while temp credential is active; Lower after rotation and IP allowlist hardening.
 - **Current Mitigation:**
-  - DEPLOY-002 documents env-only wiring (`DATABASE_URL`); `.env` gitignored; smoke script redacts URIs from errors.
-  - No credentials in repo/docs; destructive reset explicitly excluded from smoke workflow.
-- **Residual Risk:** Operator must rotate password and restrict Atlas network access after UAT.
+  - DEPLOY-002/002B/002C document env-only wiring (`DATABASE_URL`, `MAINTAINPRO_SEED_PASSWORD`); `.env` gitignored; smoke script redacts URIs from errors.
+  - Staging seed uses upsert-only flow; no destructive reset in smoke/seed workflow; no credentials in repo/docs.
+  - DEPLOY-002C verified Atlas `maintainpro_staging` seed + API login smoke without committing secrets.
+- **Residual Risk:** Operator must rotate Atlas password and store seed password in secret manager after UAT; browser/dashboard login still needs hosted or local web smoke.
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.

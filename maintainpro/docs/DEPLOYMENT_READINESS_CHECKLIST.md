@@ -27,6 +27,9 @@ API admin endpoints (authenticated):
 - [ ] Staging Atlas URI uses an explicit database name (recommended: `maintainpro_staging`)
 - [ ] Atlas network access / IP allowlist includes deployment runner and hosting egress
 - [ ] Temporary Atlas credentials rotated after UAT (`npm run db:smoke` + `/health` sign-off)
+- [ ] Staging seed approved and run only with shell `MAINTAINPRO_SEED_PASSWORD` (upsert-based `npm run db:seed`; no drop/reset)
+- [ ] Post-seed `npm run db:smoke` shows non-zero tenant/user counts on `maintainpro_staging`
+- [ ] Seed admin API login smoke passes before hosted UAT (`POST /auth/login`; store password in secret manager only)
 - [ ] `npm run db:generate` succeeds in CI/build
 - [ ] `npm run db:push` / seed plan documented (seed only where approved; no destructive reset)
 - [ ] Backup replication policy reviewed (`BACKUP_DATABASE_URL`, `DATABASE_REPLICATION_MODE`)
