@@ -1348,3 +1348,31 @@ Record each completed task with:
 - Deferred mutation flows:
   - No invite/create/delete/role-edit/password-reset/tenant admin workspace in admin console.
   - Settings user mutation flows unchanged.
+
+## 2026-06-12 | ADMIN-002C | Harden legacy user management paths
+- Audit findings:
+  - Legacy `GET /users` used `toPublicUser()` which only stripped `passwordHash` but still returned `failedLoginAttempts`, `lockedUntil`, `tenantId`, timestamps, and full `role` objects (including permission relations when loaded).
+  - Legacy `PATCH /users/:id/status` (`UsersService.setActive`) had tenant membership check only; lacked self-deactivation, SUPER_ADMIN, and last-super-admin protections present in ADMIN-002B.
+  - Settings, work-order technician picker, and department EntityPicker consume `GET /users`; Settings also uses legacy status endpoint with `users.status.manage` permission (broader than admin-only roles).
+- Legacy endpoints reviewed:
+  - `GET /users`, `GET /users/:id`, `PATCH /users/:id/status`, plus create/invite/update responses sharing the same public mapper.
+  - `GET /admin/users` and `PATCH /admin/users/:id/status` left unchanged.
+- Hardening approach:
+  - Extracted shared `applyProtectedUserStatusUpdate()` used by both `updateAdminUserStatus()` and `setActive()` to eliminate behavior drift.
+  - Replaced raw Prisma spread mapping with explicit `PublicUserResponse` allowlist via `toPublicUserResponse()`.
+  - Prisma queries now select `role: { id, name }` only.
+- DTO changes:
+  - Allowed on legacy user responses: `id`, `firstName`, `lastName`, `email`, `phone`, `isActive`, `role.id`, `role.name`.
+  - Excluded: `passwordHash`, tokens, `failedLoginAttempts`, `lockedUntil`, `tenantId`, `roleId`, `departmentId`, `avatar`, timestamps, role permissions/permissionIds, and other internal auth fields.
+  - `AdminUserAccessRow` unchanged for `/admin/users`.
+- Compatibility decisions:
+  - Settings retains `PATCH /users/:id/status` for permissioned operators (`users.status.manage`); backend protections now match ADMIN-002B.
+  - Settings user list unchanged structurally; admins see a link to `/admin/users` for ConfirmDialog-based status changes.
+  - No Settings feature removal beyond response sanitization.
+- Tests/checks run:
+  - `users-legacy-hardening.spec.ts` for allowlist GET /users and legacy setActive protections.
+  - Existing admin-users*.spec.ts retained.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - Settings still exposes invite/delete/role flows outside admin console scope.
+  - Permission-based status mutation remains broader than admin-only `/admin/users` endpoint by design.

@@ -327,7 +327,7 @@
   - ADMIN tenant membership filter; SUPER_ADMIN cross-tenant behavior documented in UI.
   - Frontend table field allowlist excludes sensitive columns; tests in `admin-users-access.spec.ts` and `admin-users.spec.ts`.
   - QA checklist section 2o for manual verification.
-- **Residual Risk:** Existing `GET /users` still returns broader user objects for permissioned callers; admin mutations remain in Settings outside this view.
+- **Residual Risk:** Legacy `GET /users` now uses `PublicUserResponse` allowlist (ADMIN-002C); Settings mutations remain outside admin console.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When extending admin user views or changing User model/API responses.
 
@@ -337,11 +337,26 @@
 - **Impact:** Unauthorized account lockout, tenant admin denial-of-service, privilege escalation attempts, or exposure of sensitive user fields if response sanitization regresses.
 - **Likelihood:** Low with current guards/tests; Medium if settings `/users/:id/status` and admin endpoint diverge or frontend-only checks replace backend enforcement.
 - **Current Mitigation:**
-  - Dedicated admin status endpoint with `@Roles(ADMIN, SUPER_ADMIN)` and `UsersService.updateAdminUserStatus()` protection rules (self-deactivation block, ADMIN vs SUPER_ADMIN block, last active SUPER_ADMIN block, tenant membership scope for ADMIN).
-  - Returns sanitized `AdminUserAccessRow` only; no password/token/internal auth fields.
-  - Frontend action visibility via `canShowAdminUserStatusAction()` is UX-only; ConfirmDialog required for mutations.
-  - Tests in `admin-users-status.spec.ts`, `admin-users-access.spec.ts`, and `admin-users.spec.ts`.
-  - QA checklist section 2p for manual verification.
-- **Residual Risk:** Settings page still exposes separate user status mutation paths; invite/create/delete/role/password flows remain outside admin console scope.
+  - Dedicated admin status endpoint with `@Roles(ADMIN, SUPER_ADMIN)` and shared `applyProtectedUserStatusUpdate()` protection rules (self-deactivation block, ADMIN vs SUPER_ADMIN block, last active SUPER_ADMIN block, tenant membership scope for ADMIN).
+  - Legacy `PATCH /users/:id/status` reuses the same shared mutation protections (ADMIN-002C).
+  - Returns sanitized `AdminUserAccessRow` / `PublicUserResponse` only; no password/token/internal auth fields.
+  - Frontend action visibility via `canShowAdminUserStatusAction()` is UX-only; ConfirmDialog required for admin mutations.
+  - Tests in `admin-users-status.spec.ts`, `users-legacy-hardening.spec.ts`, and related admin-users specs.
+  - QA checklist sections 2p and 2q for manual verification.
+- **Residual Risk:** Settings page still exposes invite/delete/role/password flows outside admin console scope.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When adding admin user mutations, changing User model status fields, or altering admin DTO allowlists.
+
+### RISK-ADMIN-002C-LEGACY-USER-DTO-DRIFT
+- **Category:** Security / Admin / Privacy
+- **Description:** Legacy `GET /users` and `PATCH /users/:id/status` could drift from admin hardened paths, re-exposing internal auth fields or weaker status mutation rules.
+- **Impact:** Sensitive field leakage, inconsistent lockout protections, unauthorized cross-tenant or super-admin status changes via Settings.
+- **Likelihood:** Low after shared `applyProtectedUserStatusUpdate()` and `PublicUserResponse` allowlist; Medium if future endpoints revert to raw Prisma spreads.
+- **Current Mitigation:**
+  - `PublicUserResponse` explicit allowlist on all legacy user read/write responses from `UsersService`.
+  - Shared status mutation protections for admin and legacy endpoints.
+  - Tests in `users-legacy-hardening.spec.ts` plus existing admin-users tests.
+  - QA checklist section 2q.
+- **Residual Risk:** Settings retains broader permission-based status access (`users.status.manage`) and other mutating flows (invite/delete/roles) outside admin console.
+- **Owner:** API + Web Platform
+- **Review Cadence:** When changing UsersService mappers, user Prisma selects, or Settings user management.

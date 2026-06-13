@@ -214,6 +214,15 @@
 - [ ] No password, token, hash, or internal auth fields appear in UI or network payload.
 - [ ] No invite/create/delete/role-edit/password-reset actions appear on `/admin/users`.
 
+## 2q) Legacy User Path Hardening (ADMIN-002C)
+- [ ] Settings user list still loads and shows name, email, role, and status.
+- [ ] Settings deactivate/activate still works for permissioned users and respects backend protection errors.
+- [ ] `/admin/users` deactivate/reactivate still works with ConfirmDialog.
+- [ ] Network payloads from `GET /users` omit password hashes, tokens, failed login counts, lockout timestamps, and role permission arrays.
+- [ ] Cross-tenant status mutation is blocked on both `/users/:id/status` and `/admin/users/:id/status`.
+- [ ] Self-deactivation, SUPER_ADMIN protection, and last-super-admin protection apply on both status paths.
+- [ ] Admin users in Settings see link to `/admin/users` without breaking the existing table.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

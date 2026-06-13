@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -897,6 +898,15 @@ export default function SettingsPage() {
 
           <article className="card space-y-3">
             <h3 className="text-lg font-semibold text-slate-900">Users</h3>
+            {isAdminRole ? (
+              <p className="text-xs text-slate-500">
+                For confirmed deactivate/reactivate with admin safeguards, use{" "}
+                <Link href="/admin/users" className="font-semibold text-brand-700 hover:text-brand-800">
+                  Admin Console → Users &amp; Access
+                </Link>
+                . Status changes here use the same backend protections.
+              </p>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>

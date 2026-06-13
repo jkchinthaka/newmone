@@ -7,7 +7,28 @@ import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
 
-type UserRecord = { passwordHash: string };
+export type PublicUserResponse = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  isActive: boolean;
+  role: {
+    id: string;
+    name: RoleName;
+  };
+};
+
+export const PUBLIC_USER_RESPONSE_FIELDS = [
+  "id",
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "isActive",
+  "role"
+] as const;
 
 export type AdminUserAccessRow = {
   id: string;
@@ -36,10 +57,30 @@ export const ADMIN_USER_ACCESS_SENSITIVE_FIELDS = [
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private toPublicUser<T extends UserRecord>(user: T): Omit<T, "passwordHash"> {
-    const { passwordHash: _passwordHash, ...publicUser } = user;
-    return publicUser;
+  private toPublicUserResponse(user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    isActive: boolean;
+    role: { id: string; name: RoleName };
+  }): PublicUserResponse {
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone ?? null,
+      isActive: user.isActive,
+      role: {
+        id: user.role.id,
+        name: user.role.name
+      }
+    };
   }
+
+  private readonly userRoleSelect = { id: true, name: true } as const;
 
   private currentTenantScope(): { tenantId: string | null; isSuperAdmin: boolean } {
     const ctx = requestContext.get();
@@ -122,12 +163,12 @@ export class UsersService {
           !isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {}
         ]
       },
-      include: { role: true },
+      include: { role: { select: this.userRoleSelect } },
       orderBy: { createdAt: "desc" },
       take
     });
 
-    return users.map((user) => this.toPublicUser(user));
+    return users.map((user) => this.toPublicUserResponse(user));
   }
 
   async findAllForAdminAccessView(): Promise<AdminUserAccessRow[]> {
@@ -141,7 +182,7 @@ export class UsersService {
         AND: [!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {}]
       },
       include: {
-        role: { select: { name: true } },
+        role: { select: { id: true, name: true } },
         tenant: { select: { id: true, name: true } },
         memberships: {
           take: 1,
@@ -159,8 +200,14 @@ export class UsersService {
   }
 
   async updateAdminUserStatus(userId: string, isActive: boolean): Promise<AdminUserAccessRow> {
+    const { isSuperAdmin } = this.currentTenantScope();
+    const updated = await this.applyProtectedUserStatusUpdate(userId, isActive);
+    return this.toAdminUserAccessRow(updated, isSuperAdmin);
+  }
+
+  private async applyProtectedUserStatusUpdate(userId: string, isActive: boolean) {
     const actorId = requestContext.getActorId();
-    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    const { isSuperAdmin } = this.currentTenantScope();
     const target = await this.findAdminMutationTarget(userId);
 
     if (!target) {
@@ -188,11 +235,11 @@ export class UsersService {
       }
     }
 
-    const updated = await this.prisma.user.update({
+    return this.prisma.user.update({
       where: { id: userId },
       data: { isActive },
       include: {
-        role: { select: { name: true } },
+        role: { select: this.userRoleSelect },
         tenant: { select: { id: true, name: true } },
         memberships: {
           take: 1,
@@ -203,8 +250,6 @@ export class UsersService {
         }
       }
     });
-
-    return this.toAdminUserAccessRow(updated, isSuperAdmin);
   }
 
   private async findAdminMutationTarget(userId: string) {
@@ -216,7 +261,7 @@ export class UsersService {
         ...(!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {})
       },
       include: {
-        role: { select: { name: true } },
+        role: { select: this.userRoleSelect },
         tenant: { select: { id: true, name: true } },
         memberships: {
           take: 1,
@@ -240,7 +285,7 @@ export class UsersService {
       lastLogin: Date | null;
       createdAt: Date;
       updatedAt: Date;
-      role: { name: RoleName };
+      role: { id: string; name: RoleName };
       tenant: { id: string; name: string } | null;
       memberships: Array<{ tenant: { id: string; name: string } }>;
     },
@@ -284,14 +329,14 @@ export class UsersService {
         id,
         ...(!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {})
       },
-      include: { role: true }
+      include: { role: { select: this.userRoleSelect } }
     });
 
     if (!user) {
       throw new NotFoundException("User not found");
     }
 
-    return this.toPublicUser(user);
+    return this.toPublicUserResponse(user);
   }
 
   async create(data: CreateUserDto) {
@@ -320,7 +365,7 @@ export class UsersService {
           phone: data.phone?.trim() || undefined,
           tenantId: tenantId ?? undefined
         },
-        include: { role: true }
+        include: { role: { select: this.userRoleSelect } }
       });
 
       if (tenantId) {
@@ -336,7 +381,7 @@ export class UsersService {
       return created;
     });
 
-    return this.toPublicUser(user);
+    return this.toPublicUserResponse(user);
   }
 
   async invite(data: InviteUserDto) {
@@ -369,7 +414,7 @@ export class UsersService {
           tenantId: tenantId ?? undefined
         },
         include: {
-          role: true
+          role: { select: this.userRoleSelect }
         }
       });
 
@@ -386,7 +431,7 @@ export class UsersService {
       return created;
     });
 
-    return this.toPublicUser(user);
+    return this.toPublicUserResponse(user);
   }
 
   async update(id: string, data: UpdateUserDto) {
@@ -405,23 +450,15 @@ export class UsersService {
         phone: data.phone?.trim() || undefined,
         roleId: data.roleId
       },
-      include: { role: true }
+      include: { role: { select: this.userRoleSelect } }
     });
 
-    return this.toPublicUser(user);
+    return this.toPublicUserResponse(user);
   }
 
   async setActive(id: string, isActive: boolean) {
-    await this.assertTenantUserAccessOrThrow(id);
-    await this.findOne(id);
-
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: { isActive },
-      include: { role: true }
-    });
-
-    return this.toPublicUser(user);
+    const updated = await this.applyProtectedUserStatusUpdate(id, isActive);
+    return this.toPublicUserResponse(updated);
   }
 
   async remove(id: string) {
