@@ -55,5 +55,10 @@ describe("admin console foundation", () => {
 
     const usersAccess = sections.find((section) => section.id === "users-access");
     expect(usersAccess?.href).toBe("/admin/users");
+
+    const rolesPermissions = sections.find((section) => section.id === "roles-permissions");
+    expect(rolesPermissions?.status).toBe("available");
+    expect(rolesPermissions?.href).toBe("/admin/roles");
+    expect(rolesPermissions?.description).toMatch(/read-only|review/i);
   });
 });

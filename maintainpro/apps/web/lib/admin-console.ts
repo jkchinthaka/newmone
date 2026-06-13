@@ -43,11 +43,10 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "roles-permissions",
       title: "Roles & Permissions",
-      description:
-        "Inspect role definitions and permission catalogs. Role/permission mutation flows remain deferred from this foundation pass.",
+      description: "Review role and permission coverage in a read-only admin matrix.",
       status: "available",
-      statusLabel: "Settings · Roles",
-      href: "/settings"
+      statusLabel: "Read-only review",
+      href: "/admin/roles"
     },
     {
       id: "system-health",

@@ -374,3 +374,17 @@
 - **Residual Risk:** Session tenant switch (`POST /tenants/:id/switch`) and `/tenants/me` remain outside admin workspace; tenant mutation/invitation flows still deferred.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When extending admin tenant views, adding tenant mutations, or changing Tenant model/API responses.
+
+### RISK-ADMIN-004A-RBAC-VISIBILITY-DRIFT
+- **Category:** Security / Admin / Authorization
+- **Description:** Admin roles/permissions matrix exposes RBAC structure; drift in DTO sanitization, tenant scoping, or future mutation endpoints could leak user assignments, secrets, or enable unauthorized role changes.
+- **Impact:** Unauthorized visibility of access patterns, accidental exposure of internal auth data, future mutation misuse if read-only guards regress.
+- **Likelihood:** Low with sanitized matrix endpoint and tests; Medium if legacy `/roles` responses are reused without review or admin mutation endpoints are added without protection.
+- **Current Mitigation:**
+  - Dedicated read-only `GET /admin/roles-permissions` with `@Roles(ADMIN, SUPER_ADMIN)`.
+  - Explicit matrix DTO; permissions global, roles tenant-scoped for ADMIN.
+  - Frontend matrix is read-only (`adminRolesMatrixAllowsMutations()` false); no assignment/edit controls.
+  - Tests in `admin-roles-access.spec.ts` and `admin-roles.spec.ts`; QA checklist section 2s.
+- **Residual Risk:** Settings `/roles` mutation APIs remain active; user-role assignment and invitation flows still deferred.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When adding role/permission mutations, changing seed/RBAC model, or extending admin matrix scope.

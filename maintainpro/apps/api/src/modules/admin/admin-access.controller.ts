@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { UpdateUserStatusDto } from "../users/dto/users.dto";
 import { UsersService } from "../users/users.service";
 import { AdminTenantsService } from "./admin-tenants.service";
+import { AdminRolesService } from "./admin-roles.service";
 
 @ApiTags("Admin")
 @ApiBearerAuth()
@@ -15,8 +16,16 @@ import { AdminTenantsService } from "./admin-tenants.service";
 export class AdminAccessController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly adminTenantsService: AdminTenantsService
+    private readonly adminTenantsService: AdminTenantsService,
+    private readonly adminRolesService: AdminRolesService
   ) {}
+
+  @Get("roles-permissions")
+  @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  async listRolesPermissionsMatrix() {
+    const matrix = await this.adminRolesService.findRolesPermissionsMatrixForReview();
+    return { data: matrix, message: "Admin roles and permissions matrix fetched" };
+  }
 
   @Get("tenants")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)

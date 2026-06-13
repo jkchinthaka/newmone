@@ -1404,3 +1404,33 @@ Record each completed task with:
 - Remaining risks:
   - `/tenants/me` and `POST /tenants/:id/switch` remain separate session flows outside this read-only workspace.
   - Member count is membership-based, not active-user filtered.
+
+## 2026-06-12 | ADMIN-004A | Read-only roles & permissions matrix
+- Audit findings:
+  - Legacy `GET /roles` and `GET /roles/permissions` require `roles.view` / `permissions.view` permissions and return raw Prisma objects (including permission relation arrays on roles).
+  - Permissions are global catalog records (`Permission.key` unique); roles are tenant-scoped (`Role.tenantId`) with seeded built-in `RoleName` values per tenant.
+  - Settings still hosts role/permission mutation flows — not duplicated under `/admin`.
+- Endpoint/route approach:
+  - Added read-only `GET /admin/roles-permissions` with `@Roles(SUPER_ADMIN, ADMIN)`.
+  - `AdminRolesService.findRolesPermissionsMatrixForReview()` returns sanitized matrix DTO with permission groups and coverage map.
+  - Frontend route `/admin/roles` with module-grouped matrix cards and client-side search.
+  - Admin console Roles & Permissions card links to `/admin/roles`.
+- Fields exposed:
+  - Permission: id, key, module (derived from key prefix), description.
+  - Role: id, name, tenantId, tenantName (SUPER_ADMIN), permissionKeys, permissionCount, isBuiltIn.
+  - Matrix: scope, permissionGroups, coverage map (permissionKey → role ids).
+- Fields intentionally excluded:
+  - Users assigned to roles, raw roleIds/permissionIds relation arrays, auth tokens/sessions, secrets, tenant integration config.
+- Tenant/RBAC behavior:
+  - Permissions: global catalog visible to all admin viewers.
+  - Roles: ADMIN tenant-scoped; SUPER_ADMIN cross-tenant with tenant labels.
+  - Non-admin blocked in UI and via RolesGuard.
+- Deferred mutation flows:
+  - No role create/update/delete, permission create/update/delete, or user role assignment in admin matrix.
+  - Settings mutation flows unchanged.
+- Tests/checks run:
+  - `admin-roles-access.spec.ts`, `admin-roles.spec.ts`, updated `admin-console.spec.ts` and `breadcrumbs.spec.ts`.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - Legacy `/roles` endpoints still return broader objects for permissioned Settings callers.
+  - Matrix can grow large; current UI uses grouped scrollable tables without pagination.

@@ -20,6 +20,10 @@ describe("breadcrumb helpers", () => {
       { label: "Admin Console", href: "/admin" },
       { label: "Tenants" }
     ]);
+    expect(getBreadcrumbsForPath("/admin/roles")).toEqual([
+      { label: "Admin Console", href: "/admin" },
+      { label: "Roles & Permissions" }
+    ]);
   });
 
   it("maps vehicle detail and documents routes with parent links", () => {

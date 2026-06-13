@@ -233,6 +233,17 @@
 - [ ] Mobile layout remains readable for tenant profile and SUPER_ADMIN table cards.
 - [ ] No tenant create/edit/delete/invite/switch/billing actions appear on `/admin/tenants`.
 
+## 2s) Admin Roles & Permissions Matrix (ADMIN-004A)
+- [ ] ADMIN can open `/admin/roles` from Admin Console and review tenant-scoped role coverage.
+- [ ] SUPER_ADMIN can open `/admin/roles` and sees cross-tenant roles with tenant labels.
+- [ ] Non-admin direct access to `/admin/roles` shows access-restricted state.
+- [ ] Matrix shows permission keys grouped by module with read-only Yes/— coverage badges.
+- [ ] Client search filters roles and permissions without errors.
+- [ ] No password, token, user list, or secret fields appear in UI or network payload.
+- [ ] Empty, loading, and error states render safely with retry on error.
+- [ ] Mobile layout scrolls grouped permission tables cleanly.
+- [ ] No edit/delete/assign/create actions appear on `/admin/roles`.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.
