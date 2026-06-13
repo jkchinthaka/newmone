@@ -45,6 +45,10 @@ API admin endpoints (authenticated):
 - [ ] Follow `docs/NOTIFICATION_PROVIDER_SETUP.md`
 - [ ] `/notifications/readiness` shows expected states
 - [ ] Template samples reviewed (`/notifications/templates/samples`)
+- [ ] UAT flags remain disabled until staging sign-off (`NOTIFICATION_UAT_ENABLED`, `NOTIFICATION_REAL_SENDS_ENABLED`)
+- [ ] Allowlisted UAT recipient(s) documented (`NOTIFICATION_UAT_ALLOWED_RECIPIENTS`)
+- [ ] One allowlisted UAT email test recorded (masked response, no secret leakage)
+- [ ] SMS UAT either signed off live or documented as `not_configured` / `mock`
 - [ ] No mock modes in production unless temporary and approved
 
 ## 5. ERP readiness

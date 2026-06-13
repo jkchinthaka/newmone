@@ -538,6 +538,17 @@
 - [ ] No photo upload or public file upload controls in activity panel.
 - [ ] Activity fetch failure shows unavailable message; edit/save actions still work.
 
+## 34) Notification UAT Sends (NOTIFY-002)
+- [ ] `/system-health` Notification UAT card visible to ADMIN/SUPER_ADMIN only.
+- [ ] `/notifications/readiness` shows email/SMS states plus UAT controls summary.
+- [ ] UAT disabled by default blocks send with safe `blocked` status.
+- [ ] Non-allowlisted recipient rejected with safe message.
+- [ ] Allowlisted email UAT succeeds only when SMTP live credentials + UAT flags enabled.
+- [ ] SMS UAT with `SMS_MODE=disabled` returns `not_configured` without crash.
+- [ ] SMS UAT with `SMS_MODE=mock` returns `mock` and performs no external HTTP call.
+- [ ] UAT responses mask recipients and never include SMTP/SMS secrets.
+- [ ] No bulk send action exposed in UI.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

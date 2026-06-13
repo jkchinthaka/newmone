@@ -130,6 +130,47 @@ export class SmsDispatchService {
     return this.result(1, 1, 0, "active");
   }
 
+  async sendUatSms(input: { to: string; message: string }): Promise<{ messageId: string | null }> {
+    const mode = this.integrationMode;
+    if (mode === "disabled") {
+      throw new Error("SMS delivery is disabled by SMS_MODE=disabled");
+    }
+
+    if (mode === "mock") {
+      return { messageId: null };
+    }
+
+    if (!this.hasLiveConfig()) {
+      throw new Error("SMS_MODE=live requires SMS_API_URL, SMS_API_KEY, and SMS_SENDER_ID");
+    }
+
+    const endpoint = this.configService.get<string>("SMS_API_URL", "");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({
+        to: input.to,
+        message: input.message,
+        senderId: this.configService.get<string>("SMS_SENDER_ID", "MaintainPro")
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`SMS provider returned HTTP ${response.status}${body ? `: ${body}` : ""}`);
+    }
+
+    let messageId: string | null = null;
+    try {
+      const payload = (await response.json()) as { messageId?: string; id?: string };
+      messageId = payload.messageId ?? payload.id ?? null;
+    } catch {
+      messageId = null;
+    }
+
+    return { messageId };
+  }
+
   private get integrationMode(): "disabled" | "mock" | "live" {
     const explicit = this.configService.get<string>("SMS_MODE", "").trim().toLowerCase();
     if (explicit === "disabled" || explicit === "mock" || explicit === "live") {

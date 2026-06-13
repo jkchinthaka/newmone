@@ -884,3 +884,17 @@
 - **Residual Risk:** Photo/evidence capture still unavailable; operators may see divergent issue vs work order status until lifecycle sync work lands.
 - **Owner:** Maintenance Operations + Web
 - **Review Cadence:** Before enabling photo storage integration or dedicated WO activity event model.
+
+### RISK-NOTIFY-002-UAT-SEND-SAFETY
+- **Category:** Notifications / Operations
+- **Description:** Staged UAT sends can still deliver real messages to wrong recipients if allowlists or env flags are mis-set; SMS vendor config may drift from approved gateway contract.
+- **Impact:** Accidental customer/operator messages, compliance breach, provider cost spikes, secret leakage in logs.
+- **Likelihood:** Medium when enabling UAT in staging without checklist discipline; Lower when allowlist remains minimal and flags are disabled after sign-off.
+- **Current Mitigation:**
+  - NOTIFY-002 requires `NOTIFICATION_UAT_ENABLED` + `NOTIFICATION_REAL_SENDS_ENABLED` + allowlisted recipient.
+  - Admin-only UAT endpoints/UI; masked responses; provider secrets excluded from API payloads.
+  - SMS disabled/mock/live behavior is explicit; no bulk send endpoints added.
+  - `docs/NOTIFICATION_PROVIDER_SETUP.md` + deployment checklist UAT sign-off steps.
+- **Residual Risk:** Operator error configuring allowlist; live SMS still depends on approved external gateway availability.
+- **Owner:** Platform + Operations
+- **Review Cadence:** Before production notification automation and after each provider credential rotation.

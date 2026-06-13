@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { EmailDispatchService } from "./email-dispatch.service";
+import { describeNotificationUatControls, parseNotificationUatAllowlist } from "./notification-uat.mapper";
 import { SmsDispatchService } from "./sms-dispatch.service";
 
 export type NotificationReadinessState =
@@ -23,6 +24,7 @@ export type NotificationReadinessSummary = {
   overallState: NotificationReadinessState;
   email: NotificationChannelReadiness;
   sms: NotificationChannelReadiness;
+  uat: ReturnType<typeof describeNotificationUatControls>;
 };
 
 const EMAIL_LIVE_KEYS = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
@@ -39,12 +41,20 @@ export class NotificationReadinessService {
   getSummary(): NotificationReadinessSummary {
     const email = this.describeEmailReadiness();
     const sms = this.describeSmsReadiness();
+    const uat = describeNotificationUatControls({
+      uatEnabled: this.configService.get<boolean>("NOTIFICATION_UAT_ENABLED", false),
+      realSendsEnabled: this.configService.get<boolean>("NOTIFICATION_REAL_SENDS_ENABLED", false),
+      allowlist: parseNotificationUatAllowlist(
+        this.configService.get<string>("NOTIFICATION_UAT_ALLOWED_RECIPIENTS", "")
+      )
+    });
 
     return {
       generatedAt: new Date().toISOString(),
       overallState: this.resolveOverallState([email.state, sms.state]),
       email,
-      sms
+      sms,
+      uat
     };
   }
 

@@ -108,7 +108,10 @@ export const envValidationSchema = Joi.object({
   SWAGGER_PASSWORD: Joi.string().allow(""),
   READINESS_API_KEY: Joi.string().allow(""),
   ALLOW_FACILITY_BACKFILL_APPLY: Joi.boolean().default(false),
-  DUPLICATE_ISSUE_WINDOW_DAYS: Joi.number().integer().min(1).max(90).default(7)
+  DUPLICATE_ISSUE_WINDOW_DAYS: Joi.number().integer().min(1).max(90).default(7),
+  NOTIFICATION_UAT_ENABLED: Joi.boolean().default(false),
+  NOTIFICATION_REAL_SENDS_ENABLED: Joi.boolean().default(false),
+  NOTIFICATION_UAT_ALLOWED_RECIPIENTS: Joi.string().allow("").default("")
 })
   .custom((value, helpers) => {
     const nodeEnv = String(value.NODE_ENV ?? "development");
@@ -155,6 +158,13 @@ export const envValidationSchema = Joi.object({
 
     if (errors.length > 0) {
       return errors[0];
+    }
+
+    if (Boolean(value.NOTIFICATION_REAL_SENDS_ENABLED) && !Boolean(value.NOTIFICATION_UAT_ENABLED)) {
+      return helpers.error("any.invalid", {
+        message:
+          "NOTIFICATION_REAL_SENDS_ENABLED=true requires NOTIFICATION_UAT_ENABLED=true for staged UAT safety"
+      });
     }
 
     const storageMode = String(value.STORAGE_MODE ?? "local");

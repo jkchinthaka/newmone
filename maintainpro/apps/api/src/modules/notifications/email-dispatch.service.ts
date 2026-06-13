@@ -110,6 +110,46 @@ export class EmailDispatchService {
     return this.result(1, 1, 0, "active");
   }
 
+  async sendUatEmail(input: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<{ messageId: string | null }> {
+    if (this.integrationMode === "disabled") {
+      throw new Error("Email delivery is disabled by EMAIL_MODE=disabled");
+    }
+
+    if (!this.hasLiveConfig()) {
+      throw new Error("EMAIL_MODE=live requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM");
+    }
+
+    const transport = nodemailer.createTransport({
+      host: this.configService.get<string>("SMTP_HOST"),
+      port: this.configService.get<number>("SMTP_PORT", 587),
+      secure: this.configService.get<boolean>("SMTP_SECURE", false),
+      auth: {
+        user: this.configService.get<string>("SMTP_USER"),
+        pass: this.configService.get<string>("SMTP_PASS")
+      }
+    });
+
+    const response = await transport.sendMail({
+      from: this.configService.get<string>("SMTP_FROM"),
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html
+    });
+
+    const messageId =
+      response && typeof response === "object" && "messageId" in response
+        ? String((response as { messageId?: string }).messageId ?? "")
+        : null;
+
+    return { messageId: messageId || null };
+  }
+
   private get integrationMode(): "disabled" | "live" {
     const explicit = this.configService.get<string>("EMAIL_MODE", "").trim().toLowerCase();
     if (explicit === "disabled" || explicit === "live") {

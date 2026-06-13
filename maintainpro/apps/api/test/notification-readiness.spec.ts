@@ -22,6 +22,7 @@ describe("NotificationReadinessService", () => {
     expect(summary.email.state).toBe("disabled");
     expect(summary.sms.state).toBe("disabled");
     expect(summary.overallState).toBe("disabled");
+    expect(summary.uat.uatEnabled).toBe(false);
   });
 
   it("detects not_configured and misconfigured live email states", () => {

@@ -6,7 +6,9 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { NotificationReadinessService } from "./notification-readiness.service";
 import { NotificationTemplatesService } from "./notification-templates.service";
+import { NotificationUatService } from "./notification-uat.service";
 import { NotificationsService } from "./notifications.service";
+import { NotificationUatEmailTestDto, NotificationUatSmsTestDto } from "./dto/notification-uat.dto";
 
 type AuthedRequest = {
   user: {
@@ -22,7 +24,8 @@ export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly notificationReadinessService: NotificationReadinessService,
-    private readonly notificationTemplatesService: NotificationTemplatesService
+    private readonly notificationTemplatesService: NotificationTemplatesService,
+    private readonly notificationUatService: NotificationUatService
   ) {}
 
   @Get()
@@ -182,6 +185,20 @@ export class NotificationsController {
     };
 
     return { data, message: "Notification template samples fetched" };
+  }
+
+  @Post("uat/email-test")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async uatEmailTest(@Body() body: NotificationUatEmailTestDto) {
+    const data = await this.notificationUatService.sendEmailTest(body);
+    return { data, message: "Notification UAT email test completed" };
+  }
+
+  @Post("uat/sms-test")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async uatSmsTest(@Body() body: NotificationUatSmsTestDto) {
+    const data = await this.notificationUatService.sendSmsTest(body);
+    return { data, message: "Notification UAT SMS test completed" };
   }
 
   @Post("push/devices")

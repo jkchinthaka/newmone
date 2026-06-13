@@ -14,7 +14,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | Manager Morning Briefing | DONE | `components/dashboard/morning-briefing.tsx` | Compact dashboard card for admin/management/inventory; links to Action Center |
 | QR readiness foundation | DONE | `lib/qr-readiness.ts`, `test/qr-readiness.spec.ts` | Safe internal payload encode/parse; no public routes yet |
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
-| Work order activity timeline (WO-011) | DONE | `GET /work-orders/:id/activity`, edit modal panel | Derived from existing WO/issue/part-request dates; no new DB model |
+| Notification UAT staged sends (NOTIFY-002) | DONE | UAT endpoints + `/system-health` panel | Allowlist + dual env flags; no bulk/auto production sends |
 | Facility post-login route fix | DONE | `lib/role-redirect.ts` | FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities` |
 | Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
 | Facility hierarchy web UI (BUILD-004) | DONE | `/facilities`, `components/facilities/*`, `lib/facilities*.ts` | Drill-down browser; Action Center links live; issue migration deferred |
@@ -114,9 +114,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
-2. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
-3. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
+1. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
+2. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
 
 ## Verification notes (SMART-OPS-001)
 

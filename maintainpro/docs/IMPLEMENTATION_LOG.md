@@ -1928,6 +1928,24 @@ Record each completed task with:
 - Deferred: photo upload/storage, public uploads, external storage, assignment timestamp without dedicated field, full audit-log ingestion.
 - Recommended next task: **NOTIFY-002** staged production email/SMS UAT sends.
 
+## 2026-06-13 | NOTIFY-002 | Staged notification Email/SMS UAT sends
+
+- Audit findings:
+  - NOTIFY-001 already provides readiness, template samples, SMTP (nodemailer), and generic HTTP SMS provider with honest disabled/mock/live modes.
+  - No broad automatic production notification broadcaster; queue dispatch remains event-driven per existing flows.
+- Provider status:
+  - Email UAT uses `sendUatEmail()` when `EMAIL_MODE=live` and SMTP credentials are complete.
+  - SMS UAT uses live HTTP provider when configured; disabled returns `not_configured`; mock returns `mock` without external calls.
+- UAT endpoints/UI:
+  - `POST /notifications/uat/email-test`, `POST /notifications/uat/sms-test` (ADMIN/SUPER_ADMIN).
+  - Readiness summary includes `uat` controls; admin Notification UAT card on `/system-health`.
+- Send safety rules:
+  - `NOTIFICATION_UAT_ENABLED` + `NOTIFICATION_REAL_SENDS_ENABLED` + allowlisted recipient required; masked responses; no secrets returned.
+- Tests run: `notifications-uat-send.spec.ts`, `notification-provider-safety.spec.ts`, `notification-uat-ui.spec.ts`, updated readiness tests, full build/test suite.
+- Live UAT attempt: not performed in repo/CI (credentials not present).
+- Deferred: automatic production event notifications, bulk sends, Twilio-specific adapter.
+- Recommended next task: **ERP-002** live Bileeta read-only stock sync.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

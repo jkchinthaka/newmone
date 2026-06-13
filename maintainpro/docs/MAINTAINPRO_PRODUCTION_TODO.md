@@ -72,6 +72,7 @@
 | OPS-003 | P2 | Smart Ops | Duplicate issue detection | DONE | duplicate-check API + issue/QR UI warnings | duplicate-facility-issues.spec.ts, facility-issue-duplicates.spec.ts | Advisory only; deterministic local matching; no auto-merge/block. |
 | WO-011 | P2 | Work Orders | Work order activity timeline + evidence integration | DONE | work-order activity API + editor modal timeline | work-order-activity-timeline.spec.ts, work-order-activity.spec.ts | Derived timeline from existing fields; linked facility issue context; no photo upload. |
 | NOTIFY-001 | P2 | Notifications | Email/SMS production setup foundation | DONE | notification readiness + templates | notification-readiness.spec.ts | Readiness only; no real send; docs/NOTIFICATION_PROVIDER_SETUP.md. |
+| NOTIFY-002 | P2 | Notifications | Staged production Email/SMS UAT sends | DONE | UAT endpoints + system-health panel | notifications-uat-send.spec.ts, notification-provider-safety.spec.ts | Allowlist + env flags; no bulk/auto production sends. |
 | ERP-001 | P3 | ERP | ERP inventory integration foundation | DONE | InventoryErpAdapter + readiness | erp-inventory-adapter.spec.ts | Disabled/no-op adapter; no live HTTP; docs/ERP_INVENTORY_INTEGRATION_PLAN.md. |
 | DEPLOY-001 | P1 | Platform | Production deployment readiness package | DONE | deployment readiness service + checklist | deployment-readiness.spec.ts | Honest checklist/helper only; no deploy automation. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |

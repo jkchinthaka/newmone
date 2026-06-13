@@ -15,6 +15,7 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { NotificationUatPanel } from "@/components/admin/notification-uat-panel";
 
 type CheckStatus =
   | "operational"
@@ -330,6 +331,8 @@ export default function SystemHealthPage() {
       ) : null}
 
       {replicationCheck ? <ReplicationStatusCard check={replicationCheck} /> : null}
+
+      <NotificationUatPanel />
 
       <section className="grid gap-4 xl:grid-cols-3">
         {dependencies.map((check) => (

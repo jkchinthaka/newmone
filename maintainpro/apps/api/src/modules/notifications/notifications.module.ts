@@ -5,6 +5,7 @@ import { NotificationsController } from "./notifications.controller";
 import { EmailDispatchService } from "./email-dispatch.service";
 import { NotificationReadinessService } from "./notification-readiness.service";
 import { NotificationTemplatesService } from "./notification-templates.service";
+import { NotificationUatService } from "./notification-uat.service";
 import { NotificationsGateway } from "./notifications.gateway";
 import { NotificationsProcessor } from "./notifications.processor";
 import { NotificationsQueueMonitor } from "./notifications-queue.monitor";
@@ -30,7 +31,8 @@ import { SmsDispatchService } from "./sms-dispatch.service";
     HttpPushProvider,
     NoopPushProvider,
     NotificationReadinessService,
-    NotificationTemplatesService
+    NotificationTemplatesService,
+    NotificationUatService
   ],
   exports: [
     NotificationsService,
@@ -38,7 +40,8 @@ import { SmsDispatchService } from "./sms-dispatch.service";
     SmsDispatchService,
     PushDispatchService,
     NotificationReadinessService,
-    NotificationTemplatesService
+    NotificationTemplatesService,
+    NotificationUatService
   ]
 })
 export class NotificationsModule {}
