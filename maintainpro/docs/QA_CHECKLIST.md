@@ -181,6 +181,17 @@
 - [ ] Unknown/missing role gets minimal dashboard with safe quick links only.
 - [ ] Dashboard layout remains usable on mobile (cards stack, links tappable).
 
+## 2n) Admin Console Foundation (ADMIN-001)
+- [ ] SUPER_ADMIN sees `Admin Console` nav item and `/admin` command palette entry.
+- [ ] ADMIN sees `Admin Console` nav item and `/admin` command palette entry.
+- [ ] TECHNICIAN, CLEANER, DRIVER, INVENTORY_KEEPER, VIEWER, and unknown roles do not see `/admin` in nav or command palette.
+- [ ] Direct navigation to `/admin` as non-admin shows access-restricted state (not admin cards).
+- [ ] Admin console cards do not display fake user/tenant/RBAC counts.
+- [ ] System health section loads from existing readiness data or shows safe error state.
+- [ ] Available cards link only to real routes (`/settings`, `/system-health`).
+- [ ] Tenants card shows requires-API/coming-soon messaging without mutation actions.
+- [ ] Mobile layout stacks session, health, and module cards cleanly.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

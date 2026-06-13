@@ -47,7 +47,7 @@
 | UX-013 | P2 | UX/A11y | WCAG 2.1 AA improvements | DONE | auth/layout/nav/data-table/dialogs/page-state | Manual a11y QA, accessibility.spec.ts, web/full build | Core shell ARIA semantics: nav aria-current/expanded, breadcrumb labels, table scope/sort/keyboard rows, dialog validation links, auth form labels/status. |
 | UX-014 | P2 | UX/Locale | Sri Lanka localization readiness | DONE | lib/localization.ts, lib/ui-copy.ts, inventory/work-orders/reports/procurement/assets/dashboard rollout | Manual locale QA, localization.spec.ts, web/full build | en-LK/Asia/Colombo/LKR formatting helpers; English UI default; limited high-impact rollout; no full translation or backend changes. |
 | DASH-001 | P2 | UX/Dashboard | Role-aware dashboard content | DONE | lib/dashboard-roles.ts, components/dashboard/*, dashboard/page.tsx | Manual role QA, dashboard-roles.spec.ts, web/full build | Role-specific dashboard composition using existing APIs only; no backend changes or fake metrics. |
-| ADMIN-001 | P2 | Admin | Dedicated /admin console | NOT_STARTED | new admin route group | Manual RBAC test | |
+| ADMIN-001 | P2 | Admin | Dedicated /admin console | DONE | app/(dashboard)/admin, lib/admin-console.ts, navigation/command palette | Manual admin RBAC QA, admin-console.spec.ts, web/full build | Read-only admin foundation with section placeholders; ADMIN/SUPER_ADMIN nav visibility; no user/tenant/RBAC mutations. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

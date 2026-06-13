@@ -25,6 +25,7 @@ const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
   vehicles: ["trucks", "cars"],
   reports: ["analytics", "kpi"],
   "system-health": ["status", "integrations", "health"],
+  "admin-console": ["admin", "administration", "platform"],
   compliance: ["safety", "audit"],
   cleaning: ["janitorial", "hygiene"],
   "legacy-fms-archive": ["legacy", "archive", "fms"]

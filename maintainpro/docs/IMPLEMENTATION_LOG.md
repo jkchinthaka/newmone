@@ -1217,3 +1217,57 @@ Record each completed task with:
   - Frontend dashboard visibility mirrors role config; backend RBAC still required on module access.
   - Technician assigned-work filtering depends on `technicianId` matching stored user id.
   - Multiple dashboard panels may call several existing APIs on admin load (acceptable for this pass; no new endpoints).
+
+## 2026-06-12 | ADMIN-001 | Dedicated /admin console foundation
+- Audit findings:
+  - `/admin` did not exist; `role-redirect` already preferred `/admin` for SUPER_ADMIN but route was missing.
+  - `/system-health`, `/settings` (users/roles/audit/system tabs), and `/health/readiness` provide safe read-only admin signals today.
+  - Navigation/command palette already derive visibility from `getVisibleNavigationItems()`; no separate admin command list needed.
+  - Settings page contains mutation flows (invite/delete users, role changes) — intentionally not duplicated in admin console this pass.
+- Admin route added:
+  - `app/(dashboard)/admin/page.tsx` inside authenticated dashboard shell.
+  - Non-admin users see `PermissionState`; no redirect loop.
+- Admin sections added (read-only cards):
+  - Users & Access, Tenants, Roles & Permissions, System Health, Audit & Security, Integrations, Notifications/Email/SMS, Environment Readiness.
+  - Links only to existing routes (`/settings`, `/system-health`) where available; Tenants marked `Requires API`; no fake counts.
+- Navigation/command palette visibility:
+  - New nav item `Admin Console` (`/admin`) for ADMIN/SUPER_ADMIN only via `ADMIN_ROLES`.
+  - Command palette inherits nav visibility automatically; keywords added for admin search.
+  - `/admin` added to `EXISTING_NAV_ROUTES` and `EXISTING_POST_LOGIN_ROUTES`.
+- Data sources used:
+  - Current session from `useCurrentUser()` (email, role, tenant id).
+  - Existing `/tenants/me` for active tenant name (read-only).
+  - Reused dashboard `SystemHealthSummary` (`/health/readiness`).
+- Intentionally deferred mutation flows:
+  - No user create/update/delete/invite actions in admin console.
+  - No tenant mutation or cross-tenant admin actions.
+  - No role/permission mutation actions.
+  - Dedicated tenant admin counts/API deferred.
+- Files changed:
+  - `maintainpro/apps/web/lib/admin-console.ts` (new)
+  - `maintainpro/apps/web/components/admin/admin-console-page.tsx` (new)
+  - `maintainpro/apps/web/components/admin/admin-section-card.tsx` (new)
+  - `maintainpro/apps/web/app/(dashboard)/admin/page.tsx` (new)
+  - `maintainpro/apps/web/lib/navigation.ts`
+  - `maintainpro/apps/web/lib/role-redirect.ts`
+  - `maintainpro/apps/web/lib/breadcrumbs.ts`
+  - `maintainpro/apps/web/lib/command-palette.ts`
+  - `maintainpro/apps/api/test/admin-console.spec.ts` (new)
+  - `maintainpro/apps/api/test/navigation.spec.ts`
+  - `maintainpro/apps/api/test/breadcrumbs.spec.ts`
+  - `maintainpro/apps/api/tsconfig.json`
+  - `maintainpro/docs/MAINTAINPRO_PRODUCTION_TODO.md`
+  - `maintainpro/docs/IMPLEMENTATION_LOG.md`
+  - `maintainpro/docs/QA_CHECKLIST.md`
+  - `maintainpro/docs/RISK_REGISTER.md`
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Frontend admin visibility is UX-only; backend RBAC must protect settings/users/roles APIs.
+  - Settings still hosts mutating admin flows outside this foundation scope.
+  - Dedicated tenant admin API and audit workspace still missing.

@@ -84,6 +84,7 @@ const DASHBOARD_ROLES = mergeRoles(
 /** Confirmed App Router paths (2026-06-12 audit). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
   "/dashboard",
+  "/admin",
   "/system-health",
   "/work-orders",
   "/assets",
@@ -145,6 +146,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: DASHBOARD_ROLES,
     category: "core",
     activeMatch: "exact"
+  },
+  {
+    id: "admin-console",
+    label: "Admin Console",
+    href: "/admin",
+    icon: "ShieldCheck",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Platform administration and readiness overview",
+    activeMatch: "startsWith"
   },
   {
     id: "system-health",

@@ -11,6 +11,7 @@ export const DEFAULT_POST_LOGIN_REDIRECT = "/dashboard";
 /** App Router paths confirmed to exist today (2026-06-12 audit). */
 export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/dashboard",
+  "/admin",
   "/system-health",
   "/work-orders",
   "/cleaning",

@@ -299,3 +299,19 @@
 - **Residual Risk:** Backend remains authoritative; technician assignment filter depends on user id alignment; admin dashboard may trigger multiple existing API calls.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding roles, dashboard modules, or new summary APIs.
+
+### RISK-ADMIN-001-ADMIN-VISIBILITY-DRIFT
+- **Category:** UX / Admin / Authorization
+- **Description:** `/admin` visibility is controlled by frontend role checks and navigation config; backend RBAC on settings/users/roles/tenant APIs remains the real authorization boundary.
+- **Impact:** Non-admins could see admin nav if role config drifts; admins may see console cards for modules backend denies; users may assume frontend gating equals security.
+- **Likelihood:** Low-Medium when roles/nav change without updating `admin-console.ts` and navigation tests.
+- **Current Mitigation:**
+  - `isAdminConsoleRole()` + `PermissionState` on `/admin` for non-admin access attempts.
+  - Nav/command palette visibility limited to ADMIN/SUPER_ADMIN via existing `getVisibleNavigationItems()`.
+  - Read-only cards only; no user/tenant/RBAC mutation actions added in admin console.
+  - No fake user/tenant counts; tenants card explicitly marked requires API.
+  - Unit tests (`admin-console.spec.ts`) for role visibility and safe section definitions.
+  - QA checklist section 2n for manual admin visibility verification.
+- **Residual Risk:** Settings page still exposes mutating admin flows outside dedicated admin console; dedicated tenant admin API not built.
+- **Owner:** Web Platform
+- **Review Cadence:** When adding admin modules, roles, or backend admin endpoints.

@@ -12,6 +12,7 @@ describe("navigation config", () => {
     const hrefs = adminItems.map((item) => item.href);
 
     expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/admin");
     expect(hrefs).toContain("/system-health");
     expect(hrefs).toContain("/work-orders");
     expect(hrefs).toContain("/inventory");

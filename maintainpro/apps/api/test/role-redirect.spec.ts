@@ -27,8 +27,8 @@ describe("role-redirect helper", () => {
     expect(getPostLoginRedirect({ role: { name: "INVENTORY_KEEPER" } })).toBe("/inventory");
   });
 
-  it("maps super admin to system health when admin routes are unavailable", () => {
-    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/system-health");
+  it("maps super admin to admin console when admin route is available", () => {
+    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/admin");
   });
 
   it("maps admin to dashboard", () => {
