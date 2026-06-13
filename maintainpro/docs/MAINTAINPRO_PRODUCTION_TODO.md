@@ -51,6 +51,7 @@
 | ADMIN-002A | P2 | Admin | Read-only Users & Access view | DONE | admin/users route, GET /admin/users, admin-users UI | Manual admin users QA, admin-users*.spec.ts, web/full build | Sanitized read-only user list; ADMIN tenant-scoped; SUPER_ADMIN cross-tenant; no mutations. |
 | ADMIN-002B | P2 | Admin | Safe deactivate/reactivate user flow | DONE | PATCH /admin/users/:id/status, admin users UI actions | Manual status QA, admin-users-status.spec.ts, web/full build | Status-only mutation with RBAC, tenant scope, self/super-admin protections; sanitized DTO; ConfirmDialog UX. |
 | ADMIN-002C | P2 | Admin | Harden legacy user management paths | DONE | users.service.ts, PATCH /users/:id/status, GET /users DTO | Manual settings/admin QA, users-legacy-hardening.spec.ts, web/full build | Shared status protections; PublicUserResponse allowlist; legacy paths aligned with ADMIN-002B. |
+| ADMIN-003A | P2 | Admin | Read-only tenant admin workspace | DONE | GET /admin/tenants, /admin/tenants UI | Manual tenant QA, admin-tenants*.spec.ts, web/full build | SUPER_ADMIN cross-tenant list; ADMIN own-tenant profile; sanitized DTO; no mutations. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

@@ -360,3 +360,17 @@
 - **Residual Risk:** Settings retains broader permission-based status access (`users.status.manage`) and other mutating flows (invite/delete/roles) outside admin console.
 - **Owner:** API + Web Platform
 - **Review Cadence:** When changing UsersService mappers, user Prisma selects, or Settings user management.
+
+### RISK-ADMIN-003A-TENANT-DATA-EXPOSURE
+- **Category:** Security / Admin / Privacy
+- **Description:** Admin tenant review surfaces organization metadata; drift in DTO sanitization, Prisma selects, or tenant scoping could expose secrets, cross-tenant records, or billing/integration config.
+- **Impact:** Credential leakage, unauthorized cross-tenant visibility, compliance/privacy violations.
+- **Likelihood:** Low with explicit `AdminTenantOverviewRow` allowlist and scoped queries; Medium if admin endpoints begin loading subscription/stripe/env relations without review.
+- **Current Mitigation:**
+  - Dedicated read-only `GET /admin/tenants` with `@Roles(ADMIN, SUPER_ADMIN)`.
+  - `findAllForAdminTenantReview()` returns explicit sanitized DTO; Prisma select limited to safe tenant fields + membership count.
+  - ADMIN filtered to own `tenantId`; SUPER_ADMIN cross-tenant behavior documented in UI.
+  - Tests in `admin-tenants-access.spec.ts` and `admin-tenants.spec.ts`; QA checklist section 2r.
+- **Residual Risk:** Session tenant switch (`POST /tenants/:id/switch`) and `/tenants/me` remain outside admin workspace; tenant mutation/invitation flows still deferred.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When extending admin tenant views, adding tenant mutations, or changing Tenant model/API responses.

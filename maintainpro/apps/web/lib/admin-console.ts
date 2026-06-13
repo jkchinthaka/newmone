@@ -35,10 +35,10 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "tenants",
       title: "Tenants",
-      description:
-        "Cross-tenant administration and tenant lifecycle controls require a dedicated admin API. No tenant counts are shown here.",
-      status: "requires-api",
-      statusLabel: "Requires API"
+      description: "Review tenant context and tenant readiness in a read-only admin workspace.",
+      status: "available",
+      statusLabel: "Read-only review",
+      href: "/admin/tenants"
     },
     {
       id: "roles-permissions",

@@ -46,8 +46,9 @@ describe("admin console foundation", () => {
     );
 
     const tenants = sections.find((section) => section.id === "tenants");
-    expect(tenants?.status).toBe("requires-api");
-    expect(tenants?.href).toBeUndefined();
+    expect(tenants?.status).toBe("available");
+    expect(tenants?.href).toBe("/admin/tenants");
+    expect(tenants?.description).toMatch(/read-only/i);
 
     const systemHealth = sections.find((section) => section.id === "system-health");
     expect(systemHealth?.href).toBe("/system-health");

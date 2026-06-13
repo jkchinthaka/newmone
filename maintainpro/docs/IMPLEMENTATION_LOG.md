@@ -1376,3 +1376,31 @@ Record each completed task with:
 - Remaining risks:
   - Settings still exposes invite/delete/role flows outside admin console scope.
   - Permission-based status mutation remains broader than admin-only `/admin/users` endpoint by design.
+
+## 2026-06-12 | ADMIN-003A | Read-only tenant admin workspace
+- Audit findings:
+  - Existing `GET /tenants/me` returns active tenant + memberships for session/switch flows; not suitable as admin review list (includes membership roles, mutates user tenantId).
+  - No prior `GET /admin/tenants` or tenant list endpoint for admin review.
+  - Tenant model fields are limited to id, name, slug, isActive, createdAt, updatedAt — safe for read-only overview.
+  - Subscriptions, Stripe, invitations, and env/config are not loaded or returned.
+- Endpoint/route approach:
+  - Added `GET /admin/tenants` with `@Roles(SUPER_ADMIN, ADMIN)` on `AdminAccessController`.
+  - `AdminTenantsService.findAllForAdminTenantReview()` returns sanitized `AdminTenantOverviewRow` DTO.
+  - Frontend route `/admin/tenants` with DataTable (SUPER_ADMIN) and tenant profile card (ADMIN).
+  - Admin console Tenants card links to `/admin/tenants` as read-only review.
+- Tenant fields exposed:
+  - id, name, slug, isActive, memberCount (membership aggregate), createdAt, updatedAt.
+- Fields intentionally excluded:
+  - Database URLs, API keys, SMTP/SMS credentials, billing/Stripe secrets, invitation tokens, subscriptions, raw env/config, and any relation payloads beyond membership count.
+- Tenant/RBAC behavior:
+  - SUPER_ADMIN: lists up to 100 tenants, tenant ID column visible in table.
+  - ADMIN: scoped to active `tenantId` from request context (single tenant profile).
+  - Non-admin: frontend PermissionState; backend RolesGuard on API.
+- Deferred mutation flows:
+  - No tenant create/update/delete, invitations, switching UI, or billing changes in admin workspace.
+- Tests/checks run:
+  - `admin-tenants-access.spec.ts`, `admin-tenants.spec.ts`, updated `admin-console.spec.ts` and `breadcrumbs.spec.ts`.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - `/tenants/me` and `POST /tenants/:id/switch` remain separate session flows outside this read-only workspace.
+  - Member count is membership-based, not active-user filtered.

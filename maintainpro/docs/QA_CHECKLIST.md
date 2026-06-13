@@ -223,6 +223,16 @@
 - [ ] Self-deactivation, SUPER_ADMIN protection, and last-super-admin protection apply on both status paths.
 - [ ] Admin users in Settings see link to `/admin/users` without breaking the existing table.
 
+## 2r) Admin Tenant Read-Only Workspace (ADMIN-003A)
+- [ ] SUPER_ADMIN can open `/admin/tenants` from Admin Console and review cross-tenant list in DataTable.
+- [ ] ADMIN can open `/admin/tenants` and sees own active tenant profile only.
+- [ ] Non-admin direct access to `/admin/tenants` shows access-restricted state.
+- [ ] Tenant table/profile shows name, slug, status, member count, and dates only.
+- [ ] No database URLs, API keys, SMTP/SMS credentials, billing secrets, or env/config values appear in UI or network payload.
+- [ ] Empty, loading, and error states render safely with retry on error.
+- [ ] Mobile layout remains readable for tenant profile and SUPER_ADMIN table cards.
+- [ ] No tenant create/edit/delete/invite/switch/billing actions appear on `/admin/tenants`.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.
