@@ -560,6 +560,18 @@
 - [ ] Cross-tenant parts never included in comparison for non-super-admin tenants.
 - [ ] No apply button in UI unless backend reports apply enabled (UI shows apply disabled state).
 
+## 36) Work Order Evidence Storage (WO-012)
+- [ ] Work order editor Activity panel loads evidence list from `GET /work-orders/:id/evidence`.
+- [ ] `GET /evidence/readiness` reports disabled when `STORAGE_UPLOADS_ENABLED=false`.
+- [ ] Upload button disabled with setup-required message when provider not configured.
+- [ ] Allowed MIME types and max size displayed; invalid MIME rejected by API.
+- [ ] VIEWER/AUDITOR/DRIVER roles do not see enabled upload action.
+- [ ] Cross-tenant evidence upload returns 404/not found.
+- [ ] Evidence API responses exclude storageKey/secrets.
+- [ ] Mock upload UAT (dev only): upload-request + confirm creates metadata without MongoDB file bytes.
+- [ ] Activity timeline still loads when evidence fetch fails.
+- [ ] No public/anonymous upload route exists.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

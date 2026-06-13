@@ -33,8 +33,13 @@ export const envValidationSchema = Joi.object({
   SMS_MODE: Joi.string().valid("disabled", "mock", "live").default("disabled"),
   PUSH_MODE: Joi.string().valid("disabled", "mock", "live").default("disabled"),
   STORAGE_MODE: Joi.string()
-    .valid("local", "r2", "s3", "minio", "cloudinary")
+    .valid("disabled", "mock", "local", "azure_blob", "r2", "s3", "minio", "cloudinary")
     .default("local"),
+  STORAGE_UPLOADS_ENABLED: Joi.boolean().default(false),
+  STORAGE_MAX_FILE_SIZE_MB: Joi.number().integer().min(1).max(100).default(10),
+  STORAGE_ALLOWED_MIME_TYPES: Joi.string()
+    .allow("")
+    .default("image/jpeg,image/png,image/webp,application/pdf"),
   MONGODB_URI: Joi.string().allow(""),
   MONGO_SYNC_ON_STARTUP: Joi.boolean().default(false),
   MAINTAINPRO_SEED_PASSWORD: Joi.string().allow(""),
@@ -206,7 +211,15 @@ export const envValidationSchema = Joi.object({
       }
     }
 
+    const storageUploadsEnabled = Boolean(value.STORAGE_UPLOADS_ENABLED);
     const storageMode = String(value.STORAGE_MODE ?? "local");
+    if (storageUploadsEnabled && storageMode === "mock" && nodeEnv === "production" && !allowMockInProduction) {
+      return helpers.error("any.invalid", {
+        message:
+          "STORAGE_UPLOADS_ENABLED with STORAGE_MODE=mock is blocked in production unless ALLOW_MOCK_IN_PRODUCTION=true"
+      });
+    }
+
     if (storageMode === "cloudinary") {
       const missing = ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].filter(
         (key) => String(value[key] ?? "").trim().length === 0

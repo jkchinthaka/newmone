@@ -10,6 +10,7 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
+import type { EvidenceStorageReadiness, WorkOrderEvidenceItem } from "@/lib/work-order-evidence";
 
 import { asDateInputValue, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
@@ -73,6 +74,9 @@ export function WorkOrderEditorModal({
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [evidenceReadiness, setEvidenceReadiness] = useState<EvidenceStorageReadiness | null>(null);
+  const [evidenceItems, setEvidenceItems] = useState<WorkOrderEvidenceItem[]>([]);
   const currentUser = useCurrentUser();
   const showHistory = !isCreateMode && canViewAuditHistoryForUser(currentUser) && Boolean(workOrder?.id);
 
@@ -89,10 +93,37 @@ export function WorkOrderEditorModal({
       setActivityTimeline(null);
       setActivityError(null);
       setActivityLoading(false);
+      setEvidenceItems([]);
+      setEvidenceReadiness(null);
+      setEvidenceLoading(false);
       return;
     }
 
     let cancelled = false;
+
+    const loadEvidence = async () => {
+      setEvidenceLoading(true);
+      try {
+        const [readinessResponse, evidenceResponse] = await Promise.all([
+          apiClient.get("/evidence/readiness"),
+          apiClient.get(`/work-orders/${workOrder.id}/evidence`)
+        ]);
+        if (!cancelled) {
+          setEvidenceReadiness(readinessResponse.data?.data as EvidenceStorageReadiness);
+          const evidenceData = evidenceResponse.data?.data as { items?: WorkOrderEvidenceItem[] } | undefined;
+          setEvidenceItems(evidenceData?.items ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setEvidenceReadiness(null);
+          setEvidenceItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setEvidenceLoading(false);
+        }
+      }
+    };
 
     const loadActivity = async () => {
       setActivityLoading(true);
@@ -118,6 +149,7 @@ export function WorkOrderEditorModal({
     };
 
     void loadActivity();
+    void loadEvidence();
 
     return () => {
       cancelled = true;
@@ -348,6 +380,15 @@ export function WorkOrderEditorModal({
                     loading={activityLoading}
                     error={activityError}
                     timeline={activityTimeline}
+                    workOrderId={workOrder.id}
+                    evidenceReadiness={evidenceReadiness}
+                    evidenceItems={evidenceItems}
+                    evidenceLoading={evidenceLoading}
+                    onEvidenceRefresh={async () => {
+                      const evidenceResponse = await apiClient.get(`/work-orders/${workOrder.id}/evidence`);
+                      const evidenceData = evidenceResponse.data?.data as { items?: WorkOrderEvidenceItem[] } | undefined;
+                      setEvidenceItems(evidenceData?.items ?? []);
+                    }}
                   />
                 </div>
               ) : null}

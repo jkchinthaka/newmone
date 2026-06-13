@@ -1971,6 +1971,32 @@ Record each completed task with:
 - Deferred: ERP catalog sync, PO status pull, WO part request posting, automatic scheduled sync, ERP write/post flows.
 - Recommended next task: **DEPLOY-002** production cutover UAT or next roadmap ERP posting phase after Bileeta contract approval.
 
+## 2026-06-12 | WO-012 | Evidence/photo upload storage foundation
+
+- Audit findings:
+  - WO-011 Activity & Evidence panel is read-only timeline derived from existing WO/issue/part-request dates; no photo upload yet.
+  - WorkOrder has legacy `attachments: String[]` URL list; no structured evidence metadata model existed.
+  - SEC-013 `STORAGE_MODE` already surfaces in health/deployment readiness (`local`, `minio`, `cloudinary`, etc.) but evidence uploads had no dedicated guard flags.
+  - Accident module uses URL-based evidence pattern; WO foundation uses metadata + provider readiness instead of MongoDB bytes.
+- Schema/API changes:
+  - Added `EvidenceAttachment` Prisma model with tenant/workOrder/facilityIssue links, status enum, storage metadata fields (no file bytes).
+  - Added `EvidenceModule` with `EvidenceStorageProviderService`, `EvidenceService`, `GET /evidence/readiness`.
+  - Work order routes: `GET/POST /work-orders/:id/evidence`, `upload-request`, `confirm`.
+- Provider readiness:
+  - `STORAGE_UPLOADS_ENABLED=false` by default; `STORAGE_MODE` extended with `disabled`/`mock`/`azure_blob`.
+  - Mock mode supports metadata-only upload UAT without external storage calls; live presigned upload deferred.
+- UI changes:
+  - Work order editor Activity panel now lists evidence metadata and shows disabled upload state with allowed MIME/size guidance.
+  - Upload button enabled only when readiness is `configured` and role allows WO evidence upload.
+- Safety rules:
+  - Tenant-scoped WO lookup; MIME/size/filename validation; no public routes; storageKey excluded from public DTOs.
+  - No file bytes stored in MongoDB; no storage credentials in repo/responses.
+- Tests run: `evidence-storage-readiness.spec.ts`, `work-order-evidence-storage.spec.ts`, extended `work-order-activity.spec.ts`, updated phase3 tests, typecheck, lint, prisma validate, api/web/full build, full API test suite.
+- Live storage upload attempt: not performed (provider credentials/UAT not available).
+- Still needed for live upload UAT: set `STORAGE_MODE=minio|cloudinary|s3|azure_blob`, provider credentials in secret manager, `STORAGE_UPLOADS_ENABLED=true`, presigned upload implementation sign-off.
+- Deferred: public QR photo upload, downloadable signed URLs, image preview/editing, evidence retention automation, facility-issue direct upload UI.
+- Recommended next task: **WO-013** live storage provider presigned upload UAT or **DEPLOY-002** production cutover checklist execution.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

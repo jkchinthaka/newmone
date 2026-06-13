@@ -964,3 +964,63 @@
 - **Residual Risk:** Live contract not validated in repo CI.
 - **Owner:** Platform + Bileeta integration owner
 - **Review Cadence:** On every Bileeta API release candidate.
+
+### RISK-WO-012-STORAGE-CREDENTIAL-DRIFT
+- **Category:** Storage / Integrations
+- **Description:** Object storage provider credentials or bucket policies may drift from approved deployment configuration.
+- **Impact:** Upload failures, orphaned metadata records, blocked work order evidence workflows.
+- **Likelihood:** Medium until live provider UAT; Lower with deployment checklist discipline.
+- **Current Mitigation:**
+  - WO-012 `GET /evidence/readiness` with explicit missingKeys; uploads disabled by default.
+  - Health/deployment readiness already surfaces `STORAGE_MODE` configuration state.
+- **Residual Risk:** Operators may enable `STORAGE_UPLOADS_ENABLED` before presigned upload UAT completes.
+- **Owner:** Platform + DevOps
+- **Review Cadence:** Before enabling live evidence uploads in production.
+
+### RISK-WO-012-OVERSIZED-UPLOADS
+- **Category:** Storage / Availability
+- **Description:** Large or repeated uploads can consume bandwidth/storage quotas or degrade API performance.
+- **Impact:** Cost spikes, slow work order editor, failed uploads mid-workflow.
+- **Likelihood:** Medium if max size/env limits are raised without review.
+- **Current Mitigation:**
+  - Server-side MIME/size validation; configurable `STORAGE_MAX_FILE_SIZE_MB` (default 10).
+  - Upload blocked when readiness disabled; no public upload endpoints.
+- **Residual Risk:** Client-side bypass attempts still consume API validation resources.
+- **Owner:** Platform + Operations
+- **Review Cadence:** Before raising size limits or enabling bulk upload features.
+
+### RISK-WO-012-MALWARE-FILE-TYPE-ABUSE
+- **Category:** Security / Storage
+- **Description:** Malicious files disguised with allowed extensions or MIME types could be uploaded once live storage is enabled.
+- **Impact:** Malware hosting risk, compliance breach, user device compromise if downloaded.
+- **Likelihood:** Low in metadata-only foundation; Medium after live byte storage without antivirus scanning.
+- **Current Mitigation:**
+  - Allowlist MIME types (jpeg/png/webp/pdf); dangerous extension rejection; filename sanitization.
+  - Authenticated, tenant-scoped, role-guarded upload routes only.
+- **Residual Risk:** No antivirus/content inspection in WO-012 scope.
+- **Owner:** Security + Platform
+- **Review Cadence:** Before live storage provider enablement.
+
+### RISK-WO-012-LEAKED-SIGNED-URLS
+- **Category:** Security / Storage
+- **Description:** Presigned download/upload URLs could leak via logs, API responses, or overly long expiry windows.
+- **Impact:** Unauthorized access to private evidence objects.
+- **Likelihood:** Low while download URLs are not implemented; Medium once presigned flows ship.
+- **Current Mitigation:**
+  - WO-012 defers live signed URLs; public DTOs exclude storageKey/secrets.
+  - Response allowlists tested in evidence storage specs.
+- **Residual Risk:** Future presign implementation must enforce short TTL and auth checks.
+- **Owner:** Platform + Security
+- **Review Cadence:** During WO-013/live storage UAT design review.
+
+### RISK-WO-012-EVIDENCE-RETENTION
+- **Category:** Compliance / Operations
+- **Description:** Evidence metadata and storage objects may outlive policy without retention/archival rules.
+- **Impact:** Regulatory non-compliance, stale evidence in disputes, storage cost growth.
+- **Likelihood:** Medium over long operations horizon.
+- **Current Mitigation:**
+  - Metadata status enum includes DELETED; tenant-scoped records with audit-friendly fields.
+  - Uploads disabled by default until retention policy approved with operations/legal.
+- **Residual Risk:** No automated retention purge in WO-012.
+- **Owner:** Operations + Compliance
+- **Review Cadence:** Before production evidence upload enablement.

@@ -39,6 +39,7 @@ import { SprayLogsModule } from "./modules/farm/spray-logs/spray-logs.module";
 import { TraceabilityModule } from "./modules/farm/traceability/traceability.module";
 import { WeatherModule } from "./modules/farm/weather/weather.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
+import { EvidenceModule } from "./modules/evidence/evidence.module";
 import { FacilitiesModule } from "./modules/facilities/facilities.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
@@ -119,6 +120,7 @@ normalizeDatabaseEnvironment();
     MaintenanceModule,
     JobCodesModule,
     WorkOrdersModule,
+    EvidenceModule,
     InventoryModule,
     DepartmentsModule,
     SuppliersModule,

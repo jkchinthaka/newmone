@@ -9,6 +9,15 @@ import {
   workOrderActivityHasUploadActions,
   workOrderActivityUnavailableMessage
 } from "../../web/lib/work-order-activity";
+import {
+  canUploadWorkOrderEvidence,
+  evidencePayloadHasSecrets,
+  evidenceUploadDisabledMessage,
+  formatAllowedEvidenceMimeTypes,
+  formatEvidenceFileSize,
+  isEvidenceUploadEnabled,
+  type EvidenceStorageReadiness
+} from "../../web/lib/work-order-evidence";
 
 describe("work order activity helpers", () => {
   const sampleEntries: WorkOrderActivityEntry[] = [
@@ -87,5 +96,51 @@ describe("work order activity helpers", () => {
     expect(workOrderActivityHasUploadActions()).toBe(false);
     expect(workOrderActivityAllowsContinueWhenUnavailable()).toBe(true);
     expect(workOrderActivityUnavailableMessage()).toContain("remain available");
+  });
+});
+
+describe("work order evidence UI helpers", () => {
+  const readiness: EvidenceStorageReadiness = {
+    providerId: "EVIDENCE_OBJECT_STORAGE",
+    mode: "mock",
+    state: "configured",
+    uploadsEnabled: true,
+    maxFileSizeMb: 10,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    message: "Mock evidence storage is enabled.",
+    missingKeys: []
+  };
+
+  it("shows upload disabled for read-only roles", () => {
+    expect(canUploadWorkOrderEvidence("VIEWER")).toBe(false);
+    expect(canUploadWorkOrderEvidence("ADMIN")).toBe(true);
+  });
+
+  it("reflects configured readiness for upload actions", () => {
+    expect(isEvidenceUploadEnabled(readiness)).toBe(true);
+    expect(workOrderActivityHasUploadActions(readiness)).toBe(true);
+  });
+
+  it("formats allowed MIME types and file sizes safely", () => {
+    expect(formatAllowedEvidenceMimeTypes(readiness.allowedMimeTypes)).toContain("JPEG");
+    expect(formatEvidenceFileSize(2048)).toBe("2.0 KB");
+  });
+
+  it("shows setup-required message when uploads are disabled", () => {
+    expect(
+      evidenceUploadDisabledMessage({
+        ...readiness,
+        uploadsEnabled: false,
+        state: "disabled"
+      })
+    ).toContain("STORAGE_UPLOADS_ENABLED");
+  });
+
+  it("does not expose secret-like fields in rendered payloads", () => {
+    expect(
+      evidencePayloadHasSecrets({
+        items: [{ id: "1", fileName: "photo.jpg", mimeType: "image/jpeg", sizeBytes: 100, status: "UPLOADED" }]
+      })
+    ).toBe(false);
   });
 });

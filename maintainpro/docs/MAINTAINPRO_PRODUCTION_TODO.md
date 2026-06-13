@@ -75,6 +75,7 @@
 | NOTIFY-002 | P2 | Notifications | Staged production Email/SMS UAT sends | DONE | UAT endpoints + system-health panel | notifications-uat-send.spec.ts, notification-provider-safety.spec.ts | Allowlist + env flags; no bulk/auto production sends. |
 | ERP-001 | P3 | ERP | ERP inventory integration foundation | DONE | InventoryErpAdapter + readiness | erp-inventory-adapter.spec.ts | Disabled/no-op adapter; no live HTTP; docs/ERP_INVENTORY_INTEGRATION_PLAN.md. |
 | ERP-002 | P3 | ERP | Bileeta read-only stock sync | DONE | BileetaInventoryErpAdapter + dry-run/apply endpoints + system-health panel | erp-stock-sync.spec.ts, erp-stock-mapping.spec.ts | Read-only GET; dry-run default; apply disabled by default; no ERP writes. |
+| WO-012 | P2 | Work Orders | Evidence/photo upload storage foundation | DONE | EvidenceAttachment model + readiness/upload endpoints + WO editor panel | evidence-storage-readiness.spec.ts, work-order-evidence-storage.spec.ts, work-order-activity.spec.ts | Metadata-only; uploads disabled by default; no MongoDB bytes; no public upload. |
 | DEPLOY-001 | P1 | Platform | Production deployment readiness package | DONE | deployment readiness service + checklist | deployment-readiness.spec.ts | Honest checklist/helper only; no deploy automation. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |

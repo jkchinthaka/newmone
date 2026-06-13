@@ -16,6 +16,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
 | Notification UAT staged sends (NOTIFY-002) | DONE | UAT endpoints + `/system-health` panel | Allowlist + dual env flags; no bulk/auto production sends |
 | ERP read-only stock sync (ERP-002) | DONE | Bileeta adapter + dry-run endpoints + `/system-health` panel | Read-only GET; apply disabled by default; no ERP writes |
+| Work order evidence storage foundation (WO-012) | DONE | EvidenceAttachment + WO editor evidence panel | Metadata-only; uploads disabled by default; no MongoDB bytes |
 | Facility post-login route fix | DONE | `lib/role-redirect.ts` | FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities` |
 | Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
 | Facility hierarchy web UI (BUILD-004) | DONE | `/facilities`, `components/facilities/*`, `lib/facilities*.ts` | Drill-down browser; Action Center links live; issue migration deferred |

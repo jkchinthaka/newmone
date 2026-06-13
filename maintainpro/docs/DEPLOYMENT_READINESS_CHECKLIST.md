@@ -65,6 +65,9 @@ API admin endpoints (authenticated):
 ## 6. Object storage
 
 - [ ] `STORAGE_MODE` not `local` for multi-instance production
+- [ ] `STORAGE_UPLOADS_ENABLED=false` until evidence storage provider UAT signed off
+- [ ] `STORAGE_MAX_FILE_SIZE_MB` and `STORAGE_ALLOWED_MIME_TYPES` reviewed with operations
+- [ ] Evidence upload dry-run/mock UAT recorded for work orders (metadata only)
 - [ ] Cloudinary/MinIO/R2/S3 credentials stored as secrets
 - [ ] Upload smoke test in staging
 

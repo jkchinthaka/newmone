@@ -141,8 +141,10 @@ export function workOrderActivityUnavailableMessage(): string {
   return "Activity timeline unavailable. Other work order actions remain available.";
 }
 
-export function workOrderActivityHasUploadActions(): boolean {
-  return false;
+export function workOrderActivityHasUploadActions(
+  readiness?: { state?: string; uploadsEnabled?: boolean } | null
+): boolean {
+  return readiness?.state === "configured" && readiness?.uploadsEnabled === true;
 }
 
 export function workOrderActivityAllowsContinueWhenUnavailable(): boolean {

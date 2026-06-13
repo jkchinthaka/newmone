@@ -10,14 +10,30 @@ import {
   type WorkOrderActivityTimelineResponse,
   workOrderActivityUnavailableMessage
 } from "@/lib/work-order-activity";
+import type { EvidenceStorageReadiness, WorkOrderEvidenceItem } from "@/lib/work-order-evidence";
+import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
 
 type WorkOrderActivityPanelProps = {
   loading: boolean;
   error: string | null;
   timeline: WorkOrderActivityTimelineResponse | null;
+  workOrderId?: string;
+  evidenceReadiness?: EvidenceStorageReadiness | null;
+  evidenceItems?: WorkOrderEvidenceItem[];
+  evidenceLoading?: boolean;
+  onEvidenceRefresh?: () => Promise<void> | void;
 };
 
-export function WorkOrderActivityPanel({ loading, error, timeline }: WorkOrderActivityPanelProps) {
+export function WorkOrderActivityPanel({
+  loading,
+  error,
+  timeline,
+  workOrderId,
+  evidenceReadiness = null,
+  evidenceItems = [],
+  evidenceLoading = false,
+  onEvidenceRefresh
+}: WorkOrderActivityPanelProps) {
   if (loading) {
     return (
       <section
@@ -92,6 +108,16 @@ export function WorkOrderActivityPanel({ loading, error, timeline }: WorkOrderAc
         emptyTitle="No additional activity yet"
         emptyDescription="Timeline events appear when work order or linked issue records include dated fields."
       />
+
+      {workOrderId ? (
+        <WorkOrderEvidencePanel
+          workOrderId={workOrderId}
+          readiness={evidenceReadiness}
+          items={evidenceItems}
+          loading={evidenceLoading}
+          onRefresh={onEvidenceRefresh}
+        />
+      ) : null}
     </div>
   );
 }

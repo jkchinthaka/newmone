@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrdersService } from "./work-orders.service";
+import { EvidenceService } from "../evidence/evidence.service";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -20,7 +21,8 @@ type AuthedRequest = {
 export class WorkOrdersController {
   constructor(
     private readonly workOrdersService: WorkOrdersService,
-    private readonly workOrderActivityService: WorkOrderActivityService
+    private readonly workOrderActivityService: WorkOrderActivityService,
+    private readonly evidenceService: EvidenceService
   ) {}
 
   @Get()
@@ -64,6 +66,35 @@ export class WorkOrdersController {
   async activityTimeline(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderActivityService.getActivityTimeline(id, req.user);
     return { data, message: "Work order activity timeline fetched" };
+  }
+
+  @Get(":id/evidence")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  async listEvidence(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.evidenceService.listWorkOrderEvidence(id, req.user);
+    return { data, message: "Work order evidence fetched" };
+  }
+
+  @Post(":id/evidence/upload-request")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  async createEvidenceUploadRequest(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { fileName: string; mimeType: string; sizeBytes: number }
+  ) {
+    const data = await this.evidenceService.createWorkOrderUploadRequest(id, body, req.user);
+    return { data, message: "Evidence upload request processed" };
+  }
+
+  @Post(":id/evidence/confirm")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  async confirmEvidenceUpload(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { attachmentId: string }
+  ) {
+    const data = await this.evidenceService.confirmWorkOrderUpload(id, body, req.user);
+    return { data, message: "Evidence upload confirmation processed" };
   }
 
   @Patch(":id")

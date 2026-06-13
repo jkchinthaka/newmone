@@ -12,6 +12,7 @@ import { PrismaService } from "../src/database/prisma.service";
 import { InventoryController } from "../src/modules/inventory/inventory.controller";
 import { InventoryService } from "../src/modules/inventory/inventory.service";
 import { ErpStockSyncService } from "../src/modules/inventory/erp-stock-sync.service";
+import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
 import { WorkOrderActivityService } from "../src/modules/work-orders/work-order-activity.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
@@ -78,6 +79,13 @@ const erpStockSyncService = {
   applyStockSnapshot: jest.fn()
 };
 
+const evidenceService = {
+  listWorkOrderEvidence: jest.fn(),
+  createWorkOrderUploadRequest: jest.fn(),
+  confirmWorkOrderUpload: jest.fn(),
+  getReadiness: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -90,6 +98,7 @@ const prisma = {
     { provide: WorkOrdersService, useValue: workOrdersService },
     { provide: WorkOrderActivityService, useValue: workOrderActivityService },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
+    { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
     { provide: APP_GUARD, useClass: PermissionsGuard }
   ]
