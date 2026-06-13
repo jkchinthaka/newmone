@@ -6,6 +6,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { InventoryService } from "./inventory.service";
+import { ErpStockSyncService } from "./erp-stock-sync.service";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -16,7 +17,10 @@ type AuthedRequest = {
 @UseGuards(JwtAuthGuard)
 @Controller("inventory")
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly erpStockSyncService: ErpStockSyncService
+  ) {}
 
   @Get("parts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
@@ -254,5 +258,45 @@ export class InventoryController {
   ) {
     const data = await this.inventoryService.retryPurchaseOrderErpSync(id, body, req.user);
     return { data, message: "ERP sync retry executed" };
+  }
+
+  @Get("erp/readiness")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "INVENTORY_KEEPER",
+    "ASSET_MANAGER",
+    "OPERATIONS_MANAGER",
+    "PROCUREMENT_OFFICER"
+  )
+  @Permissions("inventory.manage")
+  async getErpStockSyncReadiness() {
+    const data = this.erpStockSyncService.getReadiness();
+    return { data, message: "ERP stock sync readiness" };
+  }
+
+  @Post("erp/stock-sync/dry-run")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "INVENTORY_KEEPER",
+    "ASSET_MANAGER",
+    "OPERATIONS_MANAGER",
+    "PROCUREMENT_OFFICER"
+  )
+  @Permissions("inventory.manage")
+  async dryRunErpStockSync(@Req() req: AuthedRequest) {
+    const data = await this.erpStockSyncService.dryRunStockSync(req.user);
+    return { data, message: "ERP stock sync dry-run completed" };
+  }
+
+  @Post("erp/stock-sync/apply")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "ASSET_MANAGER")
+  @Permissions("inventory.manage")
+  async applyErpStockSync(@Req() req: AuthedRequest) {
+    const data = await this.erpStockSyncService.applyStockSnapshot(req.user);
+    return { data, message: "ERP stock sync apply completed" };
   }
 }

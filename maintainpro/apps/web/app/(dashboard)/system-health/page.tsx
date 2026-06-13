@@ -16,6 +16,7 @@ import { apiClient } from "@/lib/api-client";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { NotificationUatPanel } from "@/components/admin/notification-uat-panel";
+import { InventoryErpSyncPanel } from "@/components/admin/inventory-erp-sync-panel";
 
 type CheckStatus =
   | "operational"
@@ -333,6 +334,8 @@ export default function SystemHealthPage() {
       {replicationCheck ? <ReplicationStatusCard check={replicationCheck} /> : null}
 
       <NotificationUatPanel />
+
+      <InventoryErpSyncPanel />
 
       <section className="grid gap-4 xl:grid-cols-3">
         {dependencies.map((check) => (

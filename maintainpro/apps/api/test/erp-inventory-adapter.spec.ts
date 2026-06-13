@@ -2,6 +2,7 @@ import {
   DisabledInventoryErpAdapter,
   InventoryErpAdapterService
 } from "../src/modules/inventory/inventory-erp-adapter.service";
+import { BileetaInventoryErpAdapter } from "../src/modules/inventory/bileeta-inventory-erp.adapter";
 
 const configService = (values: Record<string, unknown>) =>
   ({
@@ -57,6 +58,30 @@ describe("Inventory ERP adapter foundation", () => {
       state: "misconfigured",
       blockedInProduction: true,
       configured: false
+    });
+  });
+});
+
+describe("Bileeta stock sync adapter foundation", () => {
+  it("reports disabled read sync until ERP_READ_ONLY_SYNC_ENABLED is true", () => {
+    const adapter = new BileetaInventoryErpAdapter(
+      ({
+        get: jest.fn((key: string, fallback?: unknown) => {
+          const values: Record<string, unknown> = {
+            ERP_MODE: "live",
+            ERP_BASE_URL: "https://erp.example.com",
+            ERP_API_KEY: "present",
+            ERP_STOCK_ENDPOINT: "/stock",
+            ERP_READ_ONLY_SYNC_ENABLED: false
+          };
+          return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : fallback;
+        })
+      }) as never
+    );
+
+    expect(adapter.checkReadiness()).toMatchObject({
+      state: "disabled",
+      readOnlySyncEnabled: false
     });
   });
 });

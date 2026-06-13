@@ -1946,6 +1946,31 @@ Record each completed task with:
 - Deferred: automatic production event notifications, bulk sends, Twilio-specific adapter.
 - Recommended next task: **ERP-002** live Bileeta read-only stock sync.
 
+## 2026-06-12 | ERP-002 | Bileeta read-only stock sync
+
+- Audit findings:
+  - ERP-001 provides disabled/no-op `InventoryErpAdapter` foundation and honest health readiness; PO posting remains in `ErpSyncProviderService` (unchanged).
+  - Inventory matching field is `SparePart.partNumber` ↔ Bileeta item code/SKU (normalized uppercase); stock field is `SparePart.quantityInStock`.
+  - No Bileeta live credentials or approved stock endpoint in repo/CI; integration stays disabled/not_configured until env explicitly set.
+- Adapter implementation:
+  - Added `BileetaInventoryErpAdapter` with `checkReadiness()` and read-only `fetchStockBalances()` (GET only; no ERP write methods).
+  - Added `ErpStockSyncService` with `dryRunStockSync()` (default) and guarded `applyStockSnapshot()` (local-only; requires `ERP_STOCK_SYNC_APPLY_ENABLED=true`).
+  - Mapping/compare logic in `erp-stock-sync.mapper.ts` with capped sample rows in API responses; apply uses full changed set internally.
+- Endpoints/UI:
+  - `GET /inventory/erp/readiness`
+  - `POST /inventory/erp/stock-sync/dry-run`
+  - `POST /inventory/erp/stock-sync/apply` (guarded; ADMIN/SUPER_ADMIN/INVENTORY_KEEPER/ASSET_MANAGER)
+  - Inventory ERP Sync card on `/system-health` (inventory roles; no secrets shown; no apply button in UI).
+- Safety rules:
+  - `ERP_MODE=disabled|mock|sandbox|live`; real reads require `ERP_READ_ONLY_SYNC_ENABLED=true` plus `ERP_BASE_URL`, `ERP_API_KEY`, `ERP_STOCK_ENDPOINT`.
+  - `ERP_STOCK_SYNC_APPLY_ENABLED=false` by default; apply blocked without flag; no scheduled sync; no ERP POST/PUT/PATCH.
+  - Responses/logs mask secrets; dry-run does not return raw ERP payload.
+- Tests run: `erp-stock-sync.spec.ts`, `erp-stock-mapping.spec.ts`, extended `erp-inventory-adapter.spec.ts`, typecheck, lint, prisma validate, api/web/full build, full API test suite.
+- Live ERP attempt: not performed (Bileeta API contract/credentials not available in environment).
+- Still needed for live Bileeta UAT: approved `ERP_STOCK_ENDPOINT` path, field mapping confirmation, sandbox credentials, warehouse/tenant codes, sandbox/live mode sign-off.
+- Deferred: ERP catalog sync, PO status pull, WO part request posting, automatic scheduled sync, ERP write/post flows.
+- Recommended next task: **DEPLOY-002** production cutover UAT or next roadmap ERP posting phase after Bileeta contract approval.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

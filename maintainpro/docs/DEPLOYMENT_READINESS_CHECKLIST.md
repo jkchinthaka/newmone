@@ -56,6 +56,11 @@ API admin endpoints (authenticated):
 - [ ] Follow `docs/ERP_INVENTORY_INTEGRATION_PLAN.md`
 - [ ] `ERP_MODE` set intentionally (`disabled` until live contract approved)
 - [ ] Inventory adapter readiness reviewed in `/health/readiness`
+- [ ] `ERP_READ_ONLY_SYNC_ENABLED=false` in production until Bileeta stock endpoint approved
+- [ ] `ERP_STOCK_SYNC_APPLY_ENABLED=false` unless local overwrite UAT signed off
+- [ ] Dry-run stock sync UAT recorded via `POST /inventory/erp/stock-sync/dry-run` (mock/sandbox)
+- [ ] Matched/unmatched/changed summary reviewed; no secrets in responses
+- [ ] Confirm no ERP write/post endpoints were enabled
 
 ## 6. Object storage
 

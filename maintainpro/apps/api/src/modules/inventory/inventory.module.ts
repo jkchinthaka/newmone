@@ -6,6 +6,8 @@ import {
   InventoryErpAdapterService
 } from "./inventory-erp-adapter.service";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
+import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
+import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { InventoryController } from "./inventory.controller";
 import { InventoryService } from "./inventory.service";
 
@@ -16,8 +18,15 @@ import { InventoryService } from "./inventory.service";
     InventoryService,
     ErpSyncProviderService,
     DisabledInventoryErpAdapter,
-    InventoryErpAdapterService
+    InventoryErpAdapterService,
+    BileetaInventoryErpAdapter,
+    ErpStockSyncService
   ],
-  exports: [InventoryService, ErpSyncProviderService, InventoryErpAdapterService]
+  exports: [
+    InventoryService,
+    ErpSyncProviderService,
+    InventoryErpAdapterService,
+    ErpStockSyncService
+  ]
 })
 export class InventoryModule {}

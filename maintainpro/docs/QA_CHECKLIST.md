@@ -549,6 +549,17 @@
 - [ ] UAT responses mask recipients and never include SMTP/SMS secrets.
 - [ ] No bulk send action exposed in UI.
 
+## 35) ERP Stock Sync (ERP-002)
+- [ ] `/system-health` Inventory ERP Sync card visible to inventory manager roles only (not VIEWER/DRIVER).
+- [ ] `GET /inventory/erp/readiness` reports `disabled`/`not_configured` when env incomplete.
+- [ ] Dry-run with default env performs no external HTTP (mock/disabled) and makes no local stock changes.
+- [ ] Dry-run summary shows matched/unmatched/changed counts; sample rows capped; no raw ERP payload.
+- [ ] Responses do not include API keys, Bearer tokens, or SMTP/SMS secrets.
+- [ ] `POST /inventory/erp/stock-sync/apply` blocked when `ERP_STOCK_SYNC_APPLY_ENABLED=false`.
+- [ ] Apply (when enabled in staging only) updates local `quantityInStock` and creates ADJUSTMENT movement; no ERP writes.
+- [ ] Cross-tenant parts never included in comparison for non-super-admin tenants.
+- [ ] No apply button in UI unless backend reports apply enabled (UI shows apply disabled state).
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

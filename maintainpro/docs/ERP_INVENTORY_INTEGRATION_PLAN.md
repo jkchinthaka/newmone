@@ -120,4 +120,94 @@ Existing PO sync path: `ErpSyncProviderService.syncPurchaseOrder()` (separate PO
 ## Tests
 
 - `apps/api/test/erp-inventory-adapter.spec.ts`
+- `apps/api/test/erp-stock-sync.spec.ts`
+- `apps/api/test/erp-stock-mapping.spec.ts`
 - Existing `erp-sync-provider.service.spec.ts` for PO provider safety
+
+---
+
+## ERP-002 — Bileeta read-only stock sync (implemented)
+
+### Adapter
+
+`BileetaInventoryErpAdapter` (`apps/api/src/modules/inventory/bileeta-inventory-erp.adapter.ts`)
+
+| Method | Purpose |
+|---|---|
+| `checkReadiness()` | Reports mode, missing keys, read/apply flags |
+| `fetchStockBalances()` | Read-only GET to Bileeta stock endpoint (or mock balances) |
+
+No ERP write/post/update methods exist in this adapter.
+
+### Service
+
+`ErpStockSyncService` (`erp-stock-sync.service.ts`)
+
+| Method | Purpose |
+|---|---|
+| `getReadiness()` | Pass-through readiness |
+| `dryRunStockSync()` | Fetch ERP balances + compare with tenant parts (default) |
+| `applyStockSnapshot()` | Local-only stock update when apply flag enabled |
+
+### API endpoints
+
+| Endpoint | RBAC | Notes |
+|---|---|---|
+| `GET /inventory/erp/readiness` | `inventory.manage` + inventory roles | No secrets returned |
+| `POST /inventory/erp/stock-sync/dry-run` | same | Default safe path |
+| `POST /inventory/erp/stock-sync/apply` | ADMIN/SUPER_ADMIN/INVENTORY_KEEPER/ASSET_MANAGER | Blocked unless `ERP_STOCK_SYNC_APPLY_ENABLED=true` |
+
+### Configuration / safety
+
+| Variable | Default | Notes |
+|---|---|---|
+| `ERP_MODE` | `mock` | `disabled`, `mock`, `sandbox`, `live` |
+| `ERP_READ_ONLY_SYNC_ENABLED` | `false` | Must be `true` before real/sandbox ERP read |
+| `ERP_STOCK_SYNC_APPLY_ENABLED` | `false` | Must be `true` before local stock apply |
+| `ERP_BASE_URL` | empty | Preferred base URL for stock GET |
+| `ERP_API_KEY` | empty | Bearer/API key (secret manager only) |
+| `ERP_STOCK_ENDPOINT` | empty | Approved Bileeta stock balance path |
+| `ERP_WAREHOUSE_CODE` | optional | Query param when supported |
+| `ERP_TENANT_CODE` | optional | Query param when supported |
+| `ERP_TIMEOUT_MS` | `15000` | Read timeout |
+
+Rules:
+
+- Dry-run is default; no local mutation in dry-run.
+- Apply updates `SparePart.quantityInStock` only and writes `StockMovement` type `ADJUSTMENT` with reference `erp-stock-sync`.
+- No automatic scheduled sync in this task.
+- No part creation/deletion from ERP rows.
+
+### Item / stock mapping (deterministic)
+
+| MaintainPro | Bileeta JSON field (expected) |
+|---|---|
+| `SparePart.partNumber` | `itemCode` / `partSku` / `partNumber` / `sku` |
+| `SparePart.quantityInStock` | `quantityOnHand` / `quantity` / `qty` / `onHand` |
+| Warehouse filter | `ERP_WAREHOUSE_CODE` → `warehouse` query param |
+
+Matching is by normalized item code only (uppercase trim). Name-only matching is not used.
+
+### Bileeta stock balance contract (pending customer approval)
+
+Expected read-only GET response shape:
+
+```json
+{
+  "items": [
+    { "itemCode": "BRG-001", "quantityOnHand": 12, "warehouseCode": "MAIN" }
+  ]
+}
+```
+
+Confirm with Bileeta:
+
+- Exact endpoint path (`ERP_STOCK_ENDPOINT`)
+- Auth header scheme (`ERP_AUTH_HEADER`, default Bearer)
+- Pagination/filter parameters
+- Sandbox vs live base URLs
+- Rate limits and error payload format
+
+### UI
+
+- `/system-health` → Inventory ERP Sync card (readiness + dry-run summary; no secrets; no apply button)

@@ -853,6 +853,7 @@
   - SEC-012/013 integration mode surfacing in system health (admin Action Center links there).
   - NOTIFY-001 foundation: `/notifications/readiness`, template samples, health `operationalFoundations.notifications`.
   - ERP-001 foundation: disabled inventory adapter + honest readiness in `/health/readiness`.
+  - ERP-002 read-only stock sync: dry-run default, apply disabled by default, no ERP writes.
   - DEPLOY-001 checklist + `npm run deployment:readiness` helper.
 - **Residual Risk:** Production env setup still manual; live credentials and UAT sends remain operator-owned.
 - **Owner:** DevOps + Platform
@@ -898,3 +899,68 @@
 - **Residual Risk:** Operator error configuring allowlist; live SMS still depends on approved external gateway availability.
 - **Owner:** Platform + Operations
 - **Review Cadence:** Before production notification automation and after each provider credential rotation.
+
+### RISK-ERP-002-STOCK-SYNC-MAPPING
+- **Category:** ERP / Inventory
+- **Description:** Wrong item-code mapping between Bileeta and MaintainPro `partNumber` can report false matches or miss real stock deltas.
+- **Impact:** Incorrect replenishment decisions, phantom shortages/surpluses, audit disputes with finance/warehouse.
+- **Likelihood:** Medium until Bileeta field mapping is signed off; Lower after sandbox dry-run UAT with sample SKUs.
+- **Current Mitigation:**
+  - ERP-002 matches on normalized item code only (no name-only matching).
+  - Dry-run default with unmatched ERP/local reporting; apply disabled by default.
+  - No automatic part creation/deletion from ERP rows in this phase.
+- **Residual Risk:** Legacy part numbers not aligned with Bileeta catalog codes remain unmatched until master data cleanup.
+- **Owner:** Inventory Operations + Platform
+- **Review Cadence:** Before enabling apply and after Bileeta catalog changes.
+
+### RISK-ERP-002-STALE-STOCK
+- **Category:** ERP / Inventory
+- **Description:** Bileeta stock balances may lag warehouse movements; dry-run snapshot can be stale at apply time.
+- **Impact:** Local inventory overwritten with outdated quantities when apply is enabled.
+- **Likelihood:** Medium during high transaction volume; Lower if apply remains disabled and operators treat ERP as reference only.
+- **Current Mitigation:**
+  - Read-only GET with timeout; dry-run shows checkedAt timestamp and delta summary.
+  - Apply re-fetches comparison immediately before update; still point-in-time.
+  - `ERP_STOCK_SYNC_APPLY_ENABLED=false` by default.
+- **Residual Risk:** Scheduled/high-frequency sync not implemented; operators must re-run dry-run before apply.
+- **Owner:** Inventory Operations
+- **Review Cadence:** Before enabling apply in production.
+
+### RISK-ERP-002-ERP-DOWNTIME
+- **Category:** ERP / Integrations
+- **Description:** Bileeta API downtime or contract drift breaks stock fetch; inventory UI may show misconfigured state.
+- **Impact:** Operators cannot reconcile stock; false assumption that MaintainPro is synced with ERP.
+- **Likelihood:** Medium for external dependency; Lower with honest readiness/dry-run error messages.
+- **Current Mitigation:**
+  - Fetch failures return safe messages without secrets; no fake success.
+  - `ERP_READ_ONLY_SYNC_ENABLED` gate prevents accidental live calls.
+  - Health/readiness surfaces ERP mode state.
+- **Residual Risk:** No automatic retry/alerting queue for stock sync in ERP-002 scope.
+- **Owner:** Platform + DevOps
+- **Review Cadence:** When enabling sandbox/live modes.
+
+### RISK-ERP-002-ACCIDENTAL-LOCAL-OVERWRITE
+- **Category:** ERP / Inventory / Data integrity
+- **Description:** Guarded local apply could still overwrite `quantityInStock` if apply flag enabled without operational sign-off.
+- **Impact:** Incorrect on-hand balances, failed work order part allocations, financial variance.
+- **Likelihood:** Low while apply flag defaults false; Medium if operators enable apply in production prematurely.
+- **Current Mitigation:**
+  - `ERP_STOCK_SYNC_APPLY_ENABLED` requires `ERP_READ_ONLY_SYNC_ENABLED`; env validation enforces pairing.
+  - Apply endpoint restricted to admin/inventory keeper roles; UI omits apply button.
+  - Stock movements logged as ADJUSTMENT with reference `erp-stock-sync`.
+- **Residual Risk:** Human error enabling apply env in production.
+- **Owner:** Inventory Operations + Platform
+- **Review Cadence:** Before any production apply UAT.
+
+### RISK-ERP-002-API-CONTRACT-DRIFT
+- **Category:** ERP / Integrations
+- **Description:** Bileeta stock endpoint shape, auth, or field names may change without MaintainPro adapter update.
+- **Impact:** Parser returns empty/partial balances; silent-looking mismatches if not monitored.
+- **Likelihood:** Medium until formal API version lock; Lower after contract documentation and sandbox tests.
+- **Current Mitigation:**
+  - Flexible parser with explicit unmatched/warning counts; tests mock HTTP only.
+  - Documented expected JSON contract in `ERP_INVENTORY_INTEGRATION_PLAN.md`.
+  - No scheduled sync; operators review dry-run warnings.
+- **Residual Risk:** Live contract not validated in repo CI.
+- **Owner:** Platform + Bileeta integration owner
+- **Review Cadence:** On every Bileeta API release candidate.

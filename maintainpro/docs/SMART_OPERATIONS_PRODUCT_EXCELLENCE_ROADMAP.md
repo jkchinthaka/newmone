@@ -15,6 +15,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | QR readiness foundation | DONE | `lib/qr-readiness.ts`, `test/qr-readiness.spec.ts` | Safe internal payload encode/parse; no public routes yet |
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
 | Notification UAT staged sends (NOTIFY-002) | DONE | UAT endpoints + `/system-health` panel | Allowlist + dual env flags; no bulk/auto production sends |
+| ERP read-only stock sync (ERP-002) | DONE | Bileeta adapter + dry-run endpoints + `/system-health` panel | Read-only GET; apply disabled by default; no ERP writes |
 | Facility post-login route fix | DONE | `lib/role-redirect.ts` | FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities` |
 | Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
 | Facility hierarchy web UI (BUILD-004) | DONE | `/facilities`, `components/facilities/*`, `lib/facilities*.ts` | Drill-down browser; Action Center links live; issue migration deferred |
@@ -58,7 +59,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 11. **Public/internal repair request portal** — Authenticated requester flows first; public QR intake after security review
 12. **NOTIFY-002** — Staged production email/SMS UAT sends (foundation done in NOTIFY-001)
-13. **ERP-002** — Live Bileeta inventory read sync (foundation done in ERP-001)
+13. **ERP-002** — Live Bileeta inventory read sync (foundation done in ERP-001) — **DONE** (read-only dry-run + guarded apply)
 
 ## QR room/building reporting plan
 

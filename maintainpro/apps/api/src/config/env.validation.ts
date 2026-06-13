@@ -27,7 +27,7 @@ export const envValidationSchema = Joi.object({
   REDIS_REQUIRED_FOR_READINESS: Joi.boolean().default(false),
   REDIS_REQUIRED_IN_PRODUCTION: Joi.boolean().default(true),
   ALLOW_MOCK_IN_PRODUCTION: Joi.boolean().default(false),
-  ERP_MODE: Joi.string().valid("disabled", "mock", "live").default("mock"),
+  ERP_MODE: Joi.string().valid("disabled", "mock", "sandbox", "live").default("mock"),
   BILLING_MODE: Joi.string().valid("disabled", "mock", "live").default("mock"),
   EMAIL_MODE: Joi.string().valid("disabled", "live").default("disabled"),
   SMS_MODE: Joi.string().valid("disabled", "mock", "live").default("disabled"),
@@ -79,6 +79,11 @@ export const envValidationSchema = Joi.object({
   ERP_API_KEY: Joi.string().allow(""),
   ERP_AUTH_HEADER: Joi.string().default("Authorization"),
   ERP_TIMEOUT_MS: Joi.number().default(15000),
+  ERP_READ_ONLY_SYNC_ENABLED: Joi.boolean().default(false),
+  ERP_STOCK_SYNC_APPLY_ENABLED: Joi.boolean().default(false),
+  ERP_STOCK_ENDPOINT: Joi.string().allow(""),
+  ERP_TENANT_CODE: Joi.string().allow(""),
+  ERP_WAREHOUSE_CODE: Joi.string().allow(""),
   PUSH_PROVIDER: Joi.string().default("noop"),
   PUSH_PROVIDER_ENABLED: Joi.boolean().default(false),
   PUSH_PROVIDER_API_URL: Joi.string().allow(""),
@@ -148,8 +153,19 @@ export const envValidationSchema = Joi.object({
       }
     };
 
+    const requireSandboxKeys = (modeKey: string, mode: unknown, keys: string[]) => {
+      if (String(mode) !== "sandbox") return;
+      const missing = keys.filter((key) => String(value[key] ?? "").trim().length === 0);
+      if (missing.length > 0) {
+        return helpers.error("any.invalid", {
+          message: `${modeKey}=sandbox requires: ${missing.join(", ")}`
+        });
+      }
+    };
+
     const errors = [
       requireKeys("ERP_MODE", value.ERP_MODE, ["ERP_API_URL", "ERP_API_KEY"]),
+      requireSandboxKeys("ERP_MODE", value.ERP_MODE, ["ERP_BASE_URL", "ERP_API_KEY"]),
       requireKeys("BILLING_MODE", value.BILLING_MODE, ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]),
       requireKeys("EMAIL_MODE", value.EMAIL_MODE, ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"]),
       requireKeys("SMS_MODE", value.SMS_MODE, ["SMS_API_URL", "SMS_API_KEY", "SMS_SENDER_ID"]),
@@ -165,6 +181,29 @@ export const envValidationSchema = Joi.object({
         message:
           "NOTIFICATION_REAL_SENDS_ENABLED=true requires NOTIFICATION_UAT_ENABLED=true for staged UAT safety"
       });
+    }
+
+    if (Boolean(value.ERP_STOCK_SYNC_APPLY_ENABLED) && !Boolean(value.ERP_READ_ONLY_SYNC_ENABLED)) {
+      return helpers.error("any.invalid", {
+        message:
+          "ERP_STOCK_SYNC_APPLY_ENABLED=true requires ERP_READ_ONLY_SYNC_ENABLED=true for guarded local apply"
+      });
+    }
+
+    const readOnlySyncEnabled = Boolean(value.ERP_READ_ONLY_SYNC_ENABLED);
+    const erpMode = String(value.ERP_MODE ?? "mock");
+    if (
+      readOnlySyncEnabled &&
+      (erpMode === "sandbox" || erpMode === "live")
+    ) {
+      const missing = ["ERP_BASE_URL", "ERP_API_KEY", "ERP_STOCK_ENDPOINT"].filter(
+        (key) => String(value[key] ?? "").trim().length === 0
+      );
+      if (missing.length > 0) {
+        return helpers.error("any.invalid", {
+          message: `ERP read-only stock sync requires: ${missing.join(", ")}`
+        });
+      }
     }
 
     const storageMode = String(value.STORAGE_MODE ?? "local");
