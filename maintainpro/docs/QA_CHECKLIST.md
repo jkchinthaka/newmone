@@ -264,6 +264,15 @@
 - [ ] Mobile card/table layout remains readable.
 - [ ] No resend/revoke/accept/create/delete actions appear on `/admin/invitations`.
 
+## 2v) Legacy Tenant Invitation List Hardening (ADMIN-003C)
+- [ ] Billing/settings invitation list callers still load without errors after DTO change.
+- [ ] `/admin/invitations` still loads token-free review rows.
+- [ ] `GET /tenants/:id/invitations` network payload contains no `token`, `tokenHash`, or `invitationLink`.
+- [ ] Tenant invitation list remains tenant-scoped with existing membership permission checks.
+- [ ] Non-authorized membership roles cannot list tenant invitations.
+- [ ] Mobile layouts for any invitation list UI remain readable.
+- [ ] No new resend/revoke/delete actions were added.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

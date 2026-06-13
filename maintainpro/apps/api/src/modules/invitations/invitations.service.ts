@@ -13,6 +13,51 @@ import { PrismaService } from "../../database/prisma.service";
 import { TenancyService } from "../tenancy/tenancy.service";
 import { CreateTenantInvitationDto } from "./dto/create-tenant-invitation.dto";
 
+export type PublicTenantInvitationResponse = {
+  id: string;
+  tenantId: string;
+  email: string;
+  inviteeDisplayName: string;
+  membershipRole: string;
+  status: TenantInvitationStatus;
+  invitedByDisplayName: string;
+  invitedByEmail: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
+export const PUBLIC_TENANT_INVITATION_RESPONSE_FIELDS = [
+  "id",
+  "tenantId",
+  "email",
+  "inviteeDisplayName",
+  "membershipRole",
+  "status",
+  "invitedByDisplayName",
+  "invitedByEmail",
+  "createdAt",
+  "expiresAt",
+  "acceptedAt"
+] as const;
+
+export const INVITATIONS_LEGACY_SENSITIVE_FIELDS = [
+  "token",
+  "invitationToken",
+  "tokenHash",
+  "invitationLink",
+  "passwordHash",
+  "password",
+  "refreshToken",
+  "resetToken",
+  "sessionToken",
+  "smtpPassword",
+  "smtpUser",
+  "secret",
+  "apiKey",
+  "invitedById"
+] as const;
+
 @Injectable()
 export class InvitationsService {
   constructor(
@@ -37,18 +82,27 @@ export class InvitationsService {
     }
   }
 
-  async listInvitations(actorUserId: string, tenantId: string) {
+  async listInvitations(actorUserId: string, tenantId: string): Promise<PublicTenantInvitationResponse[]> {
     const access = await this.tenancyService.ensureTenantAccess(actorUserId, tenantId);
     this.assertCanManageInvites(access.user.role.name, access.membershipRole);
 
-    return this.prisma.tenantInvitation.findMany({
+    const invitations = await this.prisma.tenantInvitation.findMany({
       where: {
         tenantId
       },
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        membershipRole: true,
+        status: true,
+        expiresAt: true,
+        acceptedAt: true,
+        createdAt: true,
         invitedBy: {
           select: {
-            id: true,
             firstName: true,
             lastName: true,
             email: true
@@ -60,6 +114,38 @@ export class InvitationsService {
       },
       take: 50
     });
+
+    return invitations.map((invitation) => this.toPublicTenantInvitationResponse(invitation));
+  }
+
+  private toPublicTenantInvitationResponse(invitation: {
+    id: string;
+    tenantId: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    membershipRole: string;
+    status: TenantInvitationStatus;
+    expiresAt: Date;
+    acceptedAt: Date | null;
+    createdAt: Date;
+    invitedBy: { firstName: string; lastName: string; email: string };
+  }): PublicTenantInvitationResponse {
+    const inviteeDisplayName = `${invitation.firstName ?? ""} ${invitation.lastName ?? ""}`.trim();
+
+    return {
+      id: invitation.id,
+      tenantId: invitation.tenantId,
+      email: invitation.email,
+      inviteeDisplayName: inviteeDisplayName || invitation.email,
+      membershipRole: invitation.membershipRole,
+      status: invitation.status,
+      invitedByDisplayName: `${invitation.invitedBy.firstName} ${invitation.invitedBy.lastName}`.trim(),
+      invitedByEmail: invitation.invitedBy.email,
+      createdAt: invitation.createdAt.toISOString(),
+      expiresAt: invitation.expiresAt.toISOString(),
+      acceptedAt: invitation.acceptedAt ? invitation.acceptedAt.toISOString() : null
+    };
   }
 
   async createInvitation(

@@ -407,11 +407,24 @@
 - **Category:** Security / Admin / Privacy
 - **Description:** Tenant invitation records contain sensitive tokens; drift in admin or legacy invitation list endpoints could expose tokens, invitation links, or provider secrets.
 - **Impact:** Unauthorized account onboarding, token replay, privacy/compliance violations.
-- **Likelihood:** Low for `GET /admin/invitations` with explicit DTO/tests; Medium for legacy `GET /tenants/:id/invitations` which still returns raw records including tokens.
+- **Likelihood:** Low for `GET /admin/invitations` and hardened `GET /tenants/:id/invitations` with explicit DTO/tests; Medium for `POST /tenants/:id/invitations` which still returns token and invitationLink in mutation responses.
 - **Current Mitigation:**
   - Dedicated read-only `GET /admin/invitations` with `@Roles(ADMIN, SUPER_ADMIN)` and token-free `AdminInvitationReviewRow` DTO.
-  - Prisma `select` excludes token field; frontend has no mutation actions (`adminInvitationsAllowMutations()` false).
-  - Tests in `admin-invitations-access.spec.ts` and `admin-invitations.spec.ts`; QA checklist section 2u.
-- **Residual Risk:** Legacy invitation create/list APIs still handle tokens; admin mutation/resend/revoke flows deferred.
+  - Legacy list endpoint uses `PublicTenantInvitationResponse` allowlist via `toPublicTenantInvitationResponse()` with Prisma `select` excluding token.
+  - Tests in `admin-invitations-access.spec.ts`, `admin-invitations.spec.ts`, and `invitations-legacy-hardening.spec.ts`; QA checklist sections 2u and 2v.
+- **Residual Risk:** `POST /tenants/:id/invitations` mutation response still includes token for onboarding handoff; admin mutation/resend/revoke flows deferred.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When adding invitation mutations, email dispatch, or changing TenantInvitation model/API responses.
+
+### RISK-ADMIN-003C-LEGACY-INVITATION-DTO-DRIFT
+- **Category:** Security / Admin / Privacy
+- **Description:** Legacy tenant invitation list responses could drift from admin review DTOs or re-expose raw Prisma payloads including tokens.
+- **Impact:** Token leakage via list/review endpoints, inconsistent frontend expectations, onboarding security regressions.
+- **Likelihood:** Low after `PublicTenantInvitationResponse` mapper and tests; Medium if list handlers revert to `include` without review.
+- **Current Mitigation:**
+  - Explicit allowlist mapper in `InvitationsService.listInvitations()` with Prisma field `select` limits.
+  - Shared field naming aligned with admin review rows (invitee/inviter display names, ISO dates).
+  - Tests in `invitations-legacy-hardening.spec.ts`; QA checklist section 2v.
+- **Residual Risk:** `POST /tenants/:id/invitations` still returns token-bearing mutation payloads; future mutation response hardening tracked under ADMIN-003.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When changing invitation create/list responses, billing onboarding UI, or admin invitation review DTOs.

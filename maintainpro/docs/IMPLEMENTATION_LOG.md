@@ -1491,3 +1491,26 @@ Record each completed task with:
 - Remaining risks:
   - Legacy tenant invitation API still returns tokens to authorized callers on list/create.
   - No revokedAt timestamp in schema; REVOKED status only.
+
+## 2026-06-13 | ADMIN-003C | Harden legacy tenant invitation list responses
+- Audit findings:
+  - `TenantInvitation` model stores `token` plus status/expiry/inviter metadata.
+  - Legacy `GET /tenants/:id/invitations` returned raw Prisma rows including `token`, `invitedById`, and nested `invitedBy.id`.
+  - No resend/revoke/accept endpoints exist outside registration acceptance in auth.
+  - Billing page uses `POST /tenants/:id/invitations` only; no frontend GET list consumer found.
+- Legacy endpoints reviewed:
+  - `GET /tenants/:id/invitations` — hardened with allowlist DTO.
+  - `POST /tenants/:id/invitations` — unchanged; still returns `invitationLink` and raw token for onboarding handoff.
+- DTO fields allowed (list):
+  - id, tenantId, email, inviteeDisplayName, membershipRole, status, invitedByDisplayName, invitedByEmail, createdAt, expiresAt, acceptedAt.
+- DTO fields excluded (list):
+  - token, invitationLink, invitedById, updatedAt, raw invitedBy relation payloads, secrets.
+- Mutation response compatibility:
+  - `POST` create response intentionally retains `invitationLink` and token for copy/share flows; deferred hardening to ADMIN-003 follow-up.
+- Tests/checks run:
+  - `invitations-legacy-hardening.spec.ts` for list allowlist, membership guard, and create link preservation.
+  - Existing `admin-invitations-access.spec.ts` retained for `/admin/invitations`.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - `POST /tenants/:id/invitations` still returns token in mutation response body.
+  - No revokedAt timestamp in schema.
