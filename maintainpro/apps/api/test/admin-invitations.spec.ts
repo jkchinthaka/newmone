@@ -1,9 +1,12 @@
 import {
+  ADMIN_INVITATION_ACTIONS,
   adminInvitationOverviewUsesSensitiveFields,
+  adminInvitationsAllowCreate,
   adminInvitationsAllowMutations,
   filterAdminInvitationRows,
   formatAdminInvitationStatus,
   formatMembershipRoleLabel,
+  validateAdminInvitationCreateInput,
   type AdminInvitationReviewRow
 } from "../../web/lib/admin-invitations";
 
@@ -23,9 +26,38 @@ const sampleRow: AdminInvitationReviewRow = {
 };
 
 describe("admin invitations frontend helpers", () => {
-  it("does not expose mutation actions in invitation review config", () => {
+  it("exposes create-only admin invitation actions without resend/revoke/delete", () => {
+    expect(adminInvitationsAllowCreate()).toBe(true);
     expect(adminInvitationsAllowMutations()).toBe(false);
+    expect(ADMIN_INVITATION_ACTIONS).toEqual({
+      create: true,
+      resend: false,
+      revoke: false,
+      delete: false,
+      accept: false
+    });
     expect(adminInvitationOverviewUsesSensitiveFields()).toBe(false);
+  });
+
+  it("validates admin invitation create input", () => {
+    expect(
+      validateAdminInvitationCreateInput({
+        email: "invitee@example.com",
+        membershipRole: "MEMBER"
+      })
+    ).toBeNull();
+    expect(
+      validateAdminInvitationCreateInput({
+        email: "bad-email",
+        membershipRole: "MEMBER"
+      })
+    ).toMatch(/valid email/i);
+    expect(
+      validateAdminInvitationCreateInput({
+        email: "invitee@example.com",
+        membershipRole: "OWNER" as never
+      })
+    ).toMatch(/not allowed/i);
   });
 
   it("formats invitation status and membership role labels", () => {

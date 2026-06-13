@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
 
 import {
+  CREATE_INVITATION_SENSITIVE_FIELDS,
   INVITATIONS_LEGACY_SENSITIVE_FIELDS,
   InvitationsService,
   PUBLIC_TENANT_INVITATION_RESPONSE_FIELDS
@@ -99,7 +100,7 @@ describe("Legacy tenant invitation API hardening", () => {
     expect(prisma.tenantInvitation.findMany).not.toHaveBeenCalled();
   });
 
-  it("preserves POST /tenants/:id/invitations invitationLink for onboarding handoff", async () => {
+  it("returns hardened POST /tenants/:id/invitations response with invitationLink but no raw token", async () => {
     const prisma = createPrismaMock();
     prisma.tenant.findUnique.mockResolvedValue({ id: "tenant-a", name: "Tenant A" });
     prisma.user.findUnique.mockResolvedValue(null);
@@ -114,9 +115,44 @@ describe("Legacy tenant invitation API hardening", () => {
       email: "invitee@example.com"
     });
 
+    expect(Object.keys(result).sort()).toEqual(
+      [
+        "createdAt",
+        "email",
+        "expiresAt",
+        "id",
+        "invitationLink",
+        "inviteeDisplayName",
+        "membershipRole",
+        "status",
+        "tenantId",
+        "tenantName"
+      ].sort()
+    );
     expect(result.invitationLink).toBe("https://app.example.com/register?invitationToken=secret-token-value");
     expect(result.tenantName).toBe("Tenant A");
-    expect(result.token).toBe("secret-token-value");
+
+    for (const field of CREATE_INVITATION_SENSITIVE_FIELDS) {
+      assertObjectTreeHasNoSensitiveField(result, field);
+    }
+  });
+
+  it("rejects unsafe membership roles during invitation create", async () => {
+    const prisma = createPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({ id: "tenant-a", name: "Tenant A" });
+    const tenancyService = createTenancyMock();
+    const service = new InvitationsService(
+      prisma as any,
+      tenancyService as any,
+      { get: jest.fn() } as unknown as ConfigService
+    );
+
+    await expect(
+      service.createInvitation("admin-1", "tenant-a", {
+        email: "owner@example.com",
+        membershipRole: TenantMembershipRole.OWNER
+      })
+    ).rejects.toThrow("Membership role OWNER cannot be assigned through invitation");
   });
 });
 

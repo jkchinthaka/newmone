@@ -43,9 +43,9 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "invitations-onboarding",
       title: "Invitations & Onboarding",
-      description: "Review tenant and user onboarding status in a read-only invitation review workspace.",
+      description: "Review onboarding status and create controlled tenant invitations from the admin workspace.",
       status: "available",
-      statusLabel: "Read-only review",
+      statusLabel: "Review + create",
       href: "/admin/invitations"
     },
     {

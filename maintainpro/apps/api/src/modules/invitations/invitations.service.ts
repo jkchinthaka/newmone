@@ -58,6 +58,55 @@ export const INVITATIONS_LEGACY_SENSITIVE_FIELDS = [
   "invitedById"
 ] as const;
 
+export type CreateTenantInvitationResponse = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  email: string;
+  inviteeDisplayName: string;
+  membershipRole: string;
+  status: TenantInvitationStatus;
+  createdAt: string;
+  expiresAt: string;
+  invitationLink: string;
+};
+
+export const CREATE_TENANT_INVITATION_RESPONSE_FIELDS = [
+  "id",
+  "tenantId",
+  "tenantName",
+  "email",
+  "inviteeDisplayName",
+  "membershipRole",
+  "status",
+  "createdAt",
+  "expiresAt",
+  "invitationLink"
+] as const;
+
+export const CREATE_INVITATION_SENSITIVE_FIELDS = [
+  "token",
+  "invitationToken",
+  "tokenHash",
+  "passwordHash",
+  "password",
+  "refreshToken",
+  "resetToken",
+  "sessionToken",
+  "smtpPassword",
+  "smtpUser",
+  "secret",
+  "apiKey",
+  "invitedById",
+  "updatedAt"
+] as const;
+
+export const CREATABLE_TENANT_MEMBERSHIP_ROLES = [
+  TenantMembershipRole.MEMBER,
+  TenantMembershipRole.ADMIN,
+  TenantMembershipRole.BILLING
+] as const;
+
 @Injectable()
 export class InvitationsService {
   constructor(
@@ -79,6 +128,12 @@ export class InvitationsService {
 
     if (!allowedRoles.has(membershipRole)) {
       throw new ForbiddenException("Insufficient tenant permissions to manage invitations");
+    }
+  }
+
+  private assertCreatableMembershipRole(membershipRole: TenantMembershipRole) {
+    if (!(CREATABLE_TENANT_MEMBERSHIP_ROLES as readonly TenantMembershipRole[]).includes(membershipRole)) {
+      throw new BadRequestException(`Membership role ${membershipRole} cannot be assigned through invitation`);
     }
   }
 
@@ -152,9 +207,12 @@ export class InvitationsService {
     actorUserId: string,
     tenantId: string,
     dto: CreateTenantInvitationDto
-  ) {
+  ): Promise<CreateTenantInvitationResponse> {
     const access = await this.tenancyService.ensureTenantAccess(actorUserId, tenantId);
     this.assertCanManageInvites(access.user.role.name, access.membershipRole);
+
+    const membershipRole = dto.membershipRole ?? TenantMembershipRole.MEMBER;
+    this.assertCreatableMembershipRole(membershipRole);
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -219,7 +277,7 @@ export class InvitationsService {
           data: {
             token,
             invitedById: actorUserId,
-            membershipRole: dto.membershipRole ?? TenantMembershipRole.MEMBER,
+            membershipRole,
             firstName: dto.firstName?.trim() || null,
             lastName: dto.lastName?.trim() || null,
             expiresAt,
@@ -234,7 +292,7 @@ export class InvitationsService {
             email,
             firstName: dto.firstName?.trim() || null,
             lastName: dto.lastName?.trim() || null,
-            membershipRole: dto.membershipRole ?? TenantMembershipRole.MEMBER,
+            membershipRole,
             token,
             expiresAt,
             status: TenantInvitationStatus.PENDING
@@ -244,10 +302,37 @@ export class InvitationsService {
     const frontendBaseUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001";
     const invitationLink = `${frontendBaseUrl}/register?invitationToken=${invitation.token}`;
 
+    return this.toCreateTenantInvitationResponse(invitation, tenant.name, invitationLink);
+  }
+
+  private toCreateTenantInvitationResponse(
+    invitation: {
+      id: string;
+      tenantId: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      membershipRole: string;
+      status: TenantInvitationStatus;
+      createdAt: Date;
+      expiresAt: Date;
+    },
+    tenantName: string,
+    invitationLink: string
+  ): CreateTenantInvitationResponse {
+    const inviteeDisplayName = `${invitation.firstName ?? ""} ${invitation.lastName ?? ""}`.trim();
+
     return {
-      ...invitation,
-      invitationLink,
-      tenantName: tenant.name
+      id: invitation.id,
+      tenantId: invitation.tenantId,
+      tenantName,
+      email: invitation.email,
+      inviteeDisplayName: inviteeDisplayName || invitation.email,
+      membershipRole: invitation.membershipRole,
+      status: invitation.status,
+      createdAt: invitation.createdAt.toISOString(),
+      expiresAt: invitation.expiresAt.toISOString(),
+      invitationLink
     };
   }
 }

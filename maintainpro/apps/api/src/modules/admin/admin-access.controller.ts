@@ -1,11 +1,15 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { RoleName } from "@prisma/client";
+import { Throttle } from "@nestjs/throttler";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RequireEntitlement } from "../entitlements/entitlement.decorator";
+import { EntitlementGuard } from "../entitlements/entitlement.guard";
 import { UpdateUserStatusDto } from "../users/dto/users.dto";
 import { UsersService } from "../users/users.service";
+import { CreateAdminInvitationDto } from "./dto/create-admin-invitation.dto";
 import { AdminTenantsService } from "./admin-tenants.service";
 import { AdminRolesService } from "./admin-roles.service";
 import { AdminInvitationsService } from "./admin-invitations.service";
@@ -27,6 +31,16 @@ export class AdminAccessController {
   async listInvitationsForReview() {
     const invitations = await this.adminInvitationsService.findAllForAdminInvitationReview();
     return { data: invitations, message: "Admin invitation review list fetched" };
+  }
+
+  @Post("invitations")
+  @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @RequireEntitlement("users.max", 1)
+  @UseGuards(EntitlementGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async createInvitationForReview(@Body() body: CreateAdminInvitationDto) {
+    const invitation = await this.adminInvitationsService.createInvitationForAdminConsole(body);
+    return { data: invitation, message: "Invitation created" };
   }
 
   @Get("roles-permissions")

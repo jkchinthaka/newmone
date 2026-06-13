@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { RoleName, TenantInvitationStatus } from "@prisma/client";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+import { RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import {
+  CreateTenantInvitationResponse,
+  InvitationsService
+} from "../invitations/invitations.service";
+import { CreateAdminInvitationDto } from "./dto/create-admin-invitation.dto";
 
 export type AdminInvitationReviewRow = {
   id: string;
@@ -53,7 +58,10 @@ export const ADMIN_INVITATION_SENSITIVE_FIELDS = [
 
 @Injectable()
 export class AdminInvitationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly invitationsService: InvitationsService
+  ) {}
 
   private currentTenantScope(): { tenantId: string | null; isSuperAdmin: boolean } {
     const ctx = requestContext.get();
@@ -136,5 +144,41 @@ export class AdminInvitationsService {
       expiresAt: invitation.expiresAt.toISOString(),
       acceptedAt: invitation.acceptedAt ? invitation.acceptedAt.toISOString() : null
     };
+  }
+
+  async createInvitationForAdminConsole(dto: CreateAdminInvitationDto): Promise<CreateTenantInvitationResponse> {
+    const ctx = requestContext.get();
+    const actorId = ctx?.actorId;
+
+    if (!actorId) {
+      throw new BadRequestException("Authenticated actor is required");
+    }
+
+    const isSuperAdmin = ctx?.actorRole === RoleName.SUPER_ADMIN;
+    const activeTenantId = ctx?.tenantId ?? null;
+    let tenantId: string;
+
+    if (isSuperAdmin) {
+      tenantId = dto.tenantId?.trim() || activeTenantId || "";
+      if (!tenantId) {
+        throw new BadRequestException("Tenant is required for invitation creation");
+      }
+    } else {
+      tenantId = activeTenantId || "";
+      if (!tenantId) {
+        throw new BadRequestException("Tenant context is required");
+      }
+
+      if (dto.tenantId && dto.tenantId.trim() !== tenantId) {
+        throw new ForbiddenException("ADMIN users can only create invitations for their active tenant");
+      }
+    }
+
+    return this.invitationsService.createInvitation(actorId, tenantId, {
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      membershipRole: dto.membershipRole
+    });
   }
 }

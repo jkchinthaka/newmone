@@ -262,7 +262,7 @@
 - [ ] Status search/filter works without errors.
 - [ ] Empty, loading, and error states render safely with retry on error.
 - [ ] Mobile card/table layout remains readable.
-- [ ] No resend/revoke/accept/create/delete actions appear on `/admin/invitations`.
+- [ ] No resend/revoke/accept/delete actions appear on `/admin/invitations`.
 
 ## 2v) Legacy Tenant Invitation List Hardening (ADMIN-003C)
 - [ ] Billing/settings invitation list callers still load without errors after DTO change.
@@ -271,7 +271,18 @@
 - [ ] Tenant invitation list remains tenant-scoped with existing membership permission checks.
 - [ ] Non-authorized membership roles cannot list tenant invitations.
 - [ ] Mobile layouts for any invitation list UI remain readable.
-- [ ] No new resend/revoke/delete actions were added.
+- [ ] No resend/revoke/delete actions were added.
+
+## 2w) Admin Invitation Create Flow (ADMIN-003D)
+- [ ] ADMIN can create an invitation for the active tenant from `/admin/invitations`.
+- [ ] SUPER_ADMIN can create an invitation for a selected tenant.
+- [ ] Non-admin roles cannot access the create dialog or POST endpoint.
+- [ ] Create response/network payload contains no separate `token`, `invitationToken`, or `tokenHash`.
+- [ ] One-time invitation link panel appears after create with copy warning.
+- [ ] Invitation link is not stored in localStorage/sessionStorage and does not appear in the review table.
+- [ ] Invitation list refreshes after successful create.
+- [ ] Mobile create dialog remains usable and accessible.
+- [ ] No resend/revoke/delete/accept/bulk invite actions appear.
 
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.

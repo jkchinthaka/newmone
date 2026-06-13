@@ -40,7 +40,7 @@ const createPrismaMock = () => ({
 describe("Admin invitation review", () => {
   it("returns sanitized tenant-scoped rows for ADMIN without tokens", async () => {
     const prisma = createPrismaMock();
-    const service = new AdminInvitationsService(prisma as any);
+    const service = new AdminInvitationsService(prisma as any, { createInvitation: jest.fn() } as any);
 
     const rows = await requestContext.run(
       {
@@ -76,7 +76,7 @@ describe("Admin invitation review", () => {
 
   it("returns cross-tenant rows for SUPER_ADMIN without tenant filter", async () => {
     const prisma = createPrismaMock();
-    const service = new AdminInvitationsService(prisma as any);
+    const service = new AdminInvitationsService(prisma as any, { createInvitation: jest.fn() } as any);
 
     await requestContext.run(
       {

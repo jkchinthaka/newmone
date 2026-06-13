@@ -13,6 +13,31 @@ export type AdminInvitationReviewRow = {
   acceptedAt: string | null;
 };
 
+export type AdminInvitationCreateResponse = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  email: string;
+  inviteeDisplayName: string;
+  membershipRole: string;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  createdAt: string;
+  expiresAt: string;
+  invitationLink: string;
+};
+
+export const ADMIN_INVITATION_CREATABLE_MEMBERSHIP_ROLES = ["MEMBER", "ADMIN", "BILLING"] as const;
+
+export type AdminInvitationCreatableMembershipRole = (typeof ADMIN_INVITATION_CREATABLE_MEMBERSHIP_ROLES)[number];
+
+export const ADMIN_INVITATION_ACTIONS = {
+  create: true,
+  resend: false,
+  revoke: false,
+  delete: false,
+  accept: false
+} as const;
+
 export const ADMIN_INVITATION_TABLE_FIELDS = [
   "email",
   "inviteeDisplayName",
@@ -42,8 +67,44 @@ export const ADMIN_INVITATION_SENSITIVE_FIELDS = [
   "invitedById"
 ] as const;
 
+export function adminInvitationsAllowCreate(): boolean {
+  return ADMIN_INVITATION_ACTIONS.create;
+}
+
 export function adminInvitationsAllowMutations(): boolean {
-  return false;
+  return (
+    ADMIN_INVITATION_ACTIONS.resend ||
+    ADMIN_INVITATION_ACTIONS.revoke ||
+    ADMIN_INVITATION_ACTIONS.delete ||
+    ADMIN_INVITATION_ACTIONS.accept
+  );
+}
+
+export function validateAdminInvitationCreateInput(input: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  membershipRole: AdminInvitationCreatableMembershipRole;
+  tenantId?: string;
+}): string | null {
+  const email = input.email.trim();
+  if (!email) {
+    return "Work email is required.";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return "Enter a valid email address.";
+  }
+
+  if (!ADMIN_INVITATION_CREATABLE_MEMBERSHIP_ROLES.includes(input.membershipRole)) {
+    return "Selected membership role is not allowed for invitations.";
+  }
+
+  if (input.tenantId !== undefined && input.tenantId.trim().length === 0) {
+    return "Select a tenant before creating an invitation.";
+  }
+
+  return null;
 }
 
 export function adminInvitationOverviewUsesSensitiveFields(): boolean {

@@ -64,6 +64,6 @@ describe("admin console foundation", () => {
     const invitations = sections.find((section) => section.id === "invitations-onboarding");
     expect(invitations?.status).toBe("available");
     expect(invitations?.href).toBe("/admin/invitations");
-    expect(invitations?.description).toMatch(/read-only|review/i);
+    expect(invitations?.description).toMatch(/review|create|invitation/i);
   });
 });

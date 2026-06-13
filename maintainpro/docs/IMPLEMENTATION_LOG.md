@@ -1514,3 +1514,32 @@ Record each completed task with:
 - Remaining risks:
   - `POST /tenants/:id/invitations` still returns token in mutation response body.
   - No revokedAt timestamp in schema.
+
+## 2026-06-13 | ADMIN-003D | Controlled invitation create + POST response hardening
+- Audit findings:
+  - Legacy `POST /tenants/:id/invitations` returned spread Prisma row including raw `token` plus `invitationLink`.
+  - Billing page creates invitations but only shows toast success; no raw token dependency found.
+  - Admin console had read-only review only; create flow deferred until ADMIN-003D.
+- Response hardening:
+  - Added `CreateTenantInvitationResponse` allowlist via `toCreateTenantInvitationResponse()`.
+  - Both `POST /tenants/:id/invitations` and `POST /admin/invitations` return token-free DTO with one-time `invitationLink`.
+  - Rejects unsafe membership roles (`OWNER`) via `CREATABLE_TENANT_MEMBERSHIP_ROLES`.
+- Route/API approach:
+  - Added `POST /admin/invitations` with `@Roles(ADMIN, SUPER_ADMIN)`, entitlement guard, throttle.
+  - `AdminInvitationsService.createInvitationForAdminConsole()` enforces tenant scope and delegates to `InvitationsService`.
+  - Hardened shared `InvitationsService.createInvitation()` response mapper used by legacy and admin paths.
+- Frontend create flow:
+  - `/admin/invitations` adds Create invitation dialog (email, optional name, membership role, SUPER_ADMIN tenant selector).
+  - One-time copy panel for `invitationLink` with security warning; not stored in localStorage/sessionStorage or table rows.
+- Fields returned (create):
+  - id, tenantId, tenantName, email, inviteeDisplayName, membershipRole, status, createdAt, expiresAt, invitationLink.
+- Fields excluded (create):
+  - token, invitationToken, tokenHash, invitedById, updatedAt, secrets, raw relations.
+- Deferred mutation flows:
+  - No resend, revoke, delete, accept, bulk invite, or email/SMS dispatch.
+- Tests/checks run:
+  - `admin-invitations-create.spec.ts`, updated `invitations-legacy-hardening.spec.ts`, `admin-invitations.spec.ts`, `admin-invitations-access.spec.ts`.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - Invitation link still appears once in create response/panel; email dispatch not integrated.
+  - No revokedAt timestamp in schema.

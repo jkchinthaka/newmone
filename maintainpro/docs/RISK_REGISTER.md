@@ -407,12 +407,14 @@
 - **Category:** Security / Admin / Privacy
 - **Description:** Tenant invitation records contain sensitive tokens; drift in admin or legacy invitation list endpoints could expose tokens, invitation links, or provider secrets.
 - **Impact:** Unauthorized account onboarding, token replay, privacy/compliance violations.
-- **Likelihood:** Low for `GET /admin/invitations` and hardened `GET /tenants/:id/invitations` with explicit DTO/tests; Medium for `POST /tenants/:id/invitations` which still returns token and invitationLink in mutation responses.
+- **Likelihood:** Low for list/review endpoints and hardened create DTOs with explicit tests; Medium if create handlers revert to spreading raw Prisma invitation rows.
 - **Current Mitigation:**
   - Dedicated read-only `GET /admin/invitations` with `@Roles(ADMIN, SUPER_ADMIN)` and token-free `AdminInvitationReviewRow` DTO.
   - Legacy list endpoint uses `PublicTenantInvitationResponse` allowlist via `toPublicTenantInvitationResponse()` with Prisma `select` excluding token.
-  - Tests in `admin-invitations-access.spec.ts`, `admin-invitations.spec.ts`, and `invitations-legacy-hardening.spec.ts`; QA checklist sections 2u and 2v.
-- **Residual Risk:** `POST /tenants/:id/invitations` mutation response still includes token for onboarding handoff; admin mutation/resend/revoke flows deferred.
+  - Create responses use `CreateTenantInvitationResponse` with `invitationLink` only (no separate token field) for `POST /admin/invitations` and `POST /tenants/:id/invitations`.
+  - Admin create UI shows one-time copy panel only; links are not persisted client-side or listed in review tables.
+  - Tests in `admin-invitations-access.spec.ts`, `admin-invitations.spec.ts`, `admin-invitations-create.spec.ts`, and `invitations-legacy-hardening.spec.ts`; QA checklist sections 2u–2w.
+- **Residual Risk:** Invitation links still grant onboarding access if leaked; email/SMS dispatch and resend/revoke flows remain deferred.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When adding invitation mutations, email dispatch, or changing TenantInvitation model/API responses.
 
@@ -425,6 +427,17 @@
   - Explicit allowlist mapper in `InvitationsService.listInvitations()` with Prisma field `select` limits.
   - Shared field naming aligned with admin review rows (invitee/inviter display names, ISO dates).
   - Tests in `invitations-legacy-hardening.spec.ts`; QA checklist section 2v.
-- **Residual Risk:** `POST /tenants/:id/invitations` still returns token-bearing mutation payloads; future mutation response hardening tracked under ADMIN-003.
+- **Residual Risk:** Create responses include one-time `invitationLink`; list/review endpoints remain link-free. Resend/revoke and email dispatch deferred.
 - **Owner:** Web Platform + API
-- **Review Cadence:** When changing invitation create/list responses, billing onboarding UI, or admin invitation review DTOs.
+### RISK-ADMIN-003D-INVITATION-LINK-HANDLING
+- **Category:** Security / Admin / Privacy
+- **Description:** One-time invitation links grant onboarding access; unsafe UI persistence, logging, or list exposure could leak links after creation.
+- **Impact:** Unauthorized tenant onboarding if links are copied, stored, or shared beyond the intended recipient.
+- **Likelihood:** Low after one-time panel UX and token-free create DTO tests; Medium if future UI stores links or adds email without secure delivery review.
+- **Current Mitigation:**
+  - Create DTO returns `invitationLink` without separate raw token fields.
+  - Admin UI shows copy panel only after create with explicit warning; no localStorage/sessionStorage persistence; review table excludes links.
+  - Tests in `admin-invitations-create.spec.ts` and updated frontend helper specs; QA checklist section 2w.
+- **Residual Risk:** Email/SMS provider integration not implemented; operators must manually share links securely.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When adding email dispatch, resend flows, or changing invitation link UX.
