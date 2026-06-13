@@ -284,6 +284,18 @@
 - [ ] Mobile create dialog remains usable and accessible.
 - [ ] No resend/revoke/delete/accept/bulk invite actions appear.
 
+## 2x) Building / Facility Module (Future — post BUILD-002)
+- [ ] Property/building/floor/room hierarchy CRUD is tenant-scoped.
+- [ ] Facility issue list/detail loads at `/facilities/issues` without token or cross-tenant leakage.
+- [ ] Issue create supports category, severity, room, and photo attachments.
+- [ ] Supervisor can assign issue and create linked work order.
+- [ ] Technician sees facility work orders in existing work order views.
+- [ ] Cleaning-reported issues link to room/location correctly.
+- [ ] Facility dashboard widgets show open/overdue issues for authorized roles only.
+- [ ] Facility reports export without sensitive fields.
+- [ ] BUILDING_SUPERVISOR and FACILITY_MANAGER redirects resolve to real routes.
+- [ ] Mobile issue form and photo capture remain usable.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

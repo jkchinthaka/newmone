@@ -441,3 +441,63 @@
 - **Residual Risk:** Email/SMS provider integration not implemented; operators must manually share links securely.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When adding email dispatch, resend flows, or changing invitation link UX.
+
+### RISK-BUILD-001-FACILITY-SCOPE-CREEP
+- **Category:** Product / Architecture
+- **Description:** Building/facility module could duplicate Work Orders, Assets, Cleaning, or Inventory instead of extending them.
+- **Impact:** Maintenance burden, inconsistent workflows, tenant data fragmentation, delayed Nelna rollout.
+- **Likelihood:** Medium without enforced BUILD-001 plan boundaries; Low if BUILD-002+ follows documented reuse decisions.
+- **Current Mitigation:**
+  - `docs/BUILDING_FACILITY_MODULE_PLAN.md` defines MVP, out-of-scope items, reuse matrix, and phased rollout.
+  - FAC-* backlog mapped to BUILD-002 through BUILD-008 implementation order.
+- **Residual Risk:** Stakeholder requests for BIM/IoT/public portal may pressure MVP scope before core hierarchy lands.
+- **Owner:** Product + Platform Architecture
+- **Review Cadence:** Before each BUILD/FAC implementation task.
+
+### RISK-BUILD-001-FACILITY-TENANT-ISOLATION
+- **Category:** Security / Multi-tenancy
+- **Description:** New facility hierarchy and issue endpoints could leak cross-tenant building/room/issue data if guards or query filters drift.
+- **Impact:** Privacy violations, unauthorized facility access, compliance failures.
+- **Likelihood:** Medium during new module introduction; Low after tenant isolation test suite per endpoint.
+- **Current Mitigation:**
+  - Plan mandates `tenantId` on all proposed models and TenantContextGuard on mutations/lists.
+  - Reuse existing tenancy test patterns from SEC-006 and admin module specs.
+- **Residual Risk:** Public repair portal (BUILD-008) introduces new unauthenticated intake surface.
+- **Owner:** API Platform
+- **Review Cadence:** At BUILD-002 schema review and each new facility endpoint.
+
+### RISK-BUILD-001-FACILITY-ATTACHMENT-STORAGE
+- **Category:** Security / Operations
+- **Description:** Facility issue photos and documents depend on optional Cloudinary/MinIO integrations; misconfiguration could expose blobs or fail silently.
+- **Impact:** Data loss, unauthorized media access, incomplete repair evidence.
+- **Likelihood:** Medium when photo volume grows; Low if existing asset/cleaning attachment patterns are reused.
+- **Current Mitigation:**
+  - Reuse existing optional storage env-gating and attachment URL patterns from assets/cleaning modules.
+  - Plan documents signed/expiring URL requirement for object storage.
+- **Residual Risk:** No dedicated facility attachment retention policy yet.
+- **Owner:** API + DevOps
+- **Review Cadence:** At BUILD-004 issue API implementation.
+
+### RISK-BUILD-001-FACILITY-ERP-INVENTORY-GAP
+- **Category:** Integration / Operations
+- **Description:** Facility repairs may need parts/procurement flows that are WO-linked today; ERP sync gaps could block cost tracking for building maintenance.
+- **Impact:** Manual reconciliation, incomplete cost reports, procurement delays for facility WOs.
+- **Likelihood:** Medium for Nelna if facility WOs scale before inventory maturity (INV-001+).
+- **Current Mitigation:**
+  - Plan routes facility repairs through existing WorkOrder → PartRequest/PartIssue → PO paths only.
+  - ERP integration deferred; no new financial posting in MVP.
+- **Residual Risk:** Facility cost reporting (FAC-010) depends on WO/inventory data quality.
+- **Owner:** Operations + API
+- **Review Cadence:** At BUILD-005 WO bridge and BUILD-007 reports.
+
+### RISK-BUILD-001-FACILITY-ROLE-DRIFT
+- **Category:** Security / RBAC
+- **Description:** Frontend already references `FACILITY_MANAGER` and `BUILDING_SUPERVISOR` but Prisma `RoleName` and seed permissions do not include them; `/facility` routes are missing.
+- **Impact:** Broken redirects, frontend-only access checks, authorization gaps when module ships.
+- **Likelihood:** High until BUILD-002 aligns schema seed with web RBAC.
+- **Current Mitigation:**
+  - BUILD-001 documents required roles and permission keys; BUILD-002 scoped as next task.
+  - Plan requires backend RolesGuard authority, not frontend-only gating.
+- **Residual Risk:** Legacy role alias mapping (`COMPATIBLE_PERMISSION_ALIASES`) may need facility permission entries.
+- **Owner:** Web Platform + API
+- **Review Cadence:** At BUILD-002 role seed and BUILD-006 web route launch.

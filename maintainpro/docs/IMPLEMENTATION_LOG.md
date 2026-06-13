@@ -1543,3 +1543,23 @@ Record each completed task with:
 - Remaining risks:
   - Invitation link still appears once in create response/panel; email dispatch not integrated.
   - No revokedAt timestamp in schema.
+
+## 2026-06-13 | BUILD-001 | Building / Facility maintenance module planning
+- Audit findings:
+  - `FacilityIssue`, `CleaningLocation`, cleaning issue API/UI, and `FACILITY_ISSUE_REPORTED` notifications already exist.
+  - Work Orders, Assets (`INFRASTRUCTURE`), Inventory/Procurement, and Reports modules are mature and reusable.
+  - No Property/Building/Floor/Room hierarchy; no dedicated `facility` API module; `/facility` web routes missing.
+  - Frontend references `FACILITY_MANAGER` and `BUILDING_SUPERVISOR` but Prisma `RoleName` lacks these values.
+  - `FacilityIssue` has no `workOrderId`, category, or room FK — blocks repair workflow (FAC-008).
+- Chosen architecture direction:
+  - New spatial hierarchy (Property → Building → Floor → Room) plus new `facility` module.
+  - Extend `FacilityIssue`, `WorkOrder`, `Asset`, `CleaningLocation` — do not duplicate WO/asset engines.
+  - Issue → Work Order bridge via shared WO service; cleaning module retains visit/checklist focus.
+- Reuse decisions:
+  - Issues: extend `FacilityIssue`; execution: `WorkOrder`; equipment: `Asset`; parts: PartRequest/PartIssue; notifications/reports: extend existing patterns.
+- Proposed phases:
+  - BUILD-002 schema + roles; BUILD-003 hierarchy API; BUILD-004 issue migration; BUILD-005 WO bridge; BUILD-006 web routes; BUILD-007 dashboard/reports; BUILD-008 public portal.
+- Skipped implementation:
+  - No schema migration, no API modules, no web routes, no seed changes in BUILD-001.
+- Tests/checks run:
+  - Documentation-only change; verification: typecheck, lint, web build, API build, full build, API tests.
