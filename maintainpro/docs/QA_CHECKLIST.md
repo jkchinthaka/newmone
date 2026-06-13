@@ -601,6 +601,7 @@
 - [ ] Hosted `GET /health` returns `database.status=operational` (retry after cold start if needed).
 - [ ] Hosted `GET /health/readiness` primary MongoDB operational.
 - [ ] `npm run smoke:deploy` passes frontend, health, CORS, and login checks.
+- [ ] Render dashboard `DATABASE_URL` / `MONGODB_URI` URI path is `maintainpro_staging` (blueprint `MONGO_DATABASE_NAME` alone is insufficient).
 - [ ] Manual browser: staging `/login` → dashboard → Work Orders / Facility Issues / System Health without CORS/auth console errors.
 - [ ] No access tokens or passwords printed in CI logs.
 

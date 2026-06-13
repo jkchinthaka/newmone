@@ -127,7 +127,7 @@ API admin endpoints (authenticated):
 ## 13. Hosted staging smoke (DEPLOY-003)
 
 - [ ] Hosted API/web URLs confirmed as staging (not production cutover targets)
-- [ ] Render/hosting `DATABASE_URL` URI path matches `maintainpro_staging` (not legacy `nelna` unless explicitly approved)
+- [ ] Render/hosting `DATABASE_URL` URI path matches `maintainpro_staging` (blueprint `MONGO_DATABASE_NAME` updated in repo; dashboard secrets still required because `sync: false`)
 - [ ] Hosting `CORS_ORIGIN` / `FRONTEND_URL` match the staging web origin
 - [ ] Smoke login password in secret manager matches the password used for the hosted DB seed (`MAINTAINPRO_SMOKE_*` / `SMOKE_LOGIN_*`)
 - [ ] Warm hosted API before smoke on cold-start plans (retry if first `/health` times out)

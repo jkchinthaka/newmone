@@ -2059,6 +2059,27 @@ Record each completed task with:
   3. Rotate temporary Atlas password after UAT.
 - Recommended next task: **DEPLOY-003B** align hosted DB env + re-run hosted smoke/login, or **DEPLOY-004** production cutover checklist after staging sign-off.
 
+## 2026-06-14 | DEPLOY-003B | Align Render staging DB env + hosted smoke retry
+
+- Local prep (completed):
+  - Re-ran idempotent `npm run db:seed` against Atlas `maintainpro_staging` with shell `MAINTAINPRO_SEED_PASSWORD` aligned to smoke credentials (not logged/committed).
+  - Post-seed `npm run db:smoke`: `connected: true`, `tenantCount=1`, `userCount=8`, `workOrderCount=5`.
+- Render blueprint fix (repo):
+  - Updated root `render.yaml`: `PRIMARY_DATABASE_NAME` and `MONGO_DATABASE_NAME` changed from legacy `nelna` to `maintainpro_staging` (non-secret; applies on next Render blueprint sync/deploy).
+  - `DATABASE_URL` / `PRIMARY_DATABASE_URL` / `MONGODB_URI` remain `sync: false` — **must be set in Render dashboard** to Atlas URI with `/maintainpro_staging` path (operator-owned; not in repo).
+- Hosted smoke retry (**FAIL / blocked on Render dashboard env**):
+  - `GET /health`: operational.
+  - `GET /health/readiness`: operational; primary DB name still reported as **`nelna`** (Render service env not yet updated/redeployed).
+  - `npm run smoke:deploy`: frontend **OK**, health **OK**, CORS **OK**, login **FAIL** (`Invalid email or password`).
+  - Web `/login` loads over HTTPS; browser dashboard smoke still pending.
+- No destructive DB ops; no secrets committed or printed.
+- Operator unblock steps:
+  1. Render dashboard → `maintainpro-api` → set `DATABASE_URL`, `PRIMARY_DATABASE_URL`, `MONGODB_URI` to Atlas `maintainpro_staging` (secret manager).
+  2. Confirm `MONGO_DATABASE_NAME=maintainpro_staging` after blueprint deploy; manual deploy / wait 60–90s warm-up.
+  3. Re-run `npm run smoke:deploy`; complete manual browser checklist.
+  4. Rotate temporary Atlas password after UAT.
+- Recommended next task: re-run **DEPLOY-003B** smoke after Render dashboard env update, then **DEPLOY-004** production cutover checklist.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

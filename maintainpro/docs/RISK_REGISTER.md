@@ -1035,6 +1035,7 @@
   - Staging seed uses upsert-only flow; no destructive reset in smoke/seed workflow; no credentials in repo/docs.
   - DEPLOY-002C verified Atlas `maintainpro_staging` seed + API login smoke without committing secrets.
   - DEPLOY-003 recorded hosted smoke **PARTIAL**: hosted API healthy but reports DB name `nelna`; hosted login failed until hosting DB env and smoke credentials align.
-- **Residual Risk:** Operator must rotate Atlas password and store seed/smoke passwords in secret manager after UAT; align Render `DATABASE_URL` with `maintainpro_staging` before hosted login sign-off; browser/dashboard smoke still pending.
+  - DEPLOY-003B: `render.yaml` staging DB names updated; local `maintainpro_staging` re-seed completed; hosted login still blocked until Render dashboard `DATABASE_URL` points to `maintainpro_staging` and service redeploys.
+- **Residual Risk:** Operator must set Render `DATABASE_URL`/`MONGODB_URI` in dashboard (not repo), redeploy, rotate Atlas password, and store smoke/seed passwords in secret manager; browser/dashboard smoke still pending.
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.
