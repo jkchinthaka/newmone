@@ -60,5 +60,10 @@ describe("admin console foundation", () => {
     expect(rolesPermissions?.status).toBe("available");
     expect(rolesPermissions?.href).toBe("/admin/roles");
     expect(rolesPermissions?.description).toMatch(/read-only|review/i);
+
+    const invitations = sections.find((section) => section.id === "invitations-onboarding");
+    expect(invitations?.status).toBe("available");
+    expect(invitations?.href).toBe("/admin/invitations");
+    expect(invitations?.description).toMatch(/read-only|review/i);
   });
 });

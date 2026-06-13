@@ -253,6 +253,17 @@
 - [ ] No tokens, secrets, or session fields appear in role/permission responses.
 - [ ] Invite role picker still lists roles by id/name.
 
+## 2u) Admin Invitation Read-Only Review (ADMIN-003B)
+- [ ] SUPER_ADMIN can open `/admin/invitations` and review cross-tenant invitation records.
+- [ ] ADMIN can open `/admin/invitations` and sees tenant-scoped invitations only.
+- [ ] Non-admin direct access to `/admin/invitations` shows access-restricted state.
+- [ ] Invitation table shows email, membership role, status, inviter, and dates only.
+- [ ] No invitation token, token hash, invitation link, or provider secrets appear in UI or network payload.
+- [ ] Status search/filter works without errors.
+- [ ] Empty, loading, and error states render safely with retry on error.
+- [ ] Mobile card/table layout remains readable.
+- [ ] No resend/revoke/accept/create/delete actions appear on `/admin/invitations`.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

@@ -402,3 +402,16 @@
 - **Residual Risk:** Settings mutation endpoints still accept permission/role changes outside admin console read-only views.
 - **Owner:** API + Web Platform
 - **Review Cadence:** When changing RolesService responses, Settings RBAC UI, or admin matrix DTOs.
+
+### RISK-ADMIN-003B-INVITATION-TOKEN-EXPOSURE
+- **Category:** Security / Admin / Privacy
+- **Description:** Tenant invitation records contain sensitive tokens; drift in admin or legacy invitation list endpoints could expose tokens, invitation links, or provider secrets.
+- **Impact:** Unauthorized account onboarding, token replay, privacy/compliance violations.
+- **Likelihood:** Low for `GET /admin/invitations` with explicit DTO/tests; Medium for legacy `GET /tenants/:id/invitations` which still returns raw records including tokens.
+- **Current Mitigation:**
+  - Dedicated read-only `GET /admin/invitations` with `@Roles(ADMIN, SUPER_ADMIN)` and token-free `AdminInvitationReviewRow` DTO.
+  - Prisma `select` excludes token field; frontend has no mutation actions (`adminInvitationsAllowMutations()` false).
+  - Tests in `admin-invitations-access.spec.ts` and `admin-invitations.spec.ts`; QA checklist section 2u.
+- **Residual Risk:** Legacy invitation create/list APIs still handle tokens; admin mutation/resend/revoke flows deferred.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When adding invitation mutations, email dispatch, or changing TenantInvitation model/API responses.

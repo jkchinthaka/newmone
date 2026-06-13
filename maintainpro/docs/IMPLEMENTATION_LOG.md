@@ -1459,3 +1459,35 @@ Record each completed task with:
 - Remaining risks:
   - Settings role/permission mutation APIs (`POST/PATCH/DELETE /roles*`) remain active outside admin console.
   - Legacy read endpoints still use permission-based guards (`roles.view`, `permissions.view`) rather than admin-only roles.
+
+## 2026-06-13 | ADMIN-003B | Read-only tenant invitation review
+- Audit findings:
+  - `TenantInvitation` model exists with token, status, expiry, invitedBy, and tenant membership role fields.
+  - Legacy `GET /tenants/:id/invitations` returns raw records including `token` and `invitationLink` on create — not reused for admin review.
+  - Billing page has separate invitation UX; admin console gets dedicated read-only review only.
+- Invitation model/API availability:
+  - Model: `TenantInvitation` with statuses PENDING, ACCEPTED, EXPIRED, REVOKED.
+  - Existing mutation/list module at `/tenants/:id/invitations` (tenant-scoped, membership permission checks).
+  - New admin read endpoint added because no safe cross-tenant admin list existed.
+- Route/API approach:
+  - Added `GET /admin/invitations` with `@Roles(SUPER_ADMIN, ADMIN)`.
+  - `AdminInvitationsService.findAllForAdminInvitationReview()` returns sanitized `AdminInvitationReviewRow` DTO.
+  - Frontend route `/admin/invitations` with DataTable, search, and status filter.
+  - Admin console card: Invitations & Onboarding → `/admin/invitations`.
+- Fields exposed:
+  - id, tenantId, tenantName, email, inviteeDisplayName, membershipRole, status, invitedByDisplayName, invitedByEmail, createdAt, expiresAt, acceptedAt.
+- Fields intentionally excluded:
+  - token, invitationLink, invitedById, SMTP/SMS secrets, provider tokens, raw relation payloads.
+- Tenant/RBAC behavior:
+  - ADMIN: tenant-scoped invitation list.
+  - SUPER_ADMIN: cross-tenant list with tenant column.
+  - Non-admin blocked via UI PermissionState and RolesGuard.
+- Deferred mutation flows:
+  - No create/resend/revoke/accept/delete, token display, or email/SMS dispatch in admin workspace.
+  - Legacy `/tenants/:id/invitations` mutation paths unchanged.
+- Tests/checks run:
+  - `admin-invitations-access.spec.ts`, `admin-invitations.spec.ts`, updated `admin-console.spec.ts` and `breadcrumbs.spec.ts`.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - Legacy tenant invitation API still returns tokens to authorized callers on list/create.
+  - No revokedAt timestamp in schema; REVOKED status only.

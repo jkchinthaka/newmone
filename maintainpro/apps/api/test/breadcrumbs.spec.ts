@@ -24,6 +24,10 @@ describe("breadcrumb helpers", () => {
       { label: "Admin Console", href: "/admin" },
       { label: "Roles & Permissions" }
     ]);
+    expect(getBreadcrumbsForPath("/admin/invitations")).toEqual([
+      { label: "Admin Console", href: "/admin" },
+      { label: "Invitations & Onboarding" }
+    ]);
   });
 
   it("maps vehicle detail and documents routes with parent links", () => {

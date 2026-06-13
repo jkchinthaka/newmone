@@ -42,6 +42,10 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Admin Console", href: "/admin" },
     { label: "Roles & Permissions" }
   ],
+  "/admin/invitations": [
+    { label: "Admin Console", href: "/admin" },
+    { label: "Invitations & Onboarding" }
+  ],
   "/dashboard": [{ label: "Dashboard" }],
   [LEGACY_FMS_HOME_PATH]: [{ label: LEGACY_FMS_BREADCRUMB_LABEL }]
 };

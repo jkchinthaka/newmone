@@ -8,6 +8,7 @@ import { UpdateUserStatusDto } from "../users/dto/users.dto";
 import { UsersService } from "../users/users.service";
 import { AdminTenantsService } from "./admin-tenants.service";
 import { AdminRolesService } from "./admin-roles.service";
+import { AdminInvitationsService } from "./admin-invitations.service";
 
 @ApiTags("Admin")
 @ApiBearerAuth()
@@ -17,8 +18,16 @@ export class AdminAccessController {
   constructor(
     private readonly usersService: UsersService,
     private readonly adminTenantsService: AdminTenantsService,
-    private readonly adminRolesService: AdminRolesService
+    private readonly adminRolesService: AdminRolesService,
+    private readonly adminInvitationsService: AdminInvitationsService
   ) {}
+
+  @Get("invitations")
+  @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  async listInvitationsForReview() {
+    const invitations = await this.adminInvitationsService.findAllForAdminInvitationReview();
+    return { data: invitations, message: "Admin invitation review list fetched" };
+  }
 
   @Get("roles-permissions")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
