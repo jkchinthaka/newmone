@@ -27,11 +27,10 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "users-access",
       title: "Users & Access",
-      description:
-        "Review user invitations, activation status, and access management. Dedicated admin mutations will ship in a later phase.",
+      description: "Review users, roles, tenant association, and access status in a read-only admin view.",
       status: "available",
-      statusLabel: "Settings · Users",
-      href: "/settings"
+      statusLabel: "Read-only review",
+      href: "/admin/users"
     },
     {
       id: "tenants",

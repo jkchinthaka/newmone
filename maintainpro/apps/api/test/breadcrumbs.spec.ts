@@ -12,6 +12,10 @@ describe("breadcrumb helpers", () => {
     expect(getBreadcrumbsForPath("/inventory")).toEqual([{ label: "Inventory" }]);
     expect(getBreadcrumbsForPath("/system-health")).toEqual([{ label: "System Health" }]);
     expect(getBreadcrumbsForPath("/admin")).toEqual([{ label: "Admin Console" }]);
+    expect(getBreadcrumbsForPath("/admin/users")).toEqual([
+      { label: "Admin Console", href: "/admin" },
+      { label: "Users & Access" }
+    ]);
   });
 
   it("maps vehicle detail and documents routes with parent links", () => {

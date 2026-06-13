@@ -1271,3 +1271,50 @@ Record each completed task with:
   - Frontend admin visibility is UX-only; backend RBAC must protect settings/users/roles APIs.
   - Settings still hosts mutating admin flows outside this foundation scope.
   - Dedicated tenant admin API and audit workspace still missing.
+
+## 2026-06-12 | ADMIN-002A | Read-only Users & Access view
+- Audit findings:
+  - Existing `GET /users` requires `users.view` permission and returns broad user objects (still strips passwordHash but includes internal fields like failedLoginAttempts).
+  - Settings page already supports user mutations — intentionally not duplicated under `/admin`.
+  - UsersService already implements tenant membership scoping for non-super-admin actors.
+- Route/API approach:
+  - Added read-only `GET /admin/users` protected by `@Roles(SUPER_ADMIN, ADMIN)`.
+  - `UsersService.findAllForAdminAccessView()` returns sanitized `AdminUserAccessRow` DTO with explicit tenant scoping.
+  - Frontend route `/admin/users` with DataTable, page states, and localization formatting.
+- Fields exposed:
+  - displayName, email, roleName, tenantId, tenantName (SUPER_ADMIN tenant column), isActive, lastLogin, createdAt, updatedAt.
+- Fields intentionally excluded:
+  - passwordHash, passwords, refresh/reset/session tokens, failedLoginAttempts, lockedUntil, and other internal auth/session fields.
+- Tenant/RBAC behavior:
+  - ADMIN: tenant membership filter on list query; UI notes tenant-scoped review.
+  - SUPER_ADMIN: no tenant filter; UI shows cross-tenant scope banner and tenant column.
+  - Non-admin: frontend PermissionState; backend RolesGuard on API.
+- Deferred mutation flows:
+  - No invite/create/update/delete/status changes in admin users view.
+  - Settings mutation flows unchanged.
+- Files changed:
+  - `maintainpro/apps/api/src/modules/admin/*` (new)
+  - `maintainpro/apps/api/src/modules/users/users.service.ts`
+  - `maintainpro/apps/api/src/app.module.ts`
+  - `maintainpro/apps/api/test/admin-users-access.spec.ts` (new)
+  - `maintainpro/apps/api/test/admin-users.spec.ts` (new)
+  - `maintainpro/apps/web/app/(dashboard)/admin/users/page.tsx` (new)
+  - `maintainpro/apps/web/components/admin/admin-users-page.tsx` (new)
+  - `maintainpro/apps/web/components/admin/user-access-table.tsx` (new)
+  - `maintainpro/apps/web/lib/admin-users.ts` (new)
+  - `maintainpro/apps/web/lib/admin-console.ts`
+  - `maintainpro/apps/web/lib/breadcrumbs.ts`
+  - `maintainpro/apps/api/test/admin-console.spec.ts`
+  - `maintainpro/apps/api/test/breadcrumbs.spec.ts`
+  - `maintainpro/apps/api/tsconfig.json`
+  - docs updates
+- Tests run:
+  - `npm run typecheck` (pass)
+  - `npm run lint` (pass)
+  - `npm run build --workspace @maintainpro/web` (pass)
+  - `npm run build` (monorepo; pass)
+  - `npm run test --workspace @maintainpro/api` (pass)
+  - `npm run build --workspace @maintainpro/api` (pass)
+- Remaining risks:
+  - Legacy `GET /users` response shape remains broader for settings callers.
+  - No dedicated user detail route; list-only review in this pass.

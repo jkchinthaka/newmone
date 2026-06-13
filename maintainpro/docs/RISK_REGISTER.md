@@ -315,3 +315,18 @@
 - **Residual Risk:** Settings page still exposes mutating admin flows outside dedicated admin console; dedicated tenant admin API not built.
 - **Owner:** Web Platform
 - **Review Cadence:** When adding admin modules, roles, or backend admin endpoints.
+
+### RISK-ADMIN-002A-USER-DATA-EXPOSURE
+- **Category:** Security / Admin / Privacy
+- **Description:** Admin user review surfaces identity and access metadata; drift in DTO sanitization or tenant scoping could expose sensitive auth fields or cross-tenant user records.
+- **Impact:** Password/token leakage, unauthorized visibility of users in other tenants, compliance/privacy violations.
+- **Likelihood:** Low if sanitized endpoint and tests remain aligned; Medium if `/users` public responses are reused without review.
+- **Current Mitigation:**
+  - Dedicated read-only `GET /admin/users` with `@Roles(ADMIN, SUPER_ADMIN)` backend guard.
+  - `findAllForAdminAccessView()` returns explicit sanitized DTO; strips passwordHash and omits failedLoginAttempts/lockedUntil.
+  - ADMIN tenant membership filter; SUPER_ADMIN cross-tenant behavior documented in UI.
+  - Frontend table field allowlist excludes sensitive columns; tests in `admin-users-access.spec.ts` and `admin-users.spec.ts`.
+  - QA checklist section 2o for manual verification.
+- **Residual Risk:** Existing `GET /users` still returns broader user objects for permissioned callers; admin mutations remain in Settings outside this view.
+- **Owner:** Web Platform + API
+- **Review Cadence:** When extending admin user views or changing User model/API responses.

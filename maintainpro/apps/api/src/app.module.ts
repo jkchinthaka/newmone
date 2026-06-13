@@ -22,6 +22,7 @@ import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { ComplianceModule } from "./modules/compliance/compliance.module";
 import { VehicleDocumentsModule } from "./modules/vehicle-documents/vehicle-documents.module";
 import { AccidentsModule } from "./modules/accidents/accidents.module";
+import { AdminModule } from "./modules/admin/admin.module";
 import { InsuranceClaimsModule } from "./modules/insurance-claims/insurance-claims.module";
 import { TrafficFinesModule } from "./modules/traffic-fines/traffic-fines.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
@@ -105,6 +106,7 @@ normalizeDatabaseEnvironment();
     InvitationsModule,
     BillingModule,
     UsersModule,
+    AdminModule,
     RolesModule,
     AssetsModule,
     AuditModule,

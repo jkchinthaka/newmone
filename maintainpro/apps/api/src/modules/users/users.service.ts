@@ -9,6 +9,29 @@ import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
 
 type UserRecord = { passwordHash: string };
 
+export type AdminUserAccessRow = {
+  id: string;
+  displayName: string;
+  email: string;
+  roleName: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  isActive: boolean;
+  lastLogin: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const ADMIN_USER_ACCESS_SENSITIVE_FIELDS = [
+  "passwordHash",
+  "password",
+  "refreshToken",
+  "resetToken",
+  "sessionToken",
+  "failedLoginAttempts",
+  "lockedUntil"
+] as const;
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -105,6 +128,68 @@ export class UsersService {
     });
 
     return users.map((user) => this.toPublicUser(user));
+  }
+
+  async findAllForAdminAccessView(): Promise<AdminUserAccessRow[]> {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    if (!isSuperAdmin && !tenantId) {
+      return [];
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        AND: [!isSuperAdmin && tenantId ? { memberships: { some: { tenantId } } } : {}]
+      },
+      include: {
+        role: { select: { name: true } },
+        tenant: { select: { id: true, name: true } },
+        memberships: {
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          include: {
+            tenant: { select: { id: true, name: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+
+    return users.map((user) => this.toAdminUserAccessRow(user, isSuperAdmin));
+  }
+
+  private toAdminUserAccessRow(
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      tenantId: string | null;
+      isActive: boolean;
+      lastLogin: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      role: { name: RoleName };
+      tenant: { id: string; name: string } | null;
+      memberships: Array<{ tenant: { id: string; name: string } }>;
+    },
+    isSuperAdmin: boolean
+  ): AdminUserAccessRow {
+    const membershipTenant = user.memberships[0]?.tenant ?? null;
+    const resolvedTenant = user.tenant ?? membershipTenant;
+
+    return {
+      id: user.id,
+      displayName: `${user.firstName} ${user.lastName}`.trim(),
+      email: user.email,
+      roleName: user.role.name,
+      tenantId: isSuperAdmin ? resolvedTenant?.id ?? user.tenantId : user.tenantId ?? membershipTenant?.id ?? null,
+      tenantName: isSuperAdmin ? resolvedTenant?.name ?? null : resolvedTenant?.name ?? null,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
+    };
   }
 
   private parseRoleName(value?: string): RoleName | undefined {

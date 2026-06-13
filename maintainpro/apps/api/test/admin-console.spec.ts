@@ -51,5 +51,8 @@ describe("admin console foundation", () => {
 
     const systemHealth = sections.find((section) => section.id === "system-health");
     expect(systemHealth?.href).toBe("/system-health");
+
+    const usersAccess = sections.find((section) => section.id === "users-access");
+    expect(usersAccess?.href).toBe("/admin/users");
   });
 });

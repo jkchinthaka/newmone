@@ -188,9 +188,19 @@
 - [ ] Direct navigation to `/admin` as non-admin shows access-restricted state (not admin cards).
 - [ ] Admin console cards do not display fake user/tenant/RBAC counts.
 - [ ] System health section loads from existing readiness data or shows safe error state.
-- [ ] Available cards link only to real routes (`/settings`, `/system-health`).
+- [ ] Available cards link only to real routes (`/admin/users`, `/settings`, `/system-health`).
 - [ ] Tenants card shows requires-API/coming-soon messaging without mutation actions.
 - [ ] Mobile layout stacks session, health, and module cards cleanly.
+
+## 2o) Admin Users & Access Read-Only View (ADMIN-002A)
+- [ ] ADMIN can open `/admin/users` from the Admin Console card and review tenant-scoped users.
+- [ ] SUPER_ADMIN can open `/admin/users` and sees tenant columns for cross-tenant review.
+- [ ] Non-admin direct access to `/admin/users` shows access-restricted state.
+- [ ] User table shows name, email, role, status, last login, and created date only.
+- [ ] No password, token, hash, or internal auth fields appear in UI or network payload.
+- [ ] Empty, loading, and error states render safely with retry on error.
+- [ ] Mobile card layout remains readable and tappable.
+- [ ] No invite/create/edit/delete user actions appear on `/admin/users`.
 
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
