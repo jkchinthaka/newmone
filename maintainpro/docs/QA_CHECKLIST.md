@@ -244,6 +244,15 @@
 - [ ] Mobile layout scrolls grouped permission tables cleanly.
 - [ ] No edit/delete/assign/create actions appear on `/admin/roles`.
 
+## 2t) Legacy Role/Permission Read Hardening (ADMIN-004B)
+- [ ] Settings Roles tab still loads existing roles and permission checkboxes.
+- [ ] Settings permission catalog list still loads for role editing.
+- [ ] `/admin/roles` matrix still works unchanged.
+- [ ] Network payloads from `GET /roles` omit roleIds, permissionIds, user lists, and raw relation arrays.
+- [ ] Network payloads from `GET /roles/permissions` omit roleIds and internal relation payloads.
+- [ ] No tokens, secrets, or session fields appear in role/permission responses.
+- [ ] Invite role picker still lists roles by id/name.
+
 ## 3) Work Order Lifecycle
 - [ ] Request -> Approval -> Assignment -> In Progress transitions work.
 - [ ] Pause/Resume and time tracking are recorded.

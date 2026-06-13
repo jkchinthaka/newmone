@@ -53,6 +53,7 @@
 | ADMIN-002C | P2 | Admin | Harden legacy user management paths | DONE | users.service.ts, PATCH /users/:id/status, GET /users DTO | Manual settings/admin QA, users-legacy-hardening.spec.ts, web/full build | Shared status protections; PublicUserResponse allowlist; legacy paths aligned with ADMIN-002B. |
 | ADMIN-003A | P2 | Admin | Read-only tenant admin workspace | DONE | GET /admin/tenants, /admin/tenants UI | Manual tenant QA, admin-tenants*.spec.ts, web/full build | SUPER_ADMIN cross-tenant list; ADMIN own-tenant profile; sanitized DTO; no mutations. |
 | ADMIN-004A | P2 | Admin | Read-only roles & permissions matrix | DONE | GET /admin/roles-permissions, /admin/roles UI | Manual roles matrix QA, admin-roles*.spec.ts, web/full build | Global permission catalog + tenant-scoped roles; coverage matrix; no mutations. |
+| ADMIN-004B | P2 | Admin | Harden legacy role/permission read responses | DONE | roles.service.ts, GET /roles, GET /roles/permissions | Manual settings/admin QA, roles-legacy-hardening.spec.ts, web/full build | PublicRoleResponse/PublicPermissionResponse allowlists; Settings-compatible summaries. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

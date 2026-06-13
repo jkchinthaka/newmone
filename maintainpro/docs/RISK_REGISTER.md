@@ -383,8 +383,22 @@
 - **Current Mitigation:**
   - Dedicated read-only `GET /admin/roles-permissions` with `@Roles(ADMIN, SUPER_ADMIN)`.
   - Explicit matrix DTO; permissions global, roles tenant-scoped for ADMIN.
+  - Legacy `GET /roles` and `GET /roles/permissions` now use `PublicRoleResponse` / `PublicPermissionResponse` allowlists (ADMIN-004B).
   - Frontend matrix is read-only (`adminRolesMatrixAllowsMutations()` false); no assignment/edit controls.
-  - Tests in `admin-roles-access.spec.ts` and `admin-roles.spec.ts`; QA checklist section 2s.
+  - Tests in `admin-roles-access.spec.ts`, `admin-roles.spec.ts`, and `roles-legacy-hardening.spec.ts`; QA checklist sections 2s and 2t.
 - **Residual Risk:** Settings `/roles` mutation APIs remain active; user-role assignment and invitation flows still deferred.
 - **Owner:** Web Platform + API
 - **Review Cadence:** When adding role/permission mutations, changing seed/RBAC model, or extending admin matrix scope.
+
+### RISK-ADMIN-004B-LEGACY-ROLE-DTO-DRIFT
+- **Category:** Security / Admin / Authorization
+- **Description:** Legacy `/roles` read endpoints could drift from admin matrix DTOs or re-expose raw Prisma relation payloads (`roleIds`, `permissionIds`, user lists).
+- **Impact:** Internal RBAC structure leakage, inconsistent frontend expectations, future exposure of sensitive metadata if raw objects return.
+- **Likelihood:** Low after `PublicRoleResponse` / `PublicPermissionResponse` mappers and tests; Medium if mutation handlers revert to `include: { permissions: true }` without review.
+- **Current Mitigation:**
+  - Explicit allowlist mappers in `RolesService` with Prisma field `select` limits.
+  - Settings-compatible permission summaries nested under roles.
+  - Tests in `roles-legacy-hardening.spec.ts`; QA checklist section 2t.
+- **Residual Risk:** Settings mutation endpoints still accept permission/role changes outside admin console read-only views.
+- **Owner:** API + Web Platform
+- **Review Cadence:** When changing RolesService responses, Settings RBAC UI, or admin matrix DTOs.

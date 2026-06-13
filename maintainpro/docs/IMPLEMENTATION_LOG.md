@@ -1434,3 +1434,28 @@ Record each completed task with:
 - Remaining risks:
   - Legacy `/roles` endpoints still return broader objects for permissioned Settings callers.
   - Matrix can grow large; current UI uses grouped scrollable tables without pagination.
+
+## 2026-06-13 | ADMIN-004B | Harden legacy role/permission read responses
+- Audit findings:
+  - Legacy `GET /roles` returned raw Prisma role objects with full `permissions` relations, `permissionIds`, `tenantId`, timestamps, and nested permission `roleIds`.
+  - Legacy `GET /roles/permissions` returned raw permission records including `roleIds` and timestamps.
+  - Settings consumes `id`, `name`, and nested permission `id`/`key`/`description` only for role editing checkboxes and invite role picker.
+  - No `GET /roles/:id` endpoint exists.
+- Legacy endpoints reviewed:
+  - `GET /roles`, `GET /roles/permissions`.
+  - Mutation endpoints unchanged in behavior; create/update/createPermission now reuse the same allowlist mappers on responses for consistency.
+  - `GET /admin/roles-permissions` (ADMIN-004A) unchanged.
+- DTO fields allowed/excluded:
+  - Role read DTO: id, name, permissionCount, permissions[] summaries.
+  - Permission read DTO: id, key, module, description.
+  - Excluded: tenantId, permissionIds, roleIds, users, timestamps, raw relation payloads, secrets/tokens/sessions.
+- Compatibility decisions:
+  - Settings `RoleRow` / `PermissionRow` remain compatible; added `module` and `permissionCount` are additive only.
+  - Prisma `select` limits loaded fields; mappers enforce explicit allowlists.
+- Tests/checks run:
+  - `roles-legacy-hardening.spec.ts` for GET /roles and GET /roles/permissions allowlists.
+  - Existing admin-roles*.spec.ts retained.
+  - Verification: typecheck, lint, web build, API build, full build, API tests.
+- Remaining risks:
+  - Settings role/permission mutation APIs (`POST/PATCH/DELETE /roles*`) remain active outside admin console.
+  - Legacy read endpoints still use permission-based guards (`roles.view`, `permissions.view`) rather than admin-only roles.
