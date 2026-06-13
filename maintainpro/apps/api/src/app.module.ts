@@ -13,6 +13,7 @@ import { envValidationSchema } from "./config/env.validation";
 import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
+import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { HealthService } from "./health.service";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { AuditModule } from "./modules/audit/audit.module";
@@ -150,6 +151,7 @@ normalizeDatabaseEnvironment();
   ],
   providers: [
     HealthService,
+    DeploymentReadinessService,
     MongoSyncService,
     {
       provide: APP_GUARD,

@@ -484,20 +484,27 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
     href: "/facilities/reports",
     tone: "info"
   };
+  const facilityAgingLink: ActionCenterItem = {
+    id: "facility-aging",
+    title: "SLA / aging report",
+    description: "Issue aging buckets, overdue SLA preview, and linked work order aging.",
+    href: "/facilities/reports/aging",
+    tone: "info"
+  };
 
   if (!snapshot.connections.facilityIssues || !snapshot.facilityIssues) {
     return {
       id: "facility",
       title: "Cleaning & facility issues",
       description: "Issue reporting workflows available today via Cleaning Management.",
-      items: [facilityHierarchyLink, facilityReportsLink],
+      items: [facilityHierarchyLink, facilityReportsLink, facilityAgingLink],
       emptyTitle: "Issue feed not connected",
       emptyDescription: "Facility issue data is unavailable right now. You can still open the hierarchy module."
     };
   }
 
   const stats = snapshot.facilityIssues;
-  const items: ActionCenterItem[] = [facilityHierarchyLink, facilityReportsLink];
+  const items: ActionCenterItem[] = [facilityHierarchyLink, facilityReportsLink, facilityAgingLink];
 
   if (stats.open > 0) {
     items.push({

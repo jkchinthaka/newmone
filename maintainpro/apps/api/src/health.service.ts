@@ -1,9 +1,12 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { PrismaService } from "./database/prisma.service";
 import { ReplicationSyncService } from "./database/replication-sync.service";
 import { sanitizeReplicationError } from "./database/replication.config";
+import { InventoryErpAdapterService } from "./modules/inventory/inventory-erp-adapter.service";
+import { NotificationReadinessService } from "./modules/notifications/notification-readiness.service";
 import { QueueHealthService } from "./modules/queues/queue-health.service";
 
 export type CheckStatus =
@@ -44,7 +47,16 @@ export class HealthService {
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Optional()
     @Inject(QueueHealthService)
-    private readonly queueHealthService?: QueueHealthService
+    private readonly queueHealthService?: QueueHealthService,
+    @Optional()
+    @Inject(NotificationReadinessService)
+    private readonly notificationReadinessService?: NotificationReadinessService,
+    @Optional()
+    @Inject(InventoryErpAdapterService)
+    private readonly inventoryErpAdapterService?: InventoryErpAdapterService,
+    @Optional()
+    @Inject(DeploymentReadinessService)
+    private readonly deploymentReadinessService?: DeploymentReadinessService
   ) {}
 
   getLiveness() {
@@ -91,6 +103,23 @@ export class HealthService {
     const status: OverallStatus = requiredDown ? "degraded" : "operational";
 
     const queueReadiness = this.buildQueueReadinessView(queueHealthDetails);
+    const notificationReadiness = this.notificationReadinessService?.getSummary();
+    const inventoryErpReadiness = this.inventoryErpAdapterService?.describeReadiness();
+    const deploymentReadiness = this.deploymentReadinessService?.getSummary({
+      databaseStatus: database.status === "operational" ? "operational" : "degraded",
+      redisStatus:
+        queueReadiness.mode === "disabled"
+          ? "disabled"
+          : queueReadiness.redis.status === "active"
+            ? "operational"
+            : queueReadiness.redis.status === "failed"
+              ? "failed"
+              : "degraded",
+      emailState: notificationReadiness?.email.state,
+      smsState: notificationReadiness?.sms.state,
+      erpState: inventoryErpReadiness?.state,
+      objectStorageStatus: objectStorage.status
+    });
 
     return {
       status,
@@ -109,8 +138,26 @@ export class HealthService {
       },
       dependencies,
       configuration,
-      queues: queueReadiness
+      queues: queueReadiness,
+      operationalFoundations: {
+        notifications: notificationReadiness ?? null,
+        inventoryErp: inventoryErpReadiness ?? null,
+        deployment: deploymentReadiness ?? null
+      }
     };
+  }
+
+  getDeploymentReadinessSummary() {
+    return (
+      this.deploymentReadinessService?.getSummary() ?? {
+        generatedAt: new Date().toISOString(),
+        environment: this.configService.get<string>("NODE_ENV", "development"),
+        overallStatus: "warning",
+        blockers: [],
+        warnings: ["Deployment readiness service is unavailable."],
+        checks: []
+      }
+    );
   }
 
   private async checkDatabase(): Promise<DependencyCheck> {

@@ -25,4 +25,13 @@ export class HealthController {
       message: "Readiness check completed"
     };
   }
+
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Get("deployment-readiness")
+  async deploymentReadiness() {
+    return {
+      data: this.healthService.getDeploymentReadinessSummary(),
+      message: "Deployment readiness summary fetched"
+    };
+  }
 }

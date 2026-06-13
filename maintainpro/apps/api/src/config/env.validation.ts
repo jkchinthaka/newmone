@@ -75,6 +75,7 @@ export const envValidationSchema = Joi.object({
   ERP_SYNC_REQUIRED_FOR_READINESS: Joi.boolean().default(false),
   ERP_PROVIDER_ID: Joi.string().allow(""),
   ERP_API_URL: Joi.string().allow(""),
+  ERP_BASE_URL: Joi.string().allow(""),
   ERP_API_KEY: Joi.string().allow(""),
   ERP_AUTH_HEADER: Joi.string().default("Authorization"),
   ERP_TIMEOUT_MS: Joi.number().default(15000),
@@ -105,7 +106,8 @@ export const envValidationSchema = Joi.object({
   SWAGGER_ENABLED: Joi.boolean().default(false),
   SWAGGER_USER: Joi.string().allow(""),
   SWAGGER_PASSWORD: Joi.string().allow(""),
-  READINESS_API_KEY: Joi.string().allow("")
+  READINESS_API_KEY: Joi.string().allow(""),
+  ALLOW_FACILITY_BACKFILL_APPLY: Joi.boolean().default(false)
 })
   .custom((value, helpers) => {
     const nodeEnv = String(value.NODE_ENV ?? "development");

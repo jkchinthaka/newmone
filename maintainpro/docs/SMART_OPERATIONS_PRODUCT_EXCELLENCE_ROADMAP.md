@@ -43,7 +43,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 5. **BUILD-007** — Issue → work order bridge — **DONE** (`POST /cleaning/issues/:id/create-work-order`)
 6. **BUILD-008** — Authenticated QR issue reporting — **DONE** (`/qr/report-issue`)
 7. **BUILD-009** — Facility dashboard + reporting — **DONE** (`/facilities/reports`)
-8. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
+8. **OPS-002** — SLA/aging heatmap — **DONE** (`/facilities/reports/aging`)
 9. **OPS-003** — Duplicate issue detection (same room/asset within time window)
 
 ### Phase B — Operations excellence
@@ -56,8 +56,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 ### Phase C — External intake & integrations
 
 11. **Public/internal repair request portal** — Authenticated requester flows first; public QR intake after security review
-12. **NOTIFY-001** — Production email/SMS notification setup
-13. **ERP-001** — ERP inventory integration (read/sync first; no production posting without governance)
+12. **NOTIFY-002** — Staged production email/SMS UAT sends (foundation done in NOTIFY-001)
+13. **ERP-002** — Live Bileeta inventory read sync (foundation done in ERP-001)
 
 ## QR room/building reporting plan
 
@@ -112,11 +112,11 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **OPS-002** — SLA/aging heatmap
-2. **OPS-003** — Duplicate issue detection
-6. **NOTIFY-001** — Email/SMS production setup
-7. **ERP-001** — ERP inventory integration
-8. **WO-011** — Work order activity timeline + evidence integration
+1. **OPS-003** — Duplicate issue detection
+2. **WO-011** — Work order activity timeline + evidence integration
+3. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
+4. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
+5. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
 
 ## Verification notes (SMART-OPS-001)
 

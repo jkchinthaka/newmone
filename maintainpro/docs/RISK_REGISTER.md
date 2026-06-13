@@ -851,7 +851,9 @@
 - **Likelihood:** Medium in current deployment; Lower with system health visibility.
 - **Current Mitigation:**
   - SEC-012/013 integration mode surfacing in system health (admin Action Center links there).
-  - NOTIFY-001 and ERP-001 tracked explicitly in roadmap.
-- **Residual Risk:** Production env setup still manual; Action Center does not replace integration configuration.
+  - NOTIFY-001 foundation: `/notifications/readiness`, template samples, health `operationalFoundations.notifications`.
+  - ERP-001 foundation: disabled inventory adapter + honest readiness in `/health/readiness`.
+  - DEPLOY-001 checklist + `npm run deployment:readiness` helper.
+- **Residual Risk:** Production env setup still manual; live credentials and UAT sends remain operator-owned.
 - **Owner:** DevOps + Platform
-- **Review Cadence:** At NOTIFY-001 and ERP-001 implementation.
+- **Review Cadence:** Before production go-live and when enabling live integration modes.

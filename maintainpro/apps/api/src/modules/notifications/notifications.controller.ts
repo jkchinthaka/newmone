@@ -3,6 +3,9 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { NotificationType } from "@prisma/client";
 
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { NotificationReadinessService } from "./notification-readiness.service";
+import { NotificationTemplatesService } from "./notification-templates.service";
 import { NotificationsService } from "./notifications.service";
 
 type AuthedRequest = {
@@ -16,7 +19,11 @@ type AuthedRequest = {
 @UseGuards(JwtAuthGuard)
 @Controller("notifications")
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationReadinessService: NotificationReadinessService,
+    private readonly notificationTemplatesService: NotificationTemplatesService
+  ) {}
 
   @Get()
   async findAll(
@@ -133,6 +140,48 @@ export class NotificationsController {
   async pushReadiness(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getPushReadiness(req.user.sub);
     return { data, message: "Push readiness fetched" };
+  }
+
+  @Get("readiness")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async providerReadiness() {
+    const data = this.notificationReadinessService.getSummary();
+    return { data, message: "Notification provider readiness fetched" };
+  }
+
+  @Get("templates/samples")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async templateSamples() {
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3001";
+    const data = {
+      criticalFacilityIssue: this.notificationTemplatesService.renderCriticalFacilityIssue({
+        issueTitle: "Restroom leak near lobby",
+        severity: "CRITICAL",
+        roomName: "Lobby restroom",
+        slaTargetAt: new Date().toISOString(),
+        actionUrl: `${frontendUrl}/cleaning/issues`
+      }),
+      workOrderFromIssue: this.notificationTemplatesService.renderWorkOrderFromIssue({
+        issueTitle: "Restroom leak near lobby",
+        workOrderNumber: "WO-2026-0001",
+        assigneeName: "Maintenance team",
+        actionUrl: `${frontendUrl}/work-orders`
+      }),
+      overdueSlaAlert: this.notificationTemplatesService.renderOverdueSlaAlert({
+        itemLabel: "Restroom leak near lobby",
+        itemType: "facility_issue",
+        dueAt: new Date().toISOString(),
+        actionUrl: `${frontendUrl}/facilities/reports/aging`
+      }),
+      invitationCreated: this.notificationTemplatesService.renderInvitationCreated({
+        inviteeEmail: "user@example.com",
+        tenantName: "Example Tenant",
+        roleName: "FACILITY_MANAGER",
+        actionUrl: `${frontendUrl}/register`
+      })
+    };
+
+    return { data, message: "Notification template samples fetched" };
   }
 
   @Post("push/devices")

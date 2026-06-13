@@ -22,7 +22,10 @@
     "backup:resync": "tsx src/database/backup-resync.ts",
     "backup:verify": "tsx src/database/backup-verify.ts",
     "departments:migrate": "tsx src/database/migrate-departments.ts",
-    "phase3:migrate": "tsx src/database/migrate-phase3-procurement.ts"
+    "phase3:migrate": "tsx src/database/migrate-phase3-procurement.ts",
+    "facility:backfill:dry": "tsx scripts/facility-location-backfill.ts",
+    "facility:backfill:apply": "tsx scripts/facility-location-backfill.ts --apply",
+    "deployment:readiness": "tsx scripts/deployment-readiness.ts"
   },
   "dependencies": {
     "@maintainpro/shared-types": "1.2.0",

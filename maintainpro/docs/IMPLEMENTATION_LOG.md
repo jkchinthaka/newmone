@@ -1890,12 +1890,28 @@ Record each completed task with:
 - `facility-dashboard.spec.ts`, `facility-dashboard-ui.spec.ts`, updated `action-center.spec.ts`, `facilities-web-config.spec.ts`
 - typecheck, lint, prisma validate, web/api/full build, full API test suite
 
-### Deferred
-
-- SLA heatmap / advanced analytics (OPS-002)
-- Issue ↔ work order status sync
-- Public QR reporting
-
 ### Recommended next task
 
-- **OPS-002** — SLA/aging heatmap for work orders and facility issues.
+- **OPS-003** — Duplicate issue detection for facility issues.
+
+---
+
+## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
+
+- What changed:
+  - **OPS-002:** Added tenant-scoped SLA/aging report (`GET /facilities/reports/aging`) with issue age buckets, overdue SLA preview, critical/high aging preview, and optional linked work order aging when `dueDate` exists. Web route `/facilities/reports/aging` with heatmap tables; Action Center + facility reports links updated.
+  - **BUILD-010:** Added CleaningLocation → Room dry-run matcher/report, guarded optional apply for exact matches only (`ALLOW_FACILITY_BACKFILL_APPLY=true` + `--apply`), CLI script, and runbook.
+  - **NOTIFY-001:** Added notification provider readiness service, render-only templates, `/notifications/readiness` + template samples endpoints, health readiness integration.
+  - **ERP-001:** Added `InventoryErpAdapter` disabled/no-op foundation with honest readiness reporting.
+  - **DEPLOY-001:** Added deployment readiness service, admin endpoint, CLI helper, and production checklist doc.
+- Files changed (high level):
+  - API: `facility-aging.mapper.ts`, `facilities.service.ts`, `facilities.controller.ts`, `facility-location-backfill.*`, `notification-readiness.service.ts`, `notification-templates.service.ts`, `inventory-erp-adapter.service.ts`, `deployment-readiness.service.ts`, `health.service.ts`, `env.validation.ts`
+  - Web: `/facilities/reports/aging`, aging components/libs, Action Center + reports links
+  - Docs: `FACILITY_LOCATION_BACKFILL_RUNBOOK.md`, `NOTIFICATION_PROVIDER_SETUP.md`, `ERP_INVENTORY_INTEGRATION_PLAN.md`, `DEPLOYMENT_READINESS_CHECKLIST.md` + tracking doc updates
+  - Tests: `facility-aging.spec.ts`, `facility-location-backfill.spec.ts`, `notification-readiness.spec.ts`, `erp-inventory-adapter.spec.ts`, `deployment-readiness.spec.ts`
+- Tests run: typecheck, lint, prisma validate, api/web/full build, full API test suite
+- Remaining risks:
+  - Live email/SMS/ERP still require production credentials and staged UAT sends
+  - Backfill apply remains off by default; manual review required for ambiguous matches
+  - WO aging limited to linked work orders with due dates (no platform-wide WO SLA engine yet)
+- Recommended next task: **OPS-003** duplicate issue detection

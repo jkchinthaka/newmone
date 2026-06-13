@@ -1,8 +1,10 @@
-import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bull";
+import { Module } from "@nestjs/common";
 
 import { NotificationsController } from "./notifications.controller";
 import { EmailDispatchService } from "./email-dispatch.service";
+import { NotificationReadinessService } from "./notification-readiness.service";
+import { NotificationTemplatesService } from "./notification-templates.service";
 import { NotificationsGateway } from "./notifications.gateway";
 import { NotificationsProcessor } from "./notifications.processor";
 import { NotificationsQueueMonitor } from "./notifications-queue.monitor";
@@ -26,8 +28,17 @@ import { SmsDispatchService } from "./sms-dispatch.service";
     SmsDispatchService,
     PushDispatchService,
     HttpPushProvider,
-    NoopPushProvider
+    NoopPushProvider,
+    NotificationReadinessService,
+    NotificationTemplatesService
   ],
-  exports: [NotificationsService, EmailDispatchService, SmsDispatchService, PushDispatchService]
+  exports: [
+    NotificationsService,
+    EmailDispatchService,
+    SmsDispatchService,
+    PushDispatchService,
+    NotificationReadinessService,
+    NotificationTemplatesService
+  ]
 })
 export class NotificationsModule {}

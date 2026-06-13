@@ -483,6 +483,41 @@
 - [ ] Refresh reloads summary from `GET /facilities/dashboard`.
 - [ ] Existing `/facilities`, `/cleaning/issues`, QR reporting, and WO bridge unchanged.
 
+## 27) SLA / Aging Report (OPS-002)
+- [ ] `/facilities/reports/aging` loads for roles with `facilities.view`; DRIVER blocked.
+- [ ] Issue aging buckets (0–1, 2–3, 4–7, 8+ days) reflect open/in-progress issues only.
+- [ ] Overdue issue count uses `slaTargetAt < now` for OPEN/IN_PROGRESS issues.
+- [ ] Critical/high counts in buckets match severity on active issues.
+- [ ] Linked work order aging appears only when due dates exist on active linked WOs.
+- [ ] Empty tenant shows zero/empty states (no placeholder metrics).
+- [ ] Action Center and `/facilities/reports` link to aging report.
+- [ ] Refresh reloads from `GET /facilities/reports/aging`.
+
+## 28) Facility Location Backfill (BUILD-010)
+- [ ] `npm run facility:backfill:dry` completes without DB mutations.
+- [ ] Report includes confidence + reason for each CleaningLocation.
+- [ ] Cross-tenant candidates are not matched.
+- [ ] Apply mode fails without `ALLOW_FACILITY_BACKFILL_APPLY=true` and `--apply`.
+- [ ] Apply mode updates only exact matches and only null `roomId` on linked issues.
+
+## 29) Notification Provider Foundation (NOTIFY-001)
+- [ ] `/notifications/readiness` reports disabled/not_configured/misconfigured/configured honestly.
+- [ ] `/health/readiness` includes `operationalFoundations.notifications`.
+- [ ] Template samples render without secrets; no messages sent in tests.
+- [ ] Missing SMTP/SMS config does not crash API boot.
+
+## 30) ERP Inventory Foundation (ERP-001)
+- [ ] Inventory ERP adapter reports disabled by default.
+- [ ] Live mode without credentials reports `not_configured` (no fake success).
+- [ ] Adapter methods return honest `ok: false` without HTTP calls in tests.
+- [ ] Production mock ERP remains blocked unless explicitly allowed.
+
+## 31) Deployment Readiness (DEPLOY-001)
+- [ ] `npm run deployment:readiness` prints checklist JSON with blockers/warnings.
+- [ ] `/health/deployment-readiness` available to ADMIN/SUPER_ADMIN.
+- [ ] Missing required production config yields `blocked`/`warning`, not fake pass.
+- [ ] `docs/DEPLOYMENT_READINESS_CHECKLIST.md` reviewed before go-live.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

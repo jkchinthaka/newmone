@@ -41,6 +41,8 @@
     "smoke:local": "node scripts/smoke-local.mjs",
     "smoke:deploy": "node scripts/smoke-deployment.mjs",
     "healthcheck": "node scripts/healthcheck.mjs",
+    "deployment:readiness": "npm run deployment:readiness --workspace @maintainpro/api",
+    "facility:backfill:dry": "npm run facility:backfill:dry --workspace @maintainpro/api",
     "bootstrap:local": "node scripts/bootstrap-local.mjs",
     "docker:up": "docker compose -f docker-compose.yml up -d --build",
     "docker:up:dev": "docker compose -f docker-compose.dev.yml up -d --build",

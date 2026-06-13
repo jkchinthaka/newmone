@@ -169,3 +169,10 @@ export async function getFacilityDashboardSummary(): Promise<PublicFacilityDashb
   const response = await apiClient.get<ApiEnvelope<PublicFacilityDashboardSummary>>("/facilities/dashboard");
   return response.data.data;
 }
+
+export async function getFacilityAgingReport(): Promise<import("./facility-aging-types").PublicFacilityAgingReport> {
+  const response = await apiClient.get<ApiEnvelope<import("./facility-aging-types").PublicFacilityAgingReport>>(
+    "/facilities/reports/aging"
+  );
+  return response.data.data;
+}

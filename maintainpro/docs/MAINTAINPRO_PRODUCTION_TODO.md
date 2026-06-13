@@ -67,11 +67,12 @@
 | BUILD-007 | P2 | Facility | Issue → Work Order bridge | DONE | facility issues, WO module | facility-issue-work-order-bridge.spec.ts, API/web/full build | Nullable `workOrderId` on FacilityIssue; bridge via WorkOrdersService.create; duplicate blocked. |
 | BUILD-008 | P2 | Facility | Authenticated QR issue reporting | DONE | qr-readiness, facilities hierarchy | qr-issue-reporting.spec.ts, web/full build | `/qr/report-issue` route; room QR links in `/facilities`; public scan deferred. |
 | BUILD-009 | P2 | Facility | Facility dashboard + reporting | DONE | facilities dashboard API, `/facilities/reports` | facility-dashboard.spec.ts, web/full build | Real tenant-scoped KPIs; overdue from `slaTargetAt`; no fake metrics. |
-| OPS-002 | P2 | Smart Ops | SLA/aging heatmap | NOT_STARTED | reports/dashboard widgets | Manual KPI validation | Advanced analytics separate from BUILD-009 summary. |
-| OPS-002 | P2 | Smart Ops | SLA/aging heatmap | NOT_STARTED | reports/dashboard widgets | Manual KPI validation | Depends on WO-004 SLA engine for full accuracy. |
+| BUILD-010 | P2 | Facility | CleaningLocation → Room backfill tooling | DONE | backfill matcher + CLI script | facility-location-backfill.spec.ts | Dry-run default; apply requires `ALLOW_FACILITY_BACKFILL_APPLY=true` + `--apply`. |
+| OPS-002 | P2 | Smart Ops | SLA/aging heatmap | DONE | `/facilities/reports/aging`, aging API | facility-aging.spec.ts, web/full build | Real issue/WO aging buckets; overdue from `slaTargetAt`; no fake metrics. |
 | OPS-003 | P2 | Smart Ops | Duplicate issue detection | NOT_STARTED | facility issues service | API tests | Requires BUILD-005 room/category fields. |
-| NOTIFY-001 | P2 | Notifications | Email/SMS production setup | NOT_STARTED | env + dispatch services | Integration smoke test | SEC-012/013 readiness exists; production credentials needed. |
-| ERP-001 | P3 | ERP | ERP inventory integration | NOT_STARTED | erp-sync module | Integration tests | Read/sync first; no production posting without governance. |
+| NOTIFY-001 | P2 | Notifications | Email/SMS production setup foundation | DONE | notification readiness + templates | notification-readiness.spec.ts | Readiness only; no real send; docs/NOTIFICATION_PROVIDER_SETUP.md. |
+| ERP-001 | P3 | ERP | ERP inventory integration foundation | DONE | InventoryErpAdapter + readiness | erp-inventory-adapter.spec.ts | Disabled/no-op adapter; no live HTTP; docs/ERP_INVENTORY_INTEGRATION_PLAN.md. |
+| DEPLOY-001 | P1 | Platform | Production deployment readiness package | DONE | deployment readiness service + checklist | deployment-readiness.spec.ts | Honest checklist/helper only; no deploy automation. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

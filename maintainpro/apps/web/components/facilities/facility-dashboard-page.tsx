@@ -134,6 +134,12 @@ export function FacilityDashboardPage() {
             Hierarchy
           </Link>
           <Link
+            href={"/facilities/reports/aging" as Route}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            SLA / aging
+          </Link>
+          <Link
             href={"/cleaning/issues" as Route}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
           >

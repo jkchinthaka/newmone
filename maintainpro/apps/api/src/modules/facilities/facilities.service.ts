@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { FacilityIssueStatus, FacilityRoomType, IssueSeverity, Prisma } from "@prisma/client";
+import {
+  FacilityIssueStatus,
+  FacilityRoomType,
+  IssueSeverity,
+  Prisma,
+  WorkOrderStatus
+} from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import { CreateBuildingDto } from "./dto/create-building.dto";
@@ -20,6 +26,10 @@ import {
   type PublicPropertyResponse,
   type PublicRoomResponse
 } from "./facility-hierarchy.mapper";
+import {
+  buildFacilityAgingReport,
+  type PublicFacilityAgingReport
+} from "./facility-aging.mapper";
 import {
   mapCategoryBreakdown,
   mapEnumBreakdown,
@@ -675,6 +685,120 @@ export class FacilitiesService {
         unlinkedOpenIssuesPreview: unlinkedPreviewRows.map(toPublicFacilityIssuePreview)
       }
     };
+  }
+
+  async getAgingReport(tenantId: string | null | undefined): Promise<PublicFacilityAgingReport> {
+    const scopedTenantId = this.requireTenantId(tenantId);
+    const now = new Date();
+    const tenantWhere = { tenantId: scopedTenantId };
+    const activeIssueStatuses = [FacilityIssueStatus.OPEN, FacilityIssueStatus.IN_PROGRESS];
+    const activeIssueWhere = {
+      ...tenantWhere,
+      status: { in: activeIssueStatuses }
+    };
+    const overdueWhere = {
+      ...activeIssueWhere,
+      slaTargetAt: { lt: now }
+    };
+    const criticalHighWhere = {
+      ...activeIssueWhere,
+      severity: { in: [IssueSeverity.CRITICAL, IssueSeverity.HIGH] }
+    };
+
+    const issuePreviewSelect = {
+      id: true,
+      title: true,
+      severity: true,
+      status: true,
+      category: true,
+      slaTargetAt: true,
+      workOrderId: true,
+      createdAt: true,
+      room: { select: { name: true } },
+      workOrder: { select: { woNumber: true } }
+    } as const;
+
+    const activeWorkOrderStatuses = new Set<WorkOrderStatus>([
+      WorkOrderStatus.OPEN,
+      WorkOrderStatus.IN_PROGRESS,
+      WorkOrderStatus.ON_HOLD,
+      WorkOrderStatus.OVERDUE
+    ]);
+
+    const [
+      activeIssues,
+      overdueIssuesPreview,
+      criticalHighIssuesPreview,
+      linkedIssueWorkOrders
+    ] = await Promise.all([
+      this.prisma.facilityIssue.findMany({
+        where: activeIssueWhere,
+        select: issuePreviewSelect
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: overdueWhere,
+        orderBy: [{ slaTargetAt: "asc" }],
+        take: 5,
+        select: issuePreviewSelect
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: criticalHighWhere,
+        orderBy: [{ createdAt: "asc" }],
+        take: 5,
+        select: issuePreviewSelect
+      }),
+      this.prisma.facilityIssue.findMany({
+        where: {
+          ...tenantWhere,
+          workOrderId: { not: null }
+        },
+        select: {
+          id: true,
+          workOrderId: true,
+          workOrder: {
+            select: {
+              id: true,
+              woNumber: true,
+              title: true,
+              status: true,
+              dueDate: true,
+              createdAt: true
+            }
+          }
+        }
+      })
+    ]);
+
+    const workOrdersWithDueDate = linkedIssueWorkOrders
+      .map((issue) => {
+        const workOrder = issue.workOrder;
+        if (!workOrder?.dueDate) {
+          return null;
+        }
+
+        if (!activeWorkOrderStatuses.has(workOrder.status)) {
+          return null;
+        }
+
+        return {
+          id: workOrder.id,
+          woNumber: workOrder.woNumber,
+          title: workOrder.title,
+          status: workOrder.status,
+          dueDate: workOrder.dueDate,
+          createdAt: workOrder.createdAt,
+          facilityIssueId: issue.id
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+    return buildFacilityAgingReport({
+      now,
+      activeIssues,
+      overdueIssuesPreview,
+      criticalHighIssuesPreview,
+      workOrdersWithDueDate
+    });
   }
 
   private async assertPropertyInTenant(tenantId: string, propertyId: string): Promise<void> {

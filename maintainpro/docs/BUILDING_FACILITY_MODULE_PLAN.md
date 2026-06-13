@@ -527,3 +527,14 @@ Implemented tenant-scoped hierarchy CRUD under `/api/facilities/*` (no DELETE; d
 **Response DTOs:** Allowlisted mapper (`facility-hierarchy.mapper.ts`) — no Prisma relation payloads.
 
 **Manage roles:** `SUPER_ADMIN`, `ADMIN`, `FACILITY_MANAGER` (+ permission guards). View roles include MANAGER, BUILDING_SUPERVISOR, SUPERVISOR, VIEWER per BUILD-002 seed.
+
+### BUILD-009 / OPS-002 reporting (2026-06-12) — DONE
+
+- `GET /facilities/dashboard` — summary KPIs (`/facilities/reports`)
+- `GET /facilities/reports/aging` — SLA/aging buckets + overdue previews (`/facilities/reports/aging`)
+
+### BUILD-010 location backfill tooling (2026-06-12) — DONE
+
+- Dry-run matcher: `facility-location-backfill.matcher.ts`
+- CLI: `npm run facility:backfill:dry` (apply guarded — see `docs/FACILITY_LOCATION_BACKFILL_RUNBOOK.md`)
+- No CleaningLocation deletes; optional apply sets `FacilityIssue.roomId` for exact matches only

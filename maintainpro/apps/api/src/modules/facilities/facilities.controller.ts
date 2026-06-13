@@ -47,6 +47,15 @@ export class FacilitiesController {
     return { data, message: "Facility dashboard summary fetched" };
   }
 
+  @Get("reports/aging")
+  @Header("Cache-Control", "private, max-age=15")
+  @Roles(...FACILITY_READ_ROLES)
+  @Permissions("facilities.view")
+  async getAgingReport(@Req() req: AuthedRequest) {
+    const data = await this.facilitiesService.getAgingReport(req.user.tenantId ?? null);
+    return { data, message: "Facility aging report fetched" };
+  }
+
   @Get("properties")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
