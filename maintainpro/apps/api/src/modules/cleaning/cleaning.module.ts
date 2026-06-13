@@ -1,12 +1,13 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { CleaningController } from "./cleaning.controller";
 import { CleaningService } from "./cleaning.service";
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, forwardRef(() => WorkOrdersModule)],
   controllers: [CleaningController],
   providers: [CleaningService, QrCodeService],
   exports: [CleaningService]

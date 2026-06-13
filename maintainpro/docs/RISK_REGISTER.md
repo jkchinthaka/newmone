@@ -724,6 +724,46 @@
 - **Owner:** Product + API
 - **Review Cadence:** At BUILD-005 kickoff.
 
+### RISK-BUILD-007-DUPLICATE-WORK-ORDERS
+- **Category:** Operations / Data integrity
+- **Description:** Multiple work orders could be created for the same facility issue if bridge idempotency fails.
+- **Impact:** Duplicate maintenance effort, conflicting WO status, reporting drift.
+- **Likelihood:** Low with `workOrderId` unique constraint + `ConflictException` on second create.
+- **Current Mitigation:** Nullable unique `FacilityIssue.workOrderId`; bridge rejects when already linked; tests in `facility-issue-work-order-bridge.spec.ts`.
+- **Residual Risk:** Manual DB edits or future alternate code paths could bypass bridge.
+- **Owner:** API + Facilities
+- **Review Cadence:** Before any alternate WO-from-issue entry points.
+
+### RISK-BUILD-007-ISSUE-WO-STATUS-DRIFT
+- **Category:** Operations
+- **Description:** Facility issue status (OPEN/RESOLVED) may diverge from linked work order status without sync rules.
+- **Impact:** Operators see resolved issue while WO still open (or vice versa).
+- **Likelihood:** Medium until explicit sync policy is defined.
+- **Current Mitigation:** Bridge only creates WO; no automatic status coupling in BUILD-007.
+- **Residual Risk:** Requires future workflow rules or UI hints when statuses diverge.
+- **Owner:** Product + Operations
+- **Review Cadence:** After BUILD-008 QR intake; before facility dashboard KPIs.
+
+### RISK-BUILD-007-SEVERITY-PRIORITY-MAPPING
+- **Category:** Operations
+- **Description:** `IssueSeverity` → WO `Priority` mapping may not match operator expectations for all categories.
+- **Impact:** Under- or over-prioritized corrective work orders.
+- **Likelihood:** Low for default 1:1 mapping; Medium if severity semantics change.
+- **Current Mitigation:** Documented mapping in `mapIssueSeverityToWorkOrderPriority`; conservative CORRECTIVE type.
+- **Residual Risk:** Category-specific priority overrides not implemented.
+- **Owner:** Product
+- **Review Cadence:** During OPS-002 SLA heatmap work.
+
+### RISK-BUILD-007-BRIDGE-TENANT-ISOLATION
+- **Category:** Security
+- **Description:** Bridge endpoint could link cross-tenant issues to work orders if tenant guards fail.
+- **Impact:** Cross-tenant data exposure and misrouted maintenance.
+- **Likelihood:** Low with `assertTenantAccessOrThrow` + request context tests.
+- **Current Mitigation:** Tenant context on create; issue tenant check before WO create; cross-tenant test coverage.
+- **Residual Risk:** SUPER_ADMIN without tenant context must still scope WO create correctly.
+- **Owner:** Security + API
+- **Review Cadence:** With each new facility bridge endpoint.
+
 ### RISK-SMART-OPS-001-EXTERNAL-DEPENDENCY-GAPS
 - **Category:** Operations / Integrations
 - **Description:** Email/SMS/ERP dependencies remain unconfigured in production; Action Center cannot surface delivery guarantees.

@@ -40,7 +40,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 2. **BUILD-004** — Facility hierarchy web UI — **DONE** (`/facilities`)
 3. **BUILD-005** — FacilityIssue room linkage foundation — **DONE** (nullable `roomId`, category)
 4. **BUILD-006** — Issue reporting UI + room selector — **DONE** (`/cleaning/issues`)
-5. **BUILD-007** — Issue → work order bridge
+5. **BUILD-007** — Issue → work order bridge — **DONE** (`POST /cleaning/issues/:id/create-work-order`)
 6. **BUILD-008** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
 7. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
 8. **OPS-003** — Duplicate issue detection (same room/asset within time window)
@@ -111,9 +111,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **BUILD-007** — Issue → work order bridge
-2. **BUILD-008** — QR issue reporting (web scan + `qr-readiness` integration)
-3. **OPS-002** — SLA/aging heatmap
+1. **BUILD-008** — QR issue reporting (web scan + `qr-readiness` integration)
+2. **OPS-002** — SLA/aging heatmap
 5. **OPS-003** — Duplicate issue detection
 6. **NOTIFY-001** — Email/SMS production setup
 7. **ERP-001** — ERP inventory integration

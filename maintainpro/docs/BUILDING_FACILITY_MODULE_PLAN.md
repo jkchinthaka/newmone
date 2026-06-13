@@ -104,9 +104,9 @@ MVP target: **internal facility issue → work order → resolution** with basic
 ### In scope (MVP)
 
 - [ ] Tenant-scoped Property/Building/Floor/Room master data (minimal fields: name, code, isActive).
-- [ ] Extend `FacilityIssue` with `roomId`, `category`, `workOrderId`, optional `assetId`.
+- [x] Extend `FacilityIssue` with `roomId`, `category`, `workOrderId`, optional `assetId` (BUILD-005/007; `assetId` deferred).
 - [ ] Issue create/list/update under new `facility` API (legacy `/cleaning/issues` aliased or deprecated gradually).
-- [ ] `POST /facility-issues/:id/create-work-order` — creates WO from issue using existing WO service.
+- [x] `POST /cleaning/issues/:id/create-work-order` — creates WO from issue using existing `WorkOrdersService.create` (BUILD-007).
 - [ ] Basic issue categories (enum or small master table): e.g. Electrical, Plumbing, HVAC, Structural, Cleaning-related, Other.
 - [ ] Photo attachments via existing `photos: String[]` pattern (Cloudinary/MinIO if enabled).
 - [ ] Priority/severity using existing `IssueSeverity` + WO `priority`.
@@ -367,7 +367,7 @@ flowchart LR
 | **BUILD-004** | Facility hierarchy web UI | BUILD-003 | `/facilities` UI; issue migration audit |
 | **BUILD-005** | FacilityIssue migration + issue extensions | BUILD-002 | `roomId`, categories, cleaning backfill |
 | **BUILD-006** | Issue reporting UI + room selector | BUILD-004, BUILD-005 | `/cleaning/issues` category + room linkage |
-| **BUILD-007** | Issue → Work Order bridge | BUILD-005, WO module | `create-work-order` action |
+| **BUILD-007** | Issue → Work Order bridge | BUILD-005, WO module | **DONE** — `POST /cleaning/issues/:id/create-work-order` |
 | **BUILD-008** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
 | **BUILD-008** | Public repair portal | BUILD-005, REQ-INTAKE | `/public/repair-request` |
 | **FAC-001–010** | Map to BUILD-002–008 | See MAINTAINPRO_PRODUCTION_TODO | Incremental FAC items |

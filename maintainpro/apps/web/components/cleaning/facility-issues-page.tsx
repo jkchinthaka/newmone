@@ -1,17 +1,22 @@
 "use client";
 
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { FacilityIssueRoomSelector } from "@/components/cleaning/facility-issue-room-selector";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   buildCreateFacilityIssuePayload,
   buildUpdateFacilityIssueRoomPayload,
+  canCreateWorkOrderFromIssue,
   FACILITY_ISSUE_CATEGORY_OPTIONS,
   filterIssuesByCategory,
   formatFacilityIssueCategory,
+  formatLinkedWorkOrderLabel,
   getFacilityIssueLocationDetail,
   getFacilityIssueLocationLabel,
+  issueHasLinkedWorkOrder,
   issueRoomSelectionFromRow,
   roomSelectionToRoomId,
   type FacilityIssueCategory,
@@ -20,6 +25,7 @@ import {
   type FacilityIssueSeverity,
   type FacilityIssueStatus
 } from "@/lib/facility-issue-ui";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 interface LocationOption {
   id: string;
@@ -40,6 +46,8 @@ const severityStyles: Record<FacilityIssueSeverity, string> = {
 };
 
 export function FacilityIssuesPage() {
+  const currentUser = useCurrentUser();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [rows, setRows] = useState<FacilityIssueRow[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -53,6 +61,8 @@ export function FacilityIssuesPage() {
   const [editRoomSelection, setEditRoomSelection] = useState<Partial<FacilityIssueRoomSelection>>({});
   const [editCategory, setEditCategory] = useState<string>("");
   const [savingEditId, setSavingEditId] = useState<string | null>(null);
+  const [creatingWorkOrderId, setCreatingWorkOrderId] = useState<string | null>(null);
+  const [workOrderSuccess, setWorkOrderSuccess] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -169,6 +179,37 @@ export function FacilityIssuesPage() {
     }
   };
 
+  const createWorkOrderFromIssue = async (row: FacilityIssueRow) => {
+    const confirmed = await confirm({
+      title: "Create work order?",
+      description: `Create a corrective work order from "${row.title}"? This cannot create a second work order for the same issue.`,
+      confirmLabel: "Create work order",
+      cancelLabel: "Cancel"
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setCreatingWorkOrderId(row.id);
+    setError(null);
+    setWorkOrderSuccess(null);
+
+    try {
+      const response = await apiClient.post(`/cleaning/issues/${row.id}/create-work-order`);
+      const workOrderNumber =
+        response.data?.data?.workOrder?.workOrderNumber ??
+        response.data?.data?.issue?.workOrderNumber ??
+        "Work order";
+      setWorkOrderSuccess(`Created ${workOrderNumber} from issue.`);
+      load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to create work order from issue"));
+    } finally {
+      setCreatingWorkOrderId(null);
+    }
+  };
+
   const summary = useMemo(() => {
     const totalOpen = rows.filter((row) => row.status === "OPEN").length;
     const inProgress = rows.filter((row) => row.status === "IN_PROGRESS").length;
@@ -213,6 +254,14 @@ export function FacilityIssuesPage() {
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       ) : null}
+
+      {workOrderSuccess ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {workOrderSuccess}
+        </div>
+      ) : null}
+
+      {confirmDialog}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="inline-flex items-center gap-2 text-sm text-slate-700">
@@ -395,6 +444,12 @@ export function FacilityIssuesPage() {
                     row.status !== "CLOSED";
                   const locationDetail = getFacilityIssueLocationDetail(row);
                   const isEditing = editingIssueId === row.id;
+                  const showCreateWorkOrder = canCreateWorkOrderFromIssue({
+                    issue: row,
+                    role: currentUser.role,
+                    permissions: currentUser.permissions
+                  });
+                  const linkedWorkOrder = issueHasLinkedWorkOrder(row);
 
                   return (
                     <Fragment key={row.id}>
@@ -420,6 +475,25 @@ export function FacilityIssuesPage() {
                           >
                             {isEditing ? "Cancel link edit" : "Edit room/category"}
                           </button>
+                          {linkedWorkOrder ? (
+                            <div className="mt-2 text-xs">
+                              <Link
+                                href="/work-orders"
+                                className="font-medium text-sky-700 hover:text-sky-800"
+                              >
+                                Linked work order: {formatLinkedWorkOrderLabel(row)}
+                              </Link>
+                            </div>
+                          ) : showCreateWorkOrder ? (
+                            <button
+                              type="button"
+                              disabled={creatingWorkOrderId === row.id}
+                              onClick={() => void createWorkOrderFromIssue(row)}
+                              className="mt-2 block text-xs font-medium text-emerald-700 hover:text-emerald-800 disabled:opacity-50"
+                            >
+                              {creatingWorkOrderId === row.id ? "Creating work order..." : "Create work order"}
+                            </button>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           {row.category ? (

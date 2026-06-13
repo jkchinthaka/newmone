@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
-  NotFoundException
+  NotFoundException,
+  forwardRef
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -27,7 +29,9 @@ import { randomUUID } from "node:crypto";
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+import { WorkOrdersService } from "../work-orders/work-orders.service";
 
 import {
   CreateCleaningLocationDto,
@@ -45,8 +49,12 @@ import {
 } from "./dto/facility-issue.dto";
 import {
   FACILITY_ISSUE_INCLUDE,
+  buildWorkOrderDescriptionFromIssue,
+  mapIssueSeverityToWorkOrderPriority,
   toPublicFacilityIssueResponse,
-  type PublicFacilityIssueResponse
+  toPublicWorkOrderSummary,
+  type PublicFacilityIssueResponse,
+  type PublicFacilityIssueWorkOrderSummary
 } from "./facility-issue.mapper";
 
 type VisitListParams = {
@@ -91,6 +99,8 @@ const ACTIVE_ISSUE_STATUSES = new Set<FacilityIssueStatus>([
   FacilityIssueStatus.IN_PROGRESS
 ]);
 
+const ISSUE_WORK_ORDER_BRIDGE_STATUSES = ACTIVE_ISSUE_STATUSES;
+
 const MS_IN_HOUR = 60 * 60 * 1000;
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
@@ -103,7 +113,8 @@ export class CleaningService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
-    @Inject(NotificationsService) private readonly notificationsService: NotificationsService
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => WorkOrdersService)) private readonly workOrdersService: WorkOrdersService
   ) {}
 
   private currentTenantId(): string | null {
@@ -1137,6 +1148,105 @@ export class CleaningService {
     });
 
     return toPublicFacilityIssueResponse(updated);
+  }
+
+  async createWorkOrderFromIssue(
+    issueId: string,
+    actor: JwtPayload
+  ): Promise<{ issue: PublicFacilityIssueResponse; workOrder: PublicFacilityIssueWorkOrderSummary }> {
+    const issue = await this.prisma.facilityIssue.findUnique({
+      where: { id: issueId },
+      include: FACILITY_ISSUE_INCLUDE
+    });
+
+    if (!issue) {
+      throw new NotFoundException("Issue not found");
+    }
+
+    this.assertTenantAccessOrThrow(issue.tenantId, "Issue not found");
+
+    if (issue.workOrderId) {
+      throw new ConflictException("This issue is already linked to a work order");
+    }
+
+    if (!ISSUE_WORK_ORDER_BRIDGE_STATUSES.has(issue.status)) {
+      throw new BadRequestException("Work orders can only be created from open or in-progress issues");
+    }
+
+    const actorPayload = {
+      sub: actor.sub,
+      email: actor.email,
+      role: actor.role,
+      tenantId: actor.tenantId ?? issue.tenantId ?? null
+    };
+
+    const workOrder = await this.workOrdersService.create(
+      {
+        title: issue.title.trim(),
+        description: buildWorkOrderDescriptionFromIssue(issue),
+        priority: mapIssueSeverityToWorkOrderPriority(issue.severity),
+        type: "CORRECTIVE",
+        createdById: actor.sub,
+        dueDate: issue.slaTargetAt?.toISOString()
+      },
+      actorPayload
+    );
+
+    try {
+      const linked = await this.prisma.facilityIssue.update({
+        where: { id: issue.id },
+        data: { workOrderId: workOrder.id },
+        include: FACILITY_ISSUE_INCLUDE
+      });
+
+      if (issue.assignedToId) {
+        try {
+          await this.workOrdersService.assign(workOrder.id, issue.assignedToId, actorPayload);
+        } catch (assignError) {
+          this.logger.warn(
+            `Work order ${workOrder.id} created from issue ${issue.id} but assign failed: ${
+              assignError instanceof Error ? assignError.message : "unknown error"
+            }`
+          );
+        }
+      }
+
+      await this.recordAudit({
+        tenantId: linked.tenantId,
+        actorId: actor.sub,
+        entity: "FACILITY_ISSUE",
+        entityId: linked.id,
+        action: AuditAction.UPDATE,
+        beforeData: issue,
+        afterData: linked
+      });
+
+      const refreshed = issue.assignedToId
+        ? await this.prisma.facilityIssue.findUnique({
+            where: { id: issue.id },
+            include: FACILITY_ISSUE_INCLUDE
+          })
+        : linked;
+
+      return {
+        issue: toPublicFacilityIssueResponse(refreshed ?? linked),
+        workOrder: toPublicWorkOrderSummary({
+          id: workOrder.id,
+          woNumber: workOrder.woNumber,
+          title: workOrder.title,
+          status: workOrder.status
+        })
+      };
+    } catch (linkError) {
+      this.logger.error(
+        `Work order ${workOrder.id} created but issue ${issue.id} link failed: ${
+          linkError instanceof Error ? linkError.message : "unknown error"
+        }`
+      );
+      throw new BadRequestException(
+        "Work order was created but could not be linked to the issue. Contact an administrator."
+      );
+    }
   }
 
   private async assertActiveRoomForTenant(tenantId: string | null, roomId: string) {

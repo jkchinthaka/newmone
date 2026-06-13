@@ -68,7 +68,9 @@ const baseIssueRecord = {
   room: roomGraph,
   reportedBy,
   assignedTo: null,
-  resolvedBy: null
+  resolvedBy: null,
+  workOrderId: null,
+  workOrder: null
 };
 
 const createPrismaMock = () => ({
@@ -95,12 +97,17 @@ const createService = (prisma: ReturnType<typeof createPrismaMock>) => {
   const notificationsService = {
     createNotification: jest.fn().mockResolvedValue(undefined)
   };
+  const workOrdersService = {
+    create: jest.fn(),
+    assign: jest.fn()
+  };
 
   const service = new CleaningService(
     prisma as never,
     { get: jest.fn() } as never,
     { toBuffer: jest.fn() } as never,
-    notificationsService as never
+    notificationsService as never,
+    workOrdersService as never
   );
 
   (service as unknown as { notifySupervisors: jest.Mock }).notifySupervisors = jest

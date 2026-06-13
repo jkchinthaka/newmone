@@ -1038,6 +1038,7 @@ model WorkOrder {
   parts           WorkOrderPart[]
   partRequests    PartRequest[]
   partIssues      PartIssue[]
+  facilityIssue   FacilityIssue?
 
   @@index([tenantId])
   @@index([status])
@@ -1872,10 +1873,13 @@ model FacilityIssue {
   closedAt          DateTime?
   resolutionMinutes Int?
   resolution        String?
+  workOrderId       String?                  @unique @db.ObjectId
+  workOrder         WorkOrder?               @relation(fields: [workOrderId], references: [id])
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
   @@index([tenantId])
+  @@index([tenantId, workOrderId])
   @@index([tenantId, roomId])
   @@index([tenantId, category])
   @@index([tenantId, status])

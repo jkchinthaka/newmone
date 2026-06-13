@@ -16,8 +16,10 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CleaningVisitStatus, FacilityIssueStatus } from "@prisma/client";
 import type { Request, Response } from "express";
 
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import type { JwtPayload } from "../auth/auth.types";
 
 import { CleaningService } from "./cleaning.service";
 import {
@@ -36,7 +38,7 @@ import {
 } from "./dto/facility-issue.dto";
 
 interface AuthedRequest extends Request {
-  user?: { sub: string; role: string; tenantId?: string | null };
+  user?: JwtPayload;
 }
 
 @ApiTags("Cleaning")
@@ -237,6 +239,21 @@ export class CleaningController {
   ) {
     const data = await this.cleaning.updateIssue(id, req.user!.sub, dto);
     return { data, message: "Issue updated" };
+  }
+
+  @Post("issues/:id/create-work-order")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "FACILITY_MANAGER",
+    "BUILDING_SUPERVISOR",
+    "MANAGER",
+    "SUPERVISOR"
+  )
+  @Permissions("facility_issues.manage")
+  async createWorkOrderFromIssue(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.cleaning.createWorkOrderFromIssue(id, req.user!);
+    return { data, message: "Work order created from facility issue" };
   }
 
   @Get("schedule/calendar")

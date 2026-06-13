@@ -443,7 +443,18 @@
 - [ ] Existing issues without roomId open and display safely.
 - [ ] Category client filter works without breaking list.
 - [ ] Mobile: cascading selectors stack/readably on small screens.
-- [ ] No Work Order, QR scan, or photo upload actions added.
+- [ ] No Work Order, QR scan, or photo upload actions added (BUILD-007 adds authorized WO bridge only).
+
+## 24) Facility Issue → Work Order Bridge (BUILD-007)
+- [ ] Authorized role (ADMIN/FACILITY_MANAGER/BUILDING_SUPERVISOR/MANAGER/SUPERVISOR with `facility_issues.manage`) can create work order from OPEN/IN_PROGRESS issue.
+- [ ] Duplicate create for same issue returns conflict; only one linked work order allowed.
+- [ ] Linked work order summary visible on issue row (`workOrderNumber`, title, status); links to `/work-orders`.
+- [ ] RESOLVED/CLOSED issues do not show create action; API rejects bridge.
+- [ ] CLEANER/VIEWER/DRIVER cannot create work order from issue (UI hidden + API blocked).
+- [ ] Cross-tenant issue bridging rejected (404/tenant guard).
+- [ ] Existing issue create/list/update/PATCH room flows unchanged.
+- [ ] Existing Work Orders UI/API unchanged; WO uses standard lifecycle (`CORRECTIVE` type).
+- [ ] No QR public scan route, photo upload, facility reports, ERP posting, or email/SMS added.
 
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).

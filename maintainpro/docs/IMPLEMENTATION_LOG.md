@@ -1765,3 +1765,50 @@ Record each completed task with:
 ### Recommended next task
 
 - **BUILD-007** — Issue → Work Order bridge.
+
+---
+
+## BUILD-007 — Facility Issue → Work Order bridge (2026-06-12)
+
+### Audit findings
+
+- `WorkOrder` requires `woNumber`, `title`, `description`, `priority`, `type`, `createdById`; lifecycle owned by `WorkOrdersService`.
+- `FacilityIssue` had no `workOrderId` before BUILD-007; cleaning module already exposes `/cleaning/issues` with allowlisted mapper responses.
+- Safest bridge: one-way nullable `FacilityIssue.workOrderId` → `WorkOrder` (unique on issue side); no duplicate repair entity.
+
+### Schema / API
+
+- Added nullable `FacilityIssue.workOrderId` with `@unique`, relation to `WorkOrder`, index `[tenantId, workOrderId]`.
+- Endpoint: `POST /cleaning/issues/:id/create-work-order` with `@Roles` + `@Permissions("facility_issues.manage")`.
+- Rejects: cross-tenant issue, existing `workOrderId`, RESOLVED/CLOSED status.
+- Creates WO via `WorkOrdersService.create`; updates issue link; optional `assign` when issue has `assignedToId`.
+
+### Issue → work order mapping
+
+| Issue field | Work order field |
+|-------------|------------------|
+| `title` | `title` |
+| `description` + room/location/category context | `description` |
+| `severity` | `priority` (LOW/MEDIUM/HIGH/CRITICAL) |
+| — | `type`: `CORRECTIVE` |
+| `slaTargetAt` | `dueDate` (optional) |
+| actor `sub` | `createdById` |
+| — | `assetId` not set (no safe link yet) |
+
+### UI
+
+- `/cleaning/issues`: ConfirmDialog + “Create work order” for authorized roles; linked WO summary links to `/work-orders`.
+- Helpers in `facility-issue-ui.ts`: `canCreateWorkOrderFromIssue`, `formatLinkedWorkOrderLabel`.
+
+### Tests / checks
+
+- `facility-issue-work-order-bridge.spec.ts`, updated `facility-issues-room-link.spec.ts`, `facility-issue-ui.spec.ts`
+- typecheck, lint, prisma validate, web/api/full build, full API test suite
+
+### Deferred
+
+- QR public scan route (BUILD-008), photo upload/storage, facility reports/dashboard, ERP posting, email/SMS.
+
+### Recommended next task
+
+- **BUILD-008** — QR issue reporting (authenticated scan first; public route after security review).

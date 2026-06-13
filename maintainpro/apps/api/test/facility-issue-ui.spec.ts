@@ -1,6 +1,7 @@
 import {
   buildCreateFacilityIssuePayload,
   buildUpdateFacilityIssueRoomPayload,
+  canCreateWorkOrderFromIssue,
   FACILITY_ISSUE_CREATE_PAYLOAD_KEYS,
   FACILITY_ISSUE_FORBIDDEN_PAYLOAD_KEYS,
   FACILITY_ISSUE_UI_EXPOSED_ACTIONS,
@@ -9,7 +10,10 @@ import {
   filterIssuesByCategory,
   filterRoomsByFloor,
   formatFacilityIssueCategory,
+  formatLinkedWorkOrderLabel,
   getFacilityIssueLocationLabel,
+  getLinkedWorkOrderHref,
+  issueHasLinkedWorkOrder,
   normalizeFacilityIssueCategory,
   facilityIssuePayloadIncludesTenantId,
   issueRoomSelectionFromRow,
@@ -142,10 +146,69 @@ describe("facility issue UI helpers", () => {
     expect(roomSelectionToRoomId({ roomId: "" })).toBeUndefined();
   });
 
-  it("does not expose QR/WO/photo actions in UI helper contract", () => {
-    expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.workOrderBridge).toBe(false);
+  it("exposes work order bridge action only (no QR/photo actions)", () => {
+    expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.workOrderBridge).toBe(true);
     expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.qrPublicScan).toBe(false);
     expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.photoUpload).toBe(false);
+  });
+
+  it("hides create-work-order action when workOrderId exists", () => {
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: "wo-1", status: "OPEN" },
+        role: "ADMIN"
+      })
+    ).toBe(false);
+    expect(issueHasLinkedWorkOrder({ workOrderId: "wo-1" })).toBe(true);
+  });
+
+  it("hides create-work-order action for read-only roles", () => {
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: null, status: "OPEN" },
+        role: "VIEWER"
+      })
+    ).toBe(false);
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: null, status: "OPEN" },
+        role: "CLEANER"
+      })
+    ).toBe(false);
+  });
+
+  it("allows create-work-order for authorized roles and permissions", () => {
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: null, status: "OPEN" },
+        role: "FACILITY_MANAGER"
+      })
+    ).toBe(true);
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: null, status: "OPEN" },
+        role: "MANAGER",
+        permissions: ["facility_issues.manage"]
+      })
+    ).toBe(true);
+    expect(
+      canCreateWorkOrderFromIssue({
+        issue: { workOrderId: null, status: "OPEN" },
+        role: "VIEWER",
+        permissions: ["facility_issues.manage"]
+      })
+    ).toBe(false);
+  });
+
+  it("formats linked work order display helper and list href", () => {
+    expect(
+      formatLinkedWorkOrderLabel({
+        workOrderNumber: "WO-2026-0042",
+        workOrderTitle: "Leak in restroom",
+        workOrderStatus: "OPEN"
+      })
+    ).toBe("WO-2026-0042 · Leak in restroom · OPEN");
+    expect(getLinkedWorkOrderHref("wo-1")).toBe("/work-orders");
   });
 
   it("formats category labels for display", () => {
