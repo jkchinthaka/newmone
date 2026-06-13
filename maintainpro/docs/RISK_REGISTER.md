@@ -538,6 +538,30 @@
 - **Owner:** Web Platform + API
 - **Review Cadence:** At BUILD-003 API RBAC and BUILD-006 route launch.
 
+### RISK-BUILD-003-HIERARCHY-PARENT-FK-VALIDATION
+- **Category:** Security / Multi-tenancy
+- **Description:** Building/Floor/Room create paths must reject parent IDs from another tenant; missing validation would attach hierarchy nodes to wrong tenant trees.
+- **Impact:** Cross-tenant facility data corruption and misrouted issues/work orders in later phases.
+- **Likelihood:** Low after BUILD-003 service assertions; Medium if future endpoints bypass parent checks.
+- **Current Mitigation:**
+  - `assertPropertyInTenant` / `assertBuildingInTenant` / `assertFloorInTenant` on all child creates and filtered lists.
+  - `facilities-hierarchy.spec.ts` covers cross-tenant rejection cases.
+- **Residual Risk:** BUILD-004 bulk import or migration scripts must reuse the same validation helpers.
+- **Owner:** API Platform
+- **Review Cadence:** At BUILD-004 migration tooling.
+
+### RISK-BUILD-003-NO-UI-YET
+- **Category:** Product / Delivery
+- **Description:** Hierarchy API exists without web UI; operators cannot manage buildings/rooms through dashboard yet.
+- **Impact:** Perceived incomplete facility module; Action Center still shows planned-state messaging.
+- **Likelihood:** High until BUILD-004/006 UI ships.
+- **Current Mitigation:**
+  - API-only scope documented; BUILD-004 tracked as next task.
+  - Action Center uses cleaning issues + planned messaging, not fake hierarchy data.
+- **Residual Risk:** Manual API testing required for early adopters.
+- **Owner:** Web Platform + Product
+- **Review Cadence:** At BUILD-004 UI kickoff.
+
 ### RISK-SMART-OPS-001-SCOPE-CREEP
 - **Category:** Delivery / Product
 - **Description:** Smart operations features could expand into schema-heavy facility work or fake KPI dashboards, blocking BUILD-003+ and eroding trust.

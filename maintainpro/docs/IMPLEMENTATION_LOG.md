@@ -1613,3 +1613,33 @@ Record each completed task with:
   - `npm run typecheck`, `npm run lint`, `npm run build --workspace @maintainpro/web`, `npm run build --workspace @maintainpro/api`, `npm run build`, `npm run test --workspace @maintainpro/api`
 - Recommended next task:
   - **BUILD-003** — Facility hierarchy API module (see `BUILDING_FACILITY_MODULE_PLAN.md`).
+
+## 2026-06-13 | BUILD-003 | Facility hierarchy API module
+- Audit findings:
+  - BUILD-002 schema provides Property/Building/Floor/Room with direct `tenantId` and parent FKs.
+  - Seed grants `facilities.view` to MANAGER/SUPERVISOR/VIEWER/BUILDING_SUPERVISOR; `facilities.manage` to FACILITY_MANAGER/ADMIN/SUPER_ADMIN only.
+  - Existing modules use JwtAuthGuard + Roles + Permissions guards; tenant from `req.user.tenantId` after TenantContextGuard.
+  - Departments pattern uses PATCH `isActive` deactivation instead of DELETE — adopted for hierarchy.
+- Endpoints added (`/api/facilities/*`):
+  - Property, Building, Floor, Room list/get/create/patch (16 routes total).
+  - Parent filters: `propertyId`, `buildingId`, `floorId` query params on child lists.
+  - No DELETE routes; deactivate via `isActive` on PATCH.
+- Tenant isolation approach:
+  - `requireTenantId()` rejects null tenant (SUPER_ADMIN must provide `X-Tenant-Id`).
+  - All queries filter by scoped tenantId; parent FK validated with same-tenant `findFirst`.
+  - Cross-tenant parent IDs return 404; `tenantId` never accepted from body (ValidationPipe whitelist).
+- Permission approach:
+  - Read: `@Permissions("facilities.view")` + read roles.
+  - Manage: `@Permissions("facilities.manage")` + SUPER_ADMIN/ADMIN/FACILITY_MANAGER roles.
+  - BUILDING_SUPERVISOR view-only per seed (no manage).
+- Deferred:
+  - No web UI, FacilityIssue migration, WO bridge, QR routes, seed data, or DELETE endpoints.
+- Files changed:
+  - `apps/api/src/modules/facilities/*`, `app.module.ts`
+  - `apps/api/test/facilities-hierarchy.spec.ts`
+  - `docs/BUILDING_FACILITY_MODULE_PLAN.md`, `MAINTAINPRO_PRODUCTION_TODO.md`, `SMART_OPERATIONS_PRODUCT_EXCELLENCE_ROADMAP.md`, `QA_CHECKLIST.md`, `RISK_REGISTER.md`, `IMPLEMENTATION_LOG.md`
+- Tests/checks run:
+  - `facilities-hierarchy.spec.ts` (14 cases), full API suite (70 suites / 354 tests).
+  - typecheck, lint, prisma validate, API/web/full build.
+- Recommended next task:
+  - **BUILD-004** — Facility hierarchy UI + `FacilityIssue.roomId` migration.

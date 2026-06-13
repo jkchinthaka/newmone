@@ -419,4 +419,21 @@
 ## 19) Smart Ops Security Checks (SMART-OPS-001)
 - [ ] Action Center and briefing responses do not expose invitation tokens, refresh tokens, or internal auth fields.
 - [ ] FACILITY_MANAGER / BUILDING_SUPERVISOR post-login no longer targets missing `/facility` routes.
+
+## 20) Facility Hierarchy API (BUILD-003)
+- [ ] `GET /api/facilities/properties` returns only caller-tenant properties for ADMIN.
+- [ ] ADMIN cannot read another tenant's property by ID (404).
+- [ ] `POST /api/facilities/buildings` rejects cross-tenant `propertyId` (404).
+- [ ] `POST /api/facilities/floors` rejects cross-tenant `buildingId` (404).
+- [ ] `POST /api/facilities/rooms` rejects cross-tenant `floorId` (404).
+- [ ] FACILITY_MANAGER can create/update hierarchy; BUILDING_SUPERVISOR can view but not manage.
+- [ ] VIEWER/MANAGER can list/read when `facilities.view` granted; cannot POST/PATCH without `facilities.manage`.
+- [ ] SUPER_ADMIN without tenant context receives 400 (tenant required).
+- [ ] PATCH `isActive: false` deactivates records; no DELETE routes exist.
+- [ ] API responses exclude Prisma relation payloads (allowlisted DTO only).
+- [ ] Request body cannot override `tenantId` (forbidden by ValidationPipe whitelist).
+
+## 21) Facility Hierarchy UI (BUILD-004 — future)
+- [ ] `/facilities` web routes render hierarchy browser once UI ships.
+- [ ] Action Center can link to live facility data after UI integration.
 - [ ] No new native browser dialogs introduced in touched files.

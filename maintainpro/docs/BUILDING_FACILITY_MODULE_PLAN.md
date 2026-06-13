@@ -447,9 +447,38 @@ Added to `RoleName`:
 | **CLEANER** | `facility_issues.report` (plus existing `cleaning.report_issue`) |
 | **VIEWER** | Read-only facility/issue/inspection view keys |
 
-### Deferred to BUILD-003+
+### Deferred to BUILD-004+
 
 - `FacilityIssue.roomId`, `workOrderId`, categories
 - `CleaningLocation.roomId` migration
-- Facility API endpoints and `/facilities` UI
+- `/facilities` web UI (BUILD-006)
 - Work Order bridge and reports
+
+### BUILD-003 API foundation (2026-06-13) — DONE
+
+Implemented tenant-scoped hierarchy CRUD under `/api/facilities/*` (no DELETE; deactivate via `isActive` PATCH).
+
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | `/facilities/properties` | `facilities.view` |
+| POST | `/facilities/properties` | `facilities.manage` |
+| GET | `/facilities/properties/:propertyId` | `facilities.view` |
+| PATCH | `/facilities/properties/:propertyId` | `facilities.manage` |
+| GET | `/facilities/buildings?propertyId=` | `facilities.view` |
+| POST | `/facilities/buildings` | `facilities.manage` |
+| GET | `/facilities/buildings/:buildingId` | `facilities.view` |
+| PATCH | `/facilities/buildings/:buildingId` | `facilities.manage` |
+| GET | `/facilities/floors?buildingId=` | `facilities.view` |
+| POST | `/facilities/floors` | `facilities.manage` |
+| GET | `/facilities/floors/:floorId` | `facilities.view` |
+| PATCH | `/facilities/floors/:floorId` | `facilities.manage` |
+| GET | `/facilities/rooms?floorId=` | `facilities.view` |
+| POST | `/facilities/rooms` | `facilities.manage` |
+| GET | `/facilities/rooms/:roomId` | `facilities.view` |
+| PATCH | `/facilities/rooms/:roomId` | `facilities.manage` |
+
+**Tenant isolation:** `tenantId` from JWT/`X-Tenant-Id` context only — never from request body. All reads/writes require resolved tenant context (including SUPER_ADMIN). Parent FK validation uses same-tenant `findFirst`; cross-tenant parent IDs return 404.
+
+**Response DTOs:** Allowlisted mapper (`facility-hierarchy.mapper.ts`) — no Prisma relation payloads.
+
+**Manage roles:** `SUPER_ADMIN`, `ADMIN`, `FACILITY_MANAGER` (+ permission guards). View roles include MANAGER, BUILDING_SUPERVISOR, SUPERVISOR, VIEWER per BUILD-002 seed.

@@ -15,13 +15,14 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | QR readiness foundation | DONE | `lib/qr-readiness.ts`, `test/qr-readiness.spec.ts` | Safe internal payload encode/parse; no public routes yet |
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
 | Facility post-login route fix | DONE | `lib/role-redirect.ts` | Removed broken `/facility` preferences until BUILD-006 |
+| Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
 
 ## High-value future features (ordered)
 
 ### Phase A — Facility & issue intelligence (BUILD sequence)
 
-1. **BUILD-003** — Facility hierarchy API (`Property` → `Building` → `Floor` → `Room`)
-2. **BUILD-004** — Facility issue migration (`FacilityIssue.roomId`, categories)
+1. **BUILD-003** — Facility hierarchy API (`Property` → `Building` → `Floor` → `Room`) — **DONE** (`/api/facilities/*`)
+2. **BUILD-004** — Facility issue migration (`FacilityIssue.roomId`, categories) + hierarchy UI
 3. **BUILD-005** — QR room/building/asset issue reporting (uses `qr-readiness.ts`)
 4. **BUILD-006** — Issue → work order bridge + `/facility` web routes
 5. **OPS-002** — SLA/aging heatmap (work orders + facility issues)
@@ -93,10 +94,9 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **BUILD-003** — Facility hierarchy API module
-2. **BUILD-004** — Extend `FacilityIssue` + cleaning location links
-3. **BUILD-005** — QR issue reporting (web scan + `qr-readiness` integration)
-4. **BUILD-006** — Issue → work order bridge + facility web routes
+1. **BUILD-004** — Facility hierarchy UI + issue migration (`FacilityIssue.roomId`)
+2. **BUILD-005** — QR issue reporting (web scan + `qr-readiness` integration)
+3. **BUILD-006** — Issue → work order bridge + facility web routes
 5. **OPS-002** — SLA/aging heatmap
 6. **OPS-003** — Duplicate issue detection
 7. **NOTIFY-001** — Email/SMS production setup

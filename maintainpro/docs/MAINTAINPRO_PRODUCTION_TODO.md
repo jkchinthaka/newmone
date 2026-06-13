@@ -60,8 +60,8 @@
 | BUILD-001 | P2 | Facility | Building/facility module planning | DONE | docs/BUILDING_FACILITY_MODULE_PLAN.md | Plan review, no runtime changes | Audit complete; reuse vs new-build documented; BUILD-002 next. |
 | BUILD-002 | P2 | Facility | Schema foundation + facility roles seed | DONE | prisma/schema, roles seed | Schema + RBAC tests, prisma validate | Property/Building/Floor/Room models; FACILITY_MANAGER/BUILDING_SUPERVISOR in RoleName. |
 | SMART-OPS-001 | P2 | Smart Ops | Product excellence sprint — Action Center + briefing + QR/evidence foundations | DONE | action-center, morning-briefing, qr-readiness, evidence-timeline, docs | Manual role QA, action-center.spec.ts, qr-readiness.spec.ts, web/full build, API tests | Role-aware Action Center from existing APIs; no fake metrics; facility post-login route fix. |
-| BUILD-003 | P2 | Facility | Facility hierarchy API module | NOT_STARTED | facility module, GET/POST /facilities/* | Tenant isolation tests, web/full build | Hierarchy CRUD only; no issue/WO bridge yet. |
-| BUILD-004 | P2 | Facility | Facility issue migration + room links | NOT_STARTED | FacilityIssue, CleaningLocation | Schema/API tests | Deferred from BUILD-002; roomId + categories. |
+| BUILD-003 | P2 | Facility | Facility hierarchy API module | DONE | facility module, GET/POST /facilities/* | Tenant isolation tests, web/full build | Hierarchy CRUD only; no issue/WO bridge yet. |
+| BUILD-004 | P2 | Facility | Facility hierarchy UI + issue migration | NOT_STARTED | FacilityIssue, CleaningLocation, web routes | Schema/API tests, manual UI QA | roomId + categories; first `/facilities` UI pass. |
 | BUILD-005 | P2 | Facility | QR issue reporting | NOT_STARTED | qr-readiness integration, scan routes | QR helper + manual scan QA | Uses SMART-OPS-001 payload contract. |
 | BUILD-006 | P2 | Facility | Issue → work order bridge + facility UI routes | NOT_STARTED | facility web routes, WO bridge | E2E workflow test | `/facility` routes; cleaning issue bridge. |
 | OPS-002 | P2 | Smart Ops | SLA/aging heatmap | NOT_STARTED | reports/dashboard widgets | Manual KPI validation | Depends on WO-004 SLA engine for full accuracy. |
