@@ -447,10 +447,10 @@ Added to `RoleName`:
 | **CLEANER** | `facility_issues.report` (plus existing `cleaning.report_issue`) |
 | **VIEWER** | Read-only facility/issue/inspection view keys |
 
-### Deferred to BUILD-005+
+### Deferred to BUILD-006+
 
-- `FacilityIssue.roomId`, `workOrderId`, categories
-- `CleaningLocation.roomId` migration
+- `FacilityIssue.workOrderId`
+- `CleaningLocation.roomId` migration / backfill
 - Work Order bridge and reports
 
 ### BUILD-004 web UI (2026-06-13) — DONE
@@ -471,14 +471,18 @@ First professional hierarchy browser at `/facilities` consuming BUILD-003 API.
 
 **Out of scope (unchanged):** WO bridge, QR public scan, photo upload, reports, public repair portal, seed data.
 
-### BUILD-005 migration plan (deferred from BUILD-004 audit)
+### BUILD-005 migration foundation (2026-06-13) — DONE
 
-1. Add nullable `FacilityIssue.roomId` FK to `Room` (optional `category`, severity enums).
-2. Keep `locationId` for backward compatibility; do not force backfill on existing records.
-3. Map `CleaningLocation` → `Room` where unambiguous; document manual backfill for ambiguous sites.
-4. Extend cleaning/facility issue create API to accept optional `roomId`.
-5. Add tenant isolation + backward compatibility tests before UI changes.
-6. Update issue list/create UI only after API tests pass.
+| Field | Decision |
+|-------|----------|
+| **`roomId`** | Nullable FK → `Room`; same-tenant validation on create/update; clear supported on PATCH |
+| **`category`** | Optional `FacilityIssueCategory` enum (8 values) |
+| **`severity`** | Existing `IssueSeverity` enum reused (default MEDIUM) |
+| **`locationId`** | Unchanged; CleaningLocation preserved |
+| **Responses** | `facility-issue.mapper.ts` allowlist with flat room summary fields |
+| **Backfill** | Not required in BUILD-005 |
+
+**Still deferred:** CleaningLocation→Room backfill, issue UI room selector (BUILD-006), WO bridge, QR routes.
 
 ### BUILD-003 API foundation (2026-06-13) — DONE
 

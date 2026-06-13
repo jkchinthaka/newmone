@@ -43,6 +43,11 @@ import {
   CreateFacilityIssueDto,
   UpdateFacilityIssueDto
 } from "./dto/facility-issue.dto";
+import {
+  FACILITY_ISSUE_INCLUDE,
+  toPublicFacilityIssueResponse,
+  type PublicFacilityIssueResponse
+} from "./facility-issue.mapper";
 
 type VisitListParams = {
   tenantId: string | null;
@@ -956,7 +961,11 @@ export class CleaningService {
     return visit;
   }
 
-  async createIssue(reportedById: string, tenantId: string | null, dto: CreateFacilityIssueDto) {
+  async createIssue(
+    reportedById: string,
+    tenantId: string | null,
+    dto: CreateFacilityIssueDto
+  ): Promise<PublicFacilityIssueResponse> {
     if (dto.locationId) {
       const location = await this.prisma.cleaningLocation.findUnique({
         where: { id: dto.locationId },
@@ -965,6 +974,10 @@ export class CleaningService {
       if (!location || !location.isActive || (tenantId && location.tenantId !== tenantId)) {
         throw new BadRequestException("Location is invalid for this tenant");
       }
+    }
+
+    if (dto.roomId) {
+      await this.assertActiveRoomForTenant(tenantId, dto.roomId);
     }
 
     if (dto.assignedToId) {
@@ -979,20 +992,20 @@ export class CleaningService {
         title: dto.title,
         description: dto.description,
         severity: dto.severity ?? IssueSeverity.MEDIUM,
+        category: dto.category,
         locationId: dto.locationId,
+        roomId: dto.roomId,
         photos: dto.photos ?? [],
         slaTargetAt: dto.slaHours ? new Date(Date.now() + dto.slaHours * MS_IN_HOUR) : null
       },
-      include: {
-        location: true,
-        reportedBy: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } }
-      }
+      include: FACILITY_ISSUE_INCLUDE
     });
+
+    const locationLabel = issue.location?.name ?? issue.room?.name;
 
     await this.notifySupervisors(issue.tenantId, {
       title: "Facility issue reported",
-      message: `${issue.title} has been reported${issue.location?.name ? ` at ${issue.location.name}` : ""}.`,
+      message: `${issue.title} has been reported${locationLabel ? ` at ${locationLabel}` : ""}.`,
       type: NotificationType.FACILITY_ISSUE_REPORTED,
       referenceId: issue.id,
       referenceType: "FacilityIssue"
@@ -1012,7 +1025,8 @@ export class CleaningService {
         metadata: {
           title: issue.title,
           severity: issue.severity,
-          locationName: issue.location?.name
+          locationName: issue.location?.name,
+          roomName: issue.room?.name
         }
       });
     }
@@ -1026,27 +1040,31 @@ export class CleaningService {
       afterData: issue
     });
 
-    return issue;
+    return toPublicFacilityIssueResponse(issue);
   }
 
-  async listIssues(tenantId: string | null, status?: FacilityIssueStatus) {
-    return this.prisma.facilityIssue.findMany({
+  async listIssues(
+    tenantId: string | null,
+    status?: FacilityIssueStatus
+  ): Promise<PublicFacilityIssueResponse[]> {
+    const issues = await this.prisma.facilityIssue.findMany({
       where: {
         tenantId: tenantId ?? undefined,
         status: this.isIssueStatus(status) ? status : undefined
       },
-      include: {
-        location: true,
-        reportedBy: { select: { id: true, firstName: true, lastName: true } },
-        resolvedBy: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } }
-      },
+      include: FACILITY_ISSUE_INCLUDE,
       orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
       take: 300
     });
+
+    return issues.map((issue) => toPublicFacilityIssueResponse(issue));
   }
 
-  async updateIssue(id: string, actorId: string, dto: UpdateFacilityIssueDto) {
+  async updateIssue(
+    id: string,
+    actorId: string,
+    dto: UpdateFacilityIssueDto
+  ): Promise<PublicFacilityIssueResponse> {
     const issue = await this.prisma.facilityIssue.findUnique({ where: { id } });
     if (!issue) {
       throw new NotFoundException("Issue not found");
@@ -1055,6 +1073,10 @@ export class CleaningService {
 
     if (dto.assignedToId) {
       await this.ensureAssignableCleaner(issue.tenantId, dto.assignedToId);
+    }
+
+    if (dto.roomId) {
+      await this.assertActiveRoomForTenant(issue.tenantId, dto.roomId);
     }
 
     const now = new Date();
@@ -1073,24 +1095,24 @@ export class CleaningService {
       ? Math.max(1, Math.round((now.getTime() - issue.createdAt.getTime()) / 60000))
       : issue.resolutionMinutes;
 
+    const updateData = {
+      status: nextStatus,
+      assignedToId: dto.assignedToId,
+      resolution: dto.resolution,
+      firstResponseAt,
+      resolvedById: isResolving ? actorId : issue.resolvedById,
+      resolvedAt,
+      closedAt,
+      resolutionMinutes,
+      ...(dto.severity !== undefined ? { severity: dto.severity } : {}),
+      ...(dto.category !== undefined ? { category: dto.category } : {}),
+      ...(dto.roomId !== undefined ? { roomId: dto.roomId } : {})
+    };
+
     const updated = await this.prisma.facilityIssue.update({
       where: { id },
-      data: {
-        status: nextStatus,
-        assignedToId: dto.assignedToId,
-        resolution: dto.resolution,
-        firstResponseAt,
-        resolvedById: isResolving ? actorId : issue.resolvedById,
-        resolvedAt,
-        closedAt,
-        resolutionMinutes
-      },
-      include: {
-        location: true,
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
-        reportedBy: { select: { id: true, firstName: true, lastName: true } },
-        resolvedBy: { select: { id: true, firstName: true, lastName: true } }
-      }
+      data: updateData,
+      include: FACILITY_ISSUE_INCLUDE
     });
 
     if (updated.slaTargetAt && isResolving && updated.resolvedAt && updated.resolvedAt > updated.slaTargetAt) {
@@ -1114,7 +1136,18 @@ export class CleaningService {
       afterData: updated
     });
 
-    return updated;
+    return toPublicFacilityIssueResponse(updated);
+  }
+
+  private async assertActiveRoomForTenant(tenantId: string | null, roomId: string) {
+    const room = await this.prisma.room.findFirst({
+      where: { id: roomId },
+      select: { id: true, tenantId: true, isActive: true }
+    });
+
+    if (!room || !room.isActive || (tenantId && room.tenantId !== tenantId)) {
+      throw new BadRequestException("Room is invalid for this tenant");
+    }
   }
 
   async dashboard(tenantId: string | null, days = 14) {

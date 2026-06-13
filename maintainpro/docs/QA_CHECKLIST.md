@@ -433,6 +433,17 @@
 - [ ] API responses exclude Prisma relation payloads (allowlisted DTO only).
 - [ ] Request body cannot override `tenantId` (forbidden by ValidationPipe whitelist).
 
+## 22) Facility Issue Room Linkage (BUILD-005)
+- [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
+- [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.
+- [ ] Cross-tenant `roomId` returns safe validation error.
+- [ ] PATCH can set/clear optional `roomId` for authorized roles.
+- [ ] List response includes flat room summary fields (`roomName`, `floorId`, `buildingId`, `propertyId`) when linked.
+- [ ] List response does not expose raw Room Prisma relation payload.
+- [ ] Optional `category` does not break old records (null category allowed).
+- [ ] Existing cleaning issue UI still loads and submits without room selector.
+- [ ] `/facilities` hierarchy UI unchanged.
+
 ## 21) Facility Hierarchy UI (BUILD-004)
 - [ ] ADMIN can create property → building → floor → room chain via `/facilities`.
 - [ ] FACILITY_MANAGER can create/update/deactivate hierarchy records.

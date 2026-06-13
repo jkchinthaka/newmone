@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IssueSeverity, FacilityIssueStatus } from "@prisma/client";
+import {
+  FacilityIssueCategory,
+  FacilityIssueStatus,
+  IssueSeverity
+} from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
@@ -11,7 +15,8 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength
+  MinLength,
+  ValidateIf
 } from "class-validator";
 
 export class CreateFacilityIssueDto {
@@ -32,10 +37,20 @@ export class CreateFacilityIssueDto {
   @IsEnum(IssueSeverity)
   severity?: IssueSeverity;
 
+  @ApiPropertyOptional({ enum: FacilityIssueCategory })
+  @IsOptional()
+  @IsEnum(FacilityIssueCategory)
+  category?: FacilityIssueCategory;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   locationId?: string;
+
+  @ApiPropertyOptional({ description: "Optional Room hierarchy link (same tenant)" })
+  @IsOptional()
+  @IsString()
+  roomId?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -62,6 +77,23 @@ export class UpdateFacilityIssueDto {
   @IsOptional()
   @IsEnum(FacilityIssueStatus)
   status?: FacilityIssueStatus;
+
+  @ApiPropertyOptional({ enum: IssueSeverity })
+  @IsOptional()
+  @IsEnum(IssueSeverity)
+  severity?: IssueSeverity;
+
+  @ApiPropertyOptional({ enum: FacilityIssueCategory, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(FacilityIssueCategory)
+  category?: FacilityIssueCategory | null;
+
+  @ApiPropertyOptional({ nullable: true, description: "Link or clear room hierarchy reference" })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  roomId?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()

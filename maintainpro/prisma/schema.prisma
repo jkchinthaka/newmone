@@ -1702,6 +1702,8 @@ model Room {
   @@index([tenantId, floorId])
   @@index([tenantId, isActive])
   @@index([tenantId, name])
+
+  issues FacilityIssue[]
 }
 
 // ============================================================
@@ -1845,38 +1847,56 @@ model CleaningChecklist {
 }
 
 model FacilityIssue {
-  id                String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?             @db.ObjectId
-  tenant            Tenant?             @relation(fields: [tenantId], references: [id])
-  locationId        String?             @db.ObjectId
-  location          CleaningLocation?   @relation(fields: [locationId], references: [id])
-  reportedById      String              @db.ObjectId
-  reportedBy        User                @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
-  assignedToId      String?             @db.ObjectId
-  assignedTo        User?               @relation("AssignedFacilityIssues", fields: [assignedToId], references: [id])
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?                  @db.ObjectId
+  tenant            Tenant?                  @relation(fields: [tenantId], references: [id])
+  locationId        String?                  @db.ObjectId
+  location          CleaningLocation?        @relation(fields: [locationId], references: [id])
+  roomId            String?                  @db.ObjectId
+  room              Room?                    @relation(fields: [roomId], references: [id])
+  reportedById      String                   @db.ObjectId
+  reportedBy        User                     @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
+  assignedToId      String?                  @db.ObjectId
+  assignedTo        User?                    @relation("AssignedFacilityIssues", fields: [assignedToId], references: [id])
   title             String
   description       String
-  severity          IssueSeverity       @default(MEDIUM)
-  status            FacilityIssueStatus @default(OPEN)
+  category          FacilityIssueCategory?
+  severity          IssueSeverity            @default(MEDIUM)
+  status            FacilityIssueStatus      @default(OPEN)
   photos            String[]
   slaTargetAt       DateTime?
   firstResponseAt   DateTime?
-  resolvedById      String?             @db.ObjectId
-  resolvedBy        User?               @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
+  resolvedById      String?                  @db.ObjectId
+  resolvedBy        User?                    @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
   resolvedAt        DateTime?
   closedAt          DateTime?
   resolutionMinutes Int?
   resolution        String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
   @@index([tenantId])
+  @@index([tenantId, roomId])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
   @@index([locationId])
+  @@index([roomId])
   @@index([reportedById])
   @@index([assignedToId])
   @@index([status])
   @@index([severity])
   @@index([slaTargetAt])
+}
+
+enum FacilityIssueCategory {
+  ELECTRICAL
+  PLUMBING
+  CIVIL
+  HVAC
+  SAFETY
+  CLEANING
+  PEST_CONTROL
+  OTHER
 }
 
 enum IssueSeverity {

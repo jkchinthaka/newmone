@@ -1683,4 +1683,49 @@ Record each completed task with:
 
 ### Recommended next task
 
-- **BUILD-005** — FacilityIssue migration (`roomId`, categories, cleaning location backfill).
+- **BUILD-006** — Issue reporting UI (room selector + category in cleaning issues).
+
+---
+
+## BUILD-005 — FacilityIssue room linkage foundation (2026-06-13)
+
+**Status:** DONE — schema/API compatibility only; no issue UI.
+
+### Audit findings
+
+- `IssueSeverity` already existed (LOW/MEDIUM/HIGH/CRITICAL, default MEDIUM) — no new severity enum.
+- No `category` field existed — added optional `FacilityIssueCategory` enum.
+- `FacilityIssue` linked to `CleaningLocation` via `locationId` only — preserved unchanged.
+- Cleaning issue UI at `/cleaning/issues` uses `locationId`, severity, status — additive API fields safe.
+
+### Schema changes
+
+- `FacilityIssue.roomId` nullable FK → `Room`
+- `FacilityIssue.category` optional `FacilityIssueCategory`
+- Indexes: `[tenantId, roomId]`, `[tenantId, category]`, `[tenantId, status]`
+- `Room.issues` reverse relation
+
+### API changes
+
+- `CreateFacilityIssueDto`: optional `roomId`, `category`
+- `UpdateFacilityIssueDto`: optional `roomId` (nullable clear), `category`, `severity`
+- `cleaning.service.ts`: same-tenant Room validation; allowlisted responses via `facility-issue.mapper.ts`
+- Flat response fields: `roomName`, `floorId`, `buildingId`, `propertyId`
+
+### Backward compatibility
+
+- Existing create without `roomId`/`category` unchanged
+- `locationId` / CleaningLocation validation unchanged
+- No backfill required; old records keep null `roomId`/`category`
+- Issue list/create responses remain compatible with existing UI (location.name, severity, status)
+
+### Tests/checks run
+
+- `facility-issues-room-link.spec.ts` (mapper + service cases)
+- prisma validate, typecheck, lint, api/web/full build, full API test suite
+
+### Deferred
+
+- Issue UI room selector (BUILD-006)
+- CleaningLocation → Room backfill
+- Work Order bridge, QR public routes, photo upload, dashboards

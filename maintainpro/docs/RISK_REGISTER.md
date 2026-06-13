@@ -518,13 +518,39 @@
 - **Category:** Data / Migration
 - **Description:** Existing `CleaningLocation.building`/`floor` strings and `FacilityIssue.locationId` must be migrated to Room FKs in later phases.
 - **Impact:** Split location data, duplicate hierarchy entries, broken issue/location joins if migration is rushed.
-- **Likelihood:** Medium when BUILD-005 links issues to rooms without backfill plan.
+- **Likelihood:** Medium when BUILD-006+ links issues to rooms in UI without backfill guidance.
 - **Current Mitigation:**
-  - BUILD-004 shipped hierarchy UI only; no schema change.
-  - BUILD-005 migration plan documented in `BUILDING_FACILITY_MODULE_PLAN.md`.
+  - BUILD-005 adds nullable API-only `roomId`; no forced backfill.
+  - CleaningLocation + locationId flow unchanged.
+  - BUILD-006 UI should document optional room link vs legacy location.
 - **Residual Risk:** Operators may create duplicate spatial records until migration tooling exists.
 - **Owner:** Product + API
-- **Review Cadence:** Before BUILD-005 issue extensions.
+- **Review Cadence:** Before BUILD-006 issue UI and backfill tooling.
+
+### RISK-BUILD-005-CROSS-TENANT-ROOM-LINK
+- **Category:** Security / Tenant isolation
+- **Description:** Optional `roomId` on issues could link records across tenants if validation is bypassed.
+- **Impact:** Data integrity breach, misrouted maintenance work.
+- **Likelihood:** Low with current service validation; Medium if future endpoints skip checks.
+- **Current Mitigation:**
+  - `assertActiveRoomForTenant` on create/update; inactive/unknown/cross-tenant rooms rejected.
+  - `facility-issues-room-link.spec.ts` covers same-tenant pass and cross-tenant fail paths.
+- **Residual Risk:** Bulk import scripts must reuse same validation helper.
+- **Owner:** API Platform
+- **Review Cadence:** At any new issue mutation endpoint.
+
+### RISK-BUILD-005-CATEGORY-SEVERITY-DRIFT
+- **Category:** Data / Product
+- **Description:** New optional `category` coexists with legacy issues lacking category; severity enum pre-existed but update path now exposes severity PATCH.
+- **Impact:** Inconsistent reporting until UI captures category; accidental severity changes via API.
+- **Likelihood:** Medium until BUILD-006 UI ships.
+- **Current Mitigation:**
+  - Category nullable; old records unaffected.
+  - Severity default MEDIUM unchanged on create.
+  - Allowlisted responses; no UI changes in BUILD-005.
+- **Residual Risk:** Operators may omit category until UI enforces it.
+- **Owner:** Product + API
+- **Review Cadence:** At BUILD-006 issue form work.
 
 ### RISK-BUILD-002-FACILITY-ROLE-PERMISSION-DRIFT
 - **Category:** Security / RBAC
