@@ -1,4 +1,8 @@
 import {
+  buildQrIssueReportPath,
+  createQrIssueReportPayload
+} from "../../web/lib/qr-issue-reporting";
+import {
   createMaintainProQrPayload,
   encodeMaintainProQrPayload,
   isSupportedQrEntityType,
@@ -97,5 +101,16 @@ describe("qr-readiness helper", () => {
         entityId: "../escape"
       })
     ).toThrow(QrPayloadError);
+  });
+
+  it("supports authenticated issue-report paths without tenantId in payload", () => {
+    const payload = createQrIssueReportPayload({
+      type: "room",
+      entityId: "room-safe-1",
+      label: "Room 101"
+    });
+
+    expect(payload.tenantId).toBeUndefined();
+    expect(buildQrIssueReportPath(payload)).toContain("/qr/report-issue?qr=");
   });
 });

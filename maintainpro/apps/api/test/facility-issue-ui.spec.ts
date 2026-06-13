@@ -2,6 +2,7 @@ import {
   buildCreateFacilityIssuePayload,
   buildUpdateFacilityIssueRoomPayload,
   canCreateWorkOrderFromIssue,
+  canReportFacilityIssue,
   FACILITY_ISSUE_CREATE_PAYLOAD_KEYS,
   FACILITY_ISSUE_FORBIDDEN_PAYLOAD_KEYS,
   FACILITY_ISSUE_UI_EXPOSED_ACTIONS,
@@ -149,6 +150,7 @@ describe("facility issue UI helpers", () => {
   it("exposes work order bridge action only (no QR/photo actions)", () => {
     expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.workOrderBridge).toBe(true);
     expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.qrPublicScan).toBe(false);
+    expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.qrAuthenticatedReport).toBe(true);
     expect(FACILITY_ISSUE_UI_EXPOSED_ACTIONS.photoUpload).toBe(false);
   });
 
@@ -198,6 +200,14 @@ describe("facility issue UI helpers", () => {
         permissions: ["facility_issues.manage"]
       })
     ).toBe(false);
+  });
+
+  it("allows QR issue reporting for authorized roles only", () => {
+    expect(canReportFacilityIssue({ role: "CLEANER" })).toBe(true);
+    expect(canReportFacilityIssue({ role: "VIEWER" })).toBe(false);
+    expect(canReportFacilityIssue({ role: "VIEWER", permissions: ["facility_issues.report"] })).toBe(
+      true
+    );
   });
 
   it("formats linked work order display helper and list href", () => {

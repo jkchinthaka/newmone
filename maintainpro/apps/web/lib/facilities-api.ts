@@ -143,3 +143,23 @@ export async function updateRoom(
   const response = await apiClient.patch<ApiEnvelope<FacilityRoom>>(`/facilities/rooms/${roomId}`, payload);
   return response.data.data;
 }
+
+export async function getProperty(propertyId: string): Promise<FacilityProperty> {
+  const response = await apiClient.get<ApiEnvelope<FacilityProperty>>(`/facilities/properties/${propertyId}`);
+  return response.data.data;
+}
+
+export async function getBuilding(buildingId: string): Promise<FacilityBuilding> {
+  const response = await apiClient.get<ApiEnvelope<FacilityBuilding>>(`/facilities/buildings/${buildingId}`);
+  return response.data.data;
+}
+
+export async function getFloor(floorId: string): Promise<FacilityFloor> {
+  const response = await apiClient.get<ApiEnvelope<FacilityFloor>>(`/facilities/floors/${floorId}`);
+  return response.data.data;
+}
+
+export async function getRoom(roomId: string): Promise<FacilityRoom> {
+  const response = await apiClient.get<ApiEnvelope<FacilityRoom>>(`/facilities/rooms/${roomId}`);
+  return response.data.data;
+}

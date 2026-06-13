@@ -108,7 +108,7 @@ MVP target: **internal facility issue → work order → resolution** with basic
 - [ ] Issue create/list/update under new `facility` API (legacy `/cleaning/issues` aliased or deprecated gradually).
 - [x] `POST /cleaning/issues/:id/create-work-order` — creates WO from issue using existing `WorkOrdersService.create` (BUILD-007).
 - [ ] Basic issue categories (enum or small master table): e.g. Electrical, Plumbing, HVAC, Structural, Cleaning-related, Other.
-- [ ] Photo attachments via existing `photos: String[]` pattern (Cloudinary/MinIO if enabled).
+- [ ] Photo attachments via existing `photos: String[]` pattern (Cloudinary/MinIO if enabled). **Deferred (BUILD-008).**
 - [ ] Priority/severity using existing `IssueSeverity` + WO `priority`.
 - [ ] Role seed alignment: add `FACILITY_MANAGER`, `BUILDING_SUPERVISOR` to schema + permissions.
 - [ ] Web routes: `/facilities`, `/facilities/issues`, `/facilities/[id]` (building detail).
@@ -368,8 +368,8 @@ flowchart LR
 | **BUILD-005** | FacilityIssue migration + issue extensions | BUILD-002 | `roomId`, categories, cleaning backfill |
 | **BUILD-006** | Issue reporting UI + room selector | BUILD-004, BUILD-005 | `/cleaning/issues` category + room linkage |
 | **BUILD-007** | Issue → Work Order bridge | BUILD-005, WO module | **DONE** — `POST /cleaning/issues/:id/create-work-order` |
-| **BUILD-008** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
-| **BUILD-008** | Public repair portal | BUILD-005, REQ-INTAKE | `/public/repair-request` |
+| **BUILD-008** | Authenticated QR issue reporting | BUILD-006, qr-readiness | **DONE** — `/qr/report-issue`; public scan deferred |
+| **BUILD-009** | Dashboard + reports | BUILD-005 | KPI widgets, report module key |
 | **FAC-001–010** | Map to BUILD-002–008 | See MAINTAINPRO_PRODUCTION_TODO | Incremental FAC items |
 
 ---

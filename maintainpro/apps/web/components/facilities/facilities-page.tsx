@@ -35,6 +35,7 @@ import {
   type FacilityRoom,
   type FacilitySelection
 } from "@/lib/facilities";
+import { canCopyFacilitiesQrIssueLink } from "@/lib/qr-issue-reporting";
 import { extractRoleName } from "@/lib/role-redirect";
 import { getStoredPermissions } from "@/lib/user-role";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -46,6 +47,10 @@ import {
 } from "./facility-entity-dialog";
 import { FacilityEntityTable, FacilityStatusBadge } from "./facility-entity-table";
 import { FacilityHierarchyPanel } from "./facility-hierarchy-panel";
+import {
+  FacilityQrIssueLinkButton,
+  FacilityQrIssueLinkDialog
+} from "./facility-qr-issue-link-dialog";
 
 type DialogState = {
   open: boolean;
@@ -85,6 +90,11 @@ export function FacilitiesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dialog, setDialog] = useState<DialogState>(INITIAL_DIALOG);
   const [submitting, setSubmitting] = useState(false);
+  const [qrDialog, setQrDialog] = useState<{
+    entityType: FacilityHierarchyLevel;
+    entityId: string;
+    entityName: string;
+  } | null>(null);
 
   useEffect(() => {
     setPermissions(getStoredPermissions());
@@ -92,6 +102,11 @@ export function FacilitiesPage() {
 
   const canView = canViewFacilities(roleName, permissions.length ? permissions : getStoredPermissions());
   const canManage = canManageFacilities(roleName, permissions.length ? permissions : getStoredPermissions());
+  const showQrIssueLink = canCopyFacilitiesQrIssueLink({
+    level,
+    canViewFacilities: canView,
+    canManageFacilities: canManage
+  });
 
   const currentLevelLabel = getFacilityLevelLabel(level);
 
@@ -405,6 +420,16 @@ export function FacilitiesPage() {
       <PageBreadcrumbs />
       {confirmDialog}
 
+      {qrDialog ? (
+        <FacilityQrIssueLinkDialog
+          open
+          entityType={qrDialog.entityType}
+          entityId={qrDialog.entityId}
+          entityName={qrDialog.entityName}
+          onClose={() => setQrDialog(null)}
+        />
+      ) : null}
+
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -499,31 +524,49 @@ export function FacilitiesPage() {
             level === "room" ? undefined : (row) => handleRowOpen(row as FacilityEntityRow)
           }
           renderActions={
-            canManage
+            canManage || showQrIssueLink
               ? (row) => (
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label={`Edit ${String(row.name)}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openEditDialog(row as FacilityEntityRow);
-                      }}
-                      className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100"
-                    >
-                      <Pencil size={16} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={row.isActive ? "Deactivate" : "Reactivate"}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void toggleActive(row as FacilityEntityRow, !row.isActive);
-                      }}
-                      className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100"
-                    >
-                      <Power size={16} aria-hidden="true" />
-                    </button>
+                    {showQrIssueLink ? (
+                      <FacilityQrIssueLinkButton
+                        entityType={level}
+                        entityId={String(row.id)}
+                        entityName={String(row.name)}
+                        onOpen={() =>
+                          setQrDialog({
+                            entityType: level,
+                            entityId: String(row.id),
+                            entityName: String(row.name)
+                          })
+                        }
+                      />
+                    ) : null}
+                    {canManage ? (
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`Edit ${String(row.name)}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditDialog(row as FacilityEntityRow);
+                          }}
+                          className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100"
+                        >
+                          <Pencil size={16} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={row.isActive ? "Deactivate" : "Reactivate"}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void toggleActive(row as FacilityEntityRow, !row.isActive);
+                          }}
+                          className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100"
+                        >
+                          <Power size={16} aria-hidden="true" />
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 )
               : undefined

@@ -1812,3 +1812,46 @@ Record each completed task with:
 ### Recommended next task
 
 - **BUILD-008** — QR issue reporting (authenticated scan first; public route after security review).
+
+---
+
+## BUILD-008 — Authenticated QR issue reporting (2026-06-13)
+
+### Audit findings
+
+- `qr-readiness.ts` already validates payload shape and rejects secret-like fields; `react-qr-code` is installed (used on cleaning locations).
+- No public unauthenticated intake route exists; dashboard layout enforces session via `/auth/me`.
+- Facility hierarchy GET endpoints enforce tenant isolation; QR payloads must not include or trust `tenantId`.
+
+### QR payload / route approach
+
+- Minimal payload via `createQrIssueReportPayload`: `v`, `type` (property/building/floor/room), `entityId`, optional `label`, `createdAt` — **no tenantId, tokens, or user IDs**.
+- Authenticated route: `/qr/report-issue?qr=<url-encoded JSON>` under `(dashboard)` shell.
+- Parser: `parseQrIssueReportQueryParam`; resolver chains `/facilities/*/:id` APIs to build room selection.
+- Room QR prefills full hierarchy; building/floor/property links require room selection before submit.
+
+### UI changes
+
+- `/facilities`: QR link button + dialog (copy URL + QR image) for manage roles on all hierarchy levels.
+- `/qr/report-issue`: issue report form reusing `FacilityIssueRoomSelector` + `buildCreateFacilityIssuePayload`; submits to existing `POST /cleaning/issues`.
+
+### Security decisions
+
+- Public anonymous QR route explicitly **not** added.
+- `tenantId` in legacy payloads ignored for authorization; issue payloads never include `tenantId`.
+- Invalid/unsupported/inaccessible entities show safe error states; backend tenant guards remain authoritative.
+
+### Tests / checks
+
+- `qr-issue-reporting.spec.ts`, extended `qr-readiness.spec.ts`, updated `facility-issue-ui.spec.ts`
+- typecheck, lint, prisma validate, web/api/full build, full API test suite
+
+### Deferred
+
+- Public QR scan route (security review + rate limiting)
+- Photo upload/storage on QR report form
+- Facility dashboard/reporting (BUILD-009)
+
+### Recommended next task
+
+- **BUILD-009** — Facility dashboard + reporting KPIs.

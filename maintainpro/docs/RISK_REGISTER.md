@@ -764,6 +764,46 @@
 - **Owner:** Security + API
 - **Review Cadence:** With each new facility bridge endpoint.
 
+### RISK-BUILD-008-QR-PAYLOAD-MISUSE
+- **Category:** Security
+- **Description:** QR payloads could be tampered to reference entities outside the reporter's tenant or carry forbidden fields.
+- **Impact:** Cross-tenant issue creation attempts or secret leakage via printed codes.
+- **Likelihood:** Low with `qr-readiness` validation; Medium if public routes bypass auth.
+- **Current Mitigation:** Forbidden-field checks; authenticated route only; facilities API tenant guards on resolve; no `tenantId` in generated payloads.
+- **Residual Risk:** Public QR intake (deferred) requires separate security review and rate limits.
+- **Owner:** Security + Web Platform
+- **Review Cadence:** Before any public QR route (post BUILD-008).
+
+### RISK-BUILD-008-PUBLIC-QR-ABUSE
+- **Category:** Security / Abuse
+- **Description:** Anonymous QR intake can be spammed or used for tenant enumeration.
+- **Impact:** Queue noise, DoS, poor data quality.
+- **Likelihood:** N/A until public route ships.
+- **Current Mitigation:** Public anonymous reporting explicitly deferred; authenticated dashboard route only in BUILD-008.
+- **Residual Risk:** Requires CAPTCHA, rate limiting, and auth model decision before public launch.
+- **Owner:** Product + Security
+- **Review Cadence:** Pre-public QR rollout.
+
+### RISK-BUILD-008-QR-LINK-LEAKAGE
+- **Category:** Operations / Security
+- **Description:** Printed QR links could be shared outside intended facility staff.
+- **Impact:** Unauthorized authenticated users (with valid login) reporting against wrong context.
+- **Likelihood:** Low-Medium depending on physical access controls.
+- **Current Mitigation:** Sign-in required; entity resolution re-validates tenant access server-side.
+- **Residual Risk:** Org should restrict report roles and monitor unusual issue volume.
+- **Owner:** Operations
+- **Review Cadence:** With BUILD-009 dashboard KPI review.
+
+### RISK-BUILD-008-QR-TENANT-ISOLATION
+- **Category:** Security
+- **Description:** QR entity resolution could expose hierarchy data if tenant guards fail on GET `/facilities/*/:id`.
+- **Impact:** Cross-tenant facility context leakage.
+- **Likelihood:** Low with existing facilities service tenant scoping.
+- **Current Mitigation:** Resolver uses authenticated API only; inaccessible entities return safe errors.
+- **Residual Risk:** New facility endpoints must preserve same guard pattern.
+- **Owner:** API + Security
+- **Review Cadence:** With each new QR entry point.
+
 ### RISK-SMART-OPS-001-EXTERNAL-DEPENDENCY-GAPS
 - **Category:** Operations / Integrations
 - **Description:** Email/SMS/ERP dependencies remain unconfigured in production; Action Center cannot surface delivery guarantees.

@@ -456,6 +456,20 @@
 - [ ] Existing Work Orders UI/API unchanged; WO uses standard lifecycle (`CORRECTIVE` type).
 - [ ] No QR public scan route, photo upload, facility reports, ERP posting, or email/SMS added.
 
+## 25) Authenticated QR Issue Reporting (BUILD-008)
+- [ ] Facility manager can open QR dialog from `/facilities` room row and copy authenticated report link.
+- [ ] QR dialog shows QR image (`react-qr-code`) and copyable URL; payload contains no tokens/secrets/tenantId.
+- [ ] Opening `/qr/report-issue?qr=…` while signed in resolves room context and prefills room selector.
+- [ ] Building/floor/property QR links show context and require room selection before submit.
+- [ ] Invalid QR query shows safe error state (no stack traces or raw payloads).
+- [ ] Cross-tenant/inaccessible entity returns safe error from facilities API.
+- [ ] Submitted issue uses existing `POST /cleaning/issues` without `tenantId` in body.
+- [ ] Unauthenticated users are redirected by existing dashboard auth flow (no public route).
+- [ ] VIEWER without report permission cannot submit from QR route.
+- [ ] Mobile: QR report form stacks/readably on small screens.
+- [ ] Existing `/cleaning/issues`, WorkOrder bridge, and `/facilities` CRUD unchanged.
+- [ ] No public `/public/*` QR route added.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

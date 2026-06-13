@@ -65,7 +65,8 @@
 | BUILD-005 | P2 | Facility | FacilityIssue migration foundation | DONE | FacilityIssue schema, cleaning issue API | facility-issues-room-link.spec.ts, prisma validate, API tests | Nullable roomId + category; IssueSeverity reused; CleaningLocation preserved. |
 | BUILD-006 | P2 | Facility | Issue reporting UI + room selector | DONE | cleaning/issues UI, facility-issue-ui.ts | Manual UI QA, facility-issue-ui.spec.ts, web/full build | Optional room/category; legacy location preserved. |
 | BUILD-007 | P2 | Facility | Issue → Work Order bridge | DONE | facility issues, WO module | facility-issue-work-order-bridge.spec.ts, API/web/full build | Nullable `workOrderId` on FacilityIssue; bridge via WorkOrdersService.create; duplicate blocked. |
-| BUILD-008 | P2 | Facility | QR issue reporting | NOT_STARTED | qr-readiness integration, scan routes | QR helper + manual scan QA | Public scan deferred; security review required. |
+| BUILD-008 | P2 | Facility | Authenticated QR issue reporting | DONE | qr-readiness, facilities hierarchy | qr-issue-reporting.spec.ts, web/full build | `/qr/report-issue` route; room QR links in `/facilities`; public scan deferred. |
+| BUILD-009 | P2 | Facility | Facility dashboard + reporting | NOT_STARTED | BUILD-005/007 issue model | Manual KPI QA | KPI widgets and report module; no fake metrics. |
 | OPS-002 | P2 | Smart Ops | SLA/aging heatmap | NOT_STARTED | reports/dashboard widgets | Manual KPI validation | Depends on WO-004 SLA engine for full accuracy. |
 | OPS-003 | P2 | Smart Ops | Duplicate issue detection | NOT_STARTED | facility issues service | API tests | Requires BUILD-005 room/category fields. |
 | NOTIFY-001 | P2 | Notifications | Email/SMS production setup | NOT_STARTED | env + dispatch services | Integration smoke test | SEC-012/013 readiness exists; production credentials needed. |

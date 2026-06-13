@@ -78,6 +78,7 @@ export const FACILITY_ISSUE_FORBIDDEN_PAYLOAD_KEYS = ["tenantId", "room", "locat
 export const FACILITY_ISSUE_UI_EXPOSED_ACTIONS = {
   workOrderBridge: true,
   qrPublicScan: false,
+  qrAuthenticatedReport: true,
   photoUpload: false
 } as const;
 
@@ -156,6 +157,31 @@ export function formatLinkedWorkOrderLabel(
 
 export function getLinkedWorkOrderHref(_workOrderId?: string | null): string {
   return "/work-orders";
+}
+
+const FACILITY_ISSUE_REPORT_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "FACILITY_MANAGER",
+  "BUILDING_SUPERVISOR",
+  "SUPERVISOR",
+  "CLEANER",
+  "ASSET_MANAGER",
+  "MANAGER"
+]);
+
+export function canReportFacilityIssue(input: {
+  role: string | null | undefined;
+  permissions?: readonly string[];
+}): boolean {
+  if (
+    input.permissions?.includes("facility_issues.report") ||
+    input.permissions?.includes("cleaning.report_issue")
+  ) {
+    return true;
+  }
+
+  return Boolean(input.role && FACILITY_ISSUE_REPORT_ROLES.has(input.role));
 }
 
 export function normalizeFacilityIssueCategory(value: string): FacilityIssueCategory | undefined {
