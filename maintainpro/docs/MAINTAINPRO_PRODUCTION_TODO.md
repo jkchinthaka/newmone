@@ -69,7 +69,7 @@
 | BUILD-009 | P2 | Facility | Facility dashboard + reporting | DONE | facilities dashboard API, `/facilities/reports` | facility-dashboard.spec.ts, web/full build | Real tenant-scoped KPIs; overdue from `slaTargetAt`; no fake metrics. |
 | BUILD-010 | P2 | Facility | CleaningLocation → Room backfill tooling | DONE | backfill matcher + CLI script | facility-location-backfill.spec.ts | Dry-run default; apply requires `ALLOW_FACILITY_BACKFILL_APPLY=true` + `--apply`. |
 | OPS-002 | P2 | Smart Ops | SLA/aging heatmap | DONE | `/facilities/reports/aging`, aging API | facility-aging.spec.ts, web/full build | Real issue/WO aging buckets; overdue from `slaTargetAt`; no fake metrics. |
-| OPS-003 | P2 | Smart Ops | Duplicate issue detection | NOT_STARTED | facility issues service | API tests | Requires BUILD-005 room/category fields. |
+| OPS-003 | P2 | Smart Ops | Duplicate issue detection | DONE | duplicate-check API + issue/QR UI warnings | duplicate-facility-issues.spec.ts, facility-issue-duplicates.spec.ts | Advisory only; deterministic local matching; no auto-merge/block. |
 | NOTIFY-001 | P2 | Notifications | Email/SMS production setup foundation | DONE | notification readiness + templates | notification-readiness.spec.ts | Readiness only; no real send; docs/NOTIFICATION_PROVIDER_SETUP.md. |
 | ERP-001 | P3 | ERP | ERP inventory integration foundation | DONE | InventoryErpAdapter + readiness | erp-inventory-adapter.spec.ts | Disabled/no-op adapter; no live HTTP; docs/ERP_INVENTORY_INTEGRATION_PLAN.md. |
 | DEPLOY-001 | P1 | Platform | Production deployment readiness package | DONE | deployment readiness service + checklist | deployment-readiness.spec.ts | Honest checklist/helper only; no deploy automation. |

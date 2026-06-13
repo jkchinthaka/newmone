@@ -857,3 +857,17 @@
 - **Residual Risk:** Production env setup still manual; live credentials and UAT sends remain operator-owned.
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Before production go-live and when enabling live integration modes.
+
+### RISK-OPS-003-DUPLICATE-ISSUE-DETECTION-LIMITS
+- **Category:** Operations / Facility issues
+- **Description:** Duplicate issue detection is advisory and uses deterministic text overlap; false positives/negatives and ignored warnings can still produce duplicate work orders.
+- **Impact:** Repeated reports, duplicate corrective work, operator alert fatigue.
+- **Likelihood:** Medium for text-only near matches; Lower when room/category context is complete.
+- **Current Mitigation:**
+  - OPS-003 advisory duplicate check on create + QR report (`POST /cleaning/issues/duplicate-check`).
+  - Tenant-scoped candidate list only; RESOLVED/CLOSED and out-of-window issues excluded.
+  - Confidence labels (HIGH/MEDIUM/LOW) and explicit “Submit anyway” path; no auto-merge/auto-close.
+  - Configurable window via `DUPLICATE_ISSUE_WINDOW_DAYS` (default 7).
+- **Residual Risk:** Operators may bypass warnings; similar but non-overlapping text can be missed; location-only QR contexts without roomId return no candidates by design.
+- **Owner:** Facility Operations + Web
+- **Review Cadence:** After duplicate-report analytics review and before enabling any auto-merge feature.

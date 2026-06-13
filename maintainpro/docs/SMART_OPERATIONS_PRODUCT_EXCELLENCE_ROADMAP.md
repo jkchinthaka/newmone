@@ -44,7 +44,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 6. **BUILD-008** — Authenticated QR issue reporting — **DONE** (`/qr/report-issue`)
 7. **BUILD-009** — Facility dashboard + reporting — **DONE** (`/facilities/reports`)
 8. **OPS-002** — SLA/aging heatmap — **DONE** (`/facilities/reports/aging`)
-9. **OPS-003** — Duplicate issue detection (same room/asset within time window)
+9. **OPS-003** — Duplicate issue detection — **DONE** (`POST /cleaning/issues/duplicate-check`)
 
 ### Phase B — Operations excellence
 
@@ -112,9 +112,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **OPS-003** — Duplicate issue detection
-2. **WO-011** — Work order activity timeline + evidence integration
-3. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
+1. **WO-011** — Work order activity timeline + evidence integration
+2. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
 4. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
 5. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
 

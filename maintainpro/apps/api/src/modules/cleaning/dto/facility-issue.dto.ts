@@ -72,6 +72,41 @@ export class CreateFacilityIssueDto {
   slaHours?: number;
 }
 
+export class DuplicateCheckFacilityIssueDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(140)
+  title!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(2000)
+  description?: string;
+
+  @ApiPropertyOptional({ enum: IssueSeverity })
+  @IsOptional()
+  @IsEnum(IssueSeverity)
+  severity?: IssueSeverity;
+
+  @ApiPropertyOptional({ enum: FacilityIssueCategory })
+  @IsOptional()
+  @IsEnum(FacilityIssueCategory)
+  category?: FacilityIssueCategory;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationId?: string;
+
+  @ApiPropertyOptional({ description: "Optional Room hierarchy link (same tenant)" })
+  @IsOptional()
+  @IsString()
+  roomId?: string;
+}
+
 export class UpdateFacilityIssueDto {
   @ApiPropertyOptional({ enum: FacilityIssueStatus })
   @IsOptional()

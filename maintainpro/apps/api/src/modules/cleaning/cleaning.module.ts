@@ -5,11 +5,12 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { CleaningController } from "./cleaning.controller";
 import { CleaningService } from "./cleaning.service";
+import { DuplicateFacilityIssueService } from "./duplicate-facility-issue.service";
 
 @Module({
   imports: [NotificationsModule, forwardRef(() => WorkOrdersModule)],
   controllers: [CleaningController],
-  providers: [CleaningService, QrCodeService],
-  exports: [CleaningService]
+  providers: [CleaningService, DuplicateFacilityIssueService, QrCodeService],
+  exports: [CleaningService, DuplicateFacilityIssueService]
 })
 export class CleaningModule {}

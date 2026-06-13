@@ -1,11 +1,17 @@
 "use client";
 
-import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { FacilityIssueRoomSelector } from "@/components/cleaning/facility-issue-room-selector";
+import { FacilityIssueDuplicateWarning } from "@/components/cleaning/facility-issue-duplicate-warning";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import {
+  buildDuplicateFacilityIssueCheckPayload,
+  duplicateIssueCheckUnavailableMessage,
+  type DuplicateFacilityIssueCandidate
+} from "@/lib/facility-issue-duplicates";
 import {
   buildCreateFacilityIssuePayload,
   buildUpdateFacilityIssueRoomPayload,
@@ -63,6 +69,11 @@ export function FacilityIssuesPage() {
   const [savingEditId, setSavingEditId] = useState<string | null>(null);
   const [creatingWorkOrderId, setCreatingWorkOrderId] = useState<string | null>(null);
   const [workOrderSuccess, setWorkOrderSuccess] = useState<string | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateFacilityIssueCandidate[]>([]);
+  const [duplicateCheckUnavailable, setDuplicateCheckUnavailable] = useState<string | null>(null);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [pendingCreatePayload, setPendingCreatePayload] = useState<Record<string, unknown> | null>(null);
+  const createFormRef = useRef<HTMLFormElement>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -97,39 +108,124 @@ export function FacilityIssuesPage() {
     [categoryFilter, rows]
   );
 
+  const buildPayloadFromForm = (formData: FormData) =>
+    buildCreateFacilityIssuePayload({
+      title: String(formData.get("title") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      severity: String(formData.get("severity") ?? "MEDIUM"),
+      locationId: String(formData.get("locationId") ?? "") || undefined,
+      roomId: roomSelectionToRoomId(createRoomSelection),
+      category: String(formData.get("category") ?? ""),
+      assignedToId: String(formData.get("assignedToId") ?? "") || undefined,
+      slaHours: Number(formData.get("slaHours") ?? 24),
+      photos: String(formData.get("photos") ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    });
+
+  const createIssue = async (
+    payload: Record<string, unknown>,
+    form?: HTMLFormElement | null
+  ) => {
+    await apiClient.post("/cleaning/issues", payload);
+    setOpen(false);
+    setCreateRoomSelection({});
+    setDuplicateCandidates([]);
+    setDuplicateCheckUnavailable(null);
+    setPendingCreatePayload(null);
+    form?.reset();
+    load();
+  };
+
+  const runDuplicateCheck = async (payload: Record<string, unknown>) => {
+    const checkPayload = buildDuplicateFacilityIssueCheckPayload({
+      title: String(payload.title ?? ""),
+      description: String(payload.description ?? ""),
+      severity: String(payload.severity ?? "MEDIUM"),
+      locationId: typeof payload.locationId === "string" ? payload.locationId : undefined,
+      roomId: typeof payload.roomId === "string" ? payload.roomId : undefined,
+      category: typeof payload.category === "string" ? payload.category : undefined
+    });
+
+    const response = await apiClient.post("/cleaning/issues/duplicate-check", checkPayload);
+    return (response.data?.data?.candidates ?? []) as DuplicateFacilityIssueCandidate[];
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const payload = buildPayloadFromForm(formData);
+
+    setSubmitting(true);
+    setError(null);
+    setDuplicateCheckUnavailable(null);
+
+    try {
+      try {
+        const candidates = await runDuplicateCheck(payload);
+        if (candidates.length > 0) {
+          setDuplicateCandidates(candidates);
+          setPendingCreatePayload(payload);
+          return;
+        }
+
+        setDuplicateCandidates([]);
+        setPendingCreatePayload(null);
+      } catch {
+        setDuplicateCheckUnavailable(duplicateIssueCheckUnavailableMessage());
+        setDuplicateCandidates([]);
+        setPendingCreatePayload(null);
+      }
+
+      await createIssue(payload, form);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to submit issue"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const continueDespiteDuplicates = async () => {
+    if (!pendingCreatePayload) {
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const payload = buildCreateFacilityIssuePayload({
-        title: String(formData.get("title") ?? ""),
-        description: String(formData.get("description") ?? ""),
-        severity: String(formData.get("severity") ?? "MEDIUM"),
-        locationId: String(formData.get("locationId") ?? "") || undefined,
-        roomId: roomSelectionToRoomId(createRoomSelection),
-        category: String(formData.get("category") ?? ""),
-        assignedToId: String(formData.get("assignedToId") ?? "") || undefined,
-        slaHours: Number(formData.get("slaHours") ?? 24),
-        photos: String(formData.get("photos") ?? "")
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-      });
-
-      await apiClient.post("/cleaning/issues", payload);
-
-      setOpen(false);
-      setCreateRoomSelection({});
-      event.currentTarget.reset();
-      load();
+      await createIssue(pendingCreatePayload);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to submit issue"));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const checkDuplicatesOnly = async () => {
+    if (!createFormRef.current) {
+      return;
+    }
+
+    const formData = new FormData(createFormRef.current);
+    const payload = buildPayloadFromForm(formData);
+
+    setCheckingDuplicates(true);
+    setError(null);
+    setDuplicateCheckUnavailable(null);
+
+    try {
+      const candidates = await runDuplicateCheck(payload);
+      setDuplicateCandidates(candidates);
+      setPendingCreatePayload(candidates.length > 0 ? payload : null);
+    } catch {
+      setDuplicateCandidates([]);
+      setPendingCreatePayload(null);
+      setDuplicateCheckUnavailable(duplicateIssueCheckUnavailableMessage());
+    } finally {
+      setCheckingDuplicates(false);
     }
   };
 
@@ -244,7 +340,12 @@ export function FacilityIssuesPage() {
 
         <button
           type="button"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            setOpen((value) => !value);
+            setDuplicateCandidates([]);
+            setDuplicateCheckUnavailable(null);
+            setPendingCreatePayload(null);
+          }}
           className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
         >
           {open ? "Cancel" : "+ Report issue"}
@@ -287,7 +388,7 @@ export function FacilityIssuesPage() {
       </div>
 
       {open ? (
-        <form onSubmit={submit} className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <form ref={createFormRef} onSubmit={submit} className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block text-sm">
               <span className="font-medium text-slate-700">Title</span>
@@ -397,13 +498,42 @@ export function FacilityIssuesPage() {
             />
           </label>
 
-          <button
-            disabled={submitting}
-            type="submit"
-            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {submitting ? "Submitting..." : "Submit issue"}
-          </button>
+          {duplicateCandidates.length > 0 ? (
+            <FacilityIssueDuplicateWarning
+              candidates={duplicateCandidates}
+              unavailableMessage={duplicateCheckUnavailable}
+              checking={submitting}
+              onContinue={() => void continueDespiteDuplicates()}
+              onDismiss={() => {
+                setDuplicateCandidates([]);
+                setPendingCreatePayload(null);
+              }}
+            />
+          ) : null}
+
+          {duplicateCheckUnavailable && duplicateCandidates.length === 0 ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {duplicateCheckUnavailable}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={submitting || checkingDuplicates}
+              onClick={() => void checkDuplicatesOnly()}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {checkingDuplicates ? "Checking…" : "Check duplicates"}
+            </button>
+            <button
+              disabled={submitting || checkingDuplicates}
+              type="submit"
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {submitting ? "Submitting..." : "Submit issue"}
+            </button>
+          </div>
         </form>
       ) : null}
 

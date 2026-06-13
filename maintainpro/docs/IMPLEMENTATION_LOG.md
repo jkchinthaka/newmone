@@ -1896,6 +1896,18 @@ Record each completed task with:
 
 ---
 
+## 2026-06-13 | OPS-003 | Duplicate facility issue detection (advisory)
+
+- Audit findings:
+  - `FacilityIssue` supports `roomId`, `locationId`, `category`, `severity`, `title`, `description`, `status`, `createdAt`, and optional `workOrderId`.
+  - Create flows exist in `CleaningService.createIssue`, `/cleaning/issues`, and authenticated QR reporting.
+  - No prior duplicate issue helper (only unrelated cleaning visit scan dedupe).
+- Matching rules: tenant-scoped; `OPEN`/`IN_PROGRESS`; window from `DUPLICATE_ISSUE_WINDOW_DAYS` (default 7); match by `roomId` else `locationId`; category filter when provided; deterministic token overlap; confidence HIGH/MEDIUM/LOW; max 5 candidates.
+- Endpoint/UI: `POST /cleaning/issues/duplicate-check`; advisory warnings on `/cleaning/issues` and `/qr/report-issue` with continue-anyway path.
+- Tests run: `duplicate-facility-issues.spec.ts`, `facility-issue-duplicates.spec.ts`, typecheck, lint, prisma validate, api/web/full build, full API test suite.
+- Deferred: auto-merge, auto-close, auto-link, hard-block on duplicates.
+- Recommended next task: **WO-011** work order activity timeline + evidence integration.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

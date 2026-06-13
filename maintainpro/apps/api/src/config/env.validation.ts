@@ -107,7 +107,8 @@ export const envValidationSchema = Joi.object({
   SWAGGER_USER: Joi.string().allow(""),
   SWAGGER_PASSWORD: Joi.string().allow(""),
   READINESS_API_KEY: Joi.string().allow(""),
-  ALLOW_FACILITY_BACKFILL_APPLY: Joi.boolean().default(false)
+  ALLOW_FACILITY_BACKFILL_APPLY: Joi.boolean().default(false),
+  DUPLICATE_ISSUE_WINDOW_DAYS: Joi.number().integer().min(1).max(90).default(7)
 })
   .custom((value, helpers) => {
     const nodeEnv = String(value.NODE_ENV ?? "development");

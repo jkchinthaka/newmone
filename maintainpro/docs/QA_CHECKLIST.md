@@ -518,6 +518,16 @@
 - [ ] Missing required production config yields `blocked`/`warning`, not fake pass.
 - [ ] `docs/DEPLOYMENT_READINESS_CHECKLIST.md` reviewed before go-live.
 
+## 32) Duplicate Issue Detection (OPS-003)
+- [ ] Reporting similar issue for same room/category within 7 days shows advisory warning on `/cleaning/issues`.
+- [ ] Different room/location does not warn for unrelated open issues.
+- [ ] Cross-tenant duplicate candidates are never returned.
+- [ ] RESOLVED/CLOSED and issues older than configured window are excluded.
+- [ ] User can continue and submit anyway; no auto-merge/auto-close occurs.
+- [ ] QR authenticated report flow shows same duplicate warning when room context matches.
+- [ ] Duplicate check failure shows “Duplicate check unavailable. You can still submit.” and create still works.
+- [ ] Duplicate-check payload from web client does not include `tenantId`.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

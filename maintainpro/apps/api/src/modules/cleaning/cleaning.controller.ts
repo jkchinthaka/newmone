@@ -34,8 +34,10 @@ import {
 } from "./dto/cleaning-visit.dto";
 import {
   CreateFacilityIssueDto,
+  DuplicateCheckFacilityIssueDto,
   UpdateFacilityIssueDto
 } from "./dto/facility-issue.dto";
+import { DuplicateFacilityIssueService } from "./duplicate-facility-issue.service";
 
 interface AuthedRequest extends Request {
   user?: JwtPayload;
@@ -46,7 +48,11 @@ interface AuthedRequest extends Request {
 @UseGuards(JwtAuthGuard)
 @Controller("cleaning")
 export class CleaningController {
-  constructor(@Inject(CleaningService) private readonly cleaning: CleaningService) {}
+  constructor(
+    @Inject(CleaningService) private readonly cleaning: CleaningService,
+    @Inject(DuplicateFacilityIssueService)
+    private readonly duplicateFacilityIssueService: DuplicateFacilityIssueService
+  ) {}
 
   @Get("locations")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
@@ -221,6 +227,13 @@ export class CleaningController {
   async createIssue(@Req() req: AuthedRequest, @Body() dto: CreateFacilityIssueDto) {
     const data = await this.cleaning.createIssue(req.user!.sub, req.user?.tenantId ?? null, dto);
     return { data, message: "Issue reported" };
+  }
+
+  @Post("issues/duplicate-check")
+  @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN", "ASSET_MANAGER")
+  async checkDuplicateIssues(@Req() req: AuthedRequest, @Body() dto: DuplicateCheckFacilityIssueDto) {
+    const data = await this.duplicateFacilityIssueService.checkDuplicates(req.user?.tenantId ?? null, dto);
+    return { data, message: "Duplicate issue check completed" };
   }
 
   @Get("issues")

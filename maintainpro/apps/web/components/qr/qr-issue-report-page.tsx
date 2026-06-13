@@ -6,9 +6,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { FacilityIssueRoomSelector } from "@/components/cleaning/facility-issue-room-selector";
+import { FacilityIssueDuplicateWarning } from "@/components/cleaning/facility-issue-duplicate-warning";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import {
+  buildDuplicateFacilityIssueCheckPayload,
+  duplicateIssueCheckUnavailableMessage,
+  type DuplicateFacilityIssueCandidate
+} from "@/lib/facility-issue-duplicates";
 import {
   buildCreateFacilityIssuePayload,
   canReportFacilityIssue,
@@ -34,6 +40,9 @@ export function QrIssueReportPage() {
   const [requiresRoomSelection, setRequiresRoomSelection] = useState(false);
   const [contextSummary, setContextSummary] = useState<string | null>(null);
   const [hierarchyLabel, setHierarchyLabel] = useState<string | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateFacilityIssueCandidate[]>([]);
+  const [duplicateCheckUnavailable, setDuplicateCheckUnavailable] = useState<string | null>(null);
+  const [pendingCreatePayload, setPendingCreatePayload] = useState<Record<string, unknown> | null>(null);
 
   const canReport = canReportFacilityIssue({
     role: user.role,
@@ -99,20 +108,65 @@ export function QrIssueReportPage() {
       return;
     }
 
+    const payload = buildCreateFacilityIssuePayload({
+      title: String(formData.get("title") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      severity: String(formData.get("severity") ?? "MEDIUM"),
+      roomId,
+      category: String(formData.get("category") ?? ""),
+      locationId: String(formData.get("locationId") ?? "") || undefined,
+      slaHours: Number(formData.get("slaHours") ?? 24)
+    });
+
     setSubmitting(true);
 
     try {
-      const payload = buildCreateFacilityIssuePayload({
-        title: String(formData.get("title") ?? ""),
-        description: String(formData.get("description") ?? ""),
-        severity: String(formData.get("severity") ?? "MEDIUM"),
-        roomId,
-        category: String(formData.get("category") ?? ""),
-        locationId: String(formData.get("locationId") ?? "") || undefined,
-        slaHours: Number(formData.get("slaHours") ?? 24)
-      });
+      try {
+        const checkPayload = buildDuplicateFacilityIssueCheckPayload({
+          title: String(payload.title ?? ""),
+          description: String(payload.description ?? ""),
+          severity: String(payload.severity ?? "MEDIUM"),
+          roomId: typeof payload.roomId === "string" ? payload.roomId : undefined,
+          locationId: typeof payload.locationId === "string" ? payload.locationId : undefined,
+          category: typeof payload.category === "string" ? payload.category : undefined
+        });
+        const response = await apiClient.post("/cleaning/issues/duplicate-check", checkPayload);
+        const candidates = (response.data?.data?.candidates ?? []) as DuplicateFacilityIssueCandidate[];
+
+        if (candidates.length > 0) {
+          setDuplicateCandidates(candidates);
+          setPendingCreatePayload(payload);
+          setDuplicateCheckUnavailable(null);
+          return;
+        }
+
+        setDuplicateCandidates([]);
+        setPendingCreatePayload(null);
+      } catch {
+        setDuplicateCheckUnavailable(duplicateIssueCheckUnavailableMessage());
+        setDuplicateCandidates([]);
+        setPendingCreatePayload(null);
+      }
 
       await apiClient.post("/cleaning/issues", payload);
+      toast.success("Issue reported");
+      router.push("/cleaning/issues");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to submit issue"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const continueDespiteDuplicates = async () => {
+    if (!pendingCreatePayload) {
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await apiClient.post("/cleaning/issues", pendingCreatePayload);
       toast.success("Issue reported");
       router.push("/cleaning/issues");
     } catch (error) {
@@ -257,6 +311,26 @@ export function QrIssueReportPage() {
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:max-w-xs"
           />
         </label>
+
+        {duplicateCandidates.length > 0 ? (
+          <FacilityIssueDuplicateWarning
+            candidates={duplicateCandidates}
+            unavailableMessage={duplicateCheckUnavailable}
+            checking={submitting}
+            onContinue={() => void continueDespiteDuplicates()}
+            onDismiss={() => {
+              setDuplicateCandidates([]);
+              setPendingCreatePayload(null);
+            }}
+            continueLabel="Submit anyway"
+          />
+        ) : null}
+
+        {duplicateCheckUnavailable && duplicateCandidates.length === 0 ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {duplicateCheckUnavailable}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <button
