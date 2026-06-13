@@ -572,6 +572,18 @@
 - [ ] Activity timeline still loads when evidence fetch fails.
 - [ ] No public/anonymous upload route exists.
 
+## 37) Staging Database Smoke (DEPLOY-002)
+- [ ] `DATABASE_URL` set only in secret manager / local `.env` (never committed).
+- [ ] Atlas URI includes explicit database name (`maintainpro_staging` recommended for UAT).
+- [ ] `npm run db:smoke` returns `connected: true` with tenant/user counts (no connection string in output).
+- [ ] API starts without Prisma boot errors.
+- [ ] `/health` reports `database.status=operational`.
+- [ ] `/health/readiness` loads without crash (auth as required in production).
+- [ ] Evidence/ERP/notification readiness endpoints still respond when DB is healthy.
+- [ ] `npm run db:seed` not run unless explicitly approved (requires `MAINTAINPRO_SEED_PASSWORD`).
+- [ ] No destructive reset/drop performed.
+- [ ] Temporary Atlas credential rotated after sign-off.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

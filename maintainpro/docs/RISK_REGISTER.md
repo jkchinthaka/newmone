@@ -1024,3 +1024,15 @@
 - **Residual Risk:** No automated retention purge in WO-012.
 - **Owner:** Operations + Compliance
 - **Review Cadence:** Before production evidence upload enablement.
+
+### RISK-DEPLOY-002-TEMP-ATLAS-CREDENTIAL
+- **Category:** Deployment / Secrets
+- **Description:** Temporary MongoDB Atlas credentials used for staging UAT may remain active longer than intended or be stored outside secret manager.
+- **Impact:** Unauthorized database access, data exposure, compliance breach.
+- **Likelihood:** Medium while temp credential is active; Lower after rotation and IP allowlist hardening.
+- **Current Mitigation:**
+  - DEPLOY-002 documents env-only wiring (`DATABASE_URL`); `.env` gitignored; smoke script redacts URIs from errors.
+  - No credentials in repo/docs; destructive reset explicitly excluded from smoke workflow.
+- **Residual Risk:** Operator must rotate password and restrict Atlas network access after UAT.
+- **Owner:** DevOps + Platform
+- **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.

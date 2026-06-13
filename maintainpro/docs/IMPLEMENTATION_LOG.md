@@ -1995,7 +1995,31 @@ Record each completed task with:
 - Live storage upload attempt: not performed (provider credentials/UAT not available).
 - Still needed for live upload UAT: set `STORAGE_MODE=minio|cloudinary|s3|azure_blob`, provider credentials in secret manager, `STORAGE_UPLOADS_ENABLED=true`, presigned upload implementation sign-off.
 - Deferred: public QR photo upload, downloadable signed URLs, image preview/editing, evidence retention automation, facility-issue direct upload UI.
-- Recommended next task: **WO-013** live storage provider presigned upload UAT or **DEPLOY-002** production cutover checklist execution.
+- Recommended next task: **WO-013** live storage provider presigned upload UAT or re-run Atlas smoke after env wiring.
+
+## 2026-06-13 | DEPLOY-002 | Staging MongoDB Atlas connection smoke test
+
+- Audit findings:
+  - Prisma datasource uses `env("DATABASE_URL")`; Joi requires `DATABASE_URL`; `normalizeDatabaseEnvironment()` mirrors `PRIMARY_DATABASE_URL` / `MONGODB_URI`.
+  - `.env` is gitignored and not tracked; no credentials committed in repo/docs.
+  - Local/host env during this run still referenced `localhost:27017` with database segment `bileeta_db` (not Atlas, not `maintainpro_staging`).
+- Smoke tooling:
+  - Added `npm run db:smoke` (`scripts/staging-db-smoke.mjs`) — connects via Prisma, prints counts only, redacts connection strings from errors.
+  - Existing `node scripts/healthcheck.mjs` and `/health` used for runtime DB status when API is running.
+- Connection result (this session):
+  - `npm run db:smoke`: failed with server selection timeout (no reachable MongoDB at configured host).
+  - API boot: succeeded; `/health` returned `database.status=degraded` with timeout message.
+  - Atlas URI was **not** applied in the committed repo; operator must set `DATABASE_URL` in local/hosting secret manager only.
+- Seed status:
+  - `npm run db:seed` **not run** (requires `MAINTAINPRO_SEED_PASSWORD`; upsert-based but skipped to avoid altering staging data without approval).
+- Safety:
+  - No `db:reset`, drop, or destructive push executed against any database.
+- Verification run: prisma validate, api/web/full build, 93 API test suites / 508 tests — all pass.
+- Atlas follow-up (operator):
+  - Set `DATABASE_URL` to MongoDB Atlas URI with explicit DB name (`maintainpro_staging` recommended).
+  - Confirm Atlas IP allowlist / VPC access, least-privilege DB user, backups policy before production.
+  - **Rotate temporary Atlas password after UAT** and revoke old credential.
+- Recommended next task: re-run `npm run db:smoke` + `/health` after Atlas env is wired, then **DEPLOY-003** hosted staging deploy smoke (`smoke:deploy`).
 
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 

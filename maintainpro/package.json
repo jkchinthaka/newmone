@@ -36,6 +36,7 @@
     "db:seed": "npm run seed --workspace @maintainpro/api",
     "db:backup:resync": "npm run backup:resync --workspace @maintainpro/api --",
     "db:backup:verify": "npm run backup:verify --workspace @maintainpro/api --",
+    "db:smoke": "node scripts/staging-db-smoke.mjs",
     "departments:migrate": "npm run departments:migrate --workspace @maintainpro/api",
     "phase3:migrate": "npm run phase3:migrate --workspace @maintainpro/api",
     "smoke:local": "node scripts/smoke-local.mjs",

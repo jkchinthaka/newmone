@@ -13,6 +13,7 @@ npm run test
 npm run build
 npm run deployment:readiness
 node scripts/healthcheck.mjs
+npm run db:smoke
 ```
 
 API admin endpoints (authenticated):
@@ -23,8 +24,11 @@ API admin endpoints (authenticated):
 ## 1. Database readiness
 
 - [ ] `PRIMARY_DATABASE_URL` / `DATABASE_URL` points to production MongoDB
+- [ ] Staging Atlas URI uses an explicit database name (recommended: `maintainpro_staging`)
+- [ ] Atlas network access / IP allowlist includes deployment runner and hosting egress
+- [ ] Temporary Atlas credentials rotated after UAT (`npm run db:smoke` + `/health` sign-off)
 - [ ] `npm run db:generate` succeeds in CI/build
-- [ ] `npm run db:push` / seed plan documented (seed only where approved)
+- [ ] `npm run db:push` / seed plan documented (seed only where approved; no destructive reset)
 - [ ] Backup replication policy reviewed (`BACKUP_DATABASE_URL`, `DATABASE_REPLICATION_MODE`)
 - [ ] Backup verify script run in staging (`npm run db:backup:verify`)
 
