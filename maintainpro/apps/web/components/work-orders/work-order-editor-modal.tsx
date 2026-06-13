@@ -6,11 +6,15 @@ import { History, Loader2, X } from "lucide-react";
 
 import { HistoryDrawer } from "@/components/audit/history-drawer";
 import { EntityPicker } from "@/components/ui/entity-picker";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
+import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
+import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
 
 import { asDateInputValue, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
 import { PartRequestsPanel } from "./part-requests-panel";
+import { WorkOrderActivityPanel } from "./work-order-activity-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -66,6 +70,9 @@ export function WorkOrderEditorModal({
 
   const [formState, setFormState] = useState(initialState);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
   const currentUser = useCurrentUser();
   const showHistory = !isCreateMode && canViewAuditHistoryForUser(currentUser) && Boolean(workOrder?.id);
 
@@ -76,6 +83,46 @@ export function WorkOrderEditorModal({
 
     setFormState(initialState);
   }, [initialState, open]);
+
+  useEffect(() => {
+    if (!open || isCreateMode || !workOrder?.id) {
+      setActivityTimeline(null);
+      setActivityError(null);
+      setActivityLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadActivity = async () => {
+      setActivityLoading(true);
+      setActivityError(null);
+
+      try {
+        const response = await apiClient.get(`/work-orders/${workOrder.id}/activity`);
+        const payload = response.data?.data as WorkOrderActivityTimelineResponse | undefined;
+
+        if (!cancelled) {
+          setActivityTimeline(payload ?? null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActivityTimeline(null);
+          setActivityError(getApiErrorMessage(error, workOrderActivityUnavailableMessage()));
+        }
+      } finally {
+        if (!cancelled) {
+          setActivityLoading(false);
+        }
+      }
+    };
+
+    void loadActivity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCreateMode, workOrder?.id]);
 
   return (
     <AnimatePresence>
@@ -91,7 +138,7 @@ export function WorkOrderEditorModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl"
+            className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
@@ -295,8 +342,13 @@ export function WorkOrderEditorModal({
               </div>
 
               {!isCreateMode && workOrder?.id ? (
-                <div className="border-t border-slate-200 pt-3">
+                <div className="space-y-4 border-t border-slate-200 pt-3">
                   <PartRequestsPanel workOrderId={workOrder.id} />
+                  <WorkOrderActivityPanel
+                    loading={activityLoading}
+                    error={activityError}
+                    timeline={activityTimeline}
+                  />
                 </div>
               ) : null}
 

@@ -14,6 +14,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 | Manager Morning Briefing | DONE | `components/dashboard/morning-briefing.tsx` | Compact dashboard card for admin/management/inventory; links to Action Center |
 | QR readiness foundation | DONE | `lib/qr-readiness.ts`, `test/qr-readiness.spec.ts` | Safe internal payload encode/parse; no public routes yet |
 | Evidence timeline foundation | DONE | `components/ui/evidence-timeline.tsx` | Read-only reusable timeline; no upload/storage |
+| Work order activity timeline (WO-011) | DONE | `GET /work-orders/:id/activity`, edit modal panel | Derived from existing WO/issue/part-request dates; no new DB model |
 | Facility post-login route fix | DONE | `lib/role-redirect.ts` | FACILITY_MANAGER / BUILDING_SUPERVISOR → `/facilities` |
 | Facility hierarchy API (BUILD-003) | DONE | `modules/facilities/*`, `/api/facilities/*` | Tenant-scoped CRUD; enables Action Center/QR follow-ups without fake data |
 | Facility hierarchy web UI (BUILD-004) | DONE | `/facilities`, `components/facilities/*`, `lib/facilities*.ts` | Drill-down browser; Action Center links live; issue migration deferred |
@@ -51,7 +52,7 @@ This document tracks strategic “smart operations” capabilities that make Mai
 7. **Manager morning briefing v2** — Scheduled digest (email/in-app) once NOTIFY-001 is production-ready
 8. **Technician mobile quick actions** — Assign/start/complete from mobile offline queue
 9. **Inventory low-stock → WO spare parts link** — Auto-suggest parts on WO creation from stock signals
-10. **Evidence timeline v2** — Photo/part events when Cloudinary/MinIO storage is approved (WO-011)
+10. **Evidence timeline v2** — Photo events when Cloudinary/MinIO storage is approved (WO-011 derived timeline done)
 
 ### Phase C — External intake & integrations
 
@@ -70,7 +71,8 @@ This document tracks strategic “smart operations” capabilities that make Mai
 ## Photo evidence timeline plan
 
 - **Foundation (done):** `EvidenceTimeline` component + `mapWorkOrderDatesToEvidenceTimeline()` helper
-- **Next:** WO-011 activity model (reported → assigned → started → photo → part requested → completed → approved)
+- **WO-011 (done):** Derived work order activity endpoint + edit-modal Activity & evidence panel with linked facility issue context
+- **Next:** Photo evidence events when approved Cloudinary/MinIO production configuration is available
 - **Storage:** Deferred until approved Cloudinary/MinIO production configuration
 - **No fake data:** Timeline renders only when underlying records include dated fields
 
@@ -112,10 +114,9 @@ This document tracks strategic “smart operations” capabilities that make Mai
 
 ## Exact next implementation order
 
-1. **WO-011** — Work order activity timeline + evidence integration
-2. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
-4. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
-5. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
+1. **NOTIFY-002** — Staged production email/SMS UAT sends (after credentials approved)
+2. **ERP-002** — Live Bileeta read-only stock sync (after API contract approved)
+3. **DEPLOY-002** — Production cutover execution (manual, checklist-driven)
 
 ## Verification notes (SMART-OPS-001)
 

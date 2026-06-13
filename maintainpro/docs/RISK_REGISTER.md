@@ -871,3 +871,16 @@
 - **Residual Risk:** Operators may bypass warnings; similar but non-overlapping text can be missed; location-only QR contexts without roomId return no candidates by design.
 - **Owner:** Facility Operations + Web
 - **Review Cadence:** After duplicate-report analytics review and before enabling any auto-merge feature.
+
+### RISK-WO-011-ACTIVITY-TIMELINE-LIMITS
+- **Category:** Work orders / Operations visibility
+- **Description:** Work order activity timeline is derived from existing date fields and limited part-request history; assignment timestamps, status transitions, and older audit events may be missing.
+- **Impact:** Incomplete operational history, status drift between linked facility issues and work orders, delayed root-cause analysis.
+- **Likelihood:** Medium for long-lived work orders with multiple reassignments; Lower for issue-bridged corrective work with clear timestamps.
+- **Current Mitigation:**
+  - WO-011 read-only `GET /work-orders/:id/activity` with allowlisted DTOs and tenant-scoped linked issue context.
+  - No fake timeline rows when timestamps are absent; separate audit History drawer remains for authorized roles.
+  - Linked facility issue summary shown when same-tenant bridge exists; photo upload explicitly deferred.
+- **Residual Risk:** Photo/evidence capture still unavailable; operators may see divergent issue vs work order status until lifecycle sync work lands.
+- **Owner:** Maintenance Operations + Web
+- **Review Cadence:** Before enabling photo storage integration or dedicated WO activity event model.

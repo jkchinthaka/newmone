@@ -12,6 +12,7 @@ import { PrismaService } from "../src/database/prisma.service";
 import { InventoryController } from "../src/modules/inventory/inventory.controller";
 import { InventoryService } from "../src/modules/inventory/inventory.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
+import { WorkOrderActivityService } from "../src/modules/work-orders/work-order-activity.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 
 const inventoryService = {
@@ -66,6 +67,10 @@ const workOrdersService = {
   issuePartRequest: jest.fn()
 };
 
+const workOrderActivityService = {
+  getActivityTimeline: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -76,6 +81,7 @@ const prisma = {
     Reflector,
     { provide: InventoryService, useValue: inventoryService },
     { provide: WorkOrdersService, useValue: workOrdersService },
+    { provide: WorkOrderActivityService, useValue: workOrderActivityService },
     { provide: PrismaService, useValue: prisma },
     { provide: APP_GUARD, useClass: PermissionsGuard }
   ]

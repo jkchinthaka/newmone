@@ -528,6 +528,16 @@
 - [ ] Duplicate check failure shows “Duplicate check unavailable. You can still submit.” and create still works.
 - [ ] Duplicate-check payload from web client does not include `tenantId`.
 
+## 33) Work Order Activity Timeline (WO-011)
+- [ ] Edit work order modal loads activity timeline from `GET /work-orders/:id/activity`.
+- [ ] Timeline shows created/started/completed/due/SLA events only when underlying date fields exist (no fake rows).
+- [ ] Linked facility issue summary appears when work order was created from an issue bridge.
+- [ ] Cross-tenant work order activity returns 404; cross-tenant linked issue never appears in timeline.
+- [ ] Activity response does not expose raw Prisma relation payloads or secrets.
+- [ ] Mobile: activity panel scrolls within edit modal; timeline remains readable.
+- [ ] No photo upload or public file upload controls in activity panel.
+- [ ] Activity fetch failure shows unavailable message; edit/save actions still work.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.

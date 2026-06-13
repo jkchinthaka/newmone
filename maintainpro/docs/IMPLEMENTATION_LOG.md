@@ -1908,6 +1908,26 @@ Record each completed task with:
 - Deferred: auto-merge, auto-close, auto-link, hard-block on duplicates.
 - Recommended next task: **WO-011** work order activity timeline + evidence integration.
 
+## 2026-06-13 | WO-011 | Work order activity timeline + evidence integration
+
+- Audit findings:
+  - `WorkOrder` has `createdAt`, `dueDate`, `startDate`, `completedDate`, `slaDeadline`, `technicianId`, `createdById`; no dedicated assignment timestamp or activity table.
+  - `FacilityIssue.workOrderId` one-to-one link exists from BUILD-007 bridge; reverse relation `WorkOrder.facilityIssue` available.
+  - Audit logs exist for part-request workflows but not for all WO lifecycle transitions; derived timeline chosen (Option A).
+  - Work order detail UI is the edit modal (`work-order-editor-modal.tsx`); no separate detail page.
+  - `EvidenceTimeline` component + `mapWorkOrderDatesToEvidenceTimeline()` foundation already present from SMART-OPS-001.
+- Timeline data source:
+  - Derived from work order date fields, linked same-tenant facility issue timestamps, and part request `createdAt` (max 10).
+  - No new DB model; no fake events when timestamps missing; cross-tenant linked issue excluded in mapper.
+- Endpoint/UI:
+  - `GET /work-orders/:id/activity` → allowlisted `entries[]`, `linkedFacilityIssue`, `checkedAt`.
+  - Work order edit modal adds **Activity & evidence** panel using `EvidenceTimeline` + linked issue summary card with link to `/cleaning/issues?issueId=…`.
+- Tenant isolation:
+  - Work order lookup scoped by JWT tenant; linked facility issue included only when `workOrderId` matches and tenant matches.
+- Tests run: `work-order-activity-timeline.spec.ts`, `work-order-activity.spec.ts`, typecheck, lint, prisma validate, api/web/full build, full API test suite.
+- Deferred: photo upload/storage, public uploads, external storage, assignment timestamp without dedicated field, full audit-log ingestion.
+- Recommended next task: **NOTIFY-002** staged production email/SMS UAT sends.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

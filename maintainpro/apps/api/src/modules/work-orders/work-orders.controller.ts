@@ -6,6 +6,7 @@ import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrdersService } from "./work-orders.service";
 
 type AuthedRequest = {
@@ -17,7 +18,10 @@ type AuthedRequest = {
 @UseGuards(JwtAuthGuard)
 @Controller("work-orders")
 export class WorkOrdersController {
-  constructor(private readonly workOrdersService: WorkOrdersService) {}
+  constructor(
+    private readonly workOrdersService: WorkOrdersService,
+    private readonly workOrderActivityService: WorkOrderActivityService
+  ) {}
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
@@ -53,6 +57,13 @@ export class WorkOrdersController {
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.findOne(id, req.user);
     return { data, message: "Work order fetched" };
+  }
+
+  @Get(":id/activity")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  async activityTimeline(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderActivityService.getActivityTimeline(id, req.user);
+    return { data, message: "Work order activity timeline fetched" };
   }
 
   @Patch(":id")
