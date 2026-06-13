@@ -79,6 +79,7 @@
 | DEPLOY-001 | P1 | Platform | Production deployment readiness package | DONE | deployment readiness service + checklist | deployment-readiness.spec.ts | Honest checklist/helper only; no deploy automation. |
 | DEPLOY-002 | P1 | Platform | Staging MongoDB Atlas connection smoke test | DONE | `npm run db:smoke` + health/readiness docs | staging-db-smoke.mjs, deployment checklist | Env-only secrets; no destructive reset; Atlas wiring is operator-owned. |
 | DEPLOY-002C | P1 | Platform | Safe staging seed + login smoke | DONE | `npm run db:seed` + post-seed smoke + API login | seed.ts (upsert-only), healthcheck.mjs | Shell-only seed password; no drop/reset; browser dashboard smoke operator-owned. |
+| DEPLOY-003 | P1 | Platform | Hosted staging deploy smoke | PARTIAL | `npm run smoke:deploy` + hosted health/readiness | smoke-deployment.mjs | Frontend/CORS/health OK; login blocked by hosted DB name (`nelna`) vs `maintainpro_staging` seed + credential alignment. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

@@ -2041,6 +2041,24 @@ Record each completed task with:
 - Operator follow-up: rotate temporary Atlas password after UAT; store `MAINTAINPRO_SEED_PASSWORD` in secret manager (not repo); re-run seed password is session-only unless operator records it securely.
 - Recommended next task: **DEPLOY-003** hosted staging deploy smoke (`npm run smoke:deploy`).
 
+## 2026-06-14 | DEPLOY-003 | Hosted staging deploy smoke
+
+- Audit: branch `main`, clean working tree, `.env` gitignored; smoke script `scripts/smoke-deployment.mjs` (`npm run smoke:deploy`) uses `MAINTAINPRO_API_URL`, `MAINTAINPRO_WEB_URL`, `MAINTAINPRO_SMOKE_EMAIL`, `MAINTAINPRO_SMOKE_PASSWORD` (aliases `STAGING_*` / `SMOKE_LOGIN_*` mapped in shell).
+- Hosted targets exercised (public staging URLs from repo deploy config):
+  - API: `https://newmone.onrender.com`
+  - Web: `https://newmone.chinthakajayaweera1.workers.dev`
+- Results (**PARTIAL**):
+  - `GET /health`: HTTP 200, `database.status=operational` (after Render cold-start warm-up; first attempt timed out at 25s).
+  - `GET /health/readiness`: HTTP 200, overall `operational`, primary MongoDB `operational`; readiness reported primary DB name **`nelna`** (hosted env not aligned with Atlas `maintainpro_staging` used in DEPLOY-002C local seed).
+  - `npm run smoke:deploy`: frontend load **OK**; backend health **OK** (warm); CORS preflight **OK** (`access-control-allow-credentials=true`); login **FAIL** (`Invalid email or password` — likely hosted DB/password mismatch vs local seed credentials).
+  - Web `/login` page loads over HTTPS (manual dashboard/navigation smoke still pending).
+- No destructive DB operations; no re-seed; no secrets logged or committed.
+- Operator follow-up before sign-off:
+  1. Point Render/hosting `DATABASE_URL` to Atlas `maintainpro_staging` (or seed the hosted DB with approved `MAINTAINPRO_SEED_PASSWORD` matching `MAINTAINPRO_SMOKE_PASSWORD`).
+  2. Re-run `npm run smoke:deploy` after warm-up; complete manual browser checklist on staging web.
+  3. Rotate temporary Atlas password after UAT.
+- Recommended next task: **DEPLOY-003B** align hosted DB env + re-run hosted smoke/login, or **DEPLOY-004** production cutover checklist after staging sign-off.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

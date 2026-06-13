@@ -1034,6 +1034,7 @@
   - DEPLOY-002/002B/002C document env-only wiring (`DATABASE_URL`, `MAINTAINPRO_SEED_PASSWORD`); `.env` gitignored; smoke script redacts URIs from errors.
   - Staging seed uses upsert-only flow; no destructive reset in smoke/seed workflow; no credentials in repo/docs.
   - DEPLOY-002C verified Atlas `maintainpro_staging` seed + API login smoke without committing secrets.
-- **Residual Risk:** Operator must rotate Atlas password and store seed password in secret manager after UAT; browser/dashboard login still needs hosted or local web smoke.
+  - DEPLOY-003 recorded hosted smoke **PARTIAL**: hosted API healthy but reports DB name `nelna`; hosted login failed until hosting DB env and smoke credentials align.
+- **Residual Risk:** Operator must rotate Atlas password and store seed/smoke passwords in secret manager after UAT; align Render `DATABASE_URL` with `maintainpro_staging` before hosted login sign-off; browser/dashboard smoke still pending.
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.

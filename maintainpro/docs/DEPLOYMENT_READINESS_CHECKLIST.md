@@ -14,7 +14,15 @@ npm run build
 npm run deployment:readiness
 node scripts/healthcheck.mjs
 npm run db:smoke
+npm run smoke:deploy
 ```
+
+Hosted smoke env (set in shell/CI only; map to script vars as needed):
+
+- `MAINTAINPRO_API_URL` or `STAGING_API_URL` — hosted API base (include `/api` suffix or origin per script)
+- `MAINTAINPRO_WEB_URL` or `STAGING_WEB_URL` — hosted web origin
+- `MAINTAINPRO_SMOKE_EMAIL` / `SMOKE_LOGIN_EMAIL` — seeded admin email
+- `MAINTAINPRO_SMOKE_PASSWORD` / `SMOKE_LOGIN_PASSWORD` — smoke login password from secret manager
 
 API admin endpoints (authenticated):
 
@@ -115,6 +123,16 @@ API admin endpoints (authenticated):
 - [ ] CSRF/cookie auth flows regression tested
 - [ ] Tenant isolation spot checks on new endpoints
 - [ ] No secrets committed; `.env` not in repo
+
+## 13. Hosted staging smoke (DEPLOY-003)
+
+- [ ] Hosted API/web URLs confirmed as staging (not production cutover targets)
+- [ ] Render/hosting `DATABASE_URL` URI path matches `maintainpro_staging` (not legacy `nelna` unless explicitly approved)
+- [ ] Hosting `CORS_ORIGIN` / `FRONTEND_URL` match the staging web origin
+- [ ] Smoke login password in secret manager matches the password used for the hosted DB seed (`MAINTAINPRO_SMOKE_*` / `SMOKE_LOGIN_*`)
+- [ ] Warm hosted API before smoke on cold-start plans (retry if first `/health` times out)
+- [ ] `npm run smoke:deploy` passes: frontend load, backend health (`database.status=operational`), CORS preflight, login
+- [ ] Manual browser login/dashboard/navigation verified on staging web (`/login`, dashboard, Work Orders, Facility Issues, System Health)
 
 ## Production blockers (fail closed)
 

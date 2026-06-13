@@ -594,6 +594,16 @@
 - [ ] Dashboard browser login manually verified in staging when web is deployed (or run `smoke:local` with web dev server).
 - [ ] Seed password stored in operator secret manager; temporary Atlas credential rotation scheduled after UAT.
 
+## 39) Hosted Staging Deploy Smoke (DEPLOY-003)
+- [ ] `STAGING_API_URL` / `MAINTAINPRO_API_URL` and `STAGING_WEB_URL` / `MAINTAINPRO_WEB_URL` set in shell/CI only (staging hosts, not production).
+- [ ] `SMOKE_LOGIN_EMAIL` / `MAINTAINPRO_SMOKE_EMAIL` and password env vars set from secret manager (never committed).
+- [ ] Hosting `DATABASE_URL` path matches `maintainpro_staging` when validating DEPLOY-002C seed on hosted API.
+- [ ] Hosted `GET /health` returns `database.status=operational` (retry after cold start if needed).
+- [ ] Hosted `GET /health/readiness` primary MongoDB operational.
+- [ ] `npm run smoke:deploy` passes frontend, health, CORS, and login checks.
+- [ ] Manual browser: staging `/login` → dashboard → Work Orders / Facility Issues / System Health without CORS/auth console errors.
+- [ ] No access tokens or passwords printed in CI logs.
+
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).
 - [ ] API accepts optional same-tenant `roomId` on POST `/cleaning/issues`.
