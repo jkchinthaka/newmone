@@ -67,6 +67,8 @@ services:
         value: https://newmone.chinthakajayaweera1.workers.dev
       - key: REDIS_URL
         sync: false
+      - key: REDIS_REQUIRED_IN_PRODUCTION
+        value: "false"
       - key: REDIS_REQUIRED_FOR_READINESS
         value: "false"
       - key: OBJECT_STORAGE_REQUIRED_FOR_READINESS
