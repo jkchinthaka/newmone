@@ -6,7 +6,14 @@
       "Bash(npx jest *)",
       "Bash(npx tsc *)",
       "Bash(cat ../../common/guards/jwt-auth.guard.ts)",
-      "Read(//mnt/c/Users/chint/OneDrive/Desktop/newmone/**)"
+      "Read(//mnt/c/Users/chint/OneDrive/Desktop/newmone/**)",
+      "Bash(npm run *)",
+      "Bash(npx prisma *)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(node --check scripts/smoke-deployment.mjs)",
+      "Bash(MAINTAINPRO_API_URL=https://newmone.onrender.com/api MAINTAINPRO_WEB_URL=https://newmone.chinthakajayaweera1.workers.dev MAINTAINPRO_SMOKE_EMAIL=superadmin@maintainpro.local MAINTAINPRO_SMOKE_PASSWORD=placeholder-not-real node scripts/smoke-deployment.mjs)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)"
     ]
   }
 }
