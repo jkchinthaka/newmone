@@ -315,4 +315,59 @@ test.describe("authentication", () => {
     await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
     await expect(page.getByRole("dialog", { name: "Mobile navigation" })).toHaveCount(0);
   });
+
+  test("admin console loads without crashing for admin role", async ({ page }) => {
+    await mockAuthenticatedShell(page);
+    await page.route("**/api/health/readiness", async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: false,
+          error: {
+            code: "HTTP_ERROR",
+            message: "Forbidden"
+          }
+        })
+      });
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("maintainpro_user", JSON.stringify(user));
+      localStorage.setItem("maintainpro_access_token", "e2e-access-token");
+    }, adminUser);
+
+    await page.goto("/admin");
+
+    await expect(page.getByRole("heading", { name: "Admin Console" })).toBeVisible();
+    await expect(page.getByText("Administration modules")).toBeVisible();
+  });
+
+  test("action center loads without crashing for admin role", async ({ page }) => {
+    await mockAuthenticatedShell(page);
+    await page.route("**/api/action-center**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            overdueWorkOrders: [],
+            openFacilityIssues: [],
+            upcomingCompliance: [],
+            lowStockItems: []
+          },
+          message: "Action center snapshot"
+        })
+      });
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("maintainpro_user", JSON.stringify(user));
+      localStorage.setItem("maintainpro_access_token", "e2e-access-token");
+    }, adminUser);
+
+    await page.goto("/action-center");
+
+    await expect(page.getByRole("heading", { name: /Action Center/i })).toBeVisible();
+  });
 });

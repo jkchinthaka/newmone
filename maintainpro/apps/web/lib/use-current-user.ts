@@ -71,13 +71,7 @@ function readStoredUser(): CurrentUser {
 
 /** Lightweight, localStorage-backed current-user hook. */
 export function useCurrentUser(): CurrentUser {
-  const [user, setUser] = useState<CurrentUser>({
-    id: null,
-    email: null,
-    role: null,
-    tenantId: null,
-    permissions: []
-  });
+  const [user, setUser] = useState<CurrentUser>(() => readStoredUser());
 
   useEffect(() => {
     setUser(readStoredUser());

@@ -1037,6 +1037,32 @@
   - DEPLOY-003 recorded hosted smoke **PARTIAL**: hosted API healthy but reports DB name `nelna`; hosted login failed until hosting DB env and smoke credentials align.
   - DEPLOY-003B: `render.yaml` staging DB names updated; local `maintainpro_staging` re-seed completed; Render dashboard `DATABASE_URL` now points to `maintainpro_staging` and hosted login succeeds.
   - DEPLOY-003C: hosted health/CORS checks were timing out on Render free-tier cold starts because the smoke script's timeouts (25s/15s) were shorter than cold-start + first-Atlas-query latency (~30-60s+). `smoke:deploy` now self-warms `/health` and retries each check with 60s timeouts (`SMOKE_REQUEST_TIMEOUT_MS`); `/health`'s DB check timeout is now configurable via `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS` (default 5000ms, 15000ms on Render staging).
-- **Residual Risk:** Rotate the temporary Atlas password after UAT and store smoke/seed passwords in secret manager; browser/dashboard smoke still pending. Render free-tier cold starts remain inherent latency (mitigated, not eliminated, by smoke warm-up).
+- **Residual Risk:** Rotate the temporary Atlas password after UAT and store smoke/seed passwords in secret manager; operator manual browser UAT re-sign-off pending after web fix for login 401 interceptor + `/admin` React #310. Render free-tier cold starts remain inherent latency (mitigated, not eliminated, by smoke warm-up).
+
+### RISK-UAT-001-BROWSER-AUTH-UX
+- **Category:** QA / Auth UX
+- **Description:** Browser login 401 on `/auth/login` was misclassified as session expiry by the global axios interceptor, hiding invalid-credentials messaging and sending users to `/login?reason=session_expired`.
+- **Impact:** Failed manual UAT sign-off, operator confusion during staging login, mistaken belief that hosted API auth was broken when smoke login passed.
+- **Likelihood:** Low after credential-route exclusion in `api-client.ts`; Medium if future interceptors re-broaden 401 handling.
+- **Current Mitigation:**
+  - `isCredentialAuthRequest()` excludes login/register/forgot/reset from session-expired redirect.
+  - Login form trims password, shows API invalid-credentials message, and displays explicit session-expired banner from query param when appropriate.
+  - Playwright auth e2e covers invalid-credentials message staying on `/login`.
+- **Residual Risk:** Wrong password/autofill still returns 401 by design; operators must use secret-manager smoke credentials in incognito for UAT.
+- **Owner:** Web + QA
+- **Review Cadence:** Before production cutover sign-off.
+
+### RISK-UAT-001-ADMIN-HOOK-STABILITY
+- **Category:** QA / Frontend stability
+- **Description:** `/admin` could crash with React error #310 when admin-only query components mounted after role hydration changed the hook tree between renders.
+- **Impact:** Admin console unusable in browser UAT; blocks UAT-001 sign-off for SUPER_ADMIN/ADMIN roles.
+- **Likelihood:** Low after `SystemHealthSummary enabled={isAdmin}`, lazy `useCurrentUser`, and stable dashboard `QueryClientProvider` wrapper.
+- **Current Mitigation:**
+  - Admin console always mounts health summary child with `useQuery({ enabled })` instead of conditional component mount.
+  - Dashboard layout keeps React Query provider mounted during session verification.
+  - Playwright regression tests load `/admin` and `/action-center` shells for admin role.
+- **Residual Risk:** Other admin sub-routes should follow the same hooks-before-branch pattern when adding new query panels.
+- **Owner:** Web + QA
+- **Review Cadence:** When extending admin console or action center data panels.
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.

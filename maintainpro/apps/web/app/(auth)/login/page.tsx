@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -18,6 +18,8 @@ type LoginForm = {
   password: string;
 };
 
+const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,6 +35,13 @@ export default function LoginPage() {
     }
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reason") === "session_expired") {
+      setError("Your session expired. Sign in again to continue.");
+    }
+  }, []);
+
   const onSubmit = async (values: LoginForm) => {
     setBusy(true);
     setError(null);
@@ -40,7 +49,7 @@ export default function LoginPage() {
     try {
       const res = await apiClient.post("/auth/login", {
         email: resolveLoginEmail(values.email),
-        password: values.password
+        password: values.password.trim()
       });
       const payload = res.data?.data;
 
@@ -70,7 +79,7 @@ export default function LoginPage() {
       setError(
         getApiErrorMessage(
           e,
-          "Sign-in failed. Check your credentials and try again."
+          INVALID_CREDENTIALS_MESSAGE
         )
       );
     } finally {

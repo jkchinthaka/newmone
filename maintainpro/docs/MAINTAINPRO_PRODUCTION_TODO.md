@@ -84,7 +84,7 @@
 | DEPLOY-003C | P1 | Platform | Stabilize hosted smoke health/CORS timeouts | DONE | smoke-deployment.mjs warm-up/retry + configurable health DB timeout | smoke-deployment.mjs, health.service.ts, env.validation.ts | Health/CORS were timing out on Render cold start with too-short smoke timeouts; added warm-up loop, 60s timeouts, retries, and `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS`. |
 | DEPLOY-004 | P1 | Platform | Final UAT + production cutover checklist | DONE | FINAL_UAT_AND_CUTOVER_CHECKLIST.md + smoke readiness check | docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md | Manual browser UAT + production DNS/TLS still operator-owned. |
 | PROD-001 | P1 | Platform | Production environment readiness | IN_PROGRESS | FINAL_UAT_AND_CUTOVER_CHECKLIST Part 3 | render.yaml, deployment docs | Requires production domain, isolated Atlas DB, TLS, backup drill. |
-| UAT-001 | P1 | QA | Manual browser UAT checklist | IN_PROGRESS | FINAL_UAT_AND_CUTOVER_CHECKLIST Part 2 | staging web | Sign-off pending after hosted smoke green. |
+| UAT-001 | P1 | QA | Manual browser UAT checklist | IN_PROGRESS | FINAL_UAT_AND_CUTOVER_CHECKLIST Part 2 | staging web | Hosted smoke PASS; browser blockers (login 401 UX, `/admin` React #310) fixed in web UAT pass — operator re-sign-off pending. |
 | ADMIN-002 | P2 | Admin | Full user management | NOT_STARTED | users/admin modules + UI | Manual CRUD | |
 | ADMIN-003 | P2 | Admin | Tenant invitation UI | NOT_STARTED | invitations module + UI | Manual invite flow | |
 | ADMIN-004 | P2 | Admin | Role/permission matrix | NOT_STARTED | roles/permissions UI + API | Manual permission tests | |

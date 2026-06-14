@@ -2101,6 +2101,28 @@ Record each completed task with:
 - **OPERATOR ACTION REQUIRED:** confirm Render dashboard secrets, rotate Atlas password post-UAT, complete manual browser UAT sign-off.
 - Recommended next task: hosted `npm run smoke:deploy` sign-off + manual UAT on staging web, then production domain/TLS cutover using `FINAL_UAT_AND_CUTOVER_CHECKLIST.md`.
 
+## 2026-06-15 | UAT-001 | Browser UAT blockers — login 401 UX + `/admin` React #310
+
+- Audit findings:
+  - Hosted `npm run smoke:deploy` PASS (health, CORS, login).
+  - Manual browser UAT **PARTIAL**: login POST returned 401 and user landed on `/login?reason=session_expired` because the axios 401 interceptor treated **all** 401s (including `/auth/login`) as session expiry.
+  - `/admin` crashed with React minified error **#310** (`Rendered more hooks than during the previous render`) when admin-only UI (including `SystemHealthSummary` with `useQuery`) mounted after role hydration.
+- What changed:
+  - `apps/web/lib/api-client.ts`: session-expired redirect skips credential auth routes (`/auth/login`, register, forgot/reset password); `/auth/me` 401 still redirects with reason.
+  - `apps/web/app/(auth)/login/page.tsx`: trim password on submit; show session-expired banner from query param; invalid-credentials fallback message.
+  - `apps/web/app/(dashboard)/layout.tsx`: `QueryClientProvider` wraps session gate; unauthenticated redirect uses `?reason=session_expired`.
+  - `apps/web/lib/use-current-user.ts`: lazy-init from localStorage to stabilize role on first render.
+  - `apps/web/components/admin/admin-console-page.tsx`: split authorized UI; always mount `SystemHealthSummary` with `enabled={isAdmin}`.
+  - `apps/web/components/dashboard/system-health-summary.tsx`: optional `enabled` prop keeps hook order stable.
+  - `apps/web/components/layout/global-command-palette.tsx`: fix `extractRoleName(user)` usage.
+  - `apps/web/e2e/auth.spec.ts`: regression tests for `/admin` and `/action-center` shell load.
+  - Docs: `FINAL_UAT_AND_CUTOVER_CHECKLIST.md`, `QA_CHECKLIST.md`, `MAINTAINPRO_PRODUCTION_TODO.md`, `RISK_REGISTER.md`.
+- Root cause summary:
+  - Login 401: **code issue** (interceptor), not API auth weakening — wrong password still returns 401; UI now shows message instead of session-expired redirect.
+  - React #310: **code issue** — conditional mount of query-hook child after async role hydration changed hook tree; fixed via stable `enabled` query + provider/layout stabilization.
+- Tests run: typecheck, lint, prisma validate, api/web build, api tests, smoke:deploy (post-fix).
+- Remaining: operator manual browser UAT re-sign-off in incognito; rotate Atlas password post-UAT.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

@@ -45,43 +45,41 @@ export default function DashboardLayout({
 
         setReady(true);
       } catch {
-        router.replace("/login");
+        router.replace("/login?reason=session_expired");
       }
     }
 
     validateSession();
   }, [router]);
 
-  if (!ready) {
-    return (
-      <div
-        className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600"
-        role="status"
-        aria-live="polite"
-      >
-        Verifying session...
-      </div>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-slate-100">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar
-              mobileNavOpen={mobileNavOpen}
-              onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-              onOpenMobileNav={() => setMobileNavOpen(true)}
-            />
-            <main id="main-content" className="flex-1 overflow-x-hidden p-4 sm:p-6">
-              {children}
-            </main>
+      {!ready ? (
+        <div
+          className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600"
+          role="status"
+          aria-live="polite"
+        >
+          Verifying session...
+        </div>
+      ) : (
+        <div className="min-h-screen bg-slate-100">
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Topbar
+                mobileNavOpen={mobileNavOpen}
+                onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+                onOpenMobileNav={() => setMobileNavOpen(true)}
+              />
+              <main id="main-content" className="flex-1 overflow-x-hidden p-4 sm:p-6">
+                {children}
+              </main>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <GlobalCommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       <Toaster closeButton position="top-center" richColors duration={4_000} />
     </QueryClientProvider>

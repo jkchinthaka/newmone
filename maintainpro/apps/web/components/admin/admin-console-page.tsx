@@ -8,7 +8,7 @@ import { PermissionState } from "@/components/ui/page-state";
 import { getAdminConsoleSections, isAdminConsoleRole } from "@/lib/admin-console";
 import { apiClient } from "@/lib/api-client";
 import { extractRoleName } from "@/lib/role-redirect";
-import { useCurrentUser } from "@/lib/use-current-user";
+import { useCurrentUser, type CurrentUser } from "@/lib/use-current-user";
 
 import { AdminSectionCard } from "./admin-section-card";
 
@@ -20,38 +20,25 @@ type TenantEnvelope = {
   };
 };
 
-export function AdminConsolePage() {
-  const user = useCurrentUser();
-  const roleName = extractRoleName(user);
-  const isAdmin = isAdminConsoleRole(roleName);
+type AdminConsoleAuthorizedProps = {
+  user: CurrentUser;
+  roleName: string | null;
+  tenantName: string;
+  tenantLoading: boolean;
+  tenantError: boolean;
+};
+
+function AdminConsoleAuthorized({
+  user,
+  roleName,
+  tenantName,
+  tenantLoading,
+  tenantError
+}: AdminConsoleAuthorizedProps) {
   const sections = getAdminConsoleSections();
 
-  const tenantQuery = useQuery({
-    queryKey: ["admin-console", "tenant-me"],
-    queryFn: async () => {
-      const response = await apiClient.get<TenantEnvelope>("/tenants/me");
-      return response.data.data ?? null;
-    },
-    enabled: isAdmin,
-    staleTime: 60_000
-  });
-
-  if (!isAdmin) {
-    return (
-      <div className="space-y-5">
-        <PageBreadcrumbs />
-        <PermissionState
-          title="Admin access required"
-          description="The admin console is available to ADMIN and SUPER_ADMIN roles only. Backend authorization still controls access to underlying modules."
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-5">
-      <PageBreadcrumbs />
-
+    <>
       <header>
         <h2 className="text-2xl font-semibold text-slate-900">Admin Console</h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">
@@ -80,17 +67,11 @@ export function AdminConsolePage() {
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active tenant</dt>
             <dd className="mt-1 font-medium text-slate-900">
-              {tenantQuery.isLoading
-                ? "Loading…"
-                : tenantQuery.isError
-                  ? "Requires API access"
-                  : tenantQuery.data?.name ?? "Not connected"}
+              {tenantLoading ? "Loading…" : tenantError ? "Requires API access" : tenantName}
             </dd>
           </div>
         </dl>
       </section>
-
-      <SystemHealthSummary />
 
       <section aria-labelledby="admin-modules-heading">
         <div className="mb-3">
@@ -108,6 +89,45 @@ export function AdminConsolePage() {
           ))}
         </div>
       </section>
+    </>
+  );
+}
+
+export function AdminConsolePage() {
+  const user = useCurrentUser();
+  const roleName = extractRoleName(user);
+  const isAdmin = isAdminConsoleRole(roleName);
+
+  const tenantQuery = useQuery({
+    queryKey: ["admin-console", "tenant-me"],
+    queryFn: async () => {
+      const response = await apiClient.get<TenantEnvelope>("/tenants/me");
+      return response.data.data ?? null;
+    },
+    enabled: isAdmin,
+    staleTime: 60_000
+  });
+
+  return (
+    <div className="space-y-5">
+      <PageBreadcrumbs />
+
+      {!isAdmin ? (
+        <PermissionState
+          title="Admin access required"
+          description="The admin console is available to ADMIN and SUPER_ADMIN roles only. Backend authorization still controls access to underlying modules."
+        />
+      ) : (
+        <AdminConsoleAuthorized
+          user={user}
+          roleName={roleName}
+          tenantLoading={tenantQuery.isLoading}
+          tenantError={tenantQuery.isError}
+          tenantName={tenantQuery.data?.name ?? "Not connected"}
+        />
+      )}
+
+      <SystemHealthSummary enabled={isAdmin} />
     </div>
   );
 }

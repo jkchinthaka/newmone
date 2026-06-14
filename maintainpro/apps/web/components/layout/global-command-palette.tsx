@@ -23,7 +23,7 @@ export type GlobalCommandPaletteProps = {
 export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPaletteProps) {
   const router = useRouter();
   const user = useCurrentUser();
-  const roleName = extractRoleName(user.role);
+  const roleName = extractRoleName(user);
   const [query, setQuery] = useState("");
 
   const allItems = useMemo(() => getCommandPaletteItems(roleName), [roleName]);

@@ -62,16 +62,25 @@ Expected: Frontend OK · Health OK · Readiness OK · CORS OK · Login OK.
 
 ## Part 2 — Manual browser UAT (UAT-001)
 
+**Status (2026-06-15):** PARTIAL before web fix — hosted smoke PASS; manual browser found login 401 mis-handled as session expiry and `/admin` React error #310. After `fix(web): stabilize admin browser uat flow`, re-run Part 2 in incognito and sign off below.
+
 Use seeded staging accounts from secret manager. Record pass/fail per role.
 
 ### Auth & session
 
 - [ ] `/login` loads over HTTPS
-- [ ] Super-admin login succeeds
+- [ ] Super-admin login succeeds (use secret-manager smoke password; avoid stale browser autofill)
+- [ ] Invalid password shows **Invalid email or password** on `/login` (no redirect loop)
 - [ ] Dashboard loads after login
 - [ ] Logout works
 - [ ] Session expiry / re-login acceptable
 - [ ] Browser console: no CORS, cookie, or API base URL errors
+
+### Admin / action center (regression)
+
+- [ ] `/admin` loads for ADMIN/SUPER_ADMIN without React error #310
+- [ ] `/action-center` loads without crash
+- [ ] Non-admin `/admin` shows permission state (no hook crash)
 
 ### Role spot checks
 

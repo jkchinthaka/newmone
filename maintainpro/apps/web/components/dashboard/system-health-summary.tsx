@@ -26,15 +26,24 @@ type ApiEnvelope<T> = {
   data: T;
 };
 
-export function SystemHealthSummary() {
+type SystemHealthSummaryProps = {
+  enabled?: boolean;
+};
+
+export function SystemHealthSummary({ enabled = true }: SystemHealthSummaryProps) {
   const query = useQuery({
     queryKey: ["dashboard", "system-health"],
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<SystemHealthPayload>>("/health/readiness");
       return response.data.data;
     },
-    refetchInterval: 60_000
+    enabled,
+    refetchInterval: enabled ? 60_000 : false
   });
+
+  if (!enabled) {
+    return null;
+  }
 
   if (query.isLoading) {
     return (

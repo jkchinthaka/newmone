@@ -67,9 +67,37 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function normalizeRequestPath(url?: string): string {
+  const raw = url?.split("?")[0] ?? "";
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      return new URL(raw).pathname.replace(/\/api(?=\/|$)/, "") || "/";
+    } catch {
+      return raw;
+    }
+  }
+
+  return raw.replace(/\/api(?=\/|$)/, "") || raw;
+}
+
 function isAuthRequest(url?: string): boolean {
-  const path = url?.split("?")[0] ?? "";
-  return path === "/auth" || path.startsWith("/auth/") || path.includes("/api/auth/");
+  const path = normalizeRequestPath(url);
+  return path === "/auth" || path.startsWith("/auth/");
+}
+
+/** Credential endpoints where 401 means invalid input, not an expired session. */
+function isCredentialAuthRequest(url?: string): boolean {
+  const path = normalizeRequestPath(url);
+  return (
+    path === "/auth/login" ||
+    path === "/auth/register" ||
+    path === "/auth/forgot-password" ||
+    path === "/auth/reset-password"
+  );
 }
 
 function readCookie(name: string): string | null {
@@ -187,7 +215,12 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (typeof window !== "undefined" && status === 401) {
+    if (
+      typeof window !== "undefined" &&
+      status === 401 &&
+      originalRequest &&
+      !isCredentialAuthRequest(originalRequest.url)
+    ) {
       handleSessionExpiredRedirect();
     }
 
