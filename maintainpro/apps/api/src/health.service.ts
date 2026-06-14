@@ -163,11 +163,12 @@ export class HealthService {
   private async checkDatabase(): Promise<DependencyCheck> {
     const startedAt = performance.now();
     const config = this.prisma.getReplicationConfig();
+    const dependencyTimeoutMs = this.configService.get<number>("HEALTHCHECK_DEPENDENCY_TIMEOUT_MS", 5000);
 
     try {
       await this.withTimeout(
         this.prisma.checkPrimary(),
-        2_500,
+        dependencyTimeoutMs,
         "Primary database check timed out"
       );
 

@@ -2080,6 +2080,27 @@ Record each completed task with:
   4. Rotate temporary Atlas password after UAT.
 - Recommended next task: re-run **DEPLOY-003B** smoke after Render dashboard env update, then **DEPLOY-004** production cutover checklist.
 
+## 2026-06-15 | DEPLOY-003C | Stabilize hosted smoke health/CORS timeouts
+
+- Root cause: Render dashboard DB env from DEPLOY-003B is now fixed (hosted login succeeds, ~18.8s), but `npm run smoke:deploy` still reported "Backend health: FAIL timeout" and "CORS preflight: FAIL timeout". Both checks ran against a cold Render free-tier instance with 25s/15s `AbortSignal.timeout()` budgets — shorter than the cold-start + first-Atlas-query latency (~30-60s+), so the requests never completed before the script aborted them. By the time the login check ran (after ~40s of prior attempts), the instance had warmed up enough to respond in 18.8s.
+- What changed:
+  - `scripts/smoke-deployment.mjs`: added a `/health` warm-up loop (`SMOKE_WARMUP_ATTEMPTS`, default 2) run before the timed checks; raised all hosted request timeouts to `SMOKE_REQUEST_TIMEOUT_MS` (default 60000ms, was 25000/15000ms); added per-check retry with backoff (`SMOKE_RETRY_ATTEMPTS`/`SMOKE_RETRY_DELAY_MS`, default 2/5000ms); replaced `AbortSignal.timeout()` with a manually-managed `AbortController` + `clearTimeout` to avoid Node 24 "AbortError" issues from timers firing after a fetch already settled. Health endpoint (`{apiOrigin}/health`) and CORS preflight target (`{apiBaseUrl}/auth/login` OPTIONS) were already correct and unchanged.
+  - `apps/api/src/health.service.ts` + `apps/api/src/config/env.validation.ts`: `checkDatabase()`'s Prisma `withTimeout` budget (previously hardcoded 2500ms) is now `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS` (default 5000ms), so `/health`'s DB check has headroom on a cold Atlas connection without making the liveness endpoint slow by default.
+  - `render.yaml`: added `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS=15000` (non-secret) for the staging API service to give the cold-start DB check more room; `/health/readiness` deep checks, Redis-optional behavior (`REDIS_REQUIRED_IN_PRODUCTION=false`, `REDIS_REQUIRED_FOR_READINESS=false`), and CORS config were already correct and unchanged.
+- Files changed: `scripts/smoke-deployment.mjs`, `apps/api/src/health.service.ts`, `apps/api/src/config/env.validation.ts`, `render.yaml`, `docs/DEPLOYMENT_READINESS_CHECKLIST.md`, `docs/QA_CHECKLIST.md`, `docs/MAINTAINPRO_PRODUCTION_TODO.md`, `docs/RISK_REGISTER.md`.
+- Tests run: `npm run typecheck`, `npm run lint`, `npx prisma validate --schema prisma/schema.prisma`, `npm run build --workspace @maintainpro/api`, `npm run build --workspace @maintainpro/web`, `npm run test --workspace @maintainpro/api` (93 suites / 508 tests, all pass, including `health-integration-modes.spec.ts` and `queue-health-readiness.spec.ts`).
+- No secrets printed or committed; no DB writes/resets; CORS still requires an exact origin match with credentials (no wildcard).
+- Remaining risks: Render free-tier cold starts add inherent latency to the *first* request after idle — the warm-up/retry loop tolerates this but a sufficiently slow cold start (>2x60s) could still fail; rotate the temporary Atlas password used during DEPLOY-002/003 UAT.
+- Recommended next task: re-run `npm run smoke:deploy` against hosted staging with `MAINTAINPRO_SMOKE_PASSWORD` from the secret manager to confirm all four checks pass end-to-end, then proceed to **DEPLOY-004** production cutover checklist.
+
+## 2026-06-15 | DEPLOY-004 / PROD-001 / UAT-001 | Final UAT and production cutover readiness
+
+- Added `docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md` — operator Render/Atlas checklist, manual browser UAT (23 areas), production cutover go/no-go table, feature gap audit (must-have / should-have / Phase 2), residual risks.
+- Extended `scripts/smoke-deployment.mjs` (DEPLOY-003C+): staging env aliases (`STAGING_*`, `SMOKE_LOGIN_*`), optional readiness check (skips with note when production returns 403 without `READINESS_API_KEY`), `SMOKE_WARMUP_DELAY_MS`, classified timeout vs DB-degraded vs login errors, wildcard CORS rejection, safe AbortController cleanup.
+- Updated deployment docs (`DEPLOYMENT_READINESS_CHECKLIST`, `QA_CHECKLIST`, `RISK_REGISTER`, `MAINTAINPRO_PRODUCTION_TODO`) with final UAT/cutover references.
+- **OPERATOR ACTION REQUIRED:** confirm Render dashboard secrets, rotate Atlas password post-UAT, complete manual browser UAT sign-off.
+- Recommended next task: hosted `npm run smoke:deploy` sign-off + manual UAT on staging web, then production domain/TLS cutover using `FINAL_UAT_AND_CUTOVER_CHECKLIST.md`.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

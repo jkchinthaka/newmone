@@ -1,17 +1,41 @@
-const frontendUrl = (process.env.MAINTAINPRO_WEB_URL ?? process.env.DEPLOY_FRONTEND_URL ?? "").replace(/\/+$/, "");
-const rawApiUrl = (process.env.MAINTAINPRO_API_URL ?? process.env.DEPLOY_API_URL ?? "").replace(/\/+$/, "");
-const loginEmail = (process.env.MAINTAINPRO_SMOKE_EMAIL ?? "").trim();
-const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? "";
+const frontendUrl = (
+  process.env.MAINTAINPRO_WEB_URL ??
+  process.env.STAGING_WEB_URL ??
+  process.env.DEPLOY_FRONTEND_URL ??
+  ""
+).replace(/\/+$/, "");
+const rawApiUrl = (
+  process.env.MAINTAINPRO_API_URL ??
+  process.env.STAGING_API_URL ??
+  process.env.DEPLOY_API_URL ??
+  ""
+).replace(/\/+$/, "");
+const loginEmail = (process.env.MAINTAINPRO_SMOKE_EMAIL ?? process.env.SMOKE_LOGIN_EMAIL ?? "").trim();
+const loginPassword = process.env.MAINTAINPRO_SMOKE_PASSWORD ?? process.env.SMOKE_LOGIN_PASSWORD ?? "";
 
 if (!frontendUrl || !rawApiUrl) {
-  console.error("Set MAINTAINPRO_WEB_URL and MAINTAINPRO_API_URL before running smoke:deploy.");
+  console.error(
+    "Set MAINTAINPRO_WEB_URL (or STAGING_WEB_URL) and MAINTAINPRO_API_URL (or STAGING_API_URL) before running smoke:deploy."
+  );
   process.exit(1);
 }
 
 if (!loginEmail || !loginPassword) {
-  console.error("Set MAINTAINPRO_SMOKE_EMAIL and MAINTAINPRO_SMOKE_PASSWORD before running smoke:deploy.");
+  console.error(
+    "Set MAINTAINPRO_SMOKE_EMAIL (or SMOKE_LOGIN_EMAIL) and MAINTAINPRO_SMOKE_PASSWORD (or SMOKE_LOGIN_PASSWORD) before running smoke:deploy."
+  );
   process.exit(1);
 }
+
+// Render free-tier instances spin down when idle. The first request after a cold
+// start can take 30-60s+ to boot the process, and the first MongoDB Atlas query on
+// top of that can add another 10-20s. Keep these generous so a slow-but-healthy
+// deploy doesn't read as a failure.
+const REQUEST_TIMEOUT_MS = Number(process.env.SMOKE_REQUEST_TIMEOUT_MS ?? 60_000);
+const WARMUP_ATTEMPTS = Number(process.env.SMOKE_WARMUP_ATTEMPTS ?? 2);
+const WARMUP_DELAY_MS = Number(process.env.SMOKE_WARMUP_DELAY_MS ?? 5_000);
+const RETRY_ATTEMPTS = Number(process.env.SMOKE_RETRY_ATTEMPTS ?? 2);
+const RETRY_DELAY_MS = Number(process.env.SMOKE_RETRY_DELAY_MS ?? 5_000);
 
 function toApiBaseUrl(value) {
   const trimmed = value.replace(/\/+$/, "");
@@ -20,6 +44,32 @@ function toApiBaseUrl(value) {
 
 function toApiOrigin(value) {
   return toApiBaseUrl(value).replace(/\/api$/, "");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatFetchError(error, timeoutMs, context) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof Error && error.name === "AbortError") {
+    return `${context} timed out after ${timeoutMs}ms (Render cold start or slow Atlas query — retry or increase SMOKE_REQUEST_TIMEOUT_MS)`;
+  }
+  return `${context} failed: ${message}`;
+}
+
+// Use a manually-managed AbortController (rather than AbortSignal.timeout()) so the
+// timer is always cleared once the request settles. On Node 24, a timeout signal
+// that fires after fetch() has already resolved/rejected can otherwise surface as
+// an unhandled "AbortError".
+async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function readJson(response) {
@@ -31,10 +81,25 @@ async function readJson(response) {
   }
 }
 
+async function withRetry(fn, { attempts = RETRY_ATTEMPTS, delayMs = RETRY_DELAY_MS } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await sleep(delayMs * attempt);
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function check(name, fn) {
   const startedAt = performance.now();
   try {
-    const detail = await fn();
+    const detail = await withRetry(fn);
     const elapsed = Math.round(performance.now() - startedAt);
     console.log(`OK ${name} (${elapsed} ms)${detail ? ` - ${detail}` : ""}`);
   } catch (error) {
@@ -46,8 +111,35 @@ async function check(name, fn) {
 const apiBaseUrl = toApiBaseUrl(rawApiUrl);
 const apiOrigin = toApiOrigin(rawApiUrl);
 
+async function warmUp() {
+  for (let attempt = 1; attempt <= WARMUP_ATTEMPTS; attempt += 1) {
+    const startedAt = performance.now();
+    try {
+      const response = await fetchWithTimeout(`${apiOrigin}/health`, {}, REQUEST_TIMEOUT_MS);
+      const elapsed = Math.round(performance.now() - startedAt);
+      console.log(`Warm-up attempt ${attempt}: HTTP ${response.status} (${elapsed} ms)`);
+      if (response.ok) return;
+    } catch (error) {
+      const elapsed = Math.round(performance.now() - startedAt);
+      console.log(
+        `Warm-up attempt ${attempt} failed after ${elapsed} ms: ${formatFetchError(error, REQUEST_TIMEOUT_MS, "Health warm-up")}`
+      );
+    }
+    if (attempt < WARMUP_ATTEMPTS) {
+      await sleep(WARMUP_DELAY_MS);
+    }
+  }
+}
+
+await warmUp();
+
 await check("Frontend loads", async () => {
-  const response = await fetch(frontendUrl, { signal: AbortSignal.timeout(25000) });
+  let response;
+  try {
+    response = await fetchWithTimeout(frontendUrl);
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "Frontend request"));
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const html = await response.text();
   if (!/MaintainPro|Maintenance Job|__next/i.test(html)) {
@@ -57,28 +149,67 @@ await check("Frontend loads", async () => {
 });
 
 await check("Backend health", async () => {
-  const response = await fetch(`${apiOrigin}/health`, { signal: AbortSignal.timeout(25000) });
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiOrigin}/health`);
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "Backend health request"));
+  }
   const body = await readJson(response);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const health = body?.data ?? body;
   if (health?.database?.status !== "operational") {
-    throw new Error(`Database is ${health?.database?.status ?? "unknown"}`);
+    throw new Error(
+      `Database status is ${health?.database?.status ?? "unknown"}${health?.database?.message ? `: ${health.database.message}` : ""}`
+    );
   }
   return `${health?.service ?? "api"} ${health?.status ?? "healthy"}`;
 });
 
+await check("Backend readiness", async () => {
+  const readinessKey = (process.env.READINESS_API_KEY ?? "").trim();
+  const headers = readinessKey ? { "x-readiness-key": readinessKey } : {};
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiOrigin}/health/readiness`, { headers });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "Backend readiness request"));
+  }
+  if (response.status === 403 && !readinessKey) {
+    return "skipped (protected in production; set READINESS_API_KEY for full readiness check)";
+  }
+  const body = await readJson(response);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const readiness = body?.data ?? body;
+  const primaryDb = (readiness?.dependencies ?? []).find((item) => item.key === "primaryDatabase");
+  if (primaryDb?.status !== "operational") {
+    throw new Error(
+      `Primary MongoDB readiness is ${primaryDb?.status ?? "unknown"}${primaryDb?.message ? `: ${primaryDb.message}` : ""}`
+    );
+  }
+  const dbName = primaryDb?.details?.databaseName ?? "unknown";
+  return `overall=${readiness?.status ?? "unknown"} primaryDb=${dbName}`;
+});
+
 await check("CORS preflight", async () => {
-  const response = await fetch(`${apiBaseUrl}/auth/login`, {
-    method: "OPTIONS",
-    headers: {
-      Origin: frontendUrl,
-      "Access-Control-Request-Method": "POST",
-      "Access-Control-Request-Headers": "content-type"
-    },
-    signal: AbortSignal.timeout(15000)
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}/auth/login`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: frontendUrl,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type"
+      }
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "CORS preflight request"));
+  }
   const allowedOrigin = response.headers.get("access-control-allow-origin");
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (allowedOrigin === "*") {
+    throw new Error("Wildcard access-control-allow-origin is not allowed with credentials");
+  }
   if (allowedOrigin !== frontendUrl) {
     throw new Error(`Expected access-control-allow-origin ${frontendUrl}, got ${allowedOrigin ?? "empty"}`);
   }
@@ -89,18 +220,22 @@ await check("CORS preflight", async () => {
 });
 
 await check("Login endpoint", async () => {
-  const response = await fetch(`${apiBaseUrl}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: frontendUrl
-    },
-    body: JSON.stringify({ email: loginEmail, password: loginPassword }),
-    signal: AbortSignal.timeout(25000)
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: frontendUrl
+      },
+      body: JSON.stringify({ email: loginEmail, password: loginPassword })
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "Login request"));
+  }
   const body = await readJson(response);
   if (!response.ok) {
-    throw new Error(body?.error?.message ?? body?.message ?? `HTTP ${response.status}`);
+    throw new Error(body?.error?.message ?? body?.message ?? `HTTP ${response.status} (login rejected)`);
   }
   if (!body?.data?.accessToken) throw new Error("Access token missing from login response");
   if (JSON.stringify(body?.data?.user ?? {}).includes("passwordHash")) {

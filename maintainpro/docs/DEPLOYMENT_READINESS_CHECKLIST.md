@@ -2,6 +2,8 @@
 
 Use this checklist before go-live. This sprint adds honest readiness helpers only — **no automatic deployment**.
 
+For final UAT sign-off and production cutover, see also **`docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md`**.
+
 ## Quick commands
 
 From `maintainpro/`:
@@ -23,6 +25,8 @@ Hosted smoke env (set in shell/CI only; map to script vars as needed):
 - `MAINTAINPRO_WEB_URL` or `STAGING_WEB_URL` — hosted web origin
 - `MAINTAINPRO_SMOKE_EMAIL` / `SMOKE_LOGIN_EMAIL` — seeded admin email
 - `MAINTAINPRO_SMOKE_PASSWORD` / `SMOKE_LOGIN_PASSWORD` — smoke login password from secret manager
+- `SMOKE_REQUEST_TIMEOUT_MS` (optional, default `60000`) — per-request timeout for hosted health/CORS/login checks; Render free-tier cold starts plus the first Atlas query can take 30-60s+
+- `SMOKE_WARMUP_ATTEMPTS` (optional, default `2`) and `SMOKE_WARMUP_DELAY_MS` (optional, default `5000`) and `SMOKE_RETRY_ATTEMPTS` / `SMOKE_RETRY_DELAY_MS` (optional, default `2` / `5000`) — `smoke:deploy` warms up `/health` and retries each check with backoff before failing, so a slow-but-healthy cold start doesn't read as a failure
 
 API admin endpoints (authenticated):
 
@@ -130,7 +134,7 @@ API admin endpoints (authenticated):
 - [ ] Render/hosting `DATABASE_URL` URI path matches `maintainpro_staging` (blueprint `MONGO_DATABASE_NAME` updated in repo; dashboard secrets still required because `sync: false`)
 - [ ] Hosting `CORS_ORIGIN` / `FRONTEND_URL` match the staging web origin
 - [ ] Smoke login password in secret manager matches the password used for the hosted DB seed (`MAINTAINPRO_SMOKE_*` / `SMOKE_LOGIN_*`)
-- [ ] Warm hosted API before smoke on cold-start plans (retry if first `/health` times out)
+- [ ] `npm run smoke:deploy` (cold-start plans: the script self-warms `/health` and retries each check with backoff, so no manual warm-up/retry needed)
 - [ ] `npm run smoke:deploy` passes: frontend load, backend health (`database.status=operational`), CORS preflight, login
 - [ ] Manual browser login/dashboard/navigation verified on staging web (`/login`, dashboard, Work Orders, Facility Issues, System Health)
 

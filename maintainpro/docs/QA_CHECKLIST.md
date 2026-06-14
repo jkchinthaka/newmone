@@ -598,12 +598,18 @@
 - [ ] `STAGING_API_URL` / `MAINTAINPRO_API_URL` and `STAGING_WEB_URL` / `MAINTAINPRO_WEB_URL` set in shell/CI only (staging hosts, not production).
 - [ ] `SMOKE_LOGIN_EMAIL` / `MAINTAINPRO_SMOKE_EMAIL` and password env vars set from secret manager (never committed).
 - [ ] Hosting `DATABASE_URL` path matches `maintainpro_staging` when validating DEPLOY-002C seed on hosted API.
-- [ ] Hosted `GET /health` returns `database.status=operational` (retry after cold start if needed).
-- [ ] Hosted `GET /health/readiness` primary MongoDB operational.
-- [ ] `npm run smoke:deploy` passes frontend, health, CORS, and login checks.
+- [ ] Hosted `GET /health` returns `database.status=operational` (`smoke:deploy` self-warms and retries; `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS`, default 5000ms / staging 15000ms, bounds the DB check).
+- [ ] Hosted `GET /health/readiness` primary MongoDB operational when `READINESS_API_KEY` or admin JWT supplied; otherwise smoke may skip with 403 (expected in production).
+- [ ] `npm run smoke:deploy` passes frontend, health, CORS, and login checks (use `SMOKE_REQUEST_TIMEOUT_MS`, default 60000ms, for slow cold starts).
 - [ ] Render dashboard `DATABASE_URL` / `MONGODB_URI` URI path is `maintainpro_staging` (blueprint `MONGO_DATABASE_NAME` alone is insufficient).
 - [ ] Manual browser: staging `/login` → dashboard → Work Orders / Facility Issues / System Health without CORS/auth console errors.
 - [ ] No access tokens or passwords printed in CI logs.
+
+## 40) Final UAT and production cutover (DEPLOY-004 / UAT-001 / PROD-001)
+- [ ] See `docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md` for full manual UAT, operator Render/Atlas actions, and go/no-go table.
+- [ ] Manual browser UAT signed off on staging web (login, dashboard, core modules, console clean).
+- [ ] Production domain/TLS/CORS plan documented (e.g. `maintenance.nelna.lk`).
+- [ ] Atlas password rotated after UAT; secrets only in secret manager.
 
 ## 22) Facility Issue Room Linkage (BUILD-005)
 - [ ] Existing cleaning issue create without `roomId` still works (`/cleaning/issues`).

@@ -1035,7 +1035,8 @@
   - Staging seed uses upsert-only flow; no destructive reset in smoke/seed workflow; no credentials in repo/docs.
   - DEPLOY-002C verified Atlas `maintainpro_staging` seed + API login smoke without committing secrets.
   - DEPLOY-003 recorded hosted smoke **PARTIAL**: hosted API healthy but reports DB name `nelna`; hosted login failed until hosting DB env and smoke credentials align.
-  - DEPLOY-003B: `render.yaml` staging DB names updated; local `maintainpro_staging` re-seed completed; hosted login still blocked until Render dashboard `DATABASE_URL` points to `maintainpro_staging` and service redeploys.
-- **Residual Risk:** Operator must set Render `DATABASE_URL`/`MONGODB_URI` in dashboard (not repo), redeploy, rotate Atlas password, and store smoke/seed passwords in secret manager; browser/dashboard smoke still pending.
+  - DEPLOY-003B: `render.yaml` staging DB names updated; local `maintainpro_staging` re-seed completed; Render dashboard `DATABASE_URL` now points to `maintainpro_staging` and hosted login succeeds.
+  - DEPLOY-003C: hosted health/CORS checks were timing out on Render free-tier cold starts because the smoke script's timeouts (25s/15s) were shorter than cold-start + first-Atlas-query latency (~30-60s+). `smoke:deploy` now self-warms `/health` and retries each check with 60s timeouts (`SMOKE_REQUEST_TIMEOUT_MS`); `/health`'s DB check timeout is now configurable via `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS` (default 5000ms, 15000ms on Render staging).
+- **Residual Risk:** Rotate the temporary Atlas password after UAT and store smoke/seed passwords in secret manager; browser/dashboard smoke still pending. Render free-tier cold starts remain inherent latency (mitigated, not eliminated, by smoke warm-up).
 - **Owner:** DevOps + Platform
 - **Review Cadence:** Immediately after staging smoke sign-off and before production cutover.

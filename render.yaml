@@ -73,6 +73,8 @@ services:
         value: "false"
       - key: OBJECT_STORAGE_REQUIRED_FOR_READINESS
         value: "false"
+      - key: HEALTHCHECK_DEPENDENCY_TIMEOUT_MS
+        value: "15000"
       - key: MAINTAINPRO_SEED_PASSWORD
         sync: false
       - key: CLOUDINARY_CLOUD_NAME

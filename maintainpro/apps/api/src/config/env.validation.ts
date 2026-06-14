@@ -26,6 +26,7 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().empty("").default(""),
   REDIS_REQUIRED_FOR_READINESS: Joi.boolean().default(false),
   REDIS_REQUIRED_IN_PRODUCTION: Joi.boolean().default(true),
+  HEALTHCHECK_DEPENDENCY_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
   ALLOW_MOCK_IN_PRODUCTION: Joi.boolean().default(false),
   ERP_MODE: Joi.string().valid("disabled", "mock", "sandbox", "live").default("mock"),
   BILLING_MODE: Joi.string().valid("disabled", "mock", "live").default("mock"),
