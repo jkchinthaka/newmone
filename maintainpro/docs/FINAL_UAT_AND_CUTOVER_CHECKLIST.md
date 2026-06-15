@@ -62,15 +62,37 @@ Expected: Frontend OK · Health OK · Readiness OK · CORS OK · Login OK.
 
 ## Part 2 — Manual browser UAT (UAT-001)
 
-**Status (2026-06-15):** PARTIAL before web fix — hosted smoke PASS; manual browser found login 401 mis-handled as session expiry and `/admin` React error #310. After `fix(web): stabilize admin browser uat flow`, re-run Part 2 in incognito and sign off below.
+**Status (2026-06-15 re-test after `039e361`):** **PARTIAL** — code fixes verified; full sign-off blocked by **hosted credential mismatch** (not auth code).
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Hosted smoke (frontend/health/CORS) | **PASS** | Login check **FAIL** — `Invalid email or password` |
+| Wrong-password login UX (staging Playwright) | **PASS** | Shows message on `/login`; no `?reason=session_expired` |
+| Valid super-admin login (staging) | **BLOCKED** | Shell `MAINTAINPRO_SMOKE_PASSWORD` / `MAINTAINPRO_SEED_PASSWORD` do not match hosted `superadmin@maintainpro.local` hash |
+| `/admin` React #310 (staging) | **BLOCKED** | Cannot reach authenticated `/admin` until login succeeds; **PASS** on local mocked Playwright (`auth.spec.ts`) |
+| `/action-center` (staging) | **BLOCKED** | Same credential blocker; **PASS** on local mocked Playwright |
+| Local re-seed from dev machine | **FAIL** | Atlas TLS/server selection timeout from this workstation — use Render shell or Atlas-allowed IP |
+
+**Operator action before final sign-off:**
+
+1. On Render (or Atlas-allowed host): run `npm run db:seed` with a known `MAINTAINPRO_SEED_PASSWORD`.
+2. Set shell `MAINTAINPRO_SMOKE_PASSWORD` to the **same** value (secret manager).
+3. Re-run `npm run smoke:deploy` and `npm run test:e2e:staging`.
+4. Complete incognito manual pass below.
+
+Automated staging browser helper (shell env only, no secrets in repo):
+
+```bash
+npm run test:e2e:staging
+```
 
 Use seeded staging accounts from secret manager. Record pass/fail per role.
 
 ### Auth & session
 
-- [ ] `/login` loads over HTTPS
-- [ ] Super-admin login succeeds (use secret-manager smoke password; avoid stale browser autofill)
-- [ ] Invalid password shows **Invalid email or password** on `/login` (no redirect loop)
+- [x] `/login` loads over HTTPS
+- [ ] Super-admin login succeeds (blocked: align smoke password with hosted seed — see operator action)
+- [x] Invalid password shows **Invalid email or password** on `/login` (no `session_expired` redirect) — verified staging Playwright 2026-06-15
 - [ ] Dashboard loads after login
 - [ ] Logout works
 - [ ] Session expiry / re-login acceptable
@@ -78,8 +100,8 @@ Use seeded staging accounts from secret manager. Record pass/fail per role.
 
 ### Admin / action center (regression)
 
-- [ ] `/admin` loads for ADMIN/SUPER_ADMIN without React error #310
-- [ ] `/action-center` loads without crash
+- [ ] `/admin` loads for ADMIN/SUPER_ADMIN without React error #310 (pending valid login)
+- [ ] `/action-center` loads without crash (pending valid login)
 - [ ] Non-admin `/admin` shows permission state (no hook crash)
 
 ### Role spot checks

@@ -602,7 +602,9 @@
 - [ ] Hosted `GET /health/readiness` primary MongoDB operational when `READINESS_API_KEY` or admin JWT supplied; otherwise smoke may skip with 403 (expected in production).
 - [ ] `npm run smoke:deploy` passes frontend, health, CORS, and login checks (use `SMOKE_REQUEST_TIMEOUT_MS`, default 60000ms, for slow cold starts).
 - [ ] Render dashboard `DATABASE_URL` / `MONGODB_URI` URI path is `maintainpro_staging` (blueprint `MONGO_DATABASE_NAME` alone is insufficient).
-- [ ] Manual browser: staging `/login` → dashboard → `/admin` + `/action-center` without React hook errors; invalid login shows clean message (not session-expired redirect).
+- [x] Staging wrong-password login UX verified (Playwright `staging-uat.spec.ts`, 2026-06-15): message on `/login`, no `session_expired` redirect.
+- [ ] Hosted `npm run smoke:deploy` login check passes after smoke password aligned with hosted seed (`superadmin@maintainpro.local`).
+- [ ] Manual browser: staging `/login` → dashboard → `/admin` + `/action-center` without React hook errors (pending credential alignment).
 - [ ] Manual browser: staging Work Orders / Facility Issues / System Health without CORS/auth console errors.
 - [ ] No access tokens or passwords printed in CI logs.
 

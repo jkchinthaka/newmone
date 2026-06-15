@@ -2123,6 +2123,15 @@ Record each completed task with:
 - Tests run: typecheck, lint, prisma validate, api/web build, api tests, smoke:deploy (post-fix).
 - Remaining: operator manual browser UAT re-sign-off in incognito; rotate Atlas password post-UAT.
 
+## 2026-06-15 | UAT-001 | Staging browser re-test after `039e361`
+
+- Hosted smoke (2026-06-15): Frontend OK · Health OK · Readiness skip OK · CORS OK · **Login FAIL** (`Invalid email or password`).
+- Staging Playwright (`npm run test:e2e:staging`): **1/5 PASS** — wrong-password UX verified on live Workers URL; authenticated routes blocked by credential mismatch.
+- Local Playwright (`auth.spec.ts` admin/action-center/invalid-credentials): **3/3 PASS** — confirms `039e361` hook-order and login interceptor fixes.
+- Local `npm run db:seed` against Atlas: **FAIL** (TLS/server selection from dev workstation) — operator should seed from Render shell or Atlas-allowed IP, then align `MAINTAINPRO_SMOKE_PASSWORD`.
+- Added `apps/web/e2e/staging-uat.spec.ts` + `playwright.staging.config.ts` and `npm run test:e2e:staging` for repeatable staging browser checks (env-only credentials).
+- UAT-001 sign-off remains **PARTIAL** until hosted login succeeds and `/admin` + `/action-center` verified with valid session.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

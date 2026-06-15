@@ -1037,7 +1037,21 @@
   - DEPLOY-003 recorded hosted smoke **PARTIAL**: hosted API healthy but reports DB name `nelna`; hosted login failed until hosting DB env and smoke credentials align.
   - DEPLOY-003B: `render.yaml` staging DB names updated; local `maintainpro_staging` re-seed completed; Render dashboard `DATABASE_URL` now points to `maintainpro_staging` and hosted login succeeds.
   - DEPLOY-003C: hosted health/CORS checks were timing out on Render free-tier cold starts because the smoke script's timeouts (25s/15s) were shorter than cold-start + first-Atlas-query latency (~30-60s+). `smoke:deploy` now self-warms `/health` and retries each check with 60s timeouts (`SMOKE_REQUEST_TIMEOUT_MS`); `/health`'s DB check timeout is now configurable via `HEALTHCHECK_DEPENDENCY_TIMEOUT_MS` (default 5000ms, 15000ms on Render staging).
-- **Residual Risk:** Rotate the temporary Atlas password after UAT and store smoke/seed passwords in secret manager; operator manual browser UAT re-sign-off pending after web fix for login 401 interceptor + `/admin` React #310. Render free-tier cold starts remain inherent latency (mitigated, not eliminated, by smoke warm-up).
+- **Residual Risk:** Rotate the temporary Atlas password after UAT and store smoke/seed passwords in secret manager; **2026-06-15:** shell `MAINTAINPRO_SMOKE_PASSWORD` does not match hosted `superadmin@maintainpro.local` hash — re-seed from Render/Atlas-allowed host before final UAT-001 sign-off. Render free-tier cold starts remain inherent latency (mitigated, not eliminated, by smoke warm-up).
+
+### RISK-UAT-001-HOSTED-SMOKE-CREDENTIAL-DRIFT
+- **Category:** Deployment / QA
+- **Description:** Hosted `smoke:deploy` login and staging browser UAT can fail when shell `MAINTAINPRO_SMOKE_PASSWORD` drifts from the password hash stored for `superadmin@maintainpro.local` on the Render-connected Atlas database.
+- **Impact:** False-negative UAT/smoke failures; operators may assume auth regression when API and CORS are healthy.
+- **Likelihood:** Medium during staging credential rotation; Low after secret-manager alignment and post-seed verification.
+- **Current Mitigation:**
+  - Smoke script classifies login failure as invalid credentials vs timeout/DB errors.
+  - Seed is idempotent and keyed to `MAINTAINPRO_SEED_PASSWORD`; smoke should use the same value.
+  - `npm run test:e2e:staging` separates wrong-password UX checks from authenticated route checks.
+  - Wrong-password UX verified PASS on staging without code changes.
+- **Residual Risk:** Dev machines without Atlas network/TLS access cannot re-seed locally; use Render shell or allowlisted IP.
+- **Owner:** DevOps + QA
+- **Review Cadence:** After every staging password rotation or Atlas user reset.
 
 ### RISK-UAT-001-BROWSER-AUTH-UX
 - **Category:** QA / Auth UX

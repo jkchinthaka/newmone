@@ -26,6 +26,7 @@
     "typecheck": "npm run typecheck --workspace @maintainpro/api && npm run typecheck --workspace @maintainpro/web",
     "test": "npm run test --workspace @maintainpro/api",
     "test:e2e": "npm run test:e2e --workspace @maintainpro/web",
+    "test:e2e:staging": "npm run test:e2e:staging --workspace @maintainpro/web",
     "seed": "npm run db:seed",
     "start:api": "npm run start --workspace @maintainpro/api",
     "start:web": "npm run start --workspace @maintainpro/web",
