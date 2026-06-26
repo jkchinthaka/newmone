@@ -12,14 +12,37 @@ Also see [FINAL_UAT_AND_CUTOVER_CHECKLIST.md](FINAL_UAT_AND_CUTOVER_CHECKLIST.md
 # Hosted smoke (shell env)
 npm run smoke:deploy
 
-# Staging browser (shell env)
+# Staging browser UAT-001
 npm run test:e2e:staging
 
-# DevOps UAT-001 bootstrap (Render API key in .env.render.local; no secrets printed)
-node scripts/uat-001-staging-bootstrap.mjs
+# Staging browser UAT-002 (multi-role + portfolio screenshots)
+npm run test:e2e:staging:uat002
+
+# Full UAT-002 validation (API workflows + e2e + build + smoke)
+npm run uat:002:validate
+
+node scripts/uat-002-api-workflows.mjs
 node scripts/render-env-audit.mjs
 node scripts/verify-hosted-logins.mjs
 ```
+
+Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
+
+---
+
+## UAT-002 summary (2026-06-12)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-002 overall** | **PARTIAL PASS** | Enterprise browser + API verification complete; full MVP lifecycle and gate UI remain partial |
+| Role-based browser nav | **PASS** | Admin, Manager, Technician, Security, Inventory — Playwright staging |
+| Hosted API workflows | **PARTIAL** | Gate blocked/override PASS; manager/technician WO list fixed in code — redeploy to staging for HTTP 200 |
+| MVP end-to-end lifecycle | **PARTIAL** | UI modules exist; full create→complete not automated |
+| Security gate UI | **NOT AVAILABLE** | API gate PASS; `/fleet/gate` web route not shipped |
+| Inventory browser | **PASS** | `/inventory` loads; low-stock KPIs visible |
+| Dashboard KPIs | **PARTIAL** | Morning briefing + module summaries; not all enterprise KPIs |
+| Portfolio screenshots | **PASS** | 8 staging PNGs under `docs/screenshots/staging/` |
+| Mobile | **NOT AVAILABLE** | Flutter app separate; not in web UAT scope |
 
 ---
 
@@ -27,100 +50,128 @@ node scripts/verify-hosted-logins.mjs
 
 | Test | Pass | Fail | Notes |
 |------|------|------|-------|
-| Admin login | ☑ | ☐ | `admin@maintainpro.local` — PASS 2026-06-12 hosted API |
-| Manager login | ☑ | ☐ | `manager@maintainpro.local` — PASS 2026-06-12 hosted API |
-| Technician login | ☑ | ☐ | `tech@maintainpro.local` — PASS 2026-06-12 hosted API |
-| Security officer login | ☑ | ☐ | `security@maintainpro.local` — PASS 2026-06-12 hosted API |
-| Store keeper login | ☑ | ☐ | `inventory@maintainpro.local` — PASS 2026-06-12 hosted API |
-| Invalid password message | ☑ | ☐ | Verified earlier on staging (`Invalid email or password`, no session_expired redirect) |
-| Logout | ☐ | ☐ | Manual browser |
-| Session expiry redirect | ☐ | ☐ | Manual browser — `/login?reason=session_expired` |
+| Admin login | ☑ | ☐ | UAT-001 + UAT-002 browser PASS |
+| Manager login | ☑ | ☐ | UAT-002 browser PASS |
+| Technician login | ☑ | ☐ | UAT-002 browser PASS |
+| Security officer login | ☑ | ☐ | UAT-002 browser PASS |
+| Store keeper login | ☑ | ☐ | UAT-002 browser PASS |
+| Invalid password message | ☑ | ☐ | Staging Playwright PASS |
+| Logout | ☑ | ☐ | UAT-002 admin logout PASS |
+| Session expiry redirect | ☐ | ☐ | **OPERATOR-OWNED** — manual expiry simulation |
+
+---
+
+## Role-based access (UAT-002)
+
+| Role | Expected | Result | Notes |
+|------|----------|--------|-------|
+| Admin | Users, admin console, settings, audit, system health | **PASS** | Nav + `/admin` + `/system-health` |
+| Manager | Work orders, reports, dashboards; no admin | **PASS** | Nav verified; no Admin Console link |
+| Technician | Work orders; no admin/inventory | **PASS** | Nav verified |
+| Security Officer | Fleet/security; no work orders | **PASS** | Fleet nav; no WO nav; **no dedicated gate UI** |
+| Inventory Keeper | Inventory, procurement; no work orders | **PASS** | Lands on inventory module |
 
 ---
 
 ## MVP workflow
 
-| Step | Pass | Fail | Notes |
-|------|------|------|-------|
-| Create / view asset | ☐ | ☐ | |
-| Create work order | ☐ | ☐ | |
-| Approve work order (if permitted) | ☐ | ☐ | |
-| Assign technician | ☐ | ☐ | |
-| Reserve / request spare part | ☐ | ☐ | |
-| Technician updates job status | ☐ | ☐ | |
-| Upload evidence (metadata/readiness) | ☐ | ☐ | |
-| Supervisor verifies / completes | ☐ | ☐ | |
-| Cost visible on WO | ☐ | ☐ | |
-| Dashboard/report reflects update | ☐ | ☐ | |
-| Audit log entry created | ☐ | ☐ | Settings → Audit or API |
+| Step | Status | Notes |
+|------|--------|-------|
+| Create / view asset | **PARTIAL** | `/assets` loads (admin); create modal **OPERATOR-OWNED** |
+| Create work order | **PARTIAL** | `/work-orders` UI exists; create flow **OPERATOR-OWNED** |
+| Approve work order (if permitted) | **PARTIAL** | Part-request approval API exists; WO approval builder roadmap |
+| Assign technician | **PARTIAL** | API `POST /work-orders/:id/assign`; UI **OPERATOR-OWNED** |
+| Reserve / request spare part | **PARTIAL** | Part-requests panel in WO editor |
+| Technician updates job status | **PARTIAL** | API + UI; RBAC roles extended for TECHNICIAN |
+| Upload evidence (metadata/readiness) | **PARTIAL** | Evidence upload-request API; presigned UAT pending |
+| Supervisor verifies / completes | **OPERATOR-OWNED** | Signature/mobile roadmap |
+| Cost visible on WO | **PARTIAL** | Cost fields on WO model |
+| Dashboard/report reflects update | **PARTIAL** | Reports hub loads; live refresh **OPERATOR-OWNED** |
+| Audit log entry created | **PARTIAL** | Settings audit tab + API `/settings/audit-logs` PASS |
 
 ---
 
 ## Security officer
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| Login as `security@maintainpro.local` | ☑ | ☐ | Hosted API login PASS 2026-06-12 |
-| Only security/fleet menus visible | ☐ | ☐ | Manual browser |
-| Gate-out allowed vehicle | ☐ | ☐ | |
-| Gate-out blocked (expired docs) | ☐ | ☐ | |
-| Gate-in | ☐ | ☐ | |
-| Unauthorized override denied | ☐ | ☐ | |
-| Audit record on gate action | ☐ | ☐ | |
-| Mobile/web scan if available | ☐ | ☐ | |
+| Test | Status | Notes |
+|------|--------|-------|
+| Login as `security@maintainpro.local` | **PASS** | Browser + API |
+| Only security/fleet menus visible | **PARTIAL** | Fleet yes; Dashboard/Action Center also visible |
+| Gate-out allowed vehicle | **PARTIAL** | API records blocked state on seeded vehicle; allowed path when compliant |
+| Gate-out blocked (expired docs) | **PASS** | API `gate_out_blocked` + movement record |
+| Gate-in | **PARTIAL** | API after successful gate-out; blocked vehicle path N/A |
+| Unauthorized override denied | **PASS** | Technician override → HTTP 403 |
+| Audit record on gate action | **PARTIAL** | Gate movement persisted; audit explorer UI partial |
+| Mobile/web scan if available | **NOT AVAILABLE** | Dedicated gate screen not shipped |
 
 ---
 
-## Admin / regression (post `039e361`)
+## Admin / regression
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| `/admin` no React #310 | ☐ | ☐ | Local e2e PASS; staging browser pending |
-| `/action-center` no crash | ☐ | ☐ | Local e2e PASS; staging browser pending |
-| Non-admin `/admin` permission state | ☐ | ☐ | |
+| Test | Status | Notes |
+|------|--------|-------|
+| `/admin` no React #310 | **PASS** | Staging UAT-002 Playwright |
+| `/action-center` no crash | **PASS** | Local + staging route smoke |
+| Non-admin `/admin` permission state | **OPERATOR-OWNED** | Manual per-role check |
 
 ---
 
 ## Inventory
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| Low-stock visible | ☐ | ☐ | |
-| Part reservation on WO | ☐ | ☐ | |
-| Stock issue | ☐ | ☐ | |
-| Negative stock prevented / warned | ☐ | ☐ | |
+| Test | Status | Notes |
+|------|--------|-------|
+| Low-stock visible | **PASS** | `/inventory` KPI cards (browser) |
+| Part reservation on WO | **PARTIAL** | Part-requests API; full browser flow **OPERATOR-OWNED** |
+| Stock issue | **PARTIAL** | API `inventory.stock_issue`; UI **OPERATOR-OWNED** |
+| Negative stock prevented / warned | **OPERATOR-OWNED** | Service-layer guard; manual negative attempt |
+
+---
+
+## Dashboard KPIs (UAT-002)
+
+| KPI | Status | Notes |
+|-----|--------|-------|
+| Today's pending work orders | **PARTIAL** | WorkOrdersSummary / morning briefing |
+| Overdue maintenance | **PARTIAL** | WO summary + reports |
+| Critical assets | **PARTIAL** | Asset module; dedicated KPI card limited |
+| Vehicles blocked from gate-out | **PARTIAL** | Fleet/alerts data; no dedicated gate KPI tile |
+| Inventory low-stock items | **PASS** | Inventory summary + `/inventory` |
+| ERP sync failed count | **PARTIAL** | System health panel (mock/disabled honest) |
+| Monthly maintenance cost | **PARTIAL** | Reports financials module |
+| Department-wise issue count | **NOT AVAILABLE** | Roadmap |
+| Technician workload | **PARTIAL** | WO assigned filter for technician dashboard |
 
 ---
 
 ## ERP sync
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| Mode badge (mock/sandbox/live) | ☐ | ☐ | System health / inventory ERP panel |
-| Dry-run sync | ☐ | ☐ | |
-| Failed sync reason visible | ☐ | ☐ | |
-| Retry / refresh readiness | ☐ | ☐ | |
+| Test | Status | Notes |
+|------|--------|-------|
+| Mode badge (mock/sandbox/live) | **PASS** | `/system-health` screenshot captured |
+| Dry-run sync | **OPERATOR-OWNED** | Env-gated |
+| Failed sync reason visible | **PARTIAL** | Readiness panel |
+| Retry / refresh readiness | **PARTIAL** | Admin system health |
 
 ---
 
 ## Notifications
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| Readiness panel loads | ☐ | ☐ | `/system-health` |
-| UAT email test (allowlisted) | ☐ | ☐ | Only if UAT flags enabled |
-| UAT SMS test | ☐ | ☐ | |
-| Push provider status honest | ☐ | ☐ | mock/live/disabled |
+| Test | Status | Notes |
+|------|--------|-------|
+| Readiness panel loads | **PASS** | `/system-health` |
+| UAT email test (allowlisted) | **NOT AVAILABLE** | SMTP not enabled on staging |
+| UAT SMS test | **NOT AVAILABLE** | SMS not enabled |
+| Push provider status honest | **PASS** | mock/disabled shown in readiness |
 
 ---
 
 ## Reports
 
-| Test | Pass | Fail | Notes |
-|------|------|------|-------|
-| Reports dashboard loads | ☐ | ☐ | |
-| Overdue / open WO metrics | ☐ | ☐ | |
-| Export if available | ☐ | ☐ | |
+| Test | Status | Notes |
+|------|--------|-------|
+| Reports dashboard loads | **PASS** | Manager browser UAT |
+| Overdue / open WO metrics | **PARTIAL** | API `/reports/dashboard` PASS |
+| Export if available | **OPERATOR-OWNED** | CSV/PDF on several modules |
 
 ---
 
@@ -128,10 +179,11 @@ node scripts/verify-hosted-logins.mjs
 
 | Check | Pass | Fail |
 |-------|------|------|
-| `npm run typecheck` | ☐ | ☐ |
-| `npm run test` | ☐ | ☐ |
-| `npm run build` | ☐ | ☐ |
+| `npm run typecheck` | ☑ | ☐ |
+| `npm run test` | ☑ | ☐ |
+| `npm run build` | ☑ | ☐ |
 | `npm run smoke:deploy` | ☑ | ☐ |
+| `npm run test:e2e:staging:uat002` | ☑ | ☐ |
 | Deployment URL reachable | ☑ | ☐ |
 | No secrets in repo | ☑ | ☐ |
 
@@ -141,20 +193,12 @@ node scripts/verify-hosted-logins.mjs
 
 | Role | Name | Date | Result |
 |------|------|------|--------|
-| QA | | 2026-06-12 | **PASS** (auth + hosted smoke); manual browser/MVP flows pending |
+| QA | | 2026-06-12 | **PARTIAL PASS** — UAT-002 browser + API; MVP lifecycle operator-owned |
 | Product owner | | | |
-| DevOps | | 2026-06-12 | **PASS** (Render env aligned, startup seed, smoke) |
+| DevOps | | 2026-06-12 | **PASS** — UAT-001 credentials; smoke green |
 
-**UAT-001 status (2026-06-12):** **PASS** for credential blocker — Render `MAINTAINPRO_SEED_PASSWORD` set and aligned with smoke credentials; idempotent seed applied on Render deploy (`maintainpro_staging`); hosted login + `npm run smoke:deploy` all checks PASS. Manual browser walkthrough (logout, MVP workflows, `/admin` on staging) remains operator-owned.
+**UAT-001 status:** **PASS** (credentials + smoke)
 
-### DevOps verification log (2026-06-12)
+**UAT-002 status:** **PARTIAL PASS** — Real enterprise personas verified in browser; API gate/inventory/admin PASS; full WO lifecycle and gate UI not production-complete.
 
-| Step | Result |
-|------|--------|
-| Render env audit | `DATABASE_URL`/`PRIMARY_DATABASE_URL` → `maintainpro_staging`; `MAINTAINPRO_SEED_PASSWORD` set; `CORS_ORIGIN` + `FRONTEND_URL` aligned to Workers URL |
-| Seed command | Idempotent `npm run db:seed` via env-gated Docker entrypoint on Render deploy (`MAINTAINPRO_RUN_STARTUP_SEED=true`, then disabled) |
-| Hosted login verification | admin, manager, technician, security_officer, store_keeper, superadmin — all **PASS** |
-| `npm run smoke:deploy` | Frontend, health, CORS, login — all **PASS** |
-| Commits | `cbd1722`, `e615c9d` on `main` |
-
-**Operator action:** Store `MAINTAINPRO_SEED_PASSWORD` from Render secret manager in your team vault; set local/CI `MAINTAINPRO_SMOKE_PASSWORD` to the same value for future smoke runs. Password values were never logged or committed.
+**Operator action:** After RBAC deploy, re-run `npm run uat:002:validate` to confirm manager/technician work-order API HTTP 200.

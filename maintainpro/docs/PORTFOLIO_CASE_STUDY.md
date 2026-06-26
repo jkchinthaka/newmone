@@ -63,7 +63,8 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - Push notifications: noop/mock unless HTTP live provider configured
 - ERP sync: mock by default; read sync when credentials provided
 - Access JWT stored in localStorage on web (CSP + documented migration path)
-- Full UAT sign-off pending hosted credential alignment
+- **UAT-001 PASS** (hosted login + smoke); **UAT-002 PARTIAL PASS** (browser personas + API gate; full MVP lifecycle operator-owned)
+- Dedicated `/fleet/gate` web UI not shipped — gate operations are API-first
 - Production custom domain not yet live
 
 ## Tech stack
@@ -75,7 +76,8 @@ NestJS · TypeScript · Prisma · MongoDB · Redis · Next.js · Flutter · Dock
 - Staging web: Cloudflare Workers
 - Staging API: Render
 - Automated smoke: `npm run smoke:deploy`
-- Browser UAT helper: `npm run test:e2e:staging`
+- Browser UAT: `npm run test:e2e:staging:uat002`
+- Portfolio screenshots: `docs/screenshots/staging/` (8 captures, 2026-06-12)
 
 ## Suggested interview narrative
 

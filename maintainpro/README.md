@@ -225,7 +225,24 @@ Case study narrative: [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.m
 
 ## Screenshots
 
-Add evaluator screenshots under `docs/screenshots/` (dashboard, work orders, admin console, system health, mobile). *Placeholder — capture from staging after credential alignment.*
+Staging portfolio captures (UAT-002, no credentials visible):
+
+| Screen | File |
+|--------|------|
+| Login | [docs/screenshots/staging/01-login.png](docs/screenshots/staging/01-login.png) |
+| Admin dashboard | [docs/screenshots/staging/02-admin-dashboard.png](docs/screenshots/staging/02-admin-dashboard.png) |
+| Admin console | [docs/screenshots/staging/03-admin-console.png](docs/screenshots/staging/03-admin-console.png) |
+| Manager dashboard | [docs/screenshots/staging/04-manager-dashboard.png](docs/screenshots/staging/04-manager-dashboard.png) |
+| Work order list | [docs/screenshots/staging/05-work-order-list.png](docs/screenshots/staging/05-work-order-list.png) |
+| Technician view | [docs/screenshots/staging/06-technician-work-orders.png](docs/screenshots/staging/06-technician-work-orders.png) |
+| Security fleet | [docs/screenshots/staging/07-security-fleet.png](docs/screenshots/staging/07-security-fleet.png) |
+| Inventory | [docs/screenshots/staging/08-inventory-stock.png](docs/screenshots/staging/08-inventory-stock.png) |
+| System health / ERP | [docs/screenshots/staging/10-erp-system-health.png](docs/screenshots/staging/10-erp-system-health.png) |
+| Reports hub | [docs/screenshots/staging/11-reports-dashboard.png](docs/screenshots/staging/11-reports-dashboard.png) |
+
+Missing (capture manually): work order detail modal, reports (re-run UAT-002 e2e), mobile (`apps/mobile`).
+
+Regenerate: `npm run test:e2e:staging:uat002` (requires shell smoke password aligned with Render seed password).
 
 ## Contributing
 

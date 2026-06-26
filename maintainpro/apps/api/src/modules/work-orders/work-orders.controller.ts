@@ -26,7 +26,7 @@ export class WorkOrdersController {
   ) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async findAll(@Req() req: AuthedRequest) {
     const data = await this.workOrdersService.findAll(req.user);
     return { data, message: "Work orders fetched" };
@@ -55,7 +55,7 @@ export class WorkOrdersController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.findOne(id, req.user);
     return { data, message: "Work order fetched" };
@@ -126,7 +126,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/status")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   @Permissions("work_orders.update_status")
   async updateStatus(
     @Req() req: AuthedRequest,

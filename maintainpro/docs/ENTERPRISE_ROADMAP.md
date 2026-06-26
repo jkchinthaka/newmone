@@ -13,9 +13,11 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | SLA escalation visibility | Partial | Facility aging / SLA detection |
 | Document expiry automation | Partial | Vehicle documents + compliance |
 | Inventory auto-reservation on WO | Partial | Part requests panel |
-| Align staging smoke credentials | Blocked | Operator action |
-| Complete UAT-001 sign-off | In progress | |
-| Production domain cutover | Not started | `maintenance.nelna.lk` |
+| Align staging smoke credentials | **DONE** | UAT-001 PASS |
+| Complete UAT-001 sign-off | **DONE** | Hosted login + smoke |
+| Complete UAT-002 browser/API verification | **PARTIAL** | Multi-role Playwright + gate API; MVP lifecycle operator-owned |
+| Dedicated `/fleet/gate` route | **NOT STARTED** | Security officer landing — API gate works |
+| Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` |
 
 ## Priority 2 — Post-MVP
 

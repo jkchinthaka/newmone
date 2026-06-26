@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "npm run typecheck",
     "test:e2e": "playwright test",
-    "test:e2e:staging": "playwright test --config playwright.staging.config.ts"
+    "test:e2e:staging": "playwright test --config playwright.staging.config.ts",
+    "test:e2e:staging:uat002": "playwright test --config playwright.staging-uat002.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
