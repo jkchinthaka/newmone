@@ -134,8 +134,10 @@ Password: set via `MAINTAINPRO_SEED_PASSWORD` (never commit). Typical seeded acc
 |-------|------|
 | `superadmin@maintainpro.local` | SUPER_ADMIN |
 | `admin@maintainpro.local` | ADMIN |
-| `security@maintainpro.local` | SECURITY_OFFICER |
+| `manager@maintainpro.local` | MANAGER |
 | `tech@maintainpro.local` | TECHNICIAN |
+| `inventory@maintainpro.local` | INVENTORY_KEEPER |
+| `security@maintainpro.local` | SECURITY_OFFICER |
 
 See seed source: `apps/api/src/database/seed.ts`.
 

@@ -14,6 +14,11 @@ npm run smoke:deploy
 
 # Staging browser (shell env)
 npm run test:e2e:staging
+
+# DevOps UAT-001 bootstrap (Render API key in .env.render.local; no secrets printed)
+node scripts/uat-001-staging-bootstrap.mjs
+node scripts/render-env-audit.mjs
+node scripts/verify-hosted-logins.mjs
 ```
 
 ---
@@ -22,14 +27,14 @@ npm run test:e2e:staging
 
 | Test | Pass | Fail | Notes |
 |------|------|------|-------|
-| Admin login | ☐ | ☐ | |
-| Manager login | ☐ | ☐ | |
-| Technician login | ☐ | ☐ | |
-| Security officer login | ☐ | ☐ | |
-| Store keeper login | ☐ | ☐ | |
-| Invalid password message | ☐ | ☐ | Must show "Invalid email or password", not session_expired redirect |
-| Logout | ☐ | ☐ | |
-| Session expiry redirect | ☐ | ☐ | `/login?reason=session_expired` |
+| Admin login | ☑ | ☐ | `admin@maintainpro.local` — PASS 2026-06-12 hosted API |
+| Manager login | ☑ | ☐ | `manager@maintainpro.local` — PASS 2026-06-12 hosted API |
+| Technician login | ☑ | ☐ | `tech@maintainpro.local` — PASS 2026-06-12 hosted API |
+| Security officer login | ☑ | ☐ | `security@maintainpro.local` — PASS 2026-06-12 hosted API |
+| Store keeper login | ☑ | ☐ | `inventory@maintainpro.local` — PASS 2026-06-12 hosted API |
+| Invalid password message | ☑ | ☐ | Verified earlier on staging (`Invalid email or password`, no session_expired redirect) |
+| Logout | ☐ | ☐ | Manual browser |
+| Session expiry redirect | ☐ | ☐ | Manual browser — `/login?reason=session_expired` |
 
 ---
 
@@ -55,8 +60,8 @@ npm run test:e2e:staging
 
 | Test | Pass | Fail | Notes |
 |------|------|------|-------|
-| Login as `security@maintainpro.local` | ☐ | ☐ | |
-| Only security/fleet menus visible | ☐ | ☐ | |
+| Login as `security@maintainpro.local` | ☑ | ☐ | Hosted API login PASS 2026-06-12 |
+| Only security/fleet menus visible | ☐ | ☐ | Manual browser |
 | Gate-out allowed vehicle | ☐ | ☐ | |
 | Gate-out blocked (expired docs) | ☐ | ☐ | |
 | Gate-in | ☐ | ☐ | |
@@ -70,8 +75,8 @@ npm run test:e2e:staging
 
 | Test | Pass | Fail | Notes |
 |------|------|------|-------|
-| `/admin` no React #310 | ☐ | ☐ | |
-| `/action-center` no crash | ☐ | ☐ | |
+| `/admin` no React #310 | ☐ | ☐ | Local e2e PASS; staging browser pending |
+| `/action-center` no crash | ☐ | ☐ | Local e2e PASS; staging browser pending |
 | Non-admin `/admin` permission state | ☐ | ☐ | |
 
 ---
@@ -126,9 +131,9 @@ npm run test:e2e:staging
 | `npm run typecheck` | ☐ | ☐ |
 | `npm run test` | ☐ | ☐ |
 | `npm run build` | ☐ | ☐ |
-| `npm run smoke:deploy` | ☐ | ☐ |
-| Deployment URL reachable | ☐ | ☐ |
-| No secrets in repo | ☐ | ☐ |
+| `npm run smoke:deploy` | ☑ | ☐ |
+| Deployment URL reachable | ☑ | ☐ |
+| No secrets in repo | ☑ | ☐ |
 
 ---
 
@@ -136,8 +141,20 @@ npm run test:e2e:staging
 
 | Role | Name | Date | Result |
 |------|------|------|--------|
-| QA | | | PARTIAL / PASS / FAIL |
+| QA | | 2026-06-12 | **PASS** (auth + hosted smoke); manual browser/MVP flows pending |
 | Product owner | | | |
-| DevOps | | | |
+| DevOps | | 2026-06-12 | **PASS** (Render env aligned, startup seed, smoke) |
 
-**Current status (2026-06-15):** PARTIAL — wrong-password UX verified on staging; full authenticated UAT blocked until smoke/seed password aligned with hosted DB.
+**UAT-001 status (2026-06-12):** **PASS** for credential blocker — Render `MAINTAINPRO_SEED_PASSWORD` set and aligned with smoke credentials; idempotent seed applied on Render deploy (`maintainpro_staging`); hosted login + `npm run smoke:deploy` all checks PASS. Manual browser walkthrough (logout, MVP workflows, `/admin` on staging) remains operator-owned.
+
+### DevOps verification log (2026-06-12)
+
+| Step | Result |
+|------|--------|
+| Render env audit | `DATABASE_URL`/`PRIMARY_DATABASE_URL` → `maintainpro_staging`; `MAINTAINPRO_SEED_PASSWORD` set; `CORS_ORIGIN` + `FRONTEND_URL` aligned to Workers URL |
+| Seed command | Idempotent `npm run db:seed` via env-gated Docker entrypoint on Render deploy (`MAINTAINPRO_RUN_STARTUP_SEED=true`, then disabled) |
+| Hosted login verification | admin, manager, technician, security_officer, store_keeper, superadmin — all **PASS** |
+| `npm run smoke:deploy` | Frontend, health, CORS, login — all **PASS** |
+| Commits | `cbd1722`, `e615c9d` on `main` |
+
+**Operator action:** Store `MAINTAINPRO_SEED_PASSWORD` from Render secret manager in your team vault; set local/CI `MAINTAINPRO_SMOKE_PASSWORD` to the same value for future smoke runs. Password values were never logged or committed.
