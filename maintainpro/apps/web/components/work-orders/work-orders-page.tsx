@@ -9,15 +9,18 @@ import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { USER_KEY } from "@/lib/auth-storage";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { getErrorMessage } from "./helpers";
 import {
   useAssignWorkOrder,
+  useApproveWorkOrder,
   useBulkDeleteWorkOrders,
   useBulkUpdateWorkOrderStatus,
   useCreateWorkOrder,
   useDeleteWorkOrder,
+  useRejectWorkOrder,
   useTechnicians,
   useUpdateWorkOrder,
   useUpdateWorkOrderStatus,
@@ -83,6 +86,8 @@ export default function WorkOrdersPage() {
     workOrder: null
   });
   const [completionTarget, setCompletionTarget] = useState<WorkOrder | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
   const workOrdersQuery = useWorkOrders(filters);
@@ -96,6 +101,12 @@ export default function WorkOrdersPage() {
   const assignMutation = useAssignWorkOrder();
   const bulkDeleteMutation = useBulkDeleteWorkOrders();
   const bulkStatusMutation = useBulkUpdateWorkOrderStatus();
+  const approveMutation = useApproveWorkOrder();
+  const rejectMutation = useRejectWorkOrder();
+  const currentUser = useCurrentUser();
+  const canApproveWorkOrders = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"].includes(
+    currentUser.role ?? ""
+  );
 
   useEffect(() => {
     setCurrentUserId(readCurrentUserId());
@@ -176,6 +187,41 @@ export default function WorkOrdersPage() {
     try {
       await assignMutation.mutateAsync({ id: workOrder.id, technicianId });
       toast.success("Technician assigned");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleApprove = async (workOrder: WorkOrder) => {
+    try {
+      await approveMutation.mutateAsync({ id: workOrder.id });
+      toast.success(`${workOrder.woNumber} approved`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleReject = (workOrder: WorkOrder) => {
+    setRejectTarget(workOrder);
+    setRejectReason("");
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget) {
+      return;
+    }
+
+    const reason = rejectReason.trim();
+    if (reason.length < 3) {
+      toast.error("Rejection reason is required (minimum 3 characters).");
+      return;
+    }
+
+    try {
+      await rejectMutation.mutateAsync({ id: rejectTarget.id, reason });
+      toast.success(`${rejectTarget.woNumber} rejected`);
+      setRejectTarget(null);
+      setRejectReason("");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -271,6 +317,9 @@ export default function WorkOrdersPage() {
             onAssign={(workOrder, technicianId) => void handleAssign(workOrder, technicianId)}
             onDelete={(workOrder) => void handleDelete(workOrder)}
             onEdit={openEditModal}
+            canApprove={canApproveWorkOrders}
+            onApprove={(workOrder) => void handleApprove(workOrder)}
+            onReject={(workOrder) => void handleReject(workOrder)}
           />
         ) : (
           <WorkOrderTable
@@ -311,6 +360,9 @@ export default function WorkOrdersPage() {
     );
   }, [
     handleAssign,
+    handleApprove,
+    handleReject,
+    canApproveWorkOrders,
     handleDelete,
     selectedIds,
     sortBy,
@@ -437,6 +489,42 @@ export default function WorkOrdersPage() {
             });
         }}
       />
+
+      {rejectTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-900">Reject {rejectTarget.woNumber}</h2>
+            <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the work order.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
+              placeholder="Reason for rejection"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectReason("");
+                }}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={rejectMutation.isPending}
+                onClick={() => void submitReject()}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                Reject work order
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {busy ? <div className="fixed bottom-4 right-4 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">Processing...</div> : null}
       {confirmDialog}

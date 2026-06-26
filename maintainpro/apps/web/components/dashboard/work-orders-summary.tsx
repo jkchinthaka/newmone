@@ -74,6 +74,9 @@ export function WorkOrdersSummary({
       }
     >
       <WorkOrderStatsGrid stats={stats} assigned={assignedUserId != null} />
+      <p className="mt-2 text-xs text-slate-500">
+        Counts reflect live tenant work orders from the API (refreshed every 60s). Empty modules show zero — not demo placeholders.
+      </p>
       {showPriorityList ? (
         <PriorityWorkOrdersList orders={priorityOrders} emptyLabel={assignedUserId ? "No assigned work orders right now." : "No open work orders need attention."} />
       ) : null}

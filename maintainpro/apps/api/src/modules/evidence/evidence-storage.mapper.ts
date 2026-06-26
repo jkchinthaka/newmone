@@ -25,16 +25,34 @@ export type EvidenceStorageReadinessState =
   | "misconfigured"
   | "configured";
 
+export type EvidenceStorageIndicator = "ENABLED" | "DISABLED" | "MISCONFIGURED";
+
 export type EvidenceStorageReadiness = {
   providerId: string;
   mode: EvidenceStorageMode;
   state: EvidenceStorageReadinessState;
+  indicator: EvidenceStorageIndicator;
   uploadsEnabled: boolean;
   maxFileSizeMb: number;
   allowedMimeTypes: string[];
   message: string;
   missingKeys: string[];
 };
+
+export function mapEvidenceStorageIndicator(input: {
+  state: EvidenceStorageReadinessState;
+  uploadsEnabled: boolean;
+}): EvidenceStorageIndicator {
+  if (input.state === "configured" && input.uploadsEnabled) {
+    return "ENABLED";
+  }
+
+  if (input.state === "misconfigured" || input.state === "not_configured") {
+    return "MISCONFIGURED";
+  }
+
+  return "DISABLED";
+}
 
 export type EvidenceUploadValidationInput = {
   fileName: string;
@@ -209,6 +227,7 @@ const PUBLIC_READINESS_KEYS = new Set<string>([
   "providerId",
   "mode",
   "state",
+  "indicator",
   "uploadsEnabled",
   "maxFileSizeMb",
   "allowedMimeTypes",

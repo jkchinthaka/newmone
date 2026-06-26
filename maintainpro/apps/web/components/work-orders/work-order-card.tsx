@@ -17,12 +17,15 @@ type WorkOrderCardProps = {
   workOrder: WorkOrder;
   technicians: TechnicianOption[];
   dragging?: boolean;
+  canApprove?: boolean;
   onStart: (workOrder: WorkOrder) => void;
   onHold: (workOrder: WorkOrder) => void;
   onComplete: (workOrder: WorkOrder) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
   onDelete: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
+  onApprove?: (workOrder: WorkOrder) => void;
+  onReject?: (workOrder: WorkOrder) => void;
   onDragStart: (workOrder: WorkOrder) => void;
   onDragEnd: () => void;
 };
@@ -37,10 +40,14 @@ export function WorkOrderCard({
   onAssign,
   onDelete,
   onEdit,
+  onApprove,
+  onReject,
+  canApprove = false,
   onDragStart,
   onDragEnd
 }: WorkOrderCardProps) {
   const overdue = isWorkOrderOverdue(workOrder);
+  const pendingApproval = workOrder.approvalStatus === "PENDING";
 
   return (
     <article
@@ -89,7 +96,31 @@ export function WorkOrderCard({
             SLA OK
           </span>
         )}
+        {pendingApproval ? (
+          <span className="rounded-full bg-amber-100 px-2 py-1 font-medium text-amber-800 ring-1 ring-amber-200">
+            Pending approval
+          </span>
+        ) : null}
       </div>
+
+      {canApprove && pendingApproval && onApprove && onReject ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onApprove(workOrder)}
+            className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            onClick={() => onReject(workOrder)}
+            className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-800 hover:bg-rose-100"
+          >
+            Reject
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-3 space-y-1 text-xs text-slate-600">
         <div className="flex items-center gap-1">

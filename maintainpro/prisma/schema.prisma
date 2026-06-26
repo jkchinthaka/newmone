@@ -188,6 +188,7 @@ model User {
 
   assignedWorkOrders        WorkOrder[]            @relation("TechnicianWorkOrders")
   createdWorkOrders         WorkOrder[]            @relation("CreatorWorkOrders")
+  approvedWorkOrders        WorkOrder[]            @relation("ApprovedWorkOrders")
   memberships               TenantMembership[]
   sentInvitations           TenantInvitation[]     @relation("TenantInvitedBy")
   notifications             Notification[]
@@ -1007,6 +1008,11 @@ model WorkOrder {
   description    String
   priority       Priority             @default(MEDIUM)
   status         WorkOrderStatus      @default(OPEN)
+  approvalStatus WorkOrderApprovalStatus @default(APPROVED)
+  approvedById   String?              @db.ObjectId
+  approvedBy     User?                @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  rejectionReason String?
   type           WorkOrderType
   assetId        String?              @db.ObjectId
   asset          Asset?               @relation(fields: [assetId], references: [id])
@@ -1065,6 +1071,12 @@ enum WorkOrderStatus {
   COMPLETED
   CANCELLED
   OVERDUE
+}
+
+enum WorkOrderApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum WorkOrderType {

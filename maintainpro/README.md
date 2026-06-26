@@ -157,6 +157,7 @@ npm run test:e2e:staging:uat002
 npm run test:e2e:staging:uat003
 npm run uat:002:validate
 npm run uat:003:validate     # MVP lifecycle API + portfolio e2e + full regression
+npm run uat:004:validate     # Production hardening sprint 1 + UAT-003 regression
 ```
 
 ## Deployment
@@ -249,7 +250,7 @@ Staging portfolio captures (UAT-003 warm session, no credentials visible):
 
 Regenerate: `npm run test:e2e:staging:uat003` or `npm run uat:003:validate` (requires Render-aligned seed password via `.env.render.local` or shell).
 
-**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** (hosted MVP lifecycle API verified on Render `c36af83`; WO approval, live evidence, gate UI, production cutover remain open).
+**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** · UAT-004 **PARTIAL PASS** (approval/audit/gate/evidence indicators; production cutover open).
 
 ## Contributing
 

@@ -5,12 +5,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   assignWorkOrder,
+  approveWorkOrder,
   bulkDeleteWorkOrders,
   bulkUpdateStatus,
   createWorkOrder,
   deleteWorkOrder,
   fetchTechnicians,
   fetchWorkOrders,
+  rejectWorkOrder,
   updateWorkOrder,
   updateWorkOrderStatus
 } from "./api";
@@ -320,6 +322,28 @@ export function useBulkUpdateWorkOrderStatus() {
       status: WorkOrderStatus;
       payload?: { actualCost?: number; actualHours?: number };
     }) => bulkUpdateStatus(ids, status, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
+    }
+  });
+}
+
+export function useApproveWorkOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) => approveWorkOrder(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
+    }
+  });
+}
+
+export function useRejectWorkOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectWorkOrder(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
     }

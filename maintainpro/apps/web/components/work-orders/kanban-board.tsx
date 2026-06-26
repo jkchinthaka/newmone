@@ -17,6 +17,9 @@ type KanbanBoardProps = {
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
   onDelete: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
+  canApprove?: boolean;
+  onApprove?: (workOrder: WorkOrder) => void;
+  onReject?: (workOrder: WorkOrder) => void;
 };
 
 const columnAccent: Record<WorkOrderStatus, string> = {
@@ -37,7 +40,10 @@ export function KanbanBoard({
   onComplete,
   onAssign,
   onDelete,
-  onEdit
+  onEdit,
+  canApprove,
+  onApprove,
+  onReject
 }: KanbanBoardProps) {
   const [draggingOrder, setDraggingOrder] = useState<WorkOrder | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<WorkOrderStatus | null>(null);
@@ -111,6 +117,9 @@ export function KanbanBoard({
                       onAssign={onAssign}
                       onDelete={onDelete}
                       onEdit={onEdit}
+                      canApprove={canApprove}
+                      onApprove={onApprove}
+                      onReject={onReject}
                       onDragStart={setDraggingOrder}
                       onDragEnd={() => {
                         setDraggingOrder(null);

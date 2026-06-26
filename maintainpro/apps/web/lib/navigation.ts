@@ -110,6 +110,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/work-orders",
   "/assets",
   "/fleet",
+  "/fleet/gate",
   "/inventory",
   "/procurement",
   "/compliance",
@@ -221,6 +222,15 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
       ASSET_ROLES
     ),
     category: "operations"
+  },
+  {
+    id: "fleet-gate",
+    label: "Gate",
+    href: "/fleet/gate",
+    icon: "ShieldCheck",
+    allowedRoles: mergeRoles(SECURITY_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, FLEET_ROLES),
+    category: "operations",
+    activeMatch: "startsWith"
   },
   {
     id: "fleet",

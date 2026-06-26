@@ -7,6 +7,7 @@ import type {
   UpdateWorkOrderStatusInput,
   UserReference,
   WorkOrder,
+  WorkOrderApprovalStatus,
   WorkOrderPriority,
   WorkOrderStatus,
   WorkOrderType
@@ -34,6 +35,8 @@ const validTypes = new Set<WorkOrderType>([
   "INSPECTION",
   "INSTALLATION"
 ]);
+
+const validApprovalStatuses = new Set<WorkOrderApprovalStatus>(["PENDING", "APPROVED", "REJECTED"]);
 
 function unwrapData<T>(payload: unknown): T {
   if (payload && typeof payload === "object" && "data" in payload) {
@@ -76,6 +79,12 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
     ? (candidate.type as WorkOrderType)
     : "CORRECTIVE";
 
+  const approvalStatus =
+    typeof candidate.approvalStatus === "string" &&
+    validApprovalStatuses.has(candidate.approvalStatus as WorkOrderApprovalStatus)
+      ? (candidate.approvalStatus as WorkOrderApprovalStatus)
+      : "APPROVED";
+
   return {
     id: String(candidate.id ?? ""),
     woNumber: String(candidate.woNumber ?? "WO-UNKNOWN"),
@@ -83,6 +92,8 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
     description: String(candidate.description ?? ""),
     priority,
     status,
+    approvalStatus,
+    rejectionReason: typeof candidate.rejectionReason === "string" ? candidate.rejectionReason : null,
     type,
     assetId: typeof candidate.assetId === "string" ? candidate.assetId : null,
     vehicleId: typeof candidate.vehicleId === "string" ? candidate.vehicleId : null,
@@ -228,4 +239,14 @@ export async function bulkUpdateStatus(
   );
 
   return updated;
+}
+
+export async function approveWorkOrder(id: string, notes?: string): Promise<WorkOrder> {
+  const response = await apiClient.patch<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/approve`, { notes });
+  return sanitizeWorkOrder(unwrapData(response.data));
+}
+
+export async function rejectWorkOrder(id: string, reason: string): Promise<WorkOrder> {
+  const response = await apiClient.patch<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/reject`, { reason });
+  return sanitizeWorkOrder(unwrapData(response.data));
 }

@@ -6,6 +6,7 @@ import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { ApproveWorkOrderDto, RejectWorkOrderDto, SubmitWorkOrderForApprovalDto } from "./dto/work-order-approval.dto";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
@@ -48,6 +49,7 @@ export class WorkOrdersController {
       scheduleId?: string;
       createdById: string;
       dueDate?: string;
+      requiresApproval?: boolean;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);
@@ -123,6 +125,34 @@ export class WorkOrdersController {
   async assign(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { technicianId: string }) {
     const data = await this.workOrdersService.assign(id, body.technicianId, req.user);
     return { data, message: "Work order assigned" };
+  }
+
+  @Post(":id/submit-for-approval")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.manage", "work_orders.update_status")
+  async submitForApproval(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: SubmitWorkOrderForApprovalDto
+  ) {
+    const data = await this.workOrdersService.submitForApproval(id, body.notes, req.user);
+    return { data, message: "Work order submitted for approval" };
+  }
+
+  @Patch(":id/approve")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("work_orders.manage")
+  async approveWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: ApproveWorkOrderDto) {
+    const data = await this.workOrdersService.approveWorkOrder(id, body.notes, req.user);
+    return { data, message: "Work order approved" };
+  }
+
+  @Patch(":id/reject")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("work_orders.manage")
+  async rejectWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: RejectWorkOrderDto) {
+    const data = await this.workOrdersService.rejectWorkOrder(id, body.reason, req.user);
+    return { data, message: "Work order rejected" };
   }
 
   @Patch(":id/status")

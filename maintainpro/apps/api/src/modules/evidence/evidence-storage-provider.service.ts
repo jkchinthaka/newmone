@@ -7,6 +7,7 @@ import {
   EvidenceStorageReadiness,
   EvidenceStorageReadinessState,
   EvidenceUploadRequestResult,
+  mapEvidenceStorageIndicator,
   parseAllowedMimeTypes
 } from "./evidence-storage.mapper";
 
@@ -40,7 +41,7 @@ export class EvidenceStorageProviderService {
     const missingKeys = this.missingProviderKeys(mode);
 
     if (mode === "disabled" || mode === "local") {
-      return {
+      return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
         state: "disabled",
@@ -52,11 +53,11 @@ export class EvidenceStorageProviderService {
             ? "Evidence uploads require a dedicated storage mode (mock, minio, s3, cloudinary, azure_blob)."
             : "Evidence storage uploads are disabled by STORAGE_MODE=disabled.",
         missingKeys: mode === "local" ? ["STORAGE_MODE"] : []
-      };
+      });
     }
 
     if (!uploadsEnabled) {
-      return {
+      return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
         state: "disabled",
@@ -65,12 +66,12 @@ export class EvidenceStorageProviderService {
         allowedMimeTypes,
         message: "Evidence uploads are disabled. Set STORAGE_UPLOADS_ENABLED=true after provider sign-off.",
         missingKeys: ["STORAGE_UPLOADS_ENABLED"]
-      };
+      });
     }
 
     if (mode === "mock") {
       const blockedInProduction = this.isProduction() && !this.isMockAllowed();
-      return {
+      return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
         state: blockedInProduction ? "misconfigured" : "configured",
@@ -81,11 +82,11 @@ export class EvidenceStorageProviderService {
           ? "Mock evidence uploads are blocked in production unless explicitly allowed."
           : "Mock evidence storage is enabled for metadata-only upload UAT.",
         missingKeys: []
-      };
+      });
     }
 
     if (missingKeys.length >= 2) {
-      return {
+      return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
         state: "not_configured",
@@ -94,11 +95,11 @@ export class EvidenceStorageProviderService {
         allowedMimeTypes,
         message: "Evidence storage provider settings are missing.",
         missingKeys
-      };
+      });
     }
 
     if (missingKeys.length > 0) {
-      return {
+      return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
         state: "misconfigured",
@@ -107,10 +108,10 @@ export class EvidenceStorageProviderService {
         allowedMimeTypes,
         message: "Evidence storage provider settings are incomplete.",
         missingKeys
-      };
+      });
     }
 
-    return {
+    return this.finalizeReadiness({
       providerId: "EVIDENCE_OBJECT_STORAGE",
       mode,
       state: "configured",
@@ -119,6 +120,15 @@ export class EvidenceStorageProviderService {
       allowedMimeTypes,
       message: `${mode} evidence storage is configured; presigned upload UAT still required before live bytes transfer.`,
       missingKeys: []
+    });
+  }
+
+  private finalizeReadiness(
+    readiness: Omit<EvidenceStorageReadiness, "indicator">
+  ): EvidenceStorageReadiness {
+    return {
+      ...readiness,
+      indicator: mapEvidenceStorageIndicator(readiness)
     };
   }
 

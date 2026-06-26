@@ -65,10 +65,9 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - Access JWT stored in localStorage on web (CSP + documented migration path)
 - **UAT-001 PASS** (hosted login + smoke)
 - **UAT-002 PARTIAL PASS** — browser personas + hosted API on staging
-- **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified (create → assign → parts → complete); portfolio screenshots 13/13 web (mobile placeholder)
-- Dedicated WO approval workflow **NOT AVAILABLE** (part-request approval works)
-- Evidence object storage **disabled** on staging (readiness honest)
-- Dedicated `/fleet/gate` web UI not shipped — gate operations are API-first
+- **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified
+- **UAT-004 PARTIAL PASS** — WO approve/reject, audit completeness, `/fleet/gate`, evidence readiness indicators
+- Evidence object storage **DISABLED** on staging (indicator honest; no fake uploads)
 - Production custom domain not yet live
 
 ## Tech stack

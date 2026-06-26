@@ -35,6 +35,23 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 ---
 
+## UAT-004 summary (2026-06-27)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-004 overall** | **PARTIAL PASS** | Production hardening sprint 1 — approval/audit/gate/evidence indicators shipped; live storage + prod cutover remain open |
+| Work order approve/reject API | **PASS** | `PATCH /work-orders/:id/approve` · `PATCH /work-orders/:id/reject` — Manager/Operations only |
+| Work order audit completeness | **PASS** | Create, assign, status, complete, approve/reject audited |
+| Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on readiness API |
+| Fleet gate UI (`/fleet/gate`) | **PASS** | Security officer gate page + role guard |
+| Dashboard KPI honesty | **PARTIAL** | Live API counts labeled; some enterprise KPIs still roadmap |
+| Reports CSV/PDF export | **PARTIAL** | Client-side export on reports/inventory/vehicles; server bulk export roadmap |
+| Session expiry | **PASS** (auto) + **OPERATOR-OWNED** (manual TTL) | `auth.spec.ts` + API interceptor; manual idle timeout simulation documented |
+
+Run: `npm run uat:004:validate`
+
+---
+
 ## UAT-003 summary (2026-06-27)
 
 | Area | Status | Notes |

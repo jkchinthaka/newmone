@@ -19,6 +19,7 @@ describe("evidence storage readiness", () => {
 
     expect(provider.checkReadiness()).toMatchObject({
       state: "disabled",
+      indicator: "DISABLED",
       uploadsEnabled: false
     });
   });
@@ -48,6 +49,7 @@ describe("evidence storage readiness", () => {
     expect(provider.checkReadiness()).toMatchObject({
       mode: "mock",
       state: "configured",
+      indicator: "ENABLED",
       uploadsEnabled: true
     });
   });

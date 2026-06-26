@@ -18,7 +18,7 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | Complete UAT-002 browser/API verification | **PARTIAL** | Multi-role Playwright + gate API |
 | Complete UAT-003 MVP lifecycle certification | **PARTIAL** | Hosted API lifecycle PASS; WO approval + live evidence open |
 | Manager WO create/assign RBAC alignment | **DONE** | `MANAGER` on create/assign/notes (commit `c36af83`) |
-| Dedicated `/fleet/gate` route | **NOT STARTED** | Security officer landing — API gate works |
+| Dedicated `/fleet/gate` route | **DONE** (UAT-004) | Security officer gate page at `/fleet/gate` |
 | Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` |
 
 ## Priority 2 — Post-MVP

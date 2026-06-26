@@ -1,3 +1,5 @@
+export const WORK_ORDER_APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+
 export const WORK_ORDER_STATUSES = [
   "OPEN",
   "IN_PROGRESS",
@@ -18,6 +20,7 @@ export const WORK_ORDER_TYPES = [
 ] as const;
 
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+export type WorkOrderApprovalStatus = (typeof WORK_ORDER_APPROVAL_STATUSES)[number];
 export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
 export type WorkOrderType = (typeof WORK_ORDER_TYPES)[number];
 export type WorkOrderViewMode = "kanban" | "list";
@@ -63,6 +66,8 @@ export interface WorkOrder {
   description: string;
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
+  approvalStatus?: WorkOrderApprovalStatus;
+  rejectionReason?: string | null;
   type: WorkOrderType;
   assetId?: string | null;
   vehicleId?: string | null;

@@ -1,7 +1,7 @@
 # Production Readiness Report
 
-**Last updated:** 2026-06-15  
-**Verdict:** **Staging-ready** for controlled UAT on Render + Cloudflare + MongoDB Atlas. **Not** ready for unrestricted production go-live with all integrations live until operator cutover checklist is complete.
+**Last updated:** 2026-06-27  
+**Verdict:** **Pilot-ready** on staging (UAT-001/002/003/004 partial pass). **Not** production-ready until live evidence storage, production domain, and operator cutover checklist complete.
 
 ## Executive summary
 
@@ -26,7 +26,10 @@ Integrations default to **disabled or mock** and must be explicitly enabled with
 |------|--------|-------|
 | Core API (NestJS + Prisma MongoDB) | **Ready** | Modular monolith, validation, global guards |
 | Multi-tenancy + RBAC | **Ready** | Tenant middleware, JWT, roles, permissions guards |
-| Audit trail | **Ready** | Prisma middleware + domain audit writes |
+| Audit trail | **Ready** | Prisma middleware + domain audit; WO lifecycle audited (UAT-004) |
+| Work order approval | **Partial** | Approve/reject API + kanban UI; auto-approve for privileged creators |
+| Fleet gate UI | **Partial** | `/fleet/gate` page shipped; override admin-only on API |
+| File / evidence storage | **Partial** | Readiness indicator ENABLED/DISABLED/MISCONFIGURED; staging disabled |
 | Web dashboard | **Ready** | Role nav, live KPIs on core modules |
 | Mobile app | **Partial** | Flutter features exist; offline parity incomplete |
 | Auth security | **Partial** | HttpOnly refresh + CSRF; access JWT still in localStorage (documented risk) |
@@ -38,7 +41,7 @@ Integrations default to **disabled or mock** and must be explicitly enabled with
 | SMS | **Partial** | Disabled/mock/live modes |
 | Push | **Partial** | Disabled/mock/live; not Firebase-native |
 | ERP stock sync | **Partial** | Mock default; dry-run + read sync when configured |
-| File / evidence storage | **Partial** | Cloudinary/MinIO env-gated |
+| File / evidence storage | **Partial** | Readiness indicator; Cloudinary/MinIO env-gated for live bytes |
 | Hosted staging smoke | **Partial** | Health/CORS pass; login needs credential alignment |
 | UAT-001 browser sign-off | **Partial** | Wrong-password UX verified; full flow pending login |
 | Custom production domain | **Not ready** | Planned `maintenance.nelna.lk` |

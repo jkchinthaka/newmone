@@ -9,6 +9,7 @@ import {
   Priority,
   Prisma,
   RoleName,
+  WorkOrderApprovalStatus,
   WorkOrderStatus
 } from "@prisma/client";
 
@@ -100,6 +101,42 @@ export class WorkOrdersService {
     return Boolean(pettyCash) || totalCost >= this.financeApprovalThreshold;
   }
 
+  private canAutoApproveWorkOrder(roleName?: string | null): boolean {
+    if (!roleName) {
+      return false;
+    }
+
+    return (
+      roleName === RoleName.SUPER_ADMIN ||
+      roleName === RoleName.ADMIN ||
+      roleName === RoleName.MANAGER ||
+      roleName === RoleName.OPERATIONS_MANAGER ||
+      roleName === RoleName.ASSET_MANAGER
+    );
+  }
+
+  private assertWorkOrderApprovedForExecution(workOrder: {
+    approvalStatus: WorkOrderApprovalStatus;
+  }) {
+    if (workOrder.approvalStatus === WorkOrderApprovalStatus.REJECTED) {
+      throw new BadRequestException("Work order was rejected and cannot be executed");
+    }
+
+    if (workOrder.approvalStatus === WorkOrderApprovalStatus.PENDING) {
+      throw new BadRequestException("Work order requires manager approval before execution");
+    }
+  }
+
+  private assertValidStatusTransition(from: WorkOrderStatus, to: WorkOrderStatus) {
+    if (from === to) {
+      return;
+    }
+
+    if (from === WorkOrderStatus.COMPLETED || from === WorkOrderStatus.CANCELLED) {
+      throw new BadRequestException(`Cannot change status from ${from.replaceAll("_", " ")}`);
+    }
+  }
+
   private async nextWoNumber(actor?: Actor): Promise<string> {
     const year = new Date().getFullYear();
     const tenantId = this.resolveTenantId(actor);
@@ -181,6 +218,7 @@ export class WorkOrdersService {
       scheduleId?: string;
       createdById: string;
       dueDate?: string;
+      requiresApproval?: boolean;
     },
     actor?: Actor
   ) {
@@ -226,6 +264,12 @@ export class WorkOrdersService {
     }
 
     const woNumber = await this.nextWoNumber(actor);
+    const approvalStatus =
+      data.requiresApproval === true
+        ? WorkOrderApprovalStatus.PENDING
+        : this.canAutoApproveWorkOrder(actor?.role)
+          ? WorkOrderApprovalStatus.APPROVED
+          : WorkOrderApprovalStatus.PENDING;
 
     try {
       const created = await this.prisma.workOrder.create({
@@ -240,7 +284,31 @@ export class WorkOrdersService {
           vehicleId: data.vehicleId,
           scheduleId: data.scheduleId,
           createdById: data.createdById,
-          dueDate: data.dueDate ? new Date(data.dueDate) : undefined
+          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+          approvalStatus,
+          approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
+          approvedById:
+            approvalStatus === WorkOrderApprovalStatus.APPROVED && actor?.sub ? actor.sub : undefined
+        }
+      });
+
+      await this.recordAudit({
+        entity: "WorkOrder",
+        entityId: created.id,
+        action: AuditAction.CREATE,
+        actor,
+        reason: "Work order created",
+        metadata: {
+          event: "work_order_created",
+          woNumber: created.woNumber,
+          approvalStatus: created.approvalStatus,
+          priority: created.priority,
+          type: created.type
+        },
+        afterData: {
+          status: created.status,
+          approvalStatus: created.approvalStatus,
+          title: created.title
         }
       });
 
@@ -279,7 +347,8 @@ export class WorkOrdersService {
   }
 
   async assign(id: string, technicianId: string, actor?: Actor) {
-    await this.findOne(id, actor);
+    const current = await this.findOne(id, actor);
+    this.assertWorkOrderApprovedForExecution(current);
     const tenantId = this.resolveTenantId(actor);
     const technician = await this.prisma.user.findFirst({
       where: {
@@ -319,6 +388,144 @@ export class WorkOrdersService {
       }
     });
 
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: "Technician assigned",
+      metadata: {
+        event: "work_order_assigned",
+        woNumber: updated.woNumber,
+        technicianId
+      },
+      beforeData: { technicianId: current.technicianId ?? null },
+      afterData: { technicianId: updated.technicianId ?? null }
+    });
+
+    return updated;
+  }
+
+  async submitForApproval(id: string, notes: string | undefined, actor?: Actor) {
+    const current = await this.findOne(id, actor);
+
+    if (current.approvalStatus === WorkOrderApprovalStatus.APPROVED) {
+      throw new BadRequestException("Work order is already approved");
+    }
+
+    if (current.approvalStatus === WorkOrderApprovalStatus.REJECTED) {
+      throw new BadRequestException("Rejected work orders cannot be resubmitted");
+    }
+
+    if (current.status === WorkOrderStatus.COMPLETED || current.status === WorkOrderStatus.CANCELLED) {
+      throw new BadRequestException("Closed work orders cannot be submitted for approval");
+    }
+
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        approvalStatus: WorkOrderApprovalStatus.PENDING,
+        approvedById: null,
+        approvedAt: null,
+        rejectionReason: null
+      }
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: notes ?? "Submitted for manager approval",
+      metadata: { event: "work_order_submitted_for_approval", woNumber: updated.woNumber },
+      beforeData: { approvalStatus: current.approvalStatus },
+      afterData: { approvalStatus: updated.approvalStatus }
+    });
+
+    return updated;
+  }
+
+  async approveWorkOrder(id: string, notes: string | undefined, actor?: Actor) {
+    const current = await this.findOne(id, actor);
+
+    if (current.approvalStatus !== WorkOrderApprovalStatus.PENDING) {
+      throw new BadRequestException("Only pending work orders can be approved");
+    }
+
+    if (current.status === WorkOrderStatus.COMPLETED || current.status === WorkOrderStatus.CANCELLED) {
+      throw new BadRequestException("Cannot approve a closed work order");
+    }
+
+    const approver = this.assertActor(actor);
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        approvalStatus: WorkOrderApprovalStatus.APPROVED,
+        approvedById: approver.sub,
+        approvedAt: new Date(),
+        rejectionReason: null
+      }
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: notes ?? "Work order approved",
+      metadata: { event: "work_order_approved", woNumber: updated.woNumber },
+      beforeData: { approvalStatus: current.approvalStatus },
+      afterData: { approvalStatus: updated.approvalStatus, approvedById: updated.approvedById }
+    });
+
+    return updated;
+  }
+
+  async rejectWorkOrder(id: string, reason: string, actor?: Actor) {
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason || trimmedReason.length < 3) {
+      throw new BadRequestException("Rejection reason is required (minimum 3 characters)");
+    }
+
+    const current = await this.findOne(id, actor);
+
+    if (current.approvalStatus !== WorkOrderApprovalStatus.PENDING) {
+      throw new BadRequestException("Only pending work orders can be rejected");
+    }
+
+    if (current.status === WorkOrderStatus.COMPLETED) {
+      throw new BadRequestException("Cannot reject a completed work order");
+    }
+
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        approvalStatus: WorkOrderApprovalStatus.REJECTED,
+        status: WorkOrderStatus.CANCELLED,
+        rejectionReason: trimmedReason,
+        approvedById: null,
+        approvedAt: null
+      }
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: trimmedReason,
+      metadata: { event: "work_order_rejected", woNumber: updated.woNumber },
+      beforeData: {
+        approvalStatus: current.approvalStatus,
+        status: current.status
+      },
+      afterData: {
+        approvalStatus: updated.approvalStatus,
+        status: updated.status,
+        rejectionReason: updated.rejectionReason
+      }
+    });
+
     return updated;
   }
 
@@ -332,6 +539,14 @@ export class WorkOrdersService {
     actor?: Actor
   ) {
     const current = await this.findOne(id, actor);
+    this.assertValidStatusTransition(current.status, data.status);
+
+    if (
+      data.status === WorkOrderStatus.IN_PROGRESS ||
+      data.status === WorkOrderStatus.COMPLETED
+    ) {
+      this.assertWorkOrderApprovedForExecution(current);
+    }
 
     if (data.status === WorkOrderStatus.COMPLETED && (!data.actualCost || !data.actualHours)) {
       throw new BadRequestException("Cannot complete a work order without entering actual cost and hours");
@@ -347,7 +562,7 @@ export class WorkOrdersService {
 
     const completedDate = data.status === WorkOrderStatus.COMPLETED ? new Date() : current.completedDate;
 
-    return this.prisma.workOrder.update({
+    const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
         status: data.status,
@@ -359,6 +574,41 @@ export class WorkOrdersService {
         slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
       }
     });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason:
+        data.status === WorkOrderStatus.COMPLETED
+          ? "Work order completed"
+          : `Work order status updated to ${data.status}`,
+      metadata: {
+        event:
+          data.status === WorkOrderStatus.COMPLETED
+            ? "work_order_completed"
+            : "work_order_status_updated",
+        woNumber: updated.woNumber,
+        previousStatus: current.status,
+        nextStatus: updated.status,
+        actualCost: data.actualCost ?? null,
+        actualHours: data.actualHours ?? null
+      },
+      beforeData: {
+        status: current.status,
+        actualCost: current.actualCost ?? null,
+        actualHours: current.actualHours ?? null
+      },
+      afterData: {
+        status: updated.status,
+        actualCost: updated.actualCost ?? null,
+        actualHours: updated.actualHours ?? null,
+        completedDate: updated.completedDate?.toISOString() ?? null
+      }
+    });
+
+    return updated;
   }
 
   async addPart(id: string, data: { partId: string; quantity: number; unitCost: number }, actor?: Actor) {

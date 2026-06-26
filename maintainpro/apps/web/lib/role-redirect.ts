@@ -21,6 +21,7 @@ export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/cleaning/scan",
   "/cleaning/visits",
   "/fleet",
+  "/fleet/gate",
   "/inventory",
   "/procurement",
   "/reports",

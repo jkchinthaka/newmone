@@ -14,7 +14,7 @@ Review before production cutover. Backend RBAC is authoritative; frontend checks
 | CORS allows CSRF header | ✅ | `main.ts` (fixed 2026-06-15) |
 | Login lockout | ✅ | `auth-login-lockout.spec.ts` |
 | Password hashing (bcrypt) | ✅ | Auth service |
-| Session expiry handling | ✅ | API interceptor + web redirect |
+| Session expiry handling | ✅ | API interceptor + web redirect; see UAT-004 manual idle test (OPERATOR-OWNED) |
 | Logout clears storage | ✅ | `clearAuthSession()` |
 | Throttling on auth routes | ✅ | `@Throttle` on login/register/refresh |
 | Logout all sessions | 📋 | Roadmap — refresh token family revocation partial |
