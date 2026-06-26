@@ -56,21 +56,23 @@ test.describe("UAT-003 staging MVP lifecycle portfolio capture", () => {
     await capture(page, "03-admin-console.png");
 
     await page.goto(`${stagingWeb}/work-orders`);
-    await expect(page.getByRole("heading", { name: /Work Orders/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Work Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Loading work orders" })).toHaveCount(0, {
+      timeout: 60_000
+    });
     await capture(page, "05-work-order-list.png");
 
     const editButton = page.getByRole("button", { name: "Edit work order" }).first();
-    if (await editButton.count()) {
-      await editButton.click();
-      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 20_000 });
-      await waitForWarmData(page);
-      await capture(page, "06-work-order-detail.png");
-      await page.keyboard.press("Escape");
+    await expect(editButton).toBeVisible({ timeout: 60_000 });
+    await editButton.click();
+    await expect(page.getByRole("button", { name: "Save Changes" })).toBeVisible({ timeout: 30_000 });
+    await waitForWarmData(page);
+    await capture(page, "06-work-order-detail.png");
+    const closeModal = page.getByRole("button", { name: "Close" });
+    if (await closeModal.count()) {
+      await closeModal.first().click();
     } else {
-      test.info().annotations.push({
-        type: "status",
-        description: "PARTIAL — no work order card to open detail modal"
-      });
+      await page.keyboard.press("Escape");
     }
 
     await page.goto(`${stagingWeb}/system-health`);
