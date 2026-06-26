@@ -16,6 +16,7 @@ import { apiClient } from "@/lib/api-client";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { NotificationUatPanel } from "@/components/admin/notification-uat-panel";
+import { ProviderReadinessPanel } from "@/components/admin/provider-readiness-panel";
 import { InventoryErpSyncPanel } from "@/components/admin/inventory-erp-sync-panel";
 
 type CheckStatus =
@@ -332,6 +333,8 @@ export default function SystemHealthPage() {
       ) : null}
 
       {replicationCheck ? <ReplicationStatusCard check={replicationCheck} /> : null}
+
+      <ProviderReadinessPanel />
 
       <NotificationUatPanel />
 

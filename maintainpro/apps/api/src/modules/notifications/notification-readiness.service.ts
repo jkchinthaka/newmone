@@ -2,7 +2,16 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { EmailDispatchService } from "./email-dispatch.service";
+import {
+  mapEmailIndicator,
+  mapPushIndicator,
+  mapSmsIndicator,
+  type EmailIndicator,
+  type PushIndicator,
+  type SmsIndicator
+} from "./notification-readiness.mapper";
 import { describeNotificationUatControls, parseNotificationUatAllowlist } from "./notification-uat.mapper";
+import { PushDispatchService } from "./push-dispatch.service";
 import { SmsDispatchService } from "./sms-dispatch.service";
 
 export type NotificationReadinessState =
@@ -12,9 +21,10 @@ export type NotificationReadinessState =
   | "configured";
 
 export type NotificationChannelReadiness = {
-  channel: "email" | "sms";
+  channel: "email" | "sms" | "push";
   state: NotificationReadinessState;
   mode: string;
+  indicator: EmailIndicator | SmsIndicator | PushIndicator;
   message: string;
   missingKeys: string[];
 };
@@ -24,6 +34,7 @@ export type NotificationReadinessSummary = {
   overallState: NotificationReadinessState;
   email: NotificationChannelReadiness;
   sms: NotificationChannelReadiness;
+  push: NotificationChannelReadiness;
   uat: ReturnType<typeof describeNotificationUatControls>;
 };
 
@@ -35,12 +46,14 @@ export class NotificationReadinessService {
   constructor(
     private readonly configService: ConfigService,
     private readonly emailDispatchService: EmailDispatchService,
-    private readonly smsDispatchService: SmsDispatchService
+    private readonly smsDispatchService: SmsDispatchService,
+    private readonly pushDispatchService: PushDispatchService
   ) {}
 
   getSummary(): NotificationReadinessSummary {
     const email = this.describeEmailReadiness();
     const sms = this.describeSmsReadiness();
+    const push = this.describePushReadiness();
     const uat = describeNotificationUatControls({
       uatEnabled: this.configService.get<boolean>("NOTIFICATION_UAT_ENABLED", false),
       realSendsEnabled: this.configService.get<boolean>("NOTIFICATION_REAL_SENDS_ENABLED", false),
@@ -51,9 +64,10 @@ export class NotificationReadinessService {
 
     return {
       generatedAt: new Date().toISOString(),
-      overallState: this.resolveOverallState([email.state, sms.state]),
+      overallState: this.resolveOverallState([email.state, sms.state, push.state]),
       email,
       sms,
+      push,
       uat
     };
   }
@@ -61,10 +75,12 @@ export class NotificationReadinessService {
   private describeEmailReadiness(): NotificationChannelReadiness {
     const mode = this.configService.get<string>("EMAIL_MODE", "disabled").trim().toLowerCase();
     if (mode === "disabled") {
+      const state = "disabled" as const;
       return {
         channel: "email",
-        state: "disabled",
+        state,
         mode,
+        indicator: mapEmailIndicator({ state, mode }),
         message: "Email delivery is disabled by EMAIL_MODE=disabled",
         missingKeys: []
       };
@@ -72,30 +88,36 @@ export class NotificationReadinessService {
 
     const missingKeys = this.missingKeys(EMAIL_LIVE_KEYS);
     if (missingKeys.length === EMAIL_LIVE_KEYS.length) {
+      const state = "not_configured" as const;
       return {
         channel: "email",
-        state: "not_configured",
+        state,
         mode,
+        indicator: mapEmailIndicator({ state, mode }),
         message: "EMAIL_MODE=live but no SMTP settings are present",
         missingKeys
       };
     }
 
     if (missingKeys.length > 0) {
+      const state = "misconfigured" as const;
       return {
         channel: "email",
-        state: "misconfigured",
+        state,
         mode,
+        indicator: mapEmailIndicator({ state, mode }),
         message: "EMAIL_MODE=live but required SMTP settings are incomplete",
         missingKeys
       };
     }
 
     const provider = this.emailDispatchService.describeProvider();
+    const state = provider.configured ? "configured" : "misconfigured";
     return {
       channel: "email",
-      state: provider.configured ? "configured" : "misconfigured",
+      state,
       mode,
+      indicator: mapEmailIndicator({ state, mode }),
       message: provider.description,
       missingKeys: provider.configured ? [] : missingKeys
     };
@@ -104,10 +126,12 @@ export class NotificationReadinessService {
   private describeSmsReadiness(): NotificationChannelReadiness {
     const mode = this.configService.get<string>("SMS_MODE", "disabled").trim().toLowerCase();
     if (mode === "disabled") {
+      const state = "disabled" as const;
       return {
         channel: "sms",
-        state: "disabled",
+        state,
         mode,
+        indicator: mapSmsIndicator({ state, mode }),
         message: "SMS delivery is disabled by SMS_MODE=disabled",
         missingKeys: []
       };
@@ -116,19 +140,23 @@ export class NotificationReadinessService {
     if (mode === "mock") {
       const provider = this.smsDispatchService.describeProvider();
       if (provider.mode === "misconfigured") {
+        const state = "misconfigured" as const;
         return {
           channel: "sms",
-          state: "misconfigured",
+          state,
           mode,
+          indicator: mapSmsIndicator({ state, mode }),
           message: provider.description,
           missingKeys: []
         };
       }
 
+      const state = "configured" as const;
       return {
         channel: "sms",
-        state: "configured",
+        state,
         mode,
+        indicator: mapSmsIndicator({ state, mode }),
         message: provider.description,
         missingKeys: []
       };
@@ -136,32 +164,69 @@ export class NotificationReadinessService {
 
     const missingKeys = this.missingKeys(SMS_LIVE_KEYS);
     if (missingKeys.length === SMS_LIVE_KEYS.length) {
+      const state = "not_configured" as const;
       return {
         channel: "sms",
-        state: "not_configured",
+        state,
         mode,
+        indicator: mapSmsIndicator({ state, mode }),
         message: "SMS_MODE=live but no SMS provider settings are present",
         missingKeys
       };
     }
 
     if (missingKeys.length > 0) {
+      const state = "misconfigured" as const;
       return {
         channel: "sms",
-        state: "misconfigured",
+        state,
         mode,
+        indicator: mapSmsIndicator({ state, mode }),
         message: "SMS_MODE=live but required SMS settings are incomplete",
         missingKeys
       };
     }
 
     const provider = this.smsDispatchService.describeProvider();
+    const state = provider.configured ? "configured" : "misconfigured";
     return {
       channel: "sms",
-      state: provider.configured ? "configured" : "misconfigured",
+      state,
       mode,
+      indicator: mapSmsIndicator({ state, mode }),
       message: provider.description,
       missingKeys: provider.configured ? [] : missingKeys
+    };
+  }
+
+  private describePushReadiness(): NotificationChannelReadiness {
+    const mode = this.configService.get<string>("PUSH_MODE", "disabled").trim().toLowerCase();
+    const providers = this.pushDispatchService.describeProviders();
+    const primary = providers[0] ?? {
+      id: "push-unknown",
+      configured: false,
+      mode: "disabled" as const,
+      description: "Push provider summary unavailable"
+    };
+
+    let state: NotificationReadinessState = "disabled";
+    if (primary.mode === "active" && primary.configured) {
+      state = "configured";
+    } else if (primary.mode === "mock") {
+      state = "configured";
+    } else if (primary.mode === "misconfigured") {
+      state = "misconfigured";
+    } else if (mode !== "disabled") {
+      state = "not_configured";
+    }
+
+    return {
+      channel: "push",
+      state,
+      mode,
+      indicator: mapPushIndicator({ mode: primary.mode, configured: primary.configured }),
+      message: primary.description,
+      missingKeys: []
     };
   }
 

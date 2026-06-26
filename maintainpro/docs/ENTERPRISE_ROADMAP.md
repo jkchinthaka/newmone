@@ -19,7 +19,10 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | Complete UAT-003 MVP lifecycle certification | **PARTIAL** | Hosted API lifecycle PASS; WO approval + live evidence open |
 | Manager WO create/assign RBAC alignment | **DONE** | `MANAGER` on create/assign/notes (commit `c36af83`) |
 | Dedicated `/fleet/gate` route | **DONE** (UAT-004) | Security officer gate page at `/fleet/gate` |
-| Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` |
+| Provider readiness diagnostics | **DONE** (UAT-005) | Evidence + EMAIL/SMS/PUSH indicators on system health |
+| Production cutover runbook | **DONE** (UAT-005) | `PRODUCTION_CUTOVER_RUNBOOK.md` |
+| Production domain checklist | **PREPARED** (UAT-005) | `PRODUCTION_DOMAIN_CUTOVER.md` — DNS not executed |
+| Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` — operator-owned |
 
 ## Priority 2 — Post-MVP
 

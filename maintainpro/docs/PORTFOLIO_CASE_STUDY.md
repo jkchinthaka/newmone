@@ -67,7 +67,8 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - **UAT-002 PARTIAL PASS** — browser personas + hosted API on staging
 - **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified
 - **UAT-004 PARTIAL PASS** — WO approve/reject, audit completeness, `/fleet/gate`, evidence readiness indicators
-- Evidence object storage **DISABLED** on staging (indicator honest; no fake uploads)
+- **UAT-005 PARTIAL PASS** — cutover runbook, domain checklist, provider diagnostics, reports API export verified
+- Notification providers **DISABLED** on staging (EMAIL_/SMS_/PUSH_ indicators honest)
 - Production custom domain not yet live
 
 ## Tech stack
@@ -79,7 +80,7 @@ NestJS · TypeScript · Prisma · MongoDB · Redis · Next.js · Flutter · Dock
 - Staging web: Cloudflare Workers
 - Staging API: Render
 - Automated smoke: `npm run smoke:deploy`
-- Browser UAT: `npm run test:e2e:staging:uat002` · `npm run test:e2e:staging:uat003`
+- Browser UAT: `npm run test:e2e:staging:uat002` · `npm run test:e2e:staging:uat003` · `npm run uat:005:validate`
 - MVP lifecycle API: `npm run uat:003:validate`
 - Portfolio screenshots: `docs/screenshots/staging/` (UAT-003 warm capture, 2026-06-27)
 

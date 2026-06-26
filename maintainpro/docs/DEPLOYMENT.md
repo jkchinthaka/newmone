@@ -108,13 +108,14 @@ Expected smoke: Frontend OK · Health OK · CORS OK · Login OK (after credentia
 
 ## Production cutover (summary)
 
-1. Provision isolated prod Atlas DB
-2. Configure prod Render + Cloudflare env
-3. DNS + TLS for `maintenance.nelna.lk`
-4. Update CORS/FRONTEND_URL
-5. Run backup/restore drill
-6. Execute [FINAL_UAT_AND_CUTOVER_CHECKLIST.md](FINAL_UAT_AND_CUTOVER_CHECKLIST.md)
-7. Rotate staging credentials post-UAT
+1. Follow [docs/PRODUCTION_CUTOVER_RUNBOOK.md](docs/PRODUCTION_CUTOVER_RUNBOOK.md)
+2. Execute DNS/env per [docs/PRODUCTION_DOMAIN_CUTOVER.md](docs/PRODUCTION_DOMAIN_CUTOVER.md)
+3. Provision isolated prod Atlas DB
+4. Configure prod Render + Cloudflare env
+5. Run `npm run uat:005:validate` against production URLs
+6. Product owner sign-off
+
+**Do not cut over DNS until explicit operator approval.**
 
 ## Troubleshooting
 
@@ -128,6 +129,8 @@ Expected smoke: Frontend OK · Health OK · CORS OK · Login OK (after credentia
 
 ## Related
 
-- [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) (extended)
+- [PRODUCTION_CUTOVER_RUNBOOK.md](docs/PRODUCTION_CUTOVER_RUNBOOK.md)
+- [PRODUCTION_DOMAIN_CUTOVER.md](docs/PRODUCTION_DOMAIN_CUTOVER.md)
+- [KPI_SOURCE_MATRIX.md](docs/KPI_SOURCE_MATRIX.md)
 - [DEPLOYMENT_READINESS_CHECKLIST.md](DEPLOYMENT_READINESS_CHECKLIST.md)
 - [FINAL_UAT_AND_CUTOVER_CHECKLIST.md](FINAL_UAT_AND_CUTOVER_CHECKLIST.md)

@@ -81,6 +81,21 @@ Review before production cutover. Backend RBAC is authoritative; frontend checks
 | Gate endpoints permission-gated | ✅ |
 | Override audited | ✅ |
 
+| Readiness payload redaction | ✅ | Evidence + notification readiness omit secrets (UAT-005) |
+| Provider indicator diagnostics | ✅ | EMAIL_/SMS_/PUSH_ + evidence ENABLED/DISABLED/MISCONFIGURED |
+
+## UAT-005 final security review (2026-06-27)
+
+| Check | Result |
+|-------|--------|
+| localStorage JWT documented | ✅ `auth-storage.ts` + this checklist |
+| Security headers (CSP, HSTS, frame deny) | ✅ Verified via UAT-005 script on staging web |
+| CORS strict origins in production | ✅ `main.ts` |
+| Swagger prod guard + basic auth | ✅ `swagger-guard.spec.ts` |
+| Readiness responses no secrets | ✅ `uat-005-cutover-readiness.mjs` |
+| Auth/RBAC not weakened for cutover | ✅ No changes to guards in UAT-005 |
+| Notification UAT allowlist only | ✅ No bulk send endpoints added |
+
 ## Pre-go-live verification
 
 ```bash

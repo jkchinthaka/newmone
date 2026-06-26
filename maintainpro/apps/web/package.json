@@ -15,7 +15,8 @@
     "test:e2e:staging": "playwright test --config playwright.staging.config.ts",
     "test:e2e:staging:uat002": "playwright test --config playwright.staging-uat002.config.ts",
     "test:e2e:staging:uat003": "playwright test --config playwright.staging-uat003.config.ts",
-    "test:e2e:staging:uat004": "playwright test --config playwright.staging-uat004.config.ts"
+    "test:e2e:staging:uat004": "playwright test --config playwright.staging-uat004.config.ts",
+    "test:e2e:staging:uat005": "playwright test --config playwright.staging-uat005.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

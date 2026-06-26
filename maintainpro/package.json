@@ -33,6 +33,8 @@
     "uat:003:validate": "node scripts/run-uat-003-validation.mjs",
     "test:e2e:staging:uat004": "npm run test:e2e:staging:uat004 --workspace @maintainpro/web",
     "uat:004:validate": "node scripts/run-uat-004-validation.mjs",
+    "test:e2e:staging:uat005": "npm run test:e2e:staging:uat005 --workspace @maintainpro/web",
+    "uat:005:validate": "node scripts/run-uat-005-validation.mjs",
     "seed": "npm run db:seed",
     "start:api": "npm run start --workspace @maintainpro/api",
     "start:web": "npm run start --workspace @maintainpro/web",

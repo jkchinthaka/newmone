@@ -175,12 +175,18 @@ describe("NotificationReadinessService UAT controls", () => {
       configService({
         EMAIL_MODE: "disabled",
         SMS_MODE: "disabled",
+        PUSH_MODE: "disabled",
         NOTIFICATION_UAT_ENABLED: true,
         NOTIFICATION_REAL_SENDS_ENABLED: false,
         NOTIFICATION_UAT_ALLOWED_RECIPIENTS: "uat@example.com"
       }),
       new EmailDispatchService(configService({ EMAIL_MODE: "disabled" }), {} as never),
-      new SmsDispatchService(configService({ SMS_MODE: "disabled" }), {} as never)
+      new SmsDispatchService(configService({ SMS_MODE: "disabled" }), {} as never),
+      {
+        describeProviders: jest.fn(() => [
+          { id: "noop", configured: false, mode: "disabled", description: "Push disabled" }
+        ])
+      } as never
     );
 
     const summary = service.getSummary();

@@ -1,9 +1,10 @@
 export type NotificationReadinessState = "disabled" | "not_configured" | "misconfigured" | "configured";
 
 export type NotificationChannelReadiness = {
-  channel: "email" | "sms";
+  channel: "email" | "sms" | "push";
   state: NotificationReadinessState;
   mode: string;
+  indicator: string;
   message: string;
   missingKeys: string[];
 };
@@ -20,6 +21,7 @@ export type NotificationReadinessSummary = {
   overallState: NotificationReadinessState;
   email: NotificationChannelReadiness;
   sms: NotificationChannelReadiness;
+  push: NotificationChannelReadiness;
   uat: NotificationUatControlsSummary;
 };
 

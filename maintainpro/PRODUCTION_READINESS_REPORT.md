@@ -1,7 +1,7 @@
 # Production Readiness Report
 
 **Last updated:** 2026-06-27  
-**Verdict:** **Pilot-ready** on staging (UAT-001/002/003/004 partial pass). **Not** production-ready until live evidence storage, production domain, and operator cutover checklist complete.
+**Verdict:** **Pilot-ready** on staging (UAT-001 through UAT-005 partial pass). **Not** production-ready until operator executes DNS cutover, live integration credentials, and post-cutover smoke on `maintenance.nelna.lk`.
 
 ## Executive summary
 
@@ -41,7 +41,10 @@ Integrations default to **disabled or mock** and must be explicitly enabled with
 | SMS | **Partial** | Disabled/mock/live modes |
 | Push | **Partial** | Disabled/mock/live; not Firebase-native |
 | ERP stock sync | **Partial** | Mock default; dry-run + read sync when configured |
-| File / evidence storage | **Partial** | Readiness indicator; Cloudinary/MinIO env-gated for live bytes |
+| File / evidence storage | **Partial** | Indicator ENABLED/DISABLED/MISCONFIGURED; staging DISABLED; presigned bytes operator-owned |
+| Notification providers | **Partial** | EMAIL_/SMS_/PUSH_ indicators; staging disabled; UAT allowlist for safe tests |
+| Production cutover docs | **Ready** | Runbook + domain checklist (UAT-005) |
+| Reports server export | **Ready** | API `GET /reports/:module/export` verified |
 | Hosted staging smoke | **Partial** | Health/CORS pass; login needs credential alignment |
 | UAT-001 browser sign-off | **Partial** | Wrong-password UX verified; full flow pending login |
 | Custom production domain | **Not ready** | Planned `maintenance.nelna.lk` |

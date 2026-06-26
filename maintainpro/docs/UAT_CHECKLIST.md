@@ -35,6 +35,25 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 ---
 
+# UAT-005 summary (2026-06-27)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-005 overall** | **PARTIAL PASS** | Cutover readiness certified; live integrations + DNS cutover remain operator-owned |
+| Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on `/evidence/readiness` |
+| Notification indicators | **PASS** | `EMAIL_*` / `SMS_*` / `PUSH_*` on `/notifications/readiness` |
+| System health provider panel | **PASS** | Admin `/system-health` integration diagnostics |
+| Deployment readiness API | **PASS** | `GET /api/health/deployment-readiness` |
+| Production domain checklist | **PASS** (docs) | `PRODUCTION_DOMAIN_CUTOVER.md` — not executed |
+| Operator cutover runbook | **PASS** (docs) | `PRODUCTION_CUTOVER_RUNBOOK.md` |
+| KPI source matrix | **PASS** (docs) | `KPI_SOURCE_MATRIX.md` |
+| Reports export (API) | **PASS** | Server `GET /reports/:module/export` verified (operations CSV) |
+| Staging integrations | **PASS** (honest) | Evidence DISABLED; email/SMS DISABLED on staging |
+
+Run: `npm run uat:005:validate`
+
+---
+
 ## UAT-004 summary (2026-06-27)
 
 | Area | Status | Notes |
@@ -254,11 +273,12 @@ Run: `npm run uat:004:validate`
 
 | Module | CSV | PDF | Server bulk | Notes |
 |--------|-----|-----|-------------|-------|
-| Reports hub | **PASS** | **PASS** | **NOT AVAILABLE** | Client-side via `report-ui.tsx` |
+| Reports hub | **PASS** | **PASS** | **PASS** (API) | Server export via `GET /reports/:module/export` (UAT-005 verified) |
 | Vehicles list | **PASS** | **PASS** | **NOT AVAILABLE** | Current-view export in browser |
 | Inventory | **PASS** | ☐ | **NOT AVAILABLE** | Selected/low-stock CSV only |
 | Assets | **PASS** | **PASS** | **NOT AVAILABLE** | Client export on assets page |
 | Work orders | ☐ | ☐ | **NOT AVAILABLE** | Roadmap (REP-004) |
+| Audit logs | ☐ | ☐ | **NOT AVAILABLE** | API list only; export roadmap |
 
 Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
 
@@ -296,7 +316,8 @@ Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
 | `npm run test:e2e:staging:uat002` | ☑ | ☐ |
 | `npm run test:e2e:staging:uat003` | ☑ | ☐ |
 | `npm run test:e2e:staging:uat004` | ☑ | ☐ |
-| `npm run uat:004:validate` | ☑ | ☐ |
+| `npm run uat:005:validate` | ☑ | ☐ |
+| `npm run test:e2e:staging:uat005` | ☑ | ☐ |
 | Deployment URL reachable | ☑ | ☐ |
 | No secrets in repo | ☑ | ☐ |
 
@@ -316,6 +337,6 @@ Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
 
 **UAT-003 status:** **PARTIAL PASS** — Full hosted API lifecycle (create → assign → parts → execute → complete) **PASS** on staging; dedicated WO approval, live evidence storage, gate UI, and mobile **NOT AVAILABLE** / **PARTIAL** as documented.
 
-**UAT-004 status:** **PARTIAL PASS** — WO approve/reject + audit completeness, evidence readiness indicator, `/fleet/gate` UI, dashboard KPI footnotes, and reports export matrix documented; live evidence storage and production cutover remain open.
+**UAT-005 status:** **PARTIAL PASS** — Provider diagnostics, cutover runbook, domain checklist, KPI matrix, and reports API export verified; production DNS cutover and live integration credentials remain operator-owned.
 
-**Operator action:** Re-run `npm run uat:004:validate` after staging deploys. Session idle expiry and export file content checks remain operator-owned.
+**Operator action:** Execute [PRODUCTION_CUTOVER_RUNBOOK.md](PRODUCTION_CUTOVER_RUNBOOK.md) only after explicit go-live approval.

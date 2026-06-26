@@ -110,27 +110,31 @@ export function NotificationUatPanel() {
           Loading notification readiness…
         </div>
       ) : readiness ? (
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Email</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.email.state}</p>
-            <p className="mt-1 text-xs text-slate-600">{readiness.email.message}</p>
+        <>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Email</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.email.indicator}</p>
+              <p className="mt-1 text-xs text-slate-600">{readiness.email.message}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">SMS</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.sms.indicator}</p>
+              <p className="mt-1 text-xs text-slate-600">{readiness.sms.message}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Push</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.push.indicator}</p>
+              <p className="mt-1 text-xs text-slate-600">{readiness.push.message}</p>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">SMS</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.sms.state}</p>
-            <p className="mt-1 text-xs text-slate-600">{readiness.sms.message}</p>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+            UAT controls:{" "}
+            {readiness.uat.uatEnabled && readiness.uat.realSendsEnabled
+              ? `${readiness.uat.allowlistCount} allowlisted recipient(s) — ${readiness.uat.message}`
+              : readiness.uat.message}
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">UAT controls</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">
-              {readiness.uat.uatEnabled && readiness.uat.realSendsEnabled
-                ? `${readiness.uat.allowlistCount} allowlisted`
-                : "Disabled"}
-            </p>
-            <p className="mt-1 text-xs text-slate-600">{readiness.uat.message}</p>
-          </div>
-        </div>
+        </>
       ) : null}
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
