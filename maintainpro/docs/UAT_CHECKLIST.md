@@ -43,12 +43,24 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 | Work order approve/reject API | **PASS** | `PATCH /work-orders/:id/approve` · `PATCH /work-orders/:id/reject` — Manager/Operations only |
 | Work order audit completeness | **PASS** | Create, assign, status, complete, approve/reject audited |
 | Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on readiness API |
-| Fleet gate UI (`/fleet/gate`) | **PASS** | Security officer gate page + role guard |
+| Fleet gate UI (`/fleet/gate`) | **PASS** | Security officer gate page + role guard; empty vehicle list shows honest placeholder (gate buttons after selection) |
 | Dashboard KPI honesty | **PARTIAL** | Live API counts labeled; some enterprise KPIs still roadmap |
 | Reports CSV/PDF export | **PARTIAL** | Client-side export on reports/inventory/vehicles; server bulk export roadmap |
 | Session expiry | **PASS** (auto) + **OPERATOR-OWNED** (manual TTL) | `auth.spec.ts` + API interceptor; manual idle timeout simulation documented |
 
 Run: `npm run uat:004:validate`
+
+### Post-deploy UAT-004 verification (2026-06-27)
+
+| Check | Result |
+|-------|--------|
+| Render deploy (API) | **live** on commit `b9c338d` |
+| Cloudflare Workers (web) | **live** — `/fleet/gate` reachable on staging |
+| `node scripts/uat-004-production-hardening.mjs` | **PASS** (approve/reject, audit, evidence indicator) |
+| `npm run test:e2e:staging:uat004` | **PASS** (2/2) |
+| Evidence storage on staging | **DISABLED** (honest indicator) |
+
+**Not production-ready:** Live object storage for evidence bytes, production domain cutover, SMTP/SMS live notifications, server-side bulk report export, and full enterprise KPI parity remain open.
 
 ---
 
@@ -141,7 +153,7 @@ Run: `npm run uat:004:validate`
 | Admin | Users, admin console, settings, audit, system health | **PASS** | Nav + `/admin` + `/system-health` |
 | Manager | Work orders, reports, dashboards; no admin | **PASS** | Nav verified; no Admin Console link |
 | Technician | Work orders; no admin/inventory | **PASS** | Nav verified |
-| Security Officer | Fleet/security; no work orders | **PASS** | Fleet nav; no WO nav; **no dedicated gate UI** |
+| Security Officer | Fleet/security + gate UI; no work orders | **PASS** | `/fleet/gate` page + role guard (UAT-004) |
 | Inventory Keeper | Inventory, procurement; no work orders | **PASS** | Lands on inventory module |
 
 ---
@@ -152,7 +164,7 @@ Run: `npm run uat:004:validate`
 |------|--------|-------|
 | Create / view asset | **PARTIAL** | `/assets` loads (admin); create modal **OPERATOR-OWNED** |
 | Create work order | **PASS** | API + web kanban/modal verified (UAT-003) |
-| Approve work order (if permitted) | **NOT AVAILABLE** | Part-request approval **PASS**; dedicated WO approval roadmap |
+| Approve work order (if permitted) | **PASS** | `PATCH /work-orders/:id/approve` · `PATCH /work-orders/:id/reject` (UAT-004); Manager/Operations only |
 | Assign technician | **PASS** | Manager `POST /work-orders/:id/assign` verified (UAT-003) |
 | Reserve / request spare part | **PASS** | Full API chain request → approve → issue (UAT-003) |
 | Technician updates job status | **PASS** | IN_PROGRESS → COMPLETED with actualCost/Hours (UAT-003) |
@@ -160,7 +172,7 @@ Run: `npm run uat:004:validate`
 | Supervisor verifies / completes | **PARTIAL** | Completion without signature; mobile sign-off **NOT AVAILABLE** |
 | Cost visible on WO | **PASS** | actualCost recorded on completion (UAT-003) |
 | Dashboard/report reflects update | **PARTIAL** | Reports hub loads; live KPI refresh **OPERATOR-OWNED** |
-| Audit log entry created | **PARTIAL** | Part movements audited; WO create not yet in audit service |
+| Audit log entry created | **PASS** | WO create, assign, status, complete, approve/reject audited (UAT-004) |
 
 ---
 
@@ -175,7 +187,7 @@ Run: `npm run uat:004:validate`
 | Gate-in | **PARTIAL** | API after successful gate-out; blocked vehicle path N/A |
 | Unauthorized override denied | **PASS** | Technician override → HTTP 403 |
 | Audit record on gate action | **PARTIAL** | Gate movement persisted; audit explorer UI partial |
-| Mobile/web scan if available | **NOT AVAILABLE** | Dedicated gate screen not shipped |
+| Mobile/web scan if available | **PARTIAL** | `/fleet/gate` web page shipped (UAT-004); mobile scan **NOT AVAILABLE** |
 
 ---
 
@@ -238,6 +250,31 @@ Run: `npm run uat:004:validate`
 
 ---
 
+## Reports export (UAT-004)
+
+| Module | CSV | PDF | Server bulk | Notes |
+|--------|-----|-----|-------------|-------|
+| Reports hub | **PASS** | **PASS** | **NOT AVAILABLE** | Client-side via `report-ui.tsx` |
+| Vehicles list | **PASS** | **PASS** | **NOT AVAILABLE** | Current-view export in browser |
+| Inventory | **PASS** | ☐ | **NOT AVAILABLE** | Selected/low-stock CSV only |
+| Assets | **PASS** | **PASS** | **NOT AVAILABLE** | Client export on assets page |
+| Work orders | ☐ | ☐ | **NOT AVAILABLE** | Roadmap (REP-004) |
+
+Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
+
+---
+
+## Session expiry (UAT-004)
+
+| Test | Status | Notes |
+|------|--------|-------|
+| Automated: login 401 ≠ session expiry | **PASS** | `apps/web/e2e/auth.spec.ts` — invalid credentials stay on login |
+| Automated: API 401 clears session | **PASS** | Axios interceptor redirects to `/login?reason=session_expired` |
+| Manual: idle until JWT TTL expires | **OPERATOR-OWNED** | Set short `JWT_ACCESS_EXPIRES_IN` in staging; confirm redirect + re-login |
+| Manual: refresh token rotation | **OPERATOR-OWNED** | Verify cookie refresh extends session without duplicate tabs |
+
+---
+
 ## Reports
 
 | Test | Status | Notes |
@@ -258,7 +295,8 @@ Run: `npm run uat:004:validate`
 | `npm run smoke:deploy` | ☑ | ☐ |
 | `npm run test:e2e:staging:uat002` | ☑ | ☐ |
 | `npm run test:e2e:staging:uat003` | ☑ | ☐ |
-| `npm run uat:003:validate` | ☑ | ☐ |
+| `npm run test:e2e:staging:uat004` | ☑ | ☐ |
+| `npm run uat:004:validate` | ☑ | ☐ |
 | Deployment URL reachable | ☑ | ☐ |
 | No secrets in repo | ☑ | ☐ |
 
@@ -278,4 +316,6 @@ Run: `npm run uat:004:validate`
 
 **UAT-003 status:** **PARTIAL PASS** — Full hosted API lifecycle (create → assign → parts → execute → complete) **PASS** on staging; dedicated WO approval, live evidence storage, gate UI, and mobile **NOT AVAILABLE** / **PARTIAL** as documented.
 
-**Operator action:** Re-run `npm run uat:003:validate` after staging deploys. Asset/vehicle create and audit-tab screenshot remain operator-owned if needed for portfolio.
+**UAT-004 status:** **PARTIAL PASS** — WO approve/reject + audit completeness, evidence readiness indicator, `/fleet/gate` UI, dashboard KPI footnotes, and reports export matrix documented; live evidence storage and production cutover remain open.
+
+**Operator action:** Re-run `npm run uat:004:validate` after staging deploys. Session idle expiry and export file content checks remain operator-owned.

@@ -24,7 +24,17 @@ test.describe("UAT-004 production hardening browser checks", () => {
     await page.goto(`${stagingWeb}/fleet/gate`);
     await expect(page.getByRole("heading", { name: "Fleet gate operations" })).toBeVisible();
     await expect(page.getByLabel("Vehicle list")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Gate out" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Gate action" })).toBeVisible();
+
+    const vehicleButtons = page.getByLabel("Vehicle list").getByRole("button");
+    if ((await vehicleButtons.count()) > 0) {
+      await vehicleButtons.first().click();
+      await expect(page.getByRole("button", { name: "Gate out" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Gate in" })).toBeVisible();
+    } else {
+      await expect(page.getByText("No vehicles match this search.")).toBeVisible();
+      await expect(page.getByText("Select a vehicle to attempt gate movement.")).toBeVisible();
+    }
   });
 
   test("technician cannot access fleet gate route", async ({ page }) => {
