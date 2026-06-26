@@ -114,19 +114,25 @@ export function NotificationUatPanel() {
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Email</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.email.indicator}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">
+              {readiness.email.indicator ?? readiness.email.state}
+            </p>
               <p className="mt-1 text-xs text-slate-600">{readiness.email.message}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">SMS</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.sms.indicator}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.sms.indicator ?? readiness.sms.state}</p>
               <p className="mt-1 text-xs text-slate-600">{readiness.sms.message}</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Push</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{readiness.push.indicator}</p>
-              <p className="mt-1 text-xs text-slate-600">{readiness.push.message}</p>
-            </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Push</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">
+              {readiness.push?.indicator ?? "PUSH_DISABLED"}
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              {readiness.push?.message ?? "Push readiness unavailable until API refresh completes."}
+            </p>
+          </div>
           </div>
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
             UAT controls:{" "}

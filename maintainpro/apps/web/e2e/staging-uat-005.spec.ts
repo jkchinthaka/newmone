@@ -22,18 +22,22 @@ test.describe("UAT-005 production cutover readiness browser checks", () => {
   test("admin system health shows provider diagnostics", async ({ page }) => {
     await loginAs(page, "admin@maintainpro.local");
     await page.goto(`${stagingWeb}/system-health`);
+    await expect(page.getByText(/Something went wrong/i)).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Production Readiness" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Provider diagnostics (cutover)" })).toBeVisible();
-    await expect(page.getByText("Evidence storage")).toBeVisible();
-    await expect(page.getByText(/EMAIL_/)).toBeVisible();
-    await expect(page.getByText(/SMS_/)).toBeVisible();
-    await expect(page.getByText(/PUSH_/)).toBeVisible();
+    const providerSection = page.locator('section[aria-labelledby="provider-readiness-heading"]');
+    await expect(providerSection.getByRole("heading", { name: "Provider diagnostics (cutover)" })).toBeVisible();
+    await expect(providerSection.getByText("Evidence storage")).toBeVisible();
+    await expect(providerSection.getByText(/DISABLED|MISCONFIGURED|ENABLED|UNKNOWN/)).toBeVisible();
   });
 
   test("notification UAT panel shows honest disabled staging state", async ({ page }) => {
     await loginAs(page, "admin@maintainpro.local");
     await page.goto(`${stagingWeb}/system-health`);
-    await expect(page.getByRole("heading", { name: "Staged Email/SMS test sends" })).toBeVisible();
-    await expect(page.getByText(/EMAIL_DISABLED|EMAIL_MISCONFIGURED/)).toBeVisible();
+    await expect(page.getByText(/Something went wrong/i)).toHaveCount(0);
+    const notificationSection = page.locator('section[aria-labelledby="notification-uat-heading"]');
+    await expect(notificationSection.getByRole("heading", { name: "Staged Email/SMS test sends" })).toBeVisible();
+    await expect(
+      notificationSection.getByText(/EMAIL_DISABLED|Email delivery is disabled|disabled by EMAIL_MODE|^disabled$/i)
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

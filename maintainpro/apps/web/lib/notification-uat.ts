@@ -21,7 +21,7 @@ export type NotificationReadinessSummary = {
   overallState: NotificationReadinessState;
   email: NotificationChannelReadiness;
   sms: NotificationChannelReadiness;
-  push: NotificationChannelReadiness;
+  push?: NotificationChannelReadiness;
   uat: NotificationUatControlsSummary;
 };
 

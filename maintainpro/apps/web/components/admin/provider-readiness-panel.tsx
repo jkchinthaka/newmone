@@ -104,18 +104,18 @@ export function ProviderReadinessPanel() {
               <Mail size={14} aria-hidden="true" />
               Email
             </div>
-            <p className="mt-2 text-sm font-semibold">{notifications?.email.indicator ?? "EMAIL_DISABLED"}</p>
+            <p className="mt-2 text-sm font-semibold">{notifications?.email.indicator ?? notifications?.email.state ?? "EMAIL_DISABLED"}</p>
             <p className="mt-1 text-xs opacity-90">{notifications?.email.message ?? "No readiness data"}</p>
           </article>
           <article className={`rounded-lg border p-4 ${indicatorTone(notifications?.sms.indicator ?? "SMS_DISABLED")}`}>
             <p className="text-xs font-medium uppercase tracking-wide opacity-80">SMS</p>
-            <p className="mt-2 text-sm font-semibold">{notifications?.sms.indicator ?? "SMS_DISABLED"}</p>
+            <p className="mt-2 text-sm font-semibold">{notifications?.sms.indicator ?? notifications?.sms.state ?? "SMS_DISABLED"}</p>
             <p className="mt-1 text-xs opacity-90">{notifications?.sms.message ?? "No readiness data"}</p>
           </article>
-          <article className={`rounded-lg border p-4 ${indicatorTone(notifications?.push.indicator ?? "PUSH_DISABLED")}`}>
+          <article className={`rounded-lg border p-4 ${indicatorTone(notifications?.push?.indicator ?? "PUSH_DISABLED")}`}>
             <p className="text-xs font-medium uppercase tracking-wide opacity-80">Push</p>
-            <p className="mt-2 text-sm font-semibold">{notifications?.push.indicator ?? "PUSH_DISABLED"}</p>
-            <p className="mt-1 text-xs opacity-90">{notifications?.push.message ?? "No readiness data"}</p>
+            <p className="mt-2 text-sm font-semibold">{notifications?.push?.indicator ?? "PUSH_DISABLED"}</p>
+            <p className="mt-1 text-xs opacity-90">{notifications?.push?.message ?? "No readiness data"}</p>
           </article>
         </div>
       )}

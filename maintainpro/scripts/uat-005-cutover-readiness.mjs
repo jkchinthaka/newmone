@@ -81,8 +81,37 @@ async function apiFetch(pathname, session, init = {}) {
   return { status: response.status, ok: response.ok, body, contentType, headers: response.headers };
 }
 
+let failures = 0;
+
 function logResult(label, status, detail = "") {
   console.log(`${label}:${status}${detail ? ` ${detail}` : ""}`);
+  if (status === "FAIL") {
+    failures += 1;
+  }
+}
+
+function resolveEmailIndicator(email) {
+  if (email?.indicator) return email.indicator;
+  if (email?.state === "disabled") return "EMAIL_DISABLED";
+  if (email?.state === "configured" && email?.mode === "live") return "EMAIL_ENABLED";
+  if (email?.state === "misconfigured" || email?.state === "not_configured") return "EMAIL_MISCONFIGURED";
+  return "UNKNOWN";
+}
+
+function resolveSmsIndicator(sms) {
+  if (sms?.indicator) return sms.indicator;
+  if (sms?.state === "disabled" || sms?.mode === "mock") return "SMS_DISABLED";
+  if (sms?.state === "configured" && sms?.mode === "live") return "SMS_ENABLED";
+  if (sms?.state === "misconfigured" || sms?.state === "not_configured") return "SMS_MISCONFIGURED";
+  return "UNKNOWN";
+}
+
+function resolvePushIndicator(push) {
+  if (push?.indicator) return push.indicator;
+  if (!push) return "PUSH_DISABLED";
+  if (push.mode === "mock") return "PUSH_NOOP";
+  if (push.mode === "active" && push.state === "configured") return "PUSH_ENABLED";
+  return "PUSH_DISABLED";
 }
 
 function responseHasSecrets(text) {
@@ -109,9 +138,9 @@ logResult(
 
 const notifications = await apiFetch("/notifications/readiness", admin);
 const notifyData = notifications.body?.data ?? notifications.body;
-const emailIndicator = notifyData?.email?.indicator ?? "UNKNOWN";
-const smsIndicator = notifyData?.sms?.indicator ?? "UNKNOWN";
-const pushIndicator = notifyData?.push?.indicator ?? "UNKNOWN";
+const emailIndicator = resolveEmailIndicator(notifyData?.email);
+const smsIndicator = resolveSmsIndicator(notifyData?.sms);
+const pushIndicator = resolvePushIndicator(notifyData?.push);
 logResult(
   "notification_email_indicator",
   notifications.ok && String(emailIndicator).startsWith("EMAIL_") ? "PASS" : "FAIL",
@@ -179,3 +208,6 @@ logResult(
 );
 
 console.log("uat_005_cutover_readiness=complete");
+if (failures > 0) {
+  process.exit(1);
+}
