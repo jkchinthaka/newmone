@@ -816,6 +816,69 @@ async function main() {
     }
   });
 
+  await prisma.user.upsert({
+    where: { email: "manager@maintainpro.local" },
+    update: {
+      firstName: "Operations",
+      lastName: "Manager",
+      roleId: roles.get(RoleName.MANAGER)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "manager@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Operations",
+      lastName: "Manager",
+      roleId: roles.get(RoleName.MANAGER)!.id,
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "tech@maintainpro.local" },
+    update: {
+      firstName: "Field",
+      lastName: "Technician",
+      roleId: roles.get(RoleName.TECHNICIAN)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "tech@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Field",
+      lastName: "Technician",
+      roleId: roles.get(RoleName.TECHNICIAN)!.id,
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "inventory@maintainpro.local" },
+    update: {
+      firstName: "Store",
+      lastName: "Keeper",
+      roleId: roles.get(RoleName.INVENTORY_KEEPER)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "inventory@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Store",
+      lastName: "Keeper",
+      roleId: roles.get(RoleName.INVENTORY_KEEPER)!.id,
+      isActive: true
+    }
+  });
+
   const driverUsers = [];
   for (let i = 1; i <= 3; i += 1) {
     const driverUser = await prisma.user.upsert({

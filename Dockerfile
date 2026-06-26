@@ -25,7 +25,11 @@ COPY --from=base /workspace/maintainpro/apps/api/dist ./apps/api/dist
 COPY --from=base /workspace/maintainpro/apps/api/package.json ./apps/api/package.json
 COPY --from=base /workspace/maintainpro/packages/shared-types ./packages/shared-types
 COPY --from=base /workspace/maintainpro/prisma ./prisma
+COPY --from=base /workspace/maintainpro /seed-workspace
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
 WORKDIR /workspace/apps/api
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]
