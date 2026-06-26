@@ -34,15 +34,30 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **UAT-002 overall** | **PARTIAL PASS** | Enterprise browser + API verification complete; full MVP lifecycle and gate UI remain partial |
-| Role-based browser nav | **PASS** | Admin, Manager, Technician, Security, Inventory — Playwright staging |
-| Hosted API workflows | **PARTIAL** | Gate blocked/override PASS; manager/technician WO list fixed in code — redeploy to staging for HTTP 200 |
-| MVP end-to-end lifecycle | **PARTIAL** | UI modules exist; full create→complete not automated |
+| **UAT-002 overall** | **PARTIAL PASS** | Browser + hosted API verified; MVP lifecycle and gate UI remain operator-owned |
+| Role-based browser nav | **PASS** | Admin, Manager, Technician, Security, Inventory — Playwright staging (8/8) |
+| Hosted API workflows | **PASS** | All persona APIs green after Render deploy `1a97432` (see post-deploy log below) |
+| Manager/technician WO API | **PASS** | `GET /work-orders` HTTP 200 on live staging (RBAC fix deployed) |
+| MVP end-to-end lifecycle | **PARTIAL** | UI modules exist; full create→complete **OPERATOR-OWNED** |
 | Security gate UI | **NOT AVAILABLE** | API gate PASS; `/fleet/gate` web route not shipped |
 | Inventory browser | **PASS** | `/inventory` loads; low-stock KPIs visible |
 | Dashboard KPIs | **PARTIAL** | Morning briefing + module summaries; not all enterprise KPIs |
-| Portfolio screenshots | **PASS** | 8 staging PNGs under `docs/screenshots/staging/` |
+| Portfolio screenshots | **PASS** | 10 staging PNGs under `docs/screenshots/staging/` |
 | Mobile | **NOT AVAILABLE** | Flutter app separate; not in web UAT scope |
+
+### Post-deploy RBAC verification (2026-06-12)
+
+| Check | Result |
+|-------|--------|
+| Render deploy `dep-d8vcnalckfvc73ff7uvg` | **live** |
+| Deployed commit | `1a9743296f679681d776ef390cb5cdeae4cb52e8` (verified match) |
+| `manager_work_orders_api` | **PASS** HTTP 200 |
+| `technician_work_orders_api` | **PASS** HTTP 200 |
+| `npm run uat:002:validate` | **PASS** |
+| `npm run smoke:deploy` | **PASS** |
+| `npm run test:e2e:staging:uat002` | **PASS** (8/8) |
+
+**Not production-ready:** Full MVP workflow sign-off, dedicated gate UI, live integrations, and production domain cutover remain open.
 
 ---
 
@@ -193,12 +208,12 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 | Role | Name | Date | Result |
 |------|------|------|--------|
-| QA | | 2026-06-12 | **PARTIAL PASS** — UAT-002 browser + API; MVP lifecycle operator-owned |
+| QA | | 2026-06-12 | **PARTIAL PASS** — UAT-002 browser/API PASS post-deploy; MVP lifecycle operator-owned |
 | Product owner | | | |
 | DevOps | | 2026-06-12 | **PASS** — UAT-001 credentials; smoke green |
 
 **UAT-001 status:** **PASS** (credentials + smoke)
 
-**UAT-002 status:** **PARTIAL PASS** — Real enterprise personas verified in browser; API gate/inventory/admin PASS; full WO lifecycle and gate UI not production-complete.
+**UAT-002 status:** **PARTIAL PASS** — Hosted API + browser personas verified on live Render commit `1a97432`; manager/technician work-order list RBAC **PASS**. Full MVP lifecycle, gate UI, and production cutover remain open.
 
-**Operator action:** After RBAC deploy, re-run `npm run uat:002:validate` to confirm manager/technician work-order API HTTP 200.
+**Operator action:** None required for RBAC — re-run `npm run uat:002:validate` after future staging deploys.

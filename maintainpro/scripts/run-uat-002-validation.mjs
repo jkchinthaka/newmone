@@ -22,15 +22,16 @@ function loadEnvFile(filePath) {
   }
 }
 
-function run(label, command, args, extraEnv = {}) {
+function run(label, command, args, extraEnv = {}, options = {}) {
   console.log(`STEP=${label}`);
+  const useShell = options.shell ?? false;
   const result = spawnSync(command, args, {
     cwd: root,
     env: { ...process.env, ...extraEnv },
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
-    shell: process.platform === "win32"
+    shell: useShell && process.platform === "win32"
   });
   if (result.stdout?.trim()) console.log(result.stdout.trim());
   const stderr = (result.stderr ?? "").replace(/mongodb(\+srv)?:\/\/[^\s]+/gi, "[REDACTED_URI]");
@@ -78,11 +79,12 @@ run(
   "test_e2e_staging_uat002",
   process.platform === "win32" ? "npm.cmd" : "npm",
   ["run", "test:e2e:staging:uat002"],
-  stagingEnv
+  stagingEnv,
+  { shell: true }
 );
-run("typecheck", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "typecheck"]);
-run("lint", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "lint"]);
-run("test", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test"]);
-run("build", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"]);
+run("typecheck", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "typecheck"], {}, { shell: true });
+run("lint", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "lint"], {}, { shell: true });
+run("test", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test"], {}, { shell: true });
+run("build", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], {}, { shell: true });
 run("smoke_deploy", process.execPath, ["scripts/smoke-deployment.mjs"], stagingEnv);
 console.log("uat_002_validation=complete");

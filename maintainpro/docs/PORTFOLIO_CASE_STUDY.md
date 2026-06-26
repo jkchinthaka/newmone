@@ -63,7 +63,8 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - Push notifications: noop/mock unless HTTP live provider configured
 - ERP sync: mock by default; read sync when credentials provided
 - Access JWT stored in localStorage on web (CSP + documented migration path)
-- **UAT-001 PASS** (hosted login + smoke); **UAT-002 PARTIAL PASS** (browser personas + API gate; full MVP lifecycle operator-owned)
+- **UAT-001 PASS** (hosted login + smoke)
+- **UAT-002 PARTIAL PASS** — browser personas + hosted API PASS on Render `1a97432`; manager/technician WO list RBAC verified live; full MVP lifecycle still operator-owned
 - Dedicated `/fleet/gate` web UI not shipped — gate operations are API-first
 - Production custom domain not yet live
 

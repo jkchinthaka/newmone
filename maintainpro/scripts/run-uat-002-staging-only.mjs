@@ -53,14 +53,14 @@ const stagingEnv = {
   MAINTAINPRO_SMOKE_EMAIL: "admin@maintainpro.local"
 };
 
-function run(label, command, args) {
+function run(label, command, args, useShell = false) {
   const result = spawnSync(command, args, {
     cwd: root,
     env: { ...process.env, ...stagingEnv },
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
-    shell: process.platform === "win32"
+    shell: useShell && process.platform === "win32"
   });
   if (result.stdout?.trim()) console.log(result.stdout.trim());
   const stderr = (result.stderr ?? "").trim();
@@ -73,5 +73,5 @@ function run(label, command, args) {
 }
 
 run("uat_002_api", process.execPath, ["scripts/uat-002-api-workflows.mjs"]);
-run("test_e2e", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test:e2e:staging:uat002"]);
+run("test_e2e", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test:e2e:staging:uat002"], true);
 run("smoke", process.execPath, ["scripts/smoke-deployment.mjs"]);

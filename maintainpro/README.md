@@ -244,6 +244,8 @@ Missing (capture manually): work order detail modal, reports (re-run UAT-002 e2e
 
 Regenerate: `npm run test:e2e:staging:uat002` (requires shell smoke password aligned with Render seed password).
 
+**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** (hosted API + browser verified on Render `1a97432`; MVP lifecycle not fully automated).
+
 ## Contributing
 
 Work on `main` for this portfolio repo. Before push:
