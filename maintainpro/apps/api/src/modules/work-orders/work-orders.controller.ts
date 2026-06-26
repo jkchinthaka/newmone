@@ -33,7 +33,7 @@ export class WorkOrdersController {
   }
 
   @Post()
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
   @Permissions("work_orders.manage")
   async create(
     @Req() req: AuthedRequest,
@@ -98,7 +98,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
   @Permissions("work_orders.manage")
   async update(
     @Req() req: AuthedRequest,
@@ -118,7 +118,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/assign")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
   @Permissions("work_orders.manage")
   async assign(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { technicianId: string }) {
     const data = await this.workOrdersService.assign(id, body.technicianId, req.user);
@@ -153,7 +153,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/notes")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async notes(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { note: string }) {
     const data = await this.workOrdersService.addNote(id, body.note, req.user);
     return { data, message: "Work order note added" };
