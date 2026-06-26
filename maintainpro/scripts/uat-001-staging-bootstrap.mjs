@@ -100,7 +100,7 @@ function runCommand(label, command, args, env = {}) {
     env: { ...process.env, ...env },
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    shell: process.platform === "win32"
+    windowsHide: true
   });
   const stdout = (result.stdout ?? "").trim();
   const stderr = (result.stderr ?? "").trim();

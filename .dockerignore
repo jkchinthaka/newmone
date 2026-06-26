@@ -1,5 +1,6 @@
 *
 !Dockerfile
+!docker-entrypoint.sh
 !maintainpro/
 !maintainpro/**
 

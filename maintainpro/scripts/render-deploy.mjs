@@ -176,7 +176,7 @@ async function run() {
   const clearCache = /^(1|true|yes)$/i.test((process.env.RENDER_DEPLOY_CLEAR_CACHE ?? "").trim());
   const deployment = await renderFetch(`/services/${serviceId}/deploys`, {
     method: "POST",
-    body: JSON.stringify({ clearCache })
+    body: JSON.stringify(clearCache ? { clearCache: "clear" } : {})
   });
 
   const deploy = deployment?.deploy ?? deployment;
