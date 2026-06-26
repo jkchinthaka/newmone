@@ -21,12 +21,53 @@ npm run test:e2e:staging:uat002
 # Full UAT-002 validation (API workflows + e2e + build + smoke)
 npm run uat:002:validate
 
+# UAT-003 MVP lifecycle (hosted API + warm portfolio screenshots)
+npm run test:e2e:staging:uat003
+npm run uat:003:validate
+
+node scripts/uat-003-mvp-lifecycle.mjs
 node scripts/uat-002-api-workflows.mjs
 node scripts/render-env-audit.mjs
 node scripts/verify-hosted-logins.mjs
 ```
 
 Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
+
+---
+
+## UAT-003 summary (2026-06-27)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-003 overall** | **PARTIAL PASS** | Hosted API MVP lifecycle verified end-to-end; dedicated WO approval, live evidence storage, gate UI, and mobile remain open |
+| Baseline (UAT-001/002 regression) | **PASS** | Smoke, UAT-002 API (8/8 Playwright), typecheck, lint, 508 tests, build |
+| Hosted MVP lifecycle API | **PASS** | `scripts/uat-003-mvp-lifecycle.mjs` on Render commit `c36af83` |
+| Asset / vehicle register | **PARTIAL** | List + detail PASS; create in staging **OPERATOR-OWNED** |
+| Work order creation | **PASS** | API create + web list/modal verified |
+| Manager approval (WO) | **NOT AVAILABLE** | No dedicated approve/reject WO endpoint; part-request approval **PASS** |
+| Technician assignment | **PASS** | Manager assign API after RBAC fix (`MANAGER` on create/assign) |
+| Spare-part reservation / issue | **PASS** | Request → operational approve → inventory issue → stock movement |
+| Technician execution | **PASS** | Status IN_PROGRESS → note → COMPLETED with cost/hours |
+| Evidence / notes | **PARTIAL** | Notes PASS; evidence storage **disabled** on staging (readiness honest) |
+| Completion + supervisor sign-off | **PARTIAL** | Completion PASS; supervisor signature **NOT AVAILABLE** |
+| Audit trail | **PARTIAL** | Part issue + settings audit API PASS; WO **creation** not audited in service layer |
+| Dashboard / reports | **PARTIAL** | `/reports/dashboard` PASS; not all enterprise KPI tiles live |
+| Security gate flow | **PARTIAL** | API gate blocked PASS; allowed path PARTIAL (seed compliance); no `/fleet/gate` UI |
+| Portfolio screenshots (UAT-003) | **PASS** | Warm-session Playwright 5/5; includes `06-work-order-detail.png` |
+| Mobile technician | **NOT AVAILABLE** | Flutter app separate |
+
+### Post-deploy UAT-003 verification (2026-06-27)
+
+| Check | Result |
+|-------|--------|
+| Render deploy `dep-d8vdbje7r5hc73eeov2g` | **live** |
+| Deployed commit | `c36af8393cf1fad3c71e43945f0315ad0909ab16` |
+| `npm run uat:003:validate` | **PASS** |
+| `npm run test:e2e:staging:uat003` | **PASS** (5/5) |
+| `npm run test:e2e:staging:uat002` | **PASS** (8/8) |
+| `npm run smoke:deploy` | **PASS** |
+
+**Not production-ready:** Dedicated WO approval workflow, live object storage for evidence, production domain, gate UI, SMTP/SMS live notifications, and full dashboard KPI parity remain open.
 
 ---
 
@@ -93,16 +134,16 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 | Step | Status | Notes |
 |------|--------|-------|
 | Create / view asset | **PARTIAL** | `/assets` loads (admin); create modal **OPERATOR-OWNED** |
-| Create work order | **PARTIAL** | `/work-orders` UI exists; create flow **OPERATOR-OWNED** |
-| Approve work order (if permitted) | **PARTIAL** | Part-request approval API exists; WO approval builder roadmap |
-| Assign technician | **PARTIAL** | API `POST /work-orders/:id/assign`; UI **OPERATOR-OWNED** |
-| Reserve / request spare part | **PARTIAL** | Part-requests panel in WO editor |
-| Technician updates job status | **PARTIAL** | API + UI; RBAC roles extended for TECHNICIAN |
-| Upload evidence (metadata/readiness) | **PARTIAL** | Evidence upload-request API; presigned UAT pending |
-| Supervisor verifies / completes | **OPERATOR-OWNED** | Signature/mobile roadmap |
-| Cost visible on WO | **PARTIAL** | Cost fields on WO model |
-| Dashboard/report reflects update | **PARTIAL** | Reports hub loads; live refresh **OPERATOR-OWNED** |
-| Audit log entry created | **PARTIAL** | Settings audit tab + API `/settings/audit-logs` PASS |
+| Create work order | **PASS** | API + web kanban/modal verified (UAT-003) |
+| Approve work order (if permitted) | **NOT AVAILABLE** | Part-request approval **PASS**; dedicated WO approval roadmap |
+| Assign technician | **PASS** | Manager `POST /work-orders/:id/assign` verified (UAT-003) |
+| Reserve / request spare part | **PASS** | Full API chain request → approve → issue (UAT-003) |
+| Technician updates job status | **PASS** | IN_PROGRESS → COMPLETED with actualCost/Hours (UAT-003) |
+| Upload evidence (metadata/readiness) | **PARTIAL** | Readiness API reports **disabled** on staging; UI panel exists |
+| Supervisor verifies / completes | **PARTIAL** | Completion without signature; mobile sign-off **NOT AVAILABLE** |
+| Cost visible on WO | **PASS** | actualCost recorded on completion (UAT-003) |
+| Dashboard/report reflects update | **PARTIAL** | Reports hub loads; live KPI refresh **OPERATOR-OWNED** |
+| Audit log entry created | **PARTIAL** | Part movements audited; WO create not yet in audit service |
 
 ---
 
@@ -136,9 +177,9 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 | Test | Status | Notes |
 |------|--------|-------|
 | Low-stock visible | **PASS** | `/inventory` KPI cards (browser) |
-| Part reservation on WO | **PARTIAL** | Part-requests API; full browser flow **OPERATOR-OWNED** |
-| Stock issue | **PARTIAL** | API `inventory.stock_issue`; UI **OPERATOR-OWNED** |
-| Negative stock prevented / warned | **OPERATOR-OWNED** | Service-layer guard; manual negative attempt |
+| Part reservation on WO | **PASS** | UAT-003 API lifecycle verified |
+| Stock issue | **PASS** | Inventory keeper issue after operational approval (UAT-003) |
+| Negative stock prevented / warned | **PASS** | HTTP 400 on over-issue probe (UAT-003) |
 
 ---
 
@@ -199,6 +240,8 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 | `npm run build` | ☑ | ☐ |
 | `npm run smoke:deploy` | ☑ | ☐ |
 | `npm run test:e2e:staging:uat002` | ☑ | ☐ |
+| `npm run test:e2e:staging:uat003` | ☑ | ☐ |
+| `npm run uat:003:validate` | ☑ | ☐ |
 | Deployment URL reachable | ☑ | ☐ |
 | No secrets in repo | ☑ | ☐ |
 
@@ -208,12 +251,14 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 | Role | Name | Date | Result |
 |------|------|------|--------|
-| QA | | 2026-06-12 | **PARTIAL PASS** — UAT-002 browser/API PASS post-deploy; MVP lifecycle operator-owned |
+| QA | | 2026-06-27 | **PARTIAL PASS** — UAT-003 hosted MVP lifecycle API PASS; browser portfolio 5/5; gaps documented |
 | Product owner | | | |
-| DevOps | | 2026-06-12 | **PASS** — UAT-001 credentials; smoke green |
+| DevOps | | 2026-06-27 | **PASS** — Render deploy `c36af83` live; smoke green |
 
 **UAT-001 status:** **PASS** (credentials + smoke)
 
-**UAT-002 status:** **PARTIAL PASS** — Hosted API + browser personas verified on live Render commit `1a97432`; manager/technician work-order list RBAC **PASS**. Full MVP lifecycle, gate UI, and production cutover remain open.
+**UAT-002 status:** **PARTIAL PASS** — Hosted API + browser personas verified on live Render; manager/technician work-order list RBAC **PASS**.
 
-**Operator action:** None required for RBAC — re-run `npm run uat:002:validate` after future staging deploys.
+**UAT-003 status:** **PARTIAL PASS** — Full hosted API lifecycle (create → assign → parts → execute → complete) **PASS** on staging; dedicated WO approval, live evidence storage, gate UI, and mobile **NOT AVAILABLE** / **PARTIAL** as documented.
+
+**Operator action:** Re-run `npm run uat:003:validate` after staging deploys. Asset/vehicle create and audit-tab screenshot remain operator-owned if needed for portfolio.

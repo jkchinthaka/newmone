@@ -153,6 +153,10 @@ npm run smoke:local          # requires local API + smoke env
 npm run smoke:deploy         # hosted staging smoke
 npm run test:e2e             # Playwright (local web server)
 npm run test:e2e:staging     # Playwright against hosted web (env credentials)
+npm run test:e2e:staging:uat002
+npm run test:e2e:staging:uat003
+npm run uat:002:validate
+npm run uat:003:validate     # MVP lifecycle API + portfolio e2e + full regression
 ```
 
 ## Deployment
@@ -225,7 +229,7 @@ Case study narrative: [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.m
 
 ## Screenshots
 
-Staging portfolio captures (UAT-002, no credentials visible):
+Staging portfolio captures (UAT-003 warm session, no credentials visible):
 
 | Screen | File |
 |--------|------|
@@ -234,17 +238,18 @@ Staging portfolio captures (UAT-002, no credentials visible):
 | Admin console | [docs/screenshots/staging/03-admin-console.png](docs/screenshots/staging/03-admin-console.png) |
 | Manager dashboard | [docs/screenshots/staging/04-manager-dashboard.png](docs/screenshots/staging/04-manager-dashboard.png) |
 | Work order list | [docs/screenshots/staging/05-work-order-list.png](docs/screenshots/staging/05-work-order-list.png) |
-| Technician view | [docs/screenshots/staging/06-technician-work-orders.png](docs/screenshots/staging/06-technician-work-orders.png) |
-| Security fleet | [docs/screenshots/staging/07-security-fleet.png](docs/screenshots/staging/07-security-fleet.png) |
-| Inventory | [docs/screenshots/staging/08-inventory-stock.png](docs/screenshots/staging/08-inventory-stock.png) |
+| Work order detail | [docs/screenshots/staging/06-work-order-detail.png](docs/screenshots/staging/06-work-order-detail.png) |
+| Technician jobs | [docs/screenshots/staging/07-technician-jobs.png](docs/screenshots/staging/07-technician-jobs.png) |
+| Security fleet / gate | [docs/screenshots/staging/08-security-fleet-gate.png](docs/screenshots/staging/08-security-fleet-gate.png) |
+| Inventory | [docs/screenshots/staging/09-inventory-stock.png](docs/screenshots/staging/09-inventory-stock.png) |
 | System health / ERP | [docs/screenshots/staging/10-erp-system-health.png](docs/screenshots/staging/10-erp-system-health.png) |
 | Reports hub | [docs/screenshots/staging/11-reports-dashboard.png](docs/screenshots/staging/11-reports-dashboard.png) |
 
-Missing (capture manually): work order detail modal, reports (re-run UAT-002 e2e), mobile (`apps/mobile`).
+**NOT AVAILABLE in web repo:** `13-mobile-technician.png` (Flutter `apps/mobile`). **OPERATOR-OWNED:** `12-audit-trail.png` if Settings audit tab not visible on staging.
 
-Regenerate: `npm run test:e2e:staging:uat002` (requires shell smoke password aligned with Render seed password).
+Regenerate: `npm run test:e2e:staging:uat003` or `npm run uat:003:validate` (requires Render-aligned seed password via `.env.render.local` or shell).
 
-**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** (hosted API + browser verified on Render `1a97432`; MVP lifecycle not fully automated).
+**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** (hosted MVP lifecycle API verified on Render `c36af83`; WO approval, live evidence, gate UI, production cutover remain open).
 
 ## Contributing
 

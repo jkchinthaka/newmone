@@ -15,7 +15,9 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | Inventory auto-reservation on WO | Partial | Part requests panel |
 | Align staging smoke credentials | **DONE** | UAT-001 PASS |
 | Complete UAT-001 sign-off | **DONE** | Hosted login + smoke |
-| Complete UAT-002 browser/API verification | **PARTIAL** | Multi-role Playwright + gate API; MVP lifecycle operator-owned |
+| Complete UAT-002 browser/API verification | **PARTIAL** | Multi-role Playwright + gate API |
+| Complete UAT-003 MVP lifecycle certification | **PARTIAL** | Hosted API lifecycle PASS; WO approval + live evidence open |
+| Manager WO create/assign RBAC alignment | **DONE** | `MANAGER` on create/assign/notes (commit `c36af83`) |
 | Dedicated `/fleet/gate` route | **NOT STARTED** | Security officer landing — API gate works |
 | Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` |
 

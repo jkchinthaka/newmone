@@ -64,7 +64,10 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - ERP sync: mock by default; read sync when credentials provided
 - Access JWT stored in localStorage on web (CSP + documented migration path)
 - **UAT-001 PASS** (hosted login + smoke)
-- **UAT-002 PARTIAL PASS** — browser personas + hosted API PASS on Render `1a97432`; manager/technician WO list RBAC verified live; full MVP lifecycle still operator-owned
+- **UAT-002 PARTIAL PASS** — browser personas + hosted API on staging
+- **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified (create → assign → parts → complete); portfolio screenshots 13/13 web (mobile placeholder)
+- Dedicated WO approval workflow **NOT AVAILABLE** (part-request approval works)
+- Evidence object storage **disabled** on staging (readiness honest)
 - Dedicated `/fleet/gate` web UI not shipped — gate operations are API-first
 - Production custom domain not yet live
 
@@ -77,8 +80,9 @@ NestJS · TypeScript · Prisma · MongoDB · Redis · Next.js · Flutter · Dock
 - Staging web: Cloudflare Workers
 - Staging API: Render
 - Automated smoke: `npm run smoke:deploy`
-- Browser UAT: `npm run test:e2e:staging:uat002`
-- Portfolio screenshots: `docs/screenshots/staging/` (8 captures, 2026-06-12)
+- Browser UAT: `npm run test:e2e:staging:uat002` · `npm run test:e2e:staging:uat003`
+- MVP lifecycle API: `npm run uat:003:validate`
+- Portfolio screenshots: `docs/screenshots/staging/` (UAT-003 warm capture, 2026-06-27)
 
 ## Suggested interview narrative
 
