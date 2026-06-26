@@ -1,3 +1,12 @@
+/**
+ * Web auth session storage.
+ *
+ * Security posture:
+ * - Access JWT is stored in localStorage for Bearer API calls (XSS exposure — mitigate with CSP and input hygiene).
+ * - Refresh token is HttpOnly cookie-only on the API; not stored in Web Storage.
+ * - User display profile (non-secret) is cached in localStorage for navigation/dashboard UX.
+ * - `clearAuthSession()` removes token, user, and active tenant on logout/session expiry.
+ */
 export const ACCESS_TOKEN_KEY = "maintainpro_access_token";
 export const USER_KEY = "maintainpro_user";
 const LEGACY_REFRESH_TOKEN_KEY = "maintainpro_refresh_token";

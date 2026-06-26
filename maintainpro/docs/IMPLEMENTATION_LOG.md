@@ -2132,6 +2132,16 @@ Record each completed task with:
 - Added `apps/web/e2e/staging-uat.spec.ts` + `playwright.staging.config.ts` and `npm run test:e2e:staging` for repeatable staging browser checks (env-only credentials).
 - UAT-001 sign-off remains **PARTIAL** until hosted login succeeds and `/admin` + `/action-center` verified with valid session.
 
+## 2026-06-15 | Enterprise readiness polish | Portfolio + production documentation
+
+- Rewrote `README.md` (root + maintainpro) with honest deployment status, MVP flow, readiness table, and portfolio value.
+- Replaced stale `PRODUCTION_READINESS_REPORT.md` (SECURITY_OFFICER, email/SMS/ERP claims corrected).
+- Added docs: `ARCHITECTURE.md`, `ROLE_MATRIX.md`, `UAT_CHECKLIST.md`, `SECURITY_CHECKLIST.md`, `ENTERPRISE_ROADMAP.md`, `DEPLOYMENT.md`, `PORTFOLIO_CASE_STUDY.md`.
+- Web: production security headers (CSP, HSTS, frame denial) in `next.config.mjs`; route/global error boundaries.
+- API: CORS `X-CSRF-Token` allowed header for cookie refresh cross-origin.
+- Documented auth storage security posture in `auth-storage.ts`.
+- Corrected stale `PHASE6_COMPLETION_REPORT.md` SECURITY_OFFICER note.
+
 ## 2026-06-12 | OPS-002 / BUILD-010 / NOTIFY-001 / ERP-001 / DEPLOY-001 | Operational readiness foundations sprint
 
 - What changed:

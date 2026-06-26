@@ -1,254 +1,240 @@
-# MaintainPro Enterprise Platform
+# MaintainPro — Enterprise Operations Platform
 
-MaintainPro is an enterprise-grade, multi-module operations platform for asset management, fleet operations, maintenance execution, inventory control, utility tracking, reporting, and predictive analytics.
+MaintainPro is a **multi-tenant enterprise operations, maintenance, fleet, inventory, compliance, and reporting platform** designed to reduce equipment downtime, improve operational accountability, control spare-part usage, track compliance, and give management visibility across sites and departments.
 
-## Technology Stack
+## Business problem
 
-- Backend: NestJS + TypeScript + Prisma MongoDB + Redis + Bull + WebSockets + Swagger
-- Frontend: Next.js App Router + TailwindCSS + Recharts + Leaflet
-- Mobile: Flutter + Riverpod + Dio + Hive offline queue + QR scanner
-- Shared packages: workspace libraries under `packages/`
-- Infrastructure: Docker Compose (dev and production), MinIO object storage, nginx reverse proxy
-- CI/CD: GitHub Actions for PR validation, Docker build checks, and develop branch staging pipeline
+Many organizations still manage maintenance, fleet, stock, compliance documents, and operational issues using Excel, paper forms, WhatsApp, and disconnected ERP workflows. That causes delays, weak accountability, stock leakage, duplicate data entry, and poor management visibility.
+
+MaintainPro connects these workflows in one platform with tenant isolation, role-based access, audit trails, and integration readiness.
+
+## Solution overview
+
+| Capability | Description |
+|------------|-------------|
+| Asset & vehicle register | Identification, location, status, criticality, QR/scan hooks |
+| Work orders | Corrective/preventive jobs, assignment, status, cost, evidence |
+| Inventory & parts | Stock, reservations, part requests on work orders |
+| Fleet & gate operations | Live map, trips, **gate-in/gate-out** with compliance checks |
+| Facilities & cleaning | Hierarchy, issues, SLA/aging reports |
+| Compliance & documents | Expiry tracking, vehicle documents |
+| Notifications | Email/SMS/push (env-gated; see readiness table) |
+| ERP sync | Read-only stock sync (mock/sandbox/live modes) |
+| Reporting & dashboards | Role-aware KPIs from live API data |
+| Audit | Prisma middleware + domain audit for high-risk actions |
+
+## Core MVP workflow
+
+```text
+Asset / Vehicle Register
+  → Work Order Creation
+  → Manager Approval (where configured)
+  → Technician Assignment
+  → Spare-Part Reservation
+  → Mobile / Web Job Execution
+  → Photo / Evidence
+  → Supervisor Verification
+  → Cost Calculation
+  → Completion
+  → Audit Trail
+  → Dashboard / Report
+```
+
+**Status:** End-to-end flow is **implemented in modular form** across API modules and web/mobile surfaces. Some steps (approval builder, signature capture, full offline mobile parity) remain **partial** — see [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md).
+
+## Technology stack
+
+| Layer | Stack |
+|-------|--------|
+| API | NestJS, TypeScript, Prisma (MongoDB), Redis/Bull, Socket.IO |
+| Web | Next.js App Router, TailwindCSS, TanStack Query, Recharts, Leaflet |
+| Mobile | Flutter, Riverpod, Dio, Hive offline queue |
+| Shared | `packages/shared-types`, `packages/ui-components` |
+| Infra | Docker Compose, nginx, Render (API), Cloudflare Workers (web), MongoDB Atlas |
 
 ## Architecture
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module map, tenancy, auth, replication, and integration boundaries.
+
 ```mermaid
 flowchart LR
-  Web[Next.js Web App] --> Nginx[nginx Reverse Proxy]
-  Mobile[Flutter App] --> API[NestJS API]
-  Nginx --> API
-  Nginx --> Web
-  API --> Atlas[(MongoDB Atlas Primary: nelna)]
-  API --> Outbox[(ReplicationOutbox)]
-  Outbox --> Backup[(Local MongoDB Backup: bileeta_db)]
-  API --> Redis[(Redis)]
-  API --> MinIO[(MinIO Object Storage)]
-  API --> Queue[Bull Queues]
-  Queue --> API
-  API --> WS[WebSocket Gateways]
-  WS --> Web
+  Web[Next.js Web] --> API[NestJS API]
+  Mobile[Flutter Mobile] --> API
+  API --> Atlas[(MongoDB Atlas)]
+  API --> Backup[(Backup MongoDB)]
+  API --> Redis[(Redis / Bull)]
+  API --> Integrations[Email / SMS / ERP / Storage]
 ```
 
-## Repository Layout
+## Current deployment status
+
+| Environment | Web | API | Notes |
+|-------------|-----|-----|-------|
+| **Staging** | [newmone.chinthakajayaweera1.workers.dev](https://newmone.chinthakajayaweera1.workers.dev) | [newmone.onrender.com/api](https://newmone.onrender.com/api) | Hosted smoke: health/CORS OK; login requires aligned seed/smoke password |
+| **Production** | `maintenance.nelna.lk` (planned) | TBD | Cutover checklist in [docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md](docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md) |
+
+**Health endpoints**
+
+- `GET /health` — public liveness (DB ping)
+- `GET /health/readiness` — dependency matrix (protected in production)
+- Web: `/system-health` — admin UI over readiness API
+
+## What is complete vs partial vs mock
+
+| Area | Status |
+|------|--------|
+| Multi-tenant API + RBAC | **Complete** |
+| JWT + HttpOnly refresh cookie + CSRF on cookie auth | **Complete** |
+| `SECURITY_OFFICER` role, seed, gate permissions | **Complete** |
+| Work orders, assets, vehicles, inventory, fleet | **Complete** (core CRUD + workflows) |
+| Audit logging (middleware + domain events) | **Complete** |
+| Role-based web navigation & dashboards | **Partial** (UX layer; API is authoritative) |
+| Email notifications | **Partial** — live when `EMAIL_MODE=live` + SMTP |
+| SMS notifications | **Partial** — generic HTTP provider; mock mode available |
+| Push notifications | **Partial** — noop/mock default; HTTP provider when configured |
+| ERP stock sync | **Partial** — mock default; sandbox/live HTTP read sync |
+| Billing / Stripe | **Partial** — mock/disabled modes |
+| Predictive maintenance AI | **Partial** — rules + copilot integration hooks |
+| Mobile offline queue | **Partial** — Hive queue exists; not all mutations covered |
+| Production custom domain | **Not started** |
+
+Honest detail: [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md).
+
+## Repository layout
 
 ```text
 maintainpro/
-├── apps/
-│   ├── api/          # NestJS backend
-│   ├── web/          # Next.js web dashboard
-│   └── mobile/       # Flutter mobile app
-├── packages/
-│   ├── shared-types/
-│   └── ui-components/
-├── prisma/
-│   └── schema.prisma
-├── infra/
-│   └── nginx/default.conf
-├── docker-compose.yml
-├── docker-compose.dev.yml
-└── .github/workflows/
+├── apps/api/          NestJS backend
+├── apps/web/          Next.js dashboard
+├── apps/mobile/       Flutter field app
+├── packages/          shared-types, ui-components
+├── prisma/            MongoDB schema
+├── docs/              runbooks, checklists, architecture
+└── scripts/           smoke, deploy helpers
 ```
 
-## RBAC Matrix
-
-- SUPER_ADMIN: full platform access including tenant-level administration
-- ADMIN: operational admin access across modules
-- MANAGER: planning, assignment, approvals, and reporting
-- TECHNICIAN: maintenance and work-order execution
-- SECURITY_OFFICER: gate-in/gate-out and operational scan lookup access
-- DRIVER: fleet usage, trip, and vehicle updates
-- VIEWER: read-only analytics and operational visibility
-
-## API Modules
-
-All API routes are prefixed with `/api`.
-
-- Health: `/health`
-- Auth: `/auth`
-- Users: `/users`
-- Roles: `/roles`
-- Assets: `/assets`
-- Vehicles: `/vehicles`
-- Fleet: `/fleet`
-- Drivers: `/drivers`
-- Maintenance: `/maintenance`
-- Work Orders: `/work-orders`
-- Inventory: `/inventory`
-- Suppliers: `/suppliers`
-- Fuel: `/fuel`
-- Trips: `/trips`
-- Utilities: `/utilities`
-- Notifications: `/notifications`
-- Reports: `/reports`
-- Predictive AI: `/predictive-ai`
-
-Swagger docs: `http://localhost:3000/api/docs` (local API direct) or `http://localhost/api/docs` (via nginx in production compose).
-In production (`NODE_ENV=production`), Swagger is disabled by default. Set `SWAGGER_ENABLED=true` plus
-`SWAGGER_USER`/`SWAGGER_PASSWORD` to expose `/api/docs` behind HTTP Basic Auth.
-
-`/health` returns a minimal public status. `/health/readiness` returns detailed dependency/configuration
-checks and is restricted in production to an `ADMIN`/`SUPER_ADMIN` bearer token, or a request carrying the
-`X-Readiness-Key` header matching `READINESS_API_KEY` (for uptime/infra monitoring).
-
-## Local Setup (Node)
-
-1. Copy environment template.
+## Local setup
 
 ```bash
+cd maintainpro
 cp .env.example .env
-```
-
-1. Install dependencies.
-
-```bash
 npm install
-```
-
-1. Generate Prisma client.
-
-```bash
 npm run db:generate
+npm run db:push          # push schema to MongoDB
+# Set MAINTAINPRO_SEED_PASSWORD from secret manager:
+npm run db:seed
+npm run dev              # API :3000, Web :3001
 ```
 
-1. Run API + web.
+## Seed users (local/staging)
 
-```bash
-npm run dev
-```
+Password: set via `MAINTAINPRO_SEED_PASSWORD` (never commit). Typical seeded accounts:
 
-1. Optional test and build validation.
+| Email | Role |
+|-------|------|
+| `superadmin@maintainpro.local` | SUPER_ADMIN |
+| `admin@maintainpro.local` | ADMIN |
+| `security@maintainpro.local` | SECURITY_OFFICER |
+| `tech@maintainpro.local` | TECHNICIAN |
+
+See seed source: `apps/api/src/database/seed.ts`.
+
+## Validation commands
 
 ```bash
 npm run typecheck
-npm run test
+npm run lint
+npm run test                 # API Jest (93+ suites)
 npm run build
+npm run deploy:check
+npm run smoke:local          # requires local API + smoke env
+npm run smoke:deploy         # hosted staging smoke
+npm run test:e2e             # Playwright (local web server)
+npm run test:e2e:staging     # Playwright against hosted web (env credentials)
 ```
 
-## Docker Workflows
+## Deployment
 
-Development stack:
+| Target | Config | Doc |
+|--------|--------|-----|
+| Render API | `render.yaml` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Cloudflare Web | `wrangler.jsonc` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Vercel Web | `vercel.json` | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) |
+| Docker | `docker-compose.yml` | README Docker section |
+
+## Security highlights
+
+- Global JWT, tenant context, role, and permission guards
+- Password hashing (bcrypt), login lockout, refresh rotation
+- HttpOnly refresh cookies + CSRF double-submit for cookie-based refresh
+- Helmet on API; CSP/HSTS/frame denial on web (`next.config.mjs`)
+- Env validation at boot (`env.validation.ts`); mock integrations blocked in production by default
+- Tenant-scoped Prisma queries; audit middleware on mutations
+
+See [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
+
+## Role-based experience
+
+Navigation and dashboards adapt by role (frontend UX). Backend RBAC is authoritative.
+
+| Role | Primary surfaces |
+|------|------------------|
+| SUPER_ADMIN / ADMIN | Admin console, system health, users, tenants |
+| MANAGER / SUPERVISOR | Dashboard, work orders, approvals, reports |
+| TECHNICIAN / MECHANIC | Assigned jobs, work order execution |
+| SECURITY_OFFICER | Gate in/out, scan lookup, fleet visibility |
+| INVENTORY / STORE roles | Inventory, part requests, ERP sync panel |
+| VIEWER / AUDITOR | Read-only reports |
+
+Full matrix: [docs/ROLE_MATRIX.md](docs/ROLE_MATRIX.md).
+
+## Documentation index
+
+| Document | Purpose |
+|----------|---------|
+| [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) | Go-live verdict and gaps |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
+| [docs/ROLE_MATRIX.md](docs/ROLE_MATRIX.md) | Roles and permissions |
+| [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md) | Acceptance testing |
+| [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) | Security review |
+| [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md) | Prioritized roadmap |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploy runbook |
+| [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md) | Portfolio narrative |
+| [docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md](docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md) | Staging UAT & cutover |
+
+## Roadmap
+
+Priority features and Phase 2/3 items: [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md).
+
+## Portfolio value
+
+MaintainPro demonstrates **enterprise software engineering** across:
+
+- Multi-tenant SaaS architecture with MongoDB + replication outbox
+- Modular monolith domain design (20+ bounded contexts)
+- RBAC with permission guards and audit trails
+- Real-world workflows (work orders, gate compliance, inventory, ERP readiness)
+- Production deployment (Render + Cloudflare + Atlas)
+- Security-aware auth (JWT hybrid, CSRF, env-gated integrations)
+- Observability (health/readiness, queue health, system health UI)
+- Test discipline (500+ API tests, Playwright e2e, deployment smoke)
+
+Case study narrative: [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md).
+
+## Screenshots
+
+Add evaluator screenshots under `docs/screenshots/` (dashboard, work orders, admin console, system health, mobile). *Placeholder — capture from staging after credential alignment.*
+
+## Contributing
+
+Work on `main` for this portfolio repo. Before push:
 
 ```bash
-npm run docker:up:dev
+npm run typecheck && npm run lint && npm run test && npm run build
 ```
 
-Production-like stack:
+Do not commit `.env`, credentials, or secrets.
 
-```bash
-npm run docker:up
-```
+## License
 
-Stop stacks:
-
-```bash
-npm run docker:down:dev
-npm run docker:down
-```
-
-Production-like stack includes nginx, API, web, MongoDB, Redis, and MinIO.
-
-## Environment Reference
-
-See `.env.example` for all variables.
-
-Critical required keys for backend startup:
-
-- `CORS_ORIGIN`, `FRONTEND_URL`
-- `PRIMARY_DATABASE_URL` for MongoDB Atlas primary database `nelna`
-- `BACKUP_DATABASE_URL` for local MongoDB backup database `bileeta_db`
-- `DATABASE_URL=${PRIMARY_DATABASE_URL}` for Prisma compatibility
-- `DATABASE_REPLICATION_MODE=async_outbox` unless strict dual-write behavior is explicitly approved
-- `JWT_SECRET`, or both `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
-
-Optional backend integrations:
-
-- `REDIS_URL` enables managed Redis-backed queues.
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` enable persistent asset document uploads on Render.
-- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET` enable S3-compatible object storage health checks.
-- `SMTP_ENABLED=true` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` enable SMTP email notifications.
-- `SMS_ENABLED=true` plus `SMS_API_URL`, `SMS_API_KEY`, and `SMS_SENDER_ID` enable the generic HTTP SMS provider.
-- `ERP_SYNC_PROVIDER=http`, `ERP_API_URL`, and `ERP_API_KEY` enable real purchase-order ERP sync. The default `mock` provider is blocked in production unless `ERP_SYNC_ALLOW_MOCK_IN_PRODUCTION=true` is explicitly set.
-- `PUSH_PROVIDER_ENABLED=true`, `PUSH_PROVIDER_API_URL`, and `PUSH_PROVIDER_API_KEY` enable the generic HTTP push provider. Otherwise push remains log-only/no-op.
-- `RAPIDAPI_GOOGLE_MAP_PLACES_KEY` enables Street View previews in the fleet map.
-- `RAPIDAPI_COPILOT_API_KEY`, `RAPIDAPI_COPILOT_HOST` enable the predictive copilot provider.
-- `RAPIDAPI_QR_CODE_API_KEY`, `RAPIDAPI_QR_CODE_HOST` optionally route QR image generation through RapidAPI. If omitted, the API falls back to local QR generation automatically.
-- `RAPIDAPI_QR_CODE_COLOR`, `RAPIDAPI_QR_CODE_BG_COLOR` customize provider-generated QR colors when the RapidAPI QR provider is enabled.
-- `MONGO_SYNC_ON_STARTUP=false` is the production default. The legacy Mongoose mirror service should only be enabled for a rehearsed compatibility sync.
-- `DATABASE_REPLICATION_ENABLED`, `DATABASE_REPLICATION_RETRY_ATTEMPTS`, `DATABASE_REPLICATION_RETRY_DELAY_MS`, `DATABASE_REPLICATION_BATCH_SIZE`, `BACKUP_DATABASE_REQUIRED_FOR_READINESS`, and `BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE` control primary-to-backup replication behavior.
-
-Frontend runtime keys:
-
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_API_BASE_URL`
-- `NEXT_PUBLIC_API_ORIGIN`
-
-## Database and Seed
-
-- Prisma schema: `prisma/schema.prisma`
-- Generate client: `npm run db:generate`
-- Push schema to MongoDB: `npm run db:push`
-- Seed data: set `MAINTAINPRO_SEED_PASSWORD` from your secret manager, then run `npm run db:seed`
-- Dry-run backup resync: `npm run db:backup:resync -- --dry-run`
-- Apply primary-to-backup resync: `npm run db:backup:resync`
-- Verify backup counts/checksums/outbox lag: `npm run db:backup:verify`
-
-`npm run db:migrate` is retained as a compatibility alias for `db:push` because Prisma MongoDB does not use SQL migration files for active rollout. Historical folders under `prisma/migrations/` are legacy metadata and are not the production rollout path.
-
-Seed includes baseline roles, permissions, admin users, and sample domain entities across assets, vehicles, inventory, work orders, and utilities.
-
-For the production database rollout checklist, see [DATABASE_MIGRATION_TO_MONGODB.md](DATABASE_MIGRATION_TO_MONGODB.md). For the dual-database runbook, see [DUAL_DATABASE_REPLICATION.md](DUAL_DATABASE_REPLICATION.md).
-
-## CI/CD
-
-GitHub workflows:
-
-- `ci.yml`: PR validation (typecheck, build, tests)
-- `docker-build-check.yml`: verifies Docker images and compose config
-- `develop-staging-deploy.yml`: develop-branch staging build/deploy placeholder
-
-## Vercel Web Deployment
-
-For the full Vercel, Render, MongoDB Atlas, Cloudinary, and smoke-test checklist, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
-
-The Next.js web app lives in `apps/web`, while the deployable monorepo root is `maintainpro`. The repository includes Vercel config for both common setups:
-
-- If the Vercel project root is the Git repository root, `../vercel.json` runs `cd maintainpro && npm run vercel:build` and serves `maintainpro/apps/web/.next`.
-- If the Vercel project root is `maintainpro`, `vercel.json` runs `npm run vercel:build` and serves `apps/web/.next`.
-
-Set these Vercel environment variables for hosted API connectivity:
-
-- `NEXT_PUBLIC_API_URL`, for example `https://api.example.com/api`
-- `NEXT_PUBLIC_API_BASE_URL`, for example `https://api.example.com/api`
-- `NEXT_PUBLIC_API_ORIGIN`, for example `https://api.example.com`
-
-Configure repository secrets for staging deploy automation:
-
-- `STAGING_HOST`
-- `STAGING_USER`
-- `STAGING_SSH_KEY`
-
-Optional Render API deploy automation:
-
-1. Copy `.env.render.local.example` to `.env.render.local`.
-2. Set `RENDER_API_KEY` and `RENDER_SERVICE_ID` in `.env.render.local`.
-3. Run `npm run render:deploy:dry` to verify API access and target service.
-4. Run `npm run render:deploy` to trigger a Render deployment via API.
-
-`.env.render.local` is ignored by git. Do not commit real Render credentials.
-
-## Contribution Guide
-
-1. Create a feature branch from `develop`.
-2. Keep changes modular by app/package.
-3. Run `npm run typecheck`, `npm run test`, and `npm run build` before opening PR.
-4. Update docs and `.env.example` whenever env or architecture changes.
-5. Open a PR to `develop` and ensure all workflows pass.
-
-## Security Notes
-
-- Global request validation is enabled in NestJS.
-- JWT guard + role guard enforce route access.
-- Response envelope and exception filter standardize API behavior.
-- Rate limiting is enabled with Nest throttler.
-- Use strong secrets and rotate credentials for non-local environments.
+Private / portfolio use — see repository owner.

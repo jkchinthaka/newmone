@@ -61,6 +61,7 @@ async function bootstrap(): Promise<void> {
       "Authorization",
       "X-Requested-With",
       "X-Tenant-Id",
+      "X-CSRF-Token",
       "Stripe-Signature"
     ]
   });

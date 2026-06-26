@@ -109,7 +109,7 @@ The following validations were run successfully:
 
 - API Jest runs still emit the existing `ts-jest` TS151002 warning related to the repo's hybrid module configuration. The full suite passed without functional failures.
 - The current push provider remains a safe abstraction layer with a no-op provider until a real push delivery backend is configured.
-- `SECURITY_OFFICER` was made mobile-UI-aware for field-operations briefing behavior, but the backend `RoleName` enum and seed catalog were not expanded in this phase. That change would require a broader permission model for vehicle, driver, and work-order visibility than was necessary for the approved Phase 6 scope.
+- `SECURITY_OFFICER` backend support was added in a later hardening pass (Prisma enum, seed, gate permissions). Mobile briefing behavior aligns with that role when the backend sends it.
 
 ## Conclusion
 
