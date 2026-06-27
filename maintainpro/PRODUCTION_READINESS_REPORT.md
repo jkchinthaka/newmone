@@ -1,7 +1,7 @@
 # Production Readiness Report
 
 **Last updated:** 2026-06-27  
-**Verdict:** **Pilot-ready** on staging (UAT-001 through UAT-005 partial pass). **Not** production-ready until operator executes DNS cutover, live integration credentials, and post-cutover smoke on `maintenance.nelna.lk`.
+**Verdict:** **Pilot-ready** on staging (UAT-001 through UAT-005 pass on synced staging). **Not** production-ready until operator executes DNS cutover, live integration credentials, and prod DB/env per runbook.
 
 ## Executive summary
 

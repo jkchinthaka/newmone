@@ -39,7 +39,17 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **UAT-005 overall** | **PARTIAL PASS** | Cutover readiness certified; live integrations + DNS cutover remain operator-owned |
+| **UAT-005 overall** | **PASS** | Staging synced on Render `e366196`; `npm run uat:005:validate` green; production DNS/live creds remain operator-owned |
+
+### Post-deploy UAT-005 verification (2026-06-27)
+
+| Check | Result |
+|-------|--------|
+| Render deploy `dep-d8vm2eb7uimc738k4jqg` | **live** on `e366196` |
+| `/notifications/readiness` push + indicators | **PASS** |
+| `/system-health` provider panel (browser) | **PASS** (2/2 Playwright) |
+| `npm run uat:005:validate` | **PASS** |
+| Cloudflare local `wrangler deploy` | **BLOCKED** — OAuth token returns empty accounts; staging web already serving updated UI |
 | Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on `/evidence/readiness` |
 | Notification indicators | **PASS** | `EMAIL_*` / `SMS_*` / `PUSH_*` on `/notifications/readiness` |
 | System health provider panel | **PASS** | Admin `/system-health` integration diagnostics |
@@ -337,6 +347,6 @@ Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
 
 **UAT-003 status:** **PARTIAL PASS** — Full hosted API lifecycle (create → assign → parts → execute → complete) **PASS** on staging; dedicated WO approval, live evidence storage, gate UI, and mobile **NOT AVAILABLE** / **PARTIAL** as documented.
 
-**UAT-005 status:** **PARTIAL PASS** — Provider diagnostics, cutover runbook, domain checklist, KPI matrix, and reports API export verified; production DNS cutover and live integration credentials remain operator-owned.
+**UAT-005 status:** **PASS** — Staging deployment synchronized on `e366196`; provider diagnostics, cutover runbook, and full validation suite green. Production DNS cutover and live integration credentials remain operator-owned.
 
 **Operator action:** Execute [PRODUCTION_CUTOVER_RUNBOOK.md](PRODUCTION_CUTOVER_RUNBOOK.md) only after explicit go-live approval.

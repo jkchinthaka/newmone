@@ -67,7 +67,7 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - **UAT-002 PARTIAL PASS** — browser personas + hosted API on staging
 - **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified
 - **UAT-004 PARTIAL PASS** — WO approve/reject, audit completeness, `/fleet/gate`, evidence readiness indicators
-- **UAT-005 PARTIAL PASS** — cutover runbook, domain checklist, provider diagnostics, reports API export verified
+- **UAT-005 PASS** — staging synced on `e366196`; provider diagnostics + cutover docs; full `uat:005:validate` green
 - Notification providers **DISABLED** on staging (EMAIL_/SMS_/PUSH_ indicators honest)
 - Production custom domain not yet live
 
