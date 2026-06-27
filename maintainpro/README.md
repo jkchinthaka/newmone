@@ -1,46 +1,214 @@
 # MaintainPro — Enterprise Operations Platform
 
-MaintainPro is a **multi-tenant enterprise operations, maintenance, fleet, inventory, compliance, and reporting platform** designed to reduce equipment downtime, improve operational accountability, control spare-part usage, track compliance, and give management visibility across sites and departments.
+**Multi-tenant maintenance, fleet, inventory, and compliance software built for real operations teams.**
 
-## Business problem
+| Verdict | Status |
+|---------|--------|
+| **Portfolio-ready** | Yes — documented, tested, deployed to staging |
+| **Pilot-ready** | Yes — scoped rollout on hosted staging |
+| **Production-ready** | **No** — DNS cutover, prod DB/env, and live integrations remain operator-owned |
 
-Many organizations still manage maintenance, fleet, stock, compliance documents, and operational issues using Excel, paper forms, WhatsApp, and disconnected ERP workflows. That causes delays, weak accountability, stock leakage, duplicate data entry, and poor management visibility.
+**Live staging:** [Web dashboard](https://newmone.chinthakajayaweera1.workers.dev) · [API health](https://newmone.onrender.com/health)
 
-MaintainPro connects these workflows in one platform with tenant isolation, role-based access, audit trails, and integration readiness.
+---
 
-## Solution overview
+## Executive summary
 
-| Capability | Description |
-|------------|-------------|
-| Asset & vehicle register | Identification, location, status, criticality, QR/scan hooks |
-| Work orders | Corrective/preventive jobs, assignment, status, cost, evidence |
-| Inventory & parts | Stock, reservations, part requests on work orders |
-| Fleet & gate operations | Live map, trips, **gate-in/gate-out** with compliance checks |
-| Facilities & cleaning | Hierarchy, issues, SLA/aging reports |
-| Compliance & documents | Expiry tracking, vehicle documents |
-| Notifications | Email/SMS/push (env-gated; see readiness table) |
-| ERP sync | Read-only stock sync (mock/sandbox/live modes) |
-| Reporting & dashboards | Role-aware KPIs from live API data |
-| Audit | Prisma middleware + domain audit for high-risk actions |
+MaintainPro is a **full-stack enterprise operations platform** I designed and built to replace fragmented Excel, WhatsApp, and disconnected ERP workflows with one accountable system for maintenance, fleet gate compliance, inventory, and reporting.
 
-## Core MVP workflow
+The product serves **multi-site organizations** where different roles — admins, managers, technicians, security officers, and store keepers — need different views of the same operational truth. The backend enforces **tenant isolation, JWT auth, RBAC, and audit trails**; the web dashboard adapts navigation and KPIs by role; a Flutter mobile foundation supports field execution.
+
+This is not a tutorial CRUD app. It is a **modular monolith** with 20+ domain modules, 500+ automated API tests, Playwright browser UAT on hosted staging, deployment smoke scripts, and production cutover documentation — all verified without claiming features that are not actually live.
+
+**Why it matters for hiring:** MaintainPro demonstrates end-to-end ownership — product thinking, system design, security-aware implementation, DevOps discipline, and honest delivery boundaries.
+
+---
+
+## Business value
+
+| Stakeholder | Problem today | What MaintainPro delivers |
+|-------------|---------------|---------------------------|
+| **Operations / maintenance** | Jobs lost in chat; unclear ownership | Work order lifecycle, assignment, status, cost tracking |
+| **Management** | Reports assembled manually | Role dashboards with live API KPIs, server-side CSV export |
+| **Security / gate** | Paper gate logs; expired documents missed | Dedicated Security Officer role, `/fleet/gate`, compliance checks |
+| **Stores / inventory** | Untracked spare-part usage | Stock levels, part requests on work orders, ERP sync readiness |
+| **IT / DevOps** | “Is it up?” uncertainty | Health/readiness endpoints, provider diagnostics, automated smoke |
+| **Compliance / audit** | No single trail | Prisma audit middleware + domain events on high-risk mutations |
+
+**Core workflow shipped:**
 
 ```text
-Asset / Vehicle Register
-  → Work Order Creation
-  → Manager Approval (where configured)
-  → Technician Assignment
-  → Spare-Part Reservation
-  → Mobile / Web Job Execution
-  → Photo / Evidence
-  → Supervisor Verification
-  → Cost Calculation
-  → Completion
-  → Audit Trail
-  → Dashboard / Report
+Asset / Vehicle → Work Order → Assign → Parts → Execute → Evidence → Complete → Audit → Report
 ```
 
-**Status:** End-to-end flow is **implemented in modular form** across API modules and web/mobile surfaces. Some steps (approval builder, signature capture, full offline mobile parity) remain **partial** — see [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md).
+Some steps (visual approval builder, mobile signature, full offline parity) remain **partial** — documented openly in the roadmap.
+
+---
+
+## Screenshots
+
+Captured from **hosted staging** during automated UAT (no credentials visible). [Full capture checklist →](docs/screenshots/README.md)
+
+### Admin & operations
+
+| Login | Admin dashboard |
+|-------|-----------------|
+| ![Login](docs/screenshots/staging/01-login.png) | ![Admin dashboard](docs/screenshots/staging/02-admin-dashboard.png) |
+
+| Work orders | System health / integrations |
+|-------------|------------------------------|
+| ![Work order list](docs/screenshots/staging/05-work-order-list.png) | ![System health](docs/screenshots/staging/10-erp-system-health.png) |
+
+### Role-specific surfaces
+
+| Manager dashboard | Technician jobs | Security gate | Inventory |
+|-------------------|-----------------|---------------|-----------|
+| ![Manager](docs/screenshots/staging/04-manager-dashboard.png) | ![Technician](docs/screenshots/staging/07-technician-jobs.png) | ![Gate](docs/screenshots/staging/08-security-fleet-gate.png) | ![Inventory](docs/screenshots/staging/09-inventory-stock.png) |
+
+### Full gallery
+
+| # | Screen | File |
+|---|--------|------|
+| 01 | Login | [01-login.png](docs/screenshots/staging/01-login.png) |
+| 02 | Admin dashboard | [02-admin-dashboard.png](docs/screenshots/staging/02-admin-dashboard.png) |
+| 03 | Admin console | [03-admin-console.png](docs/screenshots/staging/03-admin-console.png) |
+| 04 | Manager dashboard | [04-manager-dashboard.png](docs/screenshots/staging/04-manager-dashboard.png) |
+| 05 | Work order list | [05-work-order-list.png](docs/screenshots/staging/05-work-order-list.png) |
+| 06 | Work order detail | [06-work-order-detail.png](docs/screenshots/staging/06-work-order-detail.png) |
+| 07 | Technician jobs | [07-technician-jobs.png](docs/screenshots/staging/07-technician-jobs.png) |
+| 08 | Security fleet / gate | [08-security-fleet-gate.png](docs/screenshots/staging/08-security-fleet-gate.png) |
+| 09 | Inventory | [09-inventory-stock.png](docs/screenshots/staging/09-inventory-stock.png) |
+| 10 | System health | [10-erp-system-health.png](docs/screenshots/staging/10-erp-system-health.png) |
+| 11 | Reports hub | [11-reports-dashboard.png](docs/screenshots/staging/11-reports-dashboard.png) |
+
+**Not in web repo:** mobile Flutter UI (`13-mobile-technician.png`). Regenerate: `npm run test:e2e:staging:uat003` (credentials via secret manager only).
+
+---
+
+## Architecture
+
+MaintainPro follows a **modular monolith** pattern: one deployable API with clear domain boundaries, shared Prisma schema, and global guards for auth, tenancy, roles, and permissions.
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    Web[Next.js Web]
+    Mobile[Flutter Mobile]
+  end
+
+  subgraph api [NestJS API]
+    Guards[JWT · Tenant · Roles · Permissions]
+    Modules[20+ Domain Modules]
+    Outbox[Replication Outbox]
+    Queues[Bull / Redis Jobs]
+  end
+
+  subgraph data [Data & Integrations]
+    Atlas[(MongoDB Atlas)]
+    Backup[(Backup MongoDB)]
+    Redis[(Redis)]
+    Email[Email SMTP]
+    SMS[SMS HTTP]
+    ERP[ERP Sync]
+    Storage[Evidence Storage]
+  end
+
+  Web --> Guards
+  Mobile --> Guards
+  Guards --> Modules
+  Modules --> Atlas
+  Modules --> Outbox --> Backup
+  Modules --> Queues --> Redis
+  Modules --> Email
+  Modules --> SMS
+  Modules --> ERP
+  Modules --> Storage
+```
+
+| Design choice | Rationale |
+|---------------|-----------|
+| **Multi-tenant monolith** | Faster delivery with module seams; hot paths can extract later |
+| **MongoDB + Prisma** | Flexible operational documents; single schema for API + seed |
+| **Dual-DB replication** | Async outbox to backup MongoDB for resilience |
+| **Env-gated integrations** | Email, SMS, push, ERP, storage default to disabled/mock — no fake “live” claims |
+| **Layered guards** | JWT → tenant context → roles → permissions; API is RBAC authority |
+| **Health / readiness** | Public liveness + protected deep checks + admin `/system-health` UI |
+
+Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## UAT evidence summary
+
+Structured acceptance testing from UAT-001 through UAT-006. Full matrix: [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md)
+
+| UAT | Status | What was verified |
+|-----|--------|-------------------|
+| **UAT-001** | **PASS** | Hosted login, deployment smoke, health/CORS |
+| **UAT-002** | **PARTIAL PASS** | Multi-role browser personas + hosted API workflows |
+| **UAT-003** | **PARTIAL PASS** | Full work-order lifecycle on staging API (create → assign → parts → complete) |
+| **UAT-004** | **PARTIAL PASS** | WO approve/reject, audit trail, `/fleet/gate`, evidence readiness indicators |
+| **UAT-005** | **PASS** | Provider diagnostics (EMAIL/SMS/PUSH), cutover runbook, staging deploy sync |
+| **UAT-006** | **PASS (docs)** | Go-live decision pack, operator checklist, pilot plan — **cutover not executed** |
+
+**Automation behind the evidence:**
+
+- **517 API tests** (Jest) · **Playwright e2e** on hosted staging (UAT-002/003/004/005)
+- **`npm run uat:005:validate`** — full regression chain including typecheck, lint, build, smoke
+- **`npm run smoke:deploy`** — frontend, health, CORS, login against live staging
+
+---
+
+## Production readiness (honest)
+
+MaintainPro is **intentionally not marked production-ready**. Staging proves engineering quality; production requires operator-owned infrastructure work documented in UAT-006.
+
+| Area | Staging status | Production blocker |
+|------|----------------|-------------------|
+| Core API + RBAC | Verified | — |
+| Web dashboard | Verified on Workers | Custom domain `maintenance.nelna.lk` not cut over |
+| Database | Staging Atlas | Isolated prod DB + backup policy not provisioned |
+| Email / SMS / push | **DISABLED** (honest indicators) | Live credentials + UAT send tests |
+| Evidence storage | **DISABLED** | Cloudinary/MinIO + presigned upload UAT |
+| Post-cutover smoke | N/A | Must pass on production URLs after cutover |
+
+**Go/no-go recommendation:** **NO-GO for production cutover** until [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) is complete and signed.
+
+| Document | Purpose |
+|----------|---------|
+| [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) | Full readiness matrix |
+| [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md) | Management go/no-go pack |
+| [docs/PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) | DNS, env, DB, integrations |
+| [docs/PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md) | Pilot scope, training, escalation |
+
+---
+
+## What I learned
+
+Building MaintainPro reinforced several lessons I would bring to a product engineering team:
+
+1. **Honest integration boundaries beat demo magic.** Env-gated email, SMS, push, and ERP with explicit `ENABLED` / `DISABLED` / `MISCONFIGURED` indicators build trust with operators and interviewers alike.
+2. **RBAC must be enforced twice — correctly.** Frontend role nav improves UX, but only API guards (tenant + permissions) are authoritative; I documented and tested both.
+3. **Deployment confidence requires automation, not hope.** Smoke scripts with warm-up/retry, Playwright against real staging URLs, and UAT validation chains caught cold-start and selector issues early.
+4. **Production readiness is a process, not a commit.** UAT-006 taught me to separate “engineering complete on staging” from “operator cutover complete on prod” with explicit NO-GO criteria.
+5. **Multi-tenant monoliths scale team velocity first.** Clear module folders (`work-orders`, `fleet`, `inventory`, …) let me ship domain features without premature microservice overhead.
+
+---
+
+## Interview talking points
+
+| Question | Suggested answer |
+|----------|------------------|
+| **What did you build?** | Multi-tenant ops platform: maintenance WOs, fleet gate, inventory, reporting — NestJS + Next.js + Flutter, deployed to Render + Cloudflare. |
+| **Why a monolith?** | Faster MVP with 20+ domain modules and clear seams; replication outbox and queues already isolate async concerns. |
+| **How do you handle security?** | JWT + HttpOnly refresh + CSRF, bcrypt + lockout, Helmet/CSP/HSTS, tenant-scoped Prisma, audit middleware, mock integrations blocked in prod. |
+| **How do you know it works?** | 517 API tests, Playwright multi-role UAT on staging, `uat:005:validate` chain, hosted smoke — all documented in UAT checklist. |
+| **What is not done?** | Production DNS, prod DB/env, live notifications/storage, mobile offline parity — I document gaps instead of overselling. |
+| **What would you do next?** | Execute operator cutover checklist, cookie-only access tokens, Sentry, predictive maintenance rules, ERP signed mapping UAT. |
+
+Extended narrative: [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md)
+
+---
 
 ## Technology stack
 
@@ -50,55 +218,58 @@ Asset / Vehicle Register
 | Web | Next.js App Router, TailwindCSS, TanStack Query, Recharts, Leaflet |
 | Mobile | Flutter, Riverpod, Dio, Hive offline queue |
 | Shared | `packages/shared-types`, `packages/ui-components` |
-| Infra | Docker Compose, nginx, Render (API), Cloudflare Workers (web), MongoDB Atlas |
+| Infra | Docker Compose, Render (API), Cloudflare Workers (web), MongoDB Atlas |
 
-## Architecture
+---
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module map, tenancy, auth, replication, and integration boundaries.
+## Quick start (developers)
 
-```mermaid
-flowchart LR
-  Web[Next.js Web] --> API[NestJS API]
-  Mobile[Flutter Mobile] --> API
-  API --> Atlas[(MongoDB Atlas)]
-  API --> Backup[(Backup MongoDB)]
-  API --> Redis[(Redis / Bull)]
-  API --> Integrations[Email / SMS / ERP / Storage]
+```bash
+cd maintainpro
+cp .env.example .env
+npm install
+npm run db:generate
+npm run db:push
+# Set MAINTAINPRO_SEED_PASSWORD from secret manager — never commit
+npm run db:seed
+npm run dev              # API :3000, Web :3001
 ```
 
-## Current deployment status
+**Seed personas** (password via `MAINTAINPRO_SEED_PASSWORD` only): `admin@maintainpro.local`, `manager@maintainpro.local`, `tech@maintainpro.local`, `security@maintainpro.local`, `inventory@maintainpro.local` — see `apps/api/src/database/seed.ts`.
 
-| Environment | Web | API | Notes |
-|-------------|-----|-----|-------|
-| **Staging** | [newmone.chinthakajayaweera1.workers.dev](https://newmone.chinthakajayaweera1.workers.dev) | [newmone.onrender.com/api](https://newmone.onrender.com/api) | Hosted smoke: health/CORS OK; login requires aligned seed/smoke password |
-| **Production** | `maintenance.nelna.lk` (planned) | TBD | Cutover checklist in [docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md](docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md) |
+## Validation commands
 
-**Health endpoints**
+```bash
+npm run typecheck
+npm run lint
+npm run test                 # 517 API tests
+npm run build
+npm run smoke:deploy         # hosted staging (env vars in shell)
+npm run uat:005:validate     # full UAT regression chain
+npm run test:e2e:staging:uat003
+```
 
-- `GET /health` — public liveness (DB ping)
-- `GET /health/readiness` — dependency matrix (protected in production)
-- Web: `/system-health` — admin UI over readiness API
+## Deployment
 
-## What is complete vs partial vs mock
+| Target | Config | Doc |
+|--------|--------|-----|
+| Render API | `render.yaml` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Cloudflare Web | `wrangler.jsonc` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Docker | `docker-compose.yml` | README Docker section |
 
-| Area | Status |
-|------|--------|
-| Multi-tenant API + RBAC | **Complete** |
-| JWT + HttpOnly refresh cookie + CSRF on cookie auth | **Complete** |
-| `SECURITY_OFFICER` role, seed, gate permissions | **Complete** |
-| Work orders, assets, vehicles, inventory, fleet | **Complete** (core CRUD + workflows) |
-| Audit logging (middleware + domain events) | **Complete** |
-| Role-based web navigation & dashboards | **Partial** (UX layer; API is authoritative) |
-| Email notifications | **Partial** — live when `EMAIL_MODE=live` + SMTP |
-| SMS notifications | **Partial** — generic HTTP provider; mock mode available |
-| Push notifications | **Partial** — noop/mock default; HTTP provider when configured |
-| ERP stock sync | **Partial** — mock default; sandbox/live HTTP read sync |
-| Billing / Stripe | **Partial** — mock/disabled modes |
-| Predictive maintenance AI | **Partial** — rules + copilot integration hooks |
-| Mobile offline queue | **Partial** — Hive queue exists; not all mutations covered |
-| Production custom domain | **Not started** |
+**Staging:** Web [workers.dev](https://newmone.chinthakajayaweera1.workers.dev) · API [onrender.com](https://newmone.onrender.com/api)  
+**Production (planned):** `maintenance.nelna.lk` — not live
 
-Honest detail: [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md).
+## Documentation index
+
+| Document | Purpose |
+|----------|---------|
+| [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md) | Portfolio narrative |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
+| [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md) | Acceptance testing |
+| [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md) | Prioritized roadmap |
+| [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) | Security review |
+| [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) | Go-live gaps |
 
 ## Repository layout
 
@@ -109,156 +280,13 @@ maintainpro/
 ├── apps/mobile/       Flutter field app
 ├── packages/          shared-types, ui-components
 ├── prisma/            MongoDB schema
-├── docs/              runbooks, checklists, architecture
-└── scripts/           smoke, deploy helpers
+├── docs/              runbooks, UAT, screenshots
+└── scripts/           smoke, deploy, UAT validators
 ```
-
-## Local setup
-
-```bash
-cd maintainpro
-cp .env.example .env
-npm install
-npm run db:generate
-npm run db:push          # push schema to MongoDB
-# Set MAINTAINPRO_SEED_PASSWORD from secret manager:
-npm run db:seed
-npm run dev              # API :3000, Web :3001
-```
-
-## Seed users (local/staging)
-
-Password: set via `MAINTAINPRO_SEED_PASSWORD` (never commit). Typical seeded accounts:
-
-| Email | Role |
-|-------|------|
-| `superadmin@maintainpro.local` | SUPER_ADMIN |
-| `admin@maintainpro.local` | ADMIN |
-| `manager@maintainpro.local` | MANAGER |
-| `tech@maintainpro.local` | TECHNICIAN |
-| `inventory@maintainpro.local` | INVENTORY_KEEPER |
-| `security@maintainpro.local` | SECURITY_OFFICER |
-
-See seed source: `apps/api/src/database/seed.ts`.
-
-## Validation commands
-
-```bash
-npm run typecheck
-npm run lint
-npm run test                 # API Jest (93+ suites)
-npm run build
-npm run deploy:check
-npm run smoke:local          # requires local API + smoke env
-npm run smoke:deploy         # hosted staging smoke
-npm run test:e2e             # Playwright (local web server)
-npm run test:e2e:staging     # Playwright against hosted web (env credentials)
-npm run test:e2e:staging:uat002
-npm run test:e2e:staging:uat003
-npm run uat:002:validate
-npm run uat:003:validate     # MVP lifecycle API + portfolio e2e + full regression
-npm run uat:004:validate     # Production hardening sprint 1 + UAT-003 regression
-```
-
-## Deployment
-
-| Target | Config | Doc |
-|--------|--------|-----|
-| Render API | `render.yaml` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
-| Cloudflare Web | `wrangler.jsonc` | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
-| Vercel Web | `vercel.json` | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) |
-| Docker | `docker-compose.yml` | README Docker section |
-
-## Security highlights
-
-- Global JWT, tenant context, role, and permission guards
-- Password hashing (bcrypt), login lockout, refresh rotation
-- HttpOnly refresh cookies + CSRF double-submit for cookie-based refresh
-- Helmet on API; CSP/HSTS/frame denial on web (`next.config.mjs`)
-- Env validation at boot (`env.validation.ts`); mock integrations blocked in production by default
-- Tenant-scoped Prisma queries; audit middleware on mutations
-
-See [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
-
-## Role-based experience
-
-Navigation and dashboards adapt by role (frontend UX). Backend RBAC is authoritative.
-
-| Role | Primary surfaces |
-|------|------------------|
-| SUPER_ADMIN / ADMIN | Admin console, system health, users, tenants |
-| MANAGER / SUPERVISOR | Dashboard, work orders, approvals, reports |
-| TECHNICIAN / MECHANIC | Assigned jobs, work order execution |
-| SECURITY_OFFICER | Gate in/out, scan lookup, fleet visibility |
-| INVENTORY / STORE roles | Inventory, part requests, ERP sync panel |
-| VIEWER / AUDITOR | Read-only reports |
-
-Full matrix: [docs/ROLE_MATRIX.md](docs/ROLE_MATRIX.md).
-
-## Documentation index
-
-| Document | Purpose |
-|----------|---------|
-| [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) | Go-live verdict and gaps |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
-| [docs/ROLE_MATRIX.md](docs/ROLE_MATRIX.md) | Roles and permissions |
-| [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md) | Acceptance testing |
-| [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) | Security review |
-| [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md) | Prioritized roadmap |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploy runbook |
-| [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md) | Portfolio narrative |
-| [docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md](docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md) | Staging UAT & cutover |
-
-## Roadmap
-
-Priority features and Phase 2/3 items: [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md).
-
-## Portfolio value
-
-MaintainPro demonstrates **enterprise software engineering** across:
-
-- Multi-tenant SaaS architecture with MongoDB + replication outbox
-- Modular monolith domain design (20+ bounded contexts)
-- RBAC with permission guards and audit trails
-- Real-world workflows (work orders, gate compliance, inventory, ERP readiness)
-- Production deployment (Render + Cloudflare + Atlas)
-- Security-aware auth (JWT hybrid, CSRF, env-gated integrations)
-- Observability (health/readiness, queue health, system health UI)
-- Test discipline (500+ API tests, Playwright e2e, deployment smoke)
-
-Case study narrative: [docs/PORTFOLIO_CASE_STUDY.md](docs/PORTFOLIO_CASE_STUDY.md).
-
-## Screenshots
-
-Staging portfolio captures (UAT-003 warm session, no credentials visible):
-
-| Screen | File |
-|--------|------|
-| Login | [docs/screenshots/staging/01-login.png](docs/screenshots/staging/01-login.png) |
-| Admin dashboard | [docs/screenshots/staging/02-admin-dashboard.png](docs/screenshots/staging/02-admin-dashboard.png) |
-| Admin console | [docs/screenshots/staging/03-admin-console.png](docs/screenshots/staging/03-admin-console.png) |
-| Manager dashboard | [docs/screenshots/staging/04-manager-dashboard.png](docs/screenshots/staging/04-manager-dashboard.png) |
-| Work order list | [docs/screenshots/staging/05-work-order-list.png](docs/screenshots/staging/05-work-order-list.png) |
-| Work order detail | [docs/screenshots/staging/06-work-order-detail.png](docs/screenshots/staging/06-work-order-detail.png) |
-| Technician jobs | [docs/screenshots/staging/07-technician-jobs.png](docs/screenshots/staging/07-technician-jobs.png) |
-| Security fleet / gate | [docs/screenshots/staging/08-security-fleet-gate.png](docs/screenshots/staging/08-security-fleet-gate.png) |
-| Inventory | [docs/screenshots/staging/09-inventory-stock.png](docs/screenshots/staging/09-inventory-stock.png) |
-| System health / ERP | [docs/screenshots/staging/10-erp-system-health.png](docs/screenshots/staging/10-erp-system-health.png) |
-| Reports hub | [docs/screenshots/staging/11-reports-dashboard.png](docs/screenshots/staging/11-reports-dashboard.png) |
-
-**NOT AVAILABLE in web repo:** `13-mobile-technician.png` (Flutter `apps/mobile`). **OPERATOR-OWNED:** `12-audit-trail.png` if Settings audit tab not visible on staging.
-
-Regenerate: `npm run test:e2e:staging:uat003` or `npm run uat:003:validate` (requires Render-aligned seed password via `.env.render.local` or shell).
-
-**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** · UAT-004 **PARTIAL PASS** · UAT-005 **PASS** · UAT-006 **PASS (docs)** — go-live pack ready; production cutover **not executed**.
-
-**Go-live docs:** [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md) · [docs/PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) · [docs/PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
-
-**Readiness:** Portfolio-ready **YES** · Pilot-ready **YES** · Production-ready **NO**
 
 ## Contributing
 
-Work on `main` for this portfolio repo. Before push:
+Before push:
 
 ```bash
 npm run typecheck && npm run lint && npm run test && npm run build
