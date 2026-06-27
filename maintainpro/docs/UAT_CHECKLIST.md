@@ -35,11 +35,34 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 ---
 
+---
+
+# UAT-006 summary (2026-06-27)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-006 overall** | **PASS (docs)** | Management go-live pack prepared; cutover **not executed** |
+| Go-live decision pack | **PASS** | `PRODUCTION_GO_LIVE_DECISION_PACK.md` |
+| Operator checklist | **PASS** | `PRODUCTION_OPERATOR_CHECKLIST.md` |
+| Pilot rollout plan | **PASS** | `PILOT_ROLLOUT_PLAN.md` |
+| Go/no-go recommendation | **NO-GO** | Until operator checklist + post-cutover smoke |
+
+---
+
 # UAT-005 summary (2026-06-27)
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **UAT-005 overall** | **PASS** | Staging synced on Render `e366196`; `npm run uat:005:validate` green; production DNS/live creds remain operator-owned |
+| Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on `/evidence/readiness` |
+| Notification indicators | **PASS** | `EMAIL_*` / `SMS_*` / `PUSH_*` on `/notifications/readiness` |
+| System health provider panel | **PASS** | Admin `/system-health` integration diagnostics |
+| Deployment readiness API | **PASS** | `GET /api/health/deployment-readiness` |
+| Production domain checklist | **PASS** (docs) | `PRODUCTION_DOMAIN_CUTOVER.md` — not executed |
+| Operator cutover runbook | **PASS** (docs) | `PRODUCTION_CUTOVER_RUNBOOK.md` |
+| KPI source matrix | **PASS** (docs) | `KPI_SOURCE_MATRIX.md` |
+| Reports export (API) | **PASS** | Server `GET /reports/:module/export` verified (operations CSV) |
+| Staging integrations | **PASS** (honest) | Evidence DISABLED; email/SMS DISABLED on staging |
 
 ### Post-deploy UAT-005 verification (2026-06-27)
 
@@ -50,15 +73,6 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 | `/system-health` provider panel (browser) | **PASS** (2/2 Playwright) |
 | `npm run uat:005:validate` | **PASS** |
 | Cloudflare local `wrangler deploy` | **BLOCKED** — OAuth token returns empty accounts; staging web already serving updated UI |
-| Evidence storage indicator | **PASS** | `ENABLED` / `DISABLED` / `MISCONFIGURED` on `/evidence/readiness` |
-| Notification indicators | **PASS** | `EMAIL_*` / `SMS_*` / `PUSH_*` on `/notifications/readiness` |
-| System health provider panel | **PASS** | Admin `/system-health` integration diagnostics |
-| Deployment readiness API | **PASS** | `GET /api/health/deployment-readiness` |
-| Production domain checklist | **PASS** (docs) | `PRODUCTION_DOMAIN_CUTOVER.md` — not executed |
-| Operator cutover runbook | **PASS** (docs) | `PRODUCTION_CUTOVER_RUNBOOK.md` |
-| KPI source matrix | **PASS** (docs) | `KPI_SOURCE_MATRIX.md` |
-| Reports export (API) | **PASS** | Server `GET /reports/:module/export` verified (operations CSV) |
-| Staging integrations | **PASS** (honest) | Evidence DISABLED; email/SMS DISABLED on staging |
 
 Run: `npm run uat:005:validate`
 
@@ -349,4 +363,6 @@ Manual browser verification of downloaded file contents: **OPERATOR-OWNED**.
 
 **UAT-005 status:** **PASS** — Staging deployment synchronized on `e366196`; provider diagnostics, cutover runbook, and full validation suite green. Production DNS cutover and live integration credentials remain operator-owned.
 
-**Operator action:** Execute [PRODUCTION_CUTOVER_RUNBOOK.md](PRODUCTION_CUTOVER_RUNBOOK.md) only after explicit go-live approval.
+**UAT-006 status:** **PASS (docs)** — Go-live decision pack, operator checklist, and pilot rollout plan prepared. **NO-GO** for production cutover until operator checklist and post-cutover smoke complete.
+
+**Operator action:** Execute [PRODUCTION_OPERATOR_CHECKLIST.md](PRODUCTION_OPERATOR_CHECKLIST.md) only after explicit go-live approval per [PRODUCTION_GO_LIVE_DECISION_PACK.md](PRODUCTION_GO_LIVE_DECISION_PACK.md).

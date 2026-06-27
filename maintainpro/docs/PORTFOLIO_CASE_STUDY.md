@@ -68,8 +68,9 @@ Partial steps (approval builder, signature, full mobile offline) are documented 
 - **UAT-003 PARTIAL PASS** — hosted MVP lifecycle API verified
 - **UAT-004 PARTIAL PASS** — WO approve/reject, audit completeness, `/fleet/gate`, evidence readiness indicators
 - **UAT-005 PASS** — staging synced on `e366196`; provider diagnostics + cutover docs; full `uat:005:validate` green
+- **UAT-006 PASS (docs)** — go-live decision pack, operator checklist, pilot plan; **cutover NO-GO** until infra complete
 - Notification providers **DISABLED** on staging (EMAIL_/SMS_/PUSH_ indicators honest)
-- Production custom domain not yet live
+- Production custom domain not yet live — see `PRODUCTION_GO_LIVE_DECISION_PACK.md`
 
 ## Tech stack
 
@@ -89,7 +90,7 @@ NestJS · TypeScript · Prisma · MongoDB · Redis · Next.js · Flutter · Dock
 1. **Why multi-tenant monolith?** — Faster delivery with clear module seams; can extract hot paths later
 2. **How do you enforce security?** — Layered guards, permission aliases, audit middleware, env-gated mocks
 3. **How do you know it's deployable?** — Health/readiness, smoke scripts, 500+ tests, staging URLs
-4. **What would you do next?** — Credential-aligned UAT, prod cutover, cookie-only tokens, Sentry, predictive rules
+4. **What would you do next?** — Operator cutover checklist, prod smoke, cookie-only tokens, Sentry, predictive rules
 
 ## Repository
 

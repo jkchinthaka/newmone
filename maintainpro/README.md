@@ -250,7 +250,9 @@ Staging portfolio captures (UAT-003 warm session, no credentials visible):
 
 Regenerate: `npm run test:e2e:staging:uat003` or `npm run uat:003:validate` (requires Render-aligned seed password via `.env.render.local` or shell).
 
-**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** · UAT-004 **PARTIAL PASS** · UAT-005 **PASS** (staging deployment sync + validation).
+**UAT status:** UAT-001 **PASS** · UAT-002 **PARTIAL PASS** · UAT-003 **PARTIAL PASS** · UAT-004 **PARTIAL PASS** · UAT-005 **PASS** · UAT-006 **PASS (docs)** — go-live pack ready; production cutover **not executed**.
+
+**Go-live docs:** [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md) · [docs/PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) · [docs/PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
 
 **Readiness:** Portfolio-ready **YES** · Pilot-ready **YES** · Production-ready **NO**
 

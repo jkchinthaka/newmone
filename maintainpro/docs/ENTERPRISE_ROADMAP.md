@@ -22,6 +22,9 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | Provider readiness diagnostics | **DONE** (UAT-005) | Evidence + EMAIL/SMS/PUSH indicators on system health |
 | Production cutover runbook | **DONE** (UAT-005) | `PRODUCTION_CUTOVER_RUNBOOK.md` |
 | Production domain checklist | **PREPARED** (UAT-005) | `PRODUCTION_DOMAIN_CUTOVER.md` — DNS not executed |
+| Go-live decision pack | **DONE** (UAT-006) | `PRODUCTION_GO_LIVE_DECISION_PACK.md` — NO-GO until operator checklist |
+| Production operator checklist | **DONE** (UAT-006) | `PRODUCTION_OPERATOR_CHECKLIST.md` |
+| Pilot rollout plan | **DONE** (UAT-006) | `PILOT_ROLLOUT_PLAN.md` |
 | Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` — operator-owned |
 
 ## Priority 2 — Post-MVP

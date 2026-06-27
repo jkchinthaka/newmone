@@ -1,7 +1,9 @@
 # Production Readiness Report
 
 **Last updated:** 2026-06-27  
-**Verdict:** **Pilot-ready** on staging (UAT-001 through UAT-005 pass on synced staging). **Not** production-ready until operator executes DNS cutover, live integration credentials, and prod DB/env per runbook.
+**Verdict:** **Pilot-ready** on staging (UAT-001, UAT-005 PASS; UAT-002/003/004 partial pass). **Not** production-ready until operator completes [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) (DNS, prod DB/env, live integrations, post-cutover smoke).
+
+**UAT-006:** Go-live decision pack prepared — **NO-GO for cutover** until operator-owned items complete. See [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md).
 
 ## Executive summary
 
@@ -44,6 +46,7 @@ Integrations default to **disabled or mock** and must be explicitly enabled with
 | File / evidence storage | **Partial** | Indicator ENABLED/DISABLED/MISCONFIGURED; staging DISABLED; presigned bytes operator-owned |
 | Notification providers | **Partial** | EMAIL_/SMS_/PUSH_ indicators; staging disabled; UAT allowlist for safe tests |
 | Production cutover docs | **Ready** | Runbook + domain checklist (UAT-005) |
+| Go-live decision pack | **Ready** (UAT-006) | Decision matrix, operator checklist, pilot plan — cutover not executed |
 | Reports server export | **Ready** | API `GET /reports/:module/export` verified |
 | Hosted staging smoke | **Partial** | Health/CORS pass; login needs credential alignment |
 | UAT-001 browser sign-off | **Partial** | Wrong-password UX verified; full flow pending login |
@@ -84,11 +87,12 @@ Logout clears localStorage session keys. Session expiry redirects to `/login?rea
 
 ## Launch blockers (P0)
 
-1. Align hosted seed password with smoke/UAT credentials
-2. Complete UAT-001 browser sign-off ([docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md](docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md))
-3. Production domain + TLS + isolated prod DB
-4. Rotate staging Atlas password post-UAT
-5. Enable only required integrations with live credentials
+1. ~~Align hosted seed password with smoke/UAT credentials~~ — UAT-001 PASS
+2. ~~Complete UAT-001 browser sign-off~~ — PASS
+3. Production domain + TLS + isolated prod DB — **operator checklist (UAT-006)**
+4. Rotate staging Atlas password post-UAT — operator-owned
+5. Enable only required integrations with live credentials — operator-owned
+6. Post-cutover smoke on production URLs — blocked until cutover
 
 ## Launch blockers (P1 — if feature required at go-live)
 
@@ -99,9 +103,9 @@ Logout clears localStorage session keys. Session expiry redirects to `/login?rea
 
 ## Recommended next actions
 
-1. Re-seed staging from Render shell; re-run `npm run smoke:deploy`
-2. Complete UAT checklist per role
-3. Execute production cutover checklist
+1. Execute [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) when go/no-go approves cutover
+2. Complete pilot training per [PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
+3. Re-run `npm run smoke:deploy` and `npm run uat:005:validate` against **production** URLs after cutover
 4. Add Sentry DSN when monitoring account is ready
 5. Capture staging screenshots for README portfolio section
 
@@ -110,4 +114,6 @@ Logout clears localStorage session keys. Session expiry redirects to `/login?rea
 - [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md)
 - [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md)
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md)
+- [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md)
+- [docs/PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md)
+- [docs/PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
