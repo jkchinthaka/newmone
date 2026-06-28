@@ -5,10 +5,9 @@ import { useForm } from "react-hook-form";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { AuthMarketingPanel } from "@/components/auth/auth-marketing-panel";
-import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
+import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
-import { PRODUCT_TAGLINE } from "@/lib/branding";
 import { resolveLoginEmail, validateWorkEmail } from "@/lib/login-identifier";
 import { getPostLoginRedirect } from "@/lib/role-redirect";
 import { setActiveTenantId } from "@/lib/tenant-context";
@@ -93,14 +92,13 @@ export default function LoginPage() {
 
       <section className="flex items-center justify-center py-4 lg:py-6">
         <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/92 p-6 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur sm:max-w-xl sm:p-8 xl:p-10">
-          <MaintainProLogo className="lg:hidden" showTagline size="md" />
+          <AppBrandLockup centered className="w-full" logoSize="md" showTagline />
 
-          <header className="mt-6 lg:mt-0">
+          <header className="mt-8">
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
               Welcome back
             </h1>
             <p className="mt-2 text-base text-slate-600">Sign in to your workspace</p>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{PRODUCT_TAGLINE}</p>
           </header>
 
           <form

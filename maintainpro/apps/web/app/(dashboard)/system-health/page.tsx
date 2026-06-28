@@ -18,6 +18,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { NotificationUatPanel } from "@/components/admin/notification-uat-panel";
 import { ProviderReadinessPanel } from "@/components/admin/provider-readiness-panel";
 import { InventoryErpSyncPanel } from "@/components/admin/inventory-erp-sync-panel";
+import { NelnaLogo } from "@/components/brand/nelna-logo";
 
 type CheckStatus =
   | "operational"
@@ -252,15 +253,18 @@ export default function SystemHealthPage() {
       <PageBreadcrumbs />
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm font-medium text-brand-700">
-              <ServerCog size={18} />
-              <span>System Health</span>
+          <div className="flex min-w-0 items-start gap-4">
+            <NelnaLogo className="mt-0.5 hidden shrink-0 sm:block" size="sm" />
+            <div>
+              <div className="flex items-center gap-2 text-sm font-medium text-brand-700">
+                <ServerCog size={18} />
+                <span>System Health</span>
+              </div>
+              <h1 className="mt-2 text-2xl font-semibold text-slate-900">Production Readiness</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Live dependency status for authentication, database-backed workflows, queues, files, and premium integrations.
+              </p>
             </div>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-900">Production Readiness</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Live dependency status for authentication, database-backed workflows, queues, files, and premium integrations.
-            </p>
           </div>
           <button
             type="button"

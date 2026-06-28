@@ -1,6 +1,6 @@
 import { Building2, ClipboardList, ShieldCheck } from "lucide-react";
 
-import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
+import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { PRODUCT_TAGLINE } from "@/lib/branding";
 
 const highlights = [
@@ -31,7 +31,7 @@ export function AuthMarketingPanel() {
       className="hidden flex-col justify-between rounded-[32px] bg-gradient-to-br from-[#0f2b46] via-[#115ea8] to-[#0f766e] p-10 text-white shadow-[0_32px_80px_rgba(15,43,70,0.3)] lg:flex"
     >
       <div>
-        <MaintainProLogo showTagline size="lg" variant="onDark" />
+        <AppBrandLockup logoSize="lg" showTagline variant="onDark" />
         <p className="mt-8 max-w-xl text-sm leading-7 text-white/82">{PRODUCT_TAGLINE}</p>
         <p className="mt-4 max-w-xl text-sm leading-7 text-white/72">
           MaintainPro helps maintenance, facility, and operations teams plan work, track assets,

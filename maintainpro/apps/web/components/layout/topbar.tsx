@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
+import { NelnaLogo } from "@/components/brand/nelna-logo";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import {
   clearAuthSession,
@@ -188,8 +189,11 @@ export function Topbar({
           >
             <Menu aria-hidden size={20} />
           </button>
-          <div className="xl:hidden">
-            <MaintainProLogo size="sm" />
+          <div className="flex min-w-0 items-center gap-2 xl:hidden">
+            <NelnaLogo size="sm" />
+            <span className="truncate text-sm font-semibold tracking-tight text-slate-900">
+              {PRODUCT_NAME}
+            </span>
           </div>
           <button
             type="button"

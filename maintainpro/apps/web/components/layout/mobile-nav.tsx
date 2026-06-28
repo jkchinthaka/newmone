@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-import { MaintainProLogo } from "@/components/brand/maintainpro-logo";
+import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NavLinks } from "@/components/layout/nav-links";
 import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
 
@@ -56,7 +56,7 @@ export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNa
         className="relative flex h-full w-[min(20rem,88vw)] flex-col border-r border-slate-200 bg-white shadow-xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
-          <MaintainProLogo showTagline size="sm" />
+          <AppBrandLockup logoSize="sm" showTagline />
           <button
             type="button"
             aria-label="Close navigation menu"
