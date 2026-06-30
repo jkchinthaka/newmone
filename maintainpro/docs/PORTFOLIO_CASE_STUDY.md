@@ -38,6 +38,7 @@ MaintainPro provides:
 | Mobile | Flutter + offline queue foundation |
 | DevOps | Render + Cloudflare + Atlas + smoke tests |
 | Test discipline | 500+ API tests, Playwright e2e |
+| Legacy FMS integration | Admin-only raw archive; maintenance history in Work Order History tab (UAT-008) |
 
 ## Business value delivered
 

@@ -3,11 +3,13 @@ import Link from "next/link";
 
 import { MaintenanceJobProvider } from "@/components/maintenance-job/provider";
 import { MaintenanceJobShell } from "@/components/maintenance-job/shell";
+import { LegacyFmsRouteGuard } from "@/components/layout/legacy-fms-route-guard";
 
 export default function FmsLayout({ children }: { children: ReactNode }) {
   return (
-    <MaintenanceJobProvider>
-      <MaintenanceJobShell>
+    <LegacyFmsRouteGuard>
+      <MaintenanceJobProvider>
+        <MaintenanceJobShell>
         <div
           role="status"
           aria-live="polite"
@@ -34,5 +36,6 @@ export default function FmsLayout({ children }: { children: ReactNode }) {
         {children}
       </MaintenanceJobShell>
     </MaintenanceJobProvider>
+    </LegacyFmsRouteGuard>
   );
 }

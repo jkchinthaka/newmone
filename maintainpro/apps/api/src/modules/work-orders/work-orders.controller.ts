@@ -9,6 +9,7 @@ import type { JwtPayload } from "../auth/auth.types";
 import { ApproveWorkOrderDto, RejectWorkOrderDto, SubmitWorkOrderForApprovalDto } from "./dto/work-order-approval.dto";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 
@@ -25,6 +26,7 @@ export class WorkOrdersController {
     private readonly workOrdersService: WorkOrdersService,
     private readonly workOrderActivityService: WorkOrderActivityService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
+    private readonly workOrderHistoryService: WorkOrderHistoryService,
     private readonly evidenceService: EvidenceService
   ) {}
 
@@ -66,8 +68,15 @@ export class WorkOrdersController {
     return { data, message: "Work order fetched" };
   }
 
+  @Get(":id/history")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  async workOrderHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderHistoryService.getHistory(id, req.user);
+    return { data, message: "Work order history fetched" };
+  }
+
   @Get(":id/activity")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async activityTimeline(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderActivityService.getActivityTimeline(id, req.user);
     return { data, message: "Work order activity timeline fetched" };

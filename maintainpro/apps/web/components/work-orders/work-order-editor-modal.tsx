@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { History, Loader2, X } from "lucide-react";
+import { Loader2, X, AlertTriangle } from "lucide-react";
 
-import { HistoryDrawer } from "@/components/audit/history-drawer";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
@@ -17,6 +16,10 @@ import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, typ
 import { PartRequestsPanel } from "./part-requests-panel";
 import { WorkOrderAssigneesPanel } from "./work-order-assignees-panel";
 import { WorkOrderActivityPanel } from "./work-order-activity-panel";
+import { WorkOrderAuditPanel } from "./work-order-audit-panel";
+import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detail-tabs";
+import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
+import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -73,7 +76,7 @@ export function WorkOrderEditorModal({
   );
 
   const [formState, setFormState] = useState(initialState);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>("overview");
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
@@ -81,7 +84,8 @@ export function WorkOrderEditorModal({
   const [evidenceReadiness, setEvidenceReadiness] = useState<EvidenceStorageReadiness | null>(null);
   const [evidenceItems, setEvidenceItems] = useState<WorkOrderEvidenceItem[]>([]);
   const currentUser = useCurrentUser();
-  const showHistory = !isCreateMode && canViewAuditHistoryForUser(currentUser) && Boolean(workOrder?.id);
+  const showAuditTab = canViewAuditHistoryForUser(currentUser);
+  const historySummary = useWorkOrderHistorySummary(!isCreateMode ? workOrder?.id : undefined);
 
   useEffect(() => {
     if (!open) {
@@ -89,6 +93,7 @@ export function WorkOrderEditorModal({
     }
 
     setFormState(initialState);
+    setActiveTab("overview");
   }, [initialState, open]);
 
   useEffect(() => {
@@ -175,17 +180,17 @@ export function WorkOrderEditorModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">
-                  {isCreateMode ? "Create Work Order" : `Edit ${workOrder?.woNumber ?? "Work Order"}`}
+                  {isCreateMode ? "Create Work Order" : `Work Order ${workOrder?.woNumber ?? ""}`}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {isCreateMode
                     ? "Provide details to create a new work order."
-                    : "Update editable work order fields and save changes."}
+                    : "Review details, assignments, history, and audit events for this job."}
                 </p>
               </div>
               <button
@@ -197,6 +202,10 @@ export function WorkOrderEditorModal({
                 <X size={16} />
               </button>
             </div>
+
+            {!isCreateMode && workOrder?.id ? (
+              <WorkOrderDetailTabs activeTab={activeTab} onChange={setActiveTab} showAudit={showAuditTab} />
+            ) : null}
 
             <form
               onSubmit={(event) => {
@@ -236,6 +245,7 @@ export function WorkOrderEditorModal({
               }}
               className="space-y-4 px-5 py-4"
             >
+              {!isCreateMode && activeTab !== "overview" ? null : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
@@ -401,20 +411,44 @@ export function WorkOrderEditorModal({
                   </>
                 ) : null}
               </div>
+              )}
 
-              {!isCreateMode && workOrder?.id ? (
-                <div className="space-y-4 border-t border-slate-200 pt-3">
-                  <WorkOrderAssigneesPanel workOrderId={workOrder.id} />
-                  <PartRequestsPanel workOrderId={workOrder.id} />
+              {!isCreateMode && activeTab === "overview" && historySummary.data?.repeatIssueWarnings.length ? (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+                    <div>
+                      <p className="font-semibold">Repeated issue detected for this asset/vehicle.</p>
+                      <p className="mt-1 text-xs">Open the History tab for prior maintenance context.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "assignment" ? (
+                <WorkOrderAssigneesPanel workOrderId={workOrder.id} />
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "parts" ? (
+                <PartRequestsPanel workOrderId={workOrder.id} />
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "evidence" ? (
+                <div className="space-y-4">
                   <WorkOrderActivityPanel
                     loading={activityLoading}
                     error={activityError}
                     timeline={activityTimeline}
+                    workOrderId={undefined}
+                    evidenceReadiness={null}
+                    evidenceItems={[]}
+                  />
+                  <WorkOrderEvidencePanel
                     workOrderId={workOrder.id}
-                    evidenceReadiness={evidenceReadiness}
-                    evidenceItems={evidenceItems}
-                    evidenceLoading={evidenceLoading}
-                    onEvidenceRefresh={async () => {
+                    readiness={evidenceReadiness}
+                    items={evidenceItems}
+                    loading={evidenceLoading}
+                    onRefresh={async () => {
                       const evidenceResponse = await apiClient.get(`/work-orders/${workOrder.id}/evidence`);
                       const evidenceData = evidenceResponse.data?.data as { items?: WorkOrderEvidenceItem[] } | undefined;
                       setEvidenceItems(evidenceData?.items ?? []);
@@ -423,16 +457,15 @@ export function WorkOrderEditorModal({
                 </div>
               ) : null}
 
+              {!isCreateMode && workOrder?.id && activeTab === "history" ? (
+                <WorkOrderHistoryPanel workOrderId={workOrder.id} />
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "audit" && showAuditTab ? (
+                <WorkOrderAuditPanel workOrderId={workOrder.id} />
+              ) : null}
+
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
-                {showHistory && (
-                  <button
-                    type="button"
-                    onClick={() => setHistoryOpen(true)}
-                    className="mr-auto inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <History size={14} aria-hidden /> View History
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -442,26 +475,17 @@ export function WorkOrderEditorModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || (!isCreateMode && activeTab !== "overview")}
                   className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {isCreateMode ? "Create" : "Save Changes"}
+                  {isCreateMode ? "Create" : "Save Overview"}
                 </button>
               </div>
             </form>
           </motion.div>
         </motion.div>
       ) : null}
-      {showHistory && workOrder?.id && (
-        <HistoryDrawer
-          entity="WorkOrder"
-          entityId={workOrder.id}
-          open={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-          title={`Work Order ${workOrder.woNumber ?? workOrder.id}`}
-        />
-      )}
     </AnimatePresence>
   );
 }

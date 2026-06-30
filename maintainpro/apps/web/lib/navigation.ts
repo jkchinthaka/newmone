@@ -4,6 +4,7 @@
  */
 
 import { LEGACY_FMS_HOME_PATH } from "./role-redirect";
+import { LEGACY_FMS_ARCHIVE_ROLES } from "./legacy-fms-access";
 
 export type NavActiveMatch = "exact" | "startsWith";
 
@@ -574,9 +575,9 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: "Legacy FMS Archive",
     href: LEGACY_FMS_HOME_PATH,
     icon: "Archive",
-    allowedRoles: ADMIN_ROLES,
+    allowedRoles: LEGACY_FMS_ARCHIVE_ROLES,
     category: "legacy",
-    description: "Read-only archived workspace. Use the main dashboard for current operations.",
+    description: "Admin-only read-only archived workspace. Use Work Orders for current maintenance history.",
     legacy: true,
     activeMatch: "exact"
   }

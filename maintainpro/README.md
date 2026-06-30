@@ -151,12 +151,14 @@ Structured acceptance testing from UAT-001 through UAT-006. Full matrix: [docs/U
 | **UAT-005** | **PASS** | Provider diagnostics (EMAIL/SMS/PUSH), cutover runbook, staging deploy sync |
 | **UAT-006** | **PASS (docs)** | Go-live decision pack, operator checklist, pilot plan — **cutover not executed** |
 | **UAT-007** | **PARTIAL PASS** | Multi-assignee WO, conditional asset validation, workload dashboard, leave/capacity API |
+| **UAT-008** | **PARTIAL PASS** | WO History tab with legacy/FMS context; admin-only raw archive; UAT-007 preserved |
 
 **Automation behind the evidence:**
 
-- **524 API tests** (Jest) · **Playwright e2e** on hosted staging (UAT-002/003/004/005)
+- **528+ API tests** (Jest) · **Playwright e2e** on hosted staging (UAT-002/003/004/005)
 - **`npm run uat:005:validate`** — full regression chain including typecheck, lint, build, smoke
-- **`npm run uat:007:validate`** — UAT-005 regression + workforce planning unit tests
+- **`npm run uat:007:validate`** — workforce planning validation chain
+- **`npm run uat:008:validate`** — work order history + legacy nav cleanup validation
 - **`npm run smoke:deploy`** — frontend, health, CORS, login against live staging
 
 ---

@@ -1,4 +1,8 @@
 import {
+  canAccessLegacyFmsArchive,
+  LEGACY_FMS_ARCHIVE_ROLES
+} from "../../web/lib/legacy-fms-access";
+import {
   getNavigationGroups,
   getVisibleNavigationItems,
   hasPrimaryHomeNavItem,
@@ -104,5 +108,21 @@ describe("navigation config", () => {
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.every((group) => group.items.length > 0)).toBe(true);
     expect(groups.some((group) => group.category === "operations")).toBe(true);
+  });
+
+  it("hides legacy FMS archive from normal operational roles", () => {
+    for (const role of ["TECHNICIAN", "SECURITY_OFFICER", "INVENTORY_KEEPER", "MANAGER", "CLEANER"]) {
+      const hrefs = getVisibleNavigationItems(role).map((item) => item.href);
+      expect(hrefs).not.toContain("/home");
+    }
+  });
+
+  it("restricts legacy FMS archive access to admin roles", () => {
+    expect(canAccessLegacyFmsArchive("SUPER_ADMIN")).toBe(true);
+    expect(canAccessLegacyFmsArchive("ADMIN")).toBe(true);
+    expect(canAccessLegacyFmsArchive("TECHNICIAN")).toBe(false);
+    for (const role of LEGACY_FMS_ARCHIVE_ROLES) {
+      expect(getVisibleNavigationItems(role).map((item) => item.href)).toContain("/home");
+    }
   });
 });

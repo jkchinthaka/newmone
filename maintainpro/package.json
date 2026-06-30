@@ -36,6 +36,7 @@
     "test:e2e:staging:uat005": "npm run test:e2e:staging:uat005 --workspace @maintainpro/web",
     "uat:005:validate": "node scripts/run-uat-005-validation.mjs",
     "uat:007:validate": "node scripts/run-uat-007-validation.mjs",
+    "uat:008:validate": "node scripts/run-uat-008-validation.mjs",
     "seed": "npm run db:seed",
     "start:api": "npm run start --workspace @maintainpro/api",
     "start:web": "npm run start --workspace @maintainpro/web",
@@ -64,5 +65,8 @@
     "@playwright/test": "^1.60.0",
     "concurrently": "^9.1.2",
     "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "mongodb": "^7.4.0"
   }
 }

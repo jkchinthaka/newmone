@@ -37,6 +37,23 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 ---
 
+# UAT-008 summary (2026-07-01)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-008 overall** | **PARTIAL PASS** | Legacy FMS context merged into Work Order History tab; raw archive admin-only |
+| Legacy FMS nav hidden from normal roles | **PASS** | Technician, Security, Inventory, Manager do not see `/home` nav |
+| Admin-only raw archive | **PASS** | `SUPER_ADMIN` / `ADMIN` + route guard on `(fms)` layout |
+| Work Order History API | **PASS** | `GET /work-orders/:id/history` read-only by asset/vehicle |
+| History tab UI | **PASS** | Overview → Assignment → Parts → Evidence → History → Audit |
+| Repeat issue warning | **PASS** (basic) | >2 same category/title in 60 days; client-side legacy FMS localStorage not in API |
+| Audit tab | **PARTIAL** | WorkOrder entity audit rows; assignee entity audit listed separately in roadmap |
+| UAT-007 preserved | **PASS** | Assignees, workload, dates, leave logic unchanged |
+
+Run: `npm run uat:008:validate` · Also run `npm run uat:007:validate` and `npm run uat:005:validate` for regression.
+
+---
+
 # UAT-007 summary (2026-06-28)
 
 | Area | Status | Notes |
