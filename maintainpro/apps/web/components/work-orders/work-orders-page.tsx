@@ -156,7 +156,11 @@ export default function WorkOrdersPage() {
         id: workOrder.id,
         payload: { status }
       });
-      toast.success(`Status updated to ${status.replaceAll("_", " ")}`);
+      toast.success(
+        status === "IN_PROGRESS"
+          ? `${workOrder.woNumber} moved to In Progress`
+          : `Status updated to ${status.replaceAll("_", " ")}`
+      );
     } catch (error) {
       toast.error(getErrorMessage(error));
     }

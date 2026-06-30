@@ -23,9 +23,21 @@ export function getErrorMessage(error: unknown): string {
     response?: {
       data?: {
         message?: string | string[];
+        error?: {
+          message?: string | string[];
+        };
       };
     };
   };
+
+  const nestedErrorMessage = maybeError.response?.data?.error?.message;
+  if (Array.isArray(nestedErrorMessage) && nestedErrorMessage.length > 0) {
+    return nestedErrorMessage.join(", ");
+  }
+
+  if (typeof nestedErrorMessage === "string" && nestedErrorMessage.trim()) {
+    return nestedErrorMessage;
+  }
 
   const responseMessage = maybeError.response?.data?.message;
   if (Array.isArray(responseMessage) && responseMessage.length > 0) {
@@ -235,6 +247,68 @@ export function getDueUrgencyLabel(level: WorkOrderDueUrgency, delayDays: number
 
 export function requiresAssetOrVehicle(type: WorkOrder["type"]): boolean {
   return type === "PREVENTIVE" || type === "INSPECTION" || type === "INSTALLATION";
+}
+
+/** Pre-start queue: only OPEN work orders belong on the Open board tab. */
+export function isWorkOrderOpenTabStatus(status: WorkOrderStatus): boolean {
+  return status === "OPEN";
+}
+
+/** Active execution queue: started or paused work belongs on the In Progress tab. */
+export function isWorkOrderInProgressTabStatus(status: WorkOrderStatus): boolean {
+  return status === "IN_PROGRESS" || status === "ON_HOLD";
+}
+
+export function groupWorkOrdersByBoardTab(rows: WorkOrder[]): {
+  open: WorkOrder[];
+  inProgress: WorkOrder[];
+  closed: WorkOrder[];
+} {
+  const open: WorkOrder[] = [];
+  const inProgress: WorkOrder[] = [];
+  const closed: WorkOrder[] = [];
+
+  rows.forEach((order) => {
+    if (isWorkOrderOpenTabStatus(order.status)) {
+      open.push(order);
+      return;
+    }
+
+    if (isWorkOrderInProgressTabStatus(order.status)) {
+      inProgress.push(order);
+      return;
+    }
+
+    closed.push(order);
+  });
+
+  return { open, inProgress, closed };
+}
+
+export function groupWorkOrdersByStatus(rows: WorkOrder[]): Record<WorkOrderStatus, WorkOrder[]> {
+  const grouped = {
+    OPEN: [] as WorkOrder[],
+    IN_PROGRESS: [] as WorkOrder[],
+    ON_HOLD: [] as WorkOrder[],
+    COMPLETED: [] as WorkOrder[],
+    CANCELLED: [] as WorkOrder[],
+    OVERDUE: [] as WorkOrder[]
+  };
+
+  rows.forEach((order) => {
+    const bucket = grouped[order.status];
+    if (bucket) {
+      bucket.push(order);
+    }
+  });
+
+  grouped.IN_PROGRESS = [...grouped.IN_PROGRESS].sort((a, b) => {
+    const aTarget = getWorkOrderCompletionTarget(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const bTarget = getWorkOrderCompletionTarget(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return aTarget - bTarget;
+  });
+
+  return grouped;
 }
 
 export function compareWorkOrders(

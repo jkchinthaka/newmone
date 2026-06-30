@@ -210,7 +210,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/status")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   @Permissions("work_orders.update_status")
   async updateStatus(
     @Req() req: AuthedRequest,

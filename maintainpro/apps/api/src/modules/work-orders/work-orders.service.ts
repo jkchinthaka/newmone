@@ -636,7 +636,37 @@ export class WorkOrdersService {
       }
     });
 
-    return updated;
+    return this.findOneWithRelations(id, actor);
+  }
+
+  private async findOneWithRelations(id: string, actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const where: Prisma.WorkOrderWhereInput = { id };
+
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where,
+      include: {
+        asset: true,
+        vehicle: true,
+        technician: true,
+        createdBy: true,
+        parts: {
+          include: {
+            part: true
+          }
+        }
+      }
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException("Work order not found");
+    }
+
+    return workOrder;
   }
 
   async addPart(id: string, data: { partId: string; quantity: number; unitCost: number }, actor?: Actor) {

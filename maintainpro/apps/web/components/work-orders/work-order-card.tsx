@@ -137,10 +137,16 @@ export function WorkOrderCard({
         <button
           type="button"
           onClick={() => onStart(workOrder)}
-          disabled={workOrder.status === "IN_PROGRESS" || workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED"}
+          disabled={
+            pendingApproval ||
+            workOrder.status === "IN_PROGRESS" ||
+            workOrder.status === "COMPLETED" ||
+            workOrder.status === "CANCELLED"
+          }
+          title={pendingApproval ? "Manager approval is required before starting work" : undefined}
           className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
-          <PlayCircle size={12} /> Start
+          <PlayCircle size={12} /> Start Work
         </button>
         <button
           type="button"

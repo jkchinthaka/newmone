@@ -16,10 +16,15 @@ import {
   updateWorkOrder,
   updateWorkOrderStatus
 } from "./api";
-import { compareWorkOrders, getAssetLabel, getTechnicianName, getWorkOrderCompletionTarget } from "./helpers";
+import {
+  compareWorkOrders,
+  getAssetLabel,
+  getTechnicianName,
+  groupWorkOrdersByBoardTab,
+  groupWorkOrdersByStatus
+} from "./helpers";
 import {
   DEFAULT_WORK_ORDER_FILTERS,
-  STATUS_ORDER,
   type CreateWorkOrderInput,
   type TechnicianOption,
   type UpdateWorkOrderInput,
@@ -31,6 +36,7 @@ import {
 
 const FILTER_STORAGE_KEY = "maintainpro_work_order_filters_v1";
 export const WORK_ORDERS_QUERY_KEY = ["work-orders"] as const;
+export const DASHBOARD_WORK_ORDERS_QUERY_KEY = ["dashboard", "work-orders"] as const;
 export const WORK_ORDER_TECHNICIANS_QUERY_KEY = ["work-orders", "technicians"] as const;
 
 type StatusGroups = Record<WorkOrderStatus, WorkOrder[]>;
@@ -139,22 +145,7 @@ function applyWorkOrderFilters(rows: WorkOrder[], filters: WorkOrderFilters): Wo
 }
 
 function groupByStatus(rows: WorkOrder[]): StatusGroups {
-  const grouped = STATUS_ORDER.reduce<StatusGroups>((acc, status) => {
-    acc[status] = [];
-    return acc;
-  }, {} as StatusGroups);
-
-  rows.forEach((order) => {
-    grouped[order.status].push(order);
-  });
-
-  grouped.IN_PROGRESS = [...grouped.IN_PROGRESS].sort((a, b) => {
-    const aTarget = getWorkOrderCompletionTarget(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    const bTarget = getWorkOrderCompletionTarget(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    return aTarget - bTarget;
-  });
-
-  return grouped;
+  return groupWorkOrdersByStatus(rows);
 }
 
 export function useWorkOrders(filters: WorkOrderFilters) {
@@ -173,6 +164,7 @@ export function useWorkOrders(filters: WorkOrderFilters) {
   const workOrders = useMemo(() => applyWorkOrderFilters(sourceRows, filters), [sourceRows, filters]);
 
   const groupedByStatus = useMemo(() => groupByStatus(workOrders), [workOrders]);
+  const groupedByBoardTab = useMemo(() => groupWorkOrdersByBoardTab(workOrders), [workOrders]);
 
   const stats = useMemo(
     () => ({
@@ -190,6 +182,7 @@ export function useWorkOrders(filters: WorkOrderFilters) {
     sourceRows,
     workOrders,
     groupedByStatus,
+    groupedByBoardTab,
     stats
   };
 }
@@ -266,6 +259,22 @@ export function useAssignWorkOrder() {
   });
 }
 
+function mergeWorkOrderRow(existing: WorkOrder, updated: WorkOrder): WorkOrder {
+  return {
+    ...existing,
+    ...updated,
+    asset: updated.asset ?? existing.asset,
+    vehicle: updated.vehicle ?? existing.vehicle,
+    technician: updated.technician ?? existing.technician,
+    createdBy: updated.createdBy ?? existing.createdBy
+  };
+}
+
+function invalidateWorkOrderQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
+  queryClient.invalidateQueries({ queryKey: DASHBOARD_WORK_ORDERS_QUERY_KEY });
+}
+
 export function useUpdateWorkOrderStatus() {
   const queryClient = useQueryClient();
 
@@ -293,13 +302,18 @@ export function useUpdateWorkOrderStatus() {
 
       return { previous };
     },
+    onSuccess: (updated, { id }) => {
+      queryClient.setQueryData<WorkOrder[]>(WORK_ORDERS_QUERY_KEY, (current = []) =>
+        current.map((row) => (row.id === id ? mergeWorkOrderRow(row, updated) : row))
+      );
+    },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(WORK_ORDERS_QUERY_KEY, context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
+      invalidateWorkOrderQueries(queryClient);
     }
   });
 }
