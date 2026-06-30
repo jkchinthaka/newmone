@@ -5,9 +5,12 @@ import { CalendarClock, GripVertical, PauseCircle, PlayCircle, Trash2, UserRound
 import {
   formatDate,
   getAssetLabel,
+  getDueUrgencyClass,
+  getDueUrgencyLabel,
   getPriorityClass,
   getStatusClass,
   getTechnicianName,
+  getWorkOrderDueUrgency,
   isWorkOrderOverdue,
   toTitleCase
 } from "./helpers";
@@ -48,6 +51,7 @@ export function WorkOrderCard({
 }: WorkOrderCardProps) {
   const overdue = isWorkOrderOverdue(workOrder);
   const pendingApproval = workOrder.approvalStatus === "PENDING";
+  const urgency = getWorkOrderDueUrgency(workOrder);
 
   return (
     <article
@@ -87,15 +91,11 @@ export function WorkOrderCard({
         <span className={`rounded-full px-2 py-1 font-medium ring-1 ${getStatusClass(workOrder.status)}`}>
           {toTitleCase(workOrder.status)}
         </span>
-        {overdue ? (
-          <span className="rounded-full bg-rose-100 px-2 py-1 font-medium text-rose-700 ring-1 ring-rose-200">
-            SLA Risk
+        {urgency.level !== "NONE" ? (
+          <span className={`rounded-full px-2 py-1 font-medium ring-1 ${getDueUrgencyClass(urgency.level)}`}>
+            {getDueUrgencyLabel(urgency.level, urgency.delayDays)}
           </span>
-        ) : (
-          <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-700 ring-1 ring-emerald-200">
-            SLA OK
-          </span>
-        )}
+        ) : null}
         {pendingApproval ? (
           <span className="rounded-full bg-amber-100 px-2 py-1 font-medium text-amber-800 ring-1 ring-amber-200">
             Pending approval

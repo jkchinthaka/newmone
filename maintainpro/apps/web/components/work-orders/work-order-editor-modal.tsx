@@ -12,9 +12,10 @@ import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activit
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
 import type { EvidenceStorageReadiness, WorkOrderEvidenceItem } from "@/lib/work-order-evidence";
 
-import { asDateInputValue, toTitleCase } from "./helpers";
+import { asDateInputValue, requiresAssetOrVehicle, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
 import { PartRequestsPanel } from "./part-requests-panel";
+import { WorkOrderAssigneesPanel } from "./work-order-assignees-panel";
 import { WorkOrderActivityPanel } from "./work-order-activity-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
@@ -25,6 +26,7 @@ type WorkOrderCreateFormValue = {
   priority: (typeof WORK_ORDER_PRIORITIES)[number];
   type: (typeof WORK_ORDER_TYPES)[number];
   dueDate?: string;
+  expectedCompletionDate?: string;
   assetId?: string;
   vehicleId?: string;
   scheduleId?: string;
@@ -60,6 +62,7 @@ export function WorkOrderEditorModal({
       priority: workOrder?.priority ?? "MEDIUM",
       type: workOrder?.type ?? "CORRECTIVE",
       dueDate: asDateInputValue(workOrder?.dueDate),
+      expectedCompletionDate: asDateInputValue(workOrder?.expectedCompletionDate ?? workOrder?.dueDate),
       assetId: workOrder?.assetId ?? "",
       vehicleId: workOrder?.vehicleId ?? "",
       scheduleId: workOrder?.scheduleId ?? "",
@@ -156,6 +159,8 @@ export function WorkOrderEditorModal({
     };
   }, [open, isCreateMode, workOrder?.id]);
 
+  const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
+
   return (
     <AnimatePresence>
       {open ? (
@@ -208,6 +213,9 @@ export function WorkOrderEditorModal({
                     priority: formState.priority,
                     type: formState.type,
                     dueDate: formState.dueDate ? new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString() : undefined,
+                    expectedCompletionDate: formState.expectedCompletionDate
+                      ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
+                      : undefined,
                     assetId: formState.assetId.trim() || undefined,
                     vehicleId: formState.vehicleId.trim() || undefined,
                     scheduleId: formState.scheduleId.trim() || undefined
@@ -219,6 +227,9 @@ export function WorkOrderEditorModal({
                   title: formState.title.trim(),
                   description: formState.description.trim(),
                   dueDate: formState.dueDate ? new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString() : undefined,
+                  expectedCompletionDate: formState.expectedCompletionDate
+                    ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
+                    : undefined,
                   estimatedCost: formState.estimatedCost ? Number(formState.estimatedCost) : undefined,
                   estimatedHours: formState.estimatedHours ? Number(formState.estimatedHours) : undefined
                 });
@@ -331,10 +342,28 @@ export function WorkOrderEditorModal({
                   />
                 </label>
 
+                <label className="space-y-1 text-sm text-slate-700">
+                  <span className="font-medium">Expected completion (requester)</span>
+                  <input
+                    type="date"
+                    value={formState.expectedCompletionDate}
+                    onChange={(event) =>
+                      setFormState((current) => ({ ...current, expectedCompletionDate: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                  />
+                </label>
+
                 {isCreateMode ? (
                   <>
                     <label className="space-y-1 text-sm text-slate-700">
-                      <span className="font-medium">Asset (optional)</span>
+                      <span className="font-medium">
+                        Asset {assetRequired ? "(required for this type — or link a vehicle)" : "(optional)"}
+                      </span>
+                      <p className="text-xs text-slate-500">
+                        General CORRECTIVE/EMERGENCY tasks may omit asset and vehicle. PREVENTIVE, INSPECTION, and
+                        INSTALLATION require at least one link.
+                      </p>
                       <EntityPicker
                         endpoint="/assets"
                         value={formState.assetId || null}
@@ -375,6 +404,7 @@ export function WorkOrderEditorModal({
 
               {!isCreateMode && workOrder?.id ? (
                 <div className="space-y-4 border-t border-slate-200 pt-3">
+                  <WorkOrderAssigneesPanel workOrderId={workOrder.id} />
                   <PartRequestsPanel workOrderId={workOrder.id} />
                   <WorkOrderActivityPanel
                     loading={activityLoading}

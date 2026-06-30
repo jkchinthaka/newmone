@@ -16,7 +16,7 @@ import {
   updateWorkOrder,
   updateWorkOrderStatus
 } from "./api";
-import { compareWorkOrders, getAssetLabel, getTechnicianName } from "./helpers";
+import { compareWorkOrders, getAssetLabel, getTechnicianName, getWorkOrderCompletionTarget } from "./helpers";
 import {
   DEFAULT_WORK_ORDER_FILTERS,
   STATUS_ORDER,
@@ -146,6 +146,12 @@ function groupByStatus(rows: WorkOrder[]): StatusGroups {
 
   rows.forEach((order) => {
     grouped[order.status].push(order);
+  });
+
+  grouped.IN_PROGRESS = [...grouped.IN_PROGRESS].sort((a, b) => {
+    const aTarget = getWorkOrderCompletionTarget(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const bTarget = getWorkOrderCompletionTarget(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return aTarget - bTarget;
   });
 
   return grouped;

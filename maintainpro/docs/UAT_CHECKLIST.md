@@ -37,6 +37,26 @@ Portfolio screenshots: [screenshots/README.md](screenshots/README.md)
 
 ---
 
+# UAT-007 summary (2026-06-28)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **UAT-007 overall** | **PARTIAL PASS** | Workforce planning sprint — core API + UI; roster CRUD UI and skill suggestion algorithm roadmap |
+| Optional asset for general WO | **PASS** | Conditional validation CORRECTIVE/EMERGENCY vs PREVENTIVE/INSPECTION/INSTALLATION |
+| WorkOrderAssignee model | **PASS** | Multi-employee assignments with primary, planned dates, audit |
+| Designation-based selection | **PASS** | `/workforce/employees?designation=` + assignment validation |
+| Expected vs planned dates | **PASS** | `expectedCompletionDate`, `plannedStartAt`, `plannedEndAt` |
+| In-progress due sorting + colors | **PASS** | Kanban IN_PROGRESS sorted; overdue/orange/yellow/green badges |
+| Employee workload dashboard | **PASS** | Admin/management dashboard widget + `/workforce/workload-summary` |
+| Monthly roster + leave models | **PASS** (schema) | `EmployeeRosterEntry`, `EmployeeLeaveRequest` — seed/UI partial |
+| Leave assignment block | **PASS** | API blocks + manager override audited |
+| Workload capacity check | **PASS** | Daily capacity hours on assignment |
+| Skill matrix suggestions | **PARTIAL** | `User.skills[]` + designation filter; full suggestion engine roadmap |
+
+Run: `npm run uat:007:validate` (runs typecheck, lint, test, build, smoke, and workforce unit tests). Run `npm run uat:005:validate` separately for full staging regression.
+
+---
+
 # UAT-006 summary (2026-06-27)
 
 | Area | Status | Notes |

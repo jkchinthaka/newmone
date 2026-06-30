@@ -15,6 +15,7 @@ import { ErpStockSyncService } from "../src/modules/inventory/erp-stock-sync.ser
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
 import { WorkOrderActivityService } from "../src/modules/work-orders/work-order-activity.service";
+import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order-assignees.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 
 const inventoryService = {
@@ -86,6 +87,12 @@ const evidenceService = {
   getReadiness: jest.fn()
 };
 
+const workOrderAssigneesService = {
+  listAssignees: jest.fn(),
+  addAssignee: jest.fn(),
+  removeAssignee: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -97,6 +104,7 @@ const prisma = {
     { provide: InventoryService, useValue: inventoryService },
     { provide: WorkOrdersService, useValue: workOrdersService },
     { provide: WorkOrderActivityService, useValue: workOrderActivityService },
+    { provide: WorkOrderAssigneesService, useValue: workOrderAssigneesService },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },

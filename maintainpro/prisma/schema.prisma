@@ -28,6 +28,9 @@ model Tenant {
   vehicles       Vehicle[]
   drivers        Driver[]
   workOrders     WorkOrder[]
+  workOrderAssignees WorkOrderAssignee[]
+  employeeRosters EmployeeRosterEntry[]
+  employeeLeaveRequests EmployeeLeaveRequest[]
   spareParts     SparePart[]
   suppliers      Supplier[]
   purchaseOrders PurchaseOrder[]
@@ -179,6 +182,12 @@ model User {
   /// FK to Department master — nullable for legacy records
   departmentId   String?     @db.ObjectId
   department     Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Job designation for workforce allocation (e.g. Electrician, Fitter)
+  designation    String?
+  /// Daily capacity in hours for workload checks (default 8)
+  dailyCapacityHours Float   @default(8)
+  /// Skill tags for assignment filtering
+  skills         String[]
   isActive       Boolean     @default(true)
   lastLogin      DateTime?
   failedLoginAttempts Int    @default(0)
@@ -220,10 +229,16 @@ model User {
   refreshTokens             RefreshToken[]
   passwordResetTokens       PasswordResetToken[]
   evidenceAttachmentsUploaded EvidenceAttachment[] @relation("EvidenceUploader")
+  workOrderAssigneeRows       WorkOrderAssignee[]  @relation("WorkOrderAssigneeEmployee")
+  workOrderAssignmentsCreated WorkOrderAssignee[]  @relation("WorkOrderAssigneeAssignedBy")
+  employeeRosterEntries       EmployeeRosterEntry[]
+  employeeLeaveRequests       EmployeeLeaveRequest[]
+  employeeLeaveApprovals      EmployeeLeaveRequest[] @relation("EmployeeLeaveApprover")
 
   @@index([tenantId])
   @@index([roleId])
   @@index([departmentId])
+  @@index([designation])
 }
 
 model RefreshToken {
@@ -1025,6 +1040,10 @@ model WorkOrder {
   technicianId   String?              @db.ObjectId
   technician     User?                @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
   dueDate        DateTime?
+  expectedCompletionDate DateTime?
+  plannedStartAt DateTime?
+  plannedEndAt   DateTime?
+  delayReason    String?
   startDate      DateTime?
   completedDate  DateTime?
   estimatedCost  Float?
@@ -1048,11 +1067,14 @@ model WorkOrder {
   partIssues      PartIssue[]
   facilityIssue   FacilityIssue?
   evidenceAttachments EvidenceAttachment[]
+  assignees      WorkOrderAssignee[]
 
   @@index([tenantId])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
+  @@index([expectedCompletionDate])
+  @@index([plannedEndAt])
   @@index([accidentId])
   @@index([trafficFineId])
 }
@@ -1097,6 +1119,96 @@ enum WorkOrderType {
   IRRIGATION_REPAIR
   SOIL_PREPARATION
   POST_HARVEST
+}
+
+enum WorkOrderAssigneeStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  REMOVED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model WorkOrderAssignee {
+  id               String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?                 @db.ObjectId
+  tenant           Tenant?                 @relation(fields: [tenantId], references: [id])
+  workOrderId      String                  @db.ObjectId
+  workOrder        WorkOrder               @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  employeeId       String                  @db.ObjectId
+  employee         User                    @relation("WorkOrderAssigneeEmployee", fields: [employeeId], references: [id])
+  designation      String?
+  roleInTask       String?
+  isPrimary        Boolean                 @default(false)
+  plannedStartAt   DateTime?
+  plannedEndAt     DateTime?
+  estimatedHours   Float?
+  actualHours      Float?
+  assignmentStatus WorkOrderAssigneeStatus @default(ASSIGNED)
+  assignedById     String?                 @db.ObjectId
+  assignedBy       User?                   @relation("WorkOrderAssigneeAssignedBy", fields: [assignedById], references: [id])
+  assignedAt       DateTime                @default(now())
+  remarks          String?
+  leaveOverride    Boolean                 @default(false)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([workOrderId, employeeId])
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([workOrderId])
+  @@index([assignmentStatus])
+}
+
+model EmployeeRosterEntry {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String?     @db.ObjectId
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
+  employeeId   String      @db.ObjectId
+  employee     User        @relation(fields: [employeeId], references: [id])
+  rosterDate   DateTime
+  shiftCode    String?
+  shiftStartAt DateTime?
+  shiftEndAt   DateTime?
+  branchName   String?
+  departmentId String?     @db.ObjectId
+  isWorkingDay Boolean     @default(true)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([tenantId, employeeId, rosterDate])
+  @@index([tenantId, rosterDate])
+  @@index([employeeId, rosterDate])
+}
+
+model EmployeeLeaveRequest {
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String?            @db.ObjectId
+  tenant       Tenant?            @relation(fields: [tenantId], references: [id])
+  employeeId   String             @db.ObjectId
+  employee     User               @relation(fields: [employeeId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  leaveType    String?
+  status       LeaveRequestStatus @default(PENDING)
+  approvedById String?            @db.ObjectId
+  approvedBy   User?              @relation("EmployeeLeaveApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status, startDate])
+  @@index([employeeId, startDate, endDate])
 }
 
 model SparePart {

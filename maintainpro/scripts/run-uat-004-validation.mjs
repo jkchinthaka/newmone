@@ -27,6 +27,7 @@ function run(label, command, args, extraEnv = {}, options = {}) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
+    maxBuffer: 50 * 1024 * 1024,
     shell: options.shell && process.platform === "win32"
   });
   if (result.stdout?.trim()) console.log(result.stdout.trim());

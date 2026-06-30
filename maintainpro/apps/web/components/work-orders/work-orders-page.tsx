@@ -477,7 +477,8 @@ export default function WorkOrdersPage() {
               payload: {
                 status: "COMPLETED",
                 actualCost: payload.actualCost,
-                actualHours: payload.actualHours
+                actualHours: payload.actualHours,
+                delayReason: payload.delayReason
               }
             })
             .then(() => {

@@ -25,17 +25,19 @@ function loadEnvFile(filePath) {
 function run(label, command, args, extraEnv = {}, options = {}) {
   console.log(`STEP=${label}`);
   const useShell = options.shell ?? false;
+  const stdio = options.inherit ? "inherit" : ["ignore", "pipe", "pipe"];
   const result = spawnSync(command, args, {
     cwd: root,
     env: { ...process.env, ...extraEnv },
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio,
     windowsHide: true,
+    maxBuffer: 50 * 1024 * 1024,
     shell: useShell && process.platform === "win32"
   });
-  if (result.stdout?.trim()) console.log(result.stdout.trim());
+  if (!options.inherit && result.stdout?.trim()) console.log(result.stdout.trim());
   const stderr = (result.stderr ?? "").replace(/mongodb(\+srv)?:\/\/[^\s]+/gi, "[REDACTED_URI]");
-  if (stderr.trim() && !/password/i.test(stderr)) console.error(stderr.trim().slice(-800));
+  if (!options.inherit && stderr.trim() && !/password/i.test(stderr)) console.error(stderr.trim().slice(-800));
   if (result.status !== 0) {
     console.log(`${label}=FAIL`);
     process.exit(result.status ?? 1);
@@ -84,6 +86,6 @@ run("test_e2e_staging_uat002", npmCmd, ["run", "test:e2e:staging:uat002"], stagi
 run("typecheck", npmCmd, ["run", "typecheck"], {}, npmShell);
 run("lint", npmCmd, ["run", "lint"], {}, npmShell);
 run("test", npmCmd, ["run", "test"], {}, npmShell);
-run("build", npmCmd, ["run", "build"], {}, npmShell);
-run("smoke_deploy", process.execPath, ["scripts/smoke-deployment.mjs"], stagingEnv);
+run("build", npmCmd, ["run", "build"], { NODE_ENV: "production" }, { ...npmShell, inherit: true });
+run("smoke_deploy", process.execPath, ["scripts/run-smoke-with-staging-env.mjs"], stagingEnv);
 console.log("uat_003_validation=complete");

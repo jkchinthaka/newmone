@@ -75,6 +75,10 @@ export interface WorkOrder {
   createdById: string;
   technicianId?: string | null;
   dueDate?: string | null;
+  expectedCompletionDate?: string | null;
+  plannedStartAt?: string | null;
+  plannedEndAt?: string | null;
+  delayReason?: string | null;
   startDate?: string | null;
   completedDate?: string | null;
   estimatedCost?: number | string | null;
@@ -114,12 +118,16 @@ export interface CreateWorkOrderInput {
   vehicleId?: string;
   scheduleId?: string;
   dueDate?: string;
+  expectedCompletionDate?: string;
 }
 
 export interface UpdateWorkOrderInput {
   title?: string;
   description?: string;
   dueDate?: string;
+  expectedCompletionDate?: string;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
   estimatedCost?: number;
   estimatedHours?: number;
 }
@@ -128,6 +136,7 @@ export interface UpdateWorkOrderStatusInput {
   status: WorkOrderStatus;
   actualCost?: number;
   actualHours?: number;
+  delayReason?: string;
 }
 
 export interface TechnicianOption {

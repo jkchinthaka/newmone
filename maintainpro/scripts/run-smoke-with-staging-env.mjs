@@ -19,27 +19,9 @@ function loadEnvFile(filePath) {
   }
 }
 
-function run(label, command, args, extraEnv = {}, options = {}) {
-  console.log(`STEP=${label}`);
-  const result = spawnSync(command, args, {
-    cwd: root,
-    env: { ...process.env, ...extraEnv },
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-    maxBuffer: 50 * 1024 * 1024,
-    shell: options.shell && process.platform === "win32"
-  });
-  if (result.stdout?.trim()) console.log(result.stdout.trim());
-  if (result.status !== 0) {
-    console.log(`${label}=FAIL`);
-    process.exit(result.status ?? 1);
-  }
-  console.log(`${label}=PASS`);
-}
-
 const root = process.cwd();
 loadEnvFile(path.join(root, ".env.render.local"));
+loadEnvFile(path.join(root, ".env"));
 
 async function fetchRenderPassword() {
   const apiKey = (process.env.RENDER_API_KEY ?? "").trim();
@@ -65,13 +47,15 @@ const stagingEnv = {
   MAINTAINPRO_WEB_URL: "https://newmone.chinthakajayaweera1.workers.dev",
   MAINTAINPRO_API_URL: "https://newmone.onrender.com/api",
   MAINTAINPRO_SMOKE_PASSWORD: seedPassword,
-  MAINTAINPRO_SEED_PASSWORD: seedPassword
+  MAINTAINPRO_SEED_PASSWORD: seedPassword,
+  MAINTAINPRO_SMOKE_EMAIL: "admin@maintainpro.local"
 };
 
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-const npmShell = { shell: true };
+const result = spawnSync(process.execPath, ["scripts/smoke-deployment.mjs"], {
+  cwd: root,
+  env: { ...process.env, ...stagingEnv },
+  encoding: "utf8",
+  stdio: "inherit"
+});
 
-run("uat_005_cutover_readiness", process.execPath, ["scripts/uat-005-cutover-readiness.mjs"], stagingEnv);
-run("test_e2e_staging_uat005", npmCmd, ["run", "test:e2e:staging:uat005"], stagingEnv, npmShell);
-run("uat_004_validate", process.execPath, ["scripts/run-uat-004-validation.mjs"], stagingEnv);
-console.log("uat_005_validation=complete");
+process.exit(result.status ?? 1);

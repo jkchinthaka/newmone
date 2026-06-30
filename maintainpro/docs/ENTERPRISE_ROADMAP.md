@@ -26,6 +26,8 @@ Prioritized enhancements for MaintainPro portfolio and production evolution. **D
 | Production operator checklist | **DONE** (UAT-006) | `PRODUCTION_OPERATOR_CHECKLIST.md` |
 | Pilot rollout plan | **DONE** (UAT-006) | `PILOT_ROLLOUT_PLAN.md` |
 | Production domain cutover | **NOT STARTED** | `maintenance.nelna.lk` — operator-owned |
+| Workforce planning (UAT-007) | **PARTIAL** | Multi-assignee API + UI; roster/leave CRUD UI roadmap |
+| Skill-based assignment suggestions | **ROADMAP** | Designation + skills filter shipped; full ranking engine deferred |
 
 ## Priority 2 — Post-MVP
 

@@ -65,6 +65,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
+import { WorkforceModule } from "./modules/workforce/workforce.module";
 import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
@@ -120,6 +121,7 @@ normalizeDatabaseEnvironment();
     MaintenanceModule,
     JobCodesModule,
     WorkOrdersModule,
+    WorkforceModule,
     EvidenceModule,
     InventoryModule,
     DepartmentsModule,

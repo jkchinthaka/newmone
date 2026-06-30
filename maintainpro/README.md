@@ -150,11 +150,13 @@ Structured acceptance testing from UAT-001 through UAT-006. Full matrix: [docs/U
 | **UAT-004** | **PARTIAL PASS** | WO approve/reject, audit trail, `/fleet/gate`, evidence readiness indicators |
 | **UAT-005** | **PASS** | Provider diagnostics (EMAIL/SMS/PUSH), cutover runbook, staging deploy sync |
 | **UAT-006** | **PASS (docs)** | Go-live decision pack, operator checklist, pilot plan — **cutover not executed** |
+| **UAT-007** | **PARTIAL PASS** | Multi-assignee WO, conditional asset validation, workload dashboard, leave/capacity API |
 
 **Automation behind the evidence:**
 
-- **517 API tests** (Jest) · **Playwright e2e** on hosted staging (UAT-002/003/004/005)
+- **524 API tests** (Jest) · **Playwright e2e** on hosted staging (UAT-002/003/004/005)
 - **`npm run uat:005:validate`** — full regression chain including typecheck, lint, build, smoke
+- **`npm run uat:007:validate`** — UAT-005 regression + workforce planning unit tests
 - **`npm run smoke:deploy`** — frontend, health, CORS, login against live staging
 
 ---
@@ -202,7 +204,7 @@ Building MaintainPro reinforced several lessons I would bring to a product engin
 | **What did you build?** | Multi-tenant ops platform: maintenance WOs, fleet gate, inventory, reporting — NestJS + Next.js + Flutter, deployed to Render + Cloudflare. |
 | **Why a monolith?** | Faster MVP with 20+ domain modules and clear seams; replication outbox and queues already isolate async concerns. |
 | **How do you handle security?** | JWT + HttpOnly refresh + CSRF, bcrypt + lockout, Helmet/CSP/HSTS, tenant-scoped Prisma, audit middleware, mock integrations blocked in prod. |
-| **How do you know it works?** | 517 API tests, Playwright multi-role UAT on staging, `uat:005:validate` chain, hosted smoke — all documented in UAT checklist. |
+| **How do you know it works?** | 524 API tests, Playwright multi-role UAT on staging, `uat:005:validate` / `uat:007:validate` chains, hosted smoke — all documented in UAT checklist. |
 | **What is not done?** | Production DNS, prod DB/env, live notifications/storage, mobile offline parity — I document gaps instead of overselling. |
 | **What would you do next?** | Execute operator cutover checklist, cookie-only access tokens, Sentry, predictive maintenance rules, ERP signed mapping UAT. |
 
@@ -242,7 +244,7 @@ npm run dev              # API :3000, Web :3001
 ```bash
 npm run typecheck
 npm run lint
-npm run test                 # 517 API tests
+npm run test                 # 524 API tests
 npm run build
 npm run smoke:deploy         # hosted staging (env vars in shell)
 npm run uat:005:validate     # full UAT regression chain

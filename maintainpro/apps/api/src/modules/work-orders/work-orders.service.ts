@@ -14,6 +14,11 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import {
+  assertValidOptionalObjectId,
+  assertWorkOrderAssetRules,
+  calculateSlaRisk
+} from "../../common/utils/work-order-validation";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -218,6 +223,7 @@ export class WorkOrdersService {
       scheduleId?: string;
       createdById: string;
       dueDate?: string;
+      expectedCompletionDate?: string;
       requiresApproval?: boolean;
     },
     actor?: Actor
@@ -232,22 +238,12 @@ export class WorkOrdersService {
       throw new BadRequestException("createdById is required");
     }
 
-    const isValidObjectId = (value: string) => /^[a-fA-F0-9]{24}$/.test(value);
-    const optionalIdFields: Array<["assetId" | "vehicleId" | "scheduleId", string | undefined]> = [
-      ["assetId", data.assetId],
-      ["vehicleId", data.vehicleId],
-      ["scheduleId", data.scheduleId]
-    ];
+    const assetId = assertValidOptionalObjectId("assetId", data.assetId);
+    const vehicleId = assertValidOptionalObjectId("vehicleId", data.vehicleId);
+    const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
+    assertWorkOrderAssetRules({ type: data.type, assetId, vehicleId });
 
-    for (const [field, value] of optionalIdFields) {
-      if (value && !isValidObjectId(value)) {
-        throw new BadRequestException(
-          `Invalid ${field}: "${value}". Expected a 24-character hex ObjectId, or leave the field empty.`
-        );
-      }
-    }
-
-    if (!isValidObjectId(data.createdById)) {
+    if (!/^[a-fA-F0-9]{24}$/.test(data.createdById)) {
       throw new BadRequestException("Invalid createdById. Please log in again to refresh your session.");
     }
 
@@ -280,11 +276,16 @@ export class WorkOrdersService {
           description: data.description,
           priority: data.priority,
           type: data.type,
-          assetId: data.assetId,
-          vehicleId: data.vehicleId,
-          scheduleId: data.scheduleId,
+          assetId,
+          vehicleId,
+          scheduleId,
           createdById: data.createdById,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+          expectedCompletionDate: data.expectedCompletionDate
+            ? new Date(data.expectedCompletionDate)
+            : data.dueDate
+              ? new Date(data.dueDate)
+              : undefined,
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
@@ -321,7 +322,16 @@ export class WorkOrdersService {
 
   async update(
     id: string,
-    data: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>,
+    data: Partial<{
+      title: string;
+      description: string;
+      dueDate: string;
+      expectedCompletionDate: string;
+      plannedStartAt: string;
+      plannedEndAt: string;
+      estimatedCost: number;
+      estimatedHours: number;
+    }>,
     actor?: Actor
   ) {
     await this.findOne(id, actor);
@@ -330,7 +340,12 @@ export class WorkOrdersService {
       where: { id },
       data: {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        expectedCompletionDate: data.expectedCompletionDate
+          ? new Date(data.expectedCompletionDate)
+          : undefined,
+        plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : undefined,
+        plannedEndAt: data.plannedEndAt ? new Date(data.plannedEndAt) : undefined
       }
     });
   }
@@ -535,6 +550,7 @@ export class WorkOrdersService {
       status: WorkOrderStatus;
       actualCost?: number;
       actualHours?: number;
+      delayReason?: string;
     },
     actor?: Actor
   ) {
@@ -550,6 +566,17 @@ export class WorkOrdersService {
 
     if (data.status === WorkOrderStatus.COMPLETED && (!data.actualCost || !data.actualHours)) {
       throw new BadRequestException("Cannot complete a work order without entering actual cost and hours");
+    }
+
+    const slaRisk = calculateSlaRisk({
+      dueDate: current.dueDate,
+      expectedCompletionDate: current.expectedCompletionDate,
+      plannedEndAt: current.plannedEndAt,
+      status: current.status
+    });
+
+    if (data.status === WorkOrderStatus.COMPLETED && slaRisk.level === "OVERDUE" && !data.delayReason?.trim()) {
+      throw new BadRequestException("Delay reason is required when completing an overdue work order");
     }
 
     let slaDeadline = current.slaDeadline;
@@ -570,6 +597,7 @@ export class WorkOrdersService {
         slaDeadline,
         actualCost: data.actualCost,
         actualHours: data.actualHours,
+        delayReason: data.delayReason?.trim() || current.delayReason,
         completedDate,
         slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
       }

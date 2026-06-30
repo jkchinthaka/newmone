@@ -101,6 +101,11 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
     createdById: String(candidate.createdById ?? ""),
     technicianId: typeof candidate.technicianId === "string" ? candidate.technicianId : null,
     dueDate: typeof candidate.dueDate === "string" ? candidate.dueDate : null,
+    expectedCompletionDate:
+      typeof candidate.expectedCompletionDate === "string" ? candidate.expectedCompletionDate : null,
+    plannedStartAt: typeof candidate.plannedStartAt === "string" ? candidate.plannedStartAt : null,
+    plannedEndAt: typeof candidate.plannedEndAt === "string" ? candidate.plannedEndAt : null,
+    delayReason: typeof candidate.delayReason === "string" ? candidate.delayReason : null,
     startDate: typeof candidate.startDate === "string" ? candidate.startDate : null,
     completedDate: typeof candidate.completedDate === "string" ? candidate.completedDate : null,
     estimatedCost: typeof candidate.estimatedCost === "number" || typeof candidate.estimatedCost === "string" ? candidate.estimatedCost : null,

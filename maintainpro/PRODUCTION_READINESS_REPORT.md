@@ -1,7 +1,9 @@
 # Production Readiness Report
 
-**Last updated:** 2026-06-27  
-**Verdict:** **Pilot-ready** on staging (UAT-001, UAT-005 PASS; UAT-002/003/004 partial pass). **Not** production-ready until operator completes [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) (DNS, prod DB/env, live integrations, post-cutover smoke).
+**Last updated:** 2026-07-01  
+**Verdict:** **Pilot-ready** on staging (UAT-001, UAT-005 PASS; UAT-002/003/004 partial pass; **UAT-007 PARTIAL PASS**). **Not** production-ready until operator completes [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) (DNS, prod DB/env, live integrations, post-cutover smoke).
+
+**UAT-007:** Workforce planning sprint — multi-assignee work orders, conditional asset validation, workload dashboard, leave/capacity checks on assignment API. Roster CRUD UI and full skill suggestion engine remain partial.
 
 **UAT-006:** Go-live decision pack prepared — **NO-GO for cutover** until operator-owned items complete. See [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md).
 
@@ -30,6 +32,7 @@ Integrations default to **disabled or mock** and must be explicitly enabled with
 | Multi-tenancy + RBAC | **Ready** | Tenant middleware, JWT, roles, permissions guards |
 | Audit trail | **Ready** | Prisma middleware + domain audit; WO lifecycle audited (UAT-004) |
 | Work order approval | **Partial** | Approve/reject API + kanban UI; auto-approve for privileged creators |
+| Workforce planning (UAT-007) | **Partial** | Multi-assignee model + API; designation filter; leave/capacity checks; roster UI roadmap |
 | Fleet gate UI | **Partial** | `/fleet/gate` page shipped; override admin-only on API |
 | File / evidence storage | **Partial** | Readiness indicator ENABLED/DISABLED/MISCONFIGURED; staging disabled |
 | Web dashboard | **Ready** | Role nav, live KPIs on core modules |

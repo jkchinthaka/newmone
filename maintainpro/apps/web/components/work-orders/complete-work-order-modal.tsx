@@ -5,13 +5,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Loader2, X } from "lucide-react";
 
 import type { WorkOrder } from "./types";
+import { getWorkOrderDueUrgency } from "./helpers";
 
 type CompleteWorkOrderModalProps = {
   open: boolean;
   workOrder: WorkOrder | null;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (payload: { actualCost: number; actualHours: number }) => void;
+  onSubmit: (payload: { actualCost: number; actualHours: number; delayReason?: string }) => void;
 };
 
 export function CompleteWorkOrderModal({
@@ -23,6 +24,8 @@ export function CompleteWorkOrderModal({
 }: CompleteWorkOrderModalProps) {
   const [actualCost, setActualCost] = useState("");
   const [actualHours, setActualHours] = useState("");
+  const [delayReason, setDelayReason] = useState("");
+  const requiresDelayReason = workOrder ? getWorkOrderDueUrgency(workOrder).level === "OVERDUE" : false;
 
   useEffect(() => {
     if (!open) {
@@ -31,6 +34,7 @@ export function CompleteWorkOrderModal({
 
     setActualCost(workOrder?.actualCost?.toString() ?? "");
     setActualHours(workOrder?.actualHours?.toString() ?? "");
+    setDelayReason("");
   }, [open, workOrder]);
 
   return (
@@ -70,7 +74,15 @@ export function CompleteWorkOrderModal({
                   return;
                 }
 
-                onSubmit({ actualCost: cost, actualHours: hours });
+                if (requiresDelayReason && !delayReason.trim()) {
+                  return;
+                }
+
+                onSubmit({
+                  actualCost: cost,
+                  actualHours: hours,
+                  delayReason: delayReason.trim() || undefined
+                });
               }}
               className="space-y-4 px-5 py-4"
             >
@@ -99,6 +111,20 @@ export function CompleteWorkOrderModal({
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
                 />
               </label>
+
+              {requiresDelayReason ? (
+                <label className="space-y-1 text-sm text-slate-700">
+                  <span className="font-medium">Delay reason (required — overdue)</span>
+                  <textarea
+                    required
+                    rows={2}
+                    value={delayReason}
+                    onChange={(event) => setDelayReason(event.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                    placeholder="Explain why completion was delayed..."
+                  />
+                </label>
+              ) : null}
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
                 <button

@@ -146,16 +146,95 @@ export function isWorkOrderOverdue(order: WorkOrder): boolean {
     return true;
   }
 
-  if (!order.dueDate) {
+  const target = getWorkOrderCompletionTarget(order);
+  if (!target) {
     return false;
   }
 
-  const dueDate = new Date(order.dueDate);
-  if (Number.isNaN(dueDate.getTime())) {
-    return false;
+  return Date.now() > target.getTime();
+}
+
+export type WorkOrderDueUrgency = "OVERDUE" | "DUE_24H" | "DUE_3D" | "FUTURE" | "NONE";
+
+export function getWorkOrderCompletionTarget(order: WorkOrder): Date | null {
+  const raw =
+    order.plannedEndAt ?? order.expectedCompletionDate ?? order.dueDate ?? null;
+  if (!raw) {
+    return null;
   }
 
-  return Date.now() > dueDate.getTime();
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function getWorkOrderDueUrgency(order: WorkOrder): {
+  level: WorkOrderDueUrgency;
+  delayDays: number;
+  target: Date | null;
+} {
+  if (order.status === "COMPLETED" || order.status === "CANCELLED") {
+    return { level: "NONE", delayDays: 0, target: null };
+  }
+
+  const target = getWorkOrderCompletionTarget(order);
+  if (!target) {
+    return { level: "NONE", delayDays: 0, target: null };
+  }
+
+  const ms = target.getTime() - Date.now();
+  if (ms < 0) {
+    return {
+      level: "OVERDUE",
+      delayDays: Math.ceil(Math.abs(ms) / (24 * 60 * 60 * 1000)),
+      target
+    };
+  }
+
+  const hours = ms / (60 * 60 * 1000);
+  if (hours <= 24) {
+    return { level: "DUE_24H", delayDays: 0, target };
+  }
+
+  const days = ms / (24 * 60 * 60 * 1000);
+  if (days <= 3) {
+    return { level: "DUE_3D", delayDays: 0, target };
+  }
+
+  return { level: "FUTURE", delayDays: 0, target };
+}
+
+export function getDueUrgencyClass(level: WorkOrderDueUrgency): string {
+  switch (level) {
+    case "OVERDUE":
+      return "bg-rose-100 text-rose-800 ring-rose-200";
+    case "DUE_24H":
+      return "bg-orange-100 text-orange-800 ring-orange-200";
+    case "DUE_3D":
+      return "bg-amber-100 text-amber-900 ring-amber-200";
+    case "FUTURE":
+      return "bg-emerald-100 text-emerald-800 ring-emerald-200";
+    default:
+      return "bg-slate-100 text-slate-600 ring-slate-200";
+  }
+}
+
+export function getDueUrgencyLabel(level: WorkOrderDueUrgency, delayDays: number): string {
+  switch (level) {
+    case "OVERDUE":
+      return delayDays > 0 ? `${delayDays}d overdue` : "Overdue";
+    case "DUE_24H":
+      return "Due within 24h";
+    case "DUE_3D":
+      return "Due within 3 days";
+    case "FUTURE":
+      return "On schedule";
+    default:
+      return "No target date";
+  }
+}
+
+export function requiresAssetOrVehicle(type: WorkOrder["type"]): boolean {
+  return type === "PREVENTIVE" || type === "INSPECTION" || type === "INSTALLATION";
 }
 
 export function compareWorkOrders(

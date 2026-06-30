@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApproveWorkOrderDto, RejectWorkOrderDto, SubmitWorkOrderForApprovalDto } from "./dto/work-order-approval.dto";
 import { WorkOrderActivityService } from "./work-order-activity.service";
+import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 
@@ -23,6 +24,7 @@ export class WorkOrdersController {
   constructor(
     private readonly workOrdersService: WorkOrdersService,
     private readonly workOrderActivityService: WorkOrderActivityService,
+    private readonly workOrderAssigneesService: WorkOrderAssigneesService,
     private readonly evidenceService: EvidenceService
   ) {}
 
@@ -49,6 +51,7 @@ export class WorkOrdersController {
       scheduleId?: string;
       createdById: string;
       dueDate?: string;
+      expectedCompletionDate?: string;
       requiresApproval?: boolean;
     }
   ) {
@@ -105,7 +108,7 @@ export class WorkOrdersController {
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: Partial<{ title: string; description: string; dueDate: string; estimatedCost: number; estimatedHours: number }>
+    @Body() body: Partial<{ title: string; description: string; dueDate: string; expectedCompletionDate: string; plannedStartAt: string; plannedEndAt: string; estimatedCost: number; estimatedHours: number }>
   ) {
     const data = await this.workOrdersService.update(id, body, req.user);
     return { data, message: "Work order updated" };
@@ -117,6 +120,48 @@ export class WorkOrdersController {
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.remove(id, req.user);
     return { data, message: "Work order deleted" };
+  }
+
+  @Get(":id/assignees")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  async listAssignees(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderAssigneesService.listAssignees(id, req.user);
+    return { data, message: "Work order assignees fetched" };
+  }
+
+  @Post(":id/assignees")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async addAssignee(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      employeeId: string;
+      designation?: string;
+      roleInTask?: string;
+      isPrimary?: boolean;
+      plannedStartAt?: string;
+      plannedEndAt?: string;
+      estimatedHours?: number;
+      remarks?: string;
+      leaveOverride?: boolean;
+    }
+  ) {
+    const data = await this.workOrderAssigneesService.addAssignee(id, body, req.user);
+    return { data, message: "Work order assignee added" };
+  }
+
+  @Delete(":id/assignees/:assigneeId")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async removeAssignee(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("assigneeId") assigneeId: string
+  ) {
+    const data = await this.workOrderAssigneesService.removeAssignee(id, assigneeId, req.user);
+    return { data, message: "Work order assignee removed" };
   }
 
   @Post(":id/assign")
@@ -161,7 +206,7 @@ export class WorkOrdersController {
   async updateStatus(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { status: WorkOrderStatus; actualCost?: number; actualHours?: number }
+    @Body() body: { status: WorkOrderStatus; actualCost?: number; actualHours?: number; delayReason?: string }
   ) {
     const data = await this.workOrdersService.updateStatus(id, body, req.user);
     return { data, message: "Work order status updated" };

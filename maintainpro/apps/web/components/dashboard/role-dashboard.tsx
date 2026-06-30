@@ -22,6 +22,7 @@ import { InventorySummary } from "./inventory-summary";
 import { ReportsSummary } from "./reports-summary";
 import { SystemHealthSummary } from "./system-health-summary";
 import { WorkOrdersSummary } from "./work-orders-summary";
+import { WorkforcePendingPanel } from "./workforce-pending-panel";
 
 export function RoleDashboard() {
   const user = useCurrentUser();
@@ -53,6 +54,8 @@ export function RoleDashboard() {
           }
         />
       ) : null}
+
+      {variant === "management" || variant === "admin" ? <WorkforcePendingPanel /> : null}
 
       {dashboardShowsInventorySummary(variant) ? <InventorySummary /> : null}
 
