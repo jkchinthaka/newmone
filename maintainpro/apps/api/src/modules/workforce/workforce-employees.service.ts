@@ -69,6 +69,18 @@ export class WorkforceEmployeesService {
     }
   }
 
+  private async assertLinkedUserIdAvailable(linkedUserId: string, excludeEmployeeId?: string) {
+    const existing = await this.prisma.employee.findFirst({
+      where: {
+        linkedUserId,
+        ...(excludeEmployeeId ? { id: { not: excludeEmployeeId } } : {})
+      }
+    });
+    if (existing) {
+      throw new BadRequestException("This user account is already linked to another employee");
+    }
+  }
+
   private async assertUniqueEmail(email: string, excludeLinkedUserId?: string) {
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
     if (existingUser && existingUser.id !== excludeLinkedUserId) {
@@ -252,6 +264,7 @@ export class WorkforceEmployeesService {
       }
 
       linkedUserId = user.id;
+      await this.assertLinkedUserIdAvailable(linkedUserId);
     }
 
     return this.prisma.employee.create({
@@ -382,6 +395,7 @@ export class WorkforceEmployeesService {
       }
 
       data.linkedUserId = user.id;
+      await this.assertLinkedUserIdAvailable(user.id, id);
     }
 
     if (existing.linkedUserId) {

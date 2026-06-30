@@ -1468,6 +1468,85 @@ async function seedWorkforceEmployees(tenantId: string) {
     }
   });
 
+  async function findExistingWorkforceEmployee(input: {
+    linkedUserId?: string;
+    employeeNo?: string;
+    email?: string | null;
+  }) {
+    const or: Prisma.EmployeeWhereInput[] = [];
+
+    if (input.linkedUserId) {
+      or.push({ linkedUserId: input.linkedUserId });
+    }
+    if (input.employeeNo) {
+      or.push({ tenantId, employeeNo: input.employeeNo });
+    }
+    if (input.email?.trim()) {
+      or.push({ email: input.email.trim().toLowerCase() });
+    }
+
+    if (or.length === 0) {
+      return null;
+    }
+
+    const matches = await prisma.employee.findMany({
+      where: { OR: or },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    if (input.linkedUserId) {
+      const linkedMatch = matches.find((row) => row.linkedUserId === input.linkedUserId);
+      if (linkedMatch) {
+        return linkedMatch;
+      }
+    }
+
+    if (input.employeeNo) {
+      const employeeNoMatch = matches.find((row) => row.employeeNo === input.employeeNo);
+      if (employeeNoMatch) {
+        return employeeNoMatch;
+      }
+    }
+
+    return matches[0];
+  }
+
+  async function upsertWorkforceEmployee(
+    match: { linkedUserId?: string; employeeNo?: string; email?: string | null },
+    data: Prisma.EmployeeCreateInput | Prisma.EmployeeUncheckedCreateInput
+  ) {
+    const existing = await findExistingWorkforceEmployee(match);
+
+    if (existing) {
+      const { tenantId: _tenantId, ...updateData } = data as Prisma.EmployeeUncheckedCreateInput;
+      return prisma.employee.update({
+        where: { id: existing.id },
+        data: updateData
+      });
+    }
+
+    if (match.linkedUserId) {
+      const linkedExisting = await prisma.employee.findFirst({
+        where: { linkedUserId: match.linkedUserId }
+      });
+      if (linkedExisting) {
+        const { tenantId: _tenantId, ...updateData } = data as Prisma.EmployeeUncheckedCreateInput;
+        return prisma.employee.update({
+          where: { id: linkedExisting.id },
+          data: updateData
+        });
+      }
+    }
+
+    return prisma.employee.create({
+      data: data as Prisma.EmployeeUncheckedCreateInput
+    });
+  }
+
   async function upsertEmployeeFromUser(input: {
     userEmail: string;
     employeeNo: string;
@@ -1481,9 +1560,7 @@ async function seedWorkforceEmployees(tenantId: string) {
     }
 
     const fullName = `${user.firstName} ${user.lastName}`.trim();
-    const existing = await prisma.employee.findFirst({ where: { linkedUserId: user.id } });
-
-    const payload = {
+    const payload: Prisma.EmployeeUncheckedCreateInput = {
       tenantId,
       employeeNo: input.employeeNo,
       fullName,
@@ -1499,14 +1576,14 @@ async function seedWorkforceEmployees(tenantId: string) {
       linkedUserId: user.id
     };
 
-    if (existing) {
-      return prisma.employee.update({
-        where: { id: existing.id },
-        data: payload
-      });
-    }
-
-    return prisma.employee.create({ data: payload });
+    return upsertWorkforceEmployee(
+      {
+        linkedUserId: user.id,
+        employeeNo: input.employeeNo,
+        email: user.email
+      },
+      payload
+    );
   }
 
   await upsertEmployeeFromUser({
@@ -1545,26 +1622,21 @@ async function seedWorkforceEmployees(tenantId: string) {
   ] as const;
 
   for (const sample of sampleEmployees) {
-    const existing = await prisma.employee.findFirst({
-      where: { tenantId, employeeNo: sample.employeeNo }
-    });
-
-    if (!existing) {
-      await prisma.employee.create({
-        data: {
-          tenantId,
-          employeeNo: sample.employeeNo,
-          fullName: sample.fullName,
-          designation: sample.designation,
-          skills: [...sample.skills],
-          dailyCapacityHours: 8,
-          active: true,
-          canLogin: false,
-          branchName: "Main Site",
-          departmentId: maintenanceDept?.id ?? null
-        }
-      });
-    }
+    await upsertWorkforceEmployee(
+      { employeeNo: sample.employeeNo },
+      {
+        tenantId,
+        employeeNo: sample.employeeNo,
+        fullName: sample.fullName,
+        designation: sample.designation,
+        skills: [...sample.skills],
+        dailyCapacityHours: 8,
+        active: true,
+        canLogin: false,
+        branchName: "Main Site",
+        departmentId: maintenanceDept?.id ?? null
+      }
+    );
   }
 
   const legacyAssignees = await prisma.workOrderAssignee.findMany({

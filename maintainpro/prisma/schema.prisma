@@ -232,7 +232,7 @@ model User {
   evidenceAttachmentsUploaded EvidenceAttachment[] @relation("EvidenceUploader")
   workOrderAssignmentsCreated WorkOrderAssignee[]  @relation("WorkOrderAssigneeAssignedBy")
   employeeLeaveApprovals      EmployeeLeaveRequest[] @relation("EmployeeLeaveApprover")
-  linkedWorkforceEmployee     Employee?            @relation("EmployeeLinkedUser")
+  linkedWorkforceEmployees     Employee[]           @relation("EmployeeLinkedUser")
 
   @@index([tenantId])
   @@index([roleId])
@@ -1157,7 +1157,7 @@ model Employee {
   employeeLeaveRequests EmployeeLeaveRequest[]
 
   @@unique([tenantId, employeeNo])
-  @@unique([linkedUserId])
+  @@index([linkedUserId])
   @@index([tenantId, active])
   @@index([tenantId, designation])
   @@index([email])
