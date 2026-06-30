@@ -105,8 +105,16 @@ export function WorkOrderEvidencePanel({
             Photos and documents
           </h4>
           <p className="mt-1 text-xs text-slate-500">
-            Metadata only in this foundation release. File bytes are not stored in MongoDB.
+            Upload before/after photos, completion notes, or invoice documents when storage is enabled. This release
+            records attachment metadata only; binary storage depends on your configured evidence provider.
           </p>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-500">
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1">Before photo</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1">After photo</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1">Completion note</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1">Invoice / document</span>
         </div>
 
         <div className="flex flex-col items-stretch gap-2 sm:items-end">

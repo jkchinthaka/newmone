@@ -761,6 +761,8 @@ async function main() {
       roleId: roles.get(RoleName.SUPERVISOR)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      designation: "SUPERVISOR",
+      dailyCapacityHours: 8,
       isActive: true
     },
     create: {
@@ -770,6 +772,8 @@ async function main() {
       firstName: "Cleaning",
       lastName: "Supervisor",
       roleId: roles.get(RoleName.SUPERVISOR)!.id,
+      designation: "SUPERVISOR",
+      dailyCapacityHours: 8,
       isActive: true
     }
   });
@@ -782,6 +786,8 @@ async function main() {
       roleId: roles.get(RoleName.CLEANER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      designation: "CLEANER",
+      dailyCapacityHours: 8,
       isActive: true
     },
     create: {
@@ -791,6 +797,8 @@ async function main() {
       firstName: "Kamal",
       lastName: "Perera",
       roleId: roles.get(RoleName.CLEANER)!.id,
+      designation: "CLEANER",
+      dailyCapacityHours: 8,
       isActive: true
     }
   });
@@ -845,6 +853,9 @@ async function main() {
       roleId: roles.get(RoleName.TECHNICIAN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      designation: "TECHNICIAN",
+      dailyCapacityHours: 8,
+      skills: ["General maintenance", "Preventive service"],
       isActive: true
     },
     create: {
@@ -854,6 +865,36 @@ async function main() {
       firstName: "Field",
       lastName: "Technician",
       roleId: roles.get(RoleName.TECHNICIAN)!.id,
+      designation: "TECHNICIAN",
+      dailyCapacityHours: 8,
+      skills: ["General maintenance", "Preventive service"],
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "mechanic@maintainpro.local" },
+    update: {
+      firstName: "Workshop",
+      lastName: "Mechanic",
+      roleId: roles.get(RoleName.MECHANIC)!.id,
+      tenantId: tenant.id,
+      passwordHash: adminPasswordHash,
+      designation: "MECHANIC",
+      dailyCapacityHours: 8,
+      skills: ["Engine repair", "Hydraulics"],
+      isActive: true
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "mechanic@maintainpro.local",
+      passwordHash: adminPasswordHash,
+      firstName: "Workshop",
+      lastName: "Mechanic",
+      roleId: roles.get(RoleName.MECHANIC)!.id,
+      designation: "MECHANIC",
+      dailyCapacityHours: 8,
+      skills: ["Engine repair", "Hydraulics"],
       isActive: true
     }
   });

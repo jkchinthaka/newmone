@@ -155,6 +155,7 @@ export class WorkOrdersController {
       estimatedHours?: number;
       remarks?: string;
       leaveOverride?: boolean;
+      leaveOverrideReason?: string;
     }
   ) {
     const data = await this.workOrderAssigneesService.addAssignee(id, body, req.user);

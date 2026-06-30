@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, PackagePlus, CheckCircle2, XCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
-import { getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   approvePartRequestFinance,
   approvePartRequestOperational,
@@ -18,6 +18,14 @@ import {
 interface Props {
   workOrderId: string;
 }
+
+type SparePartOption = {
+  id: string;
+  partNumber?: string | null;
+  sku?: string | null;
+  name?: string | null;
+  quantityInStock?: number | null;
+};
 
 function badge(status: PartRequest["status"]) {
   switch (status) {
@@ -36,15 +44,43 @@ function badge(status: PartRequest["status"]) {
   }
 }
 
+function partLabel(part: SparePartOption): string {
+  const code = part.partNumber ?? part.sku ?? part.id;
+  const stock =
+    typeof part.quantityInStock === "number" ? ` · stock ${part.quantityInStock}` : "";
+  return `${code} — ${part.name ?? "Unnamed part"}${stock}`;
+}
+
 export function PartRequestsPanel({ workOrderId }: Props) {
   const [items, setItems] = useState<PartRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [partId, setPartId] = useState("");
+  const [partSearch, setPartSearch] = useState("");
+  const [parts, setParts] = useState<SparePartOption[]>([]);
+  const [partsLoading, setPartsLoading] = useState(true);
+  const [partsSearchAvailable, setPartsSearchAvailable] = useState(true);
   const [quantity, setQuantity] = useState("1");
   const [reason, setReason] = useState("");
   const [creating, setCreating] = useState(false);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
+
+  const filteredParts = useMemo(() => {
+    const query = partSearch.trim().toLowerCase();
+    if (!query) {
+      return parts.slice(0, 50);
+    }
+
+    return parts
+      .filter((part) =>
+        [part.id, part.partNumber, part.sku, part.name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+      .slice(0, 50);
+  }, [partSearch, parts]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -58,13 +94,28 @@ export function PartRequestsPanel({ workOrderId }: Props) {
     }
   }, [workOrderId]);
 
+  const loadParts = useCallback(async () => {
+    setPartsLoading(true);
+    try {
+      const response = await apiClient.get<{ data: SparePartOption[] }>("/inventory/parts");
+      setParts(response.data.data ?? []);
+      setPartsSearchAvailable(true);
+    } catch {
+      setParts([]);
+      setPartsSearchAvailable(false);
+    } finally {
+      setPartsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void loadParts();
+  }, [loadParts, refresh]);
 
   async function handleCreate() {
     if (!partId.trim() || !quantity) {
-      toast.error("Part ID and quantity are required.");
+      toast.error("Select a spare part and quantity.");
       return;
     }
     setCreating(true);
@@ -76,6 +127,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
       });
       toast.success("Part request submitted.");
       setPartId("");
+      setPartSearch("");
       setQuantity("1");
       setReason("");
       await refresh();
@@ -108,34 +160,63 @@ export function PartRequestsPanel({ workOrderId }: Props) {
         </button>
       </div>
 
-      <div className="mt-3 grid gap-2 md:grid-cols-[1fr_120px_1fr_auto]">
-        <input
-          value={partId}
-          onChange={(e) => setPartId(e.target.value)}
-          placeholder="Spare part ID"
-          className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-        />
-        <input
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          type="number"
-          min={1}
-          className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-        />
-        <input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason (optional)"
-          className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-        />
-        <button
-          type="button"
-          disabled={creating}
-          onClick={() => void handleCreate()}
-          className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50 hover:bg-brand-500"
-        >
-          <PackagePlus size={14} /> Request
-        </button>
+      <div className="mt-3 grid gap-2">
+        {partsSearchAvailable ? (
+          <>
+            <input
+              value={partSearch}
+              onChange={(event) => setPartSearch(event.target.value)}
+              placeholder="Search spare parts by code or name"
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+            />
+            <select
+              value={partId}
+              onChange={(event) => setPartId(event.target.value)}
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+            >
+              <option value="">{partsLoading ? "Loading spare parts..." : "Select spare part"}</option>
+              {filteredParts.map((part) => (
+                <option key={part.id} value={part.id}>
+                  {partLabel(part)}
+                </option>
+              ))}
+            </select>
+            {!partsLoading && filteredParts.length === 0 ? (
+              <p className="text-xs text-slate-500">No spare parts match your search.</p>
+            ) : null}
+          </>
+        ) : (
+          <input
+            value={partId}
+            onChange={(event) => setPartId(event.target.value)}
+            placeholder="Spare part ID (inventory search unavailable)"
+            className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+          />
+        )}
+
+        <div className="grid gap-2 md:grid-cols-[120px_1fr_auto]">
+          <input
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            type="number"
+            min={1}
+            className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+          />
+          <input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Reason (optional)"
+            className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+          />
+          <button
+            type="button"
+            disabled={creating}
+            onClick={() => void handleCreate()}
+            className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50 hover:bg-brand-500"
+          >
+            <PackagePlus size={14} /> Request
+          </button>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -222,7 +303,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
                   <div className="flex items-center gap-1">
                     <input
                       value={rejectReasons[pr.id] ?? ""}
-                      onChange={(e) => setRejectReasons((prev) => ({ ...prev, [pr.id]: e.target.value }))}
+                      onChange={(event) => setRejectReasons((prev) => ({ ...prev, [pr.id]: event.target.value }))}
                       placeholder="Reject reason"
                       className="rounded-md border border-slate-200 px-2 py-1 text-[11px]"
                     />

@@ -13,6 +13,10 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import {
+  matchesWorkforceDesignation,
+  resolveEffectiveDesignation
+} from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
@@ -29,6 +33,7 @@ export type AddWorkOrderAssigneeInput = {
   estimatedHours?: number;
   remarks?: string;
   leaveOverride?: boolean;
+  leaveOverrideReason?: string;
 };
 
 @Injectable()
@@ -143,12 +148,36 @@ export class WorkOrderAssigneesService {
     }
 
     if (input.designation?.trim()) {
-      const required = input.designation.trim().toLowerCase();
-      const employeeDesignation = (employee.designation ?? "").trim().toLowerCase();
-      if (employeeDesignation && employeeDesignation !== required) {
+      const matches = matchesWorkforceDesignation(
+        { designation: employee.designation, roleName: employee.role.name },
+        input.designation
+      );
+      if (!matches) {
+        const effective = resolveEffectiveDesignation({
+          designation: employee.designation,
+          roleName: employee.role.name
+        });
         throw new BadRequestException(
-          `Employee designation "${employee.designation}" does not match required "${input.designation}"`
+          `Employee designation "${effective ?? "unknown"}" does not match required "${input.designation}"`
         );
+      }
+    }
+
+    const plannedStartAt = input.plannedStartAt ? new Date(input.plannedStartAt) : null;
+    const plannedEndAt = input.plannedEndAt ? new Date(input.plannedEndAt) : null;
+
+    if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() <= plannedStartAt.getTime()) {
+      throw new BadRequestException("Planned end must be after planned start");
+    }
+
+    if (input.estimatedHours !== undefined && input.estimatedHours <= 0) {
+      throw new BadRequestException("Estimated hours must be greater than 0");
+    }
+
+    if (input.leaveOverride) {
+      this.assertLeaveOverridePermission(actor?.role);
+      if (!input.leaveOverrideReason?.trim()) {
+        throw new BadRequestException("Leave override reason is required when overriding approved leave");
       }
     }
 
@@ -164,9 +193,6 @@ export class WorkOrderAssigneesService {
     if (existing && existing.assignmentStatus !== WorkOrderAssigneeStatus.REMOVED) {
       throw new BadRequestException("Employee is already assigned to this work order");
     }
-
-    const plannedStartAt = input.plannedStartAt ? new Date(input.plannedStartAt) : null;
-    const plannedEndAt = input.plannedEndAt ? new Date(input.plannedEndAt) : null;
 
     await this.workforcePlanning.assertAssignmentAvailability({
       tenantId: workOrder.tenantId,
@@ -199,7 +225,13 @@ export class WorkOrderAssigneesService {
         tenantId: workOrder.tenantId,
         workOrderId,
         employeeId: input.employeeId,
-        designation: input.designation?.trim() || employee.designation,
+        designation:
+          input.designation?.trim() ||
+          resolveEffectiveDesignation({
+            designation: employee.designation,
+            roleName: employee.role.name
+          }) ||
+          employee.designation,
         roleInTask: input.roleInTask?.trim(),
         isPrimary: Boolean(input.isPrimary),
         plannedStartAt,
@@ -207,11 +239,19 @@ export class WorkOrderAssigneesService {
         estimatedHours: input.estimatedHours,
         assignmentStatus: WorkOrderAssigneeStatus.ASSIGNED,
         assignedById: actor?.sub,
-        remarks: input.remarks?.trim(),
+        remarks: input.leaveOverride
+          ? [input.leaveOverrideReason?.trim(), input.remarks?.trim()].filter(Boolean).join(" | ")
+          : input.remarks?.trim(),
         leaveOverride: Boolean(input.leaveOverride)
       },
       update: {
-        designation: input.designation?.trim() || employee.designation,
+        designation:
+          input.designation?.trim() ||
+          resolveEffectiveDesignation({
+            designation: employee.designation,
+            roleName: employee.role.name
+          }) ||
+          employee.designation,
         roleInTask: input.roleInTask?.trim(),
         isPrimary: Boolean(input.isPrimary),
         plannedStartAt,
@@ -220,7 +260,9 @@ export class WorkOrderAssigneesService {
         assignmentStatus: WorkOrderAssigneeStatus.ASSIGNED,
         assignedById: actor?.sub,
         assignedAt: new Date(),
-        remarks: input.remarks?.trim(),
+        remarks: input.leaveOverride
+          ? [input.leaveOverrideReason?.trim(), input.remarks?.trim()].filter(Boolean).join(" | ")
+          : input.remarks?.trim(),
         leaveOverride: Boolean(input.leaveOverride)
       },
       include: {
@@ -254,12 +296,14 @@ export class WorkOrderAssigneesService {
         workOrderId,
         employeeId: input.employeeId,
         isPrimary: Boolean(input.isPrimary),
-        leaveOverride: Boolean(input.leaveOverride)
+        leaveOverride: Boolean(input.leaveOverride),
+        leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
       },
       afterData: {
         designation: assignee.designation,
         plannedStartAt: assignee.plannedStartAt?.toISOString() ?? null,
-        plannedEndAt: assignee.plannedEndAt?.toISOString() ?? null
+        plannedEndAt: assignee.plannedEndAt?.toISOString() ?? null,
+        leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
       }
     });
 

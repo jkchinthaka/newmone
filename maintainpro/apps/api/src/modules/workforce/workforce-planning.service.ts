@@ -8,6 +8,11 @@ import {
 } from "@prisma/client";
 
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
+import {
+  ASSIGNABLE_WORKFORCE_ROLE_NAMES,
+  matchesWorkforceDesignation,
+  resolveEffectiveDesignation
+} from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -146,16 +151,12 @@ export class WorkforcePlanningService {
       ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {}),
       role: {
         name: {
-          notIn: [RoleName.DRIVER, RoleName.VIEWER]
+          in: ASSIGNABLE_WORKFORCE_ROLE_NAMES
         }
       }
     };
 
-    if (designation?.trim()) {
-      where.designation = { equals: designation.trim(), mode: "insensitive" };
-    }
-
-    return this.prisma.user.findMany({
+    const rows = await this.prisma.user.findMany({
       where,
       select: {
         id: true,
@@ -170,6 +171,82 @@ export class WorkforcePlanningService {
       },
       orderBy: [{ designation: "asc" }, { lastName: "asc" }]
     });
+
+    const enriched = await Promise.all(
+      rows.map(async (row) => {
+        const effectiveDesignation = resolveEffectiveDesignation({
+          designation: row.designation,
+          roleName: row.role.name
+        });
+        const todayAllocatedHours = await this.getAllocatedHoursForDay({
+          tenantId,
+          employeeId: row.id,
+          day: new Date()
+        });
+        const capacity = row.dailyCapacityHours ?? 8;
+        const workloadPercentage = Math.min(100, Math.round((todayAllocatedHours / capacity) * 100));
+
+        return {
+          ...row,
+          roleName: row.role.name,
+          effectiveDesignation,
+          todayAllocatedHours,
+          workloadPercentage,
+          availabilityLabel:
+            workloadPercentage >= 90
+              ? "High load"
+              : workloadPercentage >= 70
+                ? "Busy"
+                : "Available"
+        };
+      })
+    );
+
+    return enriched.filter((row) =>
+      matchesWorkforceDesignation(
+        { designation: row.designation, roleName: row.roleName },
+        designation
+      )
+    );
+  }
+
+  async previewAssignment(input: {
+    tenantId?: string | null;
+    employeeId: string;
+    plannedStartAt?: string;
+    plannedEndAt?: string;
+    estimatedHours?: number;
+  }) {
+    const rangeStart = input.plannedStartAt ? new Date(input.plannedStartAt) : new Date();
+    const rangeEnd = input.plannedEndAt ? new Date(input.plannedEndAt) : rangeStart;
+
+    const onApprovedLeave = await this.hasApprovedLeave({
+      tenantId: input.tenantId,
+      employeeId: input.employeeId,
+      from: startOfDayUtc(rangeStart),
+      to: endOfDayUtc(rangeEnd)
+    });
+
+    const employee = await this.prisma.user.findUnique({
+      where: { id: input.employeeId },
+      select: { dailyCapacityHours: true }
+    });
+
+    const capacity = employee?.dailyCapacityHours ?? 8;
+    const todayAllocatedHours = await this.getAllocatedHoursForDay({
+      tenantId: input.tenantId,
+      employeeId: input.employeeId,
+      day: input.plannedStartAt ? new Date(input.plannedStartAt) : new Date()
+    });
+    const incomingHours = input.estimatedHours ?? 0;
+
+    return {
+      onApprovedLeave,
+      todayAllocatedHours,
+      dailyCapacityHours: capacity,
+      incomingHours,
+      exceedsDailyCapacity: todayAllocatedHours + incomingHours > capacity
+    };
   }
 
   async getWorkloadSummary(

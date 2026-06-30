@@ -16,10 +16,29 @@ export class WorkforceController {
   constructor(private readonly workforcePlanning: WorkforcePlanningService) {}
 
   @Get("employees")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC")
   async listEmployees(@Req() req: AuthedRequest, @Query("designation") designation?: string) {
     const data = await this.workforcePlanning.listEmployeesByDesignation(req.user.tenantId, designation);
     return { data, message: "Workforce employees fetched" };
+  }
+
+  @Get("assignment-preview")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  async assignmentPreview(
+    @Req() req: AuthedRequest,
+    @Query("employeeId") employeeId: string,
+    @Query("plannedStartAt") plannedStartAt?: string,
+    @Query("plannedEndAt") plannedEndAt?: string,
+    @Query("estimatedHours") estimatedHours?: string
+  ) {
+    const data = await this.workforcePlanning.previewAssignment({
+      tenantId: req.user.tenantId,
+      employeeId,
+      plannedStartAt,
+      plannedEndAt,
+      estimatedHours: estimatedHours ? Number(estimatedHours) : undefined
+    });
+    return { data, message: "Assignment preview fetched" };
   }
 
   @Get("workload-summary")

@@ -69,19 +69,77 @@ describe("WorkOrderAssigneesService leave conflict", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("allows manager leave override with audit path", async () => {
+  it("allows manager leave override with audit path and reason", async () => {
     const result = await service.addAssignee(
       "wo-1",
       {
         employeeId: "emp-1",
         designation: "Electrician",
         estimatedHours: 2,
-        leaveOverride: true
+        leaveOverride: true,
+        leaveOverrideReason: "Emergency pump repair"
       },
       manager
     );
 
     expect(result.id).toBe("assign-1");
     expect(prisma.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("prevents duplicate active assignee", async () => {
+    prisma.employeeLeaveRequest.findFirst.mockResolvedValue(null);
+    prisma.workOrderAssignee.findUnique.mockResolvedValue({
+      id: "assign-existing",
+      assignmentStatus: "ASSIGNED"
+    });
+
+    await expect(
+      service.addAssignee(
+        "wo-1",
+        {
+          employeeId: "emp-1",
+          estimatedHours: 2,
+          plannedStartAt: "2026-06-12T08:00:00.000Z",
+          plannedEndAt: "2026-06-12T12:00:00.000Z"
+        },
+        manager
+      )
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("requires planned end after planned start", async () => {
+    prisma.employeeLeaveRequest.findFirst.mockResolvedValue(null);
+    prisma.workOrderAssignee.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.addAssignee(
+        "wo-1",
+        {
+          employeeId: "emp-1",
+          estimatedHours: 2,
+          plannedStartAt: "2026-06-12T12:00:00.000Z",
+          plannedEndAt: "2026-06-12T08:00:00.000Z"
+        },
+        manager
+      )
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("requires estimated hours greater than zero", async () => {
+    prisma.employeeLeaveRequest.findFirst.mockResolvedValue(null);
+    prisma.workOrderAssignee.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.addAssignee(
+        "wo-1",
+        {
+          employeeId: "emp-1",
+          estimatedHours: 0,
+          plannedStartAt: "2026-06-12T08:00:00.000Z",
+          plannedEndAt: "2026-06-12T12:00:00.000Z"
+        },
+        manager
+      )
+    ).rejects.toThrow(BadRequestException);
   });
 });
