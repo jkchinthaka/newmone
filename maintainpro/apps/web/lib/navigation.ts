@@ -123,6 +123,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/utilities",
   "/predictive-ai",
   "/master-data",
+  "/master-data/employees",
   "/accidents",
   "/insurance-claims",
   "/traffic-fines",

@@ -2,6 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 import { LeaveRequestStatus, RoleName, WorkOrderStatus } from "@prisma/client";
 
 import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order-assignees.service";
+import { WorkforceEmployeesService } from "../src/modules/workforce/workforce-employees.service";
 import { WorkforcePlanningService } from "../src/modules/workforce/workforce-planning.service";
 
 describe("WorkOrderAssigneesService leave conflict", () => {
@@ -10,7 +11,7 @@ describe("WorkOrderAssigneesService leave conflict", () => {
       findFirst: jest.fn(),
       update: jest.fn()
     },
-    user: { findFirst: jest.fn(), findUnique: jest.fn() },
+    employee: { findUnique: jest.fn(), findFirst: jest.fn() },
     workOrderAssignee: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -23,9 +24,21 @@ describe("WorkOrderAssigneesService leave conflict", () => {
   };
 
   const workforce = new WorkforcePlanningService(prisma as never);
-  const service = new WorkOrderAssigneesService(prisma as never, workforce);
+  const workforceEmployees = new WorkforceEmployeesService(prisma as never);
+  jest.spyOn(workforceEmployees, "resolveAssignableEmployee");
+  const service = new WorkOrderAssigneesService(prisma as never, workforce, workforceEmployees);
 
   const manager = { sub: "mgr-1", email: "m@test.local", role: RoleName.MANAGER, tenantId: "tenant-1" };
+
+  const activeEmployee = {
+    id: "emp-1",
+    fullName: "Sam Electrician",
+    designation: "ELECTRICIAN",
+    linkedUserId: null,
+    active: true,
+    linkedUser: null,
+    department: null
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -35,21 +48,18 @@ describe("WorkOrderAssigneesService leave conflict", () => {
       status: WorkOrderStatus.OPEN,
       technicianId: null
     });
-    prisma.user.findFirst.mockResolvedValue({
-      id: "emp-1",
-      designation: "Electrician",
-      role: { name: RoleName.TECHNICIAN }
-    });
-    prisma.user.findUnique.mockResolvedValue({ dailyCapacityHours: 8 });
+    jest.spyOn(workforceEmployees, "resolveAssignableEmployee").mockResolvedValue(activeEmployee as never);
+    prisma.employee.findUnique.mockResolvedValue({ dailyCapacityHours: 8, active: true });
     prisma.workOrderAssignee.findUnique.mockResolvedValue(null);
     prisma.workOrderAssignee.findMany.mockResolvedValue([]);
     prisma.workOrderAssignee.updateMany.mockResolvedValue({ count: 0 });
     prisma.workOrderAssignee.upsert.mockResolvedValue({
       id: "assign-1",
       employeeId: "emp-1",
-      designation: "Electrician",
+      designation: "ELECTRICIAN",
       plannedStartAt: null,
-      plannedEndAt: null
+      plannedEndAt: null,
+      employee: { fullName: "Sam Electrician", designation: "ELECTRICIAN" }
     });
     prisma.workOrder.update.mockResolvedValue({});
     prisma.auditLog.create.mockResolvedValue({});
@@ -63,7 +73,7 @@ describe("WorkOrderAssigneesService leave conflict", () => {
     await expect(
       service.addAssignee(
         "wo-1",
-        { employeeId: "emp-1", designation: "Electrician", estimatedHours: 2 },
+        { employeeId: "emp-1", designation: "ELECTRICIAN", estimatedHours: 2 },
         manager
       )
     ).rejects.toThrow(BadRequestException);
@@ -74,7 +84,7 @@ describe("WorkOrderAssigneesService leave conflict", () => {
       "wo-1",
       {
         employeeId: "emp-1",
-        designation: "Electrician",
+        designation: "ELECTRICIAN",
         estimatedHours: 2,
         leaveOverride: true,
         leaveOverrideReason: "Emergency pump repair"
@@ -84,6 +94,29 @@ describe("WorkOrderAssigneesService leave conflict", () => {
 
     expect(result.id).toBe("assign-1");
     expect(prisma.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("assigns employee without login using workforce employee id", async () => {
+    prisma.employeeLeaveRequest.findFirst.mockResolvedValue(null);
+
+    await service.addAssignee(
+      "wo-1",
+      {
+        employeeId: "emp-1",
+        designation: "ELECTRICIAN",
+        estimatedHours: 2,
+        plannedStartAt: "2026-06-12T08:00:00.000Z",
+        plannedEndAt: "2026-06-12T12:00:00.000Z"
+      },
+      manager
+    );
+
+    expect(workforceEmployees.resolveAssignableEmployee).toHaveBeenCalledWith("emp-1", "tenant-1");
+    expect(prisma.workOrderAssignee.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ employeeId: "emp-1" })
+      })
+    );
   });
 
   it("prevents duplicate active assignee", async () => {

@@ -13,12 +13,10 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
-import {
-  matchesWorkforceDesignation,
-  resolveEffectiveDesignation
-} from "../../common/utils/workforce-designation";
+import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { WorkforceEmployeesService } from "../workforce/workforce-employees.service";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -40,7 +38,8 @@ export type AddWorkOrderAssigneeInput = {
 export class WorkOrderAssigneesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly workforcePlanning: WorkforcePlanningService
+    private readonly workforcePlanning: WorkforcePlanningService,
+    private readonly workforceEmployees: WorkforceEmployeesService
   ) {}
 
   private resolveTenantId(actor?: Actor) {
@@ -114,11 +113,12 @@ export class WorkOrderAssigneesService {
         employee: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             designation: true,
             email: true,
-            role: { select: { name: true } }
+            branchName: true,
+            department: { select: { id: true, name: true, code: true } },
+            linkedUserId: true
           }
         }
       },
@@ -130,35 +130,17 @@ export class WorkOrderAssigneesService {
     const workOrder = await this.assertWorkOrder(workOrderId, actor);
     const tenantId = this.resolveTenantId(actor);
 
-    const employee = await this.prisma.user.findFirst({
-      where: {
-        id: input.employeeId,
-        isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
-      },
-      include: { role: true }
-    });
+    const employee = await this.workforceEmployees.resolveAssignableEmployee(input.employeeId, tenantId);
 
     if (!employee) {
       throw new NotFoundException("Employee not found");
     }
 
-    if (employee.role.name === RoleName.DRIVER || employee.role.name === RoleName.VIEWER) {
-      throw new BadRequestException("Cannot assign work orders to VIEWER or DRIVER roles");
-    }
-
     if (input.designation?.trim()) {
-      const matches = matchesWorkforceDesignation(
-        { designation: employee.designation, roleName: employee.role.name },
-        input.designation
-      );
+      const matches = matchesWorkforceDesignation({ designation: employee.designation }, input.designation);
       if (!matches) {
-        const effective = resolveEffectiveDesignation({
-          designation: employee.designation,
-          roleName: employee.role.name
-        });
         throw new BadRequestException(
-          `Employee designation "${effective ?? "unknown"}" does not match required "${input.designation}"`
+          `Employee designation "${employee.designation}" does not match required "${input.designation}"`
         );
       }
     }
@@ -181,11 +163,13 @@ export class WorkOrderAssigneesService {
       }
     }
 
+    const workforceEmployeeId = employee.id;
+
     const existing = await this.prisma.workOrderAssignee.findUnique({
       where: {
         workOrderId_employeeId: {
           workOrderId,
-          employeeId: input.employeeId
+          employeeId: workforceEmployeeId
         }
       }
     });
@@ -196,7 +180,7 @@ export class WorkOrderAssigneesService {
 
     await this.workforcePlanning.assertAssignmentAvailability({
       tenantId: workOrder.tenantId,
-      employeeId: input.employeeId,
+      employeeId: workforceEmployeeId,
       plannedStartAt,
       plannedEndAt,
       estimatedHours: input.estimatedHours,
@@ -218,20 +202,14 @@ export class WorkOrderAssigneesService {
       where: {
         workOrderId_employeeId: {
           workOrderId,
-          employeeId: input.employeeId
+          employeeId: workforceEmployeeId
         }
       },
       create: {
         tenantId: workOrder.tenantId,
         workOrderId,
-        employeeId: input.employeeId,
-        designation:
-          input.designation?.trim() ||
-          resolveEffectiveDesignation({
-            designation: employee.designation,
-            roleName: employee.role.name
-          }) ||
-          employee.designation,
+        employeeId: workforceEmployeeId,
+        designation: input.designation?.trim() || employee.designation,
         roleInTask: input.roleInTask?.trim(),
         isPrimary: Boolean(input.isPrimary),
         plannedStartAt,
@@ -245,13 +223,7 @@ export class WorkOrderAssigneesService {
         leaveOverride: Boolean(input.leaveOverride)
       },
       update: {
-        designation:
-          input.designation?.trim() ||
-          resolveEffectiveDesignation({
-            designation: employee.designation,
-            roleName: employee.role.name
-          }) ||
-          employee.designation,
+        designation: input.designation?.trim() || employee.designation,
         roleInTask: input.roleInTask?.trim(),
         isPrimary: Boolean(input.isPrimary),
         plannedStartAt,
@@ -269,10 +241,10 @@ export class WorkOrderAssigneesService {
         employee: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             designation: true,
-            role: { select: { name: true } }
+            branchName: true,
+            department: { select: { id: true, name: true, code: true } }
           }
         }
       }
@@ -281,7 +253,7 @@ export class WorkOrderAssigneesService {
     if (input.isPrimary || !workOrder.technicianId) {
       await this.prisma.workOrder.update({
         where: { id: workOrderId },
-        data: { technicianId: input.employeeId }
+        data: { technicianId: employee.linkedUserId ?? null }
       });
     }
 
@@ -294,7 +266,7 @@ export class WorkOrderAssigneesService {
       metadata: {
         event: "work_order_assignee_added",
         workOrderId,
-        employeeId: input.employeeId,
+        employeeId: workforceEmployeeId,
         isPrimary: Boolean(input.isPrimary),
         leaveOverride: Boolean(input.leaveOverride),
         leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
@@ -319,6 +291,9 @@ export class WorkOrderAssigneesService {
         id: assigneeId,
         workOrderId,
         ...(tenantId !== undefined ? { tenantId } : {})
+      },
+      include: {
+        employee: { select: { linkedUserId: true } }
       }
     });
 
@@ -338,12 +313,13 @@ export class WorkOrderAssigneesService {
           assignmentStatus: { not: WorkOrderAssigneeStatus.REMOVED },
           id: { not: assigneeId }
         },
-        orderBy: { assignedAt: "asc" }
+        orderBy: { assignedAt: "asc" },
+        include: { employee: { select: { linkedUserId: true } } }
       });
 
       await this.prisma.workOrder.update({
         where: { id: workOrderId },
-        data: { technicianId: nextPrimary?.employeeId ?? null }
+        data: { technicianId: nextPrimary?.employee.linkedUserId ?? null }
       });
 
       if (nextPrimary) {

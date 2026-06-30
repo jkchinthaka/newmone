@@ -58,6 +58,7 @@ model Tenant {
   trafficFines      TrafficFine[]
   refreshTokens     RefreshToken[]
   evidenceAttachments EvidenceAttachment[]
+  employees           Employee[]
 }
 
 model AuditLog {
@@ -229,11 +230,9 @@ model User {
   refreshTokens             RefreshToken[]
   passwordResetTokens       PasswordResetToken[]
   evidenceAttachmentsUploaded EvidenceAttachment[] @relation("EvidenceUploader")
-  workOrderAssigneeRows       WorkOrderAssignee[]  @relation("WorkOrderAssigneeEmployee")
   workOrderAssignmentsCreated WorkOrderAssignee[]  @relation("WorkOrderAssigneeAssignedBy")
-  employeeRosterEntries       EmployeeRosterEntry[]
-  employeeLeaveRequests       EmployeeLeaveRequest[]
   employeeLeaveApprovals      EmployeeLeaveRequest[] @relation("EmployeeLeaveApprover")
+  linkedWorkforceEmployee     Employee?            @relation("EmployeeLinkedUser")
 
   @@index([tenantId])
   @@index([roleId])
@@ -548,7 +547,8 @@ model Department {
   assets   Asset[]   @relation("AssetDepartment")
   vehicles Vehicle[] @relation("VehicleDepartment")
   drivers  Driver[]  @relation("DriverDepartment")
-  users    User[]    @relation("UserDepartment")
+  users     User[]     @relation("UserDepartment")
+  employees Employee[] @relation("EmployeeDepartment")
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -1129,6 +1129,40 @@ enum WorkOrderAssigneeStatus {
   REMOVED
 }
 
+/// Workforce / technician master — assignable to work orders with or without login.
+model Employee {
+  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?                 @db.ObjectId
+  tenant             Tenant?                 @relation(fields: [tenantId], references: [id])
+  employeeNo         String?
+  fullName           String
+  phone              String?
+  email              String?
+  /// Optional branch/site label until Branch master exists
+  branchName         String?
+  departmentId       String?                 @db.ObjectId
+  department         Department?             @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  designation        String
+  skills             String[]
+  dailyCapacityHours Float                   @default(8)
+  active             Boolean                 @default(true)
+  canLogin           Boolean                 @default(false)
+  linkedUserId       String?                 @db.ObjectId
+  linkedUser         User?                   @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  workOrderAssigneeRows WorkOrderAssignee[]  @relation("WorkOrderAssigneeEmployee")
+  employeeRosterEntries EmployeeRosterEntry[]
+  employeeLeaveRequests EmployeeLeaveRequest[]
+
+  @@unique([tenantId, employeeNo])
+  @@unique([linkedUserId])
+  @@index([tenantId, active])
+  @@index([tenantId, designation])
+  @@index([email])
+}
+
 enum LeaveRequestStatus {
   PENDING
   APPROVED
@@ -1143,7 +1177,7 @@ model WorkOrderAssignee {
   workOrderId      String                  @db.ObjectId
   workOrder        WorkOrder               @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   employeeId       String                  @db.ObjectId
-  employee         User                    @relation("WorkOrderAssigneeEmployee", fields: [employeeId], references: [id])
+  employee         Employee                @relation("WorkOrderAssigneeEmployee", fields: [employeeId], references: [id])
   designation      String?
   roleInTask       String?
   isPrimary        Boolean                 @default(false)
@@ -1172,7 +1206,7 @@ model EmployeeRosterEntry {
   tenantId     String?     @db.ObjectId
   tenant       Tenant?     @relation(fields: [tenantId], references: [id])
   employeeId   String      @db.ObjectId
-  employee     User        @relation(fields: [employeeId], references: [id])
+  employee     Employee    @relation(fields: [employeeId], references: [id])
   rosterDate   DateTime
   shiftCode    String?
   shiftStartAt DateTime?
@@ -1194,7 +1228,7 @@ model EmployeeLeaveRequest {
   tenantId     String?            @db.ObjectId
   tenant       Tenant?            @relation(fields: [tenantId], references: [id])
   employeeId   String             @db.ObjectId
-  employee     User               @relation(fields: [employeeId], references: [id])
+  employee     Employee           @relation(fields: [employeeId], references: [id])
   startDate    DateTime
   endDate      DateTime
   leaveType    String?

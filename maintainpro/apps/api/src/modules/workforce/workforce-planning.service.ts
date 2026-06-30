@@ -8,11 +8,7 @@ import {
 } from "@prisma/client";
 
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
-import {
-  ASSIGNABLE_WORKFORCE_ROLE_NAMES,
-  matchesWorkforceDesignation,
-  resolveEffectiveDesignation
-} from "../../common/utils/workforce-designation";
+import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -24,10 +20,6 @@ function startOfDayUtc(date: Date): Date {
 
 function endOfDayUtc(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
-}
-
-function datesOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
-  return startA.getTime() <= endB.getTime() && endA.getTime() >= startB.getTime();
 }
 
 @Injectable()
@@ -124,10 +116,14 @@ export class WorkforcePlanningService {
       }
     }
 
-    const employee = await this.prisma.user.findUnique({
+    const employee = await this.prisma.employee.findUnique({
       where: { id: input.employeeId },
-      select: { dailyCapacityHours: true }
+      select: { dailyCapacityHours: true, active: true }
     });
+
+    if (!employee?.active) {
+      throw new BadRequestException("Inactive employees cannot be assigned");
+    }
 
     const capacity = employee?.dailyCapacityHours ?? 8;
     const checkDay = input.plannedStartAt ?? new Date();
@@ -146,38 +142,32 @@ export class WorkforcePlanningService {
   }
 
   async listEmployeesByDesignation(tenantId: string | null | undefined, designation?: string) {
-    const where: Prisma.UserWhereInput = {
-      isActive: true,
-      ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {}),
-      role: {
-        name: {
-          in: ASSIGNABLE_WORKFORCE_ROLE_NAMES
-        }
-      }
-    };
-
-    const rows = await this.prisma.user.findMany({
-      where,
+    const rows = await this.prisma.employee.findMany({
+      where: {
+        active: true,
+        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
+      },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        fullName: true,
         email: true,
+        phone: true,
         designation: true,
         skills: true,
         dailyCapacityHours: true,
         departmentId: true,
-        role: { select: { name: true } }
+        branchName: true,
+        canLogin: true,
+        linkedUserId: true,
+        department: { select: { id: true, name: true, code: true } },
+        linkedUser: { select: { role: { select: { name: true } } } }
       },
-      orderBy: [{ designation: "asc" }, { lastName: "asc" }]
+      orderBy: [{ designation: "asc" }, { fullName: "asc" }]
     });
 
     const enriched = await Promise.all(
       rows.map(async (row) => {
-        const effectiveDesignation = resolveEffectiveDesignation({
-          designation: row.designation,
-          roleName: row.role.name
-        });
+        const effectiveDesignation = row.designation;
         const todayAllocatedHours = await this.getAllocatedHoursForDay({
           tenantId,
           employeeId: row.id,
@@ -187,8 +177,19 @@ export class WorkforcePlanningService {
         const workloadPercentage = Math.min(100, Math.round((todayAllocatedHours / capacity) * 100));
 
         return {
-          ...row,
-          roleName: row.role.name,
+          id: row.id,
+          fullName: row.fullName,
+          email: row.email,
+          phone: row.phone,
+          designation: row.designation,
+          skills: row.skills,
+          dailyCapacityHours: row.dailyCapacityHours,
+          departmentId: row.departmentId,
+          branchName: row.branchName,
+          canLogin: row.canLogin,
+          linkedUserId: row.linkedUserId,
+          department: row.department,
+          roleName: row.linkedUser?.role.name ?? null,
           effectiveDesignation,
           todayAllocatedHours,
           workloadPercentage,
@@ -203,10 +204,7 @@ export class WorkforcePlanningService {
     );
 
     return enriched.filter((row) =>
-      matchesWorkforceDesignation(
-        { designation: row.designation, roleName: row.roleName },
-        designation
-      )
+      matchesWorkforceDesignation({ designation: row.designation }, designation)
     );
   }
 
@@ -227,9 +225,9 @@ export class WorkforcePlanningService {
       to: endOfDayUtc(rangeEnd)
     });
 
-    const employee = await this.prisma.user.findUnique({
+    const employee = await this.prisma.employee.findUnique({
       where: { id: input.employeeId },
-      select: { dailyCapacityHours: true }
+      select: { dailyCapacityHours: true, active: true }
     });
 
     const capacity = employee?.dailyCapacityHours ?? 8;
@@ -245,7 +243,8 @@ export class WorkforcePlanningService {
       todayAllocatedHours,
       dailyCapacityHours: capacity,
       incomingHours,
-      exceedsDailyCapacity: todayAllocatedHours + incomingHours > capacity
+      exceedsDailyCapacity: todayAllocatedHours + incomingHours > capacity,
+      inactive: employee ? !employee.active : true
     };
   }
 
@@ -265,28 +264,27 @@ export class WorkforcePlanningService {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
-    const employeeWhere: Prisma.UserWhereInput = {
-      isActive: true,
+    const employeeWhere: Prisma.EmployeeWhereInput = {
+      active: true,
       ...(tenantId !== undefined ? { tenantId } : {}),
-      role: { name: { notIn: [RoleName.DRIVER, RoleName.VIEWER] } }
+      ...(filters.designation?.trim()
+        ? { designation: { equals: filters.designation.trim(), mode: "insensitive" } }
+        : {}),
+      ...(filters.departmentId?.trim() ? { departmentId: filters.departmentId.trim() } : {}),
+      ...(filters.branchName?.trim()
+        ? { branchName: { equals: filters.branchName.trim(), mode: "insensitive" } }
+        : {})
     };
 
-    if (filters.designation?.trim()) {
-      employeeWhere.designation = { equals: filters.designation.trim(), mode: "insensitive" };
-    }
-    if (filters.departmentId?.trim()) {
-      employeeWhere.departmentId = filters.departmentId.trim();
-    }
-
-    const employees = await this.prisma.user.findMany({
+    const employees = await this.prisma.employee.findMany({
       where: employeeWhere,
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        fullName: true,
         designation: true,
         dailyCapacityHours: true,
-        departmentId: true
+        departmentId: true,
+        branchName: true
       }
     });
 
@@ -362,9 +360,10 @@ export class WorkforcePlanningService {
 
       results.push({
         employeeId: employee.id,
-        employeeName: `${employee.firstName} ${employee.lastName}`.trim(),
+        employeeName: employee.fullName,
         designation: employee.designation,
         departmentId: employee.departmentId,
+        branchName: employee.branchName,
         pendingCount,
         inProgressCount,
         overdueCount,

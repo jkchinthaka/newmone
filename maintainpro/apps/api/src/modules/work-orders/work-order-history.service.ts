@@ -70,7 +70,7 @@ export class WorkOrderHistoryService {
       technician: { firstName: string; lastName: string } | null;
       assignees: Array<{
         isPrimary: boolean;
-        employee: { firstName: string; lastName: string; designation: string | null };
+        employee: { fullName: string; designation: string | null };
       }>;
     }
   ) {
@@ -79,7 +79,7 @@ export class WorkOrderHistoryService {
       row.assignees[0]?.employee ??
       null;
     const technicianName = primaryAssignee
-      ? `${primaryAssignee.firstName} ${primaryAssignee.lastName}`.trim()
+      ? primaryAssignee.fullName.trim()
       : row.technician
         ? `${row.technician.firstName} ${row.technician.lastName}`.trim()
         : null;
@@ -226,7 +226,7 @@ export class WorkOrderHistoryService {
         technician: { select: { firstName: true, lastName: true } },
         assignees: {
           where: { assignmentStatus: { not: "REMOVED" } },
-          include: { employee: { select: { firstName: true, lastName: true, designation: true } } }
+          include: { employee: { select: { fullName: true, designation: true } } }
         },
         parts: { include: { part: { select: { id: true, partNumber: true, name: true } } } }
       }

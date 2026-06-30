@@ -11,13 +11,19 @@ export const ASSIGNABLE_WORKFORCE_DESIGNATIONS = [
 ] as const;
 
 /**
- * When User.designation is blank, the API resolves an effective designation from role name.
- * See apps/api/src/common/utils/workforce-designation.ts (roleNameToDesignationFallback).
+ * Workforce employees are sourced from the Employee master (not login users directly).
+ * Linked users still drive RBAC when canLogin is enabled.
  */
 export const DESIGNATION_FALLBACK_NOTE =
-  "Employees without an explicit designation use their platform role label for filtering (e.g. TECHNICIAN role → TECHNICIAN designation).";
+  "Employees are loaded from the Workforce Employee master. Login-linked employees keep platform RBAC via their user account.";
 
 const MANAGER_OVERRIDE_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"]);
+
+export const WORKFORCE_EMPLOYEE_MANAGER_ROLES = MANAGER_OVERRIDE_ROLES;
+
+export function canManageWorkforceEmployees(role?: string | null): boolean {
+  return Boolean(role && MANAGER_OVERRIDE_ROLES.has(role));
+}
 
 export function canOverrideLeaveConflict(role?: string | null): boolean {
   return Boolean(role && MANAGER_OVERRIDE_ROLES.has(role));
@@ -51,16 +57,17 @@ export function dateTimeLocalToIso(value: string): string | undefined {
 }
 
 export function formatEmployeeOptionLabel(input: {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   effectiveDesignation?: string | null;
+  branchName?: string | null;
+  departmentName?: string | null;
   availabilityLabel?: string | null;
   workloadPercentage?: number | null;
 }): string {
-  const name = `${input.firstName} ${input.lastName}`.trim();
   const designation = input.effectiveDesignation ?? "Unspecified";
+  const location = [input.branchName, input.departmentName].filter(Boolean).join(" / ") || "—";
   const availability = input.availabilityLabel ?? "Available";
   const workload =
     typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "— load";
-  return `${name} — ${designation} — ${availability} — ${workload}`;
+  return `${input.fullName} — ${designation} — ${location} — ${availability} — ${workload}`;
 }

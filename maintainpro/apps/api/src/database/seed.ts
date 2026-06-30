@@ -1455,7 +1455,139 @@ async function main() {
 
   await verifySeedBaseline(tenant.id);
 
+  await seedWorkforceEmployees(tenant.id);
+
   console.log("Seed complete");
+}
+
+async function seedWorkforceEmployees(tenantId: string) {
+  const maintenanceDept = await prisma.department.findFirst({
+    where: {
+      tenantId,
+      OR: [{ code: "MAINT" }, { code: "MAINTENANCE" }, { name: { contains: "Maintenance", mode: "insensitive" } }]
+    }
+  });
+
+  async function upsertEmployeeFromUser(input: {
+    userEmail: string;
+    employeeNo: string;
+    designation: string;
+    skills?: string[];
+    branchName?: string;
+  }) {
+    const user = await prisma.user.findUnique({ where: { email: input.userEmail } });
+    if (!user) {
+      return null;
+    }
+
+    const fullName = `${user.firstName} ${user.lastName}`.trim();
+    const existing = await prisma.employee.findFirst({ where: { linkedUserId: user.id } });
+
+    const payload = {
+      tenantId,
+      employeeNo: input.employeeNo,
+      fullName,
+      email: user.email,
+      phone: user.phone,
+      departmentId: user.departmentId,
+      branchName: input.branchName ?? "Main Site",
+      designation: input.designation,
+      skills: input.skills ?? user.skills,
+      dailyCapacityHours: user.dailyCapacityHours ?? 8,
+      active: user.isActive,
+      canLogin: true,
+      linkedUserId: user.id
+    };
+
+    if (existing) {
+      return prisma.employee.update({
+        where: { id: existing.id },
+        data: payload
+      });
+    }
+
+    return prisma.employee.create({ data: payload });
+  }
+
+  await upsertEmployeeFromUser({
+    userEmail: "tech@maintainpro.local",
+    employeeNo: "EMP-0001",
+    designation: "TECHNICIAN",
+    skills: ["General maintenance", "Preventive service"]
+  });
+
+  await upsertEmployeeFromUser({
+    userEmail: "mechanic@maintainpro.local",
+    employeeNo: "EMP-0002",
+    designation: "MECHANIC",
+    skills: ["Engine repair", "Hydraulics"]
+  });
+
+  const sampleEmployees = [
+    {
+      employeeNo: "EMP-0003",
+      fullName: "Sam Electrician",
+      designation: "ELECTRICIAN",
+      skills: ["Wiring", "Panel boards", "Motor controls"]
+    },
+    {
+      employeeNo: "EMP-0004",
+      fullName: "Ali Helper",
+      designation: "HELPER",
+      skills: ["Manual handling", "Site prep"]
+    },
+    {
+      employeeNo: "EMP-0005",
+      fullName: "Raj Maintenance Supervisor",
+      designation: "SUPERVISOR",
+      skills: ["Team lead", "Work planning", "QA check"]
+    }
+  ] as const;
+
+  for (const sample of sampleEmployees) {
+    const existing = await prisma.employee.findFirst({
+      where: { tenantId, employeeNo: sample.employeeNo }
+    });
+
+    if (!existing) {
+      await prisma.employee.create({
+        data: {
+          tenantId,
+          employeeNo: sample.employeeNo,
+          fullName: sample.fullName,
+          designation: sample.designation,
+          skills: [...sample.skills],
+          dailyCapacityHours: 8,
+          active: true,
+          canLogin: false,
+          branchName: "Main Site",
+          departmentId: maintenanceDept?.id ?? null
+        }
+      });
+    }
+  }
+
+  const legacyAssignees = await prisma.workOrderAssignee.findMany({
+    where: { tenantId }
+  });
+
+  for (const row of legacyAssignees) {
+    const directEmployee = await prisma.employee.findUnique({ where: { id: row.employeeId } });
+    if (directEmployee) {
+      continue;
+    }
+
+    const linkedEmployee = await prisma.employee.findFirst({
+      where: { linkedUserId: row.employeeId }
+    });
+
+    if (linkedEmployee) {
+      await prisma.workOrderAssignee.update({
+        where: { id: row.id },
+        data: { employeeId: linkedEmployee.id }
+      });
+    }
+  }
 }
 
 main()

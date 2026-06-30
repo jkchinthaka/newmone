@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { AlertTriangle, Loader2, UserMinus, UserPlus, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   ASSIGNABLE_WORKFORCE_DESIGNATIONS,
+  canManageWorkforceEmployees,
   canOverrideLeaveConflict,
   dateTimeLocalToIso,
   DESIGNATION_FALLBACK_NOTE,
@@ -27,23 +30,24 @@ type AssigneeRow = {
   assignmentStatus: string;
   employee?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     designation?: string | null;
-    dailyCapacityHours?: number | null;
+    branchName?: string | null;
+    department?: { id: string; name: string; code: string } | null;
   } | null;
 };
 
 type WorkforceEmployee = {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   designation?: string | null;
   effectiveDesignation?: string | null;
   dailyCapacityHours?: number | null;
   workloadPercentage?: number | null;
   availabilityLabel?: string | null;
-  roleName?: string | null;
+  branchName?: string | null;
+  department?: { id: string; name: string; code: string } | null;
+  canLogin?: boolean;
 };
 
 type AssignmentPreview = {
@@ -59,8 +63,8 @@ interface Props {
 }
 
 function employeeName(row: AssigneeRow) {
-  if (row.employee) {
-    return `${row.employee.firstName} ${row.employee.lastName}`.trim();
+  if (row.employee?.fullName) {
+    return row.employee.fullName;
   }
   return row.employeeId;
 }
@@ -248,6 +252,11 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const showLeaveOverride =
     assignmentPreview?.onApprovedLeave === true && canOverrideLeaveConflict(currentUser.role);
 
+  const canAddEmployee = canManageWorkforceEmployees(currentUser.role);
+  const addEmployeeHref = designationFilter.trim()
+    ? (`/master-data/employees?designation=${encodeURIComponent(designationFilter.trim())}` as Route)
+    : ("/master-data/employees" as Route);
+
   return (
     <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
       <h4 className="text-sm font-semibold text-slate-900">Workforce assignments</h4>
@@ -341,9 +350,10 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
                 {selectableEmployees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {formatEmployeeOptionLabel({
-                      firstName: employee.firstName,
-                      lastName: employee.lastName,
+                      fullName: employee.fullName,
                       effectiveDesignation: employee.effectiveDesignation ?? employee.designation,
+                      branchName: employee.branchName,
+                      departmentName: employee.department?.name,
                       availabilityLabel: employee.availabilityLabel,
                       workloadPercentage: employee.workloadPercentage
                     })}
@@ -351,11 +361,21 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
                 ))}
               </select>
               {!loadingEmployees && selectableEmployees.length === 0 ? (
-                <p className="text-xs text-amber-700">
-                  {designationFilter.trim()
-                    ? `No employees found for designation "${designationFilter}".`
-                    : "No assignable employees found for this tenant."}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-amber-700">
+                    {designationFilter.trim()
+                      ? `No employees found for designation "${designationFilter}".`
+                      : "No assignable employees found for this tenant."}
+                  </p>
+                  {canAddEmployee ? (
+                    <Link
+                      href={addEmployeeHref}
+                      className="text-xs font-semibold text-brand-700 underline hover:text-brand-800"
+                    >
+                      Add new employee
+                    </Link>
+                  ) : null}
+                </div>
               ) : null}
             </>
           )}
