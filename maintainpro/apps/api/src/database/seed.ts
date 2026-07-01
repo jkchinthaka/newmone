@@ -1557,7 +1557,7 @@ async function seedWorkforceEmployees(tenantId: string) {
       continue;
     }
 
-    const linkedEmployee = await prisma.employee.findUnique({
+    const linkedEmployee = await prisma.employee.findFirst({
       where: { linkedUserId: row.employeeId }
     });
 

@@ -8,78 +8,78 @@ datasource db {
 }
 
 model Tenant {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  slug       String       @unique
-  isActive   Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  memberships    TenantMembership[]
-  invitations    TenantInvitation[]
-  subscriptions  Subscription[]
-  usageMetrics   UsageMetric[]
-  usageEvents    UsageEvent[]
-  stripeCustomer StripeCustomer?
-  stripeInvoices StripeInvoice[]
-  users          User[]
-  roles          Role[]
-  assets         Asset[]
-  vehicles       Vehicle[]
-  drivers        Driver[]
-  workOrders     WorkOrder[]
-  workOrderAssignees WorkOrderAssignee[]
-  employeeRosters EmployeeRosterEntry[]
-  employeeLeaveRequests EmployeeLeaveRequest[]
-  spareParts     SparePart[]
-  suppliers      Supplier[]
-  purchaseOrders PurchaseOrder[]
-  partRequests   PartRequest[]
-  partIssues     PartIssue[]
-  partRequestApprovals      PartRequestApproval[]
-  purchaseOrderApprovals    PurchaseOrderApproval[]
+  memberships                  TenantMembership[]
+  invitations                  TenantInvitation[]
+  subscriptions                Subscription[]
+  usageMetrics                 UsageMetric[]
+  usageEvents                  UsageEvent[]
+  stripeCustomer               StripeCustomer?
+  stripeInvoices               StripeInvoice[]
+  users                        User[]
+  roles                        Role[]
+  assets                       Asset[]
+  vehicles                     Vehicle[]
+  drivers                      Driver[]
+  workOrders                   WorkOrder[]
+  workOrderAssignees           WorkOrderAssignee[]
+  employeeRosters              EmployeeRosterEntry[]
+  employeeLeaveRequests        EmployeeLeaveRequest[]
+  spareParts                   SparePart[]
+  suppliers                    Supplier[]
+  purchaseOrders               PurchaseOrder[]
+  partRequests                 PartRequest[]
+  partIssues                   PartIssue[]
+  partRequestApprovals         PartRequestApproval[]
+  purchaseOrderApprovals       PurchaseOrderApproval[]
   purchaseOrderErpSyncAttempts PurchaseOrderErpSync[]
-  purchaseOrderLines        PurchaseOrderLine[]
-  meters         UtilityMeter[]
-  bills          UtilityBill[]
-  audits         AuditLog[]
-  cleaningLocations CleaningLocation[]
-  cleaningVisits    CleaningVisit[]
-  facilityIssues    FacilityIssue[]
-  properties        Property[]
-  buildings         Building[]
-  floors            Floor[]
-  rooms             Room[]
-  jobCodes          JobCode[]
-  departments       Department[]
-  vehicleDocuments  VehicleDocument[]
-  accidentReports   AccidentReport[]
-  insuranceClaims   InsuranceClaim[]
-  trafficFines      TrafficFine[]
-  refreshTokens     RefreshToken[]
-  evidenceAttachments EvidenceAttachment[]
-  employees           Employee[]
+  purchaseOrderLines           PurchaseOrderLine[]
+  meters                       UtilityMeter[]
+  bills                        UtilityBill[]
+  audits                       AuditLog[]
+  cleaningLocations            CleaningLocation[]
+  cleaningVisits               CleaningVisit[]
+  facilityIssues               FacilityIssue[]
+  properties                   Property[]
+  buildings                    Building[]
+  floors                       Floor[]
+  rooms                        Room[]
+  jobCodes                     JobCode[]
+  departments                  Department[]
+  vehicleDocuments             VehicleDocument[]
+  accidentReports              AccidentReport[]
+  insuranceClaims              InsuranceClaim[]
+  trafficFines                 TrafficFine[]
+  refreshTokens                RefreshToken[]
+  evidenceAttachments          EvidenceAttachment[]
+  employees                    Employee[]
 }
 
 model AuditLog {
-  id         String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId   String?     @db.ObjectId
-  tenant     Tenant?     @relation(fields: [tenantId], references: [id])
-  entity     String
-  entityId   String
-  action     AuditAction
-  module     String?
-  reason     String?
-  actorId    String?     @db.ObjectId
-  actor      User?       @relation(fields: [actorId], references: [id])
-  ipAddress  String?
-  userAgent  String?
-  requestPath String?
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?     @db.ObjectId
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
+  entity        String
+  entityId      String
+  action        AuditAction
+  module        String?
+  reason        String?
+  actorId       String?     @db.ObjectId
+  actor         User?       @relation(fields: [actorId], references: [id])
+  ipAddress     String?
+  userAgent     String?
+  requestPath   String?
   actorSnapshot Json?
-  metadata   Json?
-  beforeData Json?
-  afterData  Json?
-  createdAt  DateTime    @default(now())
+  metadata      Json?
+  beforeData    Json?
+  afterData     Json?
+  createdAt     DateTime    @default(now())
 
   @@index([entity, entityId])
   @@index([tenantId])
@@ -169,70 +169,70 @@ model Permission {
 }
 
 model User {
-  id             String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?     @db.ObjectId
-  tenant         Tenant?     @relation(fields: [tenantId], references: [id])
-  email          String      @unique
-  passwordHash   String
-  firstName      String
-  lastName       String
-  phone          String?
-  avatar         String?
-  roleId         String      @db.ObjectId
-  role           Role        @relation(fields: [roleId], references: [id])
+  id                  String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?     @db.ObjectId
+  tenant              Tenant?     @relation(fields: [tenantId], references: [id])
+  email               String      @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  phone               String?
+  avatar              String?
+  roleId              String      @db.ObjectId
+  role                Role        @relation(fields: [roleId], references: [id])
   /// FK to Department master — nullable for legacy records
-  departmentId   String?     @db.ObjectId
-  department     Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId        String?     @db.ObjectId
+  department          Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Job designation for workforce allocation (e.g. Electrician, Fitter)
-  designation    String?
+  designation         String?
   /// Daily capacity in hours for workload checks (default 8)
-  dailyCapacityHours Float   @default(8)
+  dailyCapacityHours  Float       @default(8)
   /// Skill tags for assignment filtering
-  skills         String[]
-  isActive       Boolean     @default(true)
-  lastLogin      DateTime?
-  failedLoginAttempts Int    @default(0)
-  lockedUntil    DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  skills              String[]
+  isActive            Boolean     @default(true)
+  lastLogin           DateTime?
+  failedLoginAttempts Int         @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
-  assignedWorkOrders        WorkOrder[]            @relation("TechnicianWorkOrders")
-  createdWorkOrders         WorkOrder[]            @relation("CreatorWorkOrders")
-  approvedWorkOrders        WorkOrder[]            @relation("ApprovedWorkOrders")
-  memberships               TenantMembership[]
-  sentInvitations           TenantInvitation[]     @relation("TenantInvitedBy")
-  notifications             Notification[]
-  auditEvents               AuditLog[]
-  driverProfile             Driver?
-  cleaningVisits            CleaningVisit[]        @relation("CleanerVisits")
-  signedOffVisits           CleaningVisit[]        @relation("SupervisorSignOffs")
-  assignedCleaningLocations CleaningLocation[]     @relation("AssignedCleaningLocations")
-  reportedIssues            FacilityIssue[]        @relation("ReportedFacilityIssues")
-  resolvedIssues            FacilityIssue[]        @relation("ResolvedFacilityIssues")
-  assignedFacilityIssues    FacilityIssue[]        @relation("AssignedFacilityIssues")
-  copilotConversations      CopilotConversation[]
-  copilotMessages           CopilotMessage[]
-  copilotExchangeLogs       CopilotExchangeLog[]
-  managedDepartments        Department[]           @relation("DepartmentManager")
-  recordedVehicleMeterLogs  VehicleMeterLog[]      @relation("VehicleMeterRecordedBy")
-  approvedVehicleGateMoves  VehicleGateMovement[]  @relation("VehicleGateApprovedBy")
-  partRequestsRequested     PartRequest[]          @relation("PartRequestRequester")
-  partRequestApprovals      PartRequestApproval[]  @relation("PartRequestApprovalActor")
-  partIssuesIssued          PartIssue[]            @relation("PartIssueIssuer")
-  purchaseOrderApprovals    PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
-  purchaseOrderErpSyncActions PurchaseOrderErpSync[] @relation("PurchaseOrderErpSyncTrigger")
-  vehicleDocsUploaded       VehicleDocument[]       @relation("VehicleDocUploader")
-  vehicleDocsVerified       VehicleDocument[]       @relation("VehicleDocVerifier")
-  accidentsReported         AccidentReport[]        @relation("AccidentReporter")
-  accidentEvidenceUploaded  AccidentEvidence[]      @relation("AccidentEvidenceUploader")
-  insuranceClaimsFiled      InsuranceClaim[]        @relation("InsuranceClaimFiler")
-  trafficFinesReported      TrafficFine[]           @relation("TrafficFineReporter")
-  refreshTokens             RefreshToken[]
-  passwordResetTokens       PasswordResetToken[]
-  evidenceAttachmentsUploaded EvidenceAttachment[] @relation("EvidenceUploader")
-  workOrderAssignmentsCreated WorkOrderAssignee[]  @relation("WorkOrderAssigneeAssignedBy")
-  employeeLeaveApprovals      EmployeeLeaveRequest[] @relation("EmployeeLeaveApprover")
-  linkedWorkforceEmployee     Employee?            @relation("EmployeeLinkedUser")
+  assignedWorkOrders          WorkOrder[]             @relation("TechnicianWorkOrders")
+  createdWorkOrders           WorkOrder[]             @relation("CreatorWorkOrders")
+  approvedWorkOrders          WorkOrder[]             @relation("ApprovedWorkOrders")
+  memberships                 TenantMembership[]
+  sentInvitations             TenantInvitation[]      @relation("TenantInvitedBy")
+  notifications               Notification[]
+  auditEvents                 AuditLog[]
+  driverProfile               Driver?
+  cleaningVisits              CleaningVisit[]         @relation("CleanerVisits")
+  signedOffVisits             CleaningVisit[]         @relation("SupervisorSignOffs")
+  assignedCleaningLocations   CleaningLocation[]      @relation("AssignedCleaningLocations")
+  reportedIssues              FacilityIssue[]         @relation("ReportedFacilityIssues")
+  resolvedIssues              FacilityIssue[]         @relation("ResolvedFacilityIssues")
+  assignedFacilityIssues      FacilityIssue[]         @relation("AssignedFacilityIssues")
+  copilotConversations        CopilotConversation[]
+  copilotMessages             CopilotMessage[]
+  copilotExchangeLogs         CopilotExchangeLog[]
+  managedDepartments          Department[]            @relation("DepartmentManager")
+  recordedVehicleMeterLogs    VehicleMeterLog[]       @relation("VehicleMeterRecordedBy")
+  approvedVehicleGateMoves    VehicleGateMovement[]   @relation("VehicleGateApprovedBy")
+  partRequestsRequested       PartRequest[]           @relation("PartRequestRequester")
+  partRequestApprovals        PartRequestApproval[]   @relation("PartRequestApprovalActor")
+  partIssuesIssued            PartIssue[]             @relation("PartIssueIssuer")
+  purchaseOrderApprovals      PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
+  purchaseOrderErpSyncActions PurchaseOrderErpSync[]  @relation("PurchaseOrderErpSyncTrigger")
+  vehicleDocsUploaded         VehicleDocument[]       @relation("VehicleDocUploader")
+  vehicleDocsVerified         VehicleDocument[]       @relation("VehicleDocVerifier")
+  accidentsReported           AccidentReport[]        @relation("AccidentReporter")
+  accidentEvidenceUploaded    AccidentEvidence[]      @relation("AccidentEvidenceUploader")
+  insuranceClaimsFiled        InsuranceClaim[]        @relation("InsuranceClaimFiler")
+  trafficFinesReported        TrafficFine[]           @relation("TrafficFineReporter")
+  refreshTokens               RefreshToken[]
+  passwordResetTokens         PasswordResetToken[]
+  evidenceAttachmentsUploaded EvidenceAttachment[]    @relation("EvidenceUploader")
+  workOrderAssignmentsCreated WorkOrderAssignee[]     @relation("WorkOrderAssigneeAssignedBy")
+  employeeLeaveApprovals      EmployeeLeaveRequest[]  @relation("EmployeeLeaveApprover")
+  linkedWorkforceEmployees    Employee[]              @relation("EmployeeLinkedUser")
 
   @@index([tenantId])
   @@index([roleId])
@@ -262,14 +262,14 @@ model RefreshToken {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  tokenHash  String   @unique
-  userId     String   @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  usedAt     DateTime?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash String    @unique
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([expiresAt])
@@ -277,15 +277,15 @@ model PasswordResetToken {
 }
 
 model Role {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String?      @db.ObjectId
-  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
-  name        RoleName
-  permissions Permission[] @relation(fields: [permissionIds], references: [id])
-  permissionIds String[]   @db.ObjectId
-  users       User[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?      @db.ObjectId
+  tenant        Tenant?      @relation(fields: [tenantId], references: [id])
+  name          RoleName
+  permissions   Permission[] @relation(fields: [permissionIds], references: [id])
+  permissionIds String[]     @db.ObjectId
+  users         User[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([tenantId, name])
   @@index([tenantId])
@@ -544,9 +544,9 @@ model Department {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  assets   Asset[]   @relation("AssetDepartment")
-  vehicles Vehicle[] @relation("VehicleDepartment")
-  drivers  Driver[]  @relation("DriverDepartment")
+  assets    Asset[]    @relation("AssetDepartment")
+  vehicles  Vehicle[]  @relation("VehicleDepartment")
+  drivers   Driver[]   @relation("DriverDepartment")
   users     User[]     @relation("UserDepartment")
   employees Employee[] @relation("EmployeeDepartment")
 
@@ -643,53 +643,53 @@ enum AssetCondition {
 }
 
 model Vehicle {
-  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?       @db.ObjectId
-  tenant             Tenant?       @relation(fields: [tenantId], references: [id])
-  registrationNo     String        @unique
-  assetTag           String?
-  make               String
-  vehicleModel       String
-  description        String?
-  location           String?
-  year               Int
-  type               VehicleType
-  ownershipType      VehicleOwnershipType @default(OWNED)
-  status             VehicleStatus @default(AVAILABLE)
-  serviceStatus      VehicleServiceStatus @default(ON_SCHEDULE)
-  color              String?
-  vin                String?       @unique
-  engineNo           String?
-  vendorName         String?
-  costCenter         String?
-  acquisitionDate    DateTime?
-  purchasePrice      Float?
-  currentValue       Float?
-  warrantyExpiry     DateTime?
-  fuelType           FuelType
-  fuelCapacity       Float?
-  currentMileage     Float         @default(0)
-  serviceIntervalDays Int?
-  serviceIntervalMileage Float?
-  insuranceExpiry    DateTime?
-  roadTaxExpiry      DateTime?
-  complianceStatus           ComplianceStatus @default(COMPLIANT)
-  complianceLastEvaluatedAt  DateTime?
-  lastServiceDate    DateTime?
-  nextServiceDate    DateTime?
-  nextServiceMileage Float?
-  decommissionedAt   DateTime?
-  decommissionReason String?
-  customFields       Json?
-  gpsDeviceId        String?
-  images             String[]
-  driverId           String?       @db.ObjectId
-  driver             Driver?       @relation(fields: [driverId], references: [id])
+  id                        String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                  String?              @db.ObjectId
+  tenant                    Tenant?              @relation(fields: [tenantId], references: [id])
+  registrationNo            String               @unique
+  assetTag                  String?
+  make                      String
+  vehicleModel              String
+  description               String?
+  location                  String?
+  year                      Int
+  type                      VehicleType
+  ownershipType             VehicleOwnershipType @default(OWNED)
+  status                    VehicleStatus        @default(AVAILABLE)
+  serviceStatus             VehicleServiceStatus @default(ON_SCHEDULE)
+  color                     String?
+  vin                       String?              @unique
+  engineNo                  String?
+  vendorName                String?
+  costCenter                String?
+  acquisitionDate           DateTime?
+  purchasePrice             Float?
+  currentValue              Float?
+  warrantyExpiry            DateTime?
+  fuelType                  FuelType
+  fuelCapacity              Float?
+  currentMileage            Float                @default(0)
+  serviceIntervalDays       Int?
+  serviceIntervalMileage    Float?
+  insuranceExpiry           DateTime?
+  roadTaxExpiry             DateTime?
+  complianceStatus          ComplianceStatus     @default(COMPLIANT)
+  complianceLastEvaluatedAt DateTime?
+  lastServiceDate           DateTime?
+  nextServiceDate           DateTime?
+  nextServiceMileage        Float?
+  decommissionedAt          DateTime?
+  decommissionReason        String?
+  customFields              Json?
+  gpsDeviceId               String?
+  images                    String[]
+  driverId                  String?              @db.ObjectId
+  driver                    Driver?              @relation(fields: [driverId], references: [id])
   /// FK to Department master — nullable for legacy records
-  departmentId       String?       @db.ObjectId
-  department         Department?   @relation("VehicleDepartment", fields: [departmentId], references: [id])
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  departmentId              String?              @db.ObjectId
+  department                Department?          @relation("VehicleDepartment", fields: [departmentId], references: [id])
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
 
   fuelLogs             FuelLog[]
   tripLogs             TripLog[]
@@ -764,32 +764,32 @@ enum DriverTrainingStatus {
 }
 
 model Driver {
-  id            String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId      String?     @db.ObjectId
-  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
-  userId        String      @unique @db.ObjectId
-  user          User        @relation(fields: [userId], references: [id])
-  licenseNumber String      @unique
-  licenseClass  String
-  licenseExpiry DateTime
-  isAvailable   Boolean     @default(true)
-  trainingStatus DriverTrainingStatus @default(NOT_STARTED)
-  trainingCompletedAt DateTime?
-  trainingExpiry DateTime?
-  supervisorReviewScore Int?
-  pendingDisciplinaryIssues Int @default(0)
+  id                        String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                  String?              @db.ObjectId
+  tenant                    Tenant?              @relation(fields: [tenantId], references: [id])
+  userId                    String               @unique @db.ObjectId
+  user                      User                 @relation(fields: [userId], references: [id])
+  licenseNumber             String               @unique
+  licenseClass              String
+  licenseExpiry             DateTime
+  isAvailable               Boolean              @default(true)
+  trainingStatus            DriverTrainingStatus @default(NOT_STARTED)
+  trainingCompletedAt       DateTime?
+  trainingExpiry            DateTime?
+  supervisorReviewScore     Int?
+  pendingDisciplinaryIssues Int                  @default(0)
   /// FK to Department master — nullable for legacy records
-  departmentId  String?     @db.ObjectId
-  department    Department? @relation("DriverDepartment", fields: [departmentId], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  departmentId              String?              @db.ObjectId
+  department                Department?          @relation("DriverDepartment", fields: [departmentId], references: [id])
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
 
-  vehicles Vehicle[]
-  fuelLogs FuelLog[]
-  tripLogs TripLog[]
+  vehicles      Vehicle[]
+  fuelLogs      FuelLog[]
+  tripLogs      TripLog[]
   gateMovements VehicleGateMovement[]
-  accidents AccidentReport[]
-  trafficFines TrafficFine[]
+  accidents     AccidentReport[]
+  trafficFines  TrafficFine[]
 
   @@index([tenantId])
   @@index([departmentId])
@@ -1015,59 +1015,59 @@ model MaintenanceLog {
 }
 
 model WorkOrder {
-  id             String               @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?              @db.ObjectId
-  tenant         Tenant?              @relation(fields: [tenantId], references: [id])
-  woNumber       String               @unique
-  title          String
-  description    String
-  priority       Priority             @default(MEDIUM)
-  status         WorkOrderStatus      @default(OPEN)
-  approvalStatus WorkOrderApprovalStatus @default(APPROVED)
-  approvedById   String?              @db.ObjectId
-  approvedBy     User?                @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
-  approvedAt     DateTime?
-  rejectionReason String?
-  type           WorkOrderType
-  assetId        String?              @db.ObjectId
-  asset          Asset?               @relation(fields: [assetId], references: [id])
-  vehicleId      String?              @db.ObjectId
-  vehicle        Vehicle?             @relation(fields: [vehicleId], references: [id])
-  scheduleId     String?              @db.ObjectId
-  schedule       MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
-  createdById    String               @db.ObjectId
-  createdBy      User                 @relation("CreatorWorkOrders", fields: [createdById], references: [id])
-  technicianId   String?              @db.ObjectId
-  technician     User?                @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
-  dueDate        DateTime?
+  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId               String?                 @db.ObjectId
+  tenant                 Tenant?                 @relation(fields: [tenantId], references: [id])
+  woNumber               String                  @unique
+  title                  String
+  description            String
+  priority               Priority                @default(MEDIUM)
+  status                 WorkOrderStatus         @default(OPEN)
+  approvalStatus         WorkOrderApprovalStatus @default(APPROVED)
+  approvedById           String?                 @db.ObjectId
+  approvedBy             User?                   @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
+  approvedAt             DateTime?
+  rejectionReason        String?
+  type                   WorkOrderType
+  assetId                String?                 @db.ObjectId
+  asset                  Asset?                  @relation(fields: [assetId], references: [id])
+  vehicleId              String?                 @db.ObjectId
+  vehicle                Vehicle?                @relation(fields: [vehicleId], references: [id])
+  scheduleId             String?                 @db.ObjectId
+  schedule               MaintenanceSchedule?    @relation(fields: [scheduleId], references: [id])
+  createdById            String                  @db.ObjectId
+  createdBy              User                    @relation("CreatorWorkOrders", fields: [createdById], references: [id])
+  technicianId           String?                 @db.ObjectId
+  technician             User?                   @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
+  dueDate                DateTime?
   expectedCompletionDate DateTime?
-  plannedStartAt DateTime?
-  plannedEndAt   DateTime?
-  delayReason    String?
-  startDate      DateTime?
-  completedDate  DateTime?
-  estimatedCost  Float?
-  actualCost     Float?
-  estimatedHours Float?
-  actualHours    Float?
-  slaDeadline    DateTime?
-  slaBreached    Boolean              @default(false)
-  notes          String?
-  attachments    String[]
-  accidentId     String?              @db.ObjectId
-  accident       AccidentReport?      @relation(fields: [accidentId], references: [id])
-  trafficFineId  String?              @db.ObjectId
-  trafficFine    TrafficFine?         @relation(fields: [trafficFineId], references: [id])
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  plannedStartAt         DateTime?
+  plannedEndAt           DateTime?
+  delayReason            String?
+  startDate              DateTime?
+  completedDate          DateTime?
+  estimatedCost          Float?
+  actualCost             Float?
+  estimatedHours         Float?
+  actualHours            Float?
+  slaDeadline            DateTime?
+  slaBreached            Boolean                 @default(false)
+  notes                  String?
+  attachments            String[]
+  accidentId             String?                 @db.ObjectId
+  accident               AccidentReport?         @relation(fields: [accidentId], references: [id])
+  trafficFineId          String?                 @db.ObjectId
+  trafficFine            TrafficFine?            @relation(fields: [trafficFineId], references: [id])
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 
-  maintenanceLogs MaintenanceLog[]
-  parts           WorkOrderPart[]
-  partRequests    PartRequest[]
-  partIssues      PartIssue[]
-  facilityIssue   FacilityIssue?
+  maintenanceLogs     MaintenanceLog[]
+  parts               WorkOrderPart[]
+  partRequests        PartRequest[]
+  partIssues          PartIssue[]
+  facilityIssue       FacilityIssue?
   evidenceAttachments EvidenceAttachment[]
-  assignees      WorkOrderAssignee[]
+  assignees           WorkOrderAssignee[]
 
   @@index([tenantId])
   @@index([status])
@@ -1131,33 +1131,33 @@ enum WorkOrderAssigneeStatus {
 
 /// Workforce / technician master — assignable to work orders with or without login.
 model Employee {
-  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?                 @db.ObjectId
-  tenant             Tenant?                 @relation(fields: [tenantId], references: [id])
+  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?     @db.ObjectId
+  tenant             Tenant?     @relation(fields: [tenantId], references: [id])
   employeeNo         String?
   fullName           String
   phone              String?
   email              String?
   /// Optional branch/site label until Branch master exists
   branchName         String?
-  departmentId       String?                 @db.ObjectId
-  department         Department?             @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId       String?     @db.ObjectId
+  department         Department? @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   designation        String
   skills             String[]
-  dailyCapacityHours Float                   @default(8)
-  active             Boolean                 @default(true)
-  canLogin           Boolean                 @default(false)
-  linkedUserId       String?                 @db.ObjectId
-  linkedUser         User?                   @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  dailyCapacityHours Float       @default(8)
+  active             Boolean     @default(true)
+  canLogin           Boolean     @default(false)
+  linkedUserId       String?     @db.ObjectId
+  linkedUser         User?       @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
-  workOrderAssigneeRows WorkOrderAssignee[]  @relation("WorkOrderAssigneeEmployee")
+  workOrderAssigneeRows WorkOrderAssignee[]    @relation("WorkOrderAssigneeEmployee")
   employeeRosterEntries EmployeeRosterEntry[]
   employeeLeaveRequests EmployeeLeaveRequest[]
 
   @@unique([tenantId, employeeNo])
-  @@unique([linkedUserId])
+  @@index([linkedUserId])
   @@index([tenantId, active])
   @@index([tenantId, designation])
   @@index([email])
@@ -1202,21 +1202,21 @@ model WorkOrderAssignee {
 }
 
 model EmployeeRosterEntry {
-  id           String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String?     @db.ObjectId
-  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
-  employeeId   String      @db.ObjectId
-  employee     Employee    @relation(fields: [employeeId], references: [id])
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String?   @db.ObjectId
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id])
+  employeeId   String    @db.ObjectId
+  employee     Employee  @relation(fields: [employeeId], references: [id])
   rosterDate   DateTime
   shiftCode    String?
   shiftStartAt DateTime?
   shiftEndAt   DateTime?
   branchName   String?
-  departmentId String?     @db.ObjectId
-  isWorkingDay Boolean     @default(true)
+  departmentId String?   @db.ObjectId
+  isWorkingDay Boolean   @default(true)
   notes        String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([tenantId, employeeId, rosterDate])
   @@index([tenantId, rosterDate])
@@ -1266,10 +1266,10 @@ model SparePart {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  stockMovements StockMovement[]
-  workOrderParts WorkOrderPart[]
-  partRequests   PartRequest[]
-  partIssues     PartIssue[]
+  stockMovements     StockMovement[]
+  workOrderParts     WorkOrderPart[]
+  partRequests       PartRequest[]
+  partIssues         PartIssue[]
   purchaseOrderLines PurchaseOrderLine[]
 
   @@index([tenantId])
@@ -1333,25 +1333,25 @@ model Supplier {
 }
 
 model PurchaseOrder {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String?   @db.ObjectId
-  tenant       Tenant?   @relation(fields: [tenantId], references: [id])
-  poNumber     String    @unique
-  supplierId   String    @db.ObjectId
-  supplier     Supplier  @relation(fields: [supplierId], references: [id])
-  status       POStatus  @default(PENDING)
-  workflowStatus PurchaseOrderWorkflowStatus @default(PENDING_OPERATIONAL)
-  requiresFinanceApproval Boolean @default(false)
-  orderDate    DateTime
-  expectedDate DateTime?
-  receivedDate DateTime?
-  totalAmount  Float
-  notes        String?
-  approvals    PurchaseOrderApproval[]
-  erpSyncAttempts PurchaseOrderErpSync[]
-  lines        PurchaseOrderLine[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                      String                      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String?                     @db.ObjectId
+  tenant                  Tenant?                     @relation(fields: [tenantId], references: [id])
+  poNumber                String                      @unique
+  supplierId              String                      @db.ObjectId
+  supplier                Supplier                    @relation(fields: [supplierId], references: [id])
+  status                  POStatus                    @default(PENDING)
+  workflowStatus          PurchaseOrderWorkflowStatus @default(PENDING_OPERATIONAL)
+  requiresFinanceApproval Boolean                     @default(false)
+  orderDate               DateTime
+  expectedDate            DateTime?
+  receivedDate            DateTime?
+  totalAmount             Float
+  notes                   String?
+  approvals               PurchaseOrderApproval[]
+  erpSyncAttempts         PurchaseOrderErpSync[]
+  lines                   PurchaseOrderLine[]
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, workflowStatus])
@@ -1359,19 +1359,19 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?       @db.ObjectId
-  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
-  purchaseOrderId String       @db.ObjectId
-  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  partId         String?       @db.ObjectId
-  part           SparePart?    @relation(fields: [partId], references: [id])
-  description    String
-  quantity       Int
-  unitCost       Float
-  totalCost      Float
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?       @db.ObjectId
+  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String        @db.ObjectId
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  partId          String?       @db.ObjectId
+  part            SparePart?    @relation(fields: [partId], references: [id])
+  description     String
+  quantity        Int
+  unitCost        Float
+  totalCost       Float
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([purchaseOrderId])
@@ -1379,20 +1379,20 @@ model PurchaseOrderLine {
 }
 
 model PurchaseOrderApproval {
-  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?                @db.ObjectId
-  tenant         Tenant?                @relation(fields: [tenantId], references: [id])
-  purchaseOrderId String                @db.ObjectId
-  purchaseOrder  PurchaseOrder          @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  stage          ApprovalStage
-  sequence       Int                    @default(1)
-  status         ApprovalDecisionStatus @default(PENDING)
-  actorId        String?                @db.ObjectId
-  actor          User?                  @relation("PurchaseOrderApprovalActor", fields: [actorId], references: [id])
-  actedAt        DateTime?
-  reason         String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?                @db.ObjectId
+  tenant          Tenant?                @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String                 @db.ObjectId
+  purchaseOrder   PurchaseOrder          @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  stage           ApprovalStage
+  sequence        Int                    @default(1)
+  status          ApprovalDecisionStatus @default(PENDING)
+  actorId         String?                @db.ObjectId
+  actor           User?                  @relation("PurchaseOrderApprovalActor", fields: [actorId], references: [id])
+  actedAt         DateTime?
+  reason          String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@unique([purchaseOrderId, stage])
   @@index([tenantId])
@@ -1400,23 +1400,23 @@ model PurchaseOrderApproval {
 }
 
 model PurchaseOrderErpSync {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?       @db.ObjectId
-  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
-  purchaseOrderId String       @db.ObjectId
-  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  provider       String        @default("MOCK_ERP")
-  status         ErpSyncStatus @default(PENDING)
-  attempt        Int           @default(1)
-  triggeredById  String?       @db.ObjectId
-  triggeredBy    User?         @relation("PurchaseOrderErpSyncTrigger", fields: [triggeredById], references: [id])
-  lastAttemptAt  DateTime?
-  nextRetryAt    DateTime?
-  errorMessage   String?
-  requestPayload Json?
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?       @db.ObjectId
+  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
+  purchaseOrderId String        @db.ObjectId
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  provider        String        @default("MOCK_ERP")
+  status          ErpSyncStatus @default(PENDING)
+  attempt         Int           @default(1)
+  triggeredById   String?       @db.ObjectId
+  triggeredBy     User?         @relation("PurchaseOrderErpSyncTrigger", fields: [triggeredById], references: [id])
+  lastAttemptAt   DateTime?
+  nextRetryAt     DateTime?
+  errorMessage    String?
+  requestPayload  Json?
   responsePayload Json?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1424,28 +1424,28 @@ model PurchaseOrderErpSync {
 }
 
 model PartRequest {
-  id             String            @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?           @db.ObjectId
-  tenant         Tenant?           @relation(fields: [tenantId], references: [id])
-  workOrderId    String            @db.ObjectId
-  workOrder      WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  partId         String            @db.ObjectId
-  part           SparePart         @relation(fields: [partId], references: [id])
-  requestedById  String            @db.ObjectId
-  requestedBy    User              @relation("PartRequestRequester", fields: [requestedById], references: [id])
-  requestedQuantity Int
-  approvedQuantity Int?
-  issuedQuantity Int               @default(0)
-  unitCostSnapshot Float
-  requiresFinanceApproval Boolean  @default(false)
-  reason         String?
-  rejectionReason String?
-  status         PartRequestStatus @default(PENDING_OPERATIONAL)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                      String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String?           @db.ObjectId
+  tenant                  Tenant?           @relation(fields: [tenantId], references: [id])
+  workOrderId             String            @db.ObjectId
+  workOrder               WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  partId                  String            @db.ObjectId
+  part                    SparePart         @relation(fields: [partId], references: [id])
+  requestedById           String            @db.ObjectId
+  requestedBy             User              @relation("PartRequestRequester", fields: [requestedById], references: [id])
+  requestedQuantity       Int
+  approvedQuantity        Int?
+  issuedQuantity          Int               @default(0)
+  unitCostSnapshot        Float
+  requiresFinanceApproval Boolean           @default(false)
+  reason                  String?
+  rejectionReason         String?
+  status                  PartRequestStatus @default(PENDING_OPERATIONAL)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
 
-  approvals      PartRequestApproval[]
-  issues         PartIssue[]
+  approvals PartRequestApproval[]
+  issues    PartIssue[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1454,20 +1454,20 @@ model PartRequest {
 }
 
 model PartRequestApproval {
-  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?                @db.ObjectId
-  tenant         Tenant?                @relation(fields: [tenantId], references: [id])
-  partRequestId  String                 @db.ObjectId
-  partRequest    PartRequest            @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
-  stage          ApprovalStage
-  sequence       Int                    @default(1)
-  status         ApprovalDecisionStatus @default(PENDING)
-  actorId        String?                @db.ObjectId
-  actor          User?                  @relation("PartRequestApprovalActor", fields: [actorId], references: [id])
-  actedAt        DateTime?
-  reason         String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  id            String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?                @db.ObjectId
+  tenant        Tenant?                @relation(fields: [tenantId], references: [id])
+  partRequestId String                 @db.ObjectId
+  partRequest   PartRequest            @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  stage         ApprovalStage
+  sequence      Int                    @default(1)
+  status        ApprovalDecisionStatus @default(PENDING)
+  actorId       String?                @db.ObjectId
+  actor         User?                  @relation("PartRequestApprovalActor", fields: [actorId], references: [id])
+  actedAt       DateTime?
+  reason        String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
 
   @@unique([partRequestId, stage])
   @@index([tenantId])
@@ -1475,20 +1475,20 @@ model PartRequestApproval {
 }
 
 model PartIssue {
-  id             String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String?     @db.ObjectId
-  tenant         Tenant?     @relation(fields: [tenantId], references: [id])
-  partRequestId  String      @db.ObjectId
-  partRequest    PartRequest @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
-  workOrderId    String      @db.ObjectId
-  workOrder      WorkOrder   @relation(fields: [workOrderId], references: [id])
-  partId         String      @db.ObjectId
-  part           SparePart   @relation(fields: [partId], references: [id])
-  issuedById     String      @db.ObjectId
-  issuedBy       User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
-  quantity       Int
-  notes          String?
-  createdAt      DateTime    @default(now())
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?     @db.ObjectId
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
+  partRequestId String      @db.ObjectId
+  partRequest   PartRequest @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  workOrderId   String      @db.ObjectId
+  workOrder     WorkOrder   @relation(fields: [workOrderId], references: [id])
+  partId        String      @db.ObjectId
+  part          SparePart   @relation(fields: [partId], references: [id])
+  issuedById    String      @db.ObjectId
+  issuedBy      User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
+  quantity      Int
+  notes         String?
+  createdAt     DateTime    @default(now())
 
   @@index([tenantId])
   @@index([partRequestId])
@@ -1787,15 +1787,15 @@ enum FacilityRoomType {
 }
 
 model Property {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId  String     @db.ObjectId
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @db.ObjectId
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   code      String
   address   String?
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   buildings Building[]
 
@@ -1848,24 +1848,24 @@ model Floor {
 }
 
 model Room {
-  id         String            @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId   String            @db.ObjectId
-  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  floorId    String            @db.ObjectId
-  floor      Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  name       String
-  code       String?
-  roomType   FacilityRoomType?
-  isActive   Boolean           @default(true)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String            @db.ObjectId
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  floorId   String            @db.ObjectId
+  floor     Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  roomType  FacilityRoomType?
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  issues FacilityIssue[]
 
   @@index([tenantId])
   @@index([tenantId, floorId])
   @@index([tenantId, isActive])
   @@index([tenantId, name])
-
-  issues FacilityIssue[]
 }
 
 // ============================================================
@@ -1885,31 +1885,31 @@ enum CleaningShift {
 }
 
 model CleaningLocation {
-  id                       String                @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId                 String?               @db.ObjectId
-  tenant                   Tenant?               @relation(fields: [tenantId], references: [id])
-  name                     String
-  area                     String
-  building                 String?
-  floor                    String?
-  description              String?
-  qrCode                   String                @unique
-  qrCodeUrl                String?
-  scheduleCron             String?
-  shiftWindow              String?
-  cleaningFrequency        Int                   @default(1)
-  cleaningFrequencyUnit    CleaningFrequencyUnit @default(PER_DAY)
-  shiftAssignment          CleaningShift         @default(MORNING)
-  assignedCleanerId        String?               @db.ObjectId
-  assignedCleaner          User?                 @relation("AssignedCleaningLocations", fields: [assignedCleanerId], references: [id])
-  geoLatitude              Float?
-  geoLongitude             Float?
-  geoRadiusMeters          Int                   @default(150)
-  requireDeviceValidation  Boolean               @default(false)
-  requirePhotoEvidence     Boolean               @default(false)
-  isActive                 Boolean               @default(true)
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
+  id                      String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String?               @db.ObjectId
+  tenant                  Tenant?               @relation(fields: [tenantId], references: [id])
+  name                    String
+  area                    String
+  building                String?
+  floor                   String?
+  description             String?
+  qrCode                  String                @unique
+  qrCodeUrl               String?
+  scheduleCron            String?
+  shiftWindow             String?
+  cleaningFrequency       Int                   @default(1)
+  cleaningFrequencyUnit   CleaningFrequencyUnit @default(PER_DAY)
+  shiftAssignment         CleaningShift         @default(MORNING)
+  assignedCleanerId       String?               @db.ObjectId
+  assignedCleaner         User?                 @relation("AssignedCleaningLocations", fields: [assignedCleanerId], references: [id])
+  geoLatitude             Float?
+  geoLongitude            Float?
+  geoRadiusMeters         Int                   @default(150)
+  requireDeviceValidation Boolean               @default(false)
+  requirePhotoEvidence    Boolean               @default(false)
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
 
   visits             CleaningVisit[]
   checklistTemplates CleaningChecklistTemplate[]
@@ -2009,36 +2009,36 @@ model CleaningChecklist {
 }
 
 model FacilityIssue {
-  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?                  @db.ObjectId
-  tenant            Tenant?                  @relation(fields: [tenantId], references: [id])
-  locationId        String?                  @db.ObjectId
-  location          CleaningLocation?        @relation(fields: [locationId], references: [id])
-  roomId            String?                  @db.ObjectId
-  room              Room?                    @relation(fields: [roomId], references: [id])
-  reportedById      String                   @db.ObjectId
-  reportedBy        User                     @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
-  assignedToId      String?                  @db.ObjectId
-  assignedTo        User?                    @relation("AssignedFacilityIssues", fields: [assignedToId], references: [id])
-  title             String
-  description       String
-  category          FacilityIssueCategory?
-  severity          IssueSeverity            @default(MEDIUM)
-  status            FacilityIssueStatus      @default(OPEN)
-  photos            String[]
-  slaTargetAt       DateTime?
-  firstResponseAt   DateTime?
-  resolvedById      String?                  @db.ObjectId
-  resolvedBy        User?                    @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
-  resolvedAt        DateTime?
-  closedAt          DateTime?
-  resolutionMinutes Int?
-  resolution        String?
-  workOrderId       String?                  @unique @db.ObjectId
-  workOrder         WorkOrder?               @relation(fields: [workOrderId], references: [id])
+  id                  String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?                @db.ObjectId
+  tenant              Tenant?                @relation(fields: [tenantId], references: [id])
+  locationId          String?                @db.ObjectId
+  location            CleaningLocation?      @relation(fields: [locationId], references: [id])
+  roomId              String?                @db.ObjectId
+  room                Room?                  @relation(fields: [roomId], references: [id])
+  reportedById        String                 @db.ObjectId
+  reportedBy          User                   @relation("ReportedFacilityIssues", fields: [reportedById], references: [id])
+  assignedToId        String?                @db.ObjectId
+  assignedTo          User?                  @relation("AssignedFacilityIssues", fields: [assignedToId], references: [id])
+  title               String
+  description         String
+  category            FacilityIssueCategory?
+  severity            IssueSeverity          @default(MEDIUM)
+  status              FacilityIssueStatus    @default(OPEN)
+  photos              String[]
+  slaTargetAt         DateTime?
+  firstResponseAt     DateTime?
+  resolvedById        String?                @db.ObjectId
+  resolvedBy          User?                  @relation("ResolvedFacilityIssues", fields: [resolvedById], references: [id])
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  resolutionMinutes   Int?
+  resolution          String?
+  workOrderId         String?                @unique @db.ObjectId
+  workOrder           WorkOrder?             @relation(fields: [workOrderId], references: [id])
   evidenceAttachments EvidenceAttachment[]
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, workOrderId])
@@ -2631,33 +2631,32 @@ model TraceabilityRecord {
   @@index([tenantId])
 }
 
-
 // =============================================================================
 // PHASE 4 — Vehicle Compliance, Documents, Accidents, Insurance, Traffic Fines
 // =============================================================================
 
 model VehicleDocument {
-  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?                 @db.ObjectId
-  tenant             Tenant?                 @relation(fields: [tenantId], references: [id])
-  vehicleId          String                  @db.ObjectId
-  vehicle            Vehicle                 @relation(fields: [vehicleId], references: [id])
-  documentType       VehicleDocumentType
-  documentNumber     String?
-  issuedDate         DateTime?
-  expiryDate         DateTime
-  issuingAuthority   String?
-  fileUrl            String?
-  status             VehicleDocumentStatus   @default(PENDING_VERIFICATION)
-  verifiedById       String?                 @db.ObjectId
-  verifiedBy         User?                   @relation("VehicleDocVerifier", fields: [verifiedById], references: [id])
-  verifiedAt         DateTime?
-  rejectionReason    String?
-  uploadedById       String                  @db.ObjectId
-  uploadedBy         User                    @relation("VehicleDocUploader", fields: [uploadedById], references: [id])
-  notes              String?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  id               String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?               @db.ObjectId
+  tenant           Tenant?               @relation(fields: [tenantId], references: [id])
+  vehicleId        String                @db.ObjectId
+  vehicle          Vehicle               @relation(fields: [vehicleId], references: [id])
+  documentType     VehicleDocumentType
+  documentNumber   String?
+  issuedDate       DateTime?
+  expiryDate       DateTime
+  issuingAuthority String?
+  fileUrl          String?
+  status           VehicleDocumentStatus @default(PENDING_VERIFICATION)
+  verifiedById     String?               @db.ObjectId
+  verifiedBy       User?                 @relation("VehicleDocVerifier", fields: [verifiedById], references: [id])
+  verifiedAt       DateTime?
+  rejectionReason  String?
+  uploadedById     String                @db.ObjectId
+  uploadedBy       User                  @relation("VehicleDocUploader", fields: [uploadedById], references: [id])
+  notes            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@index([tenantId])
   @@index([vehicleId])
@@ -2690,34 +2689,34 @@ enum ComplianceStatus {
 }
 
 model AccidentReport {
-  id                    String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId              String?             @db.ObjectId
-  tenant                Tenant?             @relation(fields: [tenantId], references: [id])
-  reportNumber          String              @unique
-  vehicleId             String              @db.ObjectId
-  vehicle               Vehicle             @relation(fields: [vehicleId], references: [id])
-  driverId              String?             @db.ObjectId
-  driver                Driver?             @relation(fields: [driverId], references: [id])
-  reportedById          String              @db.ObjectId
-  reportedBy            User                @relation("AccidentReporter", fields: [reportedById], references: [id])
-  occurredAt            DateTime
-  location              String
-  description           String
-  severity              AccidentSeverity    @default(MINOR)
-  status                AccidentStatus      @default(REPORTED)
-  responsibility        AccidentResponsibility @default(UNDETERMINED)
-  thirdPartyInvolved    Boolean             @default(false)
-  thirdPartyDetails     String?
-  policeReportNo        String?
-  estimatedDamageCost   Float?
-  actualDamageCost      Float?
-  notes                 String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  id                  String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?                @db.ObjectId
+  tenant              Tenant?                @relation(fields: [tenantId], references: [id])
+  reportNumber        String                 @unique
+  vehicleId           String                 @db.ObjectId
+  vehicle             Vehicle                @relation(fields: [vehicleId], references: [id])
+  driverId            String?                @db.ObjectId
+  driver              Driver?                @relation(fields: [driverId], references: [id])
+  reportedById        String                 @db.ObjectId
+  reportedBy          User                   @relation("AccidentReporter", fields: [reportedById], references: [id])
+  occurredAt          DateTime
+  location            String
+  description         String
+  severity            AccidentSeverity       @default(MINOR)
+  status              AccidentStatus         @default(REPORTED)
+  responsibility      AccidentResponsibility @default(UNDETERMINED)
+  thirdPartyInvolved  Boolean                @default(false)
+  thirdPartyDetails   String?
+  policeReportNo      String?
+  estimatedDamageCost Float?
+  actualDamageCost    Float?
+  notes               String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
-  evidence              AccidentEvidence[]
-  workOrders            WorkOrder[]
-  insuranceClaims       InsuranceClaim[]
+  evidence        AccidentEvidence[]
+  workOrders      WorkOrder[]
+  insuranceClaims InsuranceClaim[]
 
   @@index([tenantId])
   @@index([vehicleId])
@@ -2728,15 +2727,15 @@ model AccidentReport {
 }
 
 model AccidentEvidence {
-  id            String                @id @default(auto()) @map("_id") @db.ObjectId
-  accidentId    String                @db.ObjectId
-  accident      AccidentReport        @relation(fields: [accidentId], references: [id], onDelete: Cascade)
-  evidenceType  AccidentEvidenceType
-  fileUrl       String
-  description   String?
-  uploadedById  String                @db.ObjectId
-  uploadedBy    User                  @relation("AccidentEvidenceUploader", fields: [uploadedById], references: [id])
-  uploadedAt    DateTime              @default(now())
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  accidentId   String               @db.ObjectId
+  accident     AccidentReport       @relation(fields: [accidentId], references: [id], onDelete: Cascade)
+  evidenceType AccidentEvidenceType
+  fileUrl      String
+  description  String?
+  uploadedById String               @db.ObjectId
+  uploadedBy   User                 @relation("AccidentEvidenceUploader", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime             @default(now())
 
   @@index([accidentId])
 }
@@ -2771,27 +2770,27 @@ enum AccidentEvidenceType {
 }
 
 model InsuranceClaim {
-  id                String                @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?               @db.ObjectId
-  tenant            Tenant?               @relation(fields: [tenantId], references: [id])
-  claimNumber       String                @unique
-  vehicleId         String                @db.ObjectId
-  vehicle           Vehicle               @relation(fields: [vehicleId], references: [id])
-  accidentId        String?               @db.ObjectId
-  accident          AccidentReport?       @relation(fields: [accidentId], references: [id])
-  policyNumber      String
-  insurerName       String
-  claimAmount       Float
-  approvedAmount    Float?
-  status            InsuranceClaimStatus  @default(DRAFT)
-  filedAt           DateTime?
-  settledAt         DateTime?
-  filedById         String                @db.ObjectId
-  filedBy           User                  @relation("InsuranceClaimFiler", fields: [filedById], references: [id])
-  documents         String[]
-  notes             String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String?              @db.ObjectId
+  tenant         Tenant?              @relation(fields: [tenantId], references: [id])
+  claimNumber    String               @unique
+  vehicleId      String               @db.ObjectId
+  vehicle        Vehicle              @relation(fields: [vehicleId], references: [id])
+  accidentId     String?              @db.ObjectId
+  accident       AccidentReport?      @relation(fields: [accidentId], references: [id])
+  policyNumber   String
+  insurerName    String
+  claimAmount    Float
+  approvedAmount Float?
+  status         InsuranceClaimStatus @default(DRAFT)
+  filedAt        DateTime?
+  settledAt      DateTime?
+  filedById      String               @db.ObjectId
+  filedBy        User                 @relation("InsuranceClaimFiler", fields: [filedById], references: [id])
+  documents      String[]
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@index([tenantId])
   @@index([vehicleId])
@@ -2810,34 +2809,34 @@ enum InsuranceClaimStatus {
 }
 
 model TrafficFine {
-  id                  String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId            String?             @db.ObjectId
-  tenant              Tenant?             @relation(fields: [tenantId], references: [id])
-  fineNumber          String              @unique
-  vehicleId           String              @db.ObjectId
-  vehicle             Vehicle             @relation(fields: [vehicleId], references: [id])
-  driverId            String?             @db.ObjectId
-  driver              Driver?             @relation(fields: [driverId], references: [id])
-  reportedById        String              @db.ObjectId
-  reportedBy          User                @relation("TrafficFineReporter", fields: [reportedById], references: [id])
-  fineDate            DateTime
-  dueDate             DateTime?
-  location            String?
-  violationCode       String?
-  description         String
-  fineAmount          Float
-  issuingAuthority    String?
-  responsibility      FineResponsibility  @default(UNDETERMINED)
-  documentRelated     Boolean             @default(false)
-  paymentStatus       FinePaymentStatus   @default(PENDING)
-  paidAt              DateTime?
-  paidAmount          Float?
-  paymentReference    String?
-  evidenceUrls        String[]
-  notes               String?
-  workOrders          WorkOrder[]
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?            @db.ObjectId
+  tenant           Tenant?            @relation(fields: [tenantId], references: [id])
+  fineNumber       String             @unique
+  vehicleId        String             @db.ObjectId
+  vehicle          Vehicle            @relation(fields: [vehicleId], references: [id])
+  driverId         String?            @db.ObjectId
+  driver           Driver?            @relation(fields: [driverId], references: [id])
+  reportedById     String             @db.ObjectId
+  reportedBy       User               @relation("TrafficFineReporter", fields: [reportedById], references: [id])
+  fineDate         DateTime
+  dueDate          DateTime?
+  location         String?
+  violationCode    String?
+  description      String
+  fineAmount       Float
+  issuingAuthority String?
+  responsibility   FineResponsibility @default(UNDETERMINED)
+  documentRelated  Boolean            @default(false)
+  paymentStatus    FinePaymentStatus  @default(PENDING)
+  paidAt           DateTime?
+  paidAmount       Float?
+  paymentReference String?
+  evidenceUrls     String[]
+  notes            String?
+  workOrders       WorkOrder[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([tenantId])
   @@index([vehicleId])

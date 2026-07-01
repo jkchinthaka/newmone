@@ -36,7 +36,7 @@ describe("workforce seed helpers", () => {
   it("updates linked employee instead of creating duplicate linkedUserId", async () => {
     const prisma = {
       employee: {
-        findUnique: jest.fn().mockResolvedValue(linkedEmployee),
+        findFirst: jest.fn().mockResolvedValue(linkedEmployee),
         findMany: jest.fn(),
         update: jest.fn().mockResolvedValue({ ...linkedEmployee, designation: "TECHNICIAN" }),
         create: jest.fn()
@@ -67,7 +67,7 @@ describe("workforce seed helpers", () => {
   it("updates workforce-only employee by employeeNo without linkedUserId", async () => {
     const prisma = {
       employee: {
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([workforceOnlyEmployee]),
         update: jest.fn().mockResolvedValue(workforceOnlyEmployee),
         create: jest.fn()
@@ -97,7 +97,7 @@ describe("workforce seed helpers", () => {
   it("creates workforce-only employee without linkedUserId when missing", async () => {
     const prisma = {
       employee: {
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: "emp-new" })

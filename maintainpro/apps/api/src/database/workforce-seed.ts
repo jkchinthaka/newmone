@@ -73,7 +73,7 @@ export async function findExistingWorkforceEmployee(
   match: WorkforceSeedMatch
 ): Promise<Employee | null> {
   if (match.linkedUserId) {
-    const byLinkedUser = await prisma.employee.findUnique({
+    const byLinkedUser = await prisma.employee.findFirst({
       where: { linkedUserId: match.linkedUserId }
     });
     if (byLinkedUser) {

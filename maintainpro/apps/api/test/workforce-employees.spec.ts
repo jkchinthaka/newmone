@@ -198,16 +198,17 @@ describe("WorkforceEmployeesService", () => {
   });
 
   it("resolves legacy user id to linked employee", async () => {
-    prisma.employee.findFirst.mockResolvedValueOnce(null);
-    prisma.employee.findUnique.mockResolvedValueOnce({
-      id: "emp-linked",
-      fullName: "Legacy Tech",
-      designation: "TECHNICIAN",
-      active: true,
-      tenantId: "tenant-1",
-      linkedUser: { id: "legacy-user-id", role: { name: RoleName.TECHNICIAN } },
-      department: null
-    });
+    prisma.employee.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "emp-linked",
+        fullName: "Legacy Tech",
+        designation: "TECHNICIAN",
+        active: true,
+        tenantId: "tenant-1",
+        linkedUser: { id: "legacy-user-id", role: { name: RoleName.TECHNICIAN } },
+        department: null
+      });
 
     const resolved = await service.resolveAssignableEmployee("legacy-user-id", "tenant-1");
     expect(resolved?.id).toBe("emp-linked");

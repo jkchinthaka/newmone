@@ -70,7 +70,7 @@ export class WorkforceEmployeesService {
   }
 
   private async assertLinkedUserIdAvailable(linkedUserId: string, excludeEmployeeId?: string) {
-    const existing = await this.prisma.employee.findUnique({
+    const existing = await this.prisma.employee.findFirst({
       where: { linkedUserId }
     });
     if (existing && existing.id !== excludeEmployeeId) {
@@ -446,7 +446,7 @@ export class WorkforceEmployeesService {
       return direct;
     }
 
-    const linked = await this.prisma.employee.findUnique({
+    const linked = await this.prisma.employee.findFirst({
       where: { linkedUserId: employeeId },
       include: {
         linkedUser: { select: { id: true, role: { select: { name: true } } } },
