@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, Layers3, List, Plus, Search, Trash2 } from "lucide-react";
+import { Filter, Layers3, List, LayoutGrid, Plus, Search, Trash2 } from "lucide-react";
 
 import { toTitleCase } from "./helpers";
 import {
@@ -49,6 +49,15 @@ export function WorkOrderFiltersBar({
 
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => onViewChange("queues")}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition ${
+                view === "queues" ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <LayoutGrid size={14} /> Queues
+            </button>
             <button
               type="button"
               onClick={() => onViewChange("kanban")}

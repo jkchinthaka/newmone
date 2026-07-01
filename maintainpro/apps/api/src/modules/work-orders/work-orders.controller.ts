@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { PartReturnCondition, Priority, WorkOrderStatus } from "@prisma/client";
 
@@ -12,6 +12,7 @@ import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
+import { WorkOrderQueuesService } from "./work-order-queues.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
@@ -32,6 +33,7 @@ export class WorkOrdersController {
     private readonly workOrderHistoryService: WorkOrderHistoryService,
     private readonly workOrderGovernanceService: WorkOrderGovernanceService,
     private readonly workOrderPartsService: WorkOrderPartsService,
+    private readonly workOrderQueuesService: WorkOrderQueuesService,
     private readonly evidenceService: EvidenceService,
     private readonly vendorRepairService: VendorRepairService
   ) {}
@@ -50,9 +52,106 @@ export class WorkOrdersController {
     return { data, message: "Work order governance exceptions fetched" };
   }
 
+  @Get("queues")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER"
+  )
+  async queueSummary(@Req() req: AuthedRequest) {
+    const data = await this.workOrderQueuesService.getQueueSummary(req.user);
+    return { data, message: "Work order queue summary fetched" };
+  }
+
+  @Get("smart-views")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER"
+  )
+  async smartViews(@Req() req: AuthedRequest) {
+    const data = await this.workOrderQueuesService.getSmartViews(req.user);
+    return { data, message: "Work order smart views fetched" };
+  }
+
+  @Get("action-required")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER"
+  )
+  async actionRequired(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const data = await this.workOrderQueuesService.getActionRequired(req.user, query);
+    return { data, message: "Action required work orders fetched" };
+  }
+
+  @Get("queues/:queueKey")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER"
+  )
+  async queueItems(@Req() req: AuthedRequest, @Param("queueKey") queueKey: string, @Query() query: Record<string, string>) {
+    const data = await this.workOrderQueuesService.getQueue(req.user, queueKey, query);
+    return { data, message: "Work order queue fetched" };
+  }
+
   @Get()
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  async findAll(@Req() req: AuthedRequest) {
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER"
+  )
+  async findAll(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const hasQueueParams =
+      query.queue ||
+      query.page ||
+      query.pageSize ||
+      query.overdueOnly ||
+      query.highRiskOnly ||
+      query.riskSeverity ||
+      query.myAssignedOnly;
+
+    if (hasQueueParams) {
+      const data = await this.workOrderQueuesService.search(req.user, query);
+      return { data, message: "Work orders fetched" };
+    }
+
     const data = await this.workOrdersService.findAll(req.user);
     return { data, message: "Work orders fetched" };
   }

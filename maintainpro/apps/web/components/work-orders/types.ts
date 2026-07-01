@@ -25,7 +25,7 @@ export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
 export type WorkOrderApprovalStatus = (typeof WORK_ORDER_APPROVAL_STATUSES)[number];
 export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
 export type WorkOrderType = (typeof WORK_ORDER_TYPES)[number];
-export type WorkOrderViewMode = "kanban" | "list";
+export type WorkOrderViewMode = "queues" | "kanban" | "list";
 
 export type WorkOrderSortField =
   | "woNumber"

@@ -12,9 +12,11 @@ describe("Work order board tab grouping", () => {
     expect(isWorkOrderOpenTabStatus("COMPLETED")).toBe(false);
   });
 
-  it("treats IN_PROGRESS and ON_HOLD as in-progress tab statuses", () => {
+  it("treats IN_PROGRESS, ON_HOLD, TECHNICIAN_COMPLETED, and REWORK_REQUIRED as in-progress tab statuses", () => {
     expect(isWorkOrderInProgressTabStatus("IN_PROGRESS")).toBe(true);
     expect(isWorkOrderInProgressTabStatus("ON_HOLD")).toBe(true);
+    expect(isWorkOrderInProgressTabStatus("TECHNICIAN_COMPLETED")).toBe(true);
+    expect(isWorkOrderInProgressTabStatus("REWORK_REQUIRED")).toBe(true);
     expect(isWorkOrderInProgressTabStatus("OPEN")).toBe(false);
   });
 

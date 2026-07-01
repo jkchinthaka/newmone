@@ -28,6 +28,7 @@ import {
   useWorkOrders
 } from "./hooks";
 import { KanbanBoard } from "./kanban-board";
+import { WorkOrderQueuePanel } from "./work-order-queue-panel";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
 import { WorkOrderGovernanceExceptionsCard } from "./work-order-governance-exceptions-card";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
@@ -74,7 +75,7 @@ function LoadingSkeleton() {
 
 export default function WorkOrdersPage() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const [view, setView] = useState<WorkOrderViewMode>("kanban");
+  const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<{
@@ -291,6 +292,15 @@ export default function WorkOrdersPage() {
   const totalFiltered = workOrdersQuery.workOrders.length;
 
   const content = useMemo(() => {
+    if (view === "queues") {
+      return (
+        <WorkOrderQueuePanel
+          onOpenWorkOrder={openEditModal}
+          onRefreshLegacy={() => void workOrdersQuery.refetch()}
+        />
+      );
+    }
+
     if (workOrdersQuery.isLoading) {
       return <LoadingSkeleton />;
     }

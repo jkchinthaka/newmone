@@ -1,5 +1,10 @@
 export const WORK_ORDER_OPEN_TAB_STATUSES = ["OPEN"] as const;
-export const WORK_ORDER_IN_PROGRESS_TAB_STATUSES = ["IN_PROGRESS", "ON_HOLD"] as const;
+export const WORK_ORDER_IN_PROGRESS_TAB_STATUSES = [
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED"
+] as const;
 
 export type WorkOrderBoardStatus =
   | (typeof WORK_ORDER_OPEN_TAB_STATUSES)[number]
@@ -13,7 +18,12 @@ export function isWorkOrderOpenTabStatus(status: string): boolean {
 }
 
 export function isWorkOrderInProgressTabStatus(status: string): boolean {
-  return status === "IN_PROGRESS" || status === "ON_HOLD";
+  return (
+    status === "IN_PROGRESS" ||
+    status === "ON_HOLD" ||
+    status === "TECHNICIAN_COMPLETED" ||
+    status === "REWORK_REQUIRED"
+  );
 }
 
 export function groupWorkOrdersByBoardTab<T extends { id: string; status: string }>(rows: T[]): {

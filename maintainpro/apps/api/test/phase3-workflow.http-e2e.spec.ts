@@ -19,6 +19,7 @@ import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order
 import { WorkOrderHistoryService } from "../src/modules/work-orders/work-order-history.service";
 import { WorkOrderGovernanceService } from "../src/modules/work-orders/work-order-governance.service";
 import { WorkOrderPartsService } from "../src/modules/work-orders/work-order-parts.service";
+import { WorkOrderQueuesService } from "../src/modules/work-orders/work-order-queues.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { VendorRepairService } from "../src/modules/work-orders/vendor-repair.service";
 
@@ -128,6 +129,14 @@ const vendorRepairService = {
   closeVendorRepair: jest.fn()
 };
 
+const workOrderQueuesService = {
+  getQueueSummary: jest.fn(),
+  getSmartViews: jest.fn(),
+  getActionRequired: jest.fn(),
+  getQueue: jest.fn(),
+  search: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -144,6 +153,7 @@ const prisma = {
     { provide: WorkOrderGovernanceService, useValue: workOrderGovernanceService },
     { provide: WorkOrderPartsService, useValue: workOrderPartsService },
     { provide: VendorRepairService, useValue: vendorRepairService },
+    { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
