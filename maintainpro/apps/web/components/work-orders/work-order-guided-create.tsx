@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { EntityPicker } from "@/components/ui/entity-picker";
-import { suggestWorkOrderTaxonomy, type TaxonomySuggestion } from "@/lib/work-order-taxonomy-api";
+import { suggestWorkOrderTaxonomy, formatTaxonomyPathLabel, type TaxonomySuggestion } from "@/lib/work-order-taxonomy-api";
 
 import { requiresAssetOrVehicle, toTitleCase } from "./helpers";
 import { WorkOrderTaxonomyPicker } from "./work-order-taxonomy-picker";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type WorkOrderPriority, type WorkOrderType } from "./types";
+
+function isWorkOrderPriority(value: string | undefined): value is WorkOrderPriority {
+  return Boolean(value && WORK_ORDER_PRIORITIES.includes(value as WorkOrderPriority));
+}
 
 export type GuidedCreateValues = {
   title: string;
@@ -65,16 +69,17 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
       setSuggesting(true);
       try {
         const result = await suggestWorkOrderTaxonomy(trimmed);
-        setSuggestion(result.suggestion);
-        if (result.suggestion && !taxonomySelection.pathLabel) {
+        const nextSuggestion = result.suggestion ?? null;
+        setSuggestion(nextSuggestion);
+        if (nextSuggestion && !taxonomySelection.pathLabel) {
           setTaxonomySelection({
-            categoryId: result.suggestion.categoryId,
-            typeId: result.suggestion.typeId,
-            issueId: result.suggestion.issueId,
-            pathLabel: result.suggestion.pathLabel
+            categoryId: nextSuggestion.categoryId,
+            typeId: nextSuggestion.typeId,
+            issueId: nextSuggestion.issueId,
+            pathLabel: formatTaxonomyPathLabel(nextSuggestion)
           });
-          if (result.suggestion.defaultPriority) {
-            setPriority(result.suggestion.defaultPriority as WorkOrderPriority);
+          if (isWorkOrderPriority(nextSuggestion.defaultPriority)) {
+            setPriority(nextSuggestion.defaultPriority);
           }
         }
       } catch {

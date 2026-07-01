@@ -46,6 +46,13 @@ export type TaxonomySuggestion = {
   warnings: string[];
 };
 
+export type WorkOrderTaxonomySuggestionResponse = {
+  query: string;
+  suggestion: TaxonomySuggestion | null;
+  method: string;
+  roadmapNote?: string;
+};
+
 export type TaxonomySearchResult = WorkOrderTaxonomyNode & {
   categoryId?: string;
   typeId?: string;
@@ -55,8 +62,33 @@ export type TaxonomySearchResult = WorkOrderTaxonomyNode & {
   pathLabel: string;
 };
 
+export type WorkOrderCategorySummaryRow = {
+  categoryId?: string | null;
+  categoryName: string;
+  total: number;
+  open: number;
+  inProgress: number;
+  overdue: number;
+  highRisk: number;
+  completed: number;
+  cancelled: number;
+  triage: number;
+  evidenceMissing: number;
+  partsPending: number;
+  supervisorVerificationPending: number;
+};
+
+export type WorkOrderCategorySummaryResponse = {
+  categories: WorkOrderCategorySummaryRow[];
+  triageCount: number;
+  totalWorkOrders: number;
+  generatedAt: string;
+  filters?: Record<string, unknown>;
+};
+
 interface ApiEnvelope<T> {
   data: T;
+  message?: string;
 }
 
 function unwrap<T>(payload: unknown): T {
@@ -66,28 +98,19 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
-export async function suggestWorkOrderTaxonomy(query: string): Promise<{
-  query: string;
-  suggestion: TaxonomySuggestion | null;
-  method: string;
-  roadmapNote?: string;
-}> {
-  const response = await apiClient.get<
-    ApiEnvelope<{
-      query: string;
-      suggestion: TaxonomySuggestion | null;
-      method: string;
-      roadmapNote?: string;
-    }>
-  >("/work-orders/taxonomy/suggest", { params: { q: query } });
-  return unwrap(response.data);
+export async function suggestWorkOrderTaxonomy(query: string): Promise<WorkOrderTaxonomySuggestionResponse> {
+  const response = await apiClient.get<ApiEnvelope<WorkOrderTaxonomySuggestionResponse>>(
+    "/work-orders/taxonomy/suggest",
+    { params: { q: query } }
+  );
+  return unwrap<WorkOrderTaxonomySuggestionResponse>(response.data);
 }
 
 export async function searchWorkOrderTaxonomy(query: string, limit = 25): Promise<TaxonomySearchResult[]> {
   const response = await apiClient.get<ApiEnvelope<TaxonomySearchResult[]>>("/work-orders/taxonomy/search", {
     params: { q: query, limit }
   });
-  return unwrap(response.data);
+  return unwrap<TaxonomySearchResult[]>(response.data);
 }
 
 export async function fetchWorkOrderTaxonomy(params?: {
@@ -96,28 +119,44 @@ export async function fetchWorkOrderTaxonomy(params?: {
   parentId?: string;
 }): Promise<WorkOrderTaxonomyNode[]> {
   const response = await apiClient.get<ApiEnvelope<WorkOrderTaxonomyNode[]>>("/work-orders/taxonomy", { params });
-  return unwrap(response.data);
+  return unwrap<WorkOrderTaxonomyNode[]>(response.data);
 }
 
-export async function createWorkOrderTaxonomy(payload: Record<string, unknown>) {
+export async function createWorkOrderTaxonomy(
+  payload: Record<string, unknown>
+): Promise<WorkOrderTaxonomyNode> {
   const response = await apiClient.post<ApiEnvelope<WorkOrderTaxonomyNode>>("/work-orders/taxonomy", payload);
-  return unwrap(response.data);
+  return unwrap<WorkOrderTaxonomyNode>(response.data);
 }
 
-export async function updateWorkOrderTaxonomy(id: string, payload: Record<string, unknown>) {
+export async function updateWorkOrderTaxonomy(
+  id: string,
+  payload: Record<string, unknown>
+): Promise<WorkOrderTaxonomyNode> {
   const response = await apiClient.patch<ApiEnvelope<WorkOrderTaxonomyNode>>(`/work-orders/taxonomy/${id}`, payload);
-  return unwrap(response.data);
+  return unwrap<WorkOrderTaxonomyNode>(response.data);
 }
 
-export async function deactivateWorkOrderTaxonomy(id: string) {
-  const response = await apiClient.patch<ApiEnvelope<WorkOrderTaxonomyNode>>(`/work-orders/taxonomy/${id}/deactivate`);
-  return unwrap(response.data);
+export async function deactivateWorkOrderTaxonomy(id: string): Promise<WorkOrderTaxonomyNode> {
+  const response = await apiClient.patch<ApiEnvelope<WorkOrderTaxonomyNode>>(
+    `/work-orders/taxonomy/${id}/deactivate`
+  );
+  return unwrap<WorkOrderTaxonomyNode>(response.data);
 }
 
-export async function fetchWorkOrderCategorySummary(params?: Record<string, string>) {
-  const response = await apiClient.get<ApiEnvelope<{ categories: Array<Record<string, unknown>>; triageCount: number }>>(
+export async function fetchWorkOrderCategorySummary(
+  params?: Record<string, string>
+): Promise<WorkOrderCategorySummaryResponse> {
+  const response = await apiClient.get<ApiEnvelope<WorkOrderCategorySummaryResponse>>(
     "/work-orders/category-summary",
     { params }
   );
-  return unwrap(response.data);
+  return unwrap<WorkOrderCategorySummaryResponse>(response.data);
+}
+
+export function formatTaxonomyPathLabel(suggestion: Pick<TaxonomySuggestion, "pathLabel" | "categoryName" | "typeName" | "issueName">): string {
+  if (suggestion.pathLabel?.trim()) {
+    return suggestion.pathLabel.trim();
+  }
+  return [suggestion.categoryName, suggestion.typeName, suggestion.issueName].filter(Boolean).join(" → ");
 }
