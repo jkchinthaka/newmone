@@ -14,6 +14,7 @@ import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
+import { VendorRepairService } from "./vendor-repair.service";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -31,7 +32,8 @@ export class WorkOrdersController {
     private readonly workOrderHistoryService: WorkOrderHistoryService,
     private readonly workOrderGovernanceService: WorkOrderGovernanceService,
     private readonly workOrderPartsService: WorkOrderPartsService,
-    private readonly evidenceService: EvidenceService
+    private readonly evidenceService: EvidenceService,
+    private readonly vendorRepairService: VendorRepairService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -520,5 +522,144 @@ export class WorkOrdersController {
   ) {
     const data = await this.workOrdersService.issuePartRequest(id, requestId, body, req.user);
     return { data, message: "Part request stock issued" };
+  }
+
+  @Get(":id/vendor-repair")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  async getVendorRepair(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.vendorRepairService.getVendorRepair(id, req.user);
+    return { data, message: "Vendor repair fetched" };
+  }
+
+  @Post(":id/vendor-repair/request")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async requestVendorRepair(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { externalRepairReason: string; supplierId?: string; isEmergency?: boolean; overrideReason?: string }
+  ) {
+    const data = await this.vendorRepairService.requestVendorRepair(id, body, req.user);
+    return { data, message: "Vendor repair requested" };
+  }
+
+  @Post(":id/vendor-repair/select-vendor")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async selectVendor(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { supplierId: string; overrideReason?: string }
+  ) {
+    const data = await this.vendorRepairService.selectVendor(id, body.supplierId, body.overrideReason, req.user);
+    return { data, message: "Vendor selected" };
+  }
+
+  @Post(":id/vendor-repair/quotations")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async addQuotation(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      supplierId: string;
+      quotationNo: string;
+      quotationDate: string;
+      quotedAmount: number;
+      currency?: string;
+      validityDate?: string;
+      evidenceAttachmentId?: string;
+    }
+  ) {
+    const data = await this.vendorRepairService.addQuotation(id, body, req.user);
+    return { data, message: "Quotation submitted" };
+  }
+
+  @Post(":id/vendor-repair/quotations/:quotationId/approve")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async approveQuotation(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("quotationId") quotationId: string,
+    @Body() body: { approvalNote?: string }
+  ) {
+    const data = await this.vendorRepairService.approveQuotation(id, quotationId, body.approvalNote, req.user);
+    return { data, message: "Quotation approved" };
+  }
+
+  @Post(":id/vendor-repair/quotations/:quotationId/reject")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async rejectQuotation(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("quotationId") quotationId: string,
+    @Body() body: { reason: string }
+  ) {
+    const data = await this.vendorRepairService.rejectQuotation(id, quotationId, body.reason, req.user);
+    return { data, message: "Quotation rejected" };
+  }
+
+  @Post(":id/vendor-repair/authorize")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async authorizeVendorWork(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { overrideReason?: string }) {
+    const data = await this.vendorRepairService.authorizeVendorWork(id, body.overrideReason, req.user);
+    return { data, message: "Vendor work authorized" };
+  }
+
+  @Post(":id/vendor-repair/vendor-completed")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  async markVendorCompleted(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.vendorRepairService.markVendorCompleted(id, req.user);
+    return { data, message: "Vendor work marked completed" };
+  }
+
+  @Post(":id/vendor-repair/invoices")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async submitInvoice(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      supplierId: string;
+      invoiceNo: string;
+      invoiceDate: string;
+      invoiceAmount: number;
+      taxAmount?: number;
+      currency?: string;
+      evidenceAttachmentId?: string;
+      exceedsQuotationReason?: string;
+    }
+  ) {
+    const data = await this.vendorRepairService.submitInvoice(id, body, req.user);
+    return { data, message: "Invoice submitted" };
+  }
+
+  @Post(":id/vendor-repair/invoices/:invoiceId/approve")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  async approveInvoice(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("invoiceId") invoiceId: string,
+    @Body() body: { financeNote?: string }
+  ) {
+    const data = await this.vendorRepairService.approveInvoice(id, invoiceId, body.financeNote, req.user);
+    return { data, message: "Invoice finance approved" };
+  }
+
+  @Post(":id/vendor-repair/invoices/:invoiceId/reject")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  async rejectInvoice(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("invoiceId") invoiceId: string,
+    @Body() body: { reason: string }
+  ) {
+    const data = await this.vendorRepairService.rejectInvoice(id, invoiceId, body.reason, req.user);
+    return { data, message: "Invoice rejected" };
+  }
+
+  @Post(":id/vendor-repair/close")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  async closeVendorRepair(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { overrideReason?: string }) {
+    const data = await this.vendorRepairService.closeVendorRepair(id, body.overrideReason, req.user);
+    return { data, message: "Vendor repair closed" };
   }
 }

@@ -2,9 +2,12 @@ import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/com
 import {
   AuditAction,
   Prisma,
-  QrVerificationStatus,
+  VendorInvoiceStatus,
+  VendorQuotationStatus,
+  VendorRepairStatus,
   RoleName,
   EvidenceVerificationStatus,
+  QrVerificationStatus,
   WorkOrderAssigneeStatus,
   WorkOrderStatus,
   WorkOrderVerificationStatus
@@ -23,6 +26,7 @@ import {
   evaluateEvidenceRequirements,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
+import { isHighCostVendorRepair, VENDOR_APPROVAL_MANAGER_MAX } from "../../common/utils/vendor-repair-governance";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
@@ -169,6 +173,50 @@ export class MaintenanceReportsService {
     };
   }
 
+  private async fetchVendorRepairExceptionRows(
+    actor: Actor,
+    query: MaintenanceReportQuery,
+    exceptionType: MaintenanceExceptionType,
+    reason: string,
+    _predicate: (row: {
+      emergencyOverride: boolean;
+      status: VendorRepairStatus;
+      quotations: Array<{ status: VendorQuotationStatus; quotedAmount: number }>;
+      invoices: Array<{ status: VendorInvoiceStatus; totalAmount: number }>;
+      supplier: { blacklisted: boolean } | null;
+      workOrder: { verificationStatus: WorkOrderVerificationStatus };
+    }) => boolean,
+    page: number,
+    pageSize: number,
+    start: Date,
+    end: Date
+  ): Promise<{ total: number; rows: MaintenanceExceptionRow[] }> {
+    const tenantId = this.resolveTenantId(actor);
+    const tenantFilter = tenantId !== undefined ? { tenantId } : {};
+    const cases = await this.prisma.vendorRepairCase.findMany({
+      where: { ...tenantFilter, createdAt: { gte: start, lte: end } },
+      include: {
+        supplier: { select: { blacklisted: true } },
+        quotations: { select: { status: true, quotedAmount: true }, orderBy: { createdAt: "desc" } },
+        invoices: { select: { status: true, totalAmount: true }, orderBy: { createdAt: "desc" } },
+        workOrder: { include: workOrderDetailInclude }
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 500
+    });
+
+    const matched = cases.filter(_predicate);
+    const pageItems = matched.slice((page - 1) * pageSize, page * pageSize);
+    const rows = await Promise.all(
+      pageItems.map(async (vendorCase) => {
+        const factors = await this.computeWorkOrderRiskFactors(vendorCase.workOrderId, tenantId);
+        const score = calculateWorkOrderRiskScore(factors);
+        return this.mapWorkOrderRow(vendorCase.workOrder, exceptionType, reason, score);
+      })
+    );
+    return { total: matched.length, rows };
+  }
+
   private isOverdue(
     wo: { status: WorkOrderStatus; dueDate?: Date | null; completedDate?: Date | null },
     now = new Date()
@@ -227,6 +275,33 @@ export class MaintenanceReportsService {
     );
     const uploadedEvidence = wo.evidenceAttachments.filter((item) => item.status === "UPLOADED");
 
+    const vendorCase = await this.prisma.vendorRepairCase.findUnique({
+      where: { workOrderId },
+      include: {
+        supplier: { select: { blacklisted: true } },
+        quotations: { select: { status: true, quotedAmount: true, submittedById: true, approvedById: true } },
+        invoices: { select: { status: true, totalAmount: true, submittedById: true, financeApprovedById: true } }
+      }
+    });
+
+    let repeatedVendorRepair = false;
+    if (vendorCase && wo.assetId) {
+      const count = await this.prisma.vendorRepairCase.count({
+        where: {
+          workOrder: { assetId: wo.assetId },
+          ...(tenantId !== undefined ? { tenantId } : {}),
+          createdAt: { gte: thirtyDaysAgo }
+        }
+      });
+      repeatedVendorRepair = count >= 2;
+    }
+
+    const approvedQuotation = vendorCase?.quotations.find((q) => q.status === VendorQuotationStatus.APPROVED);
+    const approvedInvoice = vendorCase?.invoices.find((i) => i.status === VendorInvoiceStatus.APPROVED || i.status === VendorInvoiceStatus.PAID);
+    const latestInvoice = vendorCase?.invoices[0];
+    const invoiceExceeds =
+      Boolean(approvedQuotation && latestInvoice && latestInvoice.totalAmount > approvedQuotation.quotedAmount);
+
     return {
       completedWithoutEvidence: wo.status === WorkOrderStatus.COMPLETED && uploadedEvidence.length === 0,
       requiredEvidenceMissing:
@@ -250,7 +325,20 @@ export class MaintenanceReportsService {
       editedAfterCompletion:
         wo.status === WorkOrderStatus.COMPLETED &&
         Boolean(wo.completedDate && wo.updatedAt.getTime() > wo.completedDate.getTime() + 60_000),
-      overdue: this.isOverdue(wo)
+      overdue: this.isOverdue(wo),
+      invoiceExceedsQuotation: invoiceExceeds,
+      blacklistedVendorUsed: Boolean(vendorCase?.supplier?.blacklisted),
+      vendorRepairWithoutQuotation:
+        Boolean(vendorCase) && !approvedQuotation && !vendorCase?.emergencyOverride && vendorCase?.status !== VendorRepairStatus.CLOSED,
+      vendorRepairWithoutInvoice:
+        Boolean(vendorCase) && vendorCase?.status === VendorRepairStatus.VENDOR_COMPLETED && !approvedInvoice,
+      highCostVendorRepair: Boolean(approvedQuotation && isHighCostVendorRepair(approvedQuotation.quotedAmount)),
+      repeatedVendorRepair,
+      emergencyVendorOverride: Boolean(vendorCase?.emergencyOverride),
+      financeApprovalPending: Boolean(vendorCase?.invoices.some((i) => i.status === VendorInvoiceStatus.SUBMITTED || i.status === VendorInvoiceStatus.UNDER_REVIEW)),
+      sameUserVendorApproval: Boolean(
+        vendorCase?.quotations.some((q) => q.submittedById && q.approvedById && q.submittedById === q.approvedById)
+      )
     };
   }
 
@@ -489,6 +577,113 @@ export class MaintenanceReportsService {
         }
         return highRisk;
       }
+      case "vendor-repair-without-quotation":
+        return this.prisma.vendorRepairCase.count({
+          where: {
+            ...tenantFilter,
+            emergencyOverride: false,
+            status: { notIn: [VendorRepairStatus.CLOSED, VendorRepairStatus.CANCELLED] },
+            quotations: { none: { status: VendorQuotationStatus.APPROVED } },
+            createdAt: { gte: start, lte: end }
+          }
+        });
+      case "vendor-repair-without-invoice":
+        return this.prisma.vendorRepairCase.count({
+          where: {
+            ...tenantFilter,
+            status: VendorRepairStatus.VENDOR_COMPLETED,
+            invoices: { none: { status: { in: [VendorInvoiceStatus.APPROVED, VendorInvoiceStatus.PAID] } } },
+            updatedAt: { gte: start, lte: end }
+          }
+        });
+      case "invoice-exceeds-quotation": {
+        const cases = await this.prisma.vendorRepairCase.findMany({
+          where: { ...tenantFilter, createdAt: { gte: start, lte: end } },
+          include: {
+            quotations: { where: { status: VendorQuotationStatus.APPROVED }, take: 1 },
+            invoices: { orderBy: { createdAt: "desc" }, take: 1 }
+          },
+          take: 500
+        });
+        return cases.filter((row) => {
+          const approved = row.quotations[0];
+          const invoice = row.invoices[0];
+          return Boolean(approved && invoice && invoice.totalAmount > approved.quotedAmount);
+        }).length;
+      }
+      case "duplicate-vendor-invoice": {
+        const invoices = await this.prisma.vendorInvoice.groupBy({
+          by: ["supplierId", "invoiceNo"],
+          where: { ...tenantFilter, createdAt: { gte: start, lte: end } },
+          _count: { _all: true }
+        });
+        return invoices.filter((row) => row._count._all > 1).length;
+      }
+      case "high-cost-vendor-repair":
+        return this.prisma.vendorQuotation.count({
+          where: {
+            ...tenantFilter,
+            status: VendorQuotationStatus.APPROVED,
+            quotedAmount: { gt: VENDOR_APPROVAL_MANAGER_MAX },
+            createdAt: { gte: start, lte: end }
+          }
+        });
+      case "repeated-vendor-repair": {
+        const cases = await this.prisma.vendorRepairCase.findMany({
+          where: { ...tenantFilter, createdAt: { gte: thirtyDaysAgo, lte: end } },
+          select: { workOrder: { select: { assetId: true } } },
+          take: 1000
+        });
+        const counts = new Map<string, number>();
+        for (const row of cases) {
+          const assetId = row.workOrder.assetId;
+          if (!assetId) continue;
+          counts.set(assetId, (counts.get(assetId) ?? 0) + 1);
+        }
+        return [...counts.values()].filter((count) => count >= 2).length;
+      }
+      case "blacklisted-vendor-used":
+        return this.prisma.vendorRepairCase.count({
+          where: {
+            ...tenantFilter,
+            supplier: { blacklisted: true },
+            createdAt: { gte: start, lte: end }
+          }
+        });
+      case "finance-approval-pending":
+        return this.prisma.vendorInvoice.count({
+          where: {
+            ...tenantFilter,
+            status: { in: [VendorInvoiceStatus.SUBMITTED, VendorInvoiceStatus.UNDER_REVIEW] },
+            createdAt: { gte: start, lte: end }
+          }
+        });
+      case "vendor-completed-not-verified":
+        return this.prisma.vendorRepairCase.count({
+          where: {
+            ...tenantFilter,
+            status: VendorRepairStatus.VENDOR_COMPLETED,
+            workOrder: { verificationStatus: { not: WorkOrderVerificationStatus.VERIFIED } },
+            updatedAt: { gte: start, lte: end }
+          }
+        });
+      case "emergency-vendor-override":
+        return this.prisma.vendorRepairCase.count({
+          where: { ...tenantFilter, emergencyOverride: true, createdAt: { gte: start, lte: end } }
+        });
+      case "same-user-vendor-approval": {
+        const rows = await this.prisma.vendorQuotation.findMany({
+          where: {
+            ...tenantFilter,
+            submittedById: { not: null },
+            approvedById: { not: null },
+            createdAt: { gte: start, lte: end }
+          },
+          select: { submittedById: true, approvedById: true },
+          take: 500
+        });
+        return rows.filter((row) => row.submittedById === row.approvedById).length;
+      }
       default:
         return 0;
     }
@@ -709,6 +904,142 @@ export class MaintenanceReportsService {
           "Technician marked complete without uploaded evidence."
         );
         break;
+      case "vendor-repair-without-quotation": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Vendor repair proceeding without an approved quotation.",
+          (row) => !row.emergencyOverride && !row.quotations.some((q) => q.status === VendorQuotationStatus.APPROVED),
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "vendor-repair-without-invoice": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Vendor work completed but no approved invoice on file.",
+          (row) =>
+            row.status === VendorRepairStatus.VENDOR_COMPLETED &&
+            !row.invoices.some((i) => i.status === VendorInvoiceStatus.APPROVED || i.status === VendorInvoiceStatus.PAID),
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "invoice-exceeds-quotation": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Invoice total exceeds the approved quotation amount.",
+          (row) => {
+            const approved = row.quotations.find((q) => q.status === VendorQuotationStatus.APPROVED);
+            const invoice = row.invoices[0];
+            return Boolean(approved && invoice && invoice.totalAmount > approved.quotedAmount);
+          },
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "blacklisted-vendor-used": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "A blacklisted vendor was selected for external repair.",
+          (row) => Boolean(row.supplier?.blacklisted),
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "finance-approval-pending": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Vendor invoice awaiting finance approval.",
+          (row) => row.invoices.some((i) => i.status === VendorInvoiceStatus.SUBMITTED || i.status === VendorInvoiceStatus.UNDER_REVIEW),
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "vendor-completed-not-verified": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Vendor work marked complete but supervisor verification is pending.",
+          (row) =>
+            row.status === VendorRepairStatus.VENDOR_COMPLETED &&
+            row.workOrder.verificationStatus !== WorkOrderVerificationStatus.VERIFIED,
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "emergency-vendor-override": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "Emergency vendor repair override was used.",
+          (row) => row.emergencyOverride,
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
+      case "high-cost-vendor-repair": {
+        const result = await this.fetchVendorRepairExceptionRows(
+          user,
+          query,
+          exceptionType,
+          "High-cost vendor repair exceeds configured manager approval threshold.",
+          (row) => row.quotations.some((q) => q.status === VendorQuotationStatus.APPROVED && isHighCostVendorRepair(q.quotedAmount)),
+          page,
+          pageSize,
+          start,
+          end
+        );
+        total = result.total;
+        rows = result.rows;
+        break;
+      }
       default:
         total = await fetchWorkOrders(this.baseWorkOrderWhere(user, query), MAINTENANCE_EXCEPTION_LABELS[exceptionType]);
     }

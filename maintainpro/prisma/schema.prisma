@@ -60,6 +60,9 @@ model Tenant {
   refreshTokens                RefreshToken[]
   evidenceAttachments          EvidenceAttachment[]
   employees                    Employee[]
+  vendorRepairCases            VendorRepairCase[]
+  vendorQuotations             VendorQuotation[]
+  vendorInvoices               VendorInvoice[]
 }
 
 model AuditLog {
@@ -1094,6 +1097,7 @@ model WorkOrder {
   facilityIssue       FacilityIssue?
   evidenceAttachments EvidenceAttachment[]
   assignees           WorkOrderAssignee[]
+  vendorRepairCase    VendorRepairCase?
 
   @@index([tenantId])
   @@index([status])
@@ -1169,6 +1173,7 @@ enum WorkOrderType {
   INSPECTION
   INSTALLATION
   ACCIDENT_REPAIR
+  VENDOR_REPAIR
   PLANTING
   HARVESTING
   SPRAYING
@@ -1407,25 +1412,175 @@ model WorkOrderPart {
 }
 
 model Supplier {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String?  @db.ObjectId
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
-  name        String
-  contactName String?
-  email       String?
-  phone       String?
-  address     String?
-  website     String?
-  taxNumber   String?
-  isActive    Boolean  @default(true)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?  @db.ObjectId
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id])
+  vendorCode        String?
+  name              String
+  contactName       String?
+  email             String?
+  phone             String?
+  address           String?
+  website           String?
+  taxNumber         String?
+  serviceCategories String[]
+  performanceScore  Float?
+  blacklisted       Boolean  @default(false)
+  blacklistReason   String?
+  isActive          Boolean  @default(true)
+  notes             String?
+  createdById       String?  @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  spareParts     SparePart[]
-  purchaseOrders PurchaseOrder[]
+  spareParts         SparePart[]
+  purchaseOrders     PurchaseOrder[]
+  vendorRepairCases  VendorRepairCase[]
+  vendorQuotations   VendorQuotation[]
+  vendorInvoices     VendorInvoice[]
+
+  @@unique([tenantId, vendorCode])
+  @@index([tenantId])
+  @@index([tenantId, blacklisted])
+}
+
+enum VendorRepairStatus {
+  INTERNAL_REVIEW
+  VENDOR_REPAIR_REQUESTED
+  QUOTATION_REQUIRED
+  QUOTATION_SUBMITTED
+  QUOTATION_APPROVED
+  VENDOR_WORK_AUTHORIZED
+  SENT_TO_VENDOR
+  VENDOR_IN_PROGRESS
+  VENDOR_COMPLETED
+  SUPERVISOR_VERIFIED
+  INVOICE_SUBMITTED
+  FINANCE_REVIEW
+  FINANCE_APPROVED
+  CLOSED
+  EMERGENCY_VENDOR_REPAIR
+  MANAGER_OVERRIDE_REQUIRED
+  CANCELLED
+}
+
+enum VendorQuotationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum VendorInvoiceStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum VendorApprovalLevel {
+  SUPERVISOR
+  MANAGER
+  OPERATIONS
+  FINANCE
+}
+
+model VendorRepairCase {
+  id                     String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId               String?            @db.ObjectId
+  tenant                 Tenant?            @relation(fields: [tenantId], references: [id])
+  workOrderId            String             @unique @db.ObjectId
+  workOrder              WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  supplierId             String?            @db.ObjectId
+  supplier               Supplier?          @relation(fields: [supplierId], references: [id])
+  status                 VendorRepairStatus @default(INTERNAL_REVIEW)
+  externalRepairReason   String?
+  emergencyOverride      Boolean            @default(false)
+  emergencyOverrideReason String?
+  emergencyOverrideById  String?            @db.ObjectId
+  requestedById          String?            @db.ObjectId
+  requestedAt            DateTime?
+  authorizedById         String?            @db.ObjectId
+  authorizedAt           DateTime?
+  vendorCompletedAt      DateTime?
+  closedAt               DateTime?
+  approvedQuotationAmount Float?
+  approvedQuotationId    String?            @db.ObjectId
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  quotations VendorQuotation[]
+  invoices   VendorInvoice[]
 
   @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([supplierId])
+}
+
+model VendorQuotation {
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?               @db.ObjectId
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id])
+  vendorRepairCaseId   String                @db.ObjectId
+  vendorRepairCase     VendorRepairCase      @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
+  workOrderId          String                @db.ObjectId
+  supplierId           String                @db.ObjectId
+  supplier             Supplier              @relation(fields: [supplierId], references: [id])
+  quotationNo          String
+  quotationDate        DateTime
+  quotedAmount         Float
+  currency             String                @default("LKR")
+  validityDate         DateTime?
+  evidenceAttachmentId String?               @db.ObjectId
+  status               VendorQuotationStatus @default(DRAFT)
+  submittedById        String?               @db.ObjectId
+  submittedAt          DateTime?
+  approvedById         String?               @db.ObjectId
+  approvedAt           DateTime?
+  approvalNote         String?
+  rejectionReason      String?
+  requiredApprovalLevel VendorApprovalLevel?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([tenantId, workOrderId])
+  @@index([vendorRepairCaseId])
+  @@index([supplierId, quotationNo])
+}
+
+model VendorInvoice {
+  id                   String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?             @db.ObjectId
+  tenant               Tenant?             @relation(fields: [tenantId], references: [id])
+  vendorRepairCaseId   String              @db.ObjectId
+  vendorRepairCase     VendorRepairCase    @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
+  workOrderId          String              @db.ObjectId
+  supplierId           String              @db.ObjectId
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  invoiceNo            String
+  invoiceDate          DateTime
+  invoiceAmount        Float
+  taxAmount            Float               @default(0)
+  totalAmount          Float
+  currency             String              @default("LKR")
+  evidenceAttachmentId String?             @db.ObjectId
+  status               VendorInvoiceStatus @default(SUBMITTED)
+  submittedById        String?             @db.ObjectId
+  submittedAt          DateTime?
+  financeApprovedById  String?             @db.ObjectId
+  financeApprovedAt    DateTime?
+  financeNote          String?
+  rejectionReason      String?
+  exceedsQuotationReason String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([tenantId, workOrderId])
+  @@index([vendorRepairCaseId])
+  @@unique([tenantId, supplierId, invoiceNo])
 }
 
 model PurchaseOrder {

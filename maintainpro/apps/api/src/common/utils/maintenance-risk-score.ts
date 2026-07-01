@@ -16,6 +16,15 @@ export type WorkOrderRiskFactors = {
   assignedDuringLeave?: boolean;
   editedAfterCompletion?: boolean;
   overdue?: boolean;
+  invoiceExceedsQuotation?: boolean;
+  blacklistedVendorUsed?: boolean;
+  vendorRepairWithoutQuotation?: boolean;
+  vendorRepairWithoutInvoice?: boolean;
+  highCostVendorRepair?: boolean;
+  repeatedVendorRepair?: boolean;
+  emergencyVendorOverride?: boolean;
+  financeApprovalPending?: boolean;
+  sameUserVendorApproval?: boolean;
 };
 
 export function calculateWorkOrderRiskScore(factors: WorkOrderRiskFactors): number {
@@ -35,6 +44,15 @@ export function calculateWorkOrderRiskScore(factors: WorkOrderRiskFactors): numb
   if (factors.editedAfterCompletion) score += 10;
   if (factors.offlineSyncFailed) score += 5;
   if (factors.overdue) score += 5;
+  if (factors.invoiceExceedsQuotation) score += 25;
+  if (factors.blacklistedVendorUsed) score += 25;
+  if (factors.vendorRepairWithoutQuotation) score += 20;
+  if (factors.vendorRepairWithoutInvoice) score += 20;
+  if (factors.highCostVendorRepair) score += 20;
+  if (factors.repeatedVendorRepair) score += 15;
+  if (factors.emergencyVendorOverride) score += 10;
+  if (factors.financeApprovalPending) score += 10;
+  if (factors.sameUserVendorApproval) score += 10;
   return score;
 }
 
@@ -53,7 +71,12 @@ export function cardSeverityFromCount(type: string, count: number): RiskSeverity
     "open-high-risk",
     "parts-issued-not-completed",
     "closed-without-supervisor-verification",
-    "qr-mismatch"
+    "qr-mismatch",
+    "invoice-exceeds-quotation",
+    "blacklisted-vendor-used",
+    "vendor-repair-without-quotation",
+    "vendor-repair-without-invoice",
+    "high-cost-vendor-repair"
   ]);
   if (highImpact.has(type)) {
     if (count >= 5) return "CRITICAL";

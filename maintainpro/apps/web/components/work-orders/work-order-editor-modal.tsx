@@ -25,6 +25,7 @@ import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detai
 import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
 import { WorkOrderGovernanceBanner } from "./work-order-governance-banner";
 import { SupervisorVerificationPanel } from "./supervisor-verification-panel";
+import { WorkOrderVendorRepairPanel } from "./work-order-vendor-repair-panel";
 import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
@@ -484,6 +485,13 @@ export function WorkOrderEditorModal({
                     }}
                   />
                 </div>
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "vendor-repair" ? (
+                <WorkOrderVendorRepairPanel
+                  workOrderId={workOrder.id}
+                  verificationStatus={workOrder.verificationStatus ?? undefined}
+                />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "history" ? (

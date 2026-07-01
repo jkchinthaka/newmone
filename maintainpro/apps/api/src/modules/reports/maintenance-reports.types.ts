@@ -23,7 +23,18 @@ export type MaintenanceExceptionType =
   | "cancelled-work-orders"
   | "assigned-during-leave"
   | "above-daily-capacity"
-  | "overdue-work-orders";
+  | "overdue-work-orders"
+  | "vendor-repair-without-quotation"
+  | "vendor-repair-without-invoice"
+  | "invoice-exceeds-quotation"
+  | "duplicate-vendor-invoice"
+  | "high-cost-vendor-repair"
+  | "repeated-vendor-repair"
+  | "blacklisted-vendor-used"
+  | "finance-approval-pending"
+  | "vendor-completed-not-verified"
+  | "emergency-vendor-override"
+  | "same-user-vendor-approval";
 
 export interface MaintenanceReportQuery extends ReportQuery {
   exceptionType?: string;
@@ -83,5 +94,16 @@ export const MAINTENANCE_EXCEPTION_LABELS: Record<MaintenanceExceptionType, stri
   "cancelled-work-orders": "Cancelled work orders (30d)",
   "assigned-during-leave": "Assigned while on approved leave",
   "above-daily-capacity": "Employees above daily capacity",
-  "overdue-work-orders": "Overdue work orders"
+  "overdue-work-orders": "Overdue work orders",
+  "vendor-repair-without-quotation": "Vendor repair without quotation",
+  "vendor-repair-without-invoice": "Vendor repair without invoice",
+  "invoice-exceeds-quotation": "Invoice exceeds approved quotation",
+  "duplicate-vendor-invoice": "Duplicate vendor invoice",
+  "high-cost-vendor-repair": "High-cost vendor repair",
+  "repeated-vendor-repair": "Repeated vendor repair for same asset",
+  "blacklisted-vendor-used": "Blacklisted vendor used",
+  "finance-approval-pending": "Finance approval pending",
+  "vendor-completed-not-verified": "Vendor completed but not supervisor verified",
+  "emergency-vendor-override": "Emergency vendor repair override used",
+  "same-user-vendor-approval": "Same user requested and approved vendor repair"
 };
