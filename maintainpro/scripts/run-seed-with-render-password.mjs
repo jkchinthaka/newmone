@@ -27,7 +27,7 @@ async function fetchRenderPassword() {
   const apiKey = (process.env.RENDER_API_KEY ?? "").trim();
   const serviceId = (process.env.RENDER_SERVICE_ID ?? "").trim();
   if (!apiKey || !serviceId) {
-    return (process.env.MAINTAINPRO_SMOKE_PASSWORD ?? process.env.MAINTAINPRO_SEED_PASSWORD ?? "").trim();
+    return (process.env.MAINTAINPRO_SEED_PASSWORD ?? "").trim();
   }
   const response = await fetch(`https://api.render.com/v1/services/${serviceId}/env-vars?limit=100`, {
     headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" }
@@ -39,40 +39,30 @@ async function fetchRenderPassword() {
 
 const seedPassword = await fetchRenderPassword();
 if (seedPassword.length < 12) {
-  console.log("credentials=missing");
+  console.error("MAINTAINPRO_SEED_PASSWORD unavailable or too short.");
   process.exit(1);
 }
 
-function resolveSmokeLoginEmail() {
-  const candidate = (
-    process.env.SMOKE_LOGIN_EMAIL ??
-    process.env.MAINTAINPRO_SMOKE_EMAIL ??
-    "superadmin@maintainpro.local"
-  ).trim();
-
-  if (candidate.endsWith("@maintainpro.local")) {
-    return candidate;
-  }
-
-  console.warn(
-    `WARN smoke_login_email=${candidate} is not a seeded @maintainpro.local account; using superadmin@maintainpro.local`
-  );
-  return "superadmin@maintainpro.local";
+const databaseUrl = (process.env.DATABASE_URL ?? process.env.PRIMARY_DATABASE_URL ?? "").trim();
+if (!databaseUrl.startsWith("mongodb")) {
+  console.error("DATABASE_URL is missing or not a MongoDB connection string.");
+  process.exit(1);
 }
 
-const stagingEnv = {
-  MAINTAINPRO_WEB_URL: "https://newmone.chinthakajayaweera1.workers.dev",
-  MAINTAINPRO_API_URL: "https://newmone.onrender.com/api",
-  MAINTAINPRO_SMOKE_PASSWORD: seedPassword,
-  MAINTAINPRO_SEED_PASSWORD: seedPassword,
-  MAINTAINPRO_SMOKE_EMAIL: resolveSmokeLoginEmail()
-};
+console.log(`database_host=${new URL(databaseUrl.replace(/^mongodb(\+srv)?:\/\//, "https://")).hostname}`);
+console.log("action=run_idempotent_seed");
 
-const result = spawnSync(process.execPath, ["scripts/smoke-deployment.mjs"], {
+const result = spawnSync("npm", ["run", "db:seed"], {
   cwd: root,
-  env: { ...process.env, ...stagingEnv },
+  env: {
+    ...process.env,
+    MAINTAINPRO_SEED_PASSWORD: seedPassword,
+    DATABASE_URL: databaseUrl,
+    PRIMARY_DATABASE_URL: databaseUrl
+  },
   encoding: "utf8",
-  stdio: "inherit"
+  stdio: "inherit",
+  shell: true
 });
 
 process.exit(result.status ?? 1);
