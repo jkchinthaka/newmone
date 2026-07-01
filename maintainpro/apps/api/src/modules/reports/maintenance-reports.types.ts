@@ -4,6 +4,13 @@ import type { ReportQuery } from "./reports.service";
 export type MaintenanceExceptionType =
   | "open-high-risk"
   | "completed-without-evidence"
+  | "required-evidence-missing"
+  | "technician-completed-without-evidence"
+  | "supervisor-blocked-missing-evidence"
+  | "qr-mismatch"
+  | "qr-override"
+  | "evidence-rejected"
+  | "offline-sync-failed"
   | "pending-supervisor-verification"
   | "closed-without-supervisor-verification"
   | "parts-issued-not-completed"
@@ -57,6 +64,13 @@ export interface MaintenanceExceptionRow {
 export const MAINTENANCE_EXCEPTION_LABELS: Record<MaintenanceExceptionType, string> = {
   "open-high-risk": "Open high-risk work orders",
   "completed-without-evidence": "Completed without required evidence",
+  "required-evidence-missing": "Required evidence missing",
+  "technician-completed-without-evidence": "Technician completed without evidence",
+  "supervisor-blocked-missing-evidence": "Supervisor verification blocked by missing evidence",
+  "qr-mismatch": "QR asset/vehicle mismatch",
+  "qr-override": "QR verification overridden",
+  "evidence-rejected": "Evidence rejected — rework required",
+  "offline-sync-failed": "Offline evidence sync failed",
   "pending-supervisor-verification": "Awaiting supervisor verification",
   "closed-without-supervisor-verification": "Closed without supervisor verification",
   "parts-issued-not-completed": "Parts issued but job not completed",

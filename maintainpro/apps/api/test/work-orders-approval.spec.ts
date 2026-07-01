@@ -39,10 +39,27 @@ const createPrismaMock = () => ({
     findMany: jest.fn(),
     create: jest.fn()
   },
+  workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
+  evidenceAttachment: {
+    findMany: jest.fn().mockResolvedValue([
+      { evidenceType: "BEFORE_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" },
+      { evidenceType: "AFTER_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" }
+    ])
+  },
   $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback({}))
 });
 
 describe("WorkOrdersService approval and audit", () => {
+  const originalStorageFlag = process.env.STORAGE_UPLOADS_ENABLED;
+
+  beforeAll(() => {
+    process.env.STORAGE_UPLOADS_ENABLED = "true";
+  });
+
+  afterAll(() => {
+    process.env.STORAGE_UPLOADS_ENABLED = originalStorageFlag;
+  });
+
   const manager = {
     sub: "manager-1",
     email: "manager@maintainpro.local",
@@ -225,7 +242,7 @@ describe("WorkOrdersService approval and audit", () => {
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "work_order_technician_completed" })
+          metadata: expect.objectContaining({ event: "technician_completion_submitted" })
         })
       })
     );

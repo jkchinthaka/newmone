@@ -72,6 +72,18 @@ export type EvidenceAttachmentPublic = {
   mimeType: string;
   sizeBytes: number;
   status: string;
+  evidenceType: string;
+  verificationStatus: string;
+  rejectedReason: string | null;
+  note: string | null;
+  isRequired: boolean;
+  capturedAt: string | null;
+  source: string;
+  clientGeneratedId: string | null;
+  offlineCreatedAt: string | null;
+  syncedAt: string | null;
+  syncStatus: string | null;
+  syncError: string | null;
   uploadedByName: string | null;
   createdAt: string;
   downloadAvailable: boolean;
@@ -101,6 +113,18 @@ const PUBLIC_ATTACHMENT_KEYS = new Set<string>([
   "mimeType",
   "sizeBytes",
   "status",
+  "evidenceType",
+  "verificationStatus",
+  "rejectedReason",
+  "note",
+  "isRequired",
+  "capturedAt",
+  "source",
+  "clientGeneratedId",
+  "offlineCreatedAt",
+  "syncedAt",
+  "syncStatus",
+  "syncError",
   "uploadedByName",
   "createdAt",
   "downloadAvailable"
@@ -189,6 +213,18 @@ export function mapEvidenceAttachmentPublic(input: {
   mimeType: string;
   sizeBytes: number;
   status: string;
+  evidenceType?: string;
+  verificationStatus?: string;
+  rejectedReason?: string | null;
+  note?: string | null;
+  isRequired?: boolean;
+  capturedAt?: Date | null;
+  source?: string;
+  clientGeneratedId?: string | null;
+  offlineCreatedAt?: Date | null;
+  syncedAt?: Date | null;
+  syncStatus?: string | null;
+  syncError?: string | null;
   createdAt: Date;
   uploadedBy?: { firstName: string; lastName: string } | null;
   downloadAvailable?: boolean;
@@ -203,6 +239,18 @@ export function mapEvidenceAttachmentPublic(input: {
     mimeType: input.mimeType,
     sizeBytes: input.sizeBytes,
     status: input.status,
+    evidenceType: input.evidenceType ?? "OTHER_DOCUMENT",
+    verificationStatus: input.verificationStatus ?? "PENDING",
+    rejectedReason: input.rejectedReason ?? null,
+    note: input.note ?? null,
+    isRequired: Boolean(input.isRequired),
+    capturedAt: input.capturedAt?.toISOString() ?? null,
+    source: input.source ?? "WEB",
+    clientGeneratedId: input.clientGeneratedId ?? null,
+    offlineCreatedAt: input.offlineCreatedAt?.toISOString() ?? null,
+    syncedAt: input.syncedAt?.toISOString() ?? null,
+    syncStatus: input.syncStatus ?? null,
+    syncError: input.syncError ?? null,
     uploadedByName,
     createdAt: input.createdAt.toISOString(),
     downloadAvailable: Boolean(input.downloadAvailable)

@@ -5,14 +5,21 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import type { WorkOrderEvidenceRequirements } from "@/lib/work-order-evidence";
 
 type Props = {
   workOrderId: string;
   status: string;
+  evidenceRequirements?: WorkOrderEvidenceRequirements | null;
   onUpdated?: () => void;
 };
 
-export function SupervisorVerificationPanel({ workOrderId, status, onUpdated }: Props) {
+export function SupervisorVerificationPanel({
+  workOrderId,
+  status,
+  evidenceRequirements,
+  onUpdated
+}: Props) {
   const [verificationNote, setVerificationNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,6 +68,24 @@ export function SupervisorVerificationPanel({ workOrderId, status, onUpdated }: 
       <p className="mt-1 text-xs text-slate-600">
         Verify technician completion before closing this job, or reject with a reason to require rework.
       </p>
+
+      {evidenceRequirements ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-700">
+          <p className="font-medium text-slate-900">Evidence summary</p>
+          <ul className="mt-1 space-y-1">
+            <li>Before photos: {evidenceRequirements.beforeCount}</li>
+            <li>After photos: {evidenceRequirements.afterCount}</li>
+            <li>Completion note: {evidenceRequirements.completionNoteProvided ? "Provided" : "Missing"}</li>
+            <li>QR status: {evidenceRequirements.qrRequired ? evidenceRequirements.qrVerificationStatus : "Not required"}</li>
+            {evidenceRequirements.rejectedCount > 0 ? (
+              <li className="text-red-700">Rejected evidence: {evidenceRequirements.rejectedCount}</li>
+            ) : null}
+            {!evidenceRequirements.complete && evidenceRequirements.required ? (
+              <li className="font-medium text-amber-800">Supervisor verification blocked because required evidence is missing.</li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
 
       <label className="mt-3 block space-y-1 text-sm">
         <span className="font-medium text-slate-700">Verification note (optional)</span>

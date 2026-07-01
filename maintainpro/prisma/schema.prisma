@@ -202,6 +202,7 @@ model User {
   approvedWorkOrders          WorkOrder[]             @relation("ApprovedWorkOrders")
   verifiedWorkOrders          WorkOrder[]             @relation("VerifiedWorkOrders")
   reopenedWorkOrders          WorkOrder[]             @relation("ReopenedWorkOrders")
+  qrVerifiedWorkOrders        WorkOrder[]             @relation("QrVerifiedWorkOrders")
   memberships                 TenantMembership[]
   sentInvitations             TenantInvitation[]      @relation("TenantInvitedBy")
   notifications               Notification[]
@@ -1069,6 +1070,16 @@ model WorkOrder {
   slaBreached            Boolean                 @default(false)
   notes                  String?
   attachments            String[]
+  completionCondition    WorkOrderCompletionCondition?
+  followUpRequired       Boolean                 @default(false)
+  followUpNote           String?
+  qrVerificationStatus   QrVerificationStatus    @default(NOT_REQUIRED)
+  qrVerifiedAt           DateTime?
+  qrVerifiedById         String?                 @db.ObjectId
+  qrVerifiedBy           User?                   @relation("QrVerifiedWorkOrders", fields: [qrVerifiedById], references: [id])
+  qrVerifiedAssetId      String?                 @db.ObjectId
+  qrVerifiedVehicleId    String?                 @db.ObjectId
+  qrOverrideReason       String?
   accidentId             String?                 @db.ObjectId
   accident               AccidentReport?         @relation(fields: [accidentId], references: [id])
   trafficFineId          String?                 @db.ObjectId
@@ -2147,28 +2158,91 @@ enum EvidenceAttachmentStatus {
   DELETED
 }
 
+enum EvidenceType {
+  BEFORE_PHOTO
+  AFTER_PHOTO
+  DAMAGE_PHOTO
+  PART_PHOTO
+  INVOICE
+  QUOTATION
+  SIGNATURE
+  TECHNICIAN_NOTE
+  SUPERVISOR_NOTE
+  OTHER_DOCUMENT
+}
+
+enum EvidenceVerificationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum EvidenceSource {
+  WEB
+  MOBILE
+  OFFLINE_SYNC
+}
+
+enum EvidenceSyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+}
+
+enum QrVerificationStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+  MISMATCH
+  OVERRIDDEN
+}
+
+enum WorkOrderCompletionCondition {
+  FIXED
+  TEMPORARY_FIX
+  NEEDS_FOLLOW_UP
+  NOT_FIXED
+}
+
 model EvidenceAttachment {
-  id              String                   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?                  @db.ObjectId
-  tenant          Tenant?                  @relation(fields: [tenantId], references: [id])
-  workOrderId     String?                  @db.ObjectId
-  workOrder       WorkOrder?               @relation(fields: [workOrderId], references: [id])
-  facilityIssueId String?                  @db.ObjectId
-  facilityIssue   FacilityIssue?           @relation(fields: [facilityIssueId], references: [id])
-  fileName        String
-  mimeType        String
-  sizeBytes       Int
-  storageProvider String
-  storageKey      String
-  status          EvidenceAttachmentStatus @default(PENDING)
-  uploadedById    String                   @db.ObjectId
-  uploadedBy      User                     @relation("EvidenceUploader", fields: [uploadedById], references: [id])
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  id                 String                     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?                    @db.ObjectId
+  tenant             Tenant?                    @relation(fields: [tenantId], references: [id])
+  workOrderId        String?                    @db.ObjectId
+  workOrder          WorkOrder?                 @relation(fields: [workOrderId], references: [id])
+  facilityIssueId    String?                    @db.ObjectId
+  facilityIssue      FacilityIssue?             @relation(fields: [facilityIssueId], references: [id])
+  evidenceType       EvidenceType               @default(OTHER_DOCUMENT)
+  fileName           String
+  mimeType           String
+  sizeBytes          Int
+  storageProvider    String
+  storageKey         String
+  status             EvidenceAttachmentStatus   @default(PENDING)
+  verificationStatus EvidenceVerificationStatus @default(PENDING)
+  rejectedReason     String?
+  note               String?
+  isRequired         Boolean                    @default(false)
+  capturedAt         DateTime?
+  source             EvidenceSource             @default(WEB)
+  clientGeneratedId  String?
+  offlineCreatedAt   DateTime?
+  syncedAt           DateTime?
+  syncStatus         EvidenceSyncStatus?
+  syncError          String?
+  deletedAt          DateTime?
+  deletedById        String?                    @db.ObjectId
+  deleteReason       String?
+  uploadedById       String                     @db.ObjectId
+  uploadedBy         User                       @relation("EvidenceUploader", fields: [uploadedById], references: [id])
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([tenantId, facilityIssueId])
   @@index([tenantId, status])
+  @@index([tenantId, clientGeneratedId])
 }
 
 enum FacilityIssueCategory {

@@ -9,7 +9,11 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
-import type { EvidenceStorageReadiness, WorkOrderEvidenceItem } from "@/lib/work-order-evidence";
+import type {
+  EvidenceStorageReadiness,
+  WorkOrderEvidenceItem,
+  WorkOrderEvidenceRequirements
+} from "@/lib/work-order-evidence";
 
 import { asDateInputValue, requiresAssetOrVehicle, toTitleCase } from "./helpers";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
@@ -85,6 +89,7 @@ export function WorkOrderEditorModal({
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceReadiness, setEvidenceReadiness] = useState<EvidenceStorageReadiness | null>(null);
   const [evidenceItems, setEvidenceItems] = useState<WorkOrderEvidenceItem[]>([]);
+  const [evidenceRequirements, setEvidenceRequirements] = useState<WorkOrderEvidenceRequirements | null>(null);
   const currentUser = useCurrentUser();
   const showAuditTab = canViewAuditHistoryForUser(currentUser);
   const historySummary = useWorkOrderHistorySummary(!isCreateMode ? workOrder?.id : undefined);
@@ -104,6 +109,7 @@ export function WorkOrderEditorModal({
       setActivityError(null);
       setActivityLoading(false);
       setEvidenceItems([]);
+      setEvidenceRequirements(null);
       setEvidenceReadiness(null);
       setEvidenceLoading(false);
       return;
@@ -120,8 +126,11 @@ export function WorkOrderEditorModal({
         ]);
         if (!cancelled) {
           setEvidenceReadiness(readinessResponse.data?.data as EvidenceStorageReadiness);
-          const evidenceData = evidenceResponse.data?.data as { items?: WorkOrderEvidenceItem[] } | undefined;
+          const evidenceData = evidenceResponse.data?.data as
+            | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
+            | undefined;
           setEvidenceItems(evidenceData?.items ?? []);
+          setEvidenceRequirements(evidenceData?.requirements ?? null);
         }
       } catch {
         if (!cancelled) {
@@ -421,6 +430,7 @@ export function WorkOrderEditorModal({
                   <SupervisorVerificationPanel
                     workOrderId={workOrder.id}
                     status={workOrder.status}
+                    evidenceRequirements={evidenceRequirements}
                     onUpdated={onClose}
                   />
                 </div>
@@ -460,11 +470,17 @@ export function WorkOrderEditorModal({
                     workOrderId={workOrder.id}
                     readiness={evidenceReadiness}
                     items={evidenceItems}
+                    requirements={evidenceRequirements}
+                    assetId={workOrder.assetId}
+                    vehicleId={workOrder.vehicleId}
                     loading={evidenceLoading}
                     onRefresh={async () => {
                       const evidenceResponse = await apiClient.get(`/work-orders/${workOrder.id}/evidence`);
-                      const evidenceData = evidenceResponse.data?.data as { items?: WorkOrderEvidenceItem[] } | undefined;
+                      const evidenceData = evidenceResponse.data?.data as
+                        | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
+                        | undefined;
                       setEvidenceItems(evidenceData?.items ?? []);
+                      setEvidenceRequirements(evidenceData?.requirements ?? null);
                     }}
                   />
                 </div>

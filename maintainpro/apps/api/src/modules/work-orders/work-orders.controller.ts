@@ -100,6 +100,28 @@ export class WorkOrdersController {
     return { data, message: "Work order activity timeline fetched" };
   }
 
+  @Post(":id/evidence")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  async createEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      evidenceType: string;
+      note?: string;
+      fileName?: string;
+      mimeType?: string;
+      sizeBytes?: number;
+      capturedAt?: string;
+      source?: string;
+      clientGeneratedId?: string;
+      offlineCreatedAt?: string;
+    }
+  ) {
+    const data = await this.evidenceService.createWorkOrderEvidence(id, body as never, req.user);
+    return { data, message: "Work order evidence processed" };
+  }
+
   @Get(":id/evidence")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
   async listEvidence(@Req() req: AuthedRequest, @Param("id") id: string) {
@@ -108,13 +130,23 @@ export class WorkOrdersController {
   }
 
   @Post(":id/evidence/upload-request")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
   async createEvidenceUploadRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { fileName: string; mimeType: string; sizeBytes: number }
+    @Body()
+    body: {
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      evidenceType?: string;
+      note?: string;
+      capturedAt?: string;
+      source?: string;
+      clientGeneratedId?: string;
+    }
   ) {
-    const data = await this.evidenceService.createWorkOrderUploadRequest(id, body, req.user);
+    const data = await this.evidenceService.createWorkOrderUploadRequest(id, body as never, req.user);
     return { data, message: "Evidence upload request processed" };
   }
 
@@ -127,6 +159,65 @@ export class WorkOrdersController {
   ) {
     const data = await this.evidenceService.confirmWorkOrderUpload(id, body, req.user);
     return { data, message: "Evidence upload confirmation processed" };
+  }
+
+  @Patch(":id/evidence/:evidenceId")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  async patchEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string,
+    @Body() body: { note?: string; evidenceType?: string }
+  ) {
+    const data = await this.evidenceService.patchWorkOrderEvidence(id, evidenceId, body as never, req.user);
+    return { data, message: "Evidence updated" };
+  }
+
+  @Delete(":id/evidence/:evidenceId")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  async deleteEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string,
+    @Body() body: { reason: string }
+  ) {
+    const data = await this.evidenceService.deleteWorkOrderEvidence(id, evidenceId, body.reason, req.user);
+    return { data, message: "Evidence deleted" };
+  }
+
+  @Post(":id/evidence/:evidenceId/accept")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async acceptEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string,
+    @Body() body: { note?: string }
+  ) {
+    const data = await this.evidenceService.acceptWorkOrderEvidence(id, evidenceId, req.user, body.note);
+    return { data, message: "Evidence accepted" };
+  }
+
+  @Post(":id/evidence/:evidenceId/reject")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async rejectEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string,
+    @Body() body: { reason: string }
+  ) {
+    const data = await this.evidenceService.rejectWorkOrderEvidence(id, evidenceId, body.reason, req.user);
+    return { data, message: "Evidence rejected" };
+  }
+
+  @Post(":id/verify-qr")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  async verifyQr(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { scannedAssetId?: string; scannedVehicleId?: string; overrideReason?: string }
+  ) {
+    const data = await this.evidenceService.verifyWorkOrderQr(id, body, req.user);
+    return { data, message: data.message };
   }
 
   @Patch(":id")
@@ -244,9 +335,13 @@ export class WorkOrdersController {
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
+      completionCondition?: string;
+      followUpRequired?: boolean;
+      followUpNote?: string;
+      overrideReason?: string;
     }
   ) {
-    const data = await this.workOrdersService.updateStatus(id, body, req.user);
+    const data = await this.workOrdersService.updateStatus(id, body as Parameters<WorkOrdersService["updateStatus"]>[1], req.user);
     return { data, message: "Work order status updated" };
   }
 
@@ -256,7 +351,7 @@ export class WorkOrdersController {
   async verifySupervisor(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { verificationNote?: string; actualCost?: number; actualHours?: number; delayReason?: string }
+    @Body() body: { verificationNote?: string; actualCost?: number; actualHours?: number; delayReason?: string; overrideReason?: string }
   ) {
     const data = await this.workOrdersService.verifySupervisor(id, body, req.user);
     return { data, message: "Work order supervisor verified" };

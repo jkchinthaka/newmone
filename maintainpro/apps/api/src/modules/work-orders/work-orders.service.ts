@@ -11,6 +11,8 @@ import {
   RoleName,
   WorkOrderApprovalStatus,
   WorkOrderStatus,
+  QrVerificationStatus,
+  WorkOrderCompletionCondition,
   WorkOrderVerificationStatus
 } from "@prisma/client";
 
@@ -28,6 +30,12 @@ import {
   TERMINAL_WORK_ORDER_STATUSES,
   TECHNICIAN_EXECUTION_ROLES
 } from "../../common/utils/work-order-governance";
+import {
+  assertEvidenceForSupervisorVerification,
+  assertEvidenceForTechnicianCompletion,
+  requiresQrVerification
+} from "../../common/utils/work-order-evidence-governance";
+import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
 import {
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
@@ -301,7 +309,10 @@ export class WorkOrdersService {
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
-            approvalStatus === WorkOrderApprovalStatus.APPROVED && actor?.sub ? actor.sub : undefined
+            approvalStatus === WorkOrderApprovalStatus.APPROVED && actor?.sub ? actor.sub : undefined,
+          qrVerificationStatus: requiresQrVerification(data.type as never, assetId, vehicleId)
+            ? QrVerificationStatus.PENDING
+            : QrVerificationStatus.NOT_REQUIRED
         }
       });
 
@@ -606,6 +617,10 @@ export class WorkOrdersService {
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
+      completionCondition?: WorkOrderCompletionCondition;
+      followUpRequired?: boolean;
+      followUpNote?: string;
+      overrideReason?: string;
     },
     actor?: Actor
   ) {
@@ -636,6 +651,59 @@ export class WorkOrdersService {
       assertReasonProvided("Technician completion note", data.completionNote);
       if (!data.actualCost || !data.actualHours) {
         throw new BadRequestException("Cannot mark technician completion without actual cost and hours");
+      }
+
+      const assigneeCount = await this.prisma.workOrderAssignee.count({
+        where: {
+          workOrderId: id,
+          assignmentStatus: { not: "REMOVED" }
+        }
+      });
+      if (assigneeCount === 0) {
+        throw new BadRequestException("Cannot complete work order without an assigned employee.");
+      }
+
+      const evidenceItems = await this.prisma.evidenceAttachment.findMany({
+        where: { workOrderId: id, deletedAt: null, status: { not: "DELETED" } },
+        select: { evidenceType: true, status: true, verificationStatus: true }
+      });
+
+      const overrideAllowed =
+        Boolean(data.overrideReason?.trim()) && canOverrideCompletionBlock(actor?.role as RoleName);
+
+      try {
+        assertEvidenceForTechnicianCompletion({
+          workOrderType: current.type,
+          items: evidenceItems,
+          completionNote: data.completionNote,
+          qrStatus: current.qrVerificationStatus,
+          assetId: current.assetId,
+          vehicleId: current.vehicleId,
+          overrideReason: overrideAllowed ? data.overrideReason : undefined
+        });
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          await this.recordAudit({
+            entity: "WorkOrder",
+            entityId: id,
+            action: AuditAction.UPDATE,
+            actor,
+            reason: error.message,
+            metadata: { event: "completion_blocked_missing_evidence", woNumber: current.woNumber }
+          });
+        }
+        throw error;
+      }
+
+      if (overrideAllowed) {
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: data.overrideReason,
+          metadata: { event: "completion_override_missing_evidence", woNumber: current.woNumber }
+        });
       }
     }
 
@@ -702,6 +770,18 @@ export class WorkOrdersService {
           targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
             ? assertReasonProvided("Technician completion note", data.completionNote)
             : current.technicianCompletionNote,
+        completionCondition:
+          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+            ? data.completionCondition ?? current.completionCondition
+            : current.completionCondition,
+        followUpRequired:
+          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+            ? Boolean(data.followUpRequired)
+            : current.followUpRequired,
+        followUpNote:
+          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+            ? data.followUpNote?.trim() || null
+            : current.followUpNote,
         verificationStatus,
         completedDate,
         slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
@@ -712,7 +792,7 @@ export class WorkOrdersService {
       targetStatus === WorkOrderStatus.COMPLETED
         ? "work_order_closed"
         : targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
-          ? "work_order_technician_completed"
+          ? "technician_completion_submitted"
           : targetStatus === WorkOrderStatus.CANCELLED
             ? "work_order_cancelled"
             : "work_order_status_updated";
@@ -756,7 +836,13 @@ export class WorkOrdersService {
 
   async verifySupervisor(
     id: string,
-    data: { verificationNote?: string; actualCost?: number; actualHours?: number; delayReason?: string },
+    data: {
+      verificationNote?: string;
+      actualCost?: number;
+      actualHours?: number;
+      delayReason?: string;
+      overrideReason?: string;
+    },
     actor?: Actor
   ) {
     if (!canVerifySupervisor(actor?.role as RoleName)) {
@@ -772,6 +858,34 @@ export class WorkOrdersService {
     const actualHours = data.actualHours ?? current.actualHours;
     if (!actualCost || !actualHours) {
       throw new BadRequestException("Actual cost and hours are required before closing.");
+    }
+
+    const evidenceItems = await this.prisma.evidenceAttachment.findMany({
+      where: { workOrderId: id, deletedAt: null, status: { not: "DELETED" } },
+      select: { evidenceType: true, status: true, verificationStatus: true }
+    });
+
+    const overrideAllowed =
+      Boolean(data.overrideReason?.trim()) && canOverrideCompletionBlock(actor?.role as RoleName);
+
+    try {
+      assertEvidenceForSupervisorVerification({
+        workOrderType: current.type,
+        items: evidenceItems,
+        overrideReason: overrideAllowed ? data.overrideReason : undefined
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: error.message,
+          metadata: { event: "supervisor_verification_blocked_missing_evidence", woNumber: current.woNumber }
+        });
+      }
+      throw error;
     }
 
     const approver = this.assertActor(actor);

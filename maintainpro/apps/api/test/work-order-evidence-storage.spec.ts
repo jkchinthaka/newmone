@@ -17,7 +17,7 @@ const configService = (values: Record<string, unknown>) =>
   }) as never;
 
 describe("work order evidence storage", () => {
-  const actor = { sub: "user-1", tenantId: "tenant-a" };
+  const actor = { sub: "user-1", tenantId: "tenant-a", role: "MANAGER" as const, email: "mgr@test.com" };
 
   it("rejects invalid MIME types", () => {
     const result = validateEvidenceUploadInput({
@@ -104,6 +104,8 @@ describe("work order evidence storage", () => {
           facilityIssue: null
         })
       },
+      workOrderAssignee: { findFirst: jest.fn().mockResolvedValue({ id: "assignee-1" }) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
       evidenceAttachment: {
         create: jest.fn().mockResolvedValue({
           id: "ev-1",
@@ -173,6 +175,8 @@ describe("work order evidence storage", () => {
     );
     const prisma = {
       workOrder: { findFirst: jest.fn() },
+      workOrderAssignee: { findFirst: jest.fn() },
+      auditLog: { create: jest.fn() },
       evidenceAttachment: { create: jest.fn() }
     } as unknown as ConstructorParameters<typeof EvidenceService>[0];
     const service = new EvidenceService(prisma, provider);

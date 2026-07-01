@@ -26,11 +26,28 @@ const createPrismaMock = () => ({
   workOrderPart: { findFirst: jest.fn(), create: jest.fn() },
   stockMovement: { create: jest.fn() },
   partRequest: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
-  evidenceAttachment: { count: jest.fn() },
+  workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
+  evidenceAttachment: {
+    count: jest.fn().mockResolvedValue(0),
+    findMany: jest.fn().mockResolvedValue([
+      { evidenceType: "BEFORE_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" },
+      { evidenceType: "AFTER_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" }
+    ])
+  },
   $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback({}))
 });
 
 describe("WorkOrdersService governance (UAT-009)", () => {
+  const originalStorageFlag = process.env.STORAGE_UPLOADS_ENABLED;
+
+  beforeAll(() => {
+    process.env.STORAGE_UPLOADS_ENABLED = "true";
+  });
+
+  afterAll(() => {
+    process.env.STORAGE_UPLOADS_ENABLED = originalStorageFlag;
+  });
+
   const manager = {
     sub: "manager-1",
     email: "manager@maintainpro.local",
@@ -70,7 +87,13 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     dueDate: null,
     expectedCompletionDate: null,
     plannedStartAt: null,
-    plannedEndAt: null
+    plannedEndAt: null,
+    qrVerificationStatus: null,
+    assetId: null,
+    vehicleId: null,
+    completionCondition: null,
+    followUpRequired: false,
+    followUpNote: null
   };
 
   it("blocks IN_PROGRESS from moving back to OPEN", async () => {
@@ -153,7 +176,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "work_order_technician_completed" })
+          metadata: expect.objectContaining({ event: "technician_completion_submitted" })
         })
       })
     );

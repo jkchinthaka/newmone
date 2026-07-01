@@ -2,7 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/com
 import {
   AuditAction,
   Prisma,
+  QrVerificationStatus,
   RoleName,
+  EvidenceVerificationStatus,
   WorkOrderAssigneeStatus,
   WorkOrderStatus,
   WorkOrderVerificationStatus
@@ -17,6 +19,10 @@ import {
   type WorkOrderRiskFactors
 } from "../../common/utils/maintenance-risk-score";
 import { pendingQuantity } from "../../common/utils/work-order-parts-governance";
+import {
+  evaluateEvidenceRequirements,
+  requiresQrVerification
+} from "../../common/utils/work-order-evidence-governance";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
@@ -178,7 +184,10 @@ export class MaintenanceReportsService {
     const wo = await this.prisma.workOrder.findFirst({
       where: { id: workOrderId, ...(tenantId !== undefined ? { tenantId } : {}) },
       include: {
-        evidenceAttachments: { select: { id: true }, take: 1 },
+        evidenceAttachments: {
+          where: { deletedAt: null, status: { not: "DELETED" } },
+          select: { id: true, evidenceType: true, status: true, verificationStatus: true, syncStatus: true }
+        },
         parts: true,
         partIssues: { select: { id: true }, take: 1 },
         assignees: { where: { leaveOverride: true }, take: 1 }
@@ -208,8 +217,28 @@ export class MaintenanceReportsService {
     const highCostPart = wo.parts.some((line) => line.issuedQuantity * line.unitCost >= PART_APPROVAL_HIGH_THRESHOLD);
     const pendingReturn = wo.parts.some((line) => line.pendingReturnQuantity > 0);
 
+    const evidenceChecklist = evaluateEvidenceRequirements(
+      wo.type,
+      wo.evidenceAttachments.map((item) => ({
+        evidenceType: item.evidenceType,
+        status: item.status,
+        verificationStatus: item.verificationStatus
+      }))
+    );
+    const uploadedEvidence = wo.evidenceAttachments.filter((item) => item.status === "UPLOADED");
+
     return {
-      completedWithoutEvidence: wo.status === WorkOrderStatus.COMPLETED && wo.evidenceAttachments.length === 0,
+      completedWithoutEvidence: wo.status === WorkOrderStatus.COMPLETED && uploadedEvidence.length === 0,
+      requiredEvidenceMissing:
+        evidenceChecklist.required &&
+        !evidenceChecklist.complete &&
+        ACTIVE_STATUSES.includes(wo.status),
+      qrMismatch: wo.qrVerificationStatus === QrVerificationStatus.MISMATCH,
+      qrOverride: wo.qrVerificationStatus === QrVerificationStatus.OVERRIDDEN,
+      evidenceRejected: wo.evidenceAttachments.some(
+        (item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED
+      ),
+      offlineSyncFailed: wo.evidenceAttachments.some((item) => item.syncStatus === "FAILED"),
       partsIssuedJobNotCompleted:
         ACTIVE_STATUSES.includes(wo.status) && (wo.parts.length > 0 || wo.partIssues.length > 0),
       pendingReturn,
@@ -251,7 +280,89 @@ export class MaintenanceReportsService {
           where: {
             ...this.baseWorkOrderWhere(actor, query),
             status: WorkOrderStatus.COMPLETED,
-            evidenceAttachments: { none: {} }
+            evidenceAttachments: { none: { status: "UPLOADED", deletedAt: null } }
+          }
+        });
+      case "required-evidence-missing": {
+        const orders = await this.prisma.workOrder.findMany({
+          where: {
+            ...tenantFilter,
+            status: { in: ACTIVE_STATUSES },
+            createdAt: { gte: start, lte: end },
+            type: { in: ["CORRECTIVE", "EMERGENCY", "ACCIDENT_REPAIR", "PREVENTIVE", "INSPECTION", "INSTALLATION"] }
+          },
+          include: {
+            evidenceAttachments: {
+              where: { deletedAt: null },
+              select: { evidenceType: true, status: true, verificationStatus: true }
+            }
+          },
+          take: 300
+        });
+        return orders.filter((wo) => {
+          const checklist = evaluateEvidenceRequirements(
+            wo.type,
+            wo.evidenceAttachments.map((item) => ({
+              evidenceType: item.evidenceType,
+              status: item.status,
+              verificationStatus: item.verificationStatus
+            }))
+          );
+          return checklist.required && !checklist.complete;
+        }).length;
+      }
+      case "technician-completed-without-evidence":
+        return this.prisma.workOrder.count({
+          where: {
+            ...this.baseWorkOrderWhere(actor, query),
+            status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+            evidenceAttachments: { none: { status: "UPLOADED", deletedAt: null } }
+          }
+        });
+      case "supervisor-blocked-missing-evidence": {
+        const logs = await this.prisma.auditLog.findMany({
+          where: {
+            ...tenantFilter,
+            module: "maintenance",
+            createdAt: { gte: start, lte: end }
+          },
+          select: { metadata: true },
+          take: 500
+        });
+        return logs.filter((log) => {
+          const metadata = log.metadata as { event?: string } | null;
+          return metadata?.event === "supervisor_verification_blocked_missing_evidence";
+        }).length;
+      }
+      case "qr-mismatch":
+        return this.prisma.workOrder.count({
+          where: {
+            ...this.baseWorkOrderWhere(actor, query),
+            qrVerificationStatus: QrVerificationStatus.MISMATCH
+          }
+        });
+      case "qr-override":
+        return this.prisma.workOrder.count({
+          where: {
+            ...this.baseWorkOrderWhere(actor, query),
+            qrVerificationStatus: QrVerificationStatus.OVERRIDDEN
+          }
+        });
+      case "evidence-rejected":
+        return this.prisma.workOrder.count({
+          where: {
+            ...this.baseWorkOrderWhere(actor, query),
+            evidenceAttachments: {
+              some: { verificationStatus: EvidenceVerificationStatus.REJECTED, deletedAt: null }
+            }
+          }
+        });
+      case "offline-sync-failed":
+        return this.prisma.evidenceAttachment.count({
+          where: {
+            ...tenantFilter,
+            syncStatus: "FAILED",
+            createdAt: { gte: start, lte: end }
           }
         });
       case "pending-supervisor-verification":
@@ -559,6 +670,45 @@ export class MaintenanceReportsService {
         );
         break;
       }
+      case "qr-mismatch":
+        total = await fetchWorkOrders(
+          {
+            ...this.baseWorkOrderWhere(user, query),
+            qrVerificationStatus: QrVerificationStatus.MISMATCH
+          },
+          "Scanned QR asset/vehicle did not match the work order."
+        );
+        break;
+      case "qr-override":
+        total = await fetchWorkOrders(
+          {
+            ...this.baseWorkOrderWhere(user, query),
+            qrVerificationStatus: QrVerificationStatus.OVERRIDDEN
+          },
+          "QR verification was overridden by a supervisor or manager."
+        );
+        break;
+      case "evidence-rejected":
+        total = await fetchWorkOrders(
+          {
+            ...this.baseWorkOrderWhere(user, query),
+            evidenceAttachments: {
+              some: { verificationStatus: EvidenceVerificationStatus.REJECTED, deletedAt: null }
+            }
+          },
+          "Supervisor rejected submitted evidence — rework required."
+        );
+        break;
+      case "technician-completed-without-evidence":
+        total = await fetchWorkOrders(
+          {
+            ...this.baseWorkOrderWhere(user, query),
+            status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+            evidenceAttachments: { none: { status: "UPLOADED", deletedAt: null } }
+          },
+          "Technician marked complete without uploaded evidence."
+        );
+        break;
       default:
         total = await fetchWorkOrders(this.baseWorkOrderWhere(user, query), MAINTENANCE_EXCEPTION_LABELS[exceptionType]);
     }
