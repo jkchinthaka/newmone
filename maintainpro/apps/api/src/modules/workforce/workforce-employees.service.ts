@@ -70,13 +70,10 @@ export class WorkforceEmployeesService {
   }
 
   private async assertLinkedUserIdAvailable(linkedUserId: string, excludeEmployeeId?: string) {
-    const existing = await this.prisma.employee.findFirst({
-      where: {
-        linkedUserId,
-        ...(excludeEmployeeId ? { id: { not: excludeEmployeeId } } : {})
-      }
+    const existing = await this.prisma.employee.findUnique({
+      where: { linkedUserId }
     });
-    if (existing) {
+    if (existing && existing.id !== excludeEmployeeId) {
       throw new BadRequestException("This user account is already linked to another employee");
     }
   }
@@ -449,15 +446,15 @@ export class WorkforceEmployeesService {
       return direct;
     }
 
-    const linked = await this.prisma.employee.findFirst({
-      where: { linkedUserId: employeeId, active: true, ...scopedWhere },
+    const linked = await this.prisma.employee.findUnique({
+      where: { linkedUserId: employeeId },
       include: {
         linkedUser: { select: { id: true, role: { select: { name: true } } } },
         department: { select: { id: true, name: true, code: true } }
       }
     });
 
-    if (linked) {
+    if (linked?.active && (tenantId === undefined || tenantId === null || linked.tenantId === tenantId)) {
       return linked;
     }
 

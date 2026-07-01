@@ -16,6 +16,11 @@ import * as bcrypt from "bcryptjs";
 
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
 import {
+  normalizeWorkforceOnlyLinkedUserIds,
+  upsertLinkedWorkforceEmployee,
+  upsertWorkforceOnlyEmployee
+} from "./workforce-seed";
+import {
   BUILDING_SUPERVISOR_PERMISSIONS,
   FACILITY_MANAGER_PERMISSIONS,
   FACILITY_PERMISSION_KEYS
@@ -1461,6 +1466,8 @@ async function main() {
 }
 
 async function seedWorkforceEmployees(tenantId: string) {
+  await normalizeWorkforceOnlyLinkedUserIds(prisma, tenantId);
+
   const maintenanceDept = await prisma.department.findFirst({
     where: {
       tenantId,
@@ -1468,137 +1475,41 @@ async function seedWorkforceEmployees(tenantId: string) {
     }
   });
 
-  async function findExistingWorkforceEmployee(input: {
-    linkedUserId?: string;
-    employeeNo?: string;
-    email?: string | null;
-  }) {
-    const or: Prisma.EmployeeWhereInput[] = [];
-
-    if (input.linkedUserId) {
-      or.push({ linkedUserId: input.linkedUserId });
-    }
-    if (input.employeeNo) {
-      or.push({ tenantId, employeeNo: input.employeeNo });
-    }
-    if (input.email?.trim()) {
-      or.push({ email: input.email.trim().toLowerCase() });
-    }
-
-    if (or.length === 0) {
-      return null;
-    }
-
-    const matches = await prisma.employee.findMany({
-      where: { OR: or },
-      orderBy: { updatedAt: "desc" }
-    });
-
-    if (matches.length === 0) {
-      return null;
-    }
-
-    if (input.linkedUserId) {
-      const linkedMatch = matches.find((row) => row.linkedUserId === input.linkedUserId);
-      if (linkedMatch) {
-        return linkedMatch;
-      }
-    }
-
-    if (input.employeeNo) {
-      const employeeNoMatch = matches.find((row) => row.employeeNo === input.employeeNo);
-      if (employeeNoMatch) {
-        return employeeNoMatch;
-      }
-    }
-
-    return matches[0];
-  }
-
-  async function upsertWorkforceEmployee(
-    match: { linkedUserId?: string; employeeNo?: string; email?: string | null },
-    data: Prisma.EmployeeCreateInput | Prisma.EmployeeUncheckedCreateInput
-  ) {
-    const existing = await findExistingWorkforceEmployee(match);
-
-    if (existing) {
-      const { tenantId: _tenantId, ...updateData } = data as Prisma.EmployeeUncheckedCreateInput;
-      return prisma.employee.update({
-        where: { id: existing.id },
-        data: updateData
-      });
-    }
-
-    if (match.linkedUserId) {
-      const linkedExisting = await prisma.employee.findFirst({
-        where: { linkedUserId: match.linkedUserId }
-      });
-      if (linkedExisting) {
-        const { tenantId: _tenantId, ...updateData } = data as Prisma.EmployeeUncheckedCreateInput;
-        return prisma.employee.update({
-          where: { id: linkedExisting.id },
-          data: updateData
-        });
-      }
-    }
-
-    return prisma.employee.create({
-      data: data as Prisma.EmployeeUncheckedCreateInput
-    });
-  }
-
-  async function upsertEmployeeFromUser(input: {
-    userEmail: string;
-    employeeNo: string;
-    designation: string;
-    skills?: string[];
-    branchName?: string;
-  }) {
-    const user = await prisma.user.findUnique({ where: { email: input.userEmail } });
-    if (!user) {
-      return null;
-    }
-
-    const fullName = `${user.firstName} ${user.lastName}`.trim();
-    const payload: Prisma.EmployeeUncheckedCreateInput = {
+  const techUser = await prisma.user.findUnique({ where: { email: "tech@maintainpro.local" } });
+  if (techUser) {
+    await upsertLinkedWorkforceEmployee(prisma, {
       tenantId,
-      employeeNo: input.employeeNo,
-      fullName,
-      email: user.email,
-      phone: user.phone,
-      departmentId: user.departmentId,
-      branchName: input.branchName ?? "Main Site",
-      designation: input.designation,
-      skills: input.skills ?? user.skills,
-      dailyCapacityHours: user.dailyCapacityHours ?? 8,
-      active: user.isActive,
-      canLogin: true,
-      linkedUserId: user.id
-    };
-
-    return upsertWorkforceEmployee(
-      {
-        linkedUserId: user.id,
-        employeeNo: input.employeeNo,
-        email: user.email
-      },
-      payload
-    );
+      employeeNo: "EMP-0001",
+      fullName: `${techUser.firstName} ${techUser.lastName}`.trim(),
+      email: techUser.email,
+      phone: techUser.phone,
+      departmentId: techUser.departmentId,
+      branchName: "Main Site",
+      designation: "TECHNICIAN",
+      skills: techUser.skills.length ? techUser.skills : ["General maintenance", "Preventive service"],
+      dailyCapacityHours: techUser.dailyCapacityHours ?? 8,
+      active: techUser.isActive,
+      linkedUserId: techUser.id
+    });
   }
 
-  await upsertEmployeeFromUser({
-    userEmail: "tech@maintainpro.local",
-    employeeNo: "EMP-0001",
-    designation: "TECHNICIAN",
-    skills: ["General maintenance", "Preventive service"]
-  });
-
-  await upsertEmployeeFromUser({
-    userEmail: "mechanic@maintainpro.local",
-    employeeNo: "EMP-0002",
-    designation: "MECHANIC",
-    skills: ["Engine repair", "Hydraulics"]
-  });
+  const mechanicUser = await prisma.user.findUnique({ where: { email: "mechanic@maintainpro.local" } });
+  if (mechanicUser) {
+    await upsertLinkedWorkforceEmployee(prisma, {
+      tenantId,
+      employeeNo: "EMP-0002",
+      fullName: `${mechanicUser.firstName} ${mechanicUser.lastName}`.trim(),
+      email: mechanicUser.email,
+      phone: mechanicUser.phone,
+      departmentId: mechanicUser.departmentId,
+      branchName: "Main Site",
+      designation: "MECHANIC",
+      skills: mechanicUser.skills.length ? mechanicUser.skills : ["Engine repair", "Hydraulics"],
+      dailyCapacityHours: mechanicUser.dailyCapacityHours ?? 8,
+      active: mechanicUser.isActive,
+      linkedUserId: mechanicUser.id
+    });
+  }
 
   const sampleEmployees = [
     {
@@ -1622,21 +1533,18 @@ async function seedWorkforceEmployees(tenantId: string) {
   ] as const;
 
   for (const sample of sampleEmployees) {
-    await upsertWorkforceEmployee(
-      { employeeNo: sample.employeeNo },
-      {
-        tenantId,
-        employeeNo: sample.employeeNo,
-        fullName: sample.fullName,
-        designation: sample.designation,
-        skills: [...sample.skills],
-        dailyCapacityHours: 8,
-        active: true,
-        canLogin: false,
-        branchName: "Main Site",
-        departmentId: maintenanceDept?.id ?? null
-      }
-    );
+    await upsertWorkforceOnlyEmployee(prisma, {
+      tenantId,
+      employeeNo: sample.employeeNo,
+      fullName: sample.fullName,
+      designation: sample.designation,
+      skills: [...sample.skills],
+      dailyCapacityHours: 8,
+      active: true,
+      canLogin: false,
+      branchName: "Main Site",
+      departmentId: maintenanceDept?.id ?? null
+    });
   }
 
   const legacyAssignees = await prisma.workOrderAssignee.findMany({
@@ -1649,7 +1557,7 @@ async function seedWorkforceEmployees(tenantId: string) {
       continue;
     }
 
-    const linkedEmployee = await prisma.employee.findFirst({
+    const linkedEmployee = await prisma.employee.findUnique({
       where: { linkedUserId: row.employeeId }
     });
 
