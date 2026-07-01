@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, History, Loader2 } from "lucide-react";
 
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 
 export type WorkOrderHistoryContext = {
   workOrderId: string;
@@ -65,7 +65,11 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
   if (query.isError) {
     return (
       <section className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        {getApiErrorMessage(query.error, "Could not load maintenance history for this work order.")}
+        {getApiErrorMessageForRoute(
+          query.error,
+          "work-order-history",
+          "Could not load maintenance history for this work order."
+        )}
       </section>
     );
   }

@@ -76,7 +76,7 @@ export class WorkOrderAssigneesService {
     });
   }
 
-  private async assertWorkOrder(id: string, actor?: Actor) {
+  private async assertWorkOrder(id: string, actor?: Actor, options?: { allowClosed?: boolean }) {
     const tenantId = this.resolveTenantId(actor);
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
@@ -90,8 +90,9 @@ export class WorkOrderAssigneesService {
     }
 
     if (
-      workOrder.status === WorkOrderStatus.COMPLETED ||
-      workOrder.status === WorkOrderStatus.CANCELLED
+      !options?.allowClosed &&
+      (workOrder.status === WorkOrderStatus.COMPLETED ||
+        workOrder.status === WorkOrderStatus.CANCELLED)
     ) {
       throw new BadRequestException("Cannot modify assignees on a closed work order");
     }
@@ -100,7 +101,7 @@ export class WorkOrderAssigneesService {
   }
 
   async listAssignees(workOrderId: string, actor?: Actor) {
-    await this.assertWorkOrder(workOrderId, actor);
+    await this.assertWorkOrder(workOrderId, actor, { allowClosed: true });
     const tenantId = this.resolveTenantId(actor);
 
     return this.prisma.workOrderAssignee.findMany({

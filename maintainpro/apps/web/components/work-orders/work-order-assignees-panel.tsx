@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { AlertTriangle, Loader2, UserMinus, UserPlus, Star } from "lucide-react";
 import { toast } from "sonner";
 
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import {
   ASSIGNABLE_WORKFORCE_DESIGNATIONS,
   canManageWorkforceEmployees,
@@ -75,6 +75,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const [employees, setEmployees] = useState<WorkforceEmployee[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(true);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [assigneesError, setAssigneesError] = useState<string | null>(null);
   const [employeesError, setEmployeesError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [designationFilter, setDesignationFilter] = useState("");
@@ -120,11 +121,15 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
 
   const loadAssignees = useCallback(async () => {
     setLoadingAssignees(true);
+    setAssigneesError(null);
     try {
       const assigneeRes = await apiClient.get<{ data: AssigneeRow[] }>(`/work-orders/${workOrderId}/assignees`);
       setAssignees(assigneeRes.data.data ?? []);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load assignees."));
+      const message = getApiErrorMessageForRoute(err, "work-order-assignees", "Failed to load assignees.");
+      setAssigneesError(message);
+      setAssignees([]);
+      toast.error(message);
     } finally {
       setLoadingAssignees(false);
     }
@@ -139,7 +144,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       });
       setEmployees(employeeRes.data.data ?? []);
     } catch (err) {
-      const message = getApiErrorMessage(err, "Failed to load employees.");
+      const message = getApiErrorMessageForRoute(err, "workforce", "Failed to load employees.");
       setEmployeesError(message);
       setEmployees([]);
     } finally {
@@ -230,7 +235,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       setAssignmentPreview(null);
       await Promise.all([loadAssignees(), loadEmployees()]);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Could not add assignee."));
+      toast.error(getApiErrorMessageForRoute(err, "work-order-assignees", "Could not add assignee."));
     } finally {
       setBusy(false);
     }
@@ -243,7 +248,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       toast.success("Assignee removed.");
       await Promise.all([loadAssignees(), loadEmployees()]);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Could not remove assignee."));
+      toast.error(getApiErrorMessageForRoute(err, "work-order-assignees", "Could not remove assignee."));
     } finally {
       setBusy(false);
     }
@@ -269,6 +274,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
         <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
           <Loader2 size={14} className="animate-spin" aria-hidden /> Loading assignees...
         </p>
+      ) : assigneesError ? (
+        <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{assigneesError}</p>
       ) : assignees.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">No employees assigned yet.</p>
       ) : (

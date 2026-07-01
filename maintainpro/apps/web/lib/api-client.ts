@@ -67,6 +67,35 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+export type DeploymentRouteFeature = "workforce" | "work-order-assignees" | "work-order-history";
+
+const DEPLOYMENT_ROUTE_MESSAGES: Record<DeploymentRouteFeature, string> = {
+  workforce: "Workforce API is not available on the current backend deployment.",
+  "work-order-assignees": "Work order assignee API is not available on the current backend deployment.",
+  "work-order-history": "Work order history API is not available on the current backend deployment."
+};
+
+export function getDeploymentRouteUnavailableMessage(
+  error: unknown,
+  feature: DeploymentRouteFeature
+): string | null {
+  if (error && typeof error === "object") {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status === 404) {
+      return DEPLOYMENT_ROUTE_MESSAGES[feature];
+    }
+  }
+  return null;
+}
+
+export function getApiErrorMessageForRoute(
+  error: unknown,
+  feature: DeploymentRouteFeature,
+  fallback: string
+): string {
+  return getDeploymentRouteUnavailableMessage(error, feature) ?? getApiErrorMessage(error, fallback);
+}
+
 function normalizeRequestPath(url?: string): string {
   const raw = url?.split("?")[0] ?? "";
   if (!raw) {

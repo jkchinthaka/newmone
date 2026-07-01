@@ -278,6 +278,31 @@ await check("CORS preflight", async () => {
   return "credentials allowed";
 });
 
+async function assertRouteAvailable(path, token, label) {
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: frontendUrl
+      }
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, `${label} request`));
+  }
+
+  if (response.status === 404) {
+    throw new Error(`${label} returned HTTP 404 (route missing on deployed API)`);
+  }
+  if (response.status === 401) {
+    throw new Error(`${label} returned HTTP 401 (token rejected unexpectedly)`);
+  }
+
+  return `${label} HTTP ${response.status}`;
+}
+
+let smokeAccessToken = "";
+
 await check("Login endpoint", async () => {
   let response;
   try {
@@ -300,7 +325,50 @@ await check("Login endpoint", async () => {
   if (JSON.stringify(body?.data?.user ?? {}).includes("passwordHash")) {
     throw new Error("Login response exposed passwordHash");
   }
+  smokeAccessToken = body.data.accessToken;
   return body?.message ?? "login accepted";
+});
+
+await check("Workforce employees route", async () =>
+  assertRouteAvailable("/workforce/employees?designation=TECHNICIAN", smokeAccessToken, "GET /workforce/employees")
+);
+
+await check("Work order assignees route", async () => {
+  const listResponse = await fetchWithTimeout(`${apiBaseUrl}/work-orders`, {
+    headers: {
+      Authorization: `Bearer ${smokeAccessToken}`,
+      Origin: frontendUrl
+    }
+  });
+  const listBody = await readJson(listResponse);
+  if (!listResponse.ok) {
+    throw new Error(`GET /work-orders returned HTTP ${listResponse.status}`);
+  }
+  const rows = Array.isArray(listBody?.data) ? listBody.data : [];
+  const workOrderId = rows[0]?.id;
+  if (!workOrderId) {
+    return "skipped (no work orders in staging tenant)";
+  }
+  return assertRouteAvailable(`/work-orders/${workOrderId}/assignees`, smokeAccessToken, "GET /work-orders/:id/assignees");
+});
+
+await check("Work order history route", async () => {
+  const listResponse = await fetchWithTimeout(`${apiBaseUrl}/work-orders`, {
+    headers: {
+      Authorization: `Bearer ${smokeAccessToken}`,
+      Origin: frontendUrl
+    }
+  });
+  const listBody = await readJson(listResponse);
+  if (!listResponse.ok) {
+    throw new Error(`GET /work-orders returned HTTP ${listResponse.status}`);
+  }
+  const rows = Array.isArray(listBody?.data) ? listBody.data : [];
+  const workOrderId = rows[0]?.id;
+  if (!workOrderId) {
+    return "skipped (no work orders in staging tenant)";
+  }
+  return assertRouteAvailable(`/work-orders/${workOrderId}/history`, smokeAccessToken, "GET /work-orders/:id/history");
 });
 
 if (process.exitCode) {
