@@ -283,8 +283,12 @@ export class WorkOrderAssigneesService {
     return assignee;
   }
 
-  async removeAssignee(workOrderId: string, assigneeId: string, actor?: Actor) {
-    await this.assertWorkOrder(workOrderId, actor);
+  async removeAssignee(workOrderId: string, assigneeId: string, actor?: Actor, reason?: string) {
+    await this.assertWorkOrder(workOrderId, actor, { allowClosed: true });
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason || trimmedReason.length < 3) {
+      throw new BadRequestException("Reason is required when removing an assignee (minimum 3 characters).");
+    }
     const tenantId = this.resolveTenantId(actor);
 
     const assignee = await this.prisma.workOrderAssignee.findFirst({
@@ -336,7 +340,7 @@ export class WorkOrderAssigneesService {
       entityId: assigneeId,
       action: AuditAction.DELETE,
       actor,
-      reason: "Work order assignee removed",
+      reason: trimmedReason,
       metadata: {
         event: "work_order_assignee_removed",
         workOrderId,

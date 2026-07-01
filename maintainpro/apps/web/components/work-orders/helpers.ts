@@ -111,6 +111,10 @@ export function getStatusClass(status: WorkOrderStatus): string {
       return "bg-sky-100 text-sky-700 ring-sky-200";
     case "ON_HOLD":
       return "bg-amber-100 text-amber-800 ring-amber-200";
+    case "TECHNICIAN_COMPLETED":
+      return "bg-violet-100 text-violet-800 ring-violet-200";
+    case "REWORK_REQUIRED":
+      return "bg-orange-100 text-orange-800 ring-orange-200";
     case "COMPLETED":
       return "bg-emerald-100 text-emerald-700 ring-emerald-200";
     case "CANCELLED":
@@ -256,7 +260,12 @@ export function isWorkOrderOpenTabStatus(status: WorkOrderStatus): boolean {
 
 /** Active execution queue: started or paused work belongs on the In Progress tab. */
 export function isWorkOrderInProgressTabStatus(status: WorkOrderStatus): boolean {
-  return status === "IN_PROGRESS" || status === "ON_HOLD";
+  return (
+    status === "IN_PROGRESS" ||
+    status === "ON_HOLD" ||
+    status === "TECHNICIAN_COMPLETED" ||
+    status === "REWORK_REQUIRED"
+  );
 }
 
 export function groupWorkOrdersByBoardTab(rows: WorkOrder[]): {
@@ -290,6 +299,8 @@ export function groupWorkOrdersByStatus(rows: WorkOrder[]): Record<WorkOrderStat
     OPEN: [] as WorkOrder[],
     IN_PROGRESS: [] as WorkOrder[],
     ON_HOLD: [] as WorkOrder[],
+    TECHNICIAN_COMPLETED: [] as WorkOrder[],
+    REWORK_REQUIRED: [] as WorkOrder[],
     COMPLETED: [] as WorkOrder[],
     CANCELLED: [] as WorkOrder[],
     OVERDUE: [] as WorkOrder[]
@@ -330,9 +341,11 @@ export function compareWorkOrders(
     OPEN: 1,
     IN_PROGRESS: 2,
     ON_HOLD: 3,
-    OVERDUE: 4,
-    COMPLETED: 5,
-    CANCELLED: 6
+    TECHNICIAN_COMPLETED: 4,
+    REWORK_REQUIRED: 5,
+    OVERDUE: 6,
+    COMPLETED: 7,
+    CANCELLED: 8
   };
 
   const getDate = (value?: string | null) => {

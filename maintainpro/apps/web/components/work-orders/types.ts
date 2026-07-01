@@ -4,6 +4,8 @@ export const WORK_ORDER_STATUSES = [
   "OPEN",
   "IN_PROGRESS",
   "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
   "COMPLETED",
   "CANCELLED",
   "OVERDUE"
@@ -68,6 +70,12 @@ export interface WorkOrder {
   status: WorkOrderStatus;
   approvalStatus?: WorkOrderApprovalStatus;
   rejectionReason?: string | null;
+  verificationStatus?: "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED" | null;
+  verificationNote?: string | null;
+  verificationRejectionReason?: string | null;
+  technicianCompletionNote?: string | null;
+  cancelledReason?: string | null;
+  reopenReason?: string | null;
   type: WorkOrderType;
   assetId?: string | null;
   vehicleId?: string | null;
@@ -137,6 +145,9 @@ export interface UpdateWorkOrderStatusInput {
   actualCost?: number;
   actualHours?: number;
   delayReason?: string;
+  cancelReason?: string;
+  completionNote?: string;
+  emergencyCloseReason?: string;
 }
 
 export interface TechnicianOption {
@@ -154,6 +165,8 @@ export const STATUS_ORDER: WorkOrderStatus[] = [
   "OPEN",
   "IN_PROGRESS",
   "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
   "COMPLETED",
   "CANCELLED",
   "OVERDUE"

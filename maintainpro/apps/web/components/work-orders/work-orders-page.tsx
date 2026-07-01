@@ -29,6 +29,7 @@ import {
 } from "./hooks";
 import { KanbanBoard } from "./kanban-board";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
+import { WorkOrderGovernanceExceptionsCard } from "./work-order-governance-exceptions-card";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
 import type { WorkOrder, WorkOrderSortField, WorkOrderStatus, WorkOrderViewMode } from "./types";
@@ -402,6 +403,8 @@ export default function WorkOrdersPage() {
         <StatCard label="Completed" value={workOrdersQuery.stats.completed} />
       </section>
 
+      <WorkOrderGovernanceExceptionsCard />
+
       <motion.section
         layout
         initial={{ opacity: 0, y: 8 }}
@@ -482,11 +485,12 @@ export default function WorkOrdersPage() {
                 status: "COMPLETED",
                 actualCost: payload.actualCost,
                 actualHours: payload.actualHours,
-                delayReason: payload.delayReason
+                delayReason: payload.delayReason,
+                completionNote: payload.completionNote
               }
             })
             .then(() => {
-              toast.success("Work order marked as completed");
+              toast.success("Work order submitted for supervisor verification");
               setCompletionTarget(null);
             })
             .catch((error) => {

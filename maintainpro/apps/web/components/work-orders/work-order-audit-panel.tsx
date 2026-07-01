@@ -15,7 +15,22 @@ const AUDIT_EVENT_LABELS: Record<string, string> = {
   REJECT: "Rejected",
   ASSIGN: "Assigned",
   STATUS_CHANGE: "Status updated",
-  SUBMIT: "Submitted for approval"
+  SUBMIT: "Submitted for approval",
+  work_order_created: "Work order created",
+  work_order_assigned: "Technician assigned",
+  work_order_submitted_for_approval: "Submitted for approval",
+  work_order_approved: "Approved",
+  work_order_rejected: "Rejected",
+  work_order_status_updated: "Status changed",
+  work_order_technician_completed: "Technician completed",
+  work_order_supervisor_verified: "Supervisor verified",
+  work_order_supervisor_rejected: "Supervisor rejected",
+  work_order_closed: "Closed",
+  work_order_cancelled: "Cancelled",
+  work_order_reopened: "Reopened",
+  work_order_assignee_removed: "Assignee removed",
+  work_order_schedule_updated: "Schedule updated",
+  work_order_edited_after_completion: "Edited after completion"
 };
 
 type Props = {
@@ -23,6 +38,14 @@ type Props = {
 };
 
 function formatAuditAction(entry: AuditEntry) {
+  const metadataEvent =
+    entry.metadata &&
+    typeof entry.metadata === "object" &&
+    !Array.isArray(entry.metadata) &&
+    "event" in entry.metadata
+      ? String((entry.metadata as Record<string, unknown>).event)
+      : null;
+
   const metadataAction =
     entry.afterData &&
     typeof entry.afterData === "object" &&
@@ -31,7 +54,12 @@ function formatAuditAction(entry: AuditEntry) {
       ? String((entry.afterData as Record<string, unknown>).action)
       : null;
 
-  return AUDIT_EVENT_LABELS[entry.action] ?? metadataAction ?? entry.action;
+  return (
+    (metadataEvent && AUDIT_EVENT_LABELS[metadataEvent]) ||
+    AUDIT_EVENT_LABELS[entry.action] ||
+    metadataAction ||
+    entry.action
+  );
 }
 
 function actorLabel(entry: AuditEntry) {
@@ -136,6 +164,7 @@ export function WorkOrderAuditPanel({ workOrderId }: Props) {
               <p className="mt-1 text-xs text-slate-600">
                 {entry.entity}
                 {entry.entity === "WorkOrderAssignee" ? " assignee change" : ""} · {actorLabel(entry)}
+                {entry.reason ? ` · Reason: ${entry.reason}` : ""}
               </p>
             </li>
           ))}

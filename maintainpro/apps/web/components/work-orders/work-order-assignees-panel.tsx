@@ -89,6 +89,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const [leaveOverrideReason, setLeaveOverrideReason] = useState("");
   const [assignmentPreview, setAssignmentPreview] = useState<AssignmentPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
 
   const assignedIds = useMemo(() => new Set(assignees.map((a) => a.employeeId)), [assignees]);
 
@@ -242,10 +244,19 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   }
 
   async function handleRemove(assigneeId: string) {
+    const reason = removeReason.trim();
+    if (!reason || reason.length < 3) {
+      toast.error("Reason required for this action.");
+      return;
+    }
     setBusy(true);
     try {
-      await apiClient.delete(`/work-orders/${workOrderId}/assignees/${assigneeId}`);
+      await apiClient.delete(`/work-orders/${workOrderId}/assignees/${assigneeId}`, {
+        data: { reason }
+      });
       toast.success("Assignee removed.");
+      setPendingRemoveId(null);
+      setRemoveReason("");
       await Promise.all([loadAssignees(), loadEmployees()]);
     } catch (err) {
       toast.error(getApiErrorMessageForRoute(err, "work-order-assignees", "Could not remove assignee."));
@@ -304,14 +315,55 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
                   </p>
                 ) : null}
               </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleRemove(row.id)}
-                className="inline-flex items-center gap-1 rounded border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-              >
-                <UserMinus size={12} aria-hidden /> Remove
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                {pendingRemoveId === row.id ? (
+                  <div className="w-full max-w-sm space-y-2 rounded-md border border-rose-200 bg-rose-50/60 p-2">
+                    <label className="block text-xs font-medium text-slate-700">
+                      Reason for removal
+                      <textarea
+                        rows={2}
+                        value={removeReason}
+                        onChange={(event) => setRemoveReason(event.target.value)}
+                        className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                        placeholder="Required for audit trail"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleRemove(row.id)}
+                        className="rounded bg-rose-600 px-2 py-1 text-xs font-medium text-white"
+                      >
+                        Confirm remove
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setPendingRemoveId(null);
+                          setRemoveReason("");
+                        }}
+                        className="rounded border border-slate-300 px-2 py-1 text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setPendingRemoveId(row.id);
+                      setRemoveReason("");
+                    }}
+                    className="inline-flex items-center gap-1 rounded border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                  >
+                    <UserMinus size={12} aria-hidden /> Remove
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

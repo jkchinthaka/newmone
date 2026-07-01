@@ -26,6 +26,8 @@ const columnAccent: Record<WorkOrderStatus, string> = {
   OPEN: "border-slate-300 bg-slate-100/80",
   IN_PROGRESS: "border-sky-300 bg-sky-50",
   ON_HOLD: "border-amber-300 bg-amber-50",
+  TECHNICIAN_COMPLETED: "border-violet-300 bg-violet-50",
+  REWORK_REQUIRED: "border-orange-300 bg-orange-50",
   COMPLETED: "border-emerald-300 bg-emerald-50",
   CANCELLED: "border-slate-300 bg-slate-100",
   OVERDUE: "border-rose-300 bg-rose-50"

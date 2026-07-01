@@ -199,6 +199,8 @@ model User {
   assignedWorkOrders          WorkOrder[]             @relation("TechnicianWorkOrders")
   createdWorkOrders           WorkOrder[]             @relation("CreatorWorkOrders")
   approvedWorkOrders          WorkOrder[]             @relation("ApprovedWorkOrders")
+  verifiedWorkOrders          WorkOrder[]             @relation("VerifiedWorkOrders")
+  reopenedWorkOrders          WorkOrder[]             @relation("ReopenedWorkOrders")
   memberships                 TenantMembership[]
   sentInvitations             TenantInvitation[]      @relation("TenantInvitedBy")
   notifications               Notification[]
@@ -1044,6 +1046,18 @@ model WorkOrder {
   plannedStartAt         DateTime?
   plannedEndAt           DateTime?
   delayReason            String?
+  cancelledReason        String?
+  technicianCompletionNote String?
+  verificationStatus     WorkOrderVerificationStatus @default(NOT_REQUIRED)
+  verifiedById           String?                 @db.ObjectId
+  verifiedBy             User?                   @relation("VerifiedWorkOrders", fields: [verifiedById], references: [id])
+  verifiedAt             DateTime?
+  verificationNote       String?
+  verificationRejectionReason String?
+  reopenReason           String?
+  reopenedAt             DateTime?
+  reopenedById           String?                 @db.ObjectId
+  reopenedBy             User?                   @relation("ReopenedWorkOrders", fields: [reopenedById], references: [id])
   startDate              DateTime?
   completedDate          DateTime?
   estimatedCost          Float?
@@ -1090,9 +1104,26 @@ enum WorkOrderStatus {
   OPEN
   IN_PROGRESS
   ON_HOLD
+  TECHNICIAN_COMPLETED
+  REWORK_REQUIRED
   COMPLETED
   CANCELLED
   OVERDUE
+}
+
+enum WorkOrderVerificationStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum WorkOrderPartLineStatus {
+  REQUESTED
+  APPROVED
+  ISSUED
+  PARTIALLY_USED
+  RETURNED
 }
 
 enum WorkOrderApprovalStatus {
@@ -1297,14 +1328,24 @@ enum MovementType {
 }
 
 model WorkOrderPart {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  workOrderId String    @db.ObjectId
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
-  partId      String    @db.ObjectId
-  part        SparePart @relation(fields: [partId], references: [id])
-  quantity    Int
-  unitCost    Float
-  totalCost   Float
+  id                String                  @id @default(auto()) @map("_id") @db.ObjectId
+  workOrderId       String                  @db.ObjectId
+  workOrder         WorkOrder               @relation(fields: [workOrderId], references: [id])
+  partId            String                  @db.ObjectId
+  part              SparePart               @relation(fields: [partId], references: [id])
+  quantity          Int
+  unitCost          Float
+  totalCost         Float
+  lineStatus        WorkOrderPartLineStatus @default(ISSUED)
+  requestedQuantity Int                     @default(0)
+  approvedQuantity  Int?
+  issuedQuantity    Int                     @default(0)
+  usedQuantity      Int                     @default(0)
+  returnedQuantity  Int                     @default(0)
+  requestedById     String?                 @db.ObjectId
+  approvedById      String?                 @db.ObjectId
+  issuedById        String?                 @db.ObjectId
+  issueReason       String?
 
   @@index([workOrderId])
   @@index([partId])

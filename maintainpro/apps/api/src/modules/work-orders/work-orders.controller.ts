@@ -10,6 +10,7 @@ import { ApproveWorkOrderDto, RejectWorkOrderDto, SubmitWorkOrderForApprovalDto 
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
+import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 
@@ -27,8 +28,16 @@ export class WorkOrdersController {
     private readonly workOrderActivityService: WorkOrderActivityService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
     private readonly workOrderHistoryService: WorkOrderHistoryService,
+    private readonly workOrderGovernanceService: WorkOrderGovernanceService,
     private readonly evidenceService: EvidenceService
   ) {}
+
+  @Get("governance/exceptions")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  async governanceExceptions(@Req() req: AuthedRequest) {
+    const data = await this.workOrderGovernanceService.getExceptionSummary(req.user);
+    return { data, message: "Work order governance exceptions fetched" };
+  }
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
@@ -168,9 +177,10 @@ export class WorkOrdersController {
   async removeAssignee(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Param("assigneeId") assigneeId: string
+    @Param("assigneeId") assigneeId: string,
+    @Body() body: { reason: string }
   ) {
-    const data = await this.workOrderAssigneesService.removeAssignee(id, assigneeId, req.user);
+    const data = await this.workOrderAssigneesService.removeAssignee(id, assigneeId, req.user, body.reason);
     return { data, message: "Work order assignee removed" };
   }
 
@@ -216,16 +226,57 @@ export class WorkOrdersController {
   async updateStatus(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { status: WorkOrderStatus; actualCost?: number; actualHours?: number; delayReason?: string }
+    @Body()
+    body: {
+      status: WorkOrderStatus;
+      actualCost?: number;
+      actualHours?: number;
+      delayReason?: string;
+      cancelReason?: string;
+      completionNote?: string;
+      emergencyCloseReason?: string;
+    }
   ) {
     const data = await this.workOrdersService.updateStatus(id, body, req.user);
     return { data, message: "Work order status updated" };
   }
 
+  @Post(":id/verify-supervisor")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async verifySupervisor(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { verificationNote?: string; actualCost?: number; actualHours?: number; delayReason?: string }
+  ) {
+    const data = await this.workOrdersService.verifySupervisor(id, body, req.user);
+    return { data, message: "Work order supervisor verified" };
+  }
+
+  @Post(":id/reject-supervisor")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async rejectSupervisor(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { reason: string }) {
+    const data = await this.workOrdersService.rejectSupervisor(id, body.reason, req.user);
+    return { data, message: "Work order supervisor rejection recorded" };
+  }
+
+  @Post(":id/reopen")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("work_orders.manage")
+  async reopenWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { reason: string }) {
+    const data = await this.workOrdersService.reopenWorkOrder(id, body.reason, req.user);
+    return { data, message: "Work order reopened" };
+  }
+
   @Post(":id/parts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   @Permissions("inventory.stock_issue")
-  async addPart(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { partId: string; quantity: number; unitCost: number }) {
+  async addPart(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { partId: string; quantity: number; unitCost: number; reason?: string }
+  ) {
     const data = await this.workOrdersService.addPart(id, body, req.user);
     return { data, message: "Part added to work order" };
   }

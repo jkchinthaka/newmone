@@ -21,6 +21,8 @@ export interface AuditEntry {
   entityId: string;
   action: AuditAction;
   createdAt: string;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
   actor: AuditActor | null;
   /**
    * For UPDATE: array of { field, value } representing previous values.

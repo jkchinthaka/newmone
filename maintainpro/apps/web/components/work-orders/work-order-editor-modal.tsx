@@ -19,6 +19,8 @@ import { WorkOrderActivityPanel } from "./work-order-activity-panel";
 import { WorkOrderAuditPanel } from "./work-order-audit-panel";
 import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
+import { WorkOrderGovernanceBanner } from "./work-order-governance-banner";
+import { SupervisorVerificationPanel } from "./supervisor-verification-panel";
 import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
@@ -412,6 +414,17 @@ export function WorkOrderEditorModal({
                 ) : null}
               </div>
               )}
+
+              {!isCreateMode && workOrder && activeTab === "overview" ? (
+                <div className="space-y-3">
+                  <WorkOrderGovernanceBanner workOrder={workOrder} />
+                  <SupervisorVerificationPanel
+                    workOrderId={workOrder.id}
+                    status={workOrder.status}
+                    onUpdated={onClose}
+                  />
+                </div>
+              ) : null}
 
               {!isCreateMode && activeTab === "overview" && historySummary.data?.repeatIssueWarnings.length ? (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">

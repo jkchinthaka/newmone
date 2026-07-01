@@ -179,7 +179,7 @@ describe("WorkOrdersService approval and audit", () => {
     expect(updated.status).toBe(WorkOrderStatus.CANCELLED);
   });
 
-  it("audits status completion updates", async () => {
+  it("audits technician completion updates", async () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
@@ -187,19 +187,24 @@ describe("WorkOrdersService approval and audit", () => {
       approvalStatus: WorkOrderApprovalStatus.APPROVED,
       status: WorkOrderStatus.IN_PROGRESS,
       priority: "MEDIUM",
+      type: "CORRECTIVE",
       startDate: new Date(),
       slaDeadline: null,
       completedDate: null,
       actualCost: null,
-      actualHours: null
+      actualHours: null,
+      verificationStatus: "NOT_REQUIRED",
+      delayReason: null,
+      cancelledReason: null,
+      technicianCompletionNote: null
     });
     prisma.workOrder.update.mockResolvedValue({
       id: "wo-1",
       woNumber: "WO-2026-0005",
-      status: WorkOrderStatus.COMPLETED,
+      status: WorkOrderStatus.TECHNICIAN_COMPLETED,
       actualCost: 100,
       actualHours: 2,
-      completedDate: new Date()
+      completedDate: null
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-4" });
 
@@ -207,14 +212,19 @@ describe("WorkOrdersService approval and audit", () => {
 
     await service.updateStatus(
       "wo-1",
-      { status: WorkOrderStatus.COMPLETED, actualCost: 100, actualHours: 2 },
+      {
+        status: WorkOrderStatus.COMPLETED,
+        actualCost: 100,
+        actualHours: 2,
+        completionNote: "Completed pump seal replacement"
+      },
       technician
     );
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "work_order_completed" })
+          metadata: expect.objectContaining({ event: "work_order_technician_completed" })
         })
       })
     );

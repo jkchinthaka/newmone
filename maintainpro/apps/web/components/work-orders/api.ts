@@ -22,6 +22,8 @@ const validStatuses = new Set<WorkOrderStatus>([
   "OPEN",
   "IN_PROGRESS",
   "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
   "COMPLETED",
   "CANCELLED",
   "OVERDUE"

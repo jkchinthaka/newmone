@@ -17,6 +17,7 @@ import { WorkOrdersController } from "../src/modules/work-orders/work-orders.con
 import { WorkOrderActivityService } from "../src/modules/work-orders/work-order-activity.service";
 import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order-assignees.service";
 import { WorkOrderHistoryService } from "../src/modules/work-orders/work-order-history.service";
+import { WorkOrderGovernanceService } from "../src/modules/work-orders/work-order-governance.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 
 const inventoryService = {
@@ -98,6 +99,10 @@ const workOrderHistoryService = {
   getHistory: jest.fn()
 };
 
+const workOrderGovernanceService = {
+  getExceptionSummary: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -111,6 +116,7 @@ const prisma = {
     { provide: WorkOrderActivityService, useValue: workOrderActivityService },
     { provide: WorkOrderAssigneesService, useValue: workOrderAssigneesService },
     { provide: WorkOrderHistoryService, useValue: workOrderHistoryService },
+    { provide: WorkOrderGovernanceService, useValue: workOrderGovernanceService },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
