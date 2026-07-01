@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(SMOKE_LOGIN_EMAIL=\"admin@maintainpro.com\" MAINTAINPRO_SEED_PASSWORD=\"Admin@12345\" MAINTAINPRO_SMOKE_PASSWORD=\"Admin@12345\" npm run *)",
+      "Bash(npm run *)",
+      "Bash(node *)"
+    ]
+  }
+}

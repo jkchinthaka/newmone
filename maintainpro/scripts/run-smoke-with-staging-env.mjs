@@ -48,7 +48,8 @@ const stagingEnv = {
   MAINTAINPRO_API_URL: "https://newmone.onrender.com/api",
   MAINTAINPRO_SMOKE_PASSWORD: seedPassword,
   MAINTAINPRO_SEED_PASSWORD: seedPassword,
-  MAINTAINPRO_SMOKE_EMAIL: "admin@maintainpro.local"
+  MAINTAINPRO_SMOKE_EMAIL:
+    (process.env.SMOKE_LOGIN_EMAIL ?? process.env.MAINTAINPRO_SMOKE_EMAIL ?? "admin@maintainpro.local").trim()
 };
 
 const result = spawnSync(process.execPath, ["scripts/smoke-deployment.mjs"], {
