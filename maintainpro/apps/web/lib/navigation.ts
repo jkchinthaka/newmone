@@ -324,6 +324,15 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     category: "core"
   },
   {
+    id: "maintenance-exceptions",
+    label: "Maintenance Exceptions",
+    href: "/reports/maintenance-exceptions",
+    icon: "ShieldAlert",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES),
+    category: "core",
+    description: "Fraud monitoring, exception dashboard, and maintenance KPIs"
+  },
+  {
     id: "utilities",
     label: "Utilities",
     href: "/utilities",

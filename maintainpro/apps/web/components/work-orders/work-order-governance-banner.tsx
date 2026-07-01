@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
 
 import {
@@ -9,6 +10,7 @@ import {
   GOVERNANCE_MESSAGES,
   type WorkOrderVerificationStatus
 } from "@/lib/work-order-governance";
+import { fetchWorkOrderRiskScore, severityClass } from "@/components/reports/maintenance-reports-api";
 import type { WorkOrder } from "./types";
 
 type Props = {
@@ -18,6 +20,21 @@ type Props = {
 export function WorkOrderGovernanceBanner({ workOrder }: Props) {
   const verificationStatus = (workOrder.verificationStatus ?? "NOT_REQUIRED") as WorkOrderVerificationStatus;
   const warnings: string[] = [];
+  const [riskScore, setRiskScore] = useState<{ score: number; severity: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchWorkOrderRiskScore(workOrder.id)
+      .then((data) => {
+        if (!cancelled) setRiskScore({ score: data.score, severity: data.severity });
+      })
+      .catch(() => {
+        if (!cancelled) setRiskScore(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workOrder.id]);
 
   if (workOrder.status === "TECHNICIAN_COMPLETED") {
     warnings.push(GOVERNANCE_MESSAGES.supervisorRequired);
@@ -47,6 +64,20 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
             <div>
               <dt className="font-medium text-slate-700">Verification</dt>
               <dd>{getVerificationStatusLabel(verificationStatus)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-700">Operational risk score</dt>
+              <dd>
+                {riskScore ? (
+                  <span
+                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityClass(riskScore.severity as "LOW")}`}
+                  >
+                    {riskScore.score} · {riskScore.severity}
+                  </span>
+                ) : (
+                  "Not available"
+                )}
+              </dd>
             </div>
             <div>
               <dt className="font-medium text-slate-700">Evidence</dt>
