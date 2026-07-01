@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalStage,
@@ -49,6 +49,7 @@ import {
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -58,7 +59,8 @@ export class WorkOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly workOrderPartsService: WorkOrderPartsService
+    private readonly workOrderPartsService: WorkOrderPartsService,
+    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService
   ) {}
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
@@ -245,6 +247,11 @@ export class WorkOrdersService {
       dueDate?: string;
       expectedCompletionDate?: string;
       requiresApproval?: boolean;
+      taxonomyCategoryId?: string;
+      taxonomyTypeId?: string;
+      taxonomyIssueId?: string;
+      isTriage?: boolean;
+      triageReason?: string;
     },
     actor?: Actor
   ) {
@@ -280,6 +287,36 @@ export class WorkOrdersService {
     }
 
     const woNumber = await this.nextWoNumber(actor);
+    const tenantForTaxonomy = tenantId === undefined ? creator.tenantId ?? null : tenantId;
+
+    let taxonomyFields: Partial<Prisma.WorkOrderCreateInput> = {};
+    if (data.isTriage || data.taxonomyCategoryId || data.taxonomyTypeId || data.taxonomyIssueId) {
+      const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantForTaxonomy, {
+        taxonomyCategoryId: data.taxonomyCategoryId,
+        taxonomyTypeId: data.taxonomyTypeId,
+        taxonomyIssueId: data.taxonomyIssueId,
+        isTriage: data.isTriage
+      });
+
+      if (taxonomy.rules?.requiresVehicle && !vehicleId) {
+        throw new BadRequestException("Selected category requires a vehicle.");
+      }
+      if (taxonomy.rules?.requiresAsset && !assetId) {
+        throw new BadRequestException("Selected category requires an asset.");
+      }
+
+      taxonomyFields = {
+        taxonomyCategoryId: taxonomy.taxonomyCategoryId,
+        taxonomyTypeId: taxonomy.taxonomyTypeId,
+        taxonomyIssueId: taxonomy.taxonomyIssueId,
+        categoryNameSnapshot: taxonomy.categoryNameSnapshot,
+        typeNameSnapshot: taxonomy.typeNameSnapshot,
+        issueNameSnapshot: taxonomy.issueNameSnapshot,
+        isTriage: taxonomy.isTriage,
+        triageReason: data.isTriage ? data.triageReason ?? data.description : undefined
+      };
+    }
+
     const approvalStatus =
       data.requiresApproval === true
         ? WorkOrderApprovalStatus.PENDING
@@ -300,6 +337,7 @@ export class WorkOrdersService {
           vehicleId,
           scheduleId,
           createdById: data.createdById,
+          ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate
             ? new Date(data.expectedCompletionDate)
@@ -1770,5 +1808,146 @@ export class WorkOrdersService {
         attachments: [...current.attachments, attachmentUrl]
       }
     });
+  }
+
+  async changeTaxonomy(
+    id: string,
+    input: {
+      taxonomyCategoryId: string;
+      taxonomyTypeId: string;
+      taxonomyIssueId?: string;
+      reason: string;
+    },
+    actor?: Actor
+  ) {
+    const existing = await this.findOne(id, actor);
+    this.assertActor(actor);
+    assertReasonProvided(input.reason, "Category change reason is required");
+
+    const role = actor!.role as RoleName;
+    const started =
+      existing.status !== WorkOrderStatus.OPEN &&
+      existing.status !== WorkOrderStatus.ON_HOLD &&
+      !TERMINAL_WORK_ORDER_STATUSES.includes(existing.status);
+
+    const closed =
+      existing.status === WorkOrderStatus.COMPLETED ||
+      existing.status === WorkOrderStatus.TECHNICIAN_COMPLETED ||
+      existing.status === WorkOrderStatus.CANCELLED;
+
+    const supervisorRoles = new Set<RoleName>([
+      RoleName.SUPERVISOR,
+      RoleName.MANAGER,
+      RoleName.OPERATIONS_MANAGER,
+      RoleName.ASSET_MANAGER,
+      RoleName.ADMIN,
+      RoleName.SUPER_ADMIN
+    ]);
+    const managerRoles = new Set<RoleName>([
+      RoleName.MANAGER,
+      RoleName.OPERATIONS_MANAGER,
+      RoleName.ASSET_MANAGER,
+      RoleName.ADMIN,
+      RoleName.SUPER_ADMIN
+    ]);
+    const adminRoles = new Set<RoleName>([RoleName.ADMIN, RoleName.SUPER_ADMIN]);
+
+    if (closed && !adminRoles.has(role)) {
+      throw new ForbiddenException("Only administrators can change category after completion or closure.");
+    }
+    if (started && !closed && !managerRoles.has(role)) {
+      throw new ForbiddenException("Only managers or administrators can change category after work has started.");
+    }
+    if (!started && !supervisorRoles.has(role)) {
+      throw new ForbiddenException("You do not have permission to change work order category.");
+    }
+
+    const tenantId = this.resolveTenantId(actor);
+    const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantId ?? null, {
+      taxonomyCategoryId: input.taxonomyCategoryId,
+      taxonomyTypeId: input.taxonomyTypeId,
+      taxonomyIssueId: input.taxonomyIssueId,
+      isTriage: false
+    });
+
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        taxonomyCategoryId: taxonomy.taxonomyCategoryId,
+        taxonomyTypeId: taxonomy.taxonomyTypeId,
+        taxonomyIssueId: taxonomy.taxonomyIssueId,
+        categoryNameSnapshot: taxonomy.categoryNameSnapshot,
+        typeNameSnapshot: taxonomy.typeNameSnapshot,
+        issueNameSnapshot: taxonomy.issueNameSnapshot,
+        isTriage: false,
+        triageClassifiedAt: existing.isTriage ? new Date() : existing.triageClassifiedAt,
+        triageClassifiedById: existing.isTriage ? actor!.sub : existing.triageClassifiedById
+      }
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: input.reason,
+      metadata: {
+        event: "work_order_category_changed",
+        previousCategory: existing.categoryNameSnapshot,
+        previousType: existing.typeNameSnapshot,
+        previousIssue: existing.issueNameSnapshot
+      },
+      beforeData: {
+        taxonomyCategoryId: existing.taxonomyCategoryId,
+        taxonomyTypeId: existing.taxonomyTypeId,
+        taxonomyIssueId: existing.taxonomyIssueId,
+        categoryNameSnapshot: existing.categoryNameSnapshot,
+        typeNameSnapshot: existing.typeNameSnapshot,
+        issueNameSnapshot: existing.issueNameSnapshot
+      },
+      afterData: {
+        taxonomyCategoryId: updated.taxonomyCategoryId,
+        taxonomyTypeId: updated.taxonomyTypeId,
+        taxonomyIssueId: updated.taxonomyIssueId,
+        categoryNameSnapshot: updated.categoryNameSnapshot,
+        typeNameSnapshot: updated.typeNameSnapshot,
+        issueNameSnapshot: updated.issueNameSnapshot
+      }
+    });
+
+    return updated;
+  }
+
+  async classifyTriage(
+    id: string,
+    input: {
+      taxonomyCategoryId: string;
+      taxonomyTypeId: string;
+      taxonomyIssueId?: string;
+      reason: string;
+    },
+    actor?: Actor
+  ) {
+    const existing = await this.findOne(id, actor);
+    this.assertActor(actor);
+
+    const role = actor!.role as RoleName;
+    const allowed = new Set<RoleName>([
+      RoleName.SUPERVISOR,
+      RoleName.MANAGER,
+      RoleName.OPERATIONS_MANAGER,
+      RoleName.ASSET_MANAGER,
+      RoleName.ADMIN,
+      RoleName.SUPER_ADMIN
+    ]);
+    if (!allowed.has(role)) {
+      throw new ForbiddenException("Only supervisors or managers can classify triage work orders.");
+    }
+    if (!existing.isTriage) {
+      throw new BadRequestException("Work order is not in triage.");
+    }
+    assertReasonProvided(input.reason, "Triage classification reason is required");
+
+    return this.changeTaxonomy(id, input, actor);
   }
 }

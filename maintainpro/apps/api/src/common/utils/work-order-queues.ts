@@ -17,6 +17,7 @@ export const WORK_ORDER_QUEUE_KEYS = [
   "overdue",
   "high-risk",
   "finance-vendor-pending",
+  "triage",
   "completed",
   "cancelled",
   "all"
@@ -39,6 +40,7 @@ export const WORK_ORDER_QUEUE_LABELS: Record<WorkOrderQueueKey, string> = {
   overdue: "Overdue",
   "high-risk": "High Risk",
   "finance-vendor-pending": "Finance / Vendor Pending",
+  triage: "Triage / Not Sure",
   completed: "Completed",
   cancelled: "Cancelled",
   all: "All"
@@ -70,7 +72,8 @@ export type WorkOrderActionRequiredType =
   | "overdue"
   | "high_risk"
   | "rework_required"
-  | "finance_vendor_pending";
+  | "finance_vendor_pending"
+  | "triage_classification";
 
 export type WorkOrderActionRequiredItem = {
   type: WorkOrderActionRequiredType;

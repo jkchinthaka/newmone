@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { EvidenceModule } from "../evidence/evidence.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ReportsModule } from "../reports/reports.module";
+import { WorkOrderTaxonomyModule } from "../work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "../workforce/workforce.module";
 
 import { WorkOrderActivityService } from "./work-order-activity.service";
@@ -16,7 +17,7 @@ import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
 @Module({
-  imports: [NotificationsModule, EvidenceModule, WorkforceModule, ReportsModule],
+  imports: [NotificationsModule, EvidenceModule, WorkforceModule, ReportsModule, WorkOrderTaxonomyModule],
   controllers: [WorkOrdersController],
   providers: [
     WorkOrdersService,

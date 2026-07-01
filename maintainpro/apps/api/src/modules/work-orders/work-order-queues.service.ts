@@ -37,6 +37,7 @@ import {
 } from "../../common/utils/work-order-queues";
 import { PrismaService } from "../../database/prisma.service";
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
+import { WorkOrderCategoryReportsService } from "../reports/work-order-category-reports.service";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -53,6 +54,11 @@ export type WorkOrderQueueQuery = {
   vehicleId?: string;
   employeeId?: string;
   type?: string;
+  categoryId?: string;
+  taxonomyCategoryId?: string;
+  taxonomyTypeId?: string;
+  taxonomyIssueId?: string;
+  triageOnly?: string | boolean;
   riskSeverity?: RiskSeverity;
   evidenceStatus?: string;
   partsStatus?: string;
@@ -118,7 +124,8 @@ const MANAGER_ROLES = new Set<RoleName>([
 export class WorkOrderQueuesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly maintenanceReports: MaintenanceReportsService
+    private readonly maintenanceReports: MaintenanceReportsService,
+    private readonly categoryReports: WorkOrderCategoryReportsService
   ) {}
 
   getSmartViews(actor: Actor) {
@@ -184,6 +191,21 @@ export class WorkOrderQueuesService {
     return this.listQueue(actor, queue, query);
   }
 
+  async getCategorySummary(actor: Actor, query: Record<string, string>) {
+    return this.categoryReports.getCategorySummary(actor, {
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      departmentId: query.departmentId,
+      branchId: query.branchId,
+      categoryId: query.categoryId ?? query.taxonomyCategoryId,
+      typeId: query.typeId ?? query.taxonomyTypeId,
+      issueId: query.issueId ?? query.taxonomyIssueId,
+      status: query.status,
+      priority: query.priority,
+      riskSeverity: query.riskSeverity
+    });
+  }
+
   private smartViewToQueue(view: SmartViewKey): WorkOrderQueueKey {
     switch (view) {
       case "completed-this-month":
@@ -243,9 +265,76 @@ export class WorkOrderQueuesService {
       pageSize,
       queue,
       label: WORK_ORDER_QUEUE_LABELS[queue],
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      appliedFilters: {
+        categoryId: query.categoryId ?? query.taxonomyCategoryId,
+        typeId: query.taxonomyTypeId,
+        issueId: query.taxonomyIssueId,
+        status: query.status,
+        priority: query.priority,
+        triageOnly: query.triageOnly === true || query.triageOnly === "true"
+      },
+      categorySummary: this.computeCategorySummary(filtered)
     };
   }
+
+  private computeCategorySummary(filtered: Awaited<ReturnType<WorkOrderQueuesService["enrichRow"]>>[]) {
+    const map = new Map<
+      string,
+      {
+        categoryId?: string | null;
+        categoryName: string;
+        total: number;
+        open: number;
+        inProgress: number;
+        overdue: number;
+        highRisk: number;
+        completed: number;
+        cancelled: number;
+        triage: number;
+        evidenceMissing: number;
+        partsPending: number;
+        supervisorVerificationPending: number;
+      }
+    >();
+
+    for (const item of filtered) {
+      const row = item.row;
+      const key = row.taxonomyCategoryId ?? row.categoryNameSnapshot ?? "Uncategorized";
+      const label = row.categoryNameSnapshot ?? "Uncategorized";
+      const bucket =
+        map.get(key) ??
+        ({
+          categoryId: row.taxonomyCategoryId,
+          categoryName: label,
+          total: 0,
+          open: 0,
+          inProgress: 0,
+          overdue: 0,
+          highRisk: 0,
+          completed: 0,
+          cancelled: 0,
+          triage: 0,
+          evidenceMissing: 0,
+          partsPending: 0,
+          supervisorVerificationPending: 0
+        } as const);
+      const next = { ...bucket };
+      next.total += 1;
+      if (row.isTriage) next.triage += 1;
+      if (row.status === WorkOrderStatus.OPEN) next.open += 1;
+      if (row.status === WorkOrderStatus.IN_PROGRESS || row.status === WorkOrderStatus.ON_HOLD) next.inProgress += 1;
+      if (isWorkOrderOverdue(row)) next.overdue += 1;
+      if (item.riskSeverity === "HIGH" || item.riskSeverity === "CRITICAL") next.highRisk += 1;
+      if (row.status === WorkOrderStatus.COMPLETED) next.completed += 1;
+      if (row.status === WorkOrderStatus.CANCELLED) next.cancelled += 1;
+      if (item.evidenceStatus === "Missing" || item.evidenceStatus === "Rejected") next.evidenceMissing += 1;
+      if (item.partsStatus !== "None" && item.partsStatus !== "Issued") next.partsPending += 1;
+      if (isSupervisorVerificationPending(row.status, row.verificationStatus)) next.supervisorVerificationPending += 1;
+      map.set(key, next);
+    }
+
+    return [...map.values()].sort((a, b) => b.total - a.total);
 
   private buildPrismaWhere(actor: Actor, query: WorkOrderQueueQuery): Prisma.WorkOrderWhereInput {
     const where: Prisma.WorkOrderWhereInput = {};
@@ -276,6 +365,12 @@ export class WorkOrderQueuesService {
     if (query.verificationStatus) {
       where.verificationStatus = query.verificationStatus as WorkOrderVerificationStatus;
     }
+    const categoryId = query.categoryId ?? query.taxonomyCategoryId;
+    if (categoryId) where.taxonomyCategoryId = categoryId;
+    if (query.taxonomyTypeId) where.taxonomyTypeId = query.taxonomyTypeId;
+    if (query.taxonomyIssueId) where.taxonomyIssueId = query.taxonomyIssueId;
+    if (query.triageOnly === true || query.triageOnly === "true") where.isTriage = true;
+    if (query.type) where.type = query.type as Prisma.EnumWorkOrderTypeFilter;
 
     const role = actor.role as RoleName;
     const myAssignedOnly = query.myAssignedOnly === true || query.myAssignedOnly === "true";
@@ -371,6 +466,9 @@ export class WorkOrderQueuesService {
     ) {
       push("finance_vendor_pending", "Finance / vendor approval pending", "MANAGER", "HIGH");
     }
+    if (row.isTriage) {
+      push("triage_classification", "Triage classification required", "SUPERVISOR", "MEDIUM");
+    }
 
     return items;
   }
@@ -451,6 +549,8 @@ export class WorkOrderQueuesService {
         return riskScore >= 40 && !TERMINAL_STATUSES.includes(row.status);
       case "finance-vendor-pending":
         return actionRequired.some((item) => item.type === "finance_vendor_pending");
+      case "triage":
+        return row.isTriage && !TERMINAL_STATUSES.includes(row.status);
       case "completed": {
         if (row.status !== WorkOrderStatus.COMPLETED) return false;
         if (query.queue === "completed" && query.dateFrom) return true;

@@ -124,6 +124,21 @@ export class WorkOrdersController {
     return { data, message: "Work order queue fetched" };
   }
 
+  @Get("category-summary")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER"
+  )
+  async categorySummary(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const data = await this.workOrderQueuesService.getCategorySummary(req.user, query);
+    return { data, message: "Work order category summary fetched" };
+  }
+
   @Get()
   @Roles(
     "SUPER_ADMIN",
@@ -174,6 +189,11 @@ export class WorkOrdersController {
       dueDate?: string;
       expectedCompletionDate?: string;
       requiresApproval?: boolean;
+      taxonomyCategoryId?: string;
+      taxonomyTypeId?: string;
+      taxonomyIssueId?: string;
+      isTriage?: boolean;
+      triageReason?: string;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);
@@ -319,6 +339,40 @@ export class WorkOrdersController {
   ) {
     const data = await this.evidenceService.verifyWorkOrderQr(id, body, req.user);
     return { data, message: data.message };
+  }
+
+  @Patch(":id/taxonomy")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async changeTaxonomy(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      taxonomyCategoryId: string;
+      taxonomyTypeId: string;
+      taxonomyIssueId?: string;
+      reason: string;
+    }
+  ) {
+    const data = await this.workOrdersService.changeTaxonomy(id, body, req.user);
+    return { data, message: "Work order category updated" };
+  }
+
+  @Patch(":id/classify-triage")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async classifyTriage(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      taxonomyCategoryId: string;
+      taxonomyTypeId: string;
+      taxonomyIssueId?: string;
+      reason: string;
+    }
+  ) {
+    const data = await this.workOrdersService.classifyTriage(id, body, req.user);
+    return { data, message: "Triage work order classified" };
   }
 
   @Patch(":id")

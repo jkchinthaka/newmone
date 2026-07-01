@@ -63,6 +63,7 @@ model Tenant {
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
+  workOrderTaxonomies          WorkOrderTaxonomy[]
 }
 
 model AuditLog {
@@ -1099,6 +1100,20 @@ model WorkOrder {
   assignees           WorkOrderAssignee[]
   vendorRepairCase    VendorRepairCase?
 
+  taxonomyCategoryId   String?             @db.ObjectId
+  taxonomyCategory     WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyTypeId       String?             @db.ObjectId
+  taxonomyType         WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyIssueId      String?             @db.ObjectId
+  taxonomyIssue          WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryNameSnapshot String?
+  typeNameSnapshot     String?
+  issueNameSnapshot    String?
+  isTriage             Boolean             @default(false)
+  triageReason         String?
+  triageClassifiedAt   DateTime?
+  triageClassifiedById String?             @db.ObjectId
+
   @@index([tenantId])
   @@index([status])
   @@index([priority])
@@ -1107,6 +1122,62 @@ model WorkOrder {
   @@index([plannedEndAt])
   @@index([accidentId])
   @@index([trafficFineId])
+  @@index([taxonomyCategoryId])
+  @@index([taxonomyTypeId])
+  @@index([taxonomyIssueId])
+  @@index([isTriage])
+}
+
+enum WorkOrderTaxonomyLevel {
+  CATEGORY
+  TYPE
+  ISSUE
+}
+
+model WorkOrderTaxonomy {
+  id                          String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                    String?                @db.ObjectId
+  tenant                      Tenant?                @relation(fields: [tenantId], references: [id])
+  code                        String
+  name                        String
+  description                 String?
+  parentId                    String?                @db.ObjectId
+  parent                      WorkOrderTaxonomy?     @relation("WorkOrderTaxonomyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children                    WorkOrderTaxonomy[]    @relation("WorkOrderTaxonomyHierarchy")
+  level                       WorkOrderTaxonomyLevel
+  active                      Boolean                @default(true)
+  sortOrder                   Int                    @default(0)
+  departmentScope             String?
+  defaultPriority             Priority?
+  defaultSlaHours             Int?
+  requiresAsset               Boolean                @default(false)
+  requiresVehicle             Boolean                @default(false)
+  requiresLocation            Boolean                @default(false)
+  requiresEvidence            Boolean                @default(false)
+  requiresSupervisorVerification Boolean             @default(false)
+  requiresPartsReview         Boolean                @default(false)
+  requiresFinanceApproval     Boolean                @default(false)
+  gateOutBlockingRisk         Boolean                @default(false)
+  downtimeTrackingRequired    Boolean                @default(false)
+  allowedRoles                String[]
+  aliases                     String[]
+  keywords                    String[]
+  commonMistakes              String[]
+  sinhalaKeywords             String[]
+  departmentHints             String[]
+  createdById                 String?                @db.ObjectId
+  updatedById                 String?                @db.ObjectId
+  createdAt                   DateTime               @default(now())
+  updatedAt                   DateTime               @updatedAt
+
+  workOrdersAsCategory WorkOrder[] @relation("WorkOrderTaxonomyCategory")
+  workOrdersAsType     WorkOrder[] @relation("WorkOrderTaxonomyType")
+  workOrdersAsIssue    WorkOrder[] @relation("WorkOrderTaxonomyIssue")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, level, active])
+  @@index([parentId])
+  @@index([tenantId, sortOrder])
 }
 
 enum Priority {
