@@ -44,6 +44,7 @@
     "uat:012:validate": "node scripts/run-uat-012-validation.mjs",
     "uat:013:validate": "node scripts/run-uat-013-validation.mjs",
     "uat:014:validate": "node scripts/run-uat-014-validation.mjs",
+    "uat:015:validate": "node scripts/run-uat-015-validation.mjs",
     "seed": "npm run db:seed",
     "start:api": "npm run start --workspace @maintainpro/api",
     "start:web": "npm run start --workspace @maintainpro/web",

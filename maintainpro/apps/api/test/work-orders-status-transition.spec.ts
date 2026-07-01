@@ -7,6 +7,7 @@ import {
 
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
+import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
 
 const createPrismaMock = () => ({
   workOrder: {
@@ -63,7 +64,7 @@ describe("WorkOrdersService status transitions", () => {
     prisma.workOrder.update.mockResolvedValue(inProgressWorkOrder);
     prisma.auditLog.create.mockResolvedValue({ id: "audit-start" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
 
     const updated = await service.updateStatus(
       "wo-1",
@@ -91,7 +92,7 @@ describe("WorkOrdersService status transitions", () => {
       approvalStatus: WorkOrderApprovalStatus.PENDING
     });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
 
     await expect(
       service.updateStatus("wo-1", { status: WorkOrderStatus.IN_PROGRESS }, technician)

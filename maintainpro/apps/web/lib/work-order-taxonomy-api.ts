@@ -47,6 +47,9 @@ export type TaxonomySuggestion = {
 };
 
 export type TaxonomySearchResult = WorkOrderTaxonomyNode & {
+  categoryId?: string;
+  typeId?: string;
+  issueId?: string;
   score: number;
   matchedKeywords: string[];
   pathLabel: string;
@@ -63,15 +66,24 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
-export async function suggestWorkOrderTaxonomy(query: string) {
-  const response = await apiClient.get<ApiEnvelope<{ suggestion: TaxonomySuggestion | null; method: string }>>(
-    "/work-orders/taxonomy/suggest",
-    { params: { q: query } }
-  );
+export async function suggestWorkOrderTaxonomy(query: string): Promise<{
+  query: string;
+  suggestion: TaxonomySuggestion | null;
+  method: string;
+  roadmapNote?: string;
+}> {
+  const response = await apiClient.get<
+    ApiEnvelope<{
+      query: string;
+      suggestion: TaxonomySuggestion | null;
+      method: string;
+      roadmapNote?: string;
+    }>
+  >("/work-orders/taxonomy/suggest", { params: { q: query } });
   return unwrap(response.data);
 }
 
-export async function searchWorkOrderTaxonomy(query: string, limit = 25) {
+export async function searchWorkOrderTaxonomy(query: string, limit = 25): Promise<TaxonomySearchResult[]> {
   const response = await apiClient.get<ApiEnvelope<TaxonomySearchResult[]>>("/work-orders/taxonomy/search", {
     params: { q: query, limit }
   });
@@ -82,7 +94,7 @@ export async function fetchWorkOrderTaxonomy(params?: {
   includeInactive?: boolean;
   level?: WorkOrderTaxonomyLevel;
   parentId?: string;
-}) {
+}): Promise<WorkOrderTaxonomyNode[]> {
   const response = await apiClient.get<ApiEnvelope<WorkOrderTaxonomyNode[]>>("/work-orders/taxonomy", { params });
   return unwrap(response.data);
 }

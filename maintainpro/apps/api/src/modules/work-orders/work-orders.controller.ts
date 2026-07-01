@@ -160,7 +160,14 @@ export class WorkOrdersController {
       query.overdueOnly ||
       query.highRiskOnly ||
       query.riskSeverity ||
-      query.myAssignedOnly;
+      query.myAssignedOnly ||
+      query.categoryId ||
+      query.taxonomyCategoryId ||
+      query.typeId ||
+      query.taxonomyTypeId ||
+      query.issueId ||
+      query.taxonomyIssueId ||
+      query.triageOnly;
 
     if (hasQueueParams) {
       const data = await this.workOrderQueuesService.search(req.user, query);

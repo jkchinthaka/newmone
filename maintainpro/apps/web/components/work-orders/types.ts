@@ -103,6 +103,14 @@ export interface WorkOrder {
   vehicle?: WorkOrderVehicleRef | null;
   technician?: UserReference | null;
   createdBy?: UserReference | null;
+  taxonomyCategoryId?: string | null;
+  taxonomyTypeId?: string | null;
+  taxonomyIssueId?: string | null;
+  categoryNameSnapshot?: string | null;
+  typeNameSnapshot?: string | null;
+  issueNameSnapshot?: string | null;
+  isTriage?: boolean;
+  triageReason?: string | null;
 }
 
 export interface WorkOrderFilters {
@@ -127,6 +135,11 @@ export interface CreateWorkOrderInput {
   scheduleId?: string;
   dueDate?: string;
   expectedCompletionDate?: string;
+  taxonomyCategoryId?: string;
+  taxonomyTypeId?: string;
+  taxonomyIssueId?: string;
+  isTriage?: boolean;
+  triageReason?: string;
 }
 
 export interface UpdateWorkOrderInput {

@@ -22,6 +22,7 @@ type Props = {
     typeId?: string;
     issueId?: string;
     pathLabel: string;
+    isTriage?: boolean;
     node?: TaxonomySearchResult | WorkOrderTaxonomyNode;
   }) => void;
   allowTriage?: boolean;
@@ -34,7 +35,9 @@ export function WorkOrderTaxonomyPicker({ value, onChange, allowTriage = true }:
   const [categories, setCategories] = useState<WorkOrderTaxonomyNode[]>([]);
 
   useEffect(() => {
-    void fetchWorkOrderTaxonomy({ level: "CATEGORY" }).then(setCategories).catch(() => setCategories([]));
+    void fetchWorkOrderTaxonomy({ level: "CATEGORY" })
+      .then((rows) => setCategories(rows))
+      .catch(() => setCategories([]));
   }, []);
 
   useEffect(() => {
@@ -139,14 +142,15 @@ export function WorkOrderTaxonomyPicker({ value, onChange, allowTriage = true }:
       {allowTriage ? (
         <button
           type="button"
-          onClick={() =>
-            onChange({
-              pathLabel: "Not Sure / Triage → Need Triage Classification",
-              categoryId: undefined,
-              typeId: undefined,
-              issueId: undefined
-            })
-          }
+            onClick={() =>
+              onChange({
+                pathLabel: "Not Sure / Triage → Need Triage Classification",
+                categoryId: undefined,
+                typeId: undefined,
+                issueId: undefined,
+                isTriage: true
+              })
+            }
           className="w-full rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-900 hover:bg-amber-100"
         >
           Not sure? Submit to triage. A supervisor will classify it.

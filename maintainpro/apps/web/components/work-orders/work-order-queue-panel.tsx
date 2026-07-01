@@ -212,6 +212,14 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
             />
             High risk only
           </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={filters.triageOnly}
+              onChange={(event) => updateFilters({ triageOnly: event.target.checked, page: 1 })}
+            />
+            Triage only
+          </label>
           <button
             type="button"
             onClick={() => {
@@ -224,6 +232,32 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
+
+        {queueQuery.data?.categorySummary?.length ? (
+          <div className="border-b border-slate-200 px-4 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Category summary</p>
+            <div className="flex flex-wrap gap-2">
+              {queueQuery.data.categorySummary.slice(0, 8).map((row) => (
+                <button
+                  key={row.categoryId ?? row.categoryName}
+                  type="button"
+                  onClick={() =>
+                    updateFilters({
+                      categoryId: row.categoryId ?? "",
+                      page: 1
+                    })
+                  }
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs hover:bg-slate-100"
+                >
+                  <div className="font-semibold text-slate-900">{row.categoryName}</div>
+                  <div className="text-slate-600">
+                    {row.total} total · {row.open} open · {row.overdue} overdue
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {queueQuery.isLoading ? (
           <div className="flex items-center gap-2 p-6 text-sm text-slate-600">

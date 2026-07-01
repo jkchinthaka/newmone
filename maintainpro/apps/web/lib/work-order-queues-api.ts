@@ -17,6 +17,7 @@ export type WorkOrderQueueKey =
   | "overdue"
   | "high-risk"
   | "finance-vendor-pending"
+  | "triage"
   | "completed"
   | "cancelled"
   | "all";
@@ -55,6 +56,22 @@ export type WorkOrderQueueListResponse = {
   queue: WorkOrderQueueKey;
   label: string;
   lastUpdated: string;
+  appliedFilters?: Record<string, unknown>;
+  categorySummary?: Array<{
+    categoryId?: string | null;
+    categoryName: string;
+    total: number;
+    open: number;
+    inProgress: number;
+    overdue: number;
+    highRisk: number;
+    completed: number;
+    cancelled: number;
+    triage: number;
+    evidenceMissing: number;
+    partsPending: number;
+    supervisorVerificationPending: number;
+  }>;
 };
 
 export type WorkOrderQueueFilters = {
@@ -71,6 +88,10 @@ export type WorkOrderQueueFilters = {
   pageSize: number;
   sortBy: string;
   sortDirection: "asc" | "desc";
+  categoryId: string;
+  typeId: string;
+  issueId: string;
+  triageOnly: boolean;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -86,7 +107,11 @@ export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
   page: 1,
   pageSize: 25,
   sortBy: "operational",
-  sortDirection: "desc"
+  sortDirection: "desc",
+  categoryId: "",
+  typeId: "",
+  issueId: "",
+  triageOnly: false
 };
 
 interface ApiEnvelope<T> {
@@ -122,6 +147,10 @@ export async function fetchWorkOrderQueue(
   if (filters.overdueOnly) params.set("overdueOnly", "true");
   if (filters.highRiskOnly) params.set("highRiskOnly", "true");
   if (filters.myAssignedOnly) params.set("myAssignedOnly", "true");
+  if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  if (filters.typeId) params.set("typeId", filters.typeId);
+  if (filters.issueId) params.set("issueId", filters.issueId);
+  if (filters.triageOnly) params.set("triageOnly", "true");
 
   const response = await apiClient.get<ApiEnvelope<WorkOrderQueueListResponse>>(
     `/work-orders/queues/${filters.queue}?${params.toString()}`

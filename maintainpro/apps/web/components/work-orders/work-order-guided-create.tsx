@@ -23,6 +23,7 @@ export type GuidedCreateValues = {
   taxonomyTypeId?: string;
   taxonomyIssueId?: string;
   isTriage?: boolean;
+  triageReason?: string;
   taxonomyPathLabel?: string;
 };
 
@@ -111,6 +112,7 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
       taxonomyTypeId: taxonomySelection.typeId,
       taxonomyIssueId: taxonomySelection.issueId,
       isTriage: taxonomySelection.isTriage || taxonomySelection.pathLabel?.includes("Triage"),
+      triageReason: taxonomySelection.isTriage || taxonomySelection.pathLabel?.includes("Triage") ? description.trim() : undefined,
       taxonomyPathLabel: taxonomySelection.pathLabel
     });
   };
@@ -162,7 +164,7 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
               typeId: value.typeId,
               issueId: value.issueId,
               pathLabel: value.pathLabel,
-              isTriage: value.pathLabel.includes("Triage")
+              isTriage: value.isTriage ?? value.pathLabel.includes("Triage")
             })
           }
         />
@@ -204,29 +206,35 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
             <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
           </label>
           {requiresAsset ? (
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 space-y-1">
+              <span className="text-sm font-medium text-slate-700">Asset</span>
               <EntityPicker
-                label="Asset"
-                value={assetId}
-                displayValue={assetLabel}
                 endpoint="/assets"
-                onChange={(id, label) => {
-                  setAssetId(id);
-                  setAssetLabel(label);
+                value={assetId || null}
+                displayField="name"
+                secondaryField="assetTag"
+                initialDisplay={assetLabel}
+                placeholder="Search assets..."
+                onChange={(id, entity) => {
+                  setAssetId(id ?? "");
+                  setAssetLabel(entity ? String(entity.name ?? entity.assetTag ?? "") : "");
                 }}
               />
             </div>
           ) : null}
           {requiresVehicle ? (
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 space-y-1">
+              <span className="text-sm font-medium text-slate-700">Vehicle</span>
               <EntityPicker
-                label="Vehicle"
-                value={vehicleId}
-                displayValue={vehicleLabel}
                 endpoint="/vehicles"
-                onChange={(id, label) => {
-                  setVehicleId(id);
-                  setVehicleLabel(label);
+                value={vehicleId || null}
+                displayField="registrationNo"
+                secondaryField="vehicleModel"
+                initialDisplay={vehicleLabel}
+                placeholder="Search vehicles..."
+                onChange={(id, entity) => {
+                  setVehicleId(id ?? "");
+                  setVehicleLabel(entity ? String(entity.registrationNo ?? entity.vehicleModel ?? "") : "");
                 }}
               />
             </div>

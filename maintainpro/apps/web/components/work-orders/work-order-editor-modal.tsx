@@ -26,6 +26,7 @@ import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
 import { WorkOrderGovernanceBanner } from "./work-order-governance-banner";
 import { SupervisorVerificationPanel } from "./supervisor-verification-panel";
 import { WorkOrderVendorRepairPanel } from "./work-order-vendor-repair-panel";
+import { WorkOrderGuidedCreate } from "./work-order-guided-create";
 import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
@@ -40,6 +41,11 @@ type WorkOrderCreateFormValue = {
   assetId?: string;
   vehicleId?: string;
   scheduleId?: string;
+  taxonomyCategoryId?: string;
+  taxonomyTypeId?: string;
+  taxonomyIssueId?: string;
+  isTriage?: boolean;
+  triageReason?: string;
 };
 
 type WorkOrderEditFormValue = UpdateWorkOrderInput;
@@ -219,6 +225,38 @@ export function WorkOrderEditorModal({
               <WorkOrderDetailTabs activeTab={activeTab} onChange={setActiveTab} showAudit={showAuditTab} />
             ) : null}
 
+            {isCreateMode ? (
+              <div className="px-5 py-4">
+                <WorkOrderGuidedCreate
+                  submitting={submitting}
+                  onSubmit={(values) => {
+                    if (!values.description.trim()) {
+                      return;
+                    }
+
+                    onCreate({
+                      title: values.title,
+                      description: values.description,
+                      priority: values.priority,
+                      type: values.type,
+                      dueDate: values.dueDate
+                        ? new Date(`${values.dueDate}T00:00:00.000Z`).toISOString()
+                        : undefined,
+                      expectedCompletionDate: values.expectedCompletionDate
+                        ? new Date(`${values.expectedCompletionDate}T00:00:00.000Z`).toISOString()
+                        : undefined,
+                      assetId: values.assetId,
+                      vehicleId: values.vehicleId,
+                      taxonomyCategoryId: values.isTriage ? undefined : values.taxonomyCategoryId,
+                      taxonomyTypeId: values.isTriage ? undefined : values.taxonomyTypeId,
+                      taxonomyIssueId: values.isTriage ? undefined : values.taxonomyIssueId,
+                      isTriage: values.isTriage,
+                      triageReason: values.isTriage ? values.description : undefined
+                    });
+                  }}
+                />
+              </div>
+            ) : (
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -228,19 +266,6 @@ export function WorkOrderEditorModal({
                 }
 
                 if (isCreateMode) {
-                  onCreate({
-                    title: formState.title.trim(),
-                    description: formState.description.trim(),
-                    priority: formState.priority,
-                    type: formState.type,
-                    dueDate: formState.dueDate ? new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString() : undefined,
-                    expectedCompletionDate: formState.expectedCompletionDate
-                      ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
-                      : undefined,
-                    assetId: formState.assetId.trim() || undefined,
-                    vehicleId: formState.vehicleId.trim() || undefined,
-                    scheduleId: formState.scheduleId.trim() || undefined
-                  });
                   return;
                 }
 
@@ -520,6 +545,7 @@ export function WorkOrderEditorModal({
                 </button>
               </div>
             </form>
+            )}
           </motion.div>
         </motion.div>
       ) : null}

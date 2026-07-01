@@ -335,6 +335,7 @@ export class WorkOrderQueuesService {
     }
 
     return [...map.values()].sort((a, b) => b.total - a.total);
+  }
 
   private buildPrismaWhere(actor: Actor, query: WorkOrderQueueQuery): Prisma.WorkOrderWhereInput {
     const where: Prisma.WorkOrderWhereInput = {};

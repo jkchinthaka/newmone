@@ -48,6 +48,7 @@ describe("work order queues", () => {
     expect(WORK_ORDER_QUEUE_LABELS["action-required"]).toBe("Action Required");
     expect(WORK_ORDER_QUEUE_LABELS["supervisor-verification"]).toBe("Supervisor Verification");
     expect(WORK_ORDER_QUEUE_LABELS["high-risk"]).toBe("High Risk");
+    expect(WORK_ORDER_QUEUE_LABELS.triage).toBe("Triage / Not Sure");
   });
 
   it("adds high-risk score without breaking existing scoring", () => {

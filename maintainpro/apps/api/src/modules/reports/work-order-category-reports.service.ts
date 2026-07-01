@@ -231,7 +231,6 @@ export class WorkOrderCategoryReportsService {
       where: {
         ...tenantFilter,
         entity: "WorkOrder",
-        metadata: { path: ["event"], equals: "work_order_category_changed" },
         ...(query.dateFrom || query.dateTo
           ? {
               createdAt: {
@@ -242,12 +241,17 @@ export class WorkOrderCategoryReportsService {
           : {})
       },
       orderBy: { createdAt: "desc" },
-      take: 200
+      take: 500
+    });
+
+    const items = logs.filter((log) => {
+      const metadata = log.metadata as { event?: string } | null;
+      return metadata?.event === "work_order_category_changed";
     });
 
     return {
-      total: logs.length,
-      items: logs.map((log) => ({
+      total: items.length,
+      items: items.slice(0, 200).map((log) => ({
         id: log.id,
         workOrderId: log.entityId,
         reason: log.reason,

@@ -289,7 +289,16 @@ export class WorkOrdersService {
     const woNumber = await this.nextWoNumber(actor);
     const tenantForTaxonomy = tenantId === undefined ? creator.tenantId ?? null : tenantId;
 
-    let taxonomyFields: Partial<Prisma.WorkOrderCreateInput> = {};
+    let taxonomyFields: {
+      taxonomyCategoryId?: string;
+      taxonomyTypeId?: string;
+      taxonomyIssueId?: string;
+      categoryNameSnapshot?: string;
+      typeNameSnapshot?: string;
+      issueNameSnapshot?: string;
+      isTriage?: boolean;
+      triageReason?: string;
+    } = {};
     if (data.isTriage || data.taxonomyCategoryId || data.taxonomyTypeId || data.taxonomyIssueId) {
       const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantForTaxonomy, {
         taxonomyCategoryId: data.taxonomyCategoryId,
@@ -1828,7 +1837,7 @@ export class WorkOrdersService {
     const started =
       existing.status !== WorkOrderStatus.OPEN &&
       existing.status !== WorkOrderStatus.ON_HOLD &&
-      !TERMINAL_WORK_ORDER_STATUSES.includes(existing.status);
+      !TERMINAL_WORK_ORDER_STATUSES.has(existing.status);
 
     const closed =
       existing.status === WorkOrderStatus.COMPLETED ||
