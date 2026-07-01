@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { ChunkLoadRecovery } from "../components/pwa/chunk-load-recovery";
 import { ServiceWorkerRegistrar } from "../components/pwa/service-worker-registrar";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../lib/branding";
 import { PWA_ICON_PATHS, PWA_THEME_COLOR } from "../lib/pwa-metadata";
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="en-LK">
       <body>
         <ServiceWorkerRegistrar />
+        <ChunkLoadRecovery />
         {children}
       </body>
     </html>

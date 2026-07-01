@@ -9,7 +9,7 @@ export function ServiceWorkerRegistrar() {
     }
 
     void navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => registration.update())
       .catch(() => undefined);
   }, []);

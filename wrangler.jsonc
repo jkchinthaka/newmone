@@ -10,7 +10,8 @@
   },
   "assets": {
     "directory": "maintainpro/apps/web/.open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash"
   },
   "observability": {
     "enabled": true

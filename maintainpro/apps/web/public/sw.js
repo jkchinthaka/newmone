@@ -1,14 +1,22 @@
-const STATIC_CACHE = "maintainpro-static-v1";
-const RUNTIME_CACHE = "maintainpro-runtime-v1";
+const STATIC_CACHE = "maintainpro-static-v2";
+const RUNTIME_CACHE = "maintainpro-runtime-v2";
+const LEGACY_CACHES = ["maintainpro-static-v1", "maintainpro-runtime-v1"];
+
 const APP_SHELL = [
-  "/",
-  "/splash",
   "/offline.html",
   "/manifest.webmanifest",
   "/favicon.svg",
   "/pwa-192x192.svg",
   "/pwa-512x512.svg"
 ];
+
+function isImmutableBuildAsset(pathname) {
+  return pathname.startsWith("/_next/static/") || pathname.startsWith("/_next/image/");
+}
+
+function isNavigationRequest(request) {
+  return request.mode === "navigate" || request.headers.get("sec-fetch-mode") === "navigate";
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -38,12 +46,31 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
-  if (request.mode === "navigate") {
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  if (isImmutableBuildAsset(url.pathname)) {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) {
+          return cached;
+        }
+        throw new Error(`Build asset unavailable: ${url.pathname}`);
+      })
+    );
+    return;
+  }
+
+  if (isNavigationRequest(request)) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const responseClone = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
+          if (response.ok) {
+            const responseClone = response.clone();
+            void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
+          }
           return response;
         })
         .catch(async () => {
@@ -54,21 +81,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
-    return;
-  }
-
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((response) => {
+    fetch(request)
+      .then((response) => {
+        if (response.ok && response.type === "basic") {
           const responseClone = response.clone();
           void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
-          return response;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });

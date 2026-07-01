@@ -65,6 +65,18 @@ cd apps/web && wrangler deploy
 
 Or use root `wrangler.jsonc` build command (CI-style).
 
+**Clean rebuild (recommended after chunk errors):**
+
+```bash
+cd maintainpro
+npm run cloudflare:rebuild
+cd apps/web && wrangler deploy
+```
+
+After deploy, **purge Cloudflare cache** for the Workers route (dashboard → Caching → Purge Everything) and hard-refresh the browser (or use incognito). Stale HTML referencing old `/_next/static/chunks/*` hashes is the most common cause of `ChunkLoadError` on Workers.
+
+The PWA service worker intentionally does **not** cache `/_next/static/*` build assets; navigation HTML uses network-first so new deploys pick up matching chunk hashes.
+
 ## Deploy Web (Vercel)
 
 ```bash

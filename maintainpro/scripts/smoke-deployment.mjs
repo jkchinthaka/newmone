@@ -133,6 +133,65 @@ async function warmUp() {
 
 await warmUp();
 
+function extractChunkUrls(html) {
+  return [...new Set([...html.matchAll(/\/_next\/static\/chunks\/[^"'\s]+/g)].map((match) => match[0]))];
+}
+
+function isJavaScriptContentType(contentType) {
+  const normalized = (contentType ?? "").toLowerCase();
+  return normalized.includes("javascript") || normalized.includes("ecmascript");
+}
+
+async function verifyRouteChunks(routePath, label) {
+  let response;
+  try {
+    response = await fetchWithTimeout(`${frontendUrl}${routePath}`);
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, `${label} request`));
+  }
+  if (!response.ok) {
+    throw new Error(`${label} returned HTTP ${response.status}`);
+  }
+  const html = await response.text();
+  const chunkUrls = extractChunkUrls(html);
+  if (chunkUrls.length === 0) {
+    throw new Error(`${label} did not reference any /_next/static/chunks assets`);
+  }
+
+  const failures = [];
+  for (const chunkPath of chunkUrls.slice(0, 12)) {
+    const chunkUrl = `${frontendUrl}${chunkPath}`;
+    let chunkResponse;
+    try {
+      chunkResponse = await fetchWithTimeout(chunkUrl, {}, REQUEST_TIMEOUT_MS);
+    } catch (error) {
+      failures.push(`${chunkPath} (${error instanceof Error ? error.message : String(error)})`);
+      continue;
+    }
+    const contentType = chunkResponse.headers.get("content-type") ?? "";
+    if (!chunkResponse.ok) {
+      failures.push(`${chunkPath} (HTTP ${chunkResponse.status}, content-type=${contentType || "missing"})`);
+      continue;
+    }
+    if (!isJavaScriptContentType(contentType)) {
+      failures.push(`${chunkPath} (content-type=${contentType || "missing"})`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`${label} chunk validation failed: ${failures.slice(0, 3).join("; ")}`);
+  }
+
+  return `${label} ${chunkUrls.length} chunk refs OK`;
+}
+
+await check("Frontend route chunks /", async () => verifyRouteChunks("/", "home"));
+await check("Frontend route chunks /work-orders", async () => verifyRouteChunks("/work-orders", "work-orders"));
+await check(
+  "Frontend route chunks /maintenance/job-codes",
+  async () => verifyRouteChunks("/maintenance/job-codes", "maintenance/job-codes")
+);
+
 await check("Frontend loads", async () => {
   let response;
   try {
