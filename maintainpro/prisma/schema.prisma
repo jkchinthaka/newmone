@@ -37,6 +37,7 @@ model Tenant {
   partRequests                 PartRequest[]
   partIssues                   PartIssue[]
   partRequestApprovals         PartRequestApproval[]
+  workOrderParts               WorkOrderPart[]
   purchaseOrderApprovals       PurchaseOrderApproval[]
   purchaseOrderErpSyncAttempts PurchaseOrderErpSync[]
   purchaseOrderLines           PurchaseOrderLine[]
@@ -1121,9 +1122,27 @@ enum WorkOrderVerificationStatus {
 enum WorkOrderPartLineStatus {
   REQUESTED
   APPROVED
+  RESERVED
   ISSUED
   PARTIALLY_USED
+  USED
+  PARTIALLY_RETURNED
   RETURNED
+  DAMAGED
+  CLOSED
+}
+
+enum PartReturnCondition {
+  UNUSED
+  USED_DAMAGED
+  SCRAP
+  WRONG_PART
+}
+
+enum PartApprovalTier {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum WorkOrderApprovalStatus {
@@ -1328,27 +1347,52 @@ enum MovementType {
 }
 
 model WorkOrderPart {
-  id                String                  @id @default(auto()) @map("_id") @db.ObjectId
-  workOrderId       String                  @db.ObjectId
-  workOrder         WorkOrder               @relation(fields: [workOrderId], references: [id])
-  partId            String                  @db.ObjectId
-  part              SparePart               @relation(fields: [partId], references: [id])
-  quantity          Int
-  unitCost          Float
-  totalCost         Float
-  lineStatus        WorkOrderPartLineStatus @default(ISSUED)
-  requestedQuantity Int                     @default(0)
-  approvedQuantity  Int?
-  issuedQuantity    Int                     @default(0)
-  usedQuantity      Int                     @default(0)
-  returnedQuantity  Int                     @default(0)
-  requestedById     String?                 @db.ObjectId
-  approvedById      String?                 @db.ObjectId
-  issuedById        String?                 @db.ObjectId
-  issueReason       String?
+  id                       String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                 String?                 @db.ObjectId
+  tenant                   Tenant?                 @relation(fields: [tenantId], references: [id])
+  workOrderId              String                  @db.ObjectId
+  workOrder                WorkOrder               @relation(fields: [workOrderId], references: [id])
+  partId                   String                  @db.ObjectId
+  part                     SparePart               @relation(fields: [partId], references: [id])
+  partRequestId            String?                 @db.ObjectId
+  partRequest              PartRequest?            @relation(fields: [partRequestId], references: [id])
+  quantity                 Int
+  unitCost                 Float
+  totalCost                Float
+  lineStatus               WorkOrderPartLineStatus @default(ISSUED)
+  approvalTier             PartApprovalTier        @default(LOW)
+  procurementRequired      Boolean                 @default(false)
+  requestedQuantity        Int                     @default(0)
+  approvedQuantity         Int?
+  reservedQuantity         Int                     @default(0)
+  issuedQuantity           Int                     @default(0)
+  usedQuantity             Int                     @default(0)
+  returnedQuantity         Int                     @default(0)
+  damagedQuantity          Int                     @default(0)
+  pendingReturnQuantity    Int                     @default(0)
+  requestedById            String?                 @db.ObjectId
+  approvedById             String?                 @db.ObjectId
+  issuedById               String?                 @db.ObjectId
+  issueReason              String?
+  issuedAt                 DateTime?
+  issueNote                String?
+  issueSlipNo              String?
+  storeLocation            String?
+  receiverId               String?                 @db.ObjectId
+  receivedAt               DateTime?
+  returnedById             String?                 @db.ObjectId
+  returnedAt               DateTime?
+  returnCondition          PartReturnCondition?
+  returnNote               String?
+  confirmedByStorekeeperId String?                 @db.ObjectId
+  returnConfirmedAt        DateTime?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 
   @@index([workOrderId])
   @@index([partId])
+  @@index([partRequestId])
+  @@index([tenantId, workOrderId])
 }
 
 model Supplier {
@@ -1485,8 +1529,9 @@ model PartRequest {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
 
-  approvals PartRequestApproval[]
-  issues    PartIssue[]
+  approvals      PartRequestApproval[]
+  issues         PartIssue[]
+  workOrderParts WorkOrderPart[]
 
   @@index([tenantId])
   @@index([tenantId, status])

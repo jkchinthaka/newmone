@@ -3,6 +3,7 @@ import { RoleName } from "@prisma/client";
 
 import { requestContext } from "../src/common/context/request-context";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
+import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
 
 const createPrismaMock = () => ({
   workOrder: {
@@ -29,7 +30,7 @@ describe("WorkOrdersService tenant isolation", () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst.mockResolvedValue(null);
     const notificationsService = { createNotification: jest.fn() };
-    const service = new WorkOrdersService(prisma as any, notificationsService as any);
+    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any);
 
     await expect(service.assign("wo-1", "tech-1", actor)).rejects.toThrow(NotFoundException);
     expect(prisma.workOrder.findFirst).toHaveBeenCalledWith(
@@ -59,7 +60,7 @@ describe("WorkOrdersService tenant isolation", () => {
       status: "ASSIGNED"
     });
     const notificationsService = { createNotification: jest.fn() };
-    const service = new WorkOrdersService(prisma as any, notificationsService as any);
+    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any);
 
     await requestContext.run(
       {

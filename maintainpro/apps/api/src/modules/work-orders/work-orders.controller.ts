@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { Priority, WorkOrderStatus } from "@prisma/client";
+import { PartReturnCondition, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -11,6 +11,7 @@ import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
+import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 
@@ -29,8 +30,16 @@ export class WorkOrdersController {
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
     private readonly workOrderHistoryService: WorkOrderHistoryService,
     private readonly workOrderGovernanceService: WorkOrderGovernanceService,
+    private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly evidenceService: EvidenceService
   ) {}
+
+  @Get("governance/parts-exceptions")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER")
+  async partsGovernanceExceptions(@Req() req: AuthedRequest) {
+    const data = await this.workOrderPartsService.getPartsExceptions(req.user);
+    return { data, message: "Work order parts exceptions fetched" };
+  }
 
   @Get("governance/exceptions")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
@@ -270,7 +279,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/parts")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
   @Permissions("inventory.stock_issue")
   async addPart(
     @Req() req: AuthedRequest,
@@ -281,11 +290,55 @@ export class WorkOrdersController {
     return { data, message: "Part added to work order" };
   }
 
+  @Get(":id/parts/summary")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  async partsSummary(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderPartsService.getCostSummary(id, req.user);
+    return { data, message: "Work order parts cost summary fetched" };
+  }
+
   @Get(":id/parts")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
   async parts(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.parts(id, req.user);
     return { data, message: "Work order parts fetched" };
+  }
+
+  @Patch(":id/parts/:lineId/use")
+  @Roles("SUPER_ADMIN", "ADMIN", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "ASSET_MANAGER")
+  async markPartUsed(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() body: { usedQuantity: number; note?: string }
+  ) {
+    const data = await this.workOrderPartsService.markUsed(id, lineId, body, req.user);
+    return { data, message: "Part usage recorded" };
+  }
+
+  @Post(":id/parts/:lineId/return")
+  @Roles("SUPER_ADMIN", "ADMIN", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "ASSET_MANAGER")
+  async requestPartReturn(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() body: { returnedQuantity: number; returnCondition: PartReturnCondition; returnNote?: string }
+  ) {
+    const data = await this.workOrderPartsService.requestReturn(id, lineId, body, req.user);
+    return { data, message: "Part return requested" };
+  }
+
+  @Post(":id/parts/:lineId/confirm-return")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("inventory.stock_issue")
+  async confirmPartReturn(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() body: { confirmedQuantity: number; note?: string }
+  ) {
+    const data = await this.workOrderPartsService.confirmReturn(id, lineId, body, req.user);
+    return { data, message: "Part return confirmed" };
   }
 
   @Post(":id/notes")
@@ -362,13 +415,13 @@ export class WorkOrdersController {
   }
 
   @Post(":id/part-requests/:requestId/issue")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
   @Permissions("part_requests.issue", "inventory.stock_issue")
   async issuePartRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
     @Param("requestId") requestId: string,
-    @Body() body: { quantity?: number; notes?: string }
+    @Body() body: { quantity?: number; notes?: string; storeLocation?: string }
   ) {
     const data = await this.workOrdersService.issuePartRequest(id, requestId, body, req.user);
     return { data, message: "Part request stock issued" };

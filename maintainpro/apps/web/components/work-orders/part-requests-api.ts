@@ -4,22 +4,34 @@ export type PartRequestStatus =
   | "PENDING_OPERATIONAL"
   | "PENDING_FINANCE"
   | "APPROVED"
+  | "PARTIALLY_ISSUED"
   | "REJECTED"
-  | "ISSUED";
+  | "ISSUED"
+  | "CANCELLED";
 
 export interface PartRequest {
   id: string;
   workOrderId: string;
   partId: string;
-  sparePartId?: string;
-  quantity: number;
+  requestedQuantity: number;
+  approvedQuantity?: number | null;
+  issuedQuantity?: number;
   status: PartRequestStatus;
   reason?: string | null;
-  notes?: string | null;
   requestedById: string;
+  requiresFinanceApproval?: boolean;
+  unitCostSnapshot?: number;
+  totalCost?: number;
   createdAt: string;
   updatedAt: string;
-  sparePart?: { id: string; name: string; partNumber: string; quantityInStock?: number } | null;
+  part?: {
+    id: string;
+    name: string;
+    partNumber?: string | null;
+    sku?: string | null;
+    quantityInStock?: number;
+    unitCost?: number;
+  } | null;
 }
 
 function unwrap<T>(payload: unknown, fallback: T): T {

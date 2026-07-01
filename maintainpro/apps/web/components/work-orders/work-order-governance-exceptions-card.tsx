@@ -5,11 +5,13 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import type { GovernanceExceptionSummary } from "@/lib/work-order-governance";
+import { fetchPartsExceptions, type PartsExceptionSummary } from "./work-order-parts-api";
 
 export function WorkOrderGovernanceExceptionsCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<GovernanceExceptionSummary | null>(null);
+  const [partsSummary, setPartsSummary] = useState<PartsExceptionSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,9 +19,13 @@ export function WorkOrderGovernanceExceptionsCard() {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiClient.get<{ data: GovernanceExceptionSummary }>("/work-orders/governance/exceptions");
+        const [govResponse, parts] = await Promise.all([
+          apiClient.get<{ data: GovernanceExceptionSummary }>("/work-orders/governance/exceptions"),
+          fetchPartsExceptions().catch(() => null)
+        ]);
         if (!cancelled) {
-          setSummary(response.data.data);
+          setSummary(govResponse.data.data);
+          setPartsSummary(parts);
         }
       } catch (err) {
         if (!cancelled) {
@@ -66,6 +72,17 @@ export function WorkOrderGovernanceExceptionsCard() {
     { label: "Reopened (30d)", value: summary.reopenedWorkOrders }
   ];
 
+  const partsCards = partsSummary
+    ? [
+        { label: "Duplicate part requests", value: partsSummary.duplicatePartRequests },
+        { label: "Issued parts not accounted", value: partsSummary.issuedPartsNotAccounted },
+        { label: "Pending return confirmations", value: partsSummary.pendingReturnConfirmations },
+        { label: "High-cost part issues", value: partsSummary.highCostPartIssues },
+        { label: "Procurement required", value: partsSummary.procurementRequiredParts },
+        { label: "Frequent asset part usage (30d)", value: partsSummary.frequentAssetPartUsage }
+      ]
+    : [];
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-start gap-2">
@@ -83,6 +100,19 @@ export function WorkOrderGovernanceExceptionsCard() {
               </div>
             ))}
           </div>
+          {partsCards.length > 0 ? (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-slate-700">Parts & inventory exceptions</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {partsCards.map((card) => (
+                  <div key={card.label} className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2">
+                    <p className="text-xs text-slate-500">{card.label}</p>
+                    <p className="text-lg font-semibold text-slate-900">{card.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {summary.notes.length > 0 ? (
             <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
               {summary.notes.map((note) => (

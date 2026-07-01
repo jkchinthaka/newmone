@@ -8,6 +8,7 @@ import {
 
 import { requestContext } from "../src/common/context/request-context";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
+import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
 
 const createPrismaMock = () => ({
   workOrder: {
@@ -71,7 +72,7 @@ describe("WorkOrdersService approval and audit", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
 
     const created = await requestContext.run(
       {
@@ -119,7 +120,7 @@ describe("WorkOrdersService approval and audit", () => {
       technicianId: null
     });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
 
     await expect(service.assign("wo-1", "tech-1", manager)).rejects.toThrow(BadRequestException);
     expect(prisma.workOrder.update).not.toHaveBeenCalled();
@@ -141,7 +142,7 @@ describe("WorkOrdersService approval and audit", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
 
     const updated = await service.approveWorkOrder("wo-1", "Approved for execution", manager);
 
@@ -171,7 +172,7 @@ describe("WorkOrdersService approval and audit", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-3" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
 
     const updated = await service.rejectWorkOrder("wo-1", "Insufficient detail", manager);
 
@@ -208,7 +209,7 @@ describe("WorkOrdersService approval and audit", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-4" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any);
 
     await service.updateStatus(
       "wo-1",

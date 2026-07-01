@@ -8,6 +8,7 @@ import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
+import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
@@ -19,14 +20,16 @@ import { WorkOrdersService } from "./work-orders.service";
     WorkOrderActivityService,
     WorkOrderAssigneesService,
     WorkOrderHistoryService,
-    WorkOrderGovernanceService
+    WorkOrderGovernanceService,
+    WorkOrderPartsService
   ],
   exports: [
     WorkOrdersService,
     WorkOrderActivityService,
     WorkOrderAssigneesService,
     WorkOrderHistoryService,
-    WorkOrderGovernanceService
+    WorkOrderGovernanceService,
+    WorkOrderPartsService
   ]
 })
 export class WorkOrdersModule {}

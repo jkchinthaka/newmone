@@ -33,9 +33,15 @@ import {
   assertWorkOrderAssetRules,
   calculateSlaRisk
 } from "../../common/utils/work-order-validation";
+import {
+  requiresFinanceApprovalForTier,
+  requiresProcurement,
+  resolvePartApprovalTier
+} from "../../common/utils/work-order-parts-governance";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+import { WorkOrderPartsService } from "./work-order-parts.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -43,7 +49,8 @@ type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 export class WorkOrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly workOrderPartsService: WorkOrderPartsService
   ) {}
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
@@ -117,7 +124,8 @@ export class WorkOrdersService {
   }
 
   private requiresFinanceApproval(totalCost: number, pettyCash?: boolean): boolean {
-    return Boolean(pettyCash) || totalCost >= this.financeApprovalThreshold;
+    const tier = resolvePartApprovalTier(totalCost);
+    return requiresFinanceApprovalForTier(tier, pettyCash);
   }
 
   private canAutoApproveWorkOrder(roleName?: string | null): boolean {
@@ -908,12 +916,10 @@ export class WorkOrdersService {
     data: { partId: string; quantity: number; unitCost: number; reason?: string },
     actor?: Actor
   ) {
+    this.workOrderPartsService.assertStorekeeperCanIssue(actor?.role as RoleName);
     const tenantId = this.resolveTenantId(actor);
     const workOrder = await this.findOne(id, actor);
-
-    if (TERMINAL_WORK_ORDER_STATUSES.has(workOrder.status)) {
-      throw new BadRequestException("Parts cannot be issued on completed or cancelled work orders.");
-    }
+    await this.workOrderPartsService.assertWorkOrderForParts(id, actor);
 
     if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
       throw new BadRequestException("Part quantity must be greater than 0");
@@ -1064,6 +1070,7 @@ export class WorkOrdersService {
     const requester = this.assertActor(actor);
     const tenantId = this.resolveTenantId(actor);
     const workOrder = await this.findOne(workOrderId, actor);
+    await this.workOrderPartsService.assertWorkOrderForParts(workOrderId, actor);
 
     if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
       throw new BadRequestException("Requested quantity must be greater than 0");
@@ -1098,7 +1105,9 @@ export class WorkOrdersService {
     }
 
     const totalCost = unitCostSnapshot * data.quantity;
+    const approvalTier = resolvePartApprovalTier(totalCost);
     const requiresFinanceApproval = this.requiresFinanceApproval(totalCost, data.pettyCash);
+    const procurementRequired = requiresProcurement(part.quantityInStock, data.quantity);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const partRequest = await tx.partRequest.create({
@@ -1144,6 +1153,19 @@ export class WorkOrdersService {
       return partRequest;
     });
 
+    await this.workOrderPartsService.createRequestedLine({
+      workOrderId,
+      partRequestId: created.id,
+      partId: data.partId,
+      requestedQuantity: data.quantity,
+      unitCost: unitCostSnapshot,
+      requestedById: requester.sub,
+      tenantId: tenantId ?? null,
+      approvalTier,
+      procurementRequired,
+      actor
+    });
+
     await this.recordAudit({
       entity: "PART_REQUEST",
       entityId: created.id,
@@ -1157,7 +1179,9 @@ export class WorkOrdersService {
         unitCostSnapshot,
         totalCost,
         requiresFinanceApproval,
-        pettyCash: Boolean(data.pettyCash)
+        pettyCash: Boolean(data.pettyCash),
+        approvalTier,
+        procurementRequired
       }
     });
 
@@ -1248,6 +1272,10 @@ export class WorkOrdersService {
       }
     });
 
+    if (!request.requiresFinanceApproval) {
+      await this.workOrderPartsService.syncApprovedLine(requestId, approvedQuantity, approver.sub, actor);
+    }
+
     await this.recordAudit({
       entity: "PART_REQUEST_APPROVAL",
       entityId: requestId,
@@ -1330,6 +1358,8 @@ export class WorkOrdersService {
       });
     });
 
+    await this.workOrderPartsService.syncApprovedLine(requestId, approvedQuantity, approver.sub, actor);
+
     await this.recordAudit({
       entity: "PART_REQUEST_APPROVAL",
       entityId: requestId,
@@ -1408,6 +1438,8 @@ export class WorkOrdersService {
       });
     });
 
+    await this.workOrderPartsService.syncRejectedLine(requestId, data.reason.trim(), actor);
+
     await this.recordAudit({
       entity: "PART_REQUEST_APPROVAL",
       entityId: requestId,
@@ -1440,10 +1472,12 @@ export class WorkOrdersService {
   async issuePartRequest(
     workOrderId: string,
     requestId: string,
-    data: { quantity?: number; notes?: string },
+    data: { quantity?: number; notes?: string; storeLocation?: string },
     actor?: Actor
   ) {
     const issuer = this.assertActor(actor);
+    this.workOrderPartsService.assertStorekeeperCanIssue(actor?.role as RoleName);
+    await this.workOrderPartsService.assertWorkOrderForParts(workOrderId, actor);
     const request = await this.getPartRequest(workOrderId, requestId, actor);
 
     if (request.status !== PartRequestStatus.APPROVED && request.status !== PartRequestStatus.PARTIALLY_ISSUED) {
@@ -1510,6 +1544,15 @@ export class WorkOrdersService {
       });
 
       return issue;
+    });
+
+    await this.workOrderPartsService.syncIssuedLine({
+      partRequestId: requestId,
+      issueQuantity,
+      issuedById: issuer.sub,
+      issueNote: data.notes,
+      storeLocation: data.storeLocation,
+      actor
     });
 
     await this.recordAudit({
@@ -1589,10 +1632,7 @@ export class WorkOrdersService {
 
   async parts(id: string, actor?: Actor) {
     await this.findOne(id, actor);
-    return this.prisma.workOrderPart.findMany({
-      where: { workOrderId: id },
-      include: { part: true }
-    });
+    return this.workOrderPartsService.listLines(id, actor);
   }
 
   async addNote(id: string, note: string, actor?: Actor) {
