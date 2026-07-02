@@ -190,9 +190,9 @@ export class WorkOrderQueuesService {
         where,
         include: listInclude,
         orderBy: { updatedAt: "desc" },
-        take: 1500
+        take: 800
       });
-      enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, warnings);
+      enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, warnings, "summary");
     } catch (error) {
       this.logger.error("Failed to load work orders for queue summary", error instanceof Error ? error.stack : String(error));
       warnings.push({ queue: "*", message: "Queue data temporarily unavailable" });
@@ -323,18 +323,46 @@ export class WorkOrderQueuesService {
   private async safeEnrichRows(
     rows: WorkOrderRow[],
     tenantId: string | undefined,
-    warnings: WorkOrderQueueSummaryWarning[]
+    warnings: WorkOrderQueueSummaryWarning[],
+    mode: "summary" | "full" = "full"
   ): Promise<EnrichedQueueRow[]> {
     const enriched: EnrichedQueueRow[] = [];
     for (const row of rows) {
       try {
-        enriched.push(await this.enrichRow(row, tenantId));
+        enriched.push(mode === "summary" ? this.enrichRowLight(row) : await this.enrichRow(row, tenantId));
       } catch (error) {
         this.logger.warn(`Skipping work order ${row.id} in queue enrichment`, error instanceof Error ? error.message : String(error));
         warnings.push({ queue: row.id, message: "Work order skipped during queue calculation" });
       }
     }
     return enriched;
+  }
+
+  private enrichRowLight(row: WorkOrderRow): EnrichedQueueRow {
+    const factors: WorkOrderRiskFactors = {
+      overdue: isWorkOrderOverdue(row),
+      requiredEvidenceMissing: this.resolveEvidenceStatus(row) === "Missing",
+      highCostPartIssue: row.parts.some((line) => line.issuedQuantity * line.unitCost >= 10_000)
+    };
+    const riskScore = calculateWorkOrderRiskScore(factors);
+    const riskSeverity = resolveRiskSeverity(riskScore);
+    const actionRequired = this.resolveActionRequired(row, factors, riskScore, riskSeverity);
+    const partsStatus = this.resolvePartsStatus(row);
+    const evidenceStatus = this.resolveEvidenceStatus(row);
+    const overdueDays = isWorkOrderOverdue(row) ? overdueDayCount(row.dueDate ?? null, new Date()) : 0;
+    const primaryAssignee = row.assignees.find((item) => item.isPrimary) ?? row.assignees[0];
+
+    return {
+      row,
+      factors,
+      riskScore,
+      riskSeverity,
+      actionRequired,
+      partsStatus,
+      evidenceStatus,
+      overdueDays,
+      primaryAssigneeName: primaryAssignee?.employee?.fullName ?? null
+    };
   }
 
   private async listQueue(actor: Actor, queue: WorkOrderQueueKey, query: WorkOrderQueueQuery) {

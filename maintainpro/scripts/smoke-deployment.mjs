@@ -374,12 +374,16 @@ await check("Work order history route", async () => {
 await check("Work order queues route", async () => {
   let response;
   try {
-    response = await fetchWithTimeout(`${apiBaseUrl}/work-orders/queues`, {
-      headers: {
-        Authorization: `Bearer ${smokeAccessToken}`,
-        Origin: frontendUrl
-      }
-    });
+    response = await fetchWithTimeout(
+      `${apiBaseUrl}/work-orders/queues`,
+      {
+        headers: {
+          Authorization: `Bearer ${smokeAccessToken}`,
+          Origin: frontendUrl
+        }
+      },
+      Number(process.env.SMOKE_QUEUES_TIMEOUT_MS ?? 120_000)
+    );
   } catch (error) {
     throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "GET /work-orders/queues request"));
   }
