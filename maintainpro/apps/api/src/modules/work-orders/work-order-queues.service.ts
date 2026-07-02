@@ -210,6 +210,36 @@ export class WorkOrderQueuesService {
   async getQueueSummary(actor: Actor): Promise<WorkOrderQueueSummaryResponse> {
     const role = actor.role as RoleName;
     const accessible = WORK_ORDER_QUEUE_KEYS.filter((key) => roleCanAccessQueue(role, key));
+    const timeoutMs = Number(process.env.WORK_ORDER_QUEUE_SUMMARY_TIMEOUT_MS ?? 15_000);
+
+    return this.withQueueSummaryTimeout(
+      this.buildQueueSummary(actor, accessible, role),
+      this.buildEmptyQueueSummary(accessible, role, [
+        { queue: "*", message: "Queue summary timed out; counts may be temporarily unavailable." }
+      ]),
+      timeoutMs
+    );
+  }
+
+  private async withQueueSummaryTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => resolve(fallback), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  private async buildQueueSummary(
+    actor: Actor,
+    accessible: WorkOrderQueueKey[],
+    role: RoleName
+  ): Promise<WorkOrderQueueSummaryResponse> {
     const warnings: WorkOrderQueueSummaryWarning[] = [];
     const tenantId = actor.tenantId;
 
@@ -220,7 +250,7 @@ export class WorkOrderQueuesService {
         where,
         include: summaryListInclude,
         orderBy: { updatedAt: "desc" },
-        take: 800
+        take: 300
       });
       enriched = await this.safeEnrichRows(rows as WorkOrderRow[], tenantId ?? undefined, warnings, "summary");
     } catch (error) {
