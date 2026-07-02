@@ -3,9 +3,15 @@ import {
   Prisma,
   RoleName,
   VendorInvoiceStatus,
+  WorkOrderApprovalStatus,
   WorkOrderStatus,
   WorkOrderVerificationStatus,
-  WorkOrderPartLineStatus
+  WorkOrderPartLineStatus,
+  WorkOrderType,
+  Priority,
+  QrVerificationStatus,
+  EvidenceVerificationStatus,
+  EvidenceAttachmentStatus
 } from "@prisma/client";
 
 import {
@@ -97,37 +103,15 @@ const listInclude = {
   }
 } satisfies Prisma.WorkOrderInclude;
 
-const summaryListInclude = {
-  parts: {
-    select: {
-      lineStatus: true,
-      issuedQuantity: true,
-      requestedQuantity: true,
-      approvedQuantity: true,
-      pendingReturnQuantity: true,
-      unitCost: true
-    }
-  },
-  assignees: {
-    select: {
-      isPrimary: true,
-      employee: { select: { fullName: true, linkedUserId: true } }
-    }
-  },
-  evidenceAttachments: {
-    where: { deletedAt: null, status: { not: "DELETED" } },
-    select: { evidenceType: true, status: true, verificationStatus: true }
-  },
-  vendorRepairCase: {
-    select: {
-      status: true,
-      invoices: { select: { status: true }, take: 3 }
-    }
-  }
-} satisfies Prisma.WorkOrderInclude;
-
 type WorkOrderRow = Prisma.WorkOrderGetPayload<{ include: typeof listInclude }>;
-type WorkOrderSummaryRow = Prisma.WorkOrderGetPayload<{ include: typeof summaryListInclude }>;
+
+function readQueueCountTimeoutMs() {
+  return Number(process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS ?? 2_500);
+}
+
+function readQueueSummaryEndpointTimeoutMs() {
+  return Number(process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS ?? 8_000);
+}
 
 export type WorkOrderQueueListItem = WorkOrderRow & {
   riskScore: number;
@@ -158,7 +142,12 @@ export type WorkOrderQueueSummaryWarning = {
 };
 
 export type WorkOrderQueueSummaryResponse = {
-  queues: Array<{ key: WorkOrderQueueKey; label: string; count: number }>;
+  queues: Array<{
+    key: WorkOrderQueueKey;
+    label: string;
+    count: number;
+    severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  }>;
   defaultQueue: WorkOrderQueueKey;
   summary: {
     actionRequired: number;
@@ -174,8 +163,16 @@ export type WorkOrderQueueSummaryResponse = {
   lastUpdated: string;
 };
 
+export type WorkOrderQueueDiagnostics = {
+  implementation: string;
+  commit: string | null;
+  nodeEnv: string | null;
+};
+
 @Injectable()
 export class WorkOrderQueuesService {
+  static readonly QUEUES_SUMMARY_IMPLEMENTATION = "queues-lightweight-v2";
+
   private readonly logger = new Logger(WorkOrderQueuesService.name);
 
   constructor(
@@ -208,17 +205,35 @@ export class WorkOrderQueuesService {
   }
 
   async getQueueSummary(actor: Actor): Promise<WorkOrderQueueSummaryResponse> {
+    const startedAt = Date.now();
     const role = actor.role as RoleName;
     const accessible = WORK_ORDER_QUEUE_KEYS.filter((key) => roleCanAccessQueue(role, key));
-    const timeoutMs = Number(process.env.WORK_ORDER_QUEUE_SUMMARY_TIMEOUT_MS ?? 15_000);
 
-    return this.withQueueSummaryTimeout(
-      this.buildQueueSummary(actor, accessible, role),
-      this.buildEmptyQueueSummary(accessible, role, [
-        { queue: "*", message: "Queue summary timed out; counts may be temporarily unavailable." }
-      ]),
-      timeoutMs
+    this.logger.log(
+      `work-order queues summary started user=${actor.sub} tenant=${actor.tenantId ?? "none"} impl=${WorkOrderQueuesService.QUEUES_SUMMARY_IMPLEMENTATION}`
     );
+
+    const fallback = this.buildTimeoutFallback(accessible, role);
+    const result = await this.withQueueSummaryTimeout(
+      this.buildLightweightQueueSummary(actor, accessible, role),
+      fallback,
+      readQueueSummaryEndpointTimeoutMs()
+    );
+
+    const usedFallback = Boolean(result.warnings?.some((warning) => warning.queue === "all"));
+    this.logger.log(
+      `work-order queues summary completed in ${Date.now() - startedAt}ms tenant=${actor.tenantId ?? "none"} fallback=${usedFallback}`
+    );
+
+    return result;
+  }
+
+  getQueueDiagnostics(): WorkOrderQueueDiagnostics {
+    return {
+      implementation: WorkOrderQueuesService.QUEUES_SUMMARY_IMPLEMENTATION,
+      commit: process.env.RENDER_GIT_COMMIT ?? process.env.GIT_COMMIT ?? process.env.RENDER_GIT_COMMIT_SHA ?? null,
+      nodeEnv: process.env.NODE_ENV ?? null
+    };
   }
 
   private async withQueueSummaryTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
@@ -235,43 +250,282 @@ export class WorkOrderQueuesService {
     }
   }
 
-  private async buildQueueSummary(
+  private async buildLightweightQueueSummary(
     actor: Actor,
     accessible: WorkOrderQueueKey[],
     role: RoleName
   ): Promise<WorkOrderQueueSummaryResponse> {
     const warnings: WorkOrderQueueSummaryWarning[] = [];
-    const tenantId = actor.tenantId;
+    const now = new Date();
 
-    let enriched: EnrichedQueueRow[] = [];
-    try {
-      const where = this.buildPrismaWhere(actor, {});
-      const rows = await this.prisma.workOrder.findMany({
-        where,
-        include: summaryListInclude,
-        orderBy: { updatedAt: "desc" },
-        take: 300
-      });
-      enriched = await this.safeEnrichRows(rows as WorkOrderRow[], tenantId ?? undefined, warnings, "summary");
-    } catch (error) {
-      this.logger.error("Failed to load work orders for queue summary", error instanceof Error ? error.stack : String(error));
-      warnings.push({ queue: "*", message: "Queue data temporarily unavailable" });
-      return this.buildEmptyQueueSummary(accessible, role, warnings);
-    }
+    const countDefinitions: Partial<
+      Record<
+        WorkOrderQueueKey,
+        {
+          where: Prisma.WorkOrderWhereInput;
+          severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+        }
+      >
+    > = {
+      "action-required": { where: this.actionRequiredWhere(now), severity: "HIGH" },
+      "my-tasks": { where: this.mergeWhere(this.nonTerminalWhere(), this.myTasksWhere(actor)) },
+      "open-requests": { where: { status: WorkOrderStatus.OPEN } },
+      "approved-planned": {
+        where: { approvalStatus: WorkOrderApprovalStatus.APPROVED, status: WorkOrderStatus.OPEN }
+      },
+      assigned: { where: this.assignedWhere() },
+      "in-progress": {
+        where: { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } }
+      },
+      "waiting-parts": { where: this.waitingPartsWhere() },
+      "waiting-evidence": { where: this.waitingEvidenceWhere() },
+      "technician-completed": { where: { status: WorkOrderStatus.TECHNICIAN_COMPLETED } },
+      "supervisor-verification": { where: this.supervisorVerificationWhere() },
+      "rework-required": { where: { status: WorkOrderStatus.REWORK_REQUIRED } },
+      overdue: { where: this.overdueWhere(now), severity: "HIGH" },
+      "high-risk": { where: this.highRiskWhere(now), severity: "CRITICAL" },
+      "finance-vendor-pending": { where: this.financeVendorPendingWhere() },
+      triage: { where: this.mergeWhere(this.nonTerminalWhere(), { isTriage: true }) },
+      completed: { where: { status: WorkOrderStatus.COMPLETED } },
+      cancelled: { where: { status: WorkOrderStatus.CANCELLED } },
+      all: { where: {} }
+    };
 
-    const counts = accessible.map((key) =>
-      this.safeQueueCount(key, warnings, () =>
-        enriched.filter((row) => this.matchesQueue(row, key, actor, {})).length
-      )
+    const queueResults = await Promise.all(
+      accessible.map((key) => {
+        const definition = countDefinitions[key] ?? { where: {} };
+        return this.safeCount(key, warnings, () => this.countScoped(actor, definition.where), definition.severity);
+      })
     );
 
+    const countByKey = new Map(queueResults.map((entry) => [entry.key, entry.count]));
+
     return {
-      queues: counts,
+      queues: queueResults,
       defaultQueue: resolveDefaultQueueForRole(role),
-      summary: this.computeOperationalSummary(enriched, actor),
+      summary: {
+        actionRequired: countByKey.get("action-required") ?? 0,
+        myTasks: countByKey.get("my-tasks") ?? 0,
+        waitingParts: countByKey.get("waiting-parts") ?? 0,
+        waitingEvidence: countByKey.get("waiting-evidence") ?? 0,
+        supervisorVerification: countByKey.get("supervisor-verification") ?? 0,
+        highRisk: countByKey.get("high-risk") ?? 0,
+        overdue: countByKey.get("overdue") ?? 0,
+        triage: countByKey.get("triage") ?? 0
+      },
       ...(warnings.length > 0 ? { warnings } : {}),
       lastUpdated: new Date().toISOString()
     };
+  }
+
+  private buildTimeoutFallback(
+    accessible: WorkOrderQueueKey[],
+    role: RoleName
+  ): WorkOrderQueueSummaryResponse {
+    return this.buildEmptyQueueSummary(accessible, role, [
+      { queue: "all", message: "Queue summary timed out" }
+    ]);
+  }
+
+  private async countScoped(actor: Actor, extra: Prisma.WorkOrderWhereInput): Promise<number> {
+    return this.prisma.workOrder.count({
+      where: this.mergeWhere(this.buildScopedBaseWhere(actor), extra)
+    });
+  }
+
+  private buildScopedBaseWhere(actor: Actor): Prisma.WorkOrderWhereInput {
+    return this.buildPrismaWhere(actor, {});
+  }
+
+  private mergeWhere(...parts: Prisma.WorkOrderWhereInput[]): Prisma.WorkOrderWhereInput {
+    const filtered = parts.filter((part) => Object.keys(part).length > 0);
+    if (filtered.length === 0) return {};
+    if (filtered.length === 1) return filtered[0];
+    return { AND: filtered };
+  }
+
+  private nonTerminalWhere(): Prisma.WorkOrderWhereInput {
+    return { status: { notIn: TERMINAL_STATUSES } };
+  }
+
+  private myTasksWhere(actor: Actor): Prisma.WorkOrderWhereInput {
+    return {
+      OR: [
+        { technicianId: actor.sub },
+        { assignees: { some: { employee: { linkedUserId: actor.sub } } } }
+      ]
+    };
+  }
+
+  private overdueWhere(now = new Date()): Prisma.WorkOrderWhereInput {
+    return {
+      OR: [
+        { status: WorkOrderStatus.OVERDUE },
+        {
+          dueDate: { lt: now },
+          status: { notIn: TERMINAL_STATUSES }
+        }
+      ]
+    };
+  }
+
+  private assignedWhere(): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      status: { in: ACTIVE_OPERATIONAL_STATUSES },
+      OR: [{ technicianId: { not: null } }, { assignees: { some: {} } }]
+    });
+  }
+
+  private supervisorVerificationWhere(): Prisma.WorkOrderWhereInput {
+    return {
+      status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+      verificationStatus: WorkOrderVerificationStatus.PENDING
+    };
+  }
+
+  private waitingPartsWhere(): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      OR: [
+        { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
+        { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
+        {
+          parts: {
+            some: {
+              lineStatus: WorkOrderPartLineStatus.APPROVED,
+              issuedQuantity: 0,
+              requestedQuantity: { gt: 0 }
+            }
+          }
+        },
+        { partIssues: { some: {} } }
+      ]
+    });
+  }
+
+  private waitingEvidenceWhere(): Prisma.WorkOrderWhereInput {
+    const activeEvidenceFilter = { deletedAt: null, status: { not: EvidenceAttachmentStatus.DELETED } };
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      OR: [
+        {
+          evidenceAttachments: {
+            some: {
+              ...activeEvidenceFilter,
+              verificationStatus: EvidenceVerificationStatus.REJECTED
+            }
+          }
+        },
+        {
+          type: { in: [WorkOrderType.CORRECTIVE, WorkOrderType.EMERGENCY, WorkOrderType.INSPECTION] },
+          status: {
+            in: [
+              WorkOrderStatus.IN_PROGRESS,
+              WorkOrderStatus.TECHNICIAN_COMPLETED,
+              WorkOrderStatus.REWORK_REQUIRED,
+              WorkOrderStatus.ON_HOLD
+            ]
+          },
+          evidenceAttachments: { none: activeEvidenceFilter }
+        }
+      ]
+    });
+  }
+
+  private highRiskWhere(now = new Date()): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      OR: [
+        { priority: Priority.CRITICAL },
+        { status: WorkOrderStatus.OVERDUE },
+        { slaBreached: true },
+        { priority: Priority.HIGH, dueDate: { lt: now } }
+      ]
+    });
+  }
+
+  private financeVendorPendingWhere(): Prisma.WorkOrderWhereInput {
+    return {
+      vendorRepairCase: {
+        invoices: {
+          some: {
+            status: { in: [VendorInvoiceStatus.SUBMITTED, VendorInvoiceStatus.UNDER_REVIEW] }
+          }
+        }
+      }
+    };
+  }
+
+  private actionRequiredWhere(now = new Date()): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      OR: [
+        { approvalStatus: WorkOrderApprovalStatus.PENDING },
+        this.supervisorVerificationWhere(),
+        { isTriage: true },
+        ...((this.overdueWhere(now).OR as Prisma.WorkOrderWhereInput[]) ?? []),
+        { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
+        { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
+        {
+          parts: {
+            some: {
+              lineStatus: WorkOrderPartLineStatus.APPROVED,
+              issuedQuantity: 0,
+              requestedQuantity: { gt: 0 }
+            }
+          }
+        },
+        this.financeVendorPendingWhere(),
+        { qrVerificationStatus: QrVerificationStatus.MISMATCH },
+        { status: WorkOrderStatus.REWORK_REQUIRED }
+      ]
+    });
+  }
+
+  private async safeCount(
+    key: WorkOrderQueueKey,
+    warnings: WorkOrderQueueSummaryWarning[],
+    countFn: () => Promise<number>,
+    severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  ): Promise<{
+    key: WorkOrderQueueKey;
+    label: string;
+    count: number;
+    severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  }> {
+    const startedAt = Date.now();
+    try {
+      const count = await this.withTimeout(countFn(), readQueueCountTimeoutMs());
+      this.logger.log(`queue count ${key}=${count} in ${Date.now() - startedAt}ms`);
+      return {
+        key,
+        label: WORK_ORDER_QUEUE_LABELS[key],
+        count,
+        ...(severity ? { severity } : {})
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Queue count failed: ${key}`,
+        error instanceof Error ? error.message : String(error)
+      );
+      warnings.push({ queue: key, message: "Queue count unavailable" });
+      return {
+        key,
+        label: WORK_ORDER_QUEUE_LABELS[key],
+        count: 0,
+        ...(severity ? { severity } : {})
+      };
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   async getActionRequired(actor: Actor, query: WorkOrderQueueQuery = {}) {
@@ -327,20 +581,6 @@ export class WorkOrderQueuesService {
     }
   }
 
-  private safeQueueCount(
-    key: WorkOrderQueueKey,
-    warnings: WorkOrderQueueSummaryWarning[],
-    counter: () => number
-  ): { key: WorkOrderQueueKey; label: string; count: number } {
-    try {
-      return { key, label: WORK_ORDER_QUEUE_LABELS[key], count: counter() };
-    } catch (error) {
-      this.logger.warn(`Queue count failed for ${key}`, error instanceof Error ? error.message : String(error));
-      warnings.push({ queue: key, message: "Queue count unavailable" });
-      return { key, label: WORK_ORDER_QUEUE_LABELS[key], count: 0 };
-    }
-  }
-
   private buildEmptyQueueSummary(
     accessible: WorkOrderQueueKey[],
     role: RoleName,
@@ -361,22 +601,6 @@ export class WorkOrderQueuesService {
       },
       warnings,
       lastUpdated: new Date().toISOString()
-    };
-  }
-
-  private computeOperationalSummary(enriched: EnrichedQueueRow[], actor: Actor) {
-    const countFor = (key: WorkOrderQueueKey) =>
-      enriched.filter((row) => this.matchesQueue(row, key, actor, {})).length;
-
-    return {
-      actionRequired: countFor("action-required"),
-      myTasks: countFor("my-tasks"),
-      waitingParts: countFor("waiting-parts"),
-      waitingEvidence: countFor("waiting-evidence"),
-      supervisorVerification: countFor("supervisor-verification"),
-      highRisk: countFor("high-risk"),
-      overdue: countFor("overdue"),
-      triage: countFor("triage")
     };
   }
 

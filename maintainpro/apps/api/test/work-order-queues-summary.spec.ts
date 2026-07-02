@@ -2,7 +2,7 @@ import { RoleName, WorkOrderStatus } from "@prisma/client";
 
 import { WorkOrderQueuesService } from "../src/modules/work-orders/work-order-queues.service";
 
-describe("WorkOrderQueuesService summary", () => {
+describe("WorkOrderQueuesService lightweight summary", () => {
   const actor = {
     sub: "user-1",
     email: "admin@maintainpro.local",
@@ -10,10 +10,10 @@ describe("WorkOrderQueuesService summary", () => {
     tenantId: "tenant-1"
   };
 
-  function buildService(rows: unknown[]) {
+  function buildService(countImpl: (args: { where: unknown }) => number | Promise<number> = () => 0) {
     const prisma = {
       workOrder: {
-        findMany: jest.fn().mockResolvedValue(rows)
+        count: jest.fn(async (args: { where: unknown }) => countImpl(args))
       }
     };
     const maintenanceReports = {
@@ -27,13 +27,14 @@ describe("WorkOrderQueuesService summary", () => {
       maintenanceReports as never,
       categoryReports as never
     );
-    return { service, prisma, maintenanceReports };
+    return { service, prisma };
   }
 
-  it("returns 200-shaped summary with zero counts for empty data", async () => {
-    const { service } = buildService([]);
+  it("returns 200-shaped summary with zero counts for empty DB", async () => {
+    const { service, prisma } = buildService();
     const summary = await service.getQueueSummary(actor);
 
+    expect(prisma.workOrder.count).toHaveBeenCalled();
     expect(summary.queues.length).toBeGreaterThan(0);
     expect(summary.queues.every((queue) => queue.count === 0)).toBe(true);
     expect(summary.defaultQueue).toBe("action-required");
@@ -41,72 +42,80 @@ describe("WorkOrderQueuesService summary", () => {
     expect(summary.lastUpdated).toBeTruthy();
   });
 
-  it("handles old work orders without taxonomy fields", async () => {
-    const { service } = buildService([
-      {
-        id: "wo-1",
-        tenantId: "tenant-1",
-        title: "Legacy WO",
-        status: WorkOrderStatus.OPEN,
-        priority: "MEDIUM",
-        type: "CORRECTIVE",
-        dueDate: null,
-        taxonomyCategoryId: null,
-        taxonomyTypeId: null,
-        taxonomyIssueId: null,
-        isTriage: false,
-        categoryNameSnapshot: null,
-        approvalStatus: "NOT_REQUIRED",
-        verificationStatus: "NOT_REQUIRED",
-        technicianId: null,
-        assignees: [],
-        parts: [],
-        partIssues: [],
-        evidenceAttachments: [],
-        vendorRepairCase: null,
-        asset: null,
-        vehicle: null,
-        technician: null,
-        createdBy: null,
-        updatedAt: new Date()
-      }
-    ]);
+  it("applies tenant scope to every count query", async () => {
+    const { service, prisma } = buildService();
+    await service.getQueueSummary(actor);
+
+    for (const call of prisma.workOrder.count.mock.calls) {
+      expect(call[0].where).toEqual(expect.objectContaining({ tenantId: "tenant-1" }));
+    }
+  });
+
+  it("returns open count for legacy work orders without taxonomy", async () => {
+    const { service } = buildService(({ where }) => {
+      const serialized = JSON.stringify(where);
+      if (serialized.includes(`"status":"${WorkOrderStatus.OPEN}"`)) return 1;
+      return 0;
+    });
 
     const summary = await service.getQueueSummary(actor);
     expect(summary.queues.find((queue) => queue.key === "open-requests")?.count).toBe(1);
   });
 
-  it("keeps summary usable when risk enrichment fails for a row", async () => {
-    const { service, maintenanceReports } = buildService([
-      {
-        id: "wo-2",
-        tenantId: "tenant-1",
-        title: "Broken WO",
-        status: WorkOrderStatus.IN_PROGRESS,
-        priority: "HIGH",
-        type: "CORRECTIVE",
-        dueDate: null,
-        taxonomyCategoryId: null,
-        isTriage: false,
-        approvalStatus: "NOT_REQUIRED",
-        verificationStatus: "NOT_REQUIRED",
-        technicianId: null,
-        assignees: [],
-        parts: [],
-        partIssues: [],
-        evidenceAttachments: [],
-        vendorRepairCase: null,
-        asset: null,
-        vehicle: null,
-        technician: null,
-        createdBy: null,
-        updatedAt: new Date()
-      }
-    ]);
-    maintenanceReports.computeWorkOrderRiskFactors.mockRejectedValue(new Error("risk failed"));
+  it("returns 200 when dueDate is null and overdue query is evaluated", async () => {
+    const { service } = buildService(({ where }) => {
+      const serialized = JSON.stringify(where);
+      if (serialized.includes("dueDate")) return 0;
+      return 0;
+    });
 
     const summary = await service.getQueueSummary(actor);
-    expect(summary.queues.find((queue) => queue.key === "in-progress")?.count).toBe(1);
-    expect(summary.summary.actionRequired).toBeGreaterThanOrEqual(0);
+    expect(summary.summary.overdue).toBe(0);
+    expect(summary.warnings ?? []).toHaveLength(0);
+  });
+
+  it("returns 200 with warning when one queue count fails", async () => {
+    const { service } = buildService(({ where }) => {
+      const serialized = JSON.stringify(where);
+      if (serialized.includes(`"status":"${WorkOrderStatus.IN_PROGRESS}"`)) {
+        return Promise.reject(new Error("count failed"));
+      }
+      return 0;
+    });
+
+    const summary = await service.getQueueSummary(actor);
+    expect(summary.queues.find((queue) => queue.key === "in-progress")?.count).toBe(0);
+    expect(summary.warnings?.some((warning) => warning.queue === "in-progress")).toBe(true);
+  });
+
+  it("returns timeout fallback without throwing", async () => {
+    const previousEndpointTimeout = process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS;
+    const previousCountTimeout = process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS;
+    process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS = "50";
+    process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS = "200";
+
+    const { service } = buildService(() => new Promise(() => undefined));
+
+    const summary = await service.getQueueSummary(actor);
+    expect(summary.summary.actionRequired).toBe(0);
+    expect(summary.warnings?.some((warning) => warning.queue === "all")).toBe(true);
+
+    process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS = previousEndpointTimeout;
+    process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS = previousCountTimeout;
+  });
+
+  it("exposes lightweight diagnostics marker", () => {
+    const { service } = buildService();
+    expect(service.getQueueDiagnostics().implementation).toBe("queues-lightweight-v2");
+  });
+
+  it("scopes technician actor to assigned work orders", async () => {
+    const technician = { ...actor, sub: "tech-1", role: RoleName.TECHNICIAN };
+    const { service, prisma } = buildService();
+    await service.getQueueSummary(technician);
+
+    const serialized = JSON.stringify(prisma.workOrder.count.mock.calls);
+    expect(serialized).toContain("tech-1");
+    expect(prisma.workOrder.count.mock.calls.some((call) => !JSON.stringify(call[0].where).includes('"all"'))).toBe(true);
   });
 });

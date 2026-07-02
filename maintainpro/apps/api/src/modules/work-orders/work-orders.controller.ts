@@ -72,6 +72,13 @@ export class WorkOrdersController {
     return { data, message: "Work order queue summary fetched" };
   }
 
+  @Get("queues/diagnostics")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async queueDiagnostics() {
+    const data = this.workOrderQueuesService.getQueueDiagnostics();
+    return { data, message: "Work order queue diagnostics fetched" };
+  }
+
   @Get("smart-views")
   @Roles(
     "SUPER_ADMIN",
