@@ -1,4 +1,4 @@
-# MaintainPro UAT Index (UAT-007 – UAT-022)
+# MaintainPro UAT Index (UAT-007 – UAT-023)
 
 **Document owner:** QA Lead + Engineering  
 **Last updated:** 2026-07-02  
@@ -29,6 +29,26 @@ This index tracks enterprise UAT phases from workforce planning through security
 | **UAT-020** | Fraud & Off-System Prevention | Maker-checker enforcement, anti-fraud policy, gate/parts/invoice controls | **Completed** | `eac328d` | `npm run uat:020:validate` |
 | **UAT-021** | Management Intelligence | Profitability summary, management intelligence reports, finance-role gating | **Completed** | `d371733` | `npm run uat:021:validate` |
 | **UAT-022** | Security RBAC & Go-Live Pack | Backend RBAC audit, permission matrix, audit standard, developer-protection docs | **In progress** | — | `node scripts/generate-backend-rbac-audit.mjs` + security tests |
+| **UAT-023** | Pilot Rollout & Go-Live Readiness | Pilot plan, performance/backup/security reports, training, SOPs, cutover & monitoring | **In progress** | TBD | Manual checklist + `npm run smoke:deploy` |
+
+---
+
+## UAT-023 deliverables (in progress)
+
+| Artifact | Path | Status |
+|----------|------|--------|
+| Pilot rollout plan | [pilot-rollout-plan.md](pilot-rollout-plan.md) | Complete |
+| Performance test report | [performance-test-report.md](performance-test-report.md) | Complete |
+| Backup/restore test report | [backup-restore-test-report.md](backup-restore-test-report.md) | Complete |
+| Security review report | [security-review-report.md](security-review-report.md) | Complete |
+| Management sign-off | [management-sign-off.md](management-sign-off.md) | Template |
+| Final go-live checklist | [final-go-live-checklist.md](final-go-live-checklist.md) | Complete |
+| Pilot support process | [pilot-support-process.md](pilot-support-process.md) | Complete |
+| Pilot feedback form | [pilot-feedback-form.md](pilot-feedback-form.md) | Complete |
+| Live monitoring plan | [live-monitoring-plan.md](live-monitoring-plan.md) | Complete |
+| Cutover plan | [cutover-plan.md](cutover-plan.md) | Complete |
+| Role training packs | [training/](training/) | Complete (7 files) |
+| Standard operating procedures | [sop/](sop/) | Complete (12 files) |
 
 ---
 
