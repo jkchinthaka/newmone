@@ -461,6 +461,15 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     description: "Anti-fraud dashboard, admin overrides, and parts misuse controls"
   },
   {
+    id: "management-intelligence",
+    label: "Management Intelligence",
+    href: "/reports/management-intelligence",
+    icon: "BarChart3",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES, FINANCE_ROLES),
+    category: "reports",
+    description: "Profitability, cost leakage, and repair vs replace insights"
+  },
+  {
     id: "utilities",
     label: "Utilities",
     href: "/utilities",
@@ -741,6 +750,7 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/reports/job-costing": ["/reports"],
   "/reports/fraud-control/admin-overrides": ["/reports/fraud-control", "/reports"],
   "/reports/fraud-control/parts-misuse": ["/reports/fraud-control", "/reports"],
+  "/reports/management-intelligence": ["/reports"],
   "/master-data/employees": ["/master-data"]
 };
 

@@ -53,6 +53,7 @@ import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module
 import { QueuesModule } from "./modules/queues/queues.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { FraudControlModule } from "./modules/fraud-control/fraud-control.module";
+import { ManagementIntelligenceModule } from "./modules/management-intelligence/management-intelligence.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
@@ -136,6 +137,7 @@ normalizeDatabaseEnvironment();
     SettingsModule,
     ReportsModule,
     FraudControlModule,
+    ManagementIntelligenceModule,
     UtilitiesModule,
     PredictiveAiModule,
     CleaningModule,
