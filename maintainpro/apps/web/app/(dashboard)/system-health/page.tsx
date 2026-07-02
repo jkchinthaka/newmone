@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -11,8 +12,10 @@ import {
   ServerCog,
   Settings2
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api-client";
+import { createQaIssueFromHealthCheck } from "@/lib/qa-api";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { NotificationUatPanel } from "@/components/admin/notification-uat-panel";
@@ -136,6 +139,21 @@ function statusIcon(status: CheckStatus) {
 }
 
 function CheckCard({ check }: { check: SystemCheck }) {
+  const incidentMutation = useMutation({
+    mutationFn: () =>
+      createQaIssueFromHealthCheck({
+        checkKey: check.key,
+        checkLabel: check.label,
+        message: check.message,
+        category: check.key.includes("database") ? "DATABASE_ERROR" : "BACKEND_ERROR",
+        severity: check.required && check.status !== "operational" ? "CRITICAL" : "HIGH"
+      }),
+    onSuccess: (issue) => toast.success(`Incident ${issue.issueNo} created`),
+    onError: () => toast.error("Could not create incident from health check")
+  });
+
+  const showIncident = check.status === "failed" || check.status === "misconfigured" || check.status === "degraded";
+
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -153,6 +171,16 @@ function CheckCard({ check }: { check: SystemCheck }) {
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span>{check.required ? "Required" : "Optional"}</span>
         {typeof check.latencyMs === "number" ? <span>{check.latencyMs} ms</span> : null}
+        {showIncident ? (
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            disabled={incidentMutation.isPending}
+            onClick={() => incidentMutation.mutate()}
+          >
+            Create QA incident
+          </button>
+        ) : null}
       </div>
       {check.action ? (
         <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
@@ -351,6 +379,9 @@ export default function SystemHealthPage() {
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">{criticalIssues.length} required dependency check needs attention.</p>
           <p className="mt-1 leading-6">Resolve required checks before relying on production login, sync, file upload, or notification workflows.</p>
+          <a href="/qa/issues/new" className="mt-2 inline-block text-sm font-medium underline">
+            Report issue in QA & Incidents
+          </a>
         </section>
       ) : null}
 

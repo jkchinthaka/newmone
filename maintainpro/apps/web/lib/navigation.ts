@@ -309,6 +309,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "qa-incidents",
+    label: "QA & Incidents",
+    href: "/qa",
+    icon: "Bug",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Software quality, incidents, RCA, and release readiness",
+    activeMatch: "startsWith"
+  },
+  {
     id: "system-health",
     label: "System Health",
     href: "/system-health",
@@ -745,6 +755,7 @@ const NAV_CATEGORY_ORDER: NavCategory[] = [
 const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/users": ["/admin"],
   "/admin/people": ["/admin"],
+  "/qa": ["/qa"],
   "/admin/roles": ["/admin"],
   "/admin/tenants": ["/admin"],
   "/admin/invitations": ["/admin"],

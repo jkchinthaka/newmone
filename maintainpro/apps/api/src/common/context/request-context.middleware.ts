@@ -9,6 +9,7 @@ type AuthAwareRequest = Request & {
     email?: string;
     role?: string;
     tenantId?: string | null;
+    permissions?: string[];
   };
   tenantContext?: { requestedTenantId: string | null };
 };
@@ -43,7 +44,8 @@ export class RequestContextMiddleware implements NestMiddleware {
         module,
         ipAddress,
         userAgent,
-        requestPath
+        requestPath,
+        permissions: Array.isArray(req.user?.permissions) ? req.user.permissions : []
       },
       () => next()
     );

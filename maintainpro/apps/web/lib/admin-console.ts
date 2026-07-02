@@ -33,6 +33,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/people"
     },
     {
+      id: "qa-incidents",
+      title: "QA & Incidents",
+      description: "Software error register, incident lifecycle, RCA, regression tracking, and release quality.",
+      status: "available",
+      statusLabel: "Quality control",
+      href: "/qa"
+    },
+    {
       id: "users-access",
       title: "Users & Access",
       description: "Review users, roles, tenant association, and access status in a read-only admin view.",

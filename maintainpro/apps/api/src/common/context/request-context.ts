@@ -9,6 +9,7 @@ export interface AuditRequestContext {
   ipAddress: string | null;
   userAgent: string | null;
   requestPath: string | null;
+  permissions?: string[];
 }
 
 const storage = new AsyncLocalStorage<AuditRequestContext>();

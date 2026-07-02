@@ -61,6 +61,7 @@ model Tenant {
   refreshTokens                RefreshToken[]
   evidenceAttachments          EvidenceAttachment[]
   employees                    Employee[]
+  qaIssues                     QaIssue[]
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
@@ -3302,4 +3303,168 @@ enum FinePaymentStatus {
   DISPUTED
   OVERDUE
   WAIVED
+}
+
+enum QaIssueCategory {
+  REQUIREMENT_ERROR
+  UI_UX_ERROR
+  FRONTEND_ERROR
+  BACKEND_ERROR
+  DATABASE_ERROR
+  AUTH_RBAC_ERROR
+  API_INTEGRATION_ERROR
+  DEPLOYMENT_ERROR
+  PERFORMANCE_ERROR
+  SECURITY_ERROR
+  DATA_QUALITY_ERROR
+  TESTING_QA_ERROR
+}
+
+enum QaIssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum QaIssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum QaIssueStatus {
+  REPORTED
+  TRIAGED
+  IN_PROGRESS
+  FIXED
+  RETESTING
+  PASSED
+  FAILED
+  CLOSED
+  REOPENED
+  ACCEPTED_RISK
+}
+
+enum QaEnvironment {
+  LOCAL
+  STAGING
+  PRODUCTION
+}
+
+enum QaRootCauseType {
+  REQUIREMENT_GAP
+  CODING_BUG
+  DATA_ISSUE
+  ENVIRONMENT_ISSUE
+  DEPLOYMENT_ISSUE
+  PERMISSION_ISSUE
+  INTEGRATION_ISSUE
+  USER_TRAINING_ISSUE
+  PROCESS_SOP_GAP
+}
+
+enum QaRegressionResult {
+  PASS
+  FAIL
+}
+
+/// Software quality / incident register for UAT-025.
+model QaIssue {
+  id                   String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?           @db.ObjectId
+  tenant               Tenant?           @relation(fields: [tenantId], references: [id])
+  issueNo              String
+  title                String
+  description          String
+  category             QaIssueCategory
+  subCategory          String?
+  severity             QaIssueSeverity   @default(MEDIUM)
+  priority             QaIssuePriority   @default(MEDIUM)
+  status               QaIssueStatus     @default(REPORTED)
+  affectedModule       String?
+  affectedPage         String?
+  affectedApi          String?
+  environment          QaEnvironment     @default(STAGING)
+  reportedByUserId     String            @db.ObjectId
+  assignedToUserId     String?           @db.ObjectId
+  ownerDepartment      String?
+  businessImpact       String?
+  userImpact           String?
+  reproductionSteps    String?
+  expectedResult       String?
+  actualResult         String?
+  rootCause            String?
+  fixSummary           String?
+  workaround           String?
+  regressionRisk       String?
+  linkedCommitHash     String?
+  linkedDeployId       String?
+  linkedUatPhase       String?
+  linkedWorkOrderId    String?           @db.ObjectId
+  linkedIncidentId     String?           @db.ObjectId
+  attachmentMetadata   Json?
+  isSensitive          Boolean           @default(false)
+  resolutionNote       String?
+  acceptedRiskByUserId String?           @db.ObjectId
+  acceptedRiskAt       DateTime?
+  riskReviewDate       DateTime?
+  futureFixPlan        String?
+  knownLimitation      String?
+  regressionRequired   Boolean           @default(false)
+  regressionResult     QaRegressionResult?
+  firstDetectedAt      DateTime?
+  fixedAt              DateTime?
+  closedAt             DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  rcaRecords       QaIssueRca[]
+  regressionTests  QaRegressionTest[]
+
+  @@unique([tenantId, issueNo])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([tenantId, severity])
+  @@index([tenantId, environment])
+  @@index([reportedByUserId])
+  @@index([assignedToUserId])
+  @@index([linkedUatPhase])
+  @@index([createdAt])
+}
+
+model QaIssueRca {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  issueId            String          @db.ObjectId
+  issue              QaIssue         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  rootCauseType      QaRootCauseType
+  explanation        String
+  preventiveAction   String?
+  ownerUserId        String?         @db.ObjectId
+  dueDate            DateTime?
+  verificationStatus String?
+  createdByUserId    String          @db.ObjectId
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([issueId])
+}
+
+model QaRegressionTest {
+  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  issueId        String             @db.ObjectId
+  issue          QaIssue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  testCase       String
+  testedByUserId String             @db.ObjectId
+  testDate       DateTime
+  roleUsed       String?
+  environment    QaEnvironment
+  result         QaRegressionResult
+  notes          String?
+  reference      String?
+  createdAt      DateTime           @default(now())
+
+  @@index([issueId])
+  @@index([testDate])
 }
