@@ -62,6 +62,8 @@ model Tenant {
   evidenceAttachments          EvidenceAttachment[]
   employees                    Employee[]
   qaIssues                     QaIssue[]
+  deliveryChecklists           DeliveryChecklist[]
+  deliverySignOffs             DeliverySignOff[]
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
@@ -3467,4 +3469,127 @@ model QaRegressionTest {
 
   @@index([issueId])
   @@index([testDate])
+}
+
+enum DeliveryChecklistCategory {
+  REQUIREMENTS
+  CORE_FUNCTIONS
+  VALIDATION
+  UI_UX
+  RESPONSIVE_DESIGN
+  SECURITY
+  DATABASE_DATA
+  PERFORMANCE
+  ERROR_HANDLING
+  DEPLOYMENT
+  USER_ROLES
+  REPORTS
+  NOTIFICATIONS
+  BACKUP_RECOVERY
+  DOCUMENTATION
+  FINAL_DEMO
+  CLIENT_SIGN_OFF
+}
+
+enum DeliveryItemStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASS
+  FAIL
+  BLOCKED
+  NOT_APPLICABLE
+  ACCEPTED_RISK
+}
+
+enum DeliveryChecklistPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DeliveryReadinessVerdict {
+  NOT_READY
+  PILOT_READY
+  DEPARTMENT_ROLLOUT_READY
+  CLIENT_DELIVERY_READY
+  FULL_COMPANY_LIVE_READY
+}
+
+/// Client delivery readiness master checklist (UAT-026).
+model DeliveryChecklist {
+  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?                   @db.ObjectId
+  tenant               Tenant?                   @relation(fields: [tenantId], references: [id])
+  checklistNo          String
+  title                String
+  category             DeliveryChecklistCategory
+  description          String?
+  status               DeliveryItemStatus        @default(NOT_STARTED)
+  priority             DeliveryChecklistPriority @default(MEDIUM)
+  requiredForDelivery  Boolean                   @default(true)
+  ownerUserId          String?                   @db.ObjectId
+  evidence             String?
+  notes                String?
+  acceptedRiskReason   String?
+  acceptedByUserId     String?                   @db.ObjectId
+  completedByUserId    String?                   @db.ObjectId
+  completedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  items DeliveryChecklistItem[]
+
+  @@unique([tenantId, checklistNo])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+}
+
+model DeliveryChecklistItem {
+  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
+  checklistId          String                    @db.ObjectId
+  checklist            DeliveryChecklist         @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  tenantId             String?                   @db.ObjectId
+  title                String
+  description          String?
+  category             DeliveryChecklistCategory
+  status               DeliveryItemStatus        @default(NOT_STARTED)
+  evidence             String?
+  notes                String?
+  testedByUserId       String?                   @db.ObjectId
+  testedRole           String?
+  testedEnvironment    String?
+  deviceSize           String?
+  responseTimeMs       Int?
+  usabilityRating      Int?
+  blocker              Boolean                   @default(false)
+  requiredForDelivery  Boolean                   @default(true)
+  signOffRequired      Boolean                   @default(false)
+  acceptedRiskReason   String?
+  acceptedByUserId     String?                   @db.ObjectId
+  completedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([checklistId])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+  @@index([blocker])
+}
+
+model DeliverySignOff {
+  id               String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?                  @db.ObjectId
+  tenant           Tenant?                  @relation(fields: [tenantId], references: [id])
+  readinessVerdict DeliveryReadinessVerdict
+  signedByUserId   String                   @db.ObjectId
+  role             String?
+  department       String?
+  signedAt         DateTime                 @default(now())
+  notes            String?
+  acceptedRisks    String?
+  createdAt        DateTime                 @default(now())
+
+  @@index([tenantId])
+  @@index([signedAt])
 }

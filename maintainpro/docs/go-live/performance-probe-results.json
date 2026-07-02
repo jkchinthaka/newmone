@@ -1,46 +1,46 @@
 {
-  "generatedAt": "2026-07-02T14:34:55.038Z",
+  "generatedAt": "2026-07-02T22:21:29.575Z",
   "results": [
     {
       "label": "health",
       "url": "https://newmone.onrender.com/health",
       "status": 200,
-      "ms": 2396,
+      "ms": 1219,
       "ok": true
     },
     {
       "label": "frontend_home",
       "url": "https://newmone.chinthakajayaweera1.workers.dev",
       "status": 200,
-      "ms": 1270,
+      "ms": 1380,
       "ok": true
     },
     {
       "label": "work_orders_list",
       "url": "https://newmone.onrender.com/api/work-orders?page=1&pageSize=50",
       "status": 200,
-      "ms": 2732,
+      "ms": 1553,
       "ok": true
     },
     {
       "label": "work_orders_queues",
       "url": "https://newmone.onrender.com/api/work-orders/queues",
       "status": 200,
-      "ms": 2900,
+      "ms": 2028,
       "ok": true
     },
     {
       "label": "taxonomy_suggest",
-      "url": "https://newmone.onrender.com/api/work-order-taxonomy/suggest?q=brake",
-      "status": 404,
-      "ms": 420,
-      "ok": false
+      "url": "https://newmone.onrender.com/api/work-orders/taxonomy/suggest?q=brake",
+      "status": 200,
+      "ms": 1712,
+      "ok": true
     },
     {
       "label": "management_summary",
       "url": "https://newmone.onrender.com/api/reports/management/profitability/summary",
       "status": 200,
-      "ms": 3417,
+      "ms": 2616,
       "ok": true
     }
   ]

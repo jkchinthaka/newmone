@@ -319,6 +319,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "delivery-readiness",
+    label: "Delivery Readiness",
+    href: "/delivery-readiness",
+    icon: "ClipboardCheck",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Client delivery checklist, handover pack, and sign-off",
+    activeMatch: "startsWith"
+  },
+  {
     id: "system-health",
     label: "System Health",
     href: "/system-health",

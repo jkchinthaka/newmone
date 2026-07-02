@@ -71,6 +71,7 @@ import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-orde
 import { WorkforceModule } from "./modules/workforce/workforce.module";
 import { PeopleModule } from "./modules/people/people.module";
 import { QaModule } from "./modules/qa/qa.module";
+import { DeliveryReadinessModule } from "./modules/delivery-readiness/delivery-readiness.module";
 import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
@@ -130,6 +131,7 @@ normalizeDatabaseEnvironment();
     WorkforceModule,
     PeopleModule,
     QaModule,
+    DeliveryReadinessModule,
     EvidenceModule,
     InventoryModule,
     DepartmentsModule,

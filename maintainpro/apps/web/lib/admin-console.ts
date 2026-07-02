@@ -41,6 +41,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/qa"
     },
     {
+      id: "delivery-readiness",
+      title: "Delivery Readiness",
+      description: "Client handover checklist, final QA, security, deployment, backup, and sign-off workflow.",
+      status: "available",
+      statusLabel: "Handover pack",
+      href: "/delivery-readiness"
+    },
+    {
       id: "users-access",
       title: "Users & Access",
       description: "Review users, roles, tenant association, and access status in a read-only admin view.",

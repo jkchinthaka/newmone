@@ -1,6 +1,6 @@
 # Backend RBAC Audit
 
-Generated: 2026-07-02T20:53:30.537Z
+Generated: 2026-07-02T22:11:40.515Z
 
 MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuard`, `TenantContextGuard`, `RolesGuard`, `PermissionsGuard`.
 
@@ -8,8 +8,8 @@ MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuar
 
 | Metric | Count |
 |--------|------:|
-| Total routes scanned | 388 |
-| PASS | 364 |
+| Total routes scanned | 404 |
+| PASS | 380 |
 | FIXED | 0 |
 | TODO | 24 |
 
@@ -200,6 +200,22 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/notifications/uat/email-test` | POST | `modules/notifications/notifications.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/notifications/uat/sms-test` | POST | `modules/notifications/notifications.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/notifications` | GET | `modules/notifications/notifications.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
+| `/qa/categories` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/qa/dashboard` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/qa/issues/:id/accept-risk` | POST | `modules/qa/qa.controller.ts` | qa.accept_risk | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/assign` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/close` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/rca` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/regression-test` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/reopen` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/status` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id/triage` | POST | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/:id` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/qa/issues/:id` | PATCH | `modules/qa/qa.controller.ts` | qa.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues/from-health-check` | POST | `modules/qa/qa.controller.ts` | qa.manage | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/issues` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/qa/issues` | POST | `modules/qa/qa.controller.ts` | qa.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/qa/reports/release-quality` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
 | `/reports/:module/export` | GET | `modules/reports/reports.controller.ts` | — | ...REPORT_READ_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/reports/dashboard` | GET | `modules/reports/reports.controller.ts` | — | ...REPORT_READ_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/reports/downtime` | GET | `modules/reports/reports.controller.ts` | — | ...REPORT_READ_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
