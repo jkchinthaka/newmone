@@ -608,7 +608,7 @@ export class WorkOrdersController {
   async addPart(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { partId: string; quantity: number; unitCost: number; reason?: string }
+    @Body() body: { partId: string; quantity: number; unitCost: number; reason?: string; overrideReason?: string }
   ) {
     const data = await this.workOrdersService.addPart(id, body, req.user);
     return { data, message: "Part added to work order" };

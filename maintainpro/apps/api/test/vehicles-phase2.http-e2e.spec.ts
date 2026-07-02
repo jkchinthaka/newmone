@@ -85,6 +85,9 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
     auditLog: {
       create: jest.fn()
     },
+    workOrder: {
+      findMany: jest.fn().mockResolvedValue([])
+    },
     fuelLog: {
       create: jest.fn(),
       findMany: jest.fn()
@@ -225,6 +228,7 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     });
 
     prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
+    prisma.workOrder.findMany.mockResolvedValue([]);
     tx.tripLog.findFirst.mockResolvedValue(null);
   });
 

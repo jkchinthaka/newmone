@@ -613,6 +613,19 @@ export class WorkOrderPartsService {
     }
     const frequentAssetPartUsage = [...assetPartCounts.values()].filter((count) => count >= 3).length;
 
+    const thirtyDayAudit = await this.prisma.auditLog.findMany({
+      where: {
+        ...tenantFilter,
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      select: { metadata: true },
+      take: 5000
+    });
+    const partsIssuedWithoutWorkOrderAttempt = thirtyDayAudit.filter((row) => {
+      const metadata = row.metadata as { event?: string } | null;
+      return metadata?.event === "parts_issue_blocked_no_work_order";
+    }).length;
+
     return {
       duplicatePartRequests: duplicateRequests,
       partsIssuedJobNotCompleted: issuedNotCompleted,
@@ -622,6 +635,7 @@ export class WorkOrderPartsService {
       highCostPartIssues: highCostIssues,
       procurementRequiredParts: procurementRequired,
       frequentAssetPartUsage,
+      partsIssuedWithoutWorkOrderAttempt,
       generatedAt: new Date().toISOString(),
       notes: [
         "Reserved stock and warehouse locations remain partial until inventory module adds reservedStock.",

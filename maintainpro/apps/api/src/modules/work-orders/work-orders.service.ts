@@ -42,10 +42,17 @@ import {
   calculateSlaRisk
 } from "../../common/utils/work-order-validation";
 import {
+  assertIssueQuantity,
   requiresFinanceApprovalForTier,
   requiresProcurement,
   resolvePartApprovalTier
 } from "../../common/utils/work-order-parts-governance";
+import {
+  assertMakerCheckerSeparation,
+  assertReasonProvided as assertFraudReasonProvided,
+  FRAUD_AUDIT_EVENTS,
+  FRAUD_CONTROL_ENABLED
+} from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -1110,13 +1117,20 @@ export class WorkOrdersService {
 
   async addPart(
     id: string,
-    data: { partId: string; quantity: number; unitCost: number; reason?: string },
+    data: { partId: string; quantity: number; unitCost: number; reason?: string; overrideReason?: string },
     actor?: Actor
   ) {
     this.workOrderPartsService.assertStorekeeperCanIssue(actor?.role as RoleName);
     const tenantId = this.resolveTenantId(actor);
     const workOrder = await this.findOne(id, actor);
     await this.workOrderPartsService.assertWorkOrderForParts(id, actor);
+
+    if (FRAUD_CONTROL_ENABLED) {
+      assertFraudReasonProvided(
+        "Emergency parts issue override reason",
+        data.overrideReason ?? data.reason
+      );
+    }
 
     if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
       throw new BadRequestException("Part quantity must be greater than 0");
@@ -1164,9 +1178,9 @@ export class WorkOrdersService {
         usedQuantity: 0,
         returnedQuantity: 0,
         requestedById: issuer.sub,
-        approvedById: issuer.sub,
+        approvedById: null,
         issuedById: issuer.sub,
-        issueReason: data.reason?.trim() || null
+        issueReason: data.overrideReason?.trim() || data.reason?.trim() || null
       }
     });
 
@@ -1200,7 +1214,10 @@ export class WorkOrdersService {
         partId: data.partId,
         quantity: data.quantity,
         unitCost: data.unitCost,
-        totalCost
+        totalCost,
+        event: FRAUD_CONTROL_ENABLED ? FRAUD_AUDIT_EVENTS.PARTS_ISSUE_OVERRIDE : "parts_issued_against_work_order",
+        overrideFlag: FRAUD_CONTROL_ENABLED,
+        source: "work_orders.addPart"
       }
     });
 
@@ -1410,6 +1427,13 @@ export class WorkOrdersService {
     const approver = this.assertActor(actor);
     const request = await this.getPartRequest(workOrderId, requestId, actor);
 
+    assertMakerCheckerSeparation({
+      requesterId: request.requestedById,
+      approverId: approver.sub,
+      approverRole: actor?.role,
+      flow: "part request operational approval"
+    });
+
     if (request.status !== PartRequestStatus.PENDING_OPERATIONAL) {
       throw new BadRequestException("Part request is not awaiting operational approval");
     }
@@ -1514,6 +1538,23 @@ export class WorkOrdersService {
   ) {
     const approver = this.assertActor(actor);
     const request = await this.getPartRequest(workOrderId, requestId, actor);
+
+    assertMakerCheckerSeparation({
+      requesterId: request.requestedById,
+      approverId: approver.sub,
+      approverRole: actor?.role,
+      flow: "part request finance approval"
+    });
+
+    const operationalApproval = request.approvals?.find((item) => item.stage === ApprovalStage.OPERATIONAL);
+    if (operationalApproval?.actorId) {
+      assertMakerCheckerSeparation({
+        requesterId: operationalApproval.actorId,
+        approverId: approver.sub,
+        approverRole: actor?.role,
+        flow: "part request operational and finance approval"
+      });
+    }
 
     if (request.status !== PartRequestStatus.PENDING_FINANCE) {
       throw new BadRequestException("Part request is not awaiting finance approval");
@@ -1677,6 +1718,23 @@ export class WorkOrdersService {
     await this.workOrderPartsService.assertWorkOrderForParts(workOrderId, actor);
     const request = await this.getPartRequest(workOrderId, requestId, actor);
 
+    if (request.requestedById === issuer.sub) {
+      await this.recordAudit({
+        entity: "PART_ISSUE",
+        entityId: requestId,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: "technician_self_issue_blocked",
+        metadata: {
+          event: FRAUD_AUDIT_EVENTS.TECHNICIAN_SELF_ISSUE_BLOCKED,
+          workOrderId,
+          partRequestId: requestId,
+          requestedById: request.requestedById
+        }
+      });
+      throw new ForbiddenException("The same user cannot request and issue parts for this work order.");
+    }
+
     if (request.status !== PartRequestStatus.APPROVED && request.status !== PartRequestStatus.PARTIALLY_ISSUED) {
       throw new BadRequestException("Part request must be approved before stock issue");
     }
@@ -1684,6 +1742,8 @@ export class WorkOrdersService {
     const approvedQuantity = request.approvedQuantity ?? request.requestedQuantity;
     const remaining = approvedQuantity - request.issuedQuantity;
     const issueQuantity = data.quantity ?? remaining;
+
+    assertIssueQuantity(approvedQuantity, request.issuedQuantity, issueQuantity);
 
     if (!Number.isFinite(issueQuantity) || issueQuantity <= 0) {
       throw new BadRequestException("Issue quantity must be greater than 0");
@@ -1759,6 +1819,7 @@ export class WorkOrdersService {
       actor,
       reason: data.notes,
       metadata: {
+        event: FRAUD_AUDIT_EVENTS.PARTS_ISSUED_AGAINST_WORK_ORDER,
         partRequestId: request.id,
         workOrderId: request.workOrderId,
         partId: request.partId,

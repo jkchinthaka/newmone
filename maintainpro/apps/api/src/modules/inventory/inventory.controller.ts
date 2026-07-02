@@ -96,8 +96,17 @@ export class InventoryController {
   @Post("parts/:id/stock-out")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("inventory.stock_issue")
-  async stockOut(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { quantity: number; notes?: string }) {
-    const data = await this.inventoryService.stockOut(id, body.quantity, body.notes, req.user);
+  async stockOut(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { quantity: number; workOrderId: string; notes?: string; overrideReason?: string }
+  ) {
+    const data = await this.inventoryService.stockOut(
+      id,
+      body.quantity,
+      { workOrderId: body.workOrderId, notes: body.notes, overrideReason: body.overrideReason },
+      req.user
+    );
     return { data, message: "Stock deducted" };
   }
 

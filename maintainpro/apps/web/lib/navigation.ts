@@ -452,6 +452,15 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     description: "Fraud monitoring, exception dashboard, and maintenance KPIs"
   },
   {
+    id: "fraud-control",
+    label: "Fraud & Control",
+    href: "/reports/fraud-control",
+    icon: "ShieldCheck",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES, FINANCE_ROLES),
+    category: "reports",
+    description: "Anti-fraud dashboard, admin overrides, and parts misuse controls"
+  },
+  {
     id: "utilities",
     label: "Utilities",
     href: "/utilities",
@@ -730,6 +739,8 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/tenants": ["/admin"],
   "/admin/invitations": ["/admin"],
   "/reports/job-costing": ["/reports"],
+  "/reports/fraud-control/admin-overrides": ["/reports/fraud-control", "/reports"],
+  "/reports/fraud-control/parts-misuse": ["/reports/fraud-control", "/reports"],
   "/master-data/employees": ["/master-data"]
 };
 

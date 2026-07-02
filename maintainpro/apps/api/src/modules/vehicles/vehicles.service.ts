@@ -4,14 +4,18 @@ import {
   GateMovementStatus,
   GateMovementType,
   Prisma,
+  Priority,
   RoleName,
   TripStatus,
   VehicleMeterReadingType,
   VehicleServiceStatus,
-  VehicleStatus
+  VehicleStatus,
+  WorkOrderStatus,
+  WorkOrderType
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import { ComplianceService } from "../compliance/compliance.service";
 import { FleetService } from "../fleet/fleet.service";
@@ -605,6 +609,11 @@ export class VehiclesService {
       blockReasons.push(...complianceReasons);
     }
 
+    const criticalWorkOrderReasons = await this.evaluateCriticalOpenWorkOrders(id, tenantId);
+    if (criticalWorkOrderReasons.length > 0) {
+      blockReasons.push(...criticalWorkOrderReasons);
+    }
+
     const blocked = blockReasons.length > 0;
     const blockReasonText = blocked ? blockReasons.join("; ") : null;
 
@@ -622,6 +631,19 @@ export class VehiclesService {
           gatePassNo: data.gatePassNo,
           occurredAt: gateTime,
           metadata: data.metadata as Prisma.InputJsonValue | undefined
+        }
+      });
+
+      await this.recordAudit({
+        entity: "VEHICLE_GATE_MOVEMENT",
+        entityId: movement.id,
+        action: AuditAction.UPDATE,
+        reason: blockReasonText ?? undefined,
+        metadata: {
+          event: FRAUD_AUDIT_EVENTS.GATE_OUT_BLOCKED,
+          vehicleId: id,
+          meterReading: data.meterReading,
+          blockedReason: blockReasonText
         }
       });
 
@@ -700,7 +722,7 @@ export class VehiclesService {
         action: AuditAction.UPDATE,
         reason: data.overrideReason,
         metadata: {
-          event: "GATE_OUT_OVERRIDE_APPROVED",
+          event: FRAUD_AUDIT_EVENTS.GATE_OUT_OVERRIDE,
           vehicleId: id,
           meterReading: data.meterReading,
           previousMileage: Number(vehicle.currentMileage),
@@ -1617,6 +1639,41 @@ export class VehiclesService {
     return overdue
       ? `${registrationNo} is marked as overdue for service.`
       : `${registrationNo} requires scheduled service soon.`;
+  }
+
+  private async evaluateCriticalOpenWorkOrders(vehicleId: string, tenantId?: string | null) {
+    const openStatuses: WorkOrderStatus[] = [
+      WorkOrderStatus.OPEN,
+      WorkOrderStatus.IN_PROGRESS,
+      WorkOrderStatus.ON_HOLD,
+      WorkOrderStatus.TECHNICIAN_COMPLETED,
+      WorkOrderStatus.REWORK_REQUIRED,
+      WorkOrderStatus.OVERDUE
+    ];
+
+    const criticalOrders = await this.prisma.workOrder.findMany({
+      where: {
+        vehicleId,
+        ...(tenantId ? { tenantId } : {}),
+        status: { in: openStatuses },
+        OR: [
+          { priority: Priority.CRITICAL },
+          { type: { in: [WorkOrderType.EMERGENCY, WorkOrderType.ACCIDENT_REPAIR] } },
+          { accidentId: { not: null } }
+        ]
+      },
+      select: { woNumber: true, priority: true, type: true, status: true },
+      take: 5
+    });
+
+    if (criticalOrders.length === 0) {
+      return [] as string[];
+    }
+
+    return criticalOrders.map(
+      (order) =>
+        `Critical open work order ${order.woNumber} (${order.type}, ${order.status.replaceAll("_", " ")})`
+    );
   }
 
   private async assertGateOverrideApprover(userId?: string): Promise<string> {

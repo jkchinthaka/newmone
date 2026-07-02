@@ -73,6 +73,9 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
     auditLog: {
       create: jest.fn()
     },
+    workOrder: {
+      findMany: jest.fn().mockResolvedValue([])
+    },
     fuelLog: {
       create: jest.fn(),
       findMany: jest.fn()
@@ -138,6 +141,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     const bundle = createPrismaMockBundle();
     prisma = bundle.prisma;
     tx = bundle.tx;
+    prisma.workOrder.findMany.mockResolvedValue([]);
 
     const fleetService = {
       updateGps: jest.fn()
@@ -245,6 +249,21 @@ describe("VehiclesService Phase 2 critical flows", () => {
         status: GateMovementStatus.BLOCKED
       })
     });
+  });
+
+  it("blocks gate-out when vehicle has critical open work orders", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle() as any);
+    prisma.workOrder.findMany.mockResolvedValue([
+      { woNumber: "WO-9001", type: "EMERGENCY", status: "IN_PROGRESS", priority: "CRITICAL" }
+    ]);
+    prisma.vehicleGateMovement.create.mockResolvedValue({ id: "blocked-move-wo" });
+    prisma.auditLog.create.mockResolvedValue({ id: "audit-gate" });
+
+    const result = await service.gateOut("veh-1", { meterReading: 1100 });
+
+    expect(result.allowed).toBe(false);
+    expect(result.blockedReason).toContain("WO-9001");
+    expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 
   it("allows override only for authorized approver roles and records override audit data", async () => {

@@ -34,7 +34,9 @@ export type MaintenanceExceptionType =
   | "finance-approval-pending"
   | "vendor-completed-not-verified"
   | "emergency-vendor-override"
-  | "same-user-vendor-approval";
+  | "same-user-vendor-approval"
+  | "parts-issue-without-work-order"
+  | "maker-checker-violation";
 
 export interface MaintenanceReportQuery extends ReportQuery {
   exceptionType?: string;
@@ -105,5 +107,7 @@ export const MAINTENANCE_EXCEPTION_LABELS: Record<MaintenanceExceptionType, stri
   "finance-approval-pending": "Finance approval pending",
   "vendor-completed-not-verified": "Vendor completed but not supervisor verified",
   "emergency-vendor-override": "Emergency vendor repair override used",
-  "same-user-vendor-approval": "Same user requested and approved vendor repair"
+  "same-user-vendor-approval": "Same user requested and approved vendor repair",
+  "parts-issue-without-work-order": "Parts issue without work order attempt",
+  "maker-checker-violation": "Maker-checker approval violation attempts"
 };

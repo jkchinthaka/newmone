@@ -52,6 +52,7 @@ import { OperationsModule } from "./modules/operations/operations.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
 import { QueuesModule } from "./modules/queues/queues.module";
 import { ReportsModule } from "./modules/reports/reports.module";
+import { FraudControlModule } from "./modules/fraud-control/fraud-control.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
@@ -134,6 +135,7 @@ normalizeDatabaseEnvironment();
     OperationsModule,
     SettingsModule,
     ReportsModule,
+    FraudControlModule,
     UtilitiesModule,
     PredictiveAiModule,
     CleaningModule,

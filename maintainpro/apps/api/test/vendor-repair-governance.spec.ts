@@ -104,6 +104,6 @@ describe("vendor repair governance", () => {
       invoiceExceedsQuotation: true,
       vendorRepairWithoutQuotation: true
     });
-    expect(withVendor).toBe(base + 45);
+    expect(withVendor).toBe(base + 40);
   });
 });

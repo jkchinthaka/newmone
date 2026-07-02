@@ -296,14 +296,65 @@ export class InventoryService {
     return part;
   }
 
-  async stockOut(id: string, quantity: number, notes?: string, actor?: Actor) {
+  async stockOut(
+    id: string,
+    quantity: number,
+    options: { workOrderId?: string; notes?: string; overrideReason?: string },
+    actor?: Actor
+  ) {
     const part = await this.part(id, actor);
+
+    if (!options.workOrderId?.trim()) {
+      await this.recordAudit({
+        entity: "PART_STOCK_ISSUE",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: options.notes,
+        metadata: {
+          event: "parts_issue_blocked_no_work_order",
+          quantity,
+          source: "inventory.stockOut",
+          overrideFlag: false
+        }
+      });
+      throw new BadRequestException(
+        "Parts cannot be issued without a valid work order. Use an approved work order part request."
+      );
+    }
+
+    const tenantId = this.resolveTenantId(actor);
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: {
+        id: options.workOrderId,
+        ...(tenantId !== undefined ? { tenantId } : {})
+      },
+      select: { id: true, status: true, woNumber: true }
+    });
+
+    if (!workOrder) {
+      throw new BadRequestException("Work order not found for stock issue.");
+    }
+
+    if (workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED") {
+      if (!options.overrideReason?.trim()) {
+        throw new BadRequestException("Cannot issue parts against a closed work order without override reason.");
+      }
+    }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       throw new BadRequestException("Stock-out quantity must be greater than 0");
     }
 
     if (part.quantityInStock < quantity) {
+      await this.recordAudit({
+        entity: "PART_STOCK_ISSUE",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: "negative_stock_blocked",
+        metadata: { event: "negative_stock_blocked", quantity, available: part.quantityInStock }
+      });
       throw new BadRequestException("Stock quantity cannot go below 0");
     }
 
@@ -321,7 +372,8 @@ export class InventoryService {
         partId: id,
         type: "OUT",
         quantity,
-        notes
+        reference: `work-order:${workOrder.id}`,
+        notes: options.notes
       }
     });
 
@@ -330,10 +382,14 @@ export class InventoryService {
       entityId: id,
       action: AuditAction.UPDATE,
       actor,
-      reason: notes,
+      reason: options.overrideReason ?? options.notes,
       metadata: {
         quantity,
-        source: "inventory.stockOut"
+        workOrderId: workOrder.id,
+        woNumber: workOrder.woNumber,
+        source: "inventory.stockOut",
+        event: options.overrideReason ? "parts_issue_override" : "parts_issued_against_work_order",
+        overrideFlag: Boolean(options.overrideReason?.trim())
       }
     });
 

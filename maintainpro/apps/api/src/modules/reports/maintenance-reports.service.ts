@@ -684,6 +684,34 @@ export class MaintenanceReportsService {
         });
         return rows.filter((row) => row.submittedById === row.approvedById).length;
       }
+      case "parts-issue-without-work-order": {
+        const logs = await this.prisma.auditLog.findMany({
+          where: {
+            ...tenantFilter,
+            createdAt: { gte: start, lte: end }
+          },
+          select: { metadata: true },
+          take: 2000
+        });
+        return logs.filter((log) => {
+          const metadata = log.metadata as { event?: string } | null;
+          return metadata?.event === "parts_issue_blocked_no_work_order";
+        }).length;
+      }
+      case "maker-checker-violation": {
+        const logs = await this.prisma.auditLog.findMany({
+          where: {
+            ...tenantFilter,
+            createdAt: { gte: start, lte: end }
+          },
+          select: { metadata: true },
+          take: 2000
+        });
+        return logs.filter((log) => {
+          const metadata = log.metadata as { event?: string } | null;
+          return metadata?.event === "maker_checker_violation_blocked";
+        }).length;
+      }
       default:
         return 0;
     }
