@@ -19,6 +19,11 @@ export type DeploymentReadinessSummary = {
   blockers: string[];
   warnings: string[];
   checks: DeploymentReadinessItem[];
+  build?: {
+    version: string;
+    commit: string;
+    buildTime: string | null;
+  };
 };
 
 @Injectable()
@@ -80,7 +85,12 @@ export class DeploymentReadinessService {
       overallStatus,
       blockers,
       warnings,
-      checks
+      checks,
+      build: {
+        version: this.configService.get<string>("APP_VERSION", "1.2.0").trim(),
+        commit: this.configService.get<string>("GIT_COMMIT", "").trim() || "unknown",
+        buildTime: this.configService.get<string>("BUILD_TIME", "").trim() || null
+      }
     };
   }
 

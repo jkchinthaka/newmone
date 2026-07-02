@@ -185,6 +185,6 @@ describe("Admin user status mutation", () => {
       })
     } as unknown as ExecutionContext;
 
-    expect(guard.canActivate(context)).toBe(false);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 });

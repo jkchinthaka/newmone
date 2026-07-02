@@ -1,4 +1,4 @@
-import { ExecutionContext } from "@nestjs/common";
+import { ExecutionContext, ForbiddenException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
 
@@ -110,7 +110,7 @@ describe("Admin invitation review", () => {
       })
     } as unknown as ExecutionContext;
 
-    expect(guard.canActivate(context)).toBe(false);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 });
 

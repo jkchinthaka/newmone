@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -43,6 +44,31 @@ export class AuditController {
       pageSize
     });
     return { data: data.items, message: "Audit logs fetched", meta: data.pagination };
+  }
+
+  @Get("export")
+  @Permissions("audit.view")
+  async export(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Query("entity") entity?: string,
+    @Query("entityId") entityId?: string,
+    @Query("actorId") actorId?: string,
+    @Query("module") module?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string
+  ) {
+    const file = await this.auditService.export(req.user, {
+      entity,
+      entityId,
+      actorId,
+      module,
+      from,
+      to
+    });
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.send(file.content);
   }
 
   /** Per-record history convenience endpoint used by the UI History drawer. */

@@ -122,7 +122,11 @@ export const envValidationSchema = Joi.object({
   DUPLICATE_ISSUE_WINDOW_DAYS: Joi.number().integer().min(1).max(90).default(7),
   NOTIFICATION_UAT_ENABLED: Joi.boolean().default(false),
   NOTIFICATION_REAL_SENDS_ENABLED: Joi.boolean().default(false),
-  NOTIFICATION_UAT_ALLOWED_RECIPIENTS: Joi.string().allow("").default("")
+  NOTIFICATION_UAT_ALLOWED_RECIPIENTS: Joi.string().allow("").default(""),
+  FRAUD_CONTROL_ENABLED: Joi.boolean().default(true),
+  APP_VERSION: Joi.string().allow("").default("1.2.0"),
+  GIT_COMMIT: Joi.string().allow("").default(""),
+  BUILD_TIME: Joi.string().allow("").default("")
 })
   .custom((value, helpers) => {
     const nodeEnv = String(value.NODE_ENV ?? "development");

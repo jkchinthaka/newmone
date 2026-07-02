@@ -1,4 +1,4 @@
-import { ExecutionContext } from "@nestjs/common";
+import { ExecutionContext, ForbiddenException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
 import { RolesGuard } from "../src/common/guards/roles.guard";
@@ -38,7 +38,7 @@ describe("RolesGuard", () => {
       })
     } as unknown as ExecutionContext;
 
-    expect(guard.canActivate(context)).toBe(false);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
   it("blocks viewers from the phase 6 operations scan endpoint", () => {
@@ -52,7 +52,7 @@ describe("RolesGuard", () => {
       })
     } as unknown as ExecutionContext;
 
-    expect(guard.canActivate(context)).toBe(false);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
   it("allows security officers to access the operations scan endpoint", () => {

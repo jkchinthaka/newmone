@@ -58,6 +58,12 @@ type SystemHealth = {
   service: string;
   environment: string;
   timestamp: string;
+  build?: {
+    version: string;
+    commit: string;
+    buildTime: string | null;
+    nodeVersion?: string;
+  };
   summary: {
     operational: number;
     degraded: number;
@@ -298,7 +304,19 @@ export default function SystemHealthPage() {
         ) : null}
 
         {healthQuery.data ? (
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">API Version</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{healthQuery.data.build?.version ?? "—"}</p>
+              <p className="mt-1 text-xs text-slate-500">Commit {healthQuery.data.build?.commit ?? "unknown"}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Build Time</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">
+                {healthQuery.data.build?.buildTime ? formatTime(healthQuery.data.build.buildTime) : "Not configured"}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Node {healthQuery.data.build?.nodeVersion ?? "—"}</p>
+            </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Overall</p>
               <p className={`mt-2 text-lg font-semibold ${healthQuery.data.status === "operational" ? "text-emerald-700" : "text-amber-700"}`}>

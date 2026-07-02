@@ -1,4 +1,5 @@
-import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Query, Req, Res, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -36,15 +37,65 @@ export class FraudControlController {
   @Roles(...FRAUD_REPORT_ROLES)
   async adminOverrides(
     @Req() req: AuthedRequest,
-    @Query() query: { dateFrom?: string; dateTo?: string; module?: string; limit?: string }
+    @Query()
+    query: {
+      dateFrom?: string;
+      dateTo?: string;
+      module?: string;
+      actorId?: string;
+      role?: string;
+      overrideType?: string;
+      riskSeverity?: string;
+      branch?: string;
+      departmentId?: string;
+      limit?: string;
+    }
   ) {
     const data = await this.fraudControlService.listAdminOverrides(req.user, {
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
       module: query.module,
+      actorId: query.actorId,
+      role: query.role,
+      overrideType: query.overrideType,
+      riskSeverity: query.riskSeverity as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | undefined,
+      branch: query.branch,
+      departmentId: query.departmentId,
       limit: query.limit ? Number(query.limit) : undefined
     });
     return { data, message: "Admin override report fetched" };
+  }
+
+  @Get("admin-overrides/export")
+  @Roles(...FRAUD_REPORT_ROLES)
+  async exportAdminOverrides(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Query()
+    query: {
+      dateFrom?: string;
+      dateTo?: string;
+      module?: string;
+      actorId?: string;
+      role?: string;
+      overrideType?: string;
+      riskSeverity?: string;
+      limit?: string;
+    }
+  ) {
+    const file = await this.fraudControlService.exportAdminOverrides(req.user, {
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      module: query.module,
+      actorId: query.actorId,
+      role: query.role,
+      overrideType: query.overrideType,
+      riskSeverity: query.riskSeverity as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | undefined,
+      limit: query.limit ? Number(query.limit) : undefined
+    });
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.send(file.content);
   }
 
   @Get("parts-misuse")

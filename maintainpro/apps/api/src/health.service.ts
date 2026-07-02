@@ -67,7 +67,21 @@ export class HealthService {
       service: "maintainpro-api",
       environment: this.configService.get<string>("NODE_ENV", "development"),
       uptimeSeconds: Math.round(process.uptime()),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      build: this.getBuildInfo()
+    };
+  }
+
+  getBuildInfo() {
+    const commit = this.configService.get<string>("GIT_COMMIT", "").trim();
+    const buildTime = this.configService.get<string>("BUILD_TIME", "").trim();
+    const version = this.configService.get<string>("APP_VERSION", "1.2.0").trim();
+
+    return {
+      version,
+      commit: commit || "unknown",
+      buildTime: buildTime || null,
+      nodeVersion: process.version
     };
   }
 
@@ -82,6 +96,7 @@ export class HealthService {
         latencyMs: database.latencyMs ?? 0,
         message: dbHealthy ? "Database connected" : "Database unavailable"
       },
+      build: this.getBuildInfo(),
       timestamp: new Date().toISOString(),
       service: "maintainpro-api",
       environment: this.configService.get<string>("NODE_ENV", "development")
@@ -129,6 +144,7 @@ export class HealthService {
       service: "maintainpro-api",
       environment: this.configService.get<string>("NODE_ENV", "development"),
       timestamp: new Date().toISOString(),
+      build: this.getBuildInfo(),
       summary: {
         operational: allChecks.filter((check) => check.status === "operational").length,
         degraded: allChecks.filter((check) => check.status === "degraded").length,
