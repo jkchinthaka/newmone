@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { DeploymentReadinessService } from "./deployment-readiness.service";
@@ -41,6 +41,8 @@ export interface ConfigCheck {
 
 @Injectable()
 export class HealthService {
+  private readonly logger = new Logger(HealthService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ReplicationSyncService) private readonly replicationSync: ReplicationSyncService,
@@ -71,17 +73,18 @@ export class HealthService {
 
   async getPublicHealth() {
     const database = await this.checkDatabase();
+    const dbHealthy = database.status === "operational";
 
     return {
-      status: database.status === "operational" ? "ok" : "degraded",
-      service: "maintainpro-api",
-      environment: this.configService.get<string>("NODE_ENV", "development"),
-      timestamp: new Date().toISOString(),
+      status: dbHealthy ? "healthy" : "unavailable",
       database: {
-        status: database.status,
-        latencyMs: database.latencyMs,
-        message: database.message
-      }
+        status: dbHealthy ? "healthy" : "unavailable",
+        latencyMs: database.latencyMs ?? 0,
+        message: dbHealthy ? "Database connected" : "Database unavailable"
+      },
+      timestamp: new Date().toISOString(),
+      service: "maintainpro-api",
+      environment: this.configService.get<string>("NODE_ENV", "development")
     };
   }
 
@@ -185,6 +188,9 @@ export class HealthService {
         }
       };
     } catch (error) {
+      this.logger.warn(
+        `Primary database health check failed category=${this.categorizeDatabaseFailure(error)} latencyMs=${this.elapsedMs(startedAt)}`
+      );
       return {
         key: "primaryDatabase",
         label: "Primary MongoDB / Prisma",
@@ -706,6 +712,29 @@ export class HealthService {
 
   private elapsedMs(startedAt: number): number {
     return Math.max(1, Math.round(performance.now() - startedAt));
+  }
+
+  private categorizeDatabaseFailure(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    if (/SCRAM|AuthenticationFailed|authentication failed/i.test(message)) {
+      return "authentication_failed";
+    }
+    if (/server selection|ServerSelection|ReplicaSetNoPrimary/i.test(message)) {
+      return "server_selection_timeout";
+    }
+    if (/ENOTFOUND|ECONNREFUSED|DNS|SRV/i.test(message)) {
+      return "dns_or_srv_failure";
+    }
+    if (/timed out|timeout|ETIMEDOUT/i.test(message)) {
+      return "connection_timeout";
+    }
+    if (/empty database|database name/i.test(message)) {
+      return "bad_database_name";
+    }
+    if (/P1001|P6001|Prisma/i.test(message)) {
+      return "prisma_connection";
+    }
+    return "unknown";
   }
 
   private safeErrorMessage(error: unknown): string {

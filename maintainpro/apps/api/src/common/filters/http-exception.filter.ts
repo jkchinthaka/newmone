@@ -27,7 +27,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           "Internal server error";
 
     const errorMessage = dependencyFailure
-      ? "Database unavailable. Check MongoDB connection and retry."
+      ? "Database unavailable. Please retry later."
       : Array.isArray(rawMessage)
         ? rawMessage.join(", ")
         : rawMessage;

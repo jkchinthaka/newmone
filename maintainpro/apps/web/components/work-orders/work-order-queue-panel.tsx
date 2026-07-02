@@ -6,7 +6,7 @@ import { isAxiosError } from "axios";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 import { ErrorState } from "@/components/ui/page-state";
-import { getApiErrorMessage } from "@/lib/api-client";
+import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   DEFAULT_QUEUE_FILTERS,
@@ -28,9 +28,12 @@ type Props = {
 };
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
+  if (isDatabaseUnavailableError(error)) {
+    return false;
+  }
   if (isAxiosError(error)) {
     const status = error.response?.status;
-    if (status === 404 || status === 401 || status === 403) return false;
+    if (status === 404 || status === 401 || status === 403 || status === 503) return false;
   }
   return failureCount < 1;
 }
@@ -127,7 +130,7 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
     <div className="space-y-4">
       {summaryUnavailable ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Unable to load work order queue counts. Please refresh or contact IT. You can still browse queues below; counts may show as zero until the service recovers.
+          Unable to load work order queues. Please refresh or contact IT. You can still browse queues below; counts may show as zero until the service recovers.
         </div>
       ) : null}
       {actionRequiredCount > 0 ? (

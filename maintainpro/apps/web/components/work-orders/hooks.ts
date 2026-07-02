@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { isDatabaseUnavailableError } from "@/lib/api-client";
+
 import {
   assignWorkOrder,
   approveWorkOrder,
@@ -152,7 +154,13 @@ export function useWorkOrders(filters: WorkOrderFilters) {
   const query = useQuery({
     queryKey: WORK_ORDERS_QUERY_KEY,
     queryFn: fetchWorkOrders,
-    refetchInterval: 30_000
+    retry: (failureCount, error) => {
+      if (isDatabaseUnavailableError(error)) {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    refetchInterval: (query) => (query.state.error ? false : 30_000)
   });
 
   // Stabilize sourceRows reference: query.data is the same identity across renders while

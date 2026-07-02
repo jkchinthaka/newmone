@@ -21,6 +21,24 @@ export const apiClient = axios.create({
   withCredentials: true
 });
 
+export function isDatabaseUnavailableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    response?: {
+      status?: number;
+      data?: { error?: { code?: string } };
+    };
+  };
+
+  return (
+    candidate.response?.status === 503 ||
+    candidate.response?.data?.error?.code === "DATABASE_UNAVAILABLE"
+  );
+}
+
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object") {
     const candidate = error as {
@@ -45,11 +63,8 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     if (!candidate.response && candidate.code === "ERR_NETWORK") {
       return "API is unreachable. Start the MaintainPro API and check the system health page.";
     }
-    if (
-      candidate.response?.status === 503 ||
-      candidate.response?.data?.error?.code === "DATABASE_UNAVAILABLE"
-    ) {
-      return "API is temporarily unavailable because the database is not reachable. Check the system health page and Render database configuration.";
+    if (isDatabaseUnavailableError(candidate)) {
+      return "Database unavailable. Please contact IT or try again shortly.";
     }
     if (
       !candidate.response &&

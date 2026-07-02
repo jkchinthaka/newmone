@@ -193,19 +193,53 @@ export class WorkOrdersService {
 
     return this.prisma.workOrder.findMany({
       where,
-      include: {
-        asset: true,
-        vehicle: true,
-        technician: true,
-        createdBy: true,
-        parts: {
-          include: {
-            part: true
-          }
-        }
-      },
+      include: this.workOrderListInclude(),
       orderBy: { createdAt: "desc" }
     });
+  }
+
+  async findAllPaginated(actor: Actor | undefined, page: number, pageSize: number) {
+    const tenantId = this.resolveTenantId(actor);
+    const where: Prisma.WorkOrderWhereInput = {};
+
+    if (tenantId !== undefined) {
+      where.tenantId = tenantId;
+    }
+
+    const safePage = Math.max(1, Math.trunc(page) || 1);
+    const safePageSize = Math.min(100, Math.max(1, Math.trunc(pageSize) || 25));
+
+    const [total, data] = await Promise.all([
+      this.prisma.workOrder.count({ where }),
+      this.prisma.workOrder.findMany({
+        where,
+        include: this.workOrderListInclude(),
+        orderBy: { createdAt: "desc" },
+        skip: (safePage - 1) * safePageSize,
+        take: safePageSize
+      })
+    ]);
+
+    return {
+      data,
+      total,
+      page: safePage,
+      pageSize: safePageSize
+    };
+  }
+
+  private workOrderListInclude(): Prisma.WorkOrderInclude {
+    return {
+      asset: true,
+      vehicle: true,
+      technician: true,
+      createdBy: true,
+      parts: {
+        include: {
+          part: true
+        }
+      }
+    };
   }
 
   async findOne(id: string, actor?: Actor) {

@@ -22,6 +22,34 @@ type AuthedRequest = {
   user: JwtPayload;
 };
 
+const WORK_ORDER_QUEUE_FILTER_KEYS = new Set([
+  "queue",
+  "overdueOnly",
+  "highRiskOnly",
+  "riskSeverity",
+  "myAssignedOnly",
+  "categoryId",
+  "taxonomyCategoryId",
+  "typeId",
+  "taxonomyTypeId",
+  "issueId",
+  "taxonomyIssueId",
+  "triageOnly",
+  "query"
+]);
+
+function isPaginatedWorkOrderListOnly(query: Record<string, string>): boolean {
+  const activeKeys = Object.entries(query)
+    .filter(([, value]) => value !== undefined && String(value).trim() !== "")
+    .map(([key]) => key);
+
+  if (!activeKeys.some((key) => key === "page" || key === "pageSize")) {
+    return false;
+  }
+
+  return !activeKeys.some((key) => WORK_ORDER_QUEUE_FILTER_KEYS.has(key));
+}
+
 @ApiTags("Work Orders")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -202,6 +230,23 @@ export class WorkOrdersController {
     "SECURITY_OFFICER"
   )
   async findAll(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    if (isPaginatedWorkOrderListOnly(query)) {
+      const page = Number(query.page ?? 1);
+      const pageSize = Number(query.pageSize ?? 25);
+      const result = await this.workOrdersService.findAllPaginated(req.user, page, pageSize);
+
+      return {
+        data: result.data,
+        message: "Work orders fetched",
+        meta: {
+          page: result.page,
+          limit: result.pageSize,
+          total: result.total,
+          totalPages: Math.max(1, Math.ceil(result.total / result.pageSize))
+        }
+      };
+    }
+
     const hasQueueParams =
       query.queue ||
       query.page ||

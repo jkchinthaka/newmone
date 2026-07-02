@@ -217,12 +217,14 @@ await check("Backend health", async () => {
   const body = await readJson(response);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const health = body?.data ?? body;
-  if (health?.database?.status !== "operational") {
+  const dbStatus = health?.database?.status;
+  const isDbHealthy = dbStatus === "healthy" || dbStatus === "operational";
+  if (!isDbHealthy) {
     throw new Error(
-      `Database status is ${health?.database?.status ?? "unknown"}${health?.database?.message ? `: ${health.database.message}` : ""}`
+      `Database status is ${dbStatus ?? "unknown"}${health?.database?.message ? `: ${health.database.message}` : ""}`
     );
   }
-  return `${health?.service ?? "api"} ${health?.status ?? "healthy"}`;
+  return `${health?.service ?? "api"} ${health?.status ?? "healthy"} db=${dbStatus}`;
 });
 
 await check("Backend readiness", async () => {
@@ -369,6 +371,37 @@ await check("Work order history route", async () => {
     return "skipped (no work orders in staging tenant)";
   }
   return assertRouteAvailable(`/work-orders/${workOrderId}/history`, smokeAccessToken, "GET /work-orders/:id/history");
+});
+
+await check("Work orders paginated route", async () => {
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}/work-orders?page=1&pageSize=25`, {
+      headers: {
+        Authorization: `Bearer ${smokeAccessToken}`,
+        Origin: frontendUrl
+      }
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "GET /work-orders?page=1&pageSize=25 request"));
+  }
+  const body = await readJson(response);
+  if (response.status === 503 && body?.error?.code === "DATABASE_UNAVAILABLE") {
+    throw new Error(body?.error?.message ?? "GET /work-orders returned DATABASE_UNAVAILABLE");
+  }
+  if (!response.ok) {
+    throw new Error(body?.error?.message ?? `GET /work-orders?page=1&pageSize=25 returned HTTP ${response.status}`);
+  }
+  const rows = Array.isArray(body?.data)
+    ? body.data
+    : Array.isArray(body?.data?.data)
+      ? body.data.data
+      : null;
+  if (!rows) {
+    throw new Error("Paginated work orders response missing data array");
+  }
+  const total = body?.meta?.total ?? body?.data?.total ?? rows.length;
+  return `rows=${rows.length} total=${total}`;
 });
 
 await check("Work order queues route", async () => {
