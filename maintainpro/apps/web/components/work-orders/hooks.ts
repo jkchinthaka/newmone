@@ -13,7 +13,7 @@ import {
   createWorkOrder,
   deleteWorkOrder,
   fetchTechnicians,
-  fetchWorkOrders,
+  fetchWorkOrdersPaginated,
   rejectWorkOrder,
   updateWorkOrder,
   updateWorkOrderStatus
@@ -152,38 +152,57 @@ function groupByStatus(rows: WorkOrder[]): StatusGroups {
 
 export function useWorkOrders(filters: WorkOrderFilters) {
   const query = useQuery({
-    queryKey: WORK_ORDERS_QUERY_KEY,
-    queryFn: fetchWorkOrders,
+    queryKey: [...WORK_ORDERS_QUERY_KEY, "paginated", filters],
+    queryFn: () =>
+      fetchWorkOrdersPaginated({
+        page: filters.page,
+        pageSize: filters.pageSize,
+        queue: filters.queue,
+        search: filters.query,
+        status: filters.status,
+        priority: filters.priority,
+        sortBy: filters.sortBy,
+        sortDirection: filters.sortDirection,
+        dueDateFrom: filters.dueDateFrom,
+        dueDateTo: filters.dueDateTo
+      }),
     retry: (failureCount, error) => {
       if (isDatabaseUnavailableError(error)) {
         return false;
       }
       return failureCount < 1;
     },
-    refetchInterval: (query) => (query.state.error ? false : 30_000)
+    placeholderData: (previous) => previous,
+    refetchInterval: (q) => (q.state.error ? false : 60_000)
   });
 
-  // Stabilize sourceRows reference: query.data is the same identity across renders while
-  // the data is unchanged, but `?? []` would otherwise allocate a fresh empty array each render
-  // which cascades through useMemo deps and causes consumers to see a "new" workOrders array
-  // every render (manifests as Maximum update depth exceeded in effects depending on it).
-  const sourceRows = useMemo(() => query.data ?? [], [query.data]);
+  const sourceRows = useMemo(() => query.data?.data ?? [], [query.data?.data]);
+  const workOrders = useMemo(() => {
+    if (filters.technicianId === "ALL") {
+      return sourceRows;
+    }
 
-  const workOrders = useMemo(() => applyWorkOrderFilters(sourceRows, filters), [sourceRows, filters]);
+    return sourceRows.filter((order) => {
+      if (filters.technicianId === "UNASSIGNED") {
+        return !order.technicianId;
+      }
+      return order.technicianId === filters.technicianId;
+    });
+  }, [filters.technicianId, sourceRows]);
 
   const groupedByStatus = useMemo(() => groupByStatus(workOrders), [workOrders]);
   const groupedByBoardTab = useMemo(() => groupWorkOrdersByBoardTab(workOrders), [workOrders]);
 
-  const stats = useMemo(
-    () => ({
-      total: sourceRows.length,
-      open: sourceRows.filter((row) => row.status === "OPEN").length,
-      inProgress: sourceRows.filter((row) => row.status === "IN_PROGRESS").length,
-      overdue: sourceRows.filter((row) => row.status === "OVERDUE" || row.slaBreached).length,
-      completed: sourceRows.filter((row) => row.status === "COMPLETED").length
-    }),
-    [sourceRows]
-  );
+  const stats = useMemo(() => {
+    const summary = query.data?.summary;
+    return {
+      total: summary?.total ?? query.data?.total ?? 0,
+      open: summary?.open ?? 0,
+      inProgress: summary?.inProgress ?? 0,
+      overdue: summary?.overdue ?? 0,
+      completed: workOrders.filter((row) => row.status === "COMPLETED").length
+    };
+  }, [query.data?.summary, query.data?.total, workOrders]);
 
   return {
     ...query,
@@ -191,7 +210,13 @@ export function useWorkOrders(filters: WorkOrderFilters) {
     workOrders,
     groupedByStatus,
     groupedByBoardTab,
-    stats
+    stats,
+    pagination: {
+      page: query.data?.page ?? filters.page,
+      pageSize: query.data?.pageSize ?? filters.pageSize,
+      total: query.data?.total ?? 0,
+      totalPages: query.data?.totalPages ?? 0
+    }
   };
 }
 
@@ -280,6 +305,8 @@ function mergeWorkOrderRow(existing: WorkOrder, updated: WorkOrder): WorkOrder {
 
 function invalidateWorkOrderQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
+  queryClient.invalidateQueries({ queryKey: ["work-orders", "queue"] });
+  queryClient.invalidateQueries({ queryKey: ["work-orders", "queue-summary"] });
   queryClient.invalidateQueries({ queryKey: DASHBOARD_WORK_ORDERS_QUERY_KEY });
 }
 

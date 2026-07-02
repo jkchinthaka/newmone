@@ -50,8 +50,15 @@ type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
 export type WorkOrderQueueQuery = {
   queue?: string;
+  search?: string;
+  query?: string;
+  smartView?: string;
   dateFrom?: string;
   dateTo?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
   status?: string;
   priority?: string;
   departmentId?: string;
@@ -59,6 +66,7 @@ export type WorkOrderQueueQuery = {
   assetId?: string;
   vehicleId?: string;
   employeeId?: string;
+  requesterId?: string;
   type?: string;
   categoryId?: string;
   taxonomyCategoryId?: string;
@@ -551,6 +559,14 @@ export class WorkOrderQueuesService {
     return this.listQueue(actor, queue, query);
   }
 
+  async listWorkOrders(actor: Actor, query: WorkOrderQueueQuery = {}) {
+    const queue = (query.queue as WorkOrderQueueKey | undefined) ?? resolveDefaultQueueForRole(actor.role as RoleName);
+    if (queue === "all" && TECHNICIAN_ROLES.has(actor.role as RoleName)) {
+      throw new ForbiddenException("Technicians cannot access all company work orders.");
+    }
+    return this.listQueue(actor, queue, query);
+  }
+
   async getCategorySummary(actor: Actor, query: Record<string, string>) {
     return this.categoryReports.getCategorySummary(actor, {
       dateFrom: query.dateFrom,
@@ -576,6 +592,13 @@ export class WorkOrderQueuesService {
         return "waiting-parts";
       case "supervisor-verification":
         return "supervisor-verification";
+      case "action-required":
+        return "action-required";
+      case "triage":
+        return "triage";
+      case "created-today":
+      case "updated-today":
+        return "all";
       default:
         return view as WorkOrderQueueKey;
     }
@@ -654,12 +677,44 @@ export class WorkOrderQueuesService {
     const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? 25)));
     const tenantId = actor.tenantId;
 
-    const where = this.buildPrismaWhere(actor, query);
+    const baseWhere = this.buildPrismaWhere(actor, query);
+    const where = this.applyQueueDbWhere(baseWhere, queue, actor);
+    const usesPostFilter = this.queueRequiresPostEnrichmentFilter(queue, query);
+
+    if (!usesPostFilter) {
+      const orderBy = this.buildPrismaOrderBy(query);
+      const [total, rows] = await Promise.all([
+        this.prisma.workOrder.count({ where }),
+        this.prisma.workOrder.findMany({
+          where,
+          include: listInclude,
+          orderBy,
+          skip: (page - 1) * pageSize,
+          take: pageSize
+        })
+      ]);
+
+      const enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, []);
+      const pageRows = enriched.map((row) => this.toListItem(row));
+      const summary = await this.buildListSummary(actor, baseWhere);
+
+      return this.buildListResponse({
+        pageRows,
+        total,
+        page,
+        pageSize,
+        queue,
+        query,
+        summary
+      });
+    }
+
+    const fetchCap = queue === "all" || queue === "completed" || queue === "cancelled" ? 2000 : 1000;
     const rows = await this.prisma.workOrder.findMany({
       where,
       include: listInclude,
       orderBy: { updatedAt: "desc" },
-      take: queue === "all" || queue === "completed" || queue === "cancelled" ? 2000 : 1000
+      take: fetchCap
     });
 
     const enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, []);
@@ -674,31 +729,319 @@ export class WorkOrderQueuesService {
     if (query.riskSeverity) {
       filtered = filtered.filter((row) => row.riskSeverity === query.riskSeverity);
     }
+    if (query.partsStatus) {
+      filtered = filtered.filter((row) => row.partsStatus === query.partsStatus);
+    }
+    if (query.evidenceStatus) {
+      filtered = filtered.filter((row) => row.evidenceStatus === query.evidenceStatus);
+    }
 
     filtered.sort((a, b) => this.compareRows(a, b, query));
 
     const total = filtered.length;
     const start = (page - 1) * pageSize;
     const pageRows = filtered.slice(start, start + pageSize).map((row) => this.toListItem(row));
+    const summary = await this.buildListSummary(actor, baseWhere);
 
-    return {
-      data: pageRows,
+    return this.buildListResponse({
+      pageRows,
       total,
       page,
       pageSize,
       queue,
-      label: WORK_ORDER_QUEUE_LABELS[queue],
+      query,
+      summary,
+      categorySummary: this.computeCategorySummary(filtered),
+      warnings:
+        total >= fetchCap
+          ? [{ queue, message: "Queue list capped for performance; refine filters or search." }]
+          : undefined
+    });
+  }
+
+  private buildListResponse(input: {
+    pageRows: WorkOrderQueueListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    queue: WorkOrderQueueKey;
+    query: WorkOrderQueueQuery;
+    summary: Awaited<ReturnType<WorkOrderQueuesService["buildListSummary"]>>;
+    categorySummary?: ReturnType<WorkOrderQueuesService["computeCategorySummary"]>;
+    warnings?: WorkOrderQueueSummaryWarning[];
+  }) {
+    const totalPages = input.total === 0 ? 0 : Math.ceil(input.total / input.pageSize);
+    return {
+      data: input.pageRows,
+      total: input.total,
+      page: input.page,
+      pageSize: input.pageSize,
+      totalPages,
+      queue: input.queue,
+      label: WORK_ORDER_QUEUE_LABELS[input.queue],
       lastUpdated: new Date().toISOString(),
       appliedFilters: {
-        categoryId: query.categoryId ?? query.taxonomyCategoryId,
-        typeId: query.taxonomyTypeId,
-        issueId: query.taxonomyIssueId,
-        status: query.status,
-        priority: query.priority,
-        triageOnly: query.triageOnly === true || query.triageOnly === "true"
+        search: input.query.search ?? input.query.query,
+        queue: input.queue,
+        categoryId: input.query.categoryId ?? input.query.taxonomyCategoryId,
+        taxonomyCategoryId: input.query.taxonomyCategoryId,
+        taxonomyTypeId: input.query.taxonomyTypeId,
+        taxonomyIssueId: input.query.taxonomyIssueId,
+        status: input.query.status,
+        priority: input.query.priority,
+        triageOnly: input.query.triageOnly === true || input.query.triageOnly === "true",
+        overdueOnly: input.query.overdueOnly === true || input.query.overdueOnly === "true",
+        highRiskOnly: input.query.highRiskOnly === true || input.query.highRiskOnly === "true",
+        smartView: input.query.smartView
       },
-      categorySummary: this.computeCategorySummary(filtered)
+      summary: input.summary,
+      warnings: input.warnings,
+      categorySummary: input.categorySummary
     };
+  }
+
+  private async buildListSummary(actor: Actor, baseWhere: Prisma.WorkOrderWhereInput) {
+    const tenantWhere = { ...baseWhere };
+    const now = new Date();
+    const [total, open, assigned, inProgress, overdue, triage] = await Promise.all([
+      this.prisma.workOrder.count({ where: tenantWhere }),
+      this.prisma.workOrder.count({ where: { ...tenantWhere, status: WorkOrderStatus.OPEN } }),
+      this.prisma.workOrder.count({
+        where: {
+          ...tenantWhere,
+          OR: [{ technicianId: { not: null } }, { assignees: { some: { assignmentStatus: { not: "REMOVED" } } } }],
+          status: { in: ACTIVE_OPERATIONAL_STATUSES }
+        }
+      }),
+      this.prisma.workOrder.count({
+        where: {
+          ...tenantWhere,
+          status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] }
+        }
+      }),
+      this.prisma.workOrder.count({
+        where: {
+          ...tenantWhere,
+          OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: now }, status: { notIn: TERMINAL_STATUSES } }]
+        }
+      }),
+      this.prisma.workOrder.count({ where: { ...tenantWhere, isTriage: true, status: { notIn: TERMINAL_STATUSES } } })
+    ]);
+
+    const highRiskWhere = {
+      ...tenantWhere,
+      status: { notIn: TERMINAL_STATUSES },
+      OR: [
+        { priority: Priority.CRITICAL },
+        { status: WorkOrderStatus.OVERDUE },
+        { slaBreached: true },
+        { priority: Priority.HIGH, dueDate: { lt: now } }
+      ]
+    };
+
+    const highRisk = await this.prisma.workOrder.count({ where: highRiskWhere });
+
+    return { total, open, assigned, inProgress, overdue, highRisk, triage };
+  }
+
+  private queueRequiresPostEnrichmentFilter(queue: WorkOrderQueueKey, query: WorkOrderQueueQuery): boolean {
+    if (query.highRiskOnly === true || query.highRiskOnly === "true") return true;
+    if (query.riskSeverity) return true;
+    if (query.partsStatus) return true;
+    if (query.evidenceStatus) return true;
+    return ["action-required", "waiting-evidence", "finance-vendor-pending"].includes(queue);
+  }
+
+  private buildPrismaOrderBy(query: WorkOrderQueueQuery): Prisma.WorkOrderOrderByWithRelationInput[] {
+    const direction = query.sortDirection === "asc" ? "asc" : "desc";
+    switch (query.sortBy) {
+      case "dueDate":
+        return [{ dueDate: direction }, { updatedAt: "desc" }];
+      case "expectedCompletionDate":
+        return [{ expectedCompletionDate: direction }, { updatedAt: "desc" }];
+      case "priority":
+        return [{ priority: direction }, { updatedAt: "desc" }];
+      case "status":
+        return [{ status: direction }, { updatedAt: "desc" }];
+      case "createdAt":
+        return [{ createdAt: direction }];
+      case "riskScore":
+        return [{ priority: "desc" }, { dueDate: "asc" }, { updatedAt: "desc" }];
+      case "operational":
+      default:
+        return [{ priority: "desc" }, { dueDate: "asc" }, { updatedAt: "desc" }];
+    }
+  }
+
+  private applyQueueDbWhere(
+    where: Prisma.WorkOrderWhereInput,
+    queue: WorkOrderQueueKey,
+    actor: Actor
+  ): Prisma.WorkOrderWhereInput {
+    const nonTerminal = { status: { notIn: TERMINAL_STATUSES } };
+    const now = new Date();
+
+    switch (queue) {
+      case "triage":
+        return { AND: [where, { isTriage: true }, nonTerminal] };
+      case "open-requests":
+        return { AND: [where, { status: WorkOrderStatus.OPEN }] };
+      case "completed":
+        return { AND: [where, { status: WorkOrderStatus.COMPLETED }] };
+      case "cancelled":
+        return { AND: [where, { status: WorkOrderStatus.CANCELLED }] };
+      case "in-progress":
+        return { AND: [where, { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } }] };
+      case "rework-required":
+        return { AND: [where, { status: WorkOrderStatus.REWORK_REQUIRED }] };
+      case "technician-completed":
+        return { AND: [where, { status: WorkOrderStatus.TECHNICIAN_COMPLETED }] };
+      case "supervisor-verification":
+        return {
+          AND: [
+            where,
+            { status: WorkOrderStatus.TECHNICIAN_COMPLETED, verificationStatus: WorkOrderVerificationStatus.PENDING }
+          ]
+        };
+      case "approved-planned":
+        return { AND: [where, { approvalStatus: WorkOrderApprovalStatus.APPROVED, status: WorkOrderStatus.OPEN }] };
+      case "overdue":
+        return {
+          AND: [
+            where,
+            {
+              OR: [
+                { status: WorkOrderStatus.OVERDUE },
+                { dueDate: { lt: now }, status: { notIn: TERMINAL_STATUSES } }
+              ]
+            }
+          ]
+        };
+      case "my-tasks":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              OR: [
+                { technicianId: actor.sub },
+                { assignees: { some: { employee: { linkedUserId: actor.sub }, assignmentStatus: { not: "REMOVED" } } } }
+              ]
+            }
+          ]
+        };
+      case "assigned":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              OR: [
+                { technicianId: { not: null } },
+                { assignees: { some: { assignmentStatus: { not: "REMOVED" } } } }
+              ]
+            }
+          ]
+        };
+      case "waiting-parts":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              parts: {
+                some: {
+                  OR: [
+                    { lineStatus: WorkOrderPartLineStatus.REQUESTED },
+                    { pendingReturnQuantity: { gt: 0 } },
+                    {
+                      lineStatus: WorkOrderPartLineStatus.APPROVED,
+                      issuedQuantity: 0,
+                      requestedQuantity: { gt: 0 }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        };
+      case "high-risk":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              OR: [
+                { priority: Priority.CRITICAL },
+                { status: WorkOrderStatus.OVERDUE },
+                { slaBreached: true },
+                { priority: Priority.HIGH, dueDate: { lt: now } }
+              ]
+            }
+          ]
+        };
+      case "action-required":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              OR: [
+                { approvalStatus: WorkOrderApprovalStatus.PENDING },
+                { isTriage: true },
+                { status: WorkOrderStatus.REWORK_REQUIRED },
+                { status: WorkOrderStatus.OVERDUE },
+                {
+                  status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+                  verificationStatus: WorkOrderVerificationStatus.PENDING
+                },
+                { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
+                { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
+                {
+                  parts: {
+                    some: {
+                      lineStatus: WorkOrderPartLineStatus.APPROVED,
+                      issuedQuantity: 0,
+                      requestedQuantity: { gt: 0 }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        };
+      case "waiting-evidence":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              OR: [
+                {
+                  evidenceAttachments: {
+                    some: { verificationStatus: EvidenceVerificationStatus.REJECTED, deletedAt: null }
+                  }
+                },
+                { evidenceAttachments: { none: { deletedAt: null, status: { not: "DELETED" } } } }
+              ]
+            }
+          ]
+        };
+      case "finance-vendor-pending":
+        return {
+          AND: [
+            where,
+            nonTerminal,
+            {
+              vendorRepairCase: {
+                invoices: { some: { status: { in: [VendorInvoiceStatus.SUBMITTED, VendorInvoiceStatus.UNDER_REVIEW] } } }
+              }
+            }
+          ]
+        };
+      default:
+        return where;
+    }
   }
 
   private computeCategorySummary(filtered: Awaited<ReturnType<WorkOrderQueuesService["enrichRow"]>>[]) {
@@ -774,36 +1117,85 @@ export class WorkOrderQueuesService {
     }
     if (query.assetId) where.assetId = query.assetId;
     if (query.vehicleId) where.vehicleId = query.vehicleId;
+    if (query.requesterId) where.createdById = query.requesterId;
     if (query.departmentId) {
       where.asset = { departmentId: query.departmentId };
     }
     if (query.branchId) {
       where.assignees = { some: { employee: { branchName: query.branchId } } };
     }
+    if (query.employeeId) {
+      where.assignees = { some: { employeeId: query.employeeId, assignmentStatus: { not: "REMOVED" } } };
+    }
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {
         ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-        ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999Z`) } : {})
+        ...(query.dateTo ? { lte: new Date(query.dateTo.includes("T") ? query.dateTo : `${query.dateTo}T23:59:59.999Z`) } : {})
+      };
+    }
+    if (query.updatedFrom || query.updatedTo) {
+      where.updatedAt = {
+        ...(query.updatedFrom ? { gte: new Date(query.updatedFrom) } : {}),
+        ...(query.updatedTo ? { lte: new Date(query.updatedTo) } : {})
+      };
+    }
+    if (query.dueFrom || query.dueTo) {
+      where.dueDate = {
+        ...(query.dueFrom ? { gte: new Date(query.dueFrom) } : {}),
+        ...(query.dueTo ? { lte: new Date(query.dueTo.includes("T") ? query.dueTo : `${query.dueTo}T23:59:59.999Z`) } : {})
       };
     }
     if (query.verificationStatus) {
       where.verificationStatus = query.verificationStatus as WorkOrderVerificationStatus;
     }
     const categoryId = query.categoryId ?? query.taxonomyCategoryId;
-    if (categoryId) where.taxonomyCategoryId = categoryId;
+    if (categoryId === "unclassified") {
+      where.taxonomyCategoryId = null;
+    } else if (categoryId) {
+      where.taxonomyCategoryId = categoryId;
+    }
     if (query.taxonomyTypeId) where.taxonomyTypeId = query.taxonomyTypeId;
     if (query.taxonomyIssueId) where.taxonomyIssueId = query.taxonomyIssueId;
     if (query.triageOnly === true || query.triageOnly === "true") where.isTriage = true;
     if (query.type) where.type = query.type as Prisma.EnumWorkOrderTypeFilter;
 
+    const searchTerm = (query.search ?? query.query)?.trim();
+    if (searchTerm && searchTerm.length >= 2) {
+      const searchFilter: Prisma.WorkOrderWhereInput = {
+        OR: [
+          { woNumber: { contains: searchTerm } },
+          { title: { contains: searchTerm } },
+          { description: { contains: searchTerm } },
+          { categoryNameSnapshot: { contains: searchTerm } },
+          { typeNameSnapshot: { contains: searchTerm } },
+          { issueNameSnapshot: { contains: searchTerm } },
+          { asset: { OR: [{ name: { contains: searchTerm } }, { assetTag: { contains: searchTerm } }] } },
+          {
+            vehicle: {
+              OR: [{ registrationNo: { contains: searchTerm } }, { assetTag: { contains: searchTerm } }]
+            }
+          },
+          {
+            assignees: {
+              some: { employee: { fullName: { contains: searchTerm } }, assignmentStatus: { not: "REMOVED" } }
+            }
+          }
+        ]
+      };
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), searchFilter];
+    }
+
     const role = actor.role as RoleName;
     const myAssignedOnly = query.myAssignedOnly === true || query.myAssignedOnly === "true";
 
     if (TECHNICIAN_ROLES.has(role) || myAssignedOnly) {
-      where.OR = [
-        { technicianId: actor.sub },
-        { assignees: { some: { employee: { linkedUserId: actor.sub } } } }
-      ];
+      const assignmentScope: Prisma.WorkOrderWhereInput = {
+        OR: [
+          { technicianId: actor.sub },
+          { assignees: { some: { employee: { linkedUserId: actor.sub }, assignmentStatus: { not: "REMOVED" } } } }
+        ]
+      };
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), assignmentScope];
     }
 
     return where;
@@ -1036,6 +1428,11 @@ export class WorkOrderQueuesService {
         return (a.riskScore - b.riskScore) * direction;
       case "createdAt":
         return (a.row.createdAt.getTime() - b.row.createdAt.getTime()) * direction;
+      case "expectedCompletionDate": {
+        const dueA = a.row.expectedCompletionDate?.getTime() ?? a.row.dueDate?.getTime() ?? 0;
+        const dueB = b.row.expectedCompletionDate?.getTime() ?? b.row.dueDate?.getTime() ?? 0;
+        return (dueA - dueB) * direction;
+      }
       default:
         return (a.row.updatedAt.getTime() - b.row.updatedAt.getTime()) * direction;
     }

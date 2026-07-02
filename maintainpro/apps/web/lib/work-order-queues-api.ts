@@ -85,9 +85,19 @@ export type WorkOrderQueueListResponse = {
   total: number;
   page: number;
   pageSize: number;
+  totalPages?: number;
   queue: WorkOrderQueueKey;
   label: string;
   lastUpdated: string;
+  summary?: {
+    total: number;
+    open: number;
+    assigned: number;
+    inProgress: number;
+    overdue: number;
+    highRisk: number;
+    triage: number;
+  };
   appliedFilters?: Record<string, unknown>;
   categorySummary?: Array<{
     categoryId?: string | null;
@@ -124,6 +134,7 @@ export type WorkOrderQueueFilters = {
   typeId: string;
   issueId: string;
   triageOnly: boolean;
+  smartView?: string;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -183,6 +194,8 @@ export async function fetchWorkOrderQueue(
   if (filters.typeId) params.set("typeId", filters.typeId);
   if (filters.issueId) params.set("issueId", filters.issueId);
   if (filters.triageOnly) params.set("triageOnly", "true");
+  if (filters.query.trim().length >= 2) params.set("search", filters.query.trim());
+  if (filters.smartView) params.set("smartView", filters.smartView);
 
   const response = await apiClient.get<ApiEnvelope<WorkOrderQueueListResponse>>(
     `/work-orders/queues/${filters.queue}?${params.toString()}`

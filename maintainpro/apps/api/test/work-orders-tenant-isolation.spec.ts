@@ -31,7 +31,7 @@ describe("WorkOrdersService tenant isolation", () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst.mockResolvedValue(null);
     const notificationsService = { createNotification: jest.fn() };
-    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(service.assign("wo-1", "tech-1", actor)).rejects.toThrow(NotFoundException);
     expect(prisma.workOrder.findFirst).toHaveBeenCalledWith(
@@ -61,7 +61,7 @@ describe("WorkOrdersService tenant isolation", () => {
       status: "ASSIGNED"
     });
     const notificationsService = { createNotification: jest.fn() };
-    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await requestContext.run(
       {

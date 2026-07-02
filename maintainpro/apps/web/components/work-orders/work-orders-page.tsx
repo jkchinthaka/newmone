@@ -269,8 +269,13 @@ export default function WorkOrdersPage() {
     }
 
     try {
-      await bulkStatusMutation.mutateAsync({ ids: selectedIds, status });
-      toast.success(`Updated ${selectedIds.length} work orders to ${status.replaceAll("_", " ")}`);
+      const result = await bulkStatusMutation.mutateAsync({ ids: selectedIds, status });
+      if (result.success.length > 0) {
+        toast.success(`Updated ${result.success.length} work order(s) to ${status.replaceAll("_", " ")}`);
+      }
+      if (result.failed.length > 0) {
+        toast.error(`${result.failed.length} failed: ${result.failed[0]?.reason ?? "Bulk status blocked"}`);
+      }
       setSelectedIds([]);
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -297,6 +302,8 @@ export default function WorkOrdersPage() {
         <WorkOrderQueuePanel
           onOpenWorkOrder={openEditModal}
           onRefreshLegacy={() => void workOrdersQuery.refetch()}
+          selectedIds={selectedIds}
+          onSelectedIdsChange={setSelectedIds}
         />
       );
     }

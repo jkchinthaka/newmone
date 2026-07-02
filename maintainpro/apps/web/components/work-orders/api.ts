@@ -151,15 +151,76 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
   };
 }
 
+export async function fetchWorkOrdersPaginated(params: {
+  page: number;
+  pageSize: number;
+  queue?: string;
+  search?: string;
+  status?: string;
+  priority?: string;
+  sortBy?: string;
+  sortDirection?: string;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  smartView?: string;
+}): Promise<{
+  data: WorkOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary?: {
+    total: number;
+    open: number;
+    assigned: number;
+    inProgress: number;
+    overdue: number;
+    highRisk: number;
+    triage: number;
+  };
+  lastUpdated?: string;
+}> {
+  const q = new URLSearchParams();
+  q.set("page", String(params.page));
+  q.set("pageSize", String(params.pageSize));
+  if (params.queue) q.set("queue", params.queue);
+  if (params.search && params.search.trim().length >= 2) q.set("search", params.search.trim());
+  if (params.status && params.status !== "ALL") q.set("status", params.status);
+  if (params.priority && params.priority !== "ALL") q.set("priority", params.priority);
+  if (params.sortBy) q.set("sortBy", params.sortBy);
+  if (params.sortDirection) q.set("sortDirection", params.sortDirection);
+  if (params.dueDateFrom) q.set("dueFrom", params.dueDateFrom);
+  if (params.dueDateTo) q.set("dueTo", params.dueDateTo);
+  if (params.smartView) q.set("smartView", params.smartView);
+
+  const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>(`/work-orders?${q.toString()}`);
+  const payload = unwrapData<Record<string, unknown>>(response.data);
+  const rows = Array.isArray(payload.data) ? payload.data : [];
+
+  return {
+    data: rows.map((row) => sanitizeWorkOrder(row)),
+    total: Number(payload.total ?? 0),
+    page: Number(payload.page ?? params.page),
+    pageSize: Number(payload.pageSize ?? params.pageSize),
+    totalPages: Number(payload.totalPages ?? 0),
+    summary: payload.summary as
+      | {
+          total: number;
+          open: number;
+          assigned: number;
+          inProgress: number;
+          overdue: number;
+          highRisk: number;
+          triage: number;
+        }
+      | undefined,
+    lastUpdated: typeof payload.lastUpdated === "string" ? payload.lastUpdated : undefined
+  };
+}
+
 export async function fetchWorkOrders(): Promise<WorkOrder[]> {
-  const response = await apiClient.get<ApiEnvelope<WorkOrder[]>>("/work-orders");
-  const rows = unwrapData<unknown[]>(response.data);
-
-  if (!Array.isArray(rows)) {
-    return [];
-  }
-
-  return rows.map((row) => sanitizeWorkOrder(row));
+  const result = await fetchWorkOrdersPaginated({ page: 1, pageSize: 25, queue: "all" });
+  return result.data;
 }
 
 export async function createWorkOrder(payload: CreateWorkOrderInput): Promise<WorkOrder> {
@@ -233,19 +294,29 @@ export async function bulkDeleteWorkOrders(ids: string[]): Promise<void> {
 export async function bulkUpdateStatus(
   ids: string[],
   status: WorkOrderStatus,
-  payload?: { actualCost?: number; actualHours?: number }
-): Promise<WorkOrder[]> {
-  const updated = await Promise.all(
-    ids.map((id) =>
-      updateWorkOrderStatus(id, {
-        status,
-        actualCost: payload?.actualCost,
-        actualHours: payload?.actualHours
-      })
-    )
-  );
+  payload?: { actualCost?: number; actualHours?: number; cancelReason?: string }
+): Promise<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }> {
+  const response = await apiClient.post<
+    ApiEnvelope<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }>
+  >("/work-orders/bulk/status", {
+    workOrderIds: ids,
+    targetStatus: status,
+    cancelReason: payload?.cancelReason,
+    reason: payload?.cancelReason
+  });
+  return unwrapData(response.data);
+}
 
-  return updated;
+export async function bulkAssignWorkOrders(payload: {
+  workOrderIds: string[];
+  assigneeEmployeeIds: string[];
+  expectedCompletionDate?: string;
+  reason?: string;
+}): Promise<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }> {
+  const response = await apiClient.post<
+    ApiEnvelope<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }>
+  >("/work-orders/bulk/assign", payload);
+  return unwrapData(response.data);
 }
 
 export async function approveWorkOrder(id: string, notes?: string): Promise<WorkOrder> {

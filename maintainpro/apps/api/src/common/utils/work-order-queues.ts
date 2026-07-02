@@ -169,6 +169,7 @@ export function isSupervisorVerificationPending(status: WorkOrderStatus, verific
 
 export const SMART_VIEW_KEYS = [
   "my-tasks",
+  "action-required",
   "overdue",
   "high-risk",
   "supervisor-verification",
@@ -176,14 +177,18 @@ export const SMART_VIEW_KEYS = [
   "waiting-evidence",
   "parts-pending-return",
   "rework-required",
+  "triage",
   "completed-this-month",
-  "cancelled-this-month"
+  "cancelled-this-month",
+  "created-today",
+  "updated-today"
 ] as const;
 
 export type SmartViewKey = (typeof SMART_VIEW_KEYS)[number];
 
 export const SMART_VIEW_LABELS: Record<SmartViewKey, string> = {
   "my-tasks": "My Tasks",
+  "action-required": "Action Required",
   overdue: "Overdue",
   "high-risk": "High Risk",
   "supervisor-verification": "Waiting Supervisor Verification",
@@ -191,6 +196,9 @@ export const SMART_VIEW_LABELS: Record<SmartViewKey, string> = {
   "waiting-evidence": "Evidence Missing",
   "parts-pending-return": "Parts Pending Return",
   "rework-required": "Rework Required",
+  triage: "Triage",
   "completed-this-month": "Completed This Month",
-  "cancelled-this-month": "Cancelled This Month"
+  "cancelled-this-month": "Cancelled This Month",
+  "created-today": "Created Today",
+  "updated-today": "Updated Today"
 };

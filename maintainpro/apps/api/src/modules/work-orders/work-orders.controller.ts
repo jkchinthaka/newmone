@@ -17,38 +17,11 @@ import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
+import { parseWorkOrderListQuery } from "./work-order-list-query.util";
 
 type AuthedRequest = {
   user: JwtPayload;
 };
-
-const WORK_ORDER_QUEUE_FILTER_KEYS = new Set([
-  "queue",
-  "overdueOnly",
-  "highRiskOnly",
-  "riskSeverity",
-  "myAssignedOnly",
-  "categoryId",
-  "taxonomyCategoryId",
-  "typeId",
-  "taxonomyTypeId",
-  "issueId",
-  "taxonomyIssueId",
-  "triageOnly",
-  "query"
-]);
-
-function isPaginatedWorkOrderListOnly(query: Record<string, string>): boolean {
-  const activeKeys = Object.entries(query)
-    .filter(([, value]) => value !== undefined && String(value).trim() !== "")
-    .map(([key]) => key);
-
-  if (!activeKeys.some((key) => key === "page" || key === "pageSize")) {
-    return false;
-  }
-
-  return !activeKeys.some((key) => WORK_ORDER_QUEUE_FILTER_KEYS.has(key));
-}
 
 @ApiTags("Work Orders")
 @ApiBearerAuth()
@@ -230,46 +203,46 @@ export class WorkOrdersController {
     "SECURITY_OFFICER"
   )
   async findAll(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
-    if (isPaginatedWorkOrderListOnly(query)) {
-      const page = Number(query.page ?? 1);
-      const pageSize = Number(query.pageSize ?? 25);
-      const result = await this.workOrdersService.findAllPaginated(req.user, page, pageSize);
+    const parsed = parseWorkOrderListQuery(query);
+    if (!parsed.page) parsed.page = 1;
+    if (!parsed.pageSize) parsed.pageSize = 25;
 
-      return {
-        data: result.data,
-        message: "Work orders fetched",
-        meta: {
-          page: result.page,
-          limit: result.pageSize,
-          total: result.total,
-          totalPages: Math.max(1, Math.ceil(result.total / result.pageSize))
-        }
-      };
-    }
-
-    const hasQueueParams =
-      query.queue ||
-      query.page ||
-      query.pageSize ||
-      query.overdueOnly ||
-      query.highRiskOnly ||
-      query.riskSeverity ||
-      query.myAssignedOnly ||
-      query.categoryId ||
-      query.taxonomyCategoryId ||
-      query.typeId ||
-      query.taxonomyTypeId ||
-      query.issueId ||
-      query.taxonomyIssueId ||
-      query.triageOnly;
-
-    if (hasQueueParams) {
-      const data = await this.workOrderQueuesService.search(req.user, query);
-      return { data, message: "Work orders fetched" };
-    }
-
-    const data = await this.workOrdersService.findAll(req.user);
+    const data = await this.workOrderQueuesService.listWorkOrders(req.user, parsed);
     return { data, message: "Work orders fetched" };
+  }
+
+  @Post("bulk/assign")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("work_orders.manage")
+  async bulkAssign(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      workOrderIds: string[];
+      assigneeEmployeeIds: string[];
+      expectedCompletionDate?: string;
+      reason?: string;
+    }
+  ) {
+    const data = await this.workOrdersService.bulkAssign(body, req.user);
+    return { data, message: "Bulk assign completed" };
+  }
+
+  @Post("bulk/status")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("work_orders.manage")
+  async bulkStatus(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      workOrderIds: string[];
+      targetStatus: WorkOrderStatus;
+      reason?: string;
+      cancelReason?: string;
+    }
+  ) {
+    const data = await this.workOrdersService.bulkStatus(body, req.user);
+    return { data, message: "Bulk status update completed" };
   }
 
   @Post()

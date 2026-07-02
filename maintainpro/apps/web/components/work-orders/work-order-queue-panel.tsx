@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
 import {
   DEFAULT_QUEUE_FILTERS,
   FALLBACK_QUEUE_SUMMARY,
+  fetchSmartViews,
   fetchWorkOrderQueue,
   fetchWorkOrderQueueSummary,
   type WorkOrderQueueFilters,
@@ -19,12 +20,15 @@ import {
   type WorkOrderQueueSummary
 } from "@/lib/work-order-queues-api";
 
-import { formatDate, getAssetLabel, getPriorityClass, getStatusClass, getTechnicianName, toTitleCase } from "./helpers";
+import { WorkOrderCompactTable } from "./work-order-compact-table";
+import { WorkOrderMobileCardList } from "./work-order-mobile-card-list";
 import type { WorkOrder } from "./types";
 
 type Props = {
   onOpenWorkOrder: (workOrder: WorkOrder) => void;
   onRefreshLegacy?: () => void;
+  selectedIds?: string[];
+  onSelectedIdsChange?: (ids: string[]) => void;
 };
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
@@ -51,10 +55,37 @@ function riskBadgeClass(severity?: string) {
   }
 }
 
-export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props) {
+export function WorkOrderQueuePanel({
+  onOpenWorkOrder,
+  onRefreshLegacy,
+  selectedIds = [],
+  onSelectedIdsChange
+}: Props) {
   const currentUser = useCurrentUser();
   const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
+  const [searchInput, setSearchInput] = useState("");
   const [initialized, setInitialized] = useState(false);
+
+  const canBulkSelect = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR"].includes(
+    currentUser?.role ?? ""
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters((current) => ({
+        ...current,
+        query: searchInput,
+        page: current.query === searchInput ? current.page : 1
+      }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  const smartViewsQuery = useQuery({
+    queryKey: ["work-orders", "smart-views"],
+    queryFn: fetchSmartViews,
+    staleTime: 5 * 60_000
+  });
 
   const summaryQuery = useQuery({
     queryKey: ["work-orders", "queue-summary"],
@@ -93,17 +124,7 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
     });
   }, [summaryData.queues, currentUser?.role]);
 
-  const rows = useMemo(() => {
-    const query = filters.query.trim().toLowerCase();
-    const items = queueQuery.data?.data ?? [];
-    if (!query) return items;
-    return items.filter((item) =>
-      [item.title, item.woNumber, getAssetLabel(item), getTechnicianName(item), item.primaryAssigneeName ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [queueQuery.data?.data, filters.query]);
+  const rows = queueQuery.data?.data ?? [];
 
   const actionRequiredCount =
     summaryData.queues.find((queue) => queue.key === "action-required")?.count ?? 0;
@@ -111,11 +132,24 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
   const totalPages = Math.max(1, Math.ceil((queueQuery.data?.total ?? 0) / filters.pageSize));
 
   const updateFilters = (patch: Partial<WorkOrderQueueFilters>) => {
+    if (patch.query !== undefined) {
+      setSearchInput(patch.query);
+    }
     setFilters((current) => ({
       ...current,
       ...patch,
-      page: patch.page ?? (patch.queue || patch.pageSize ? 1 : current.page)
+      page: patch.page ?? (patch.queue || patch.pageSize || patch.smartView ? 1 : current.page)
     }));
+  };
+
+  const toggleSelect = (id: string) => {
+    if (!onSelectedIdsChange) return;
+    onSelectedIdsChange(selectedIds.includes(id) ? selectedIds.filter((entry) => entry !== id) : [...selectedIds, id]);
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (!onSelectedIdsChange) return;
+    onSelectedIdsChange(checked ? rows.map((row) => row.id) : []);
   };
 
   if (summaryQuery.isLoading && !summaryQuery.data && !summaryUnavailable) {
@@ -182,9 +216,9 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
 
         <div className="grid gap-3 border-b border-slate-200 px-4 py-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           <input
-            value={filters.query}
+            value={searchInput}
             onChange={(event) => updateFilters({ query: event.target.value, page: 1 })}
-            placeholder="Search WO, title, asset..."
+            placeholder="Search WO, title, asset... (min 2 chars)"
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
           />
           <select
@@ -244,6 +278,34 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
           </button>
         </div>
 
+        {smartViewsQuery.data?.views?.length ? (
+          <div className="border-b border-slate-200 px-4 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Smart views</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {smartViewsQuery.data.views.map((view) => (
+                <button
+                  key={view.key}
+                  type="button"
+                  onClick={() =>
+                    updateFilters({
+                      smartView: view.key,
+                      queue: view.queueKey,
+                      page: 1
+                    })
+                  }
+                  className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                    filters.smartView === view.key
+                      ? "border-brand-500 bg-brand-50 text-brand-800"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {queueQuery.data?.categorySummary?.length ? (
           <div className="border-b border-slate-200 px-4 py-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Category summary</p>
@@ -285,31 +347,23 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
         ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-600">
             {filters.queue === "action-required"
-              ? "No work orders need your action."
-              : "No work orders found for this queue."}
+              ? "No actions required right now."
+              : filters.query.trim().length >= 2
+                ? "No work orders match your filters."
+                : "No work orders found for this queue."}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Work Order</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Risk</th>
-                  <th className="px-4 py-3">Asset / Assignee</th>
-                  <th className="px-4 py-3">Parts / Evidence</th>
-                  <th className="px-4 py-3">Due</th>
-                  <th className="px-4 py-3">Action Required</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {rows.map((row) => (
-                  <QueueRow key={row.id} row={row} onOpen={() => onOpenWorkOrder(row)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <WorkOrderCompactTable
+              rows={rows}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onOpen={(row) => onOpenWorkOrder(row)}
+              canBulkSelect={canBulkSelect}
+            />
+            <WorkOrderMobileCardList rows={rows} onOpen={(row) => onOpenWorkOrder(row)} />
+          </>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
@@ -337,61 +391,5 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
         </div>
       </div>
     </div>
-  );
-}
-
-function QueueRow({ row, onOpen }: { row: WorkOrderQueueItem; onOpen: () => void }) {
-  const primaryAction = row.actionRequired?.[0];
-  return (
-    <tr className="hover:bg-slate-50">
-      <td className="px-4 py-3">
-        <p className="font-semibold text-brand-700">{row.woNumber}</p>
-        <p className="font-medium text-slate-900">{row.title}</p>
-        <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs ${getPriorityClass(row.priority)}`}>
-          {toTitleCase(row.priority)}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${getStatusClass(row.status)}`}>
-          {toTitleCase(row.status.replaceAll("_", " "))}
-        </span>
-        {row.verificationStatus && row.verificationStatus !== "NOT_REQUIRED" ? (
-          <p className="mt-1 text-xs text-slate-500">Verification: {toTitleCase(row.verificationStatus)}</p>
-        ) : null}
-      </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${riskBadgeClass(row.riskSeverity)}`}>
-          {row.riskScore ?? 0} · {row.riskSeverity ?? "LOW"}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <p>{getAssetLabel(row)}</p>
-        <p className="text-xs text-slate-500">{row.primaryAssigneeName ?? getTechnicianName(row)}</p>
-      </td>
-      <td className="px-4 py-3 text-xs text-slate-600">
-        <p>Parts: {row.partsStatus ?? "None"}</p>
-        <p>Evidence: {row.evidenceStatus ?? "—"}</p>
-      </td>
-      <td className="px-4 py-3">
-        <p>{formatDate(row.dueDate)}</p>
-        {row.overdueDays && row.overdueDays > 0 ? (
-          <p className="text-xs font-medium text-red-700">Overdue {row.overdueDays}d</p>
-        ) : null}
-      </td>
-      <td className="px-4 py-3">
-        {primaryAction ? (
-          <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
-            {primaryAction.label}
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">—</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <button type="button" onClick={onOpen} className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-800 hover:bg-brand-50">
-          Open
-        </button>
-      </td>
-    </tr>
   );
 }

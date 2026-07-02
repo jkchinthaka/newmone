@@ -103,7 +103,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       ...baseWorkOrder,
       status: WorkOrderStatus.IN_PROGRESS
     });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.updateStatus("wo-1", { status: WorkOrderStatus.OPEN }, manager)
@@ -116,7 +116,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       ...baseWorkOrder,
       status: WorkOrderStatus.COMPLETED
     });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.updateStatus("wo-1", { status: WorkOrderStatus.OPEN }, admin)
@@ -129,7 +129,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       ...baseWorkOrder,
       status: WorkOrderStatus.IN_PROGRESS
     });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.updateStatus("wo-1", { status: WorkOrderStatus.CANCELLED }, manager)
@@ -157,7 +157,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
     await service.updateStatus(
       "wo-1",
       {
@@ -189,7 +189,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       ...baseWorkOrder,
       status: WorkOrderStatus.IN_PROGRESS
     });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.updateStatus(
@@ -221,7 +221,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
     await service.verifySupervisor("wo-1", { verificationNote: "Work verified on site" }, manager);
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
@@ -251,7 +251,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-3" });
 
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
     await service.rejectSupervisor("wo-1", "Quality check failed", manager);
 
     expect(prisma.workOrder.update).toHaveBeenCalledWith(
@@ -277,7 +277,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       status: WorkOrderStatus.OPEN
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-reopen" });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(service.reopenWorkOrder("wo-1", "bad", technician)).rejects.toBeInstanceOf(
       BadRequestException
@@ -293,7 +293,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       ...baseWorkOrder,
       status: WorkOrderStatus.IN_PROGRESS
     });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.update("wo-1", { expectedCompletionDate: "2026-08-01" }, manager)
@@ -307,7 +307,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       status: WorkOrderStatus.IN_PROGRESS
     });
     prisma.workOrderPart.findFirst.mockResolvedValue({ id: "line-1" });
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.addPart("wo-1", { partId: "part-1", quantity: 2, unitCost: 10 }, manager)
@@ -321,7 +321,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       status: WorkOrderStatus.IN_PROGRESS
     });
     prisma.workOrderPart.findFirst.mockResolvedValue(null);
-    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
       service.addPart("wo-1", { partId: "part-1", quantity: 0, unitCost: 10 }, manager)

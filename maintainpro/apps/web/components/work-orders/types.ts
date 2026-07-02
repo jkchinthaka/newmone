@@ -122,6 +122,9 @@ export interface WorkOrderFilters {
   dueDateTo: string;
   sortBy: WorkOrderSortField;
   sortDirection: SortDirection;
+  page: number;
+  pageSize: number;
+  queue: string;
 }
 
 export interface CreateWorkOrderInput {
@@ -193,5 +196,8 @@ export const DEFAULT_WORK_ORDER_FILTERS: WorkOrderFilters = {
   dueDateFrom: "",
   dueDateTo: "",
   sortBy: "createdAt",
-  sortDirection: "desc"
+  sortDirection: "desc",
+  page: 1,
+  pageSize: 25,
+  queue: "all"
 };

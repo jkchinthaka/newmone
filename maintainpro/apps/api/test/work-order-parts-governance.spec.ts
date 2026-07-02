@@ -157,7 +157,7 @@ describe("work-order-parts-governance (UAT-010)", () => {
         workOrder: { findFirst: jest.fn().mockResolvedValue({ id: "wo-1", status: WorkOrderStatus.IN_PROGRESS }) }
       };
 
-      const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, partsMock as any, createWorkOrderTaxonomyServiceMock() as any);
+      const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, partsMock as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
       await expect(
         service.addPart("wo-1", { partId: "p1", quantity: 1, unitCost: 10 }, {
@@ -180,7 +180,7 @@ describe("work-order-parts-governance (UAT-010)", () => {
         partRequest: { findFirst: jest.fn() }
       };
 
-      const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, partsMock as any, createWorkOrderTaxonomyServiceMock() as any);
+      const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, partsMock as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
       await expect(
         service.issuePartRequest("wo-1", "req-1", { quantity: 1 }, {

@@ -51,6 +51,7 @@ import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
+import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -60,7 +61,8 @@ export class WorkOrdersService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly workOrderPartsService: WorkOrderPartsService,
-    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService
+    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
+    private readonly workOrderAssigneesService: WorkOrderAssigneesService
   ) {}
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
@@ -1992,5 +1994,144 @@ export class WorkOrdersService {
     assertReasonProvided(input.reason, "Triage classification reason is required");
 
     return this.changeTaxonomy(id, input, actor);
+  }
+
+  private assertBulkOperationalPermission(actor?: Actor) {
+    const role = actor?.role as RoleName;
+    const allowed = new Set<RoleName>([
+      RoleName.SUPERVISOR,
+      RoleName.MANAGER,
+      RoleName.OPERATIONS_MANAGER,
+      RoleName.ASSET_MANAGER,
+      RoleName.ADMIN,
+      RoleName.SUPER_ADMIN
+    ]);
+    if (!actor || !allowed.has(role)) {
+      throw new ForbiddenException("You do not have permission for bulk work order actions.");
+    }
+  }
+
+  async bulkAssign(
+    input: {
+      workOrderIds: string[];
+      assigneeEmployeeIds: string[];
+      expectedCompletionDate?: string;
+      reason?: string;
+    },
+    actor?: Actor
+  ) {
+    this.assertBulkOperationalPermission(actor);
+
+    if (!Array.isArray(input.workOrderIds) || input.workOrderIds.length === 0) {
+      throw new BadRequestException("workOrderIds is required");
+    }
+    if (!Array.isArray(input.assigneeEmployeeIds) || input.assigneeEmployeeIds.length === 0) {
+      throw new BadRequestException("assigneeEmployeeIds is required");
+    }
+
+    const success: string[] = [];
+    const failed: Array<{ workOrderId: string; reason: string }> = [];
+
+    for (const workOrderId of input.workOrderIds) {
+      try {
+        const current = await this.findOne(workOrderId, actor);
+        if (TERMINAL_WORK_ORDER_STATUSES.has(current.status)) {
+          throw new BadRequestException("Cannot assign completed or cancelled work order");
+        }
+
+        this.assertWorkOrderApprovedForExecution(current);
+
+        for (let index = 0; index < input.assigneeEmployeeIds.length; index += 1) {
+          const employeeId = input.assigneeEmployeeIds[index];
+          await this.workOrderAssigneesService.addAssignee(
+            workOrderId,
+            { employeeId, isPrimary: index === 0 },
+            actor
+          );
+        }
+
+        if (input.expectedCompletionDate) {
+          await this.prisma.workOrder.update({
+            where: { id: workOrderId },
+            data: { expectedCompletionDate: new Date(input.expectedCompletionDate) }
+          });
+        }
+
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: workOrderId,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: input.reason ?? "Bulk assign",
+          metadata: {
+            event: "work_order_bulk_assign",
+            assigneeEmployeeIds: input.assigneeEmployeeIds,
+            expectedCompletionDate: input.expectedCompletionDate ?? null
+          }
+        });
+
+        success.push(workOrderId);
+      } catch (error) {
+        failed.push({
+          workOrderId,
+          reason: error instanceof Error ? error.message : "Bulk assign failed"
+        });
+      }
+    }
+
+    return { success, failed };
+  }
+
+  async bulkStatus(
+    input: {
+      workOrderIds: string[];
+      targetStatus: WorkOrderStatus;
+      reason?: string;
+      cancelReason?: string;
+    },
+    actor?: Actor
+  ) {
+    this.assertBulkOperationalPermission(actor);
+
+    if (!Array.isArray(input.workOrderIds) || input.workOrderIds.length === 0) {
+      throw new BadRequestException("workOrderIds is required");
+    }
+
+    if (
+      input.targetStatus === WorkOrderStatus.COMPLETED ||
+      input.targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+    ) {
+      throw new BadRequestException(
+        "Bulk completion is not allowed. Complete work orders individually with evidence, cost, and governance checks."
+      );
+    }
+
+    if (input.targetStatus === WorkOrderStatus.CANCELLED) {
+      assertReasonProvided("Cancel reason", input.cancelReason ?? input.reason);
+    }
+
+    const success: string[] = [];
+    const failed: Array<{ workOrderId: string; reason: string }> = [];
+
+    for (const workOrderId of input.workOrderIds) {
+      try {
+        await this.updateStatus(
+          workOrderId,
+          {
+            status: input.targetStatus,
+            cancelReason: input.cancelReason ?? input.reason
+          },
+          actor
+        );
+        success.push(workOrderId);
+      } catch (error) {
+        failed.push({
+          workOrderId,
+          reason: error instanceof Error ? error.message : "Bulk status update failed"
+        });
+      }
+    }
+
+    return { success, failed };
   }
 }

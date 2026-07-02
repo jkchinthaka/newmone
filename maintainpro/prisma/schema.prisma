@@ -1115,9 +1115,17 @@ model WorkOrder {
   triageClassifiedById String?             @db.ObjectId
 
   @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, isTriage])
+  @@index([tenantId, dueDate])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([dueDate])
   @@index([expectedCompletionDate])
   @@index([plannedEndAt])
   @@index([accidentId])
