@@ -25,6 +25,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { AcceptInviteDto } from "./dto/accept-invite.dto";
 
 @ApiTags("Auth")
 @Controller("auth")
@@ -114,6 +115,24 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Public()
+  @Get("invite/verify")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  verifyInvite(@Req() req: Request) {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    if (!token.trim()) {
+      throw new BadRequestException("token is required");
+    }
+    return this.authService.verifyInvite(token.trim());
+  }
+
+  @Public()
+  @Post("invite/accept")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  acceptInvite(@Body() dto: AcceptInviteDto) {
+    return this.authService.acceptInvite(dto);
   }
 
   @ApiBearerAuth()

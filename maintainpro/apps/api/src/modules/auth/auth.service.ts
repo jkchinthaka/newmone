@@ -9,7 +9,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
+import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, UserInviteStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -21,6 +21,7 @@ import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import type { AuthTokens, JwtPayload } from "./auth.types";
 
 @Injectable()
@@ -259,7 +260,8 @@ export class AuthService {
               }
             }
           }
-        }
+        },
+        linkedWorkforceEmployees: { select: { id: true, active: true } }
       }
     });
 
@@ -267,8 +269,17 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
+    const linkedEmployee = user.linkedWorkforceEmployees?.[0];
+    if (linkedEmployee && !linkedEmployee.active) {
+      throw new UnauthorizedException("Invalid email or password");
+    }
+
     if (user.lockedUntil && user.lockedUntil > now) {
       throw new UnauthorizedException("Invalid email or password");
+    }
+
+    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
+      throw new UnauthorizedException("Temporary password expired. Contact your administrator.");
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -285,6 +296,8 @@ export class AuthService {
       });
       throw new UnauthorizedException("Invalid email or password");
     }
+
+    const mustChangePassword = user.mustChangePassword === true;
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -305,11 +318,13 @@ export class AuthService {
       data: {
         user: {
           ...this.toPublicUser(user),
-          permissions: permissionKeys
+          permissions: permissionKeys,
+          mustChangePassword
         },
-        ...tokens
+        ...tokens,
+        mustChangePassword
       },
-      message: "Login successful"
+      message: mustChangePassword ? "Login successful — password change required" : "Login successful"
     };
   }
 
@@ -539,6 +554,104 @@ export class AuthService {
     return {
       data: { changed: true },
       message: "Password reset successful"
+    };
+  }
+
+  async verifyInvite(token: string) {
+    const tokenHash = this.hashToken(token);
+    const invitation = await this.prisma.userInvitation.findUnique({
+      where: { tokenHash },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true, isActive: true } }
+      }
+    });
+
+    if (!invitation) {
+      throw new BadRequestException("Invitation not found or invalid");
+    }
+    if (invitation.status === UserInviteStatus.REVOKED) {
+      throw new BadRequestException("Invitation revoked");
+    }
+    if (invitation.status === UserInviteStatus.ACCEPTED || invitation.acceptedAt) {
+      throw new BadRequestException("Invitation already accepted");
+    }
+    if (invitation.expiresAt <= new Date()) {
+      if (invitation.status !== UserInviteStatus.EXPIRED) {
+        await this.prisma.userInvitation.update({
+          where: { id: invitation.id },
+          data: { status: UserInviteStatus.EXPIRED }
+        });
+      }
+      throw new BadRequestException("Invitation expired");
+    }
+
+    return {
+      data: {
+        email: invitation.user.email,
+        fullName: `${invitation.user.firstName} ${invitation.user.lastName}`.trim(),
+        expiresAt: invitation.expiresAt.toISOString()
+      },
+      message: "Invitation valid"
+    };
+  }
+
+  async acceptInvite(dto: AcceptInviteDto) {
+    const tokenHash = this.hashToken(dto.token);
+    const now = new Date();
+    const invitation = await this.prisma.userInvitation.findUnique({
+      where: { tokenHash },
+      include: { user: true }
+    });
+
+    if (!invitation) throw new BadRequestException("Invitation not found or invalid");
+    if (invitation.status === UserInviteStatus.REVOKED) throw new BadRequestException("Invitation revoked");
+    if (invitation.status === UserInviteStatus.ACCEPTED || invitation.acceptedAt) {
+      throw new BadRequestException("Invitation already accepted");
+    }
+    if (invitation.expiresAt <= now) {
+      throw new BadRequestException("Invitation expired");
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const ctx = requestContext.get();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: invitation.userId },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          lastPasswordChangedAt: now,
+          isActive: true,
+          failedLoginAttempts: 0,
+          lockedUntil: null
+        }
+      });
+      await tx.userInvitation.update({
+        where: { id: invitation.id },
+        data: { status: UserInviteStatus.ACCEPTED, acceptedAt: now }
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: invitation.tenantId,
+          actorId: invitation.userId,
+          module: "people",
+          entity: "UserInvitation",
+          entityId: invitation.id,
+          action: AuditAction.UPDATE,
+          reason: "Invitation accepted",
+          ipAddress: ctx?.ipAddress ?? undefined,
+          userAgent: ctx?.userAgent ?? undefined,
+          requestPath: ctx?.requestPath ?? undefined,
+          metadata: { event: "invitation_accepted" }
+        }
+      });
+    });
+
+    return {
+      data: { accepted: true },
+      message: "Account activated — you can now sign in"
     };
   }
 

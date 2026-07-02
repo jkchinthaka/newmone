@@ -25,6 +25,14 @@ export function isAdminConsoleRole(roleName: string | null | undefined): boolean
 export function getAdminConsoleSections(): AdminConsoleSection[] {
   return [
     {
+      id: "people-onboarding",
+      title: "People & Onboarding",
+      description: "Add employees, technician profiles, login access, roles, and secure invitations.",
+      status: "available",
+      statusLabel: "Full onboarding",
+      href: "/admin/people"
+    },
+    {
       id: "users-access",
       title: "Users & Access",
       description: "Review users, roles, tenant association, and access status in a read-only admin view.",

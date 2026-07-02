@@ -17,6 +17,7 @@ model Tenant {
 
   memberships                  TenantMembership[]
   invitations                  TenantInvitation[]
+  userInvitations              UserInvitation[]
   subscriptions                Subscription[]
   usageMetrics                 UsageMetric[]
   usageEvents                  UsageEvent[]
@@ -194,6 +195,12 @@ model User {
   dailyCapacityHours  Float       @default(8)
   /// Skill tags for assignment filtering
   skills              String[]
+  /// Force password change on next login (temp password / reset)
+  mustChangePassword  Boolean     @default(false)
+  /// Optional branch scope label for RBAC filtering
+  branchScope         String?
+  temporaryPasswordExpiresAt DateTime?
+  lastPasswordChangedAt DateTime?
   isActive            Boolean     @default(true)
   lastLogin           DateTime?
   failedLoginAttempts Int         @default(0)
@@ -237,6 +244,8 @@ model User {
   trafficFinesReported        TrafficFine[]           @relation("TrafficFineReporter")
   refreshTokens               RefreshToken[]
   passwordResetTokens         PasswordResetToken[]
+  userInvitations             UserInvitation[]        @relation("UserInvitationTarget")
+  sentUserInvitations         UserInvitation[]        @relation("UserInvitationSender")
   evidenceAttachmentsUploaded EvidenceAttachment[]    @relation("EvidenceUploader")
   workOrderAssignmentsCreated WorkOrderAssignee[]     @relation("WorkOrderAssigneeAssignedBy")
   employeeLeaveApprovals      EmployeeLeaveRequest[]  @relation("EmployeeLeaveApprover")
@@ -377,6 +386,42 @@ enum TenantInvitationStatus {
   ACCEPTED
   EXPIRED
   REVOKED
+}
+
+enum UserInviteStatus {
+  NOT_SENT
+  SENT
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum EmployeeAvailabilityStatus {
+  AVAILABLE
+  ON_LEAVE
+  INACTIVE
+}
+
+/// Login invitation for people onboarding — token stored hashed only.
+model UserInvitation {
+  id                   String           @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?          @db.ObjectId
+  tenant               Tenant?          @relation(fields: [tenantId], references: [id])
+  userId               String           @db.ObjectId
+  user                 User             @relation("UserInvitationTarget", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash            String           @unique
+  expiresAt            DateTime
+  acceptedAt           DateTime?
+  invitedById          String           @db.ObjectId
+  invitedBy            User             @relation("UserInvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  status               UserInviteStatus @default(NOT_SENT)
+  lastInvitationSentAt DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([tenantId, status])
+  @@index([status, expiresAt])
 }
 
 model Plan {
@@ -1289,8 +1334,12 @@ model Employee {
   department         Department? @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   designation        String
   skills             String[]
-  dailyCapacityHours Float       @default(8)
-  active             Boolean     @default(true)
+  workCategories     String[]                    @default([])
+  shift              String?
+  availabilityStatus EmployeeAvailabilityStatus @default(AVAILABLE)
+  canReceiveWorkOrders Boolean                   @default(true)
+  dailyCapacityHours Float                       @default(8)
+  active             Boolean                     @default(true)
   canLogin           Boolean     @default(false)
   linkedUserId       String?     @db.ObjectId
   linkedUser         User?       @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import {
+  EmployeeAvailabilityStatus,
   LeaveRequestStatus,
   Prisma,
   RoleName,
@@ -145,6 +146,8 @@ export class WorkforcePlanningService {
     const rows = await this.prisma.employee.findMany({
       where: {
         active: true,
+        canReceiveWorkOrders: true,
+        availabilityStatus: EmployeeAvailabilityStatus.AVAILABLE,
         ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
       },
       select: {

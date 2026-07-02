@@ -744,6 +744,7 @@ const NAV_CATEGORY_ORDER: NavCategory[] = [
 
 const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/users": ["/admin"],
+  "/admin/people": ["/admin"],
   "/admin/roles": ["/admin"],
   "/admin/tenants": ["/admin"],
   "/admin/invitations": ["/admin"],

@@ -1,6 +1,6 @@
 # Backend RBAC Audit
 
-Generated: 2026-07-02T13:49:01.392Z
+Generated: 2026-07-02T20:53:30.537Z
 
 MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuard`, `TenantContextGuard`, `RolesGuard`, `PermissionsGuard`.
 
@@ -8,8 +8,8 @@ MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuar
 
 | Metric | Count |
 |--------|------:|
-| Total routes scanned | 371 |
-| PASS | 347 |
+| Total routes scanned | 388 |
+| PASS | 364 |
 | FIXED | 0 |
 | TODO | 24 |
 
@@ -64,13 +64,15 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/audit-logs` | GET | `modules/audit/audit.controller.ts` | audit.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/auth/forgot-password` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/auth/google` | GET | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS (public) |
+| `/auth/invite/accept` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
+| `/auth/invite/verify` | GET | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS (public) |
 | `/auth/login` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/auth/logout-all` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/auth/logout` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
 | `/auth/me` | GET | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/auth/refresh` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/auth/register` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
-| `/auth/reset-password` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
+| `/auth/reset-password` | POST | `modules/auth/auth.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/billing/checkout-session` | POST | `modules/billing/billing.controller.ts` | — | SUPER_ADMIN, ADMIN, MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS (public) |
 | `/billing/subscription` | GET | `modules/billing/billing.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
 | `/billing/webhooks/stripe` | POST | `modules/billing/billing.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
@@ -266,6 +268,21 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/traffic-fines/:id` | GET | `modules/traffic-fines/traffic-fines.controller.ts` | traffic_fines.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/traffic-fines` | GET | `modules/traffic-fines/traffic-fines.controller.ts` | traffic_fines.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/traffic-fines` | POST | `modules/traffic-fines/traffic-fines.controller.ts` | traffic_fines.report | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id/deactivate` | POST | `modules/people/people.controller.ts` | users.status.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id/disable-login` | POST | `modules/people/people.controller.ts` | users.status.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id/enable-login` | POST | `modules/people/people.controller.ts` | users.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id/reactivate` | POST | `modules/people/people.controller.ts` | users.status.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id/technician-profile` | POST | `modules/people/people.controller.ts` | users.edit | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id` | GET | `modules/people/people.controller.ts` | users.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people/:id` | PATCH | `modules/people/people.controller.ts` | users.edit | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people` | GET | `modules/people/people.controller.ts` | users.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/people` | POST | `modules/people/people.controller.ts` | users.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/technicians/:id` | PATCH | `modules/people/people.controller.ts` | users.edit | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/technicians/assignable` | GET | `modules/people/people.controller.ts` | — | SUPER_ADMIN, ADMIN, MANAGER, OPERATIONS_MANAGER, ASSET_MANAGER, SUPERVISOR | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/technicians` | GET | `modules/people/people.controller.ts` | users.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/users/:id/resend-invite` | POST | `modules/people/people.controller.ts` | users.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/users/:id/reset-password` | POST | `modules/people/people.controller.ts` | users.edit | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/unknown/users/:id/send-invite` | POST | `modules/people/people.controller.ts` | users.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/unknown/vehicle-documents/:id/reject` | POST | `modules/vehicle-documents/vehicle-documents.controller.ts` | vehicle_documents.verify | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/unknown/vehicle-documents/:id/verify` | POST | `modules/vehicle-documents/vehicle-documents.controller.ts` | vehicle_documents.verify | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/unknown/vehicle-documents/:id` | GET | `modules/vehicle-documents/vehicle-documents.controller.ts` | vehicle_documents.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
