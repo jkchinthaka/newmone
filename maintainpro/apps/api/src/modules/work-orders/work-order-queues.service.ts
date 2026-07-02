@@ -97,7 +97,37 @@ const listInclude = {
   }
 } satisfies Prisma.WorkOrderInclude;
 
+const summaryListInclude = {
+  parts: {
+    select: {
+      lineStatus: true,
+      issuedQuantity: true,
+      requestedQuantity: true,
+      approvedQuantity: true,
+      pendingReturnQuantity: true,
+      unitCost: true
+    }
+  },
+  assignees: {
+    select: {
+      isPrimary: true,
+      employee: { select: { fullName: true, linkedUserId: true } }
+    }
+  },
+  evidenceAttachments: {
+    where: { deletedAt: null, status: { not: "DELETED" } },
+    select: { evidenceType: true, status: true, verificationStatus: true }
+  },
+  vendorRepairCase: {
+    select: {
+      status: true,
+      invoices: { select: { status: true }, take: 3 }
+    }
+  }
+} satisfies Prisma.WorkOrderInclude;
+
 type WorkOrderRow = Prisma.WorkOrderGetPayload<{ include: typeof listInclude }>;
+type WorkOrderSummaryRow = Prisma.WorkOrderGetPayload<{ include: typeof summaryListInclude }>;
 
 export type WorkOrderQueueListItem = WorkOrderRow & {
   riskScore: number;
@@ -188,11 +218,11 @@ export class WorkOrderQueuesService {
       const where = this.buildPrismaWhere(actor, {});
       const rows = await this.prisma.workOrder.findMany({
         where,
-        include: listInclude,
+        include: summaryListInclude,
         orderBy: { updatedAt: "desc" },
         take: 800
       });
-      enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, warnings, "summary");
+      enriched = await this.safeEnrichRows(rows as WorkOrderRow[], tenantId ?? undefined, warnings, "summary");
     } catch (error) {
       this.logger.error("Failed to load work orders for queue summary", error instanceof Error ? error.stack : String(error));
       warnings.push({ queue: "*", message: "Queue data temporarily unavailable" });

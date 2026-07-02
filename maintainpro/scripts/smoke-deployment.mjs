@@ -385,7 +385,7 @@ await check("Work order queues route", async () => {
       Number(process.env.SMOKE_QUEUES_TIMEOUT_MS ?? 120_000)
     );
   } catch (error) {
-    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "GET /work-orders/queues request"));
+    throw new Error(formatFetchError(error, Number(process.env.SMOKE_QUEUES_TIMEOUT_MS ?? 120_000), "GET /work-orders/queues request"));
   }
   const body = await readJson(response);
   if (response.status === 404) {
