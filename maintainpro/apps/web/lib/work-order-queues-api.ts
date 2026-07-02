@@ -45,7 +45,39 @@ export type WorkOrderQueueItem = WorkOrder & {
 export type WorkOrderQueueSummary = {
   queues: Array<{ key: WorkOrderQueueKey; label: string; count: number }>;
   defaultQueue: WorkOrderQueueKey;
+  summary?: {
+    actionRequired: number;
+    myTasks: number;
+    waitingParts: number;
+    waitingEvidence: number;
+    supervisorVerification: number;
+    highRisk: number;
+    overdue: number;
+    triage: number;
+  };
+  warnings?: Array<{ queue: string; message: string }>;
   lastUpdated: string;
+};
+
+export const FALLBACK_QUEUE_SUMMARY: WorkOrderQueueSummary = {
+  queues: [
+    { key: "action-required", label: "Action Required", count: 0 },
+    { key: "my-tasks", label: "My Tasks", count: 0 },
+    { key: "open-requests", label: "Open Requests", count: 0 },
+    { key: "assigned", label: "Assigned", count: 0 },
+    { key: "in-progress", label: "In Progress", count: 0 },
+    { key: "waiting-parts", label: "Waiting Parts", count: 0 },
+    { key: "waiting-evidence", label: "Waiting Evidence", count: 0 },
+    { key: "supervisor-verification", label: "Supervisor Verification", count: 0 },
+    { key: "overdue", label: "Overdue", count: 0 },
+    { key: "high-risk", label: "High Risk", count: 0 },
+    { key: "triage", label: "Triage / Not Sure", count: 0 },
+    { key: "completed", label: "Completed", count: 0 },
+    { key: "cancelled", label: "Cancelled", count: 0 },
+    { key: "all", label: "All", count: 0 }
+  ],
+  defaultQueue: "action-required",
+  lastUpdated: new Date().toISOString()
 };
 
 export type WorkOrderQueueListResponse = {

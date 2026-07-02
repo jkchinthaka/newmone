@@ -51,6 +51,7 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
   const [vehicleLabel, setVehicleLabel] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState<TaxonomySuggestion | null>(null);
+  const [suggestionUnavailable, setSuggestionUnavailable] = useState(false);
   const [taxonomySelection, setTaxonomySelection] = useState<{
     categoryId?: string;
     typeId?: string;
@@ -61,12 +62,14 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
 
   useEffect(() => {
     const trimmed = description.trim();
-    if (trimmed.length < 4) {
+    if (trimmed.length < 2) {
       setSuggestion(null);
+      setSuggestionUnavailable(false);
       return;
     }
     const handle = window.setTimeout(async () => {
       setSuggesting(true);
+      setSuggestionUnavailable(false);
       try {
         const result = await suggestWorkOrderTaxonomy(trimmed);
         const nextSuggestion = result.suggestion ?? null;
@@ -84,10 +87,11 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
         }
       } catch {
         setSuggestion(null);
+        setSuggestionUnavailable(true);
       } finally {
         setSuggesting(false);
       }
-    }, 350);
+    }, 300);
     return () => window.clearTimeout(handle);
   }, [description, taxonomySelection.pathLabel]);
 
@@ -155,6 +159,10 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
               Suggested: {suggestion.pathLabel} ({suggestion.confidence}% confidence)
               {suggestion.warnings.length ? ` — ${suggestion.warnings.join(", ")}` : ""}
+            </div>
+          ) : suggestionUnavailable ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Category suggestions are currently unavailable. You can still select manually or use Triage in the next step.
             </div>
           ) : null}
         </label>

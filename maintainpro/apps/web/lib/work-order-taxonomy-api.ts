@@ -49,6 +49,7 @@ export type TaxonomySuggestion = {
 export type WorkOrderTaxonomySuggestionResponse = {
   query: string;
   suggestion: TaxonomySuggestion | null;
+  suggestions?: TaxonomySuggestion[];
   method: string;
   roadmapNote?: string;
 };
@@ -99,11 +100,21 @@ function unwrap<T>(payload: unknown): T {
 }
 
 export async function suggestWorkOrderTaxonomy(query: string): Promise<WorkOrderTaxonomySuggestionResponse> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    return { query: trimmed, suggestion: null, suggestions: [], method: "skipped_short_query" };
+  }
+
   const response = await apiClient.get<ApiEnvelope<WorkOrderTaxonomySuggestionResponse>>(
     "/work-orders/taxonomy/suggest",
-    { params: { q: query } }
+    { params: { q: trimmed } }
   );
-  return unwrap<WorkOrderTaxonomySuggestionResponse>(response.data);
+  const data = unwrap<WorkOrderTaxonomySuggestionResponse>(response.data);
+  return {
+    ...data,
+    suggestion: data.suggestion ?? null,
+    suggestions: data.suggestions ?? []
+  };
 }
 
 export async function searchWorkOrderTaxonomy(query: string, limit = 25): Promise<TaxonomySearchResult[]> {

@@ -107,6 +107,11 @@ describe("work order taxonomy suggest", () => {
     expect(suggestion?.confidence).toBeGreaterThan(0);
     expect(suggestion?.matchedKeywords.length).toBeGreaterThan(0);
   });
+
+  it("returns null suggestion for unknown query without throwing", () => {
+    const suggestion = suggestWorkOrderTaxonomy("unknowntextxyz", candidates);
+    expect(suggestion).toBeNull();
+  });
 });
 
 describe("WorkOrderTaxonomyService permissions", () => {

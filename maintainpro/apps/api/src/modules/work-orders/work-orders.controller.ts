@@ -16,6 +16,7 @@ import { WorkOrderQueuesService } from "./work-order-queues.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
+import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -35,7 +36,8 @@ export class WorkOrdersController {
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderQueuesService: WorkOrderQueuesService,
     private readonly evidenceService: EvidenceService,
-    private readonly vendorRepairService: VendorRepairService
+    private readonly vendorRepairService: VendorRepairService,
+    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -137,6 +139,46 @@ export class WorkOrdersController {
   async categorySummary(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getCategorySummary(req.user, query);
     return { data, message: "Work order category summary fetched" };
+  }
+
+  @Get("taxonomy/suggest")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER",
+    "VIEWER",
+    "DRIVER"
+  )
+  async suggestTaxonomy(@Req() req: AuthedRequest, @Query("q") q = "") {
+    const data = await this.workOrderTaxonomyService.suggest(req.user, q);
+    return { data, message: "Work order taxonomy suggestion fetched" };
+  }
+
+  @Get("taxonomy/search")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER",
+    "VIEWER",
+    "DRIVER"
+  )
+  async searchTaxonomy(@Req() req: AuthedRequest, @Query("q") q = "", @Query("limit") limit?: string) {
+    const data = await this.workOrderTaxonomyService.search(req.user, q, limit ? Number(limit) : 25);
+    return { data, message: "Work order taxonomy search results fetched" };
   }
 
   @Get()

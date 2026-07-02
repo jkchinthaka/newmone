@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 import { ErrorState } from "@/components/ui/page-state";
@@ -9,11 +10,13 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   DEFAULT_QUEUE_FILTERS,
+  FALLBACK_QUEUE_SUMMARY,
   fetchWorkOrderQueue,
   fetchWorkOrderQueueSummary,
   type WorkOrderQueueFilters,
   type WorkOrderQueueItem,
-  type WorkOrderQueueKey
+  type WorkOrderQueueKey,
+  type WorkOrderQueueSummary
 } from "@/lib/work-order-queues-api";
 
 import { formatDate, getAssetLabel, getPriorityClass, getStatusClass, getTechnicianName, toTitleCase } from "./helpers";
@@ -23,6 +26,14 @@ type Props = {
   onOpenWorkOrder: (workOrder: WorkOrder) => void;
   onRefreshLegacy?: () => void;
 };
+
+function shouldRetryQueueRequest(failureCount: number, error: unknown) {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 404 || status === 401 || status === 403) return false;
+  }
+  return failureCount < 1;
+}
 
 function riskBadgeClass(severity?: string) {
   switch (severity) {
@@ -45,34 +56,39 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
   const summaryQuery = useQuery({
     queryKey: ["work-orders", "queue-summary"],
     queryFn: fetchWorkOrderQueueSummary,
-    refetchInterval: 30_000
+    retry: shouldRetryQueueRequest,
+    refetchInterval: (query) => (query.state.error ? false : 30_000)
   });
 
+  const summaryData: WorkOrderQueueSummary = summaryQuery.data ?? FALLBACK_QUEUE_SUMMARY;
+  const summaryUnavailable = summaryQuery.isError && !summaryQuery.data;
+
   useEffect(() => {
-    if (summaryQuery.data && !initialized) {
+    if ((summaryQuery.data || summaryUnavailable) && !initialized) {
       setInitialized(true);
       setFilters((current) => ({
         ...current,
-        queue: summaryQuery.data!.defaultQueue
+        queue: summaryQuery.data?.defaultQueue ?? FALLBACK_QUEUE_SUMMARY.defaultQueue
       }));
     }
-  }, [summaryQuery.data, initialized]);
+  }, [summaryQuery.data, summaryUnavailable, initialized]);
 
   const queueQuery = useQuery({
     queryKey: ["work-orders", "queue", filters],
     queryFn: () => fetchWorkOrderQueue(filters),
     enabled: initialized,
-    refetchInterval: 30_000
+    retry: shouldRetryQueueRequest,
+    refetchInterval: (query) => (query.state.error ? false : 30_000)
   });
 
   const visibleQueues = useMemo(() => {
     const role = currentUser?.role ?? "";
     const isTechnician = role === "TECHNICIAN" || role === "MECHANIC";
-    return (summaryQuery.data?.queues ?? []).filter((queue) => {
+    return (summaryData.queues ?? []).filter((queue) => {
       if (isTechnician && queue.key === "all") return false;
       return true;
     });
-  }, [summaryQuery.data?.queues, currentUser?.role]);
+  }, [summaryData.queues, currentUser?.role]);
 
   const rows = useMemo(() => {
     const query = filters.query.trim().toLowerCase();
@@ -87,7 +103,7 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
   }, [queueQuery.data?.data, filters.query]);
 
   const actionRequiredCount =
-    summaryQuery.data?.queues.find((queue) => queue.key === "action-required")?.count ?? 0;
+    summaryData.queues.find((queue) => queue.key === "action-required")?.count ?? 0;
 
   const totalPages = Math.max(1, Math.ceil((queueQuery.data?.total ?? 0) / filters.pageSize));
 
@@ -99,7 +115,7 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
     }));
   };
 
-  if (summaryQuery.isLoading && !summaryQuery.data) {
+  if (summaryQuery.isLoading && !summaryQuery.data && !summaryUnavailable) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
         <Loader2 size={16} className="animate-spin" /> Loading work order queues...
@@ -107,21 +123,13 @@ export function WorkOrderQueuePanel({ onOpenWorkOrder, onRefreshLegacy }: Props)
     );
   }
 
-  if (summaryQuery.isError) {
-    return (
-      <ErrorState
-        title="Unable to load work orders"
-        description={getApiErrorMessage(summaryQuery.error, "Please check backend connection.")}
-        onRetry={() => {
-          void summaryQuery.refetch();
-          void queueQuery.refetch();
-        }}
-      />
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {summaryUnavailable ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Unable to load work order queue counts. Please refresh or contact IT. You can still browse queues below; counts may show as zero until the service recovers.
+        </div>
+      ) : null}
       {actionRequiredCount > 0 ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">

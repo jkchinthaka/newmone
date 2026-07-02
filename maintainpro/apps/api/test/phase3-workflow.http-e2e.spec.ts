@@ -14,6 +14,8 @@ import { InventoryService } from "../src/modules/inventory/inventory.service";
 import { ErpStockSyncService } from "../src/modules/inventory/erp-stock-sync.service";
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
+import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
+import { WorkOrderTaxonomyService } from "../src/modules/work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderActivityService } from "../src/modules/work-orders/work-order-activity.service";
 import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order-assignees.service";
 import { WorkOrderHistoryService } from "../src/modules/work-orders/work-order-history.service";
@@ -154,6 +156,7 @@ const prisma = {
     { provide: WorkOrderPartsService, useValue: workOrderPartsService },
     { provide: VendorRepairService, useValue: vendorRepairService },
     { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
+    { provide: WorkOrderTaxonomyService, useValue: createWorkOrderTaxonomyServiceMock() },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },

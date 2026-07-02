@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AuditAction, Prisma, Priority, RoleName, WorkOrderStatus, WorkOrderTaxonomyLevel } from "@prisma/client";
 
 import {
@@ -58,6 +58,7 @@ const TAXONOMY_MANAGER_ROLES = new Set<RoleName>([
 
 @Injectable()
 export class WorkOrderTaxonomyService {
+  private readonly logger = new Logger(WorkOrderTaxonomyService.name);
   private readonly seededTenants = new Set<string>();
 
   constructor(private readonly prisma: PrismaService) {}
@@ -176,16 +177,54 @@ export class WorkOrderTaxonomyService {
   }
 
   async suggest(actor: Actor, q: string) {
-    const tenantId = this.resolveTenantId(actor);
-    await this.ensureSeed(tenantId ?? null);
-    const candidates = await this.loadSuggestCandidates(tenantId ?? null, true);
-    const suggestion = suggestWorkOrderTaxonomy(q, candidates);
-    return {
-      query: q,
-      suggestion,
-      method: "rule_based_keyword_matching",
-      roadmapNote: "Future AI-assisted classification can augment rule-based suggestions."
-    };
+    const query = q.trim();
+    try {
+      const tenantId = this.resolveTenantId(actor);
+      await this.ensureSeed(tenantId ?? null);
+      const candidates = await this.loadSuggestCandidates(tenantId ?? null, true);
+      const suggestion = query.length >= 2 ? suggestWorkOrderTaxonomy(query, candidates) : null;
+      const suggestions =
+        query.length >= 2
+          ? searchTaxonomyRows(query, candidates, 5).map((row) => ({
+              categoryId: row.categoryId,
+              typeId: row.typeId,
+              issueId: row.issueId,
+              categoryName: row.categoryName,
+              typeName: row.typeName,
+              issueName: row.issueName,
+              pathLabel: row.pathLabel,
+              confidence: row.score,
+              matchedKeywords: row.matchedKeywords,
+              defaultPriority: row.defaultPriority ?? undefined,
+              requiresAsset: row.requiresAsset ?? false,
+              requiresVehicle: row.requiresVehicle ?? false,
+              requiresLocation: row.requiresLocation ?? false,
+              requiresEvidence: row.requiresEvidence ?? false,
+              gateOutBlockingRisk: row.gateOutBlockingRisk ?? false,
+              warnings: [] as string[]
+            }))
+          : [];
+
+      return {
+        query,
+        suggestion,
+        suggestions,
+        method: "rule_based_keyword_matching",
+        roadmapNote: "Future AI-assisted classification can augment rule-based suggestions."
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Taxonomy suggestion failed for query "${query}"`,
+        error instanceof Error ? error.message : String(error)
+      );
+      return {
+        query,
+        suggestion: null,
+        suggestions: [],
+        method: "unavailable",
+        roadmapNote: "Taxonomy suggestions temporarily unavailable."
+      };
+    }
   }
 
   private async loadSuggestCandidates(tenantId: string | null, activeOnly: boolean): Promise<TaxonomySuggestCandidate[]> {

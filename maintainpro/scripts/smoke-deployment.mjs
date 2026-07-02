@@ -371,6 +371,63 @@ await check("Work order history route", async () => {
   return assertRouteAvailable(`/work-orders/${workOrderId}/history`, smokeAccessToken, "GET /work-orders/:id/history");
 });
 
+await check("Work order queues route", async () => {
+  let response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}/work-orders/queues`, {
+      headers: {
+        Authorization: `Bearer ${smokeAccessToken}`,
+        Origin: frontendUrl
+      }
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, "GET /work-orders/queues request"));
+  }
+  const body = await readJson(response);
+  if (response.status === 404) {
+    throw new Error("GET /work-orders/queues returned HTTP 404 (route missing on deployed API)");
+  }
+  if (response.status === 503) {
+    throw new Error(body?.error?.message ?? "GET /work-orders/queues returned HTTP 503");
+  }
+  if (!response.ok) {
+    throw new Error(body?.error?.message ?? `GET /work-orders/queues returned HTTP ${response.status}`);
+  }
+  const payload = body?.data ?? body;
+  if (!Array.isArray(payload?.queues)) {
+    throw new Error("Queue summary response missing queues array");
+  }
+  return `queues=${payload.queues.length}`;
+});
+
+await check("Work order taxonomy suggest route", async () => {
+  for (const query of ["brake", "wifi", "unknowntext"]) {
+    let response;
+    try {
+      response = await fetchWithTimeout(`${apiBaseUrl}/work-orders/taxonomy/suggest?q=${encodeURIComponent(query)}`, {
+        headers: {
+          Authorization: `Bearer ${smokeAccessToken}`,
+          Origin: frontendUrl
+        }
+      });
+    } catch (error) {
+      throw new Error(formatFetchError(error, REQUEST_TIMEOUT_MS, `taxonomy suggest (${query}) request`));
+    }
+    const body = await readJson(response);
+    if (response.status === 404) {
+      throw new Error(`GET /work-orders/taxonomy/suggest?q=${query} returned HTTP 404 (route missing)`);
+    }
+    if (!response.ok) {
+      throw new Error(body?.error?.message ?? `taxonomy suggest (${query}) returned HTTP ${response.status}`);
+    }
+    const payload = body?.data ?? body;
+    if (!("suggestion" in payload)) {
+      throw new Error(`taxonomy suggest (${query}) missing suggestion field`);
+    }
+  }
+  return "brake/wifi/unknown queries accepted";
+});
+
 if (process.exitCode) {
   process.exit(process.exitCode);
 }

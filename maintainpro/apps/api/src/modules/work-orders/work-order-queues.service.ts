@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger } from "@nestjs/common";
 import {
   Prisma,
   RoleName,
@@ -120,8 +120,34 @@ const MANAGER_ROLES = new Set<RoleName>([
   RoleName.ADMIN
 ]);
 
+type EnrichedQueueRow = Awaited<ReturnType<WorkOrderQueuesService["enrichRow"]>>;
+
+export type WorkOrderQueueSummaryWarning = {
+  queue: string;
+  message: string;
+};
+
+export type WorkOrderQueueSummaryResponse = {
+  queues: Array<{ key: WorkOrderQueueKey; label: string; count: number }>;
+  defaultQueue: WorkOrderQueueKey;
+  summary: {
+    actionRequired: number;
+    myTasks: number;
+    waitingParts: number;
+    waitingEvidence: number;
+    supervisorVerification: number;
+    highRisk: number;
+    overdue: number;
+    triage: number;
+  };
+  warnings?: WorkOrderQueueSummaryWarning[];
+  lastUpdated: string;
+};
+
 @Injectable()
 export class WorkOrderQueuesService {
+  private readonly logger = new Logger(WorkOrderQueuesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly maintenanceReports: MaintenanceReportsService,
@@ -151,19 +177,39 @@ export class WorkOrderQueuesService {
     };
   }
 
-  async getQueueSummary(actor: Actor) {
+  async getQueueSummary(actor: Actor): Promise<WorkOrderQueueSummaryResponse> {
     const role = actor.role as RoleName;
     const accessible = WORK_ORDER_QUEUE_KEYS.filter((key) => roleCanAccessQueue(role, key));
-    const counts: Array<{ key: WorkOrderQueueKey; label: string; count: number }> = [];
+    const warnings: WorkOrderQueueSummaryWarning[] = [];
+    const tenantId = actor.tenantId;
 
-    for (const key of accessible) {
-      const count = await this.countQueue(actor, key);
-      counts.push({ key, label: WORK_ORDER_QUEUE_LABELS[key], count });
+    let enriched: EnrichedQueueRow[] = [];
+    try {
+      const where = this.buildPrismaWhere(actor, {});
+      const rows = await this.prisma.workOrder.findMany({
+        where,
+        include: listInclude,
+        orderBy: { updatedAt: "desc" },
+        take: 1500
+      });
+      enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, warnings);
+    } catch (error) {
+      this.logger.error("Failed to load work orders for queue summary", error instanceof Error ? error.stack : String(error));
+      warnings.push({ queue: "*", message: "Queue data temporarily unavailable" });
+      return this.buildEmptyQueueSummary(accessible, role, warnings);
     }
+
+    const counts = accessible.map((key) =>
+      this.safeQueueCount(key, warnings, () =>
+        enriched.filter((row) => this.matchesQueue(row, key, actor, {})).length
+      )
+    );
 
     return {
       queues: counts,
       defaultQueue: resolveDefaultQueueForRole(role),
+      summary: this.computeOperationalSummary(enriched, actor),
+      ...(warnings.length > 0 ? { warnings } : {}),
       lastUpdated: new Date().toISOString()
     };
   }
@@ -221,9 +267,74 @@ export class WorkOrderQueuesService {
     }
   }
 
-  private async countQueue(actor: Actor, queue: WorkOrderQueueKey): Promise<number> {
-    const result = await this.listQueue(actor, queue, { page: 1, pageSize: 1 });
-    return result.total;
+  private safeQueueCount(
+    key: WorkOrderQueueKey,
+    warnings: WorkOrderQueueSummaryWarning[],
+    counter: () => number
+  ): { key: WorkOrderQueueKey; label: string; count: number } {
+    try {
+      return { key, label: WORK_ORDER_QUEUE_LABELS[key], count: counter() };
+    } catch (error) {
+      this.logger.warn(`Queue count failed for ${key}`, error instanceof Error ? error.message : String(error));
+      warnings.push({ queue: key, message: "Queue count unavailable" });
+      return { key, label: WORK_ORDER_QUEUE_LABELS[key], count: 0 };
+    }
+  }
+
+  private buildEmptyQueueSummary(
+    accessible: WorkOrderQueueKey[],
+    role: RoleName,
+    warnings: WorkOrderQueueSummaryWarning[]
+  ): WorkOrderQueueSummaryResponse {
+    return {
+      queues: accessible.map((key) => ({ key, label: WORK_ORDER_QUEUE_LABELS[key], count: 0 })),
+      defaultQueue: resolveDefaultQueueForRole(role),
+      summary: {
+        actionRequired: 0,
+        myTasks: 0,
+        waitingParts: 0,
+        waitingEvidence: 0,
+        supervisorVerification: 0,
+        highRisk: 0,
+        overdue: 0,
+        triage: 0
+      },
+      warnings,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  private computeOperationalSummary(enriched: EnrichedQueueRow[], actor: Actor) {
+    const countFor = (key: WorkOrderQueueKey) =>
+      enriched.filter((row) => this.matchesQueue(row, key, actor, {})).length;
+
+    return {
+      actionRequired: countFor("action-required"),
+      myTasks: countFor("my-tasks"),
+      waitingParts: countFor("waiting-parts"),
+      waitingEvidence: countFor("waiting-evidence"),
+      supervisorVerification: countFor("supervisor-verification"),
+      highRisk: countFor("high-risk"),
+      overdue: countFor("overdue"),
+      triage: countFor("triage")
+    };
+  }
+
+  private async safeEnrichRows(
+    rows: WorkOrderRow[],
+    tenantId: string | undefined,
+    warnings: WorkOrderQueueSummaryWarning[]
+  ): Promise<EnrichedQueueRow[]> {
+    const enriched: EnrichedQueueRow[] = [];
+    for (const row of rows) {
+      try {
+        enriched.push(await this.enrichRow(row, tenantId));
+      } catch (error) {
+        this.logger.warn(`Skipping work order ${row.id} in queue enrichment`, error instanceof Error ? error.message : String(error));
+        warnings.push({ queue: row.id, message: "Work order skipped during queue calculation" });
+      }
+    }
+    return enriched;
   }
 
   private async listQueue(actor: Actor, queue: WorkOrderQueueKey, query: WorkOrderQueueQuery) {
@@ -239,7 +350,7 @@ export class WorkOrderQueuesService {
       take: queue === "all" || queue === "completed" || queue === "cancelled" ? 2000 : 1000
     });
 
-    const enriched = await Promise.all(rows.map((row) => this.enrichRow(row, tenantId ?? undefined)));
+    const enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, []);
     let filtered = enriched.filter((row) => this.matchesQueue(row, queue, actor, query));
 
     if (query.overdueOnly === true || query.overdueOnly === "true") {
@@ -387,14 +498,23 @@ export class WorkOrderQueuesService {
   }
 
   private async enrichRow(row: WorkOrderRow, tenantId?: string) {
-    const factors = await this.maintenanceReports.computeWorkOrderRiskFactors(row.id, tenantId);
+    let factors: WorkOrderRiskFactors = {};
+    try {
+      factors = await this.maintenanceReports.computeWorkOrderRiskFactors(row.id, tenantId);
+    } catch (error) {
+      this.logger.warn(
+        `Risk factor calculation failed for work order ${row.id}`,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
     const riskScore = calculateWorkOrderRiskScore(factors);
     const riskSeverity = resolveRiskSeverity(riskScore);
     const actionRequired = this.resolveActionRequired(row, factors, riskScore, riskSeverity);
     const partsStatus = this.resolvePartsStatus(row);
     const evidenceStatus = this.resolveEvidenceStatus(row);
     const overdueDays = isWorkOrderOverdue(row)
-      ? overdueDayCount(row.dueDate, new Date())
+      ? overdueDayCount(row.dueDate ?? null, new Date())
       : 0;
     const primaryAssignee = row.assignees.find((item) => item.isPrimary) ?? row.assignees[0];
 
@@ -407,7 +527,7 @@ export class WorkOrderQueuesService {
       partsStatus,
       evidenceStatus,
       overdueDays,
-      primaryAssigneeName: primaryAssignee?.employee.fullName ?? null
+      primaryAssigneeName: primaryAssignee?.employee?.fullName ?? null
     };
   }
 

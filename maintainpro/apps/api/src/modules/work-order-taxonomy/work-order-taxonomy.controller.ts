@@ -16,42 +16,6 @@ type AuthedRequest = { user: JwtPayload };
 export class WorkOrderTaxonomyController {
   constructor(private readonly taxonomyService: WorkOrderTaxonomyService) {}
 
-  @Get("suggest")
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-    "OPERATIONS_MANAGER",
-    "ASSET_MANAGER",
-    "MECHANIC",
-    "TECHNICIAN",
-    "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
-  )
-  async suggest(@Req() req: AuthedRequest, @Query("q") q = "") {
-    const data = await this.taxonomyService.suggest(req.user, q);
-    return { data, message: "Work order taxonomy suggestion fetched" };
-  }
-
-  @Get("search")
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-    "OPERATIONS_MANAGER",
-    "ASSET_MANAGER",
-    "MECHANIC",
-    "TECHNICIAN",
-    "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
-  )
-  async search(@Req() req: AuthedRequest, @Query("q") q = "", @Query("limit") limit?: string) {
-    const data = await this.taxonomyService.search(req.user, q, limit ? Number(limit) : 25);
-    return { data, message: "Work order taxonomy search results fetched" };
-  }
-
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   async list(
