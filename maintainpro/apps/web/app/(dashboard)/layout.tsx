@@ -6,7 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import { GlobalCommandPalette } from "@/components/layout/global-command-palette";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NavigationRouteGuard } from "@/components/layout/navigation-route-guard";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { apiClient } from "@/lib/api-client";
@@ -73,11 +75,12 @@ export default function DashboardLayout({
                 onOpenCommandPalette={() => setCommandPaletteOpen(true)}
                 onOpenMobileNav={() => setMobileNavOpen(true)}
               />
-              <main id="main-content" className="flex-1 overflow-x-hidden p-4 sm:p-6">
-                {children}
+              <main id="main-content" className="flex-1 overflow-x-hidden p-4 pb-24 sm:p-6 xl:pb-6">
+                <NavigationRouteGuard>{children}</NavigationRouteGuard>
               </main>
             </div>
           </div>
+          <MobileBottomNav onOpenSearch={() => setCommandPaletteOpen(true)} />
         </div>
       )}
       <GlobalCommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />

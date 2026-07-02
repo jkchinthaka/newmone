@@ -9,13 +9,26 @@ import { LEGACY_FMS_ARCHIVE_ROLES } from "./legacy-fms-access";
 export type NavActiveMatch = "exact" | "startsWith";
 
 export type NavCategory =
+  | "workspace"
   | "core"
   | "operations"
   | "compliance"
+  | "reports"
   | "admin"
   | "cleaning"
   | "farm"
   | "legacy";
+
+export type NavBadgeKey =
+  | "action-center"
+  | "my-tasks"
+  | "waiting-parts"
+  | "waiting-evidence"
+  | "supervisor-verification"
+  | "high-risk"
+  | "triage"
+  | "overdue"
+  | "system-health";
 
 export interface NavigationItem {
   id: string;
@@ -23,10 +36,14 @@ export interface NavigationItem {
   href: string;
   icon: string;
   allowedRoles: readonly string[];
+  requiredPermissions?: readonly string[];
   category: NavCategory;
   description?: string;
   legacy?: boolean;
   activeMatch?: NavActiveMatch;
+  badgeKey?: NavBadgeKey;
+  mobilePriority?: boolean;
+  pinByDefaultForRoles?: readonly string[];
 }
 
 export interface NavigationGroup {
@@ -49,6 +66,7 @@ const FACILITY_ROLES = ["FACILITY_MANAGER", "BUILDING_SUPERVISOR"] as const;
 const SECURITY_ROLES = ["SECURITY_OFFICER"] as const;
 const INVENTORY_ROLES = ["INVENTORY_KEEPER", "STOREKEEPER"] as const;
 const PROCUREMENT_ROLES = ["PROCUREMENT_OFFICER"] as const;
+const FINANCE_ROLES = ["FINANCE_APPROVER"] as const;
 const READ_ONLY_ROLES = ["VIEWER", "AUDITOR"] as const;
 const DRIVER_ROLES = ["DRIVER"] as const;
 const FARM_ROLES = [
@@ -97,13 +115,15 @@ const ACTION_CENTER_ROLES = mergeRoles(
   FARM_ROLES,
   FLEET_ROLES,
   COMPLIANCE_ROLES,
-  ASSET_ROLES
+  ASSET_ROLES,
+  FINANCE_ROLES
 );
 
 /** Confirmed App Router paths (2026-06-12 audit). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
   "/facilities",
   "/facilities/reports",
+  "/workspace",
   "/dashboard",
   "/action-center",
   "/admin",
@@ -152,23 +172,47 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
 ]);
 
 export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
+  workspace: "Workspace",
   core: "Overview",
   operations: "Operations",
-  compliance: "Compliance & Safety",
+  compliance: "Control & Compliance",
+  reports: "Reports & Analytics",
   admin: "Administration",
-  cleaning: "Cleaning Management",
+  cleaning: "Facility Management",
   farm: "Farm Operations",
-  legacy: "Archived"
+  legacy: "Archive"
 };
+
+const WORKSPACE_ROLES = ACTION_CENTER_ROLES;
+
+export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = {
+  TECHNICIAN: ["my-tasks", "waiting-evidence", "action-center"],
+  MECHANIC: ["my-tasks", "waiting-evidence", "action-center"],
+  INVENTORY_KEEPER: ["inventory", "waiting-parts", "action-center"],
+  STOREKEEPER: ["inventory", "waiting-parts", "action-center"],
+  SUPERVISOR: ["supervisor-verification", "action-center", "high-risk-queue"],
+  MAINTENANCE_SUPERVISOR: ["supervisor-verification", "action-center", "high-risk-queue"],
+  MANAGER: ["high-risk-queue", "action-center", "reports"],
+  OPERATIONS_MANAGER: ["high-risk-queue", "action-center", "reports"],
+  SUPER_ADMIN: ["system-health", "admin-console", "action-center"],
+  ADMIN: ["system-health", "admin-console", "action-center"],
+  SECURITY_OFFICER: ["fleet-gate", "action-center"],
+  FACILITY_MANAGER: ["facilities", "cleaning-issues", "action-center"],
+  FARM_MANAGER: ["farm-dashboard", "action-center"]
+};
+
+export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
 
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
-    href: "/dashboard",
+    id: "my-workspace",
+    label: "My Workspace",
+    href: "/workspace",
     icon: "LayoutDashboard",
-    allowedRoles: DASHBOARD_ROLES,
-    category: "core",
+    allowedRoles: WORKSPACE_ROLES,
+    category: "workspace",
+    description: "Role-based shortcuts for your daily work",
+    mobilePriority: true,
     activeMatch: "exact"
   },
   {
@@ -177,8 +221,81 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/action-center",
     icon: "BellRing",
     allowedRoles: ACTION_CENTER_ROLES,
-    category: "core",
+    category: "workspace",
     description: "Role-aware operational priorities and attention items",
+    badgeKey: "action-center",
+    mobilePriority: true,
+    pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES),
+    activeMatch: "exact"
+  },
+  {
+    id: "my-tasks",
+    label: "My Tasks",
+    href: "/work-orders?queue=my-tasks",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
+    category: "workspace",
+    description: "Work orders assigned to you",
+    badgeKey: "my-tasks",
+    pinByDefaultForRoles: TECHNICIAN_ROLES,
+    mobilePriority: true
+  },
+  {
+    id: "waiting-parts",
+    label: "Waiting Parts",
+    href: "/work-orders?queue=waiting-parts",
+    icon: "Layers",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, INVENTORY_ROLES, MANAGEMENT_ROLES),
+    category: "workspace",
+    badgeKey: "waiting-parts",
+    pinByDefaultForRoles: INVENTORY_ROLES
+  },
+  {
+    id: "waiting-evidence",
+    label: "Evidence Needed",
+    href: "/work-orders?queue=waiting-evidence",
+    icon: "FileCheck2",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, MANAGEMENT_ROLES),
+    category: "workspace",
+    badgeKey: "waiting-evidence",
+    pinByDefaultForRoles: TECHNICIAN_ROLES
+  },
+  {
+    id: "supervisor-verification",
+    label: "Pending Verification",
+    href: "/work-orders?queue=supervisor-verification",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "workspace",
+    badgeKey: "supervisor-verification",
+    pinByDefaultForRoles: SUPERVISOR_ROLES
+  },
+  {
+    id: "high-risk-queue",
+    label: "High Risk",
+    href: "/work-orders?queue=high-risk",
+    icon: "ShieldAlert",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES),
+    category: "workspace",
+    badgeKey: "high-risk",
+    pinByDefaultForRoles: MANAGEMENT_ROLES
+  },
+  {
+    id: "triage-queue",
+    label: "Triage Queue",
+    href: "/work-orders?queue=triage",
+    icon: "AlertTriangle",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES),
+    category: "workspace",
+    badgeKey: "triage"
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: "LayoutDashboard",
+    allowedRoles: DASHBOARD_ROLES,
+    category: "core",
     activeMatch: "exact"
   },
   {
@@ -197,7 +314,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/system-health",
     icon: "ServerCog",
     allowedRoles: ADMIN_ROLES,
-    category: "admin"
+    category: "admin",
+    badgeKey: "system-health"
   },
   {
     id: "work-orders",
@@ -319,17 +437,18 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
       SUPERVISOR_ROLES,
       READ_ONLY_ROLES,
       COMPLIANCE_ROLES,
-      ADMIN_ROLES
+      ADMIN_ROLES,
+      FINANCE_ROLES
     ),
-    category: "core"
+    category: "reports"
   },
   {
     id: "maintenance-exceptions",
     label: "Maintenance Exceptions",
     href: "/reports/maintenance-exceptions",
     icon: "ShieldAlert",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES),
-    category: "core",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES, FINANCE_ROLES),
+    category: "reports",
     description: "Fraud monitoring, exception dashboard, and maintenance KPIs"
   },
   {
@@ -377,7 +496,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: "Billing",
     href: "/billing",
     icon: "CreditCard",
-    allowedRoles: ADMIN_ROLES,
+    allowedRoles: mergeRoles(ADMIN_ROLES, FINANCE_ROLES),
     category: "admin"
   },
   {
@@ -594,14 +713,25 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
 ];
 
 const NAV_CATEGORY_ORDER: NavCategory[] = [
+  "workspace",
   "core",
   "operations",
   "compliance",
+  "reports",
   "admin",
   "cleaning",
   "farm",
   "legacy"
 ];
+
+const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
+  "/admin/users": ["/admin"],
+  "/admin/roles": ["/admin"],
+  "/admin/tenants": ["/admin"],
+  "/admin/invitations": ["/admin"],
+  "/reports/job-costing": ["/reports"],
+  "/master-data/employees": ["/master-data"]
+};
 
 export function normalizeNavigationRole(roleName: string | null | undefined): string | null {
   if (!roleName) {
@@ -614,38 +744,88 @@ export function normalizeNavigationRole(roleName: string | null | undefined): st
 
 export function isNavigationItemVisible(
   item: NavigationItem,
-  roleName: string | null | undefined
+  roleName: string | null | undefined,
+  permissions: readonly string[] = []
 ): boolean {
   const normalized = normalizeNavigationRole(roleName);
 
   if (!normalized) {
-    return item.id === "dashboard";
+    return item.id === "my-workspace" || item.id === "action-center";
   }
 
-  return item.allowedRoles.includes(normalized);
+  if (!item.allowedRoles.includes(normalized)) {
+    return false;
+  }
+
+  if (item.requiredPermissions?.length) {
+    const granted = new Set(permissions.map((p) => p.trim()));
+    const hasPermission = item.requiredPermissions.some((permission) => granted.has(permission));
+    if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function getDefaultFavoriteNavIds(roleName: string | null | undefined): string[] {
+  const normalized = normalizeNavigationRole(roleName);
+  if (!normalized) {
+    return ["action-center"];
+  }
+
+  const configured = ROLE_DEFAULT_FAVORITE_NAV_IDS[normalized];
+  if (configured?.length) {
+    return [...configured];
+  }
+
+  const pinned = NAVIGATION_ITEMS.filter(
+    (item) => item.pinByDefaultForRoles?.includes(normalized)
+  ).map((item) => item.id);
+
+  return pinned.length > 0 ? pinned : ["action-center"];
 }
 
 export function getVisibleNavigationItems(
-  roleName: string | null | undefined
+  roleName: string | null | undefined,
+  options?: { fullNavigation?: boolean; permissions?: readonly string[] }
 ): NavigationItem[] {
+  const normalized = normalizeNavigationRole(roleName);
+  const permissions = options?.permissions ?? [];
+  const fullNavigation = Boolean(options?.fullNavigation && normalized && FULL_NAVIGATION_ROLES.has(normalized));
+
   const visible = NAVIGATION_ITEMS.filter((item) => {
-    if (!EXISTING_NAV_ROUTES.has(item.href)) {
+    const baseHref = item.href.split("?")[0];
+    if (!EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
 
-    return isNavigationItemVisible(item, roleName);
+    if (!isNavigationItemVisible(item, roleName, permissions)) {
+      return false;
+    }
+
+    if (!fullNavigation && normalized && !FULL_NAVIGATION_ROLES.has(normalized)) {
+      if (item.category === "legacy") {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   if (visible.length > 0) {
     return visible;
   }
 
-  const dashboard = NAVIGATION_ITEMS.find((item) => item.id === "dashboard");
-  return dashboard ? [dashboard] : [];
+  const fallback = NAVIGATION_ITEMS.find((item) => item.id === "action-center");
+  return fallback ? [fallback] : [];
 }
 
-export function getNavigationGroups(roleName: string | null | undefined): NavigationGroup[] {
-  const visibleItems = getVisibleNavigationItems(roleName);
+export function getNavigationGroups(
+  roleName: string | null | undefined,
+  options?: { fullNavigation?: boolean; permissions?: readonly string[] }
+): NavigationGroup[] {
+  const visibleItems = getVisibleNavigationItems(roleName, options);
 
   return NAV_CATEGORY_ORDER.map((category) => ({
     category,
@@ -654,15 +834,111 @@ export function getNavigationGroups(roleName: string | null | undefined): Naviga
   })).filter((group) => group.items.length > 0);
 }
 
-export function isNavItemActive(pathname: string, item: NavigationItem): boolean {
-  const match =
-    item.activeMatch ?? (item.href === "/dashboard" ? "exact" : "startsWith");
-
-  if (match === "exact") {
-    return pathname === item.href;
+export function canAccessNavigationPath(
+  pathname: string,
+  roleName: string | null | undefined,
+  permissions: readonly string[] = []
+): boolean {
+  if (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname.startsWith("/forgot-password")
+  ) {
+    return true;
   }
 
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const visible = getVisibleNavigationItems(roleName, { permissions });
+  const normalizedPath = pathname.split("?")[0];
+
+  if (visible.some((item) => isNavItemActive(normalizedPath, item))) {
+    return true;
+  }
+
+  const aliases = ROUTE_ACCESS_ALIASES[normalizedPath];
+  if (aliases?.some((alias) => visible.some((item) => isNavItemActive(alias, item)))) {
+    return true;
+  }
+
+  if (normalizedPath.startsWith("/work-orders")) {
+    return visible.some((item) => item.href.startsWith("/work-orders") || item.id === "my-tasks");
+  }
+
+  if (normalizedPath.startsWith("/admin")) {
+    return visible.some((item) => item.href === "/admin" || item.href.startsWith("/admin"));
+  }
+
+  if (normalizedPath.startsWith("/farm")) {
+    return visible.some((item) => item.category === "farm");
+  }
+
+  if (normalizedPath.startsWith("/cleaning") || normalizedPath.startsWith("/facilities")) {
+    return visible.some((item) => item.category === "cleaning");
+  }
+
+  return FULL_NAVIGATION_ROLES.has(normalizeNavigationRole(roleName) ?? "");
+}
+
+export type MobileBottomNavItem = {
+  id: string;
+  label: string;
+  href: string;
+  icon: string;
+  action?: "search";
+};
+
+export function getMobileBottomNavItems(roleName: string | null | undefined): MobileBottomNavItem[] {
+  const visible = getVisibleNavigationItems(roleName);
+  const hasWorkOrders = visible.some((item) => item.id === "work-orders" || item.id === "my-tasks");
+  const hasSettings = visible.some((item) => item.id === "settings");
+
+  const homeHref = visible.find((item) => item.id === "action-center")?.href ?? "/action-center";
+  const tasksHref = visible.find((item) => item.id === "my-tasks")?.href ?? "/work-orders";
+
+  const items: MobileBottomNavItem[] = [
+    { id: "home", label: "Home", href: homeHref, icon: "Home" },
+    { id: "actions", label: "Actions", href: "/action-center", icon: "BellRing" }
+  ];
+
+  if (hasWorkOrders) {
+    items.push({ id: "create", label: "Jobs", href: tasksHref, icon: "ClipboardList" });
+  }
+
+  items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });
+
+  items.push({
+    id: "profile",
+    label: "Profile",
+    href: hasSettings ? "/settings" : homeHref,
+    icon: "UserCircle2"
+  });
+
+  return items;
+}
+
+export function isNavItemActive(pathname: string, item: NavigationItem, search = ""): boolean {
+  const [itemPath, itemQuery = ""] = item.href.split("?");
+  const match = item.activeMatch ?? (itemPath === "/dashboard" ? "exact" : "startsWith");
+
+  if (itemQuery) {
+    const params = new URLSearchParams(itemQuery);
+    const current = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    const pathMatches = pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+    if (!pathMatches) {
+      return false;
+    }
+    for (const [key, value] of params.entries()) {
+      if (current.get(key) !== value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (match === "exact") {
+    return pathname === itemPath;
+  }
+
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
 export function hasPrimaryHomeNavItem(items: NavigationItem[]): boolean {

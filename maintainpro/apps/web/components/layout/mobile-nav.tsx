@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
@@ -67,7 +67,9 @@ export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNa
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <NavLinks onNavigate={onClose} />
+          <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>
+            <NavLinks onNavigate={onClose} />
+          </Suspense>
         </div>
       </aside>
     </div>

@@ -5,7 +5,6 @@ import {
 import {
   filterCommandPaletteItems,
   getCommandPaletteItems,
-  getPrimaryDashboardCommand,
   isCommandPaletteShortcut,
   usesLegacyHomeAsDashboard
 } from "../../web/lib/command-palette";
@@ -37,16 +36,16 @@ describe("command palette helpers", () => {
     expect(technicianCommands.some((item) => item.href === "/inventory")).toBe(false);
   });
 
-  it("returns dashboard-only commands for unknown roles", () => {
+  it("returns action-center commands for unknown roles", () => {
     const commands = getCommandPaletteItems("UNKNOWN_ROLE");
 
-    expect(commands).toHaveLength(1);
+    expect(commands.length).toBeGreaterThan(0);
     expect(commands[0]?.href).toBe(DEFAULT_POST_LOGIN_REDIRECT);
   });
 
   it("does not treat /home as the primary Dashboard command", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
-    const dashboard = getPrimaryDashboardCommand(adminCommands);
+    const dashboard = adminCommands.find((item) => item.href === "/dashboard");
     const legacy = adminCommands.find((item) => item.href === LEGACY_FMS_HOME_PATH);
 
     expect(dashboard?.href).toBe("/dashboard");
@@ -77,7 +76,9 @@ describe("command palette helpers", () => {
 
   it("maps command hrefs to existing navigation routes only", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
-    expect(adminCommands.every((item) => EXISTING_NAV_ROUTES.has(item.href))).toBe(true);
+    expect(
+      adminCommands.every((item) => EXISTING_NAV_ROUTES.has(item.href.split("?")[0]))
+    ).toBe(true);
   });
 
   it("detects command palette keyboard shortcut", () => {

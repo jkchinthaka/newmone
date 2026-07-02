@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NavLinks } from "@/components/layout/nav-links";
 
@@ -13,7 +15,9 @@ export function Sidebar() {
         <AppBrandLockup logoSize="sm" showTagline />
       </div>
       <div className="overflow-y-auto px-3 py-4">
-        <NavLinks />
+        <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>
+          <NavLinks />
+        </Suspense>
       </div>
     </aside>
   );

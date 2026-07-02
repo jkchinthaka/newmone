@@ -15,6 +15,8 @@ import {
 } from "@/lib/auth-storage";
 import { apiClient } from "@/lib/api-client";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import { getVisibleNavigationItems } from "@/lib/navigation";
+import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   MOBILE_MENU_BUTTON_ID,
@@ -96,6 +98,10 @@ export function Topbar({
   const router = useRouter();
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
+  const roleName = extractRoleName({ role: currentUser.role });
+  const canViewBilling = getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some(
+    (item) => item.id === "billing"
+  );
 
   const unreadQuery = useQuery({
     queryKey: TOPBAR_UNREAD_QUERY_KEY,
@@ -248,13 +254,15 @@ export function Topbar({
               ))}
             </select>
           </div>
-          <Link
-            href="/billing"
-            className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 lg:inline-flex"
-          >
-            <CreditCard size={16} />
-            <span>Billing</span>
-          </Link>
+          {canViewBilling ? (
+            <Link
+              href="/billing"
+              className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 lg:inline-flex"
+            >
+              <CreditCard size={16} />
+              <span>Billing</span>
+            </Link>
+          ) : null}
           <Link
             href="/notifications"
             className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"

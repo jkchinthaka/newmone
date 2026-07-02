@@ -15,40 +15,40 @@ describe("role-redirect helper", () => {
     ).toBe("TECHNICIAN");
   });
 
-  it("maps technician to work orders when my-jobs route is unavailable", () => {
-    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).toBe("/work-orders");
+  it("maps technician to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).toBe("/action-center");
   });
 
-  it("maps cleaner to cleaning when my-tasks route is unavailable", () => {
-    expect(getPostLoginRedirect({ role: { name: "CLEANER" } })).toBe("/cleaning");
+  it("maps cleaner to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "CLEANER" } })).toBe("/action-center");
   });
 
-  it("maps inventory keeper to inventory", () => {
-    expect(getPostLoginRedirect({ role: { name: "INVENTORY_KEEPER" } })).toBe("/inventory");
+  it("maps inventory keeper to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "INVENTORY_KEEPER" } })).toBe("/action-center");
   });
 
-  it("maps super admin to admin console when admin route is available", () => {
-    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/admin");
+  it("maps super admin to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/action-center");
   });
 
-  it("maps admin to dashboard", () => {
-    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).toBe("/dashboard");
+  it("maps admin to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).toBe("/action-center");
   });
 
-  it("falls back to dashboard for unknown roles", () => {
+  it("falls back to action center for unknown roles", () => {
     expect(getPostLoginRedirect({ role: { name: "UNKNOWN_ROLE" } })).toBe(
       DEFAULT_POST_LOGIN_REDIRECT
     );
   });
 
-  it("falls back to dashboard when role is missing", () => {
+  it("falls back to action center when role is missing", () => {
     expect(getPostLoginRedirect({})).toBe(DEFAULT_POST_LOGIN_REDIRECT);
     expect(getPostLoginRedirect(null)).toBe(DEFAULT_POST_LOGIN_REDIRECT);
   });
 
-  it("maps facility manager to facilities hierarchy", () => {
-    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/facilities");
-    expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/facilities");
+  it("maps facility manager to action center first", () => {
+    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/action-center");
+    expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/action-center");
   });
 
   it("never resolves to legacy /home", () => {

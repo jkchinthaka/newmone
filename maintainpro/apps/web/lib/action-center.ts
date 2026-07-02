@@ -294,10 +294,61 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
       id: "assigned-work",
       title: "Assigned work orders",
       description: "Open jobs assigned to you.",
-      href: "/work-orders",
+      href: "/work-orders?queue=my-tasks",
       tone: stats.assigned > 0 ? "info" : "success",
       metricLabel: "Assigned",
       metricValue: String(stats.assigned)
+    });
+  }
+
+  if (snapshot.variant === "technician") {
+    items.push({
+      id: "waiting-evidence",
+      title: "Evidence needed",
+      description: "Jobs waiting for technician evidence uploads.",
+      href: "/work-orders?queue=waiting-evidence",
+      tone: "warning"
+    });
+    items.push({
+      id: "waiting-parts",
+      title: "Waiting parts",
+      description: "Jobs blocked until parts are issued.",
+      href: "/work-orders?queue=waiting-parts",
+      tone: "warning"
+    });
+    items.push({
+      id: "rework-required",
+      title: "Rework required",
+      description: "Jobs sent back for correction.",
+      href: "/work-orders?queue=rework-required",
+      tone: "danger"
+    });
+  }
+
+  if (snapshot.variant === "management" || snapshot.roleName === "SUPERVISOR" || snapshot.roleName === "MAINTENANCE_SUPERVISOR") {
+    items.push({
+      id: "supervisor-verification",
+      title: "Pending verification",
+      description: "Technician completed jobs awaiting supervisor sign-off.",
+      href: "/work-orders?queue=supervisor-verification",
+      tone: "warning"
+    });
+    items.push({
+      id: "team-triage",
+      title: "Triage queue",
+      description: "Work orders needing classification.",
+      href: "/work-orders?queue=triage",
+      tone: "info"
+    });
+  }
+
+  if (snapshot.roleName === "SECURITY_OFFICER") {
+    items.push({
+      id: "gate-dashboard",
+      title: "Gate dashboard",
+      description: "Vehicle gate-out checks and restrictions.",
+      href: "/fleet/gate",
+      tone: "info"
     });
   }
 
