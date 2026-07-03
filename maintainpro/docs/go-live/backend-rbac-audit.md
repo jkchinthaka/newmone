@@ -1,6 +1,6 @@
 # Backend RBAC Audit
 
-Generated: 2026-07-02T23:15:23.279Z
+Generated: 2026-07-03T00:52:04.815Z
 
 MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuard`, `TenantContextGuard`, `RolesGuard`, `PermissionsGuard`.
 
@@ -8,8 +8,8 @@ MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuar
 
 | Metric | Count |
 |--------|------:|
-| Total routes scanned | 418 |
-| PASS | 394 |
+| Total routes scanned | 461 |
+| PASS | 437 |
 | FIXED | 0 |
 | TODO | 24 |
 
@@ -214,6 +214,26 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/notifications/uat/email-test` | POST | `modules/notifications/notifications.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/notifications/uat/sms-test` | POST | `modules/notifications/notifications.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/notifications` | GET | `modules/notifications/notifications.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
+| `/post-go-live/:id/approve` | POST | `modules/post-go-live/post-go-live.controller.ts` | change_request.approve | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/:id/reject` | POST | `modules/post-go-live/post-go-live.controller.ts` | change_request.approve | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/:id` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/dashboard` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/handover` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/handover` | PATCH | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/hypercare/:id/complete` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/hypercare/:id/extend` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/hypercare/:id` | PATCH | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/hypercare` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/hypercare` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/monitoring/dashboard` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/report` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/training/:id/complete` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/training/:id/mark-retraining` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/training/:id` | PATCH | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live/training` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live/training` | POST | `modules/post-go-live/post-go-live.controller.ts` | operations.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/post-go-live` | GET | `modules/post-go-live/post-go-live.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/post-go-live` | POST | `modules/post-go-live/post-go-live.controller.ts` | change_request.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/qa/categories` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
 | `/qa/dashboard` | GET | `modules/qa/qa.controller.ts` | qa.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
 | `/qa/issues/:id/accept-risk` | POST | `modules/qa/qa.controller.ts` | qa.accept_risk | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
@@ -291,6 +311,29 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/suppliers/:id` | PATCH | `modules/suppliers/suppliers.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER, MANAGER, OPERATIONS_MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/suppliers` | GET | `modules/suppliers/suppliers.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER, MANAGER, OPERATIONS_MANAGER, SUPERVISOR, INVENTORY_KEEPER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/suppliers` | POST | `modules/suppliers/suppliers.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER, MANAGER, OPERATIONS_MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/:id/mark-deployed` | POST | `modules/post-go-live/support.controller.ts` | release.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/:id/schedule` | POST | `modules/post-go-live/support.controller.ts` | release.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/:id` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/:id` | PATCH | `modules/post-go-live/support.controller.ts` | release.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/escalation-matrix/:id` | PATCH | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/escalation-matrix` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/escalation-matrix` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/sla/breaches` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/sla/dashboard` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/sla/recalculate` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/acknowledge` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/assign` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/close` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/reopen` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/resolve` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id/status` | POST | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/:id` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/tickets/:id` | PATCH | `modules/post-go-live/support.controller.ts` | support.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support/tickets/mine` | GET | `modules/post-go-live/support.controller.ts` | support.create | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/tickets` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support/tickets` | POST | `modules/post-go-live/support.controller.ts` | support.create | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/support` | GET | `modules/post-go-live/support.controller.ts` | operations.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/support` | POST | `modules/post-go-live/support.controller.ts` | release.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/tenants/:id/invitations` | GET | `modules/invitations/invitations.controller.ts` | — | SUPER_ADMIN, ADMIN, MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
 | `/tenants/me` | GET | `modules/tenancy/tenancy.controller.ts` | — | — | tenant via JwtAuthGuard + TenantContextGuard | yes | TODO |
 | `/traffic-fines/:id/payment` | POST | `modules/traffic-fines/traffic-fines.controller.ts` | traffic_fines.payment | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |

@@ -71,6 +71,12 @@ model Tenant {
   softwareReleases             SoftwareRelease[]
   hypercarePlans               HypercarePlan[]
   supportHandover              SupportHandover?
+  pilotRollouts                PilotRollout[]
+  cutoverChecklistItems        CutoverChecklistItem[]
+  rolloutWaves                 RolloutWave[]
+  goLiveDecisions              GoLiveDecision[]
+  rollbackPlans                RollbackPlan[]
+  goLiveSignOffs               GoLiveSignOff[]
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
@@ -3919,4 +3925,212 @@ model SupportHandover {
   updatedByUserId       String?  @db.ObjectId
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+/// Pilot rollout and cutover control (UAT-028).
+
+enum PilotRolloutStatus {
+  PLANNED
+  READY
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+  EXTENDED
+}
+
+enum CutoverChecklistCategory {
+  DATA_READY
+  USERS_READY
+  ROLES_READY
+  TRAINING_READY
+  BACKUP_READY
+  DEPLOYMENT_READY
+  SUPPORT_READY
+  COMMUNICATION_READY
+  ROLLBACK_READY
+  MANAGEMENT_SIGNOFF_READY
+}
+
+enum CutoverItemStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASS
+  FAIL
+  BLOCKED
+  ACCEPTED_RISK
+}
+
+enum RolloutWaveStatus {
+  PLANNED
+  READY
+  ACTIVE
+  PAUSED
+  COMPLETED
+  BLOCKED
+}
+
+enum GoLiveDecisionOption {
+  GO
+  NO_GO
+  GO_WITH_ACCEPTED_RISK
+  DELAYED
+  ROLLBACK_REQUIRED
+}
+
+enum RollbackTestedStatus {
+  NOT_TESTED
+  PARTIALLY_TESTED
+  TESTED
+}
+
+enum GoLiveSignOffDecision {
+  APPROVED
+  REJECTED
+  APPROVED_WITH_RISK
+  PENDING
+}
+
+model PilotRollout {
+  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?            @db.ObjectId
+  tenant              Tenant?            @relation(fields: [tenantId], references: [id])
+  pilotName           String
+  department          String?
+  branch              String?
+  startDate           DateTime?
+  endDate             DateTime?
+  pilotOwnerUserId    String?            @db.ObjectId
+  selectedUsers       Json?
+  selectedRoles       Json?
+  selectedModules     Json?
+  successCriteria     String?
+  riskLevel           String?
+  status              PilotRolloutStatus @default(PLANNED)
+  notes               String?
+  trainedUsersCount   Int                @default(0)
+  activeUsersCount    Int                @default(0)
+  workOrdersCreated   Int                @default(0)
+  issuesReported      Int                @default(0)
+  criticalBlockers    Int                @default(0)
+  userFeedback        String?
+  managerFeedback     String?
+  pilotResult         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, department])
+}
+
+model CutoverChecklistItem {
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?                  @db.ObjectId
+  tenant            Tenant?                  @relation(fields: [tenantId], references: [id])
+  itemKey           String
+  category          CutoverChecklistCategory
+  title             String
+  description       String?
+  status            CutoverItemStatus        @default(NOT_STARTED)
+  blocker           Boolean                  @default(false)
+  owner             String?
+  evidence          String?
+  notes             String?
+  completedByUserId String?                  @db.ObjectId
+  completedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([tenantId, itemKey])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+}
+
+model RolloutWave {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?           @db.ObjectId
+  tenant            Tenant?           @relation(fields: [tenantId], references: [id])
+  waveNo            Int
+  waveName          String
+  departments       Json?
+  branches          Json?
+  roles             Json?
+  users             Json?
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  status            RolloutWaveStatus @default(PLANNED)
+  successCriteria   String?
+  blockers          Json?
+  notes             String?
+  signOffByUserId   String?           @db.ObjectId
+  signOffAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([tenantId, waveNo])
+  @@index([tenantId, status])
+}
+
+model GoLiveDecision {
+  id                    String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?              @db.ObjectId
+  tenant                Tenant?              @relation(fields: [tenantId], references: [id])
+  decision              GoLiveDecisionOption
+  reason                String?
+  criteriaSnapshot      Json?
+  recordedByUserId      String               @db.ObjectId
+  openCriticalIssues    Int                  @default(0)
+  backupCompleted       Boolean              @default(false)
+  rollbackReady         Boolean              @default(false)
+  pilotUsersTrained     Boolean              @default(false)
+  smokeTestPassed       Boolean              @default(false)
+  coreWorkflowsWorking  Boolean              @default(false)
+  supportProcessReady   Boolean              @default(false)
+  managementSignOffDone Boolean              @default(false)
+  createdAt             DateTime             @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model RollbackPlan {
+  id                       String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                 String?              @db.ObjectId
+  tenant                   Tenant?              @relation(fields: [tenantId], references: [id])
+  rollbackPlanNo           String
+  versionBeforeGoLive      String?
+  currentVersion           String?
+  rollbackTrigger          String?
+  rollbackSteps            String?
+  databaseRestoreReference String?
+  codeCommitReference      String?
+  responsibleUserId        String?              @db.ObjectId
+  estimatedRollbackMinutes Int?
+  testedStatus             RollbackTestedStatus @default(NOT_TESTED)
+  approvedByUserId         String?              @db.ObjectId
+  notes                    String?
+  active                   Boolean              @default(true)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  @@unique([tenantId, rollbackPlanNo])
+  @@index([tenantId, active])
+}
+
+model GoLiveSignOff {
+  id              String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?               @db.ObjectId
+  tenant          Tenant?               @relation(fields: [tenantId], references: [id])
+  signOffRole     String
+  signedByUserId  String                @db.ObjectId
+  decision        GoLiveSignOffDecision @default(PENDING)
+  comments        String?
+  acceptedRisks   String?
+  signedAt        DateTime?
+  revokedAt       DateTime?
+  revokeReason    String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([tenantId, signOffRole])
+  @@index([tenantId, decision])
 }

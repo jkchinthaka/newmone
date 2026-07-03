@@ -329,6 +329,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "go-live-control",
+    label: "Go-Live Control",
+    href: "/go-live",
+    icon: "Rocket",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Pilot rollout, cutover checklist, waves, and go/no-go decisions",
+    activeMatch: "startsWith"
+  },
+  {
     id: "post-go-live",
     label: "Post-Go-Live",
     href: "/post-go-live",

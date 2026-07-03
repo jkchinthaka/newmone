@@ -49,6 +49,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/delivery-readiness"
     },
     {
+      id: "go-live-control",
+      title: "Go-Live Control",
+      description: "Pilot rollout, cutover checklist, rollout waves, go/no-go board, rollback, and sign-off.",
+      status: "available",
+      statusLabel: "Cutover control",
+      href: "/go-live"
+    },
+    {
       id: "post-go-live",
       title: "Post-Go-Live Operations",
       description: "Support tickets, SLA, training, change control, releases, hypercare, and handover.",

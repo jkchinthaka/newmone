@@ -73,6 +73,7 @@ import { PeopleModule } from "./modules/people/people.module";
 import { QaModule } from "./modules/qa/qa.module";
 import { DeliveryReadinessModule } from "./modules/delivery-readiness/delivery-readiness.module";
 import { PostGoLiveModule } from "./modules/post-go-live/post-go-live.module";
+import { GoLiveModule } from "./modules/go-live/go-live.module";
 import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
@@ -134,6 +135,7 @@ normalizeDatabaseEnvironment();
     QaModule,
     DeliveryReadinessModule,
     PostGoLiveModule,
+    GoLiveModule,
     EvidenceModule,
     InventoryModule,
     DepartmentsModule,
