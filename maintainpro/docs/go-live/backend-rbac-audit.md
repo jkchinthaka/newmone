@@ -1,6 +1,6 @@
 # Backend RBAC Audit
 
-Generated: 2026-07-03T00:52:04.815Z
+Generated: 2026-07-03T03:02:19.013Z
 
 MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuard`, `TenantContextGuard`, `RolesGuard`, `PermissionsGuard`.
 
@@ -8,8 +8,8 @@ MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuar
 
 | Metric | Count |
 |--------|------:|
-| Total routes scanned | 461 |
-| PASS | 437 |
+| Total routes scanned | 509 |
+| PASS | 485 |
 | FIXED | 0 |
 | TODO | 24 |
 
@@ -129,6 +129,28 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/driver-intelligence/rankings/best-drivers` | GET | `modules/driver-intelligence/driver-intelligence.controller.ts` | driver_intelligence.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/drivers` | GET | `modules/drivers/drivers.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/drivers` | POST | `modules/drivers/drivers.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/access-checklist/:id` | PATCH | `modules/erp-integration/erp-integration.controller.ts` | erp.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/access-checklist` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/import/batches/:id/apply` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.import | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/import/batches/:id/approve` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.import | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/import/batches/:id/cancel` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.import | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/import/batches/:id/dry-run` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.import | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/import/batches/:id` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/import/batches` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/import/batch` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.import | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/mappings/:id` | PATCH | `modules/erp-integration/erp-integration.controller.ts` | erp.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/mappings` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/mappings` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/mock/status` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/mock/sync` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/readiness` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/reconciliation/:id/accept` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.reconcile | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/reconciliation/:id/mark-corrected` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.reconcile | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/reconciliation/:id/review` | POST | `modules/erp-integration/erp-integration.controller.ts` | erp.reconcile | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/erp/reconciliation/:id` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/reconciliation` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/report` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/erp/status` | GET | `modules/erp-integration/erp-integration.controller.ts` | erp.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/facilities/buildings/:buildingId` | GET | `modules/facilities/facilities.controller.ts` | facilities.view | ...FACILITY_READ_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/facilities/buildings/:buildingId` | PATCH | `modules/facilities/facilities.controller.ts` | facilities.manage | ...FACILITY_MANAGE_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/facilities/buildings` | GET | `modules/facilities/facilities.controller.ts` | facilities.view | ...FACILITY_READ_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
@@ -152,6 +174,32 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/fleet/geofences` | POST | `modules/fleet/fleet.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER, SUPERVISOR, MANAGER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/fleet/live-map` | GET | `modules/fleet/fleet.controller.ts` | — | SUPER_ADMIN, ADMIN, ASSET_MANAGER, SUPERVISOR | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/fuel/logs` | GET | `modules/fuel/fuel.controller.ts` | — | SUPER_ADMIN, ADMIN, MANAGER, ASSET_MANAGER, SUPERVISOR, DRIVER, VIEWER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/cutover-checklist/items/:id` | PATCH | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/cutover-checklist/items` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/cutover-checklist` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/dashboard` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/decision-board/decision` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/decision-board` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/export` | GET | `modules/go-live/go-live.controller.ts` | go_live.export | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/final-report` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/live-issues` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/pilots/:id/complete` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/pilots/:id/extend` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/pilots/:id/start` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/pilots/:id` | PATCH | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/pilots` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/pilots` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/rollback-plan/:id` | PATCH | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/rollback-plan` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/rollback-plan` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/signoff` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/signoff` | POST | `modules/go-live/go-live.controller.ts` | go_live.sign_off | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/waves/:id/complete` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/waves/:id/pause` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/waves/:id/start` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/waves/:id` | PATCH | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/go-live/waves` | GET | `modules/go-live/go-live.controller.ts` | go_live.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/go-live/waves` | POST | `modules/go-live/go-live.controller.ts` | go_live.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/health/readiness` | GET | `health.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/health` | GET | `health.controller.ts` | — | SUPER_ADMIN, ADMIN | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/insurance-claims/:id` | GET | `modules/insurance-claims/insurance-claims.controller.ts` | insurance_claims.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |

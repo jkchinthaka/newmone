@@ -339,6 +339,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "erp-integration",
+    label: "ERP Integration",
+    href: "/erp",
+    icon: "Plug",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Bileeta ERP readiness, mapping, mock sync, and reconciliation",
+    activeMatch: "startsWith"
+  },
+  {
     id: "post-go-live",
     label: "Post-Go-Live",
     href: "/post-go-live",

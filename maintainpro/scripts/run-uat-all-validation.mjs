@@ -53,7 +53,8 @@ const phases = [
   ["uat025", "uat:025:validate"],
   ["uat026", "uat:026:validate"],
   ["uat027", "uat:027:validate"],
-  ["uat028", "uat:028:validate"]
+  ["uat028", "uat:028:validate"],
+  ["uat029", "uat:029:validate"]
 ];
 
 for (const [label, script] of phases) {

@@ -28,6 +28,7 @@ import {
   MapPin,
   Pin,
   PinOff,
+  Plug,
   QrCode,
   Receipt,
   ServerCog,
@@ -99,7 +100,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Users,
   Wallet,
   Archive,
-  Building2
+  Building2,
+  Plug
 };
 
 const GROUP_SURFACE: Record<

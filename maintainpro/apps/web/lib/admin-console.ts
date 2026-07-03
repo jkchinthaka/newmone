@@ -57,6 +57,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/go-live"
     },
     {
+      id: "erp-integration",
+      title: "ERP Integration Readiness",
+      description: "Bileeta mapping, mock sync, file import, reconciliation, and API access checklist.",
+      status: "available",
+      statusLabel: "Integration prep",
+      href: "/erp"
+    },
+    {
       id: "post-go-live",
       title: "Post-Go-Live Operations",
       description: "Support tickets, SLA, training, change control, releases, hypercare, and handover.",

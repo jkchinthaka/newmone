@@ -77,6 +77,11 @@ model Tenant {
   goLiveDecisions              GoLiveDecision[]
   rollbackPlans                RollbackPlan[]
   goLiveSignOffs               GoLiveSignOff[]
+  erpFieldMappings             ErpFieldMapping[]
+  erpImportBatches             ErpImportBatch[]
+  erpReconciliationMismatches  ErpReconciliationMismatch[]
+  erpAccessChecklistItems      ErpAccessChecklistItem[]
+  erpMockSyncRuns              ErpMockSyncRun[]
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
@@ -4133,4 +4138,152 @@ model GoLiveSignOff {
 
   @@index([tenantId, signOffRole])
   @@index([tenantId, decision])
+}
+
+/// Bileeta ERP integration readiness (UAT-029).
+
+enum ErpIntegrationSyncMode {
+  DISABLED
+  MOCK
+  FILE_IMPORT
+  LIVE
+}
+
+enum ErpImportBatchStatus {
+  UPLOADED
+  VALIDATING
+  READY_FOR_REVIEW
+  APPROVED
+  IMPORTED
+  FAILED
+  CANCELLED
+}
+
+enum ErpImportType {
+  EMPLOYEES
+  VENDORS
+  SPARE_PARTS
+  STOCK_BALANCES
+  ASSETS
+  VEHICLES
+  PURCHASE_ORDERS
+  INVOICES
+}
+
+enum ErpReconciliationMismatchStatus {
+  OPEN
+  REVIEWED
+  ACCEPTED
+  CORRECTED
+  IGNORED
+}
+
+enum ErpAccessChecklistStatus {
+  NOT_STARTED
+  REQUESTED
+  RECEIVED
+  VERIFIED
+  BLOCKED
+  NOT_APPLICABLE
+}
+
+model ErpFieldMapping {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String?  @db.ObjectId
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  sourceSystem  String   @default("BILEETA")
+  sourceField   String
+  targetModel   String
+  targetField   String
+  transformRule String?
+  required      Boolean  @default(false)
+  active        Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, sourceSystem, sourceField, targetModel, targetField])
+  @@index([tenantId, targetModel])
+  @@index([tenantId, active])
+}
+
+model ErpImportBatch {
+  id              String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?              @db.ObjectId
+  tenant          Tenant?              @relation(fields: [tenantId], references: [id])
+  batchNo         String
+  importType      ErpImportType
+  fileName        String?
+  status          ErpImportBatchStatus @default(UPLOADED)
+  totalRows       Int                  @default(0)
+  validRows       Int                  @default(0)
+  invalidRows     Int                  @default(0)
+  duplicateRows   Int                  @default(0)
+  dryRunSummary   Json?
+  applySummary    Json?
+  uploadedByUserId String?             @db.ObjectId
+  approvedByUserId String?             @db.ObjectId
+  errorMessage    String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([tenantId, batchNo])
+  @@index([tenantId, status])
+  @@index([tenantId, importType])
+}
+
+model ErpReconciliationMismatch {
+  id                   String                          @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?                         @db.ObjectId
+  tenant               Tenant?                         @relation(fields: [tenantId], references: [id])
+  reportType           String
+  sourceSystem         String                          @default("BILEETA")
+  sourceRecordCode     String
+  maintainProRecordId  String?
+  fieldName            String
+  erpValue             String?
+  maintainProValue     String?
+  mismatchType         String
+  severity             String                          @default("MEDIUM")
+  suggestedAction      String?
+  status               ErpReconciliationMismatchStatus @default(OPEN)
+  reviewedByUserId     String?                         @db.ObjectId
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+
+  @@index([tenantId, reportType])
+  @@index([tenantId, status])
+  @@index([tenantId, severity])
+}
+
+model ErpAccessChecklistItem {
+  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?                  @db.ObjectId
+  tenant      Tenant?                  @relation(fields: [tenantId], references: [id])
+  itemKey     String
+  title       String
+  description String?
+  status      ErpAccessChecklistStatus @default(NOT_STARTED)
+  notes       String?
+  updatedByUserId String?              @db.ObjectId
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@unique([tenantId, itemKey])
+  @@index([tenantId, status])
+}
+
+model ErpMockSyncRun {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?  @db.ObjectId
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
+  syncMode        ErpIntegrationSyncMode @default(MOCK)
+  entityTypes     Json?
+  recordsFetched  Int      @default(0)
+  summary         Json?
+  startedByUserId String?  @db.ObjectId
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }
