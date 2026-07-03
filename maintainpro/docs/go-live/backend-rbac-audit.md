@@ -1,6 +1,6 @@
 # Backend RBAC Audit
 
-Generated: 2026-07-02T22:11:40.515Z
+Generated: 2026-07-02T23:15:23.279Z
 
 MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuard`, `TenantContextGuard`, `RolesGuard`, `PermissionsGuard`.
 
@@ -8,8 +8,8 @@ MaintainPro API route protection review for UAT-022. Global guards: `JwtAuthGuar
 
 | Metric | Count |
 |--------|------:|
-| Total routes scanned | 404 |
-| PASS | 380 |
+| Total routes scanned | 418 |
+| PASS | 394 |
 | FIXED | 0 |
 | TODO | 24 |
 
@@ -101,6 +101,20 @@ High-risk endpoints (work order status, overrides, parts, invoices, exports, adm
 | `/cleaning/visits` | GET | `modules/cleaning/cleaning.controller.ts` | — | SUPER_ADMIN, ADMIN, SUPERVISOR, CLEANER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/compliance/expiring-documents` | GET | `modules/compliance/compliance.controller.ts` | compliance.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/compliance/summary` | GET | `modules/compliance/compliance.controller.ts` | compliance.view | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/categories` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/checklists/:id/items` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/checklists/:id` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/checklists/:id` | PATCH | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/checklists` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/checklists` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/dashboard` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/final-report` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/items/:id/accept-risk` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.accept_risk | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/items/:id/complete` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/items/:id/fail` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/items/:id` | PATCH | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.manage | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
+| `/delivery-readiness/items` | GET | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.view | — | tenant via JwtAuthGuard + TenantContextGuard | no | PASS |
+| `/delivery-readiness/sign-off` | POST | `modules/delivery-readiness/delivery-readiness.controller.ts` | delivery.sign_off | — | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/departments/:id/deactivate` | PATCH | `modules/departments/departments.controller.ts` | — | ...DEPARTMENT_MANAGE_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/departments/:id` | GET | `modules/departments/departments.controller.ts` | — | SUPER_ADMIN, ADMIN, MANAGER, ASSET_MANAGER, SUPERVISOR, MECHANIC, TECHNICIAN, VIEWER | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |
 | `/departments/:id` | PATCH | `modules/departments/departments.controller.ts` | — | ...DEPARTMENT_MANAGE_ROLES | tenant via JwtAuthGuard + TenantContextGuard | yes | PASS |

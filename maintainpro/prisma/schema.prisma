@@ -64,6 +64,13 @@ model Tenant {
   qaIssues                     QaIssue[]
   deliveryChecklists           DeliveryChecklist[]
   deliverySignOffs             DeliverySignOff[]
+  trainingSessions             TrainingSession[]
+  supportTickets               SupportTicket[]
+  escalationRules              EscalationRule[]
+  changeRequests               ChangeRequest[]
+  softwareReleases             SoftwareRelease[]
+  hypercarePlans               HypercarePlan[]
+  supportHandover              SupportHandover?
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
@@ -3592,4 +3599,324 @@ model DeliverySignOff {
 
   @@index([tenantId])
   @@index([signedAt])
+}
+
+enum TrainingCategory {
+  ADMIN_TRAINING
+  MANAGER_TRAINING
+  SUPERVISOR_TRAINING
+  TECHNICIAN_TRAINING
+  STORE_KEEPER_TRAINING
+  FINANCE_TRAINING
+  SECURITY_OFFICER_TRAINING
+  GENERAL_USER_TRAINING
+}
+
+enum TrainingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  NEEDS_RETRAINING
+}
+
+enum SupportTicketCategory {
+  LOGIN_ISSUE
+  PERMISSION_ISSUE
+  WORK_ORDER_ISSUE
+  INVENTORY_ISSUE
+  REPORT_ISSUE
+  PERFORMANCE_ISSUE
+  DATA_ISSUE
+  UI_UX_ISSUE
+  INTEGRATION_ISSUE
+  NOTIFICATION_ISSUE
+  TRAINING_HELP
+  CHANGE_REQUEST
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportTicketSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SupportTicketStatus {
+  OPEN
+  ACKNOWLEDGED
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_USER
+  WAITING_VENDOR
+  RESOLVED
+  CLOSED
+  REOPENED
+  DUPLICATE
+}
+
+enum SupportEnvironment {
+  PRODUCTION
+  STAGING
+  LOCAL
+}
+
+enum ChangeRequestImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ChangeRequestStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  IN_DEVELOPMENT
+  READY_FOR_UAT
+  UAT_PASSED
+  SCHEDULED_FOR_RELEASE
+  RELEASED
+  CLOSED
+}
+
+enum ReleaseType {
+  HOTFIX
+  MINOR
+  MAJOR
+  CONFIG_ONLY
+}
+
+enum ReleaseStatus {
+  DRAFT
+  READY_FOR_UAT
+  UAT_PASSED
+  SCHEDULED
+  DEPLOYED
+  ROLLED_BACK
+  CANCELLED
+}
+
+enum HypercareReadinessStatus {
+  ACTIVE
+  STABLE
+  NEEDS_ATTENTION
+  EXTENDED
+  COMPLETED
+}
+
+enum EscalationNotificationMethod {
+  EMAIL
+  SMS
+  SYSTEM
+  MANUAL
+}
+
+model TrainingSession {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?          @db.ObjectId
+  tenant            Tenant?          @relation(fields: [tenantId], references: [id])
+  trainingSessionNo String
+  role              String
+  category          TrainingCategory
+  traineeUserId     String           @db.ObjectId
+  trainerUserId     String?          @db.ObjectId
+  module            String?
+  checklistItems    Json?
+  status            TrainingStatus   @default(NOT_STARTED)
+  trainingDate      DateTime?
+  evidence          String?
+  notes             String?
+  signOffByUserId   String?          @db.ObjectId
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([tenantId, trainingSessionNo])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([traineeUserId])
+}
+
+model SupportTicket {
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?               @db.ObjectId
+  tenant                Tenant?               @relation(fields: [tenantId], references: [id])
+  ticketNo              String
+  title                 String
+  description           String
+  category              SupportTicketCategory
+  priority              SupportTicketPriority @default(MEDIUM)
+  severity              SupportTicketSeverity @default(MEDIUM)
+  status                SupportTicketStatus   @default(OPEN)
+  reportedByUserId      String                @db.ObjectId
+  assignedToUserId      String?               @db.ObjectId
+  affectedModule        String?
+  affectedPage          String?
+  affectedRole          String?
+  environment           SupportEnvironment    @default(PRODUCTION)
+  businessImpact        String?
+  workaround            String?
+  resolutionNote        String?
+  rootCause             String?
+  linkedQaIssueId       String?               @db.ObjectId
+  linkedChangeRequestId String?               @db.ObjectId
+  isSensitive           Boolean               @default(false)
+  slaPriority           SupportTicketPriority @default(MEDIUM)
+  firstResponseDueAt    DateTime?
+  resolutionDueAt       DateTime?
+  firstResponseAt       DateTime?
+  firstResponseBreached Boolean               @default(false)
+  resolutionBreached    Boolean               @default(false)
+  escalationLevel       Int                   @default(1)
+  escalatedAt           DateTime?
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@unique([tenantId, ticketNo])
+  @@index([tenantId, status])
+  @@index([tenantId, priority])
+  @@index([tenantId, severity])
+  @@index([reportedByUserId])
+  @@index([assignedToUserId])
+  @@index([firstResponseBreached])
+  @@index([resolutionBreached])
+}
+
+model EscalationRule {
+  id                     String                       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId               String?                      @db.ObjectId
+  tenant                 Tenant?                      @relation(fields: [tenantId], references: [id])
+  category               SupportTicketCategory?
+  severity               SupportTicketSeverity?
+  escalationLevel        Int
+  responsibleRole        String
+  responsibleUserId      String?                      @db.ObjectId
+  responseTimeMinutes    Int?
+  escalationAfterMinutes Int
+  notificationMethod     EscalationNotificationMethod @default(SYSTEM)
+  active                 Boolean                      @default(true)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+
+  @@index([tenantId, active])
+  @@index([tenantId, escalationLevel])
+}
+
+model ChangeRequest {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?             @db.ObjectId
+  tenant            Tenant?             @relation(fields: [tenantId], references: [id])
+  crNo              String
+  title             String
+  description       String
+  requestedByUserId String              @db.ObjectId
+  department        String?
+  affectedModule    String?
+  businessReason    String?
+  priority          SupportTicketPriority @default(MEDIUM)
+  impactLevel       ChangeRequestImpact @default(MEDIUM)
+  status            ChangeRequestStatus @default(REQUESTED)
+  estimatedEffort   String?
+  estimatedCost     Float?
+  approvedByUserId  String?             @db.ObjectId
+  approvalNote      String?
+  rejectionReason   String?
+  linkedTicketId    String?             @db.ObjectId
+  linkedQaIssueId   String?             @db.ObjectId
+  linkedReleaseId   String?             @db.ObjectId
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([tenantId, crNo])
+  @@index([tenantId, status])
+  @@index([requestedByUserId])
+}
+
+model SoftwareRelease {
+  id                   String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?       @db.ObjectId
+  tenant               Tenant?       @relation(fields: [tenantId], references: [id])
+  releaseNo            String
+  version              String
+  title                String
+  description          String?
+  releaseType          ReleaseType   @default(MINOR)
+  status               ReleaseStatus @default(DRAFT)
+  linkedChangeRequests String[]      @default([])
+  linkedQaIssues       String[]      @default([])
+  linkedTickets        String[]      @default([])
+  commitHash           String?
+  renderDeployId       String?
+  cloudflareDeployId   String?
+  releaseNotes         String?
+  rollbackPlan         String?
+  backupTaken          Boolean       @default(false)
+  backupReference      String?
+  rollbackReason       String?
+  deployedByUserId     String?       @db.ObjectId
+  deployedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([tenantId, releaseNo])
+  @@index([tenantId, status])
+  @@index([version])
+}
+
+model HypercarePlan {
+  id                  String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?                  @db.ObjectId
+  tenant              Tenant?                  @relation(fields: [tenantId], references: [id])
+  hypercarePeriodName String
+  startDate           DateTime
+  endDate             DateTime
+  supportOwner        String?
+  dailyChecklist      Json?
+  dailyIssueCount     Int                      @default(0)
+  openCriticalIssues  Int                      @default(0)
+  openHighIssues      Int                      @default(0)
+  userFeedback        String?
+  trainingGaps        String?
+  readinessStatus     HypercareReadinessStatus @default(ACTIVE)
+  extensionReason     String?
+  signOffByUserId     String?                  @db.ObjectId
+  completedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([tenantId, readinessStatus])
+  @@index([startDate])
+}
+
+model SupportHandover {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String   @unique @db.ObjectId
+  tenant                Tenant   @relation(fields: [tenantId], references: [id])
+  systemUrls            String?
+  rolesResponsibilities String?
+  supportContacts       String?
+  escalationMatrix      String?
+  backupProcess         String?
+  restoreProcess        String?
+  deploymentProcess     String?
+  rollbackProcess       String?
+  knownLimitations      String?
+  commonIssuesFixes     String?
+  trainingMaterials     String?
+  changeRequestProcess  String?
+  incidentProcess       String?
+  updatedByUserId       String?  @db.ObjectId
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }

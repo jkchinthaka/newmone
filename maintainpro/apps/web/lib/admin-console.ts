@@ -49,6 +49,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/delivery-readiness"
     },
     {
+      id: "post-go-live",
+      title: "Post-Go-Live Operations",
+      description: "Support tickets, SLA, training, change control, releases, hypercare, and handover.",
+      status: "available",
+      statusLabel: "Operations",
+      href: "/post-go-live"
+    },
+    {
       id: "users-access",
       title: "Users & Access",
       description: "Review users, roles, tenant association, and access status in a read-only admin view.",

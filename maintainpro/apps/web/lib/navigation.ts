@@ -329,6 +329,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "post-go-live",
+    label: "Post-Go-Live",
+    href: "/post-go-live",
+    icon: "LifeBuoy",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Support, SLA, training, change control, and hypercare",
+    activeMatch: "startsWith"
+  },
+  {
     id: "system-health",
     label: "System Health",
     href: "/system-health",
