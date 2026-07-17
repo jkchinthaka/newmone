@@ -6,6 +6,11 @@ import { Prisma, PrismaClient, ReplicationOperation, ReplicationOutbox } from "@
 
 import { requestContext } from "../common/context/request-context";
 import {
+  AUDIT_SECURITY_SKIP_MODELS,
+  MODEL_AUDIT_EXTRA_KEYS,
+  redactSensitiveData
+} from "../common/utils/sensitive-data-redaction.util";
+import {
   DatabaseReplicationConfig,
   getDatabaseReplicationConfig,
   sanitizeReplicationError
@@ -31,7 +36,10 @@ const AUDIT_SKIP_MODELS = new Set<string>([
   "OutboxEvent",
   "ReplicationOutbox",
   "UsageEvent",
-  "UsageMetric"
+  "UsageMetric",
+  "PasswordResetToken",
+  "UserInvitation",
+  ...AUDIT_SECURITY_SKIP_MODELS
 ]);
 
 const REPLICATION_SKIP_MODELS = new Set<string>(["ReplicationOutbox"]);
@@ -106,6 +114,16 @@ function clip(value: unknown): unknown {
   return value;
 }
 
+function redactForAudit(model: string, record: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!record) return null;
+  const extra = MODEL_AUDIT_EXTRA_KEYS[model] ?? [];
+  return redactSensitiveData(record, {
+    additionalKeys: extra,
+    // Keep mustChangePassword visible as a non-secret status flag when present
+    allowlist: ["mustChangePassword"]
+  }) as Record<string, unknown>;
+}
+
 interface FieldDiff {
   field: string;
   before: unknown;
@@ -123,17 +141,20 @@ function deepEqual(a: unknown, b: unknown): boolean {
 
 function diffRecords(
   before: Record<string, unknown> | null,
-  after: Record<string, unknown> | null
+  after: Record<string, unknown> | null,
+  model?: string
 ): FieldDiff[] {
   const diffs: FieldDiff[] = [];
+  const safeBefore = model ? redactForAudit(model, before) : before;
+  const safeAfter = model ? redactForAudit(model, after) : after;
   const keys = new Set<string>([
-    ...Object.keys(before ?? {}),
-    ...Object.keys(after ?? {})
+    ...Object.keys(safeBefore ?? {}),
+    ...Object.keys(safeAfter ?? {})
   ]);
   for (const key of keys) {
     if (NOISY_FIELDS.has(key)) continue;
-    const b = before?.[key];
-    const a = after?.[key];
+    const b = safeBefore?.[key];
+    const a = safeAfter?.[key];
     if (!deepEqual(b, a)) {
       diffs.push({ field: key, before: clip(b), after: clip(a) });
     }
@@ -661,21 +682,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       let afterData: Json | undefined;
 
       if (entry.action === "UPDATE") {
-        const changes = diffRecords(entry.before, entry.after);
+        const changes = diffRecords(entry.before, entry.after, opts.model);
         if (changes.length === 0) continue;
         // Store the field-level diff in BOTH columns: beforeData holds prev values, afterData holds new
         beforeData = changes.map((c) => ({ field: c.field, value: c.before })) as unknown as Json;
         afterData = changes.map((c) => ({ field: c.field, value: c.after })) as unknown as Json;
       } else if (entry.action === "CREATE") {
         const snapshot: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(entry.after ?? {})) {
+        const safeAfter = redactForAudit(opts.model, entry.after);
+        for (const [k, v] of Object.entries(safeAfter ?? {})) {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }
         afterData = snapshot as Json;
       } else {
         const snapshot: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(entry.before ?? {})) {
+        const safeBefore = redactForAudit(opts.model, entry.before);
+        for (const [k, v] of Object.entries(safeBefore ?? {})) {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }

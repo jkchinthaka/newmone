@@ -4,6 +4,7 @@ import { RoleName } from "@prisma/client";
 import { Throttle } from "@nestjs/throttler";
 
 import { Roles } from "../../common/decorators/roles.decorator";
+import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequireEntitlement } from "../entitlements/entitlement.decorator";
 import { EntitlementGuard } from "../entitlements/entitlement.guard";
@@ -51,6 +52,7 @@ export class AdminAccessController {
   }
 
   @Get("tenants")
+  @SkipTenantContext()
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
   async listTenantsForReview() {
     const tenants = await this.adminTenantsService.findAllForAdminTenantReview();

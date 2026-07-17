@@ -600,7 +600,14 @@ export class AuthService {
     const now = new Date();
     const invitation = await this.prisma.userInvitation.findUnique({
       where: { tokenHash },
-      include: { user: true }
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        status: true,
+        acceptedAt: true,
+        expiresAt: true
+      }
     });
 
     if (!invitation) throw new BadRequestException("Invitation not found or invalid");
