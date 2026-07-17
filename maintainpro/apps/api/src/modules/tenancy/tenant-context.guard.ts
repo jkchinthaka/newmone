@@ -4,6 +4,10 @@ import { RoleName } from "@prisma/client";
 
 import { IS_PUBLIC_KEY } from "../../common/decorators/public.decorator";
 import { SKIP_TENANT_CONTEXT_KEY } from "../../common/decorators/skip-tenant-context.decorator";
+import {
+  PLATFORM_SCOPED_KEY,
+  TENANT_SCOPED_KEY
+} from "../../common/decorators/tenant-scope.decorator";
 import { PrismaService } from "../../database/prisma.service";
 
 type TenantAwareRequest = {
@@ -35,6 +39,16 @@ export class TenantContextGuard implements CanActivate {
       context.getHandler(),
       context.getClass()
     ]);
+    const platformScoped = this.reflector.getAllAndOverride<boolean>(PLATFORM_SCOPED_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    // TenantScoped is the default for authenticated business routes; metadata is optional documentation.
+    const _tenantScoped = this.reflector.getAllAndOverride<boolean>(TENANT_SCOPED_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    void _tenantScoped;
 
     if (isPublic) {
       return true;
@@ -44,6 +58,10 @@ export class TenantContextGuard implements CanActivate {
 
     if (!request.user?.sub) {
       return true;
+    }
+
+    if (platformScoped && request.user.role !== RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("Platform scope requires SUPER_ADMIN");
     }
 
     const headerValue = request.headers["x-tenant-id"];
@@ -56,11 +74,14 @@ export class TenantContextGuard implements CanActivate {
 
     let tenantId = request.user.tenantId ?? null;
 
-    if (!skipTenantContext) {
+    if (!skipTenantContext && !platformScoped) {
+      tenantId = request.tenantContext?.requestedTenantId ?? headerTenantId ?? tenantId;
+    } else if (platformScoped) {
+      // Platform routes may optionally accept a tenant header for scoped admin actions.
       tenantId = request.tenantContext?.requestedTenantId ?? headerTenantId ?? tenantId;
     }
 
-    if (!tenantId) {
+    if (!tenantId && !platformScoped) {
       const firstMembership = await this.prisma.tenantMembership.findFirst({
         where: {
           userId: request.user.sub,
@@ -80,23 +101,28 @@ export class TenantContextGuard implements CanActivate {
     }
 
     if (skipTenantContext) {
+      // Skip must not silently grant global data access for non-platform users.
       if (request.user.role !== RoleName.SUPER_ADMIN) {
-        const firstMembership = await this.prisma.tenantMembership.findFirst({
-          where: {
-            userId: request.user.sub,
-            tenant: {
-              isActive: true
+        if (!tenantId) {
+          const firstMembership = await this.prisma.tenantMembership.findFirst({
+            where: {
+              userId: request.user.sub,
+              tenant: {
+                isActive: true
+              }
+            },
+            select: {
+              tenantId: true
+            },
+            orderBy: {
+              joinedAt: "asc"
             }
-          },
-          select: {
-            tenantId: true
-          },
-          orderBy: {
-            joinedAt: "asc"
-          }
-        });
-
-        tenantId = firstMembership?.tenantId ?? tenantId;
+          });
+          tenantId = firstMembership?.tenantId ?? null;
+        }
+        if (!tenantId) {
+          throw new ForbiddenException("Tenant context is required");
+        }
       }
 
       request.user.tenantId = tenantId;
@@ -104,10 +130,24 @@ export class TenantContextGuard implements CanActivate {
       return true;
     }
 
-    if (!tenantId) {
-      request.user.tenantId = null;
-      request.tenantId = null;
+    if (platformScoped) {
+      if (tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { id: true, isActive: true }
+        });
+        if (!tenant?.isActive) {
+          throw new ForbiddenException("Requested tenant is inactive or missing");
+        }
+      }
+      request.user.tenantId = tenantId;
+      request.tenantId = tenantId;
       return true;
+    }
+
+    // Default: tenant-scoped — fail closed when no active tenant can be resolved.
+    if (!tenantId) {
+      throw new ForbiddenException("Tenant context is required");
     }
 
     if (request.user.role !== RoleName.SUPER_ADMIN) {
