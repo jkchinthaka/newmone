@@ -1,0 +1,63 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+  push:
+    branches: ["main", "develop"]
+
+defaults:
+  run:
+    working-directory: maintainpro
+
+jobs:
+  validate-monorepo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: maintainpro/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm run test
+        env:
+          CI: true
+
+      - name: Security-sensitive Jest suites
+        run: npx jest --config ./jest.config.cjs test/sensitive-data-hardening.spec.ts test/security-rbac-audit.spec.ts test/work-orders-tenant-isolation.spec.ts test/users-tenant-isolation.spec.ts
+        working-directory: maintainpro/apps/api
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependency audit (non-blocking informational)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Upload Jest coverage if present
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-coverage
+          path: maintainpro/apps/api/coverage
+          if-no-files-found: ignore
