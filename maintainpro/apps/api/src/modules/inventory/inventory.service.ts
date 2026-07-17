@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -420,7 +421,7 @@ export class InventoryService {
       include: {
         asset: true,
         vehicle: true,
-        technician: true,
+        technician: { select: PUBLIC_USER_SUMMARY_SELECT },
         parts: {
           where: {
             partId

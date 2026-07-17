@@ -15,6 +15,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import { ComplianceService } from "../compliance/compliance.service";
@@ -110,7 +111,7 @@ export class VehiclesService {
       this.prisma.vehicle.count({ where }),
       this.prisma.vehicle.findMany({
         where,
-        include: { driver: { include: { user: true } } },
+        include: { driver: { include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } } } },
         orderBy: this.resolveListOrderBy(sortBy, sortDir),
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -345,7 +346,7 @@ export class VehiclesService {
             tenantId
           },
           include: {
-            driver: { include: { user: true } },
+            driver: { include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } } },
             fuelLogs: true,
             tripLogs: true
           }
@@ -353,7 +354,7 @@ export class VehiclesService {
       : await this.prisma.vehicle.findUnique({
           where: { id },
           include: {
-            driver: { include: { user: true } },
+            driver: { include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } } },
             fuelLogs: true,
             tripLogs: true
           }
@@ -570,11 +571,11 @@ export class VehiclesService {
               id: data.driverId,
               tenantId
             },
-            include: { user: true }
+            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
           })
         : await this.prisma.driver.findUnique({
             where: { id: data.driverId },
-            include: { user: true }
+            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
           });
 
       if (!resolvedDriver) {
@@ -1145,11 +1146,11 @@ export class VehiclesService {
             id: driverId,
             tenantId
           },
-          include: { user: true }
+          include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
         })
       : await this.prisma.driver.findUnique({
           where: { id: driverId },
-          include: { user: true }
+          include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
         });
 
     if (!driver) {

@@ -28,6 +28,7 @@ import { randomUUID } from "node:crypto";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { requestContext } from "../../common/context/request-context";
+import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -742,7 +743,7 @@ export class CleaningService {
           }
         }
       },
-      include: { checklist: true, location: true, cleaner: true }
+      include: { checklist: true, location: true, cleaner: { select: PUBLIC_USER_SUMMARY_SELECT } }
     });
 
     await this.notifySupervisors(updated.tenantId, {
@@ -776,7 +777,7 @@ export class CleaningService {
   async signOffVisit(visitId: string, supervisorId: string, dto: SignOffVisitDto) {
     const visit = await this.prisma.cleaningVisit.findUnique({
       where: { id: visitId },
-      include: { cleaner: true, location: true }
+      include: { cleaner: { select: PUBLIC_USER_SUMMARY_SELECT }, location: true }
     });
 
     if (!visit) {

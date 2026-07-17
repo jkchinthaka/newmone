@@ -1,11 +1,22 @@
 import { Prisma, PrismaClient, ReplicationOperation } from "@prisma/client";
 
+import { redactSensitiveData, REDACTED_PLACEHOLDER } from "../common/utils/sensitive-data-redaction.util";
+import {
+  getReplicationClass,
+  REPLICATION_METADATA_FIELDS,
+  REPLICATION_REDACT_FIELDS,
+  ReplicationClass,
+  shouldEnqueueReplication
+} from "./replication-classification";
+
 export const REPLICATION_INTERNAL_MODELS = new Set<string>(["ReplicationOutbox"]);
+export { shouldEnqueueReplication, getReplicationClass, ReplicationClass };
 
 type PrismaDelegate = {
   findUnique?: (args: Record<string, unknown>) => Promise<unknown>;
   findMany?: (args?: Record<string, unknown>) => Promise<unknown[]>;
   upsert?: (args: Record<string, unknown>) => Promise<unknown>;
+  update?: (args: Record<string, unknown>) => Promise<unknown>;
   delete?: (args: Record<string, unknown>) => Promise<unknown>;
   count?: (args?: Record<string, unknown>) => Promise<number>;
 };
@@ -50,7 +61,11 @@ export function getDelegate(client: PrismaClient, modelName: string): PrismaDele
 }
 
 export function isSyncableModel(modelName: string): boolean {
-  return modelByName.has(modelName) && !REPLICATION_INTERNAL_MODELS.has(modelName);
+  return (
+    modelByName.has(modelName) &&
+    !REPLICATION_INTERNAL_MODELS.has(modelName) &&
+    shouldEnqueueReplication(modelName)
+  );
 }
 
 function scalarFieldNames(modelName: string): Set<string> {
@@ -77,17 +92,67 @@ function dateFieldNames(modelName: string): Set<string> {
 
 export function sanitizeRecordForModel(modelName: string, value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") return null;
+  const classification = getReplicationClass(modelName);
+  if (classification === ReplicationClass.NEVER_REPLICATE) {
+    return null;
+  }
+
   const allowed = scalarFieldNames(modelName);
   if (allowed.size === 0) return null;
 
-  const sanitized: Record<string, unknown> = {};
+  let sanitized: Record<string, unknown> = {};
   for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
     if (allowed.has(key) && nestedValue !== undefined) {
       sanitized[key] = nestedValue;
     }
   }
 
+  if (typeof sanitized.id !== "string") {
+    return null;
+  }
+
+  if (classification === ReplicationClass.METADATA_ONLY) {
+    const metaAllow = new Set(REPLICATION_METADATA_FIELDS[modelName] ?? ["id"]);
+    sanitized = Object.fromEntries(
+      Object.entries(sanitized).filter(([key]) => metaAllow.has(key))
+    );
+    if (typeof sanitized.id !== "string") {
+      return null;
+    }
+    return sanitized;
+  }
+
+  if (
+    classification === ReplicationClass.REPLICABLE_WITH_REDACTION ||
+    classification === ReplicationClass.FULLY_REPLICABLE
+  ) {
+    const redactFields = REPLICATION_REDACT_FIELDS[modelName] ?? [];
+    for (const field of redactFields) {
+      if (field in sanitized) {
+        // Omit credential material from the outbox wire; do not send plaintext or placeholder
+        // that could overwrite a valid backup hash on apply.
+        delete sanitized[field];
+      }
+    }
+    sanitized = redactSensitiveData(sanitized, { omit: true }) as Record<string, unknown>;
+  }
+
   return typeof sanitized.id === "string" ? sanitized : null;
+}
+
+/** Drop redacted/missing credential fields so backup upserts do not clobber usable hashes. */
+export function stripUnavailableCredentialFields(
+  modelName: string,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...payload };
+  const redactFields = REPLICATION_REDACT_FIELDS[modelName] ?? [];
+  for (const field of redactFields) {
+    if (!(field in next) || next[field] === REDACTED_PLACEHOLDER) {
+      delete next[field];
+    }
+  }
+  return next;
 }
 
 export function toOutboxJson(value: unknown): Prisma.InputJsonValue | undefined {
@@ -167,12 +232,28 @@ export async function applyReplicationEventToBackup(
     throw new Error(`Replication payload is missing for ${event.modelName}:${event.entityId}`);
   }
 
-  const updatePayload = { ...payload };
+  const safePayload = stripUnavailableCredentialFields(event.modelName, payload);
+  const updatePayload = { ...safePayload };
   delete updatePayload.id;
+
+  if (event.modelName === "User" && typeof safePayload.passwordHash !== "string") {
+    if (!delegate.findUnique || !delegate.update) {
+      throw new Error(`Model ${event.modelName} does not support credential-safe update`);
+    }
+    const existing = await delegate.findUnique({ where: { id: event.entityId } });
+    if (!existing) {
+      return;
+    }
+    await delegate.update({
+      where: { id: event.entityId },
+      data: updatePayload
+    });
+    return;
+  }
 
   await delegate.upsert({
     where: { id: event.entityId },
-    create: payload,
+    create: safePayload,
     update: updatePayload
   });
 }

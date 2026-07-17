@@ -48,7 +48,7 @@ export default function LoginPage() {
     try {
       const res = await apiClient.post("/auth/login", {
         email: resolveLoginEmail(values.email),
-        password: values.password.trim()
+        password: values.password
       });
       const payload = res.data?.data;
 

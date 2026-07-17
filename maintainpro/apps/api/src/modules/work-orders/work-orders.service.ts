@@ -17,6 +17,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
   assertAllowedStatusTransition,
   assertReasonProvided,
@@ -241,8 +242,8 @@ export class WorkOrdersService {
     return {
       asset: true,
       vehicle: true,
-      technician: true,
-      createdBy: true,
+      technician: { select: PUBLIC_USER_SUMMARY_SELECT },
+      createdBy: { select: PUBLIC_USER_SUMMARY_SELECT },
       parts: {
         include: {
           part: true
@@ -1098,8 +1099,8 @@ export class WorkOrdersService {
       include: {
         asset: true,
         vehicle: true,
-        technician: true,
-        createdBy: true,
+        technician: { select: PUBLIC_USER_SUMMARY_SELECT },
+        createdBy: { select: PUBLIC_USER_SUMMARY_SELECT },
         parts: {
           include: {
             part: true

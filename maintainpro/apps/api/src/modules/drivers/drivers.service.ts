@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
 import { requestContext } from "../../common/context/request-context";
+import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
@@ -29,7 +30,7 @@ export class DriversService {
             }
           : {})
       },
-      include: { user: true },
+      include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } },
       orderBy: { createdAt: "desc" },
       take
     });
@@ -55,7 +56,7 @@ export class DriversService {
         id,
         ...(tenantId ? { tenantId } : {})
       },
-      include: { user: true, vehicles: true }
+      include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT }, vehicles: true }
     });
   }
 }
