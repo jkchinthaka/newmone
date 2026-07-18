@@ -74,10 +74,22 @@ export class PeopleService {
     return tenantId;
   }
 
+  /**
+   * Fail-closed Prisma where-fragment for tenant-owned lookups. Non-super-admins
+   * without an active tenant are rejected; super admins operate platform-wide.
+   */
+  private tenantFilter(): { tenantId?: string } {
+    const { tenantId, isSuperAdmin } = this.tenantScope();
+    if (!isSuperAdmin && !tenantId) {
+      throw new BadRequestException("Tenant context is required");
+    }
+    return !isSuperAdmin && tenantId ? { tenantId } : {};
+  }
+
   private async assertUniqueEmployeeNo(tenantId: string | null, employeeNo: string, excludeId?: string) {
     const existing = await this.prisma.employee.findFirst({
       where: {
-        tenantId: tenantId ?? null,
+        tenantId,
         employeeNo,
         ...(excludeId ? { id: { not: excludeId } } : {})
       }
@@ -194,7 +206,7 @@ export class PeopleService {
     const technicianOnly = query.technicianOnly === "true" || query.technicianOnly === "1";
 
     const where: Record<string, unknown> = {
-      ...(tenantId ? { tenantId } : {}),
+      ...this.tenantFilter(),
       ...(query.departmentId?.trim() ? { departmentId: query.departmentId.trim() } : {}),
       ...(query.branchName?.trim() || query.branchId?.trim()
         ? { branchName: { equals: (query.branchName ?? query.branchId)!.trim(), mode: "insensitive" } }
@@ -263,7 +275,7 @@ export class PeopleService {
   async findOne(id: string) {
     const tenantId = this.requiredTenantId();
     const employee = await this.prisma.employee.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
+      where: { id, ...this.tenantFilter() },
       include: this.employeeInclude()
     });
     if (!employee) throw new NotFoundException("Person not found");
@@ -273,6 +285,7 @@ export class PeopleService {
 
   async create(dto: CreatePersonDto) {
     const tenantId = this.requiredTenantId();
+    const { isSuperAdmin } = this.tenantScope();
     const actorId = this.actorId();
     const fullName = dto.fullName.trim();
     if (!fullName) throw new BadRequestException("Full name is required");
@@ -296,7 +309,7 @@ export class PeopleService {
 
     if (dto.departmentId) {
       const dept = await this.prisma.department.findFirst({
-        where: { id: dto.departmentId, ...(tenantId ? { tenantId } : {}) }
+        where: { id: dto.departmentId, ...this.tenantFilter() }
       });
       if (!dept) throw new BadRequestException("Department not found");
     }
@@ -318,8 +331,15 @@ export class PeopleService {
       let userId: string | null = null;
 
       if (canLogin && email && dto.roleId) {
-        const role = await tx.role.findUnique({ where: { id: dto.roleId.trim() } });
+        const role = await tx.role.findUnique({
+          where: { id: dto.roleId.trim() },
+          select: { id: true, name: true, tenantId: true }
+        });
         if (!role) throw new BadRequestException("Role not found");
+        // Cross-tenant FK validation: only global or active-tenant roles are assignable.
+        if (!isSuperAdmin && role.tenantId && role.tenantId !== tenantId) {
+          throw new BadRequestException("Role not found");
+        }
         if (role.name === RoleName.SUPER_ADMIN && requestContext.get()?.actorRole !== RoleName.SUPER_ADMIN) {
           throw new ForbiddenException("You do not have permission to perform this action");
         }
@@ -474,7 +494,7 @@ export class PeopleService {
   async update(id: string, dto: UpdatePersonDto) {
     const tenantId = this.requiredTenantId();
     const existing = await this.prisma.employee.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) }
+      where: { id, ...this.tenantFilter() }
     });
     if (!existing) throw new NotFoundException("Person not found");
 
@@ -482,7 +502,16 @@ export class PeopleService {
     if (dto.fullName !== undefined) data.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) data.phone = dto.phone.trim() || null;
     if (dto.branchName !== undefined) data.branchName = dto.branchName.trim() || null;
-    if (dto.departmentId !== undefined) data.departmentId = dto.departmentId || null;
+    if (dto.departmentId !== undefined) {
+      if (dto.departmentId) {
+        // Cross-tenant FK validation: reassigned department must belong to the active tenant.
+        const dept = await this.prisma.department.findFirst({
+          where: { id: dto.departmentId, ...this.tenantFilter() }
+        });
+        if (!dept) throw new BadRequestException("Department not found");
+      }
+      data.departmentId = dto.departmentId || null;
+    }
     if (dto.designation !== undefined) {
       const designation = dto.designation.trim().toUpperCase();
       if (!isAssignableWorkforceDesignation(designation)) {
@@ -581,7 +610,7 @@ export class PeopleService {
   async reactivate(id: string) {
     const tenantId = this.requiredTenantId();
     const existing = await this.prisma.employee.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) }
+      where: { id, ...this.tenantFilter() }
     });
     if (!existing) throw new NotFoundException("Person not found");
 
@@ -606,7 +635,7 @@ export class PeopleService {
   async upsertTechnicianProfile(employeeId: string, dto: UpdateTechnicianProfileDto) {
     const tenantId = this.requiredTenantId();
     const employee = await this.prisma.employee.findFirst({
-      where: { id: employeeId, ...(tenantId ? { tenantId } : {}) }
+      where: { id: employeeId, ...this.tenantFilter() }
     });
     if (!employee) throw new NotFoundException("Person not found");
 
@@ -642,7 +671,7 @@ export class PeopleService {
     const tenantId = this.requiredTenantId();
     const actorId = this.actorId();
     const employee = await this.prisma.employee.findFirst({
-      where: { id: employeeId, ...(tenantId ? { tenantId } : {}) }
+      where: { id: employeeId, ...this.tenantFilter() }
     });
     if (!employee) throw new NotFoundException("Person not found");
     if (!employee.active) throw new BadRequestException("Inactive employee cannot login");
@@ -782,7 +811,7 @@ export class PeopleService {
   async resetPassword(userId: string, inviteMethod: InviteMethod = InviteMethod.TEMP_PASSWORD) {
     const tenantId = this.requiredTenantId();
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, ...(tenantId ? { tenantId } : {}) },
+      where: { id: userId, ...this.tenantFilter() },
       include: { linkedWorkforceEmployees: true }
     });
     if (!user) throw new NotFoundException("User not found");
@@ -847,7 +876,7 @@ export class PeopleService {
     const tenantId = this.requiredTenantId();
     const actorId = this.actorId();
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, ...(tenantId ? { tenantId } : {}) },
+      where: { id: userId, ...this.tenantFilter() },
       include: {
         role: { select: { name: true } },
         department: { select: { name: true } },

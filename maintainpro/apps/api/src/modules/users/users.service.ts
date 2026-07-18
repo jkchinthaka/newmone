@@ -98,16 +98,23 @@ export class UsersService {
   }
 
   private async ensureRoleExists(roleId: string): Promise<{ id: string; name: RoleName }> {
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
-      select: { id: true, name: true }
+      select: { id: true, name: true, tenantId: true }
     });
 
     if (!role) {
       throw new BadRequestException("Role not found");
     }
 
-    return role;
+    // Cross-tenant FK validation: non-super-admins may only assign global roles
+    // (tenantId null) or roles owned by the active tenant.
+    if (!isSuperAdmin && role.tenantId && role.tenantId !== tenantId) {
+      throw new BadRequestException("Role not found");
+    }
+
+    return { id: role.id, name: role.name };
   }
 
   private membershipRoleForRole(roleName: RoleName): TenantMembershipRole {
@@ -363,7 +370,7 @@ export class UsersService {
           lastName: data.lastName.trim(),
           roleId: data.roleId,
           phone: data.phone?.trim() || undefined,
-          tenantId: tenantId ?? undefined
+          tenantId: tenantId === null ? undefined : tenantId
         },
         include: { role: { select: this.userRoleSelect } }
       });
@@ -411,7 +418,7 @@ export class UsersService {
           phone: data.phone?.trim() || undefined,
           passwordHash,
           isActive: true,
-          tenantId: tenantId ?? undefined
+          tenantId: tenantId === null ? undefined : tenantId
         },
         include: {
           role: { select: this.userRoleSelect }

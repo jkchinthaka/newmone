@@ -151,11 +151,14 @@ export class TenantContextGuard implements CanActivate {
     }
 
     if (request.user.role !== RoleName.SUPER_ADMIN) {
-      const membership = await this.prisma.tenantMembership.findUnique({
+      // Tenant switching: the user must hold an active membership in an active
+      // tenant. Missing/disabled memberships or inactive tenants are denied.
+      const membership = await this.prisma.tenantMembership.findFirst({
         where: {
-          tenantId_userId: {
-            tenantId,
-            userId: request.user.sub
+          tenantId,
+          userId: request.user.sub,
+          tenant: {
+            isActive: true
           }
         },
         select: {

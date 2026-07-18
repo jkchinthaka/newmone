@@ -59,7 +59,7 @@ export class WorkforceEmployeesService {
   ) {
     const existing = await this.prisma.employee.findFirst({
       where: {
-        tenantId: tenantId ?? null,
+        tenantId,
         employeeNo,
         ...(excludeId ? { id: { not: excludeId } } : {})
       }
@@ -200,7 +200,7 @@ export class WorkforceEmployeesService {
 
     if (input.departmentId) {
       const dept = await this.prisma.department.findFirst({
-        where: { id: input.departmentId, tenantId: tenantId ?? null }
+        where: { id: input.departmentId, tenantId }
       });
       if (!dept) {
         throw new BadRequestException("Department not found");
@@ -214,7 +214,7 @@ export class WorkforceEmployeesService {
       const role = await this.prisma.role.findFirst({
         where: {
           name: roleName,
-          OR: [{ tenantId: tenantId ?? null }, { tenantId: null }]
+          OR: [{ tenantId }, { tenantId: null }]
         },
         orderBy: { tenantId: "desc" }
       });
@@ -352,7 +352,7 @@ export class WorkforceEmployeesService {
       const role = await this.prisma.role.findFirst({
         where: {
           name: roleName,
-          OR: [{ tenantId: tenantId ?? null }, { tenantId: null }]
+          OR: [{ tenantId }, { tenantId: null }]
         },
         orderBy: { tenantId: "desc" }
       });
