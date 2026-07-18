@@ -87,34 +87,6 @@
       "reason": "Work-order taxonomy is dual-scoped reference data: entries are either tenant-owned or global (tenantId null) seed defaults shared across tenants, keyed by a __global__ cache bucket. tenantId ?? null selects the correct scope rather than dropping tenant filtering. All controller entry points pass the authenticated actor and the TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN, so the null (global) path is unreachable from tenant-user HTTP requests. Retained by design, not a tenant-owned data leak."
     },
     {
-      "file": "apps/api/src/modules/cleaning/cleaning.service.ts",
-      "scope": "tenant-owned-business",
-      "owner": "maintainpro-backend",
-      "status": "PENDING-MIGRATION",
-      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-    },
-    {
-      "file": "apps/api/src/modules/operations/operations.service.ts",
-      "scope": "tenant-owned-business",
-      "owner": "maintainpro-backend",
-      "status": "PENDING-MIGRATION",
-      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-    },
-    {
-      "file": "apps/api/src/modules/utilities/utilities.service.ts",
-      "scope": "tenant-owned-business",
-      "owner": "maintainpro-backend",
-      "status": "PENDING-MIGRATION",
-      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-    },
-    {
-      "file": "apps/api/src/modules/compliance/compliance.service.ts",
-      "scope": "tenant-owned-business",
-      "owner": "maintainpro-backend",
-      "status": "PENDING-MIGRATION",
-      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-    },
-    {
       "file": "apps/api/src/modules/farm/crops/crops.module.ts",
       "scope": "tenant-owned-business",
       "owner": "maintainpro-backend",
