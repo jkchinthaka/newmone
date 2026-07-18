@@ -1,286 +1,195 @@
 {
-    "$schema":  "./tenant-audit-exceptions.schema.json",
-    "description":  "Reviewed exceptions to the tenant fail-open static audit (scripts/audit-tenant-queries.mjs). One entry per file grandfathers existing fail-open patterns so CI blocks NEW regressions while migration proceeds. APPROVED = intentional platform/super-admin scope. PENDING-MIGRATION = known debt, still a production blocker.",
-    "exceptions":  [
-                       {
-                           "file":  "apps/api/src/modules/go-live/pilot-rollout.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/post-go-live/change-requests.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/post-go-live/hypercare.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/post-go-live/releases.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/post-go-live/support-tickets.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/post-go-live/training.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/qa/qa-issues.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/management-intelligence/management-intelligence.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/reports/maintenance-reports.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/reports/reports.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/delivery-readiness/delivery-readiness.service.ts",
-                           "scope":  "platform-super-admin",
-                           "owner":  "maintainpro-backend",
-                           "status":  "APPROVED",
-                           "reason":  "Platform/ops or cross-tenant reporting surface; requireTenantId()-style guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-orders.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/vendor-repair.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-order-assignees.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-order-governance.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-order-history.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-order-parts.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-orders/work-order-queues.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/work-order-taxonomy/work-order-taxonomy.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/inventory/inventory.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/users/users.service.ts",
-                           "scope":  "actor-guard-protected",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Actor-based service. TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN before these run, so normal-user paths are fail-closed at the boundary. Literal fail-open remains for SUPER_ADMIN cross-tenant and internal calls; scheduled for requireTenantId() migration."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/cleaning/cleaning.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/people/people.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/operations/operations.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/utilities/utilities.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/workforce/workforce-employees.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/workforce/workforce-planning.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/compliance/compliance.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/auth/auth.service.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/crops/crops.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/farm-finance/farm-finance.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/farm-workers/farm-workers.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/fields/fields.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/harvest/harvest.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/irrigation/irrigation.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/livestock/livestock.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/soil-tests/soil-tests.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/spray-logs/spray-logs.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/traceability/traceability.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       },
-                       {
-                           "file":  "apps/api/src/modules/farm/weather/weather.module.ts",
-                           "scope":  "tenant-owned-business",
-                           "owner":  "maintainpro-backend",
-                           "status":  "PENDING-MIGRATION",
-                           "reason":  "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
-                       }
-                   ]
+  "$schema": "./tenant-audit-exceptions.schema.json",
+  "description": "Reviewed exceptions to the tenant fail-open static audit (scripts/audit-tenant-queries.mjs). One entry per file. APPROVED = intentional platform/super-admin scope or shared reference data. PENDING-MIGRATION = known tenant-owned debt and a production blocker (NO-GO). Migrated modules are removed from this list so CI blocks any regression that reintroduces a fail-open pattern in them.",
+  "exceptions": [
+    {
+      "file": "apps/api/src/modules/go-live/pilot-rollout.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/post-go-live/change-requests.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/post-go-live/hypercare.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/post-go-live/releases.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/post-go-live/support-tickets.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/post-go-live/training.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/qa/qa-issues.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/management-intelligence/management-intelligence.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/reports/maintenance-reports.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/reports/reports.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/delivery-readiness/delivery-readiness.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Platform/ops or cross-tenant reporting surface; guard throws for non-SUPER_ADMIN, so the ternary only relaxes scope for an authenticated SUPER_ADMIN with an explicit active tenant. Fail-open literal retained pending refactor to explicit platform-scope decorator."
+    },
+    {
+      "file": "apps/api/src/modules/work-order-taxonomy/work-order-taxonomy.service.ts",
+      "scope": "shared-reference-data",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "Work-order taxonomy is dual-scoped reference data: entries are either tenant-owned or global (tenantId null) seed defaults shared across tenants, keyed by a __global__ cache bucket. tenantId ?? null selects the correct scope rather than dropping tenant filtering. All controller entry points pass the authenticated actor and the TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN, so the null (global) path is unreachable from tenant-user HTTP requests. Retained by design, not a tenant-owned data leak."
+    },
+    {
+      "file": "apps/api/src/modules/cleaning/cleaning.service.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/operations/operations.service.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/utilities/utilities.service.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/compliance/compliance.service.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/crops/crops.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/farm-finance/farm-finance.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/farm-workers/farm-workers.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/fields/fields.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/harvest/harvest.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/irrigation/irrigation.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/livestock/livestock.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/soil-tests/soil-tests.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/spray-logs/spray-logs.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/traceability/traceability.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    },
+    {
+      "file": "apps/api/src/modules/farm/weather/weather.module.ts",
+      "scope": "tenant-owned-business",
+      "owner": "maintainpro-backend",
+      "status": "PENDING-MIGRATION",
+      "reason": "Tenant-owned business module not yet migrated to requireTenantId()/tenantWhere(). Guard enforces tenant presence at the HTTP boundary; explicit fail-closed migration still required. Tracked as production blocker (NO-GO)."
+    }
+  ]
 }

@@ -211,7 +211,7 @@ export class AuthService {
 
     await this.prisma.auditLog.create({
       data: {
-        tenantId: user.tenantId ?? undefined,
+        tenantId: user.tenantId ?? null,
         actorId: user.id,
         module: "auth",
         entity: "USER",
