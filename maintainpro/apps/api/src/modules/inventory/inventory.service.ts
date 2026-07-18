@@ -14,6 +14,7 @@ import {
 import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import { PrismaService } from "../../database/prisma.service";
+import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
@@ -34,12 +35,8 @@ export class InventoryService {
     return date.toISOString().slice(0, 10);
   }
 
-  private resolveTenantId(actor?: Actor): string | null | undefined {
-    if (!actor) {
-      return undefined;
-    }
-
-    return actor.tenantId ?? null;
+  private resolveTenantId(actor?: Actor): string {
+    return requireTenantId(actor?.tenantId);
   }
 
   private assertActor(actor?: Actor) {
@@ -98,7 +95,7 @@ export class InventoryService {
     return this.prisma.sparePart.findMany({
       where: {
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         supplier: true,
@@ -127,7 +124,7 @@ export class InventoryService {
     const part = await this.prisma.sparePart.findFirst({
       where: {
         id,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: { supplier: true }
     });
@@ -158,7 +155,7 @@ export class InventoryService {
     const existing = await this.prisma.sparePart.findFirst({
       where: {
         partNumber: data.partNumber,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -170,9 +167,17 @@ export class InventoryService {
       throw new BadRequestException("Reorder point must be less than minimum stock");
     }
 
+    // Cross-tenant FK validation: referenced supplier must belong to the active tenant.
+    if (data.supplierId) {
+      await assertTenantEntityExists(this.prisma.supplier, data.supplierId, {
+        tenantId,
+        entityName: "Supplier"
+      });
+    }
+
     return this.prisma.sparePart.create({
       data: {
-        tenantId: tenantId ?? null,
+        tenantId,
         partNumber: data.partNumber,
         name: data.name,
         category: data.category,
@@ -233,7 +238,7 @@ export class InventoryService {
         id: {
           in: ids
         },
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       data: {
         isActive: false
@@ -259,7 +264,7 @@ export class InventoryService {
           in: ids
         },
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       data: {
         category: category.trim()
@@ -328,7 +333,7 @@ export class InventoryService {
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id: options.workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       select: { id: true, status: true, woNumber: true }
     });
@@ -411,7 +416,7 @@ export class InventoryService {
 
     return this.prisma.workOrder.findMany({
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        tenantId,
         parts: {
           some: {
             partId
@@ -448,7 +453,7 @@ export class InventoryService {
     return this.prisma.purchaseOrder.findMany({
       where: {
         supplierId: part.supplierId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         supplier: true
@@ -474,7 +479,7 @@ export class InventoryService {
         },
         part: {
           isActive: true,
-          ...(tenantId !== undefined ? { tenantId } : {})
+          tenantId
         }
       },
       select: {
@@ -518,7 +523,7 @@ export class InventoryService {
         },
         part: {
           isActive: true,
-          ...(tenantId !== undefined ? { tenantId } : {})
+          tenantId
         }
       },
       select: {
@@ -561,7 +566,7 @@ export class InventoryService {
     return this.prisma.sparePart.findMany({
       where: {
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        tenantId,
         quantityInStock: {
           lte: this.prisma.sparePart.fields.reorderPoint
         }
@@ -574,7 +579,7 @@ export class InventoryService {
 
     return this.prisma.purchaseOrder.findMany({
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         supplier: true,
@@ -609,7 +614,7 @@ export class InventoryService {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: {
         id,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         supplier: true,
@@ -666,7 +671,7 @@ export class InventoryService {
     const supplier = await this.prisma.supplier.findFirst({
       where: {
         id: data.supplierId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -679,7 +684,7 @@ export class InventoryService {
     const created = await this.prisma.$transaction(async (tx) => {
       const purchaseOrder = await tx.purchaseOrder.create({
         data: {
-          tenantId: tenantId ?? supplier.tenantId ?? null,
+          tenantId,
           poNumber: data.poNumber,
           supplierId: data.supplierId,
           orderDate: new Date(data.orderDate),
@@ -693,14 +698,14 @@ export class InventoryService {
 
       const approvalRows = [
         {
-          tenantId: tenantId ?? supplier.tenantId ?? null,
+          tenantId,
           purchaseOrderId: purchaseOrder.id,
           stage: ApprovalStage.OPERATIONAL,
           sequence: 1,
           status: ApprovalDecisionStatus.PENDING
         },
         {
-          tenantId: tenantId ?? supplier.tenantId ?? null,
+          tenantId,
           purchaseOrderId: purchaseOrder.id,
           stage: ApprovalStage.FINANCE,
           sequence: 2,
@@ -715,7 +720,7 @@ export class InventoryService {
 
       if (Array.isArray(data.lines) && data.lines.length > 0) {
         const lineRows = data.lines.map((line) => ({
-          tenantId: tenantId ?? supplier.tenantId ?? null,
+          tenantId,
           purchaseOrderId: purchaseOrder.id,
           partId: line.partId,
           description: line.description,
