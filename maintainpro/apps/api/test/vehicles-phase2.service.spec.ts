@@ -9,6 +9,7 @@ import {
   VehicleStatus
 } from "@prisma/client";
 
+import { requestContext } from "../src/common/context/request-context";
 import { VehiclesService } from "../src/modules/vehicles/vehicles.service";
 
 type PrismaMockBundle = {
@@ -20,7 +21,8 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const tx = {
     vehicle: {
       update: jest.fn(),
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
+      findFirst: jest.fn()
     },
     vehicleGateMovement: {
       create: jest.fn()
@@ -42,6 +44,7 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const prisma = {
     vehicle: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
       count: jest.fn(),
@@ -96,6 +99,11 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
     })
   };
 
+  // Tenant-scoped reads use findFirst; delegate to findUnique so existing
+  // per-test mockResolvedValue(...) setups continue to drive the result.
+  prisma.vehicle.findFirst.mockImplementation((args: unknown) => prisma.vehicle.findUnique(args));
+  tx.vehicle.findFirst.mockImplementation((args: unknown) => tx.vehicle.findUnique(args));
+
   return {
     prisma,
     tx
@@ -137,6 +145,20 @@ describe("VehiclesService Phase 2 critical flows", () => {
   let tx: any;
   let service: VehiclesService;
 
+  const TEST_CONTEXT = {
+    actorId: "user-1",
+    actorEmail: "actor@example.com",
+    actorRole: RoleName.ADMIN as string,
+    tenantId: "tenant-1",
+    module: null,
+    ipAddress: null,
+    userAgent: null,
+    requestPath: null
+  };
+
+  const itT = (name: string, fn: () => Promise<void>) =>
+    it(name, () => requestContext.run(TEST_CONTEXT, fn));
+
   beforeEach(() => {
     const bundle = createPrismaMockBundle();
     prisma = bundle.prisma;
@@ -154,7 +176,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     service = new VehiclesService(prisma, fleetService as any, complianceService as any);
   });
 
-  it("allows gate-out when vehicle has no blocking issues", async () => {
+  itT("allows gate-out when vehicle has no blocking issues", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle() as any);
 
     tx.vehicle.update.mockResolvedValue({ id: "veh-1" });
@@ -195,7 +217,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     });
   });
 
-  it("blocks gate-out when service is overdue and writes a blocked movement audit log", async () => {
+  itT("blocks gate-out when service is overdue and writes a blocked movement audit log", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.AVAILABLE,
@@ -226,7 +248,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(tx.vehicleMeterLog.create).not.toHaveBeenCalled();
   });
 
-  it("blocks gate-out when vehicle has a critical restriction", async () => {
+  itT("blocks gate-out when vehicle has a critical restriction", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.OUT_OF_SERVICE,
@@ -251,7 +273,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     });
   });
 
-  it("blocks gate-out when vehicle has critical open work orders", async () => {
+  itT("blocks gate-out when vehicle has critical open work orders", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle() as any);
     prisma.workOrder.findMany.mockResolvedValue([
       { woNumber: "WO-9001", type: "EMERGENCY", status: "IN_PROGRESS", priority: "CRITICAL" }
@@ -266,7 +288,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 
-  it("allows override only for authorized approver roles and records override audit data", async () => {
+  itT("allows override only for authorized approver roles and records override audit data", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.OUT_OF_SERVICE,
@@ -312,7 +334,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     });
   });
 
-  it("rejects override attempts from unauthorized users", async () => {
+  itT("rejects override attempts from unauthorized users", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.OUT_OF_SERVICE,
@@ -340,7 +362,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
   });
 
-  it("records gate-in movement and return meter reading", async () => {
+  itT("records gate-in movement and return meter reading", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.IN_USE,
@@ -390,7 +412,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     });
   });
 
-  it("rejects gate-in readings below the last known/out mileage", async () => {
+  itT("rejects gate-in readings below the last known/out mileage", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         status: VehicleStatus.IN_USE,
@@ -407,7 +429,8 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("calculates trip KM correctly on trip end", async () => {
+  itT("calculates trip KM correctly on trip end", async () => {
+    prisma.vehicle.findUnique.mockResolvedValueOnce({ id: "veh-1" });
     prisma.tripLog.findUnique.mockResolvedValue({
       id: "trip-1",
       vehicleId: "veh-1",
@@ -454,7 +477,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(result.distance).toBe(485);
   });
 
-  it("recalculates service rule remaining KM and service status", async () => {
+  itT("recalculates service rule remaining KM and service status", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
         currentMileage: 10000,
@@ -499,7 +522,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(result.vehicle.serviceStatus).toBe(VehicleServiceStatus.DUE_SOON);
   });
 
-  it("triggers due and overdue statuses at expected mileage/date thresholds", async () => {
+  itT("triggers due and overdue statuses at expected mileage/date thresholds", async () => {
     prisma.vehicle.count.mockResolvedValue(4);
     prisma.vehicle.groupBy.mockResolvedValue([
       { status: VehicleStatus.AVAILABLE, _count: { _all: 3 } },
