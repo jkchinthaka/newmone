@@ -99,7 +99,7 @@ export class VehicleDocumentsService {
       afterData: created as unknown as Prisma.InputJsonValue
     });
 
-    await this.compliance.refreshAndPersist(vehicle.id);
+    await this.compliance.refreshAndPersist(vehicle.id, a);
     return created;
   }
 
@@ -130,7 +130,7 @@ export class VehicleDocumentsService {
       afterData: updated as unknown as Prisma.InputJsonValue
     });
 
-    await this.compliance.refreshAndPersist(existing.vehicleId);
+    await this.compliance.refreshAndPersist(existing.vehicleId, a);
     return updated;
   }
 
@@ -158,7 +158,7 @@ export class VehicleDocumentsService {
       reason: "Document verified",
       metadata: { action: "verify", previousStatus: existing.status }
     });
-    await this.compliance.refreshAndPersist(existing.vehicleId);
+    await this.compliance.refreshAndPersist(existing.vehicleId, a);
     return updated;
   }
 
@@ -184,7 +184,7 @@ export class VehicleDocumentsService {
       reason: `Document rejected: ${reason}`,
       metadata: { action: "reject", rejectionReason: reason, previousStatus: existing.status }
     });
-    await this.compliance.refreshAndPersist(existing.vehicleId);
+    await this.compliance.refreshAndPersist(existing.vehicleId, a);
     return updated;
   }
 
@@ -201,7 +201,7 @@ export class VehicleDocumentsService {
       reason: "Document deleted",
       beforeData: existing as unknown as Prisma.InputJsonValue
     });
-    await this.compliance.refreshAndPersist(existing.vehicleId);
+    await this.compliance.refreshAndPersist(existing.vehicleId, a);
     return { deleted: true };
   }
 
