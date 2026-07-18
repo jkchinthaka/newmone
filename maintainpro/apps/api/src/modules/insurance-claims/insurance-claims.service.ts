@@ -1,8 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditAction, InsuranceClaimStatus, Prisma } from "@prisma/client";
 
+import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
-import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit, resolveTenantId } from "../_phase4/phase4-audit.helper";
+import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
 
 export interface CreateInsuranceClaimInput {
   vehicleId: string;
@@ -28,29 +29,24 @@ export class InsuranceClaimsService {
 
   private async assertVehicleAccess(vehicleId: string, actor: Phase4Actor) {
     if (!isValidObjectId(vehicleId)) throw new BadRequestException("Invalid vehicleId");
-    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    // Fail-closed + cross-tenant FK validation: resolve the vehicle by id AND tenant.
+    const tenantId = requireTenantId(actor?.tenantId);
+    const vehicle = await this.prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
-      throw new ForbiddenException("Vehicle not in your tenant");
-    }
     return vehicle;
   }
 
   private async assertAccess(id: string, actor: Phase4Actor) {
-    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id } });
+    const tenantId = requireTenantId(actor?.tenantId);
+    const claim = await this.prisma.insuranceClaim.findFirst({ where: { id, tenantId } });
     if (!claim) throw new NotFoundException("Insurance claim not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && claim.tenantId !== tenantId) {
-      throw new ForbiddenException("Claim not in your tenant");
-    }
     return claim;
   }
 
   async list(actor: Phase4Actor, filters?: { vehicleId?: string; status?: InsuranceClaimStatus }) {
-    const tenantId = resolveTenantId(actor);
+    const tenantId = requireTenantId(actor?.tenantId);
     const where: Prisma.InsuranceClaimWhereInput = {
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      tenantId,
       ...(filters?.vehicleId ? { vehicleId: filters.vehicleId } : {}),
       ...(filters?.status ? { status: filters.status } : {})
     };
@@ -76,6 +72,14 @@ export class InsuranceClaimsService {
     if (!input.insurerName?.trim()) throw new BadRequestException("insurerName is required");
     if (!(input.claimAmount > 0)) throw new BadRequestException("claimAmount must be > 0");
     if (input.accidentId && !isValidObjectId(input.accidentId)) throw new BadRequestException("Invalid accidentId");
+
+    // Cross-tenant FK validation: a linked accident must belong to the tenant.
+    if (input.accidentId) {
+      await assertTenantEntityExists(this.prisma.accidentReport, input.accidentId, {
+        tenantId: vehicle.tenantId,
+        entityName: "Accident report"
+      });
+    }
 
     const claimNumber = await this.nextClaimNumber();
     const created = await this.prisma.insuranceClaim.create({

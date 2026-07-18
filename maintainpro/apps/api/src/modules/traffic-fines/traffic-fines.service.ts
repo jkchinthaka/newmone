@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AuditAction,
   FinePaymentStatus,
@@ -9,9 +9,10 @@ import {
   WorkOrderType
 } from "@prisma/client";
 
+import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import { VehicleDocumentsService } from "../vehicle-documents/vehicle-documents.service";
-import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit, resolveTenantId } from "../_phase4/phase4-audit.helper";
+import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
 
 const DOC_DEPENDENT_OFFENSES: VehicleDocumentType[] = [
   VehicleDocumentType.INSURANCE,
@@ -56,22 +57,17 @@ export class TrafficFinesService {
 
   private async assertVehicleAccess(vehicleId: string, actor: Phase4Actor) {
     if (!isValidObjectId(vehicleId)) throw new BadRequestException("Invalid vehicleId");
-    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    // Fail-closed + cross-tenant FK validation: resolve the vehicle by id AND tenant.
+    const tenantId = requireTenantId(actor?.tenantId);
+    const vehicle = await this.prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
-      throw new ForbiddenException("Vehicle not in your tenant");
-    }
     return vehicle;
   }
 
   private async assertAccess(id: string, actor: Phase4Actor) {
-    const fine = await this.prisma.trafficFine.findUnique({ where: { id }, include: { workOrders: true } });
+    const tenantId = requireTenantId(actor?.tenantId);
+    const fine = await this.prisma.trafficFine.findFirst({ where: { id, tenantId }, include: { workOrders: true } });
     if (!fine) throw new NotFoundException("Traffic fine not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && fine.tenantId !== tenantId) {
-      throw new ForbiddenException("Fine not in your tenant");
-    }
     return this.withPrimaryWorkOrder(fine);
   }
 
@@ -87,9 +83,9 @@ export class TrafficFinesService {
     actor: Phase4Actor,
     filters?: { vehicleId?: string; driverId?: string; paymentStatus?: FinePaymentStatus; responsibility?: FineResponsibility }
   ) {
-    const tenantId = resolveTenantId(actor);
+    const tenantId = requireTenantId(actor?.tenantId);
     const where: Prisma.TrafficFineWhereInput = {
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      tenantId,
       ...(filters?.vehicleId ? { vehicleId: filters.vehicleId } : {}),
       ...(filters?.driverId ? { driverId: filters.driverId } : {}),
       ...(filters?.paymentStatus ? { paymentStatus: filters.paymentStatus } : {}),
@@ -120,6 +116,14 @@ export class TrafficFinesService {
 
     const fineDate = new Date(input.fineDate);
     if (isNaN(fineDate.getTime())) throw new BadRequestException("Invalid fineDate");
+
+    // Cross-tenant FK validation: an assigned driver must belong to the tenant.
+    if (input.driverId) {
+      await assertTenantEntityExists(this.prisma.driver, input.driverId, {
+        tenantId: vehicle.tenantId,
+        entityName: "Driver"
+      });
+    }
 
     let documentRelated = !!input.documentRelated;
     let responsibility: FineResponsibility = input.responsibility ?? FineResponsibility.UNDETERMINED;
@@ -235,6 +239,13 @@ export class TrafficFinesService {
     }
     if (fine.workOrder) {
       return fine.workOrder;
+    }
+    // Cross-tenant FK validation: an assigned technician must belong to the tenant.
+    if (body.technicianId) {
+      await assertTenantEntityExists(this.prisma.user, body.technicianId, {
+        tenantId: fine.tenantId,
+        entityName: "Technician"
+      });
     }
     const year = new Date().getFullYear();
     const count = await this.prisma.workOrder.count({
