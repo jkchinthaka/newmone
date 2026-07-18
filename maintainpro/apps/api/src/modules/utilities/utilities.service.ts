@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
@@ -7,15 +8,17 @@ export class UtilitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
   meters(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     return this.prisma.utilityMeter.findMany({
-      where: { ...(tenantId ? { tenantId } : {}) },
+      where: { tenantId: scopedTenantId },
       orderBy: { createdAt: "desc" }
     });
   }
 
   async meter(id: string, tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     const meter = await this.prisma.utilityMeter.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) }
+      where: { id, tenantId: scopedTenantId }
     });
 
     if (!meter) {
@@ -29,7 +32,8 @@ export class UtilitiesService {
     tenantId: string | null,
     data: { meterNumber: string; type: "ELECTRICITY" | "WATER" | "GAS"; location: string; description?: string; unit: string }
   ) {
-    return this.prisma.utilityMeter.create({ data: { ...data, tenantId: tenantId ?? undefined } });
+    const scopedTenantId = requireTenantId(tenantId);
+    return this.prisma.utilityMeter.create({ data: { ...data, tenantId: scopedTenantId } });
   }
 
   async updateMeter(id: string, tenantId: string | null, data: Partial<{ location: string; description: string; unit: string; isActive: boolean }>) {
@@ -74,8 +78,9 @@ export class UtilitiesService {
     // Scope to meters owned by this tenant, then fetch their readings. Avoids
     // Prisma's required-relation `include` throwing on dangling meterIds while
     // also enforcing tenant isolation (MeterReading has no tenantId of its own).
+    const scopedTenantId = requireTenantId(tenantId);
     const meters = await this.prisma.utilityMeter.findMany({
-      where: { ...(tenantId ? { tenantId } : {}) }
+      where: { tenantId: scopedTenantId }
     });
     if (meters.length === 0) return [];
 
@@ -107,8 +112,9 @@ export class UtilitiesService {
   async bills(tenantId: string | null) {
     // Same orphan-tolerant strategy as `allReadings`: avoid Prisma's required
     // relation include throwing on dangling meterIds.
+    const scopedTenantId = requireTenantId(tenantId);
     const bills = await this.prisma.utilityBill.findMany({
-      where: { ...(tenantId ? { tenantId } : {}) },
+      where: { tenantId: scopedTenantId },
       orderBy: { createdAt: "desc" }
     });
     if (bills.length === 0) return [];
@@ -118,7 +124,7 @@ export class UtilitiesService {
       ? await this.prisma.utilityMeter.findMany({
           where: {
             id: { in: meterIds },
-            ...(tenantId ? { tenantId } : {})
+            tenantId: scopedTenantId
           }
         })
       : [];
@@ -141,13 +147,15 @@ export class UtilitiesService {
       notes?: string;
     }
   ) {
-    await this.meter(data.meterId, tenantId);
+    const scopedTenantId = requireTenantId(tenantId);
+    // Cross-tenant FK validation: the referenced meter must belong to the tenant.
+    await this.meter(data.meterId, scopedTenantId);
 
     const totalAmount = data.totalConsumption * data.ratePerUnit + (data.baseCharge ?? 0) + (data.taxAmount ?? 0);
 
     return this.prisma.utilityBill.create({
       data: {
-        tenantId: tenantId ?? undefined,
+        tenantId: scopedTenantId,
         meterId: data.meterId,
         billingPeriodStart: new Date(data.billingPeriodStart),
         billingPeriodEnd: new Date(data.billingPeriodEnd),
@@ -163,8 +171,9 @@ export class UtilitiesService {
   }
 
   async bill(id: string, tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     const bill = await this.prisma.utilityBill.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
+      where: { id, tenantId: scopedTenantId },
       include: { meter: true }
     });
 
@@ -188,6 +197,7 @@ export class UtilitiesService {
   }
 
   async overdue(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     const now = new Date();
 
     await this.prisma.utilityBill.updateMany({
@@ -196,7 +206,7 @@ export class UtilitiesService {
         dueDate: {
           lt: now
         },
-        ...(tenantId ? { tenantId } : {})
+        tenantId: scopedTenantId
       },
       data: {
         status: "OVERDUE"
@@ -206,7 +216,7 @@ export class UtilitiesService {
     return this.prisma.utilityBill.findMany({
       where: {
         status: "OVERDUE",
-        ...(tenantId ? { tenantId } : {})
+        tenantId: scopedTenantId
       },
       include: {
         meter: true
@@ -216,8 +226,9 @@ export class UtilitiesService {
   }
 
   async analytics(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     const bills = await this.prisma.utilityBill.findMany({
-      where: { ...(tenantId ? { tenantId } : {}) },
+      where: { tenantId: scopedTenantId },
       include: { meter: true },
       orderBy: { billingPeriodStart: "asc" }
     });
