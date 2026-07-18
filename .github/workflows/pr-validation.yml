@@ -32,6 +32,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Tenant fail-open regression guard
+        run: npm run audit:tenant
+
       - name: Lint
         run: npm run lint
 

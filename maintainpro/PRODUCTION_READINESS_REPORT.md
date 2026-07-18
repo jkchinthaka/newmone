@@ -1,125 +1,48 @@
 # Production Readiness Report
 
-**Last updated:** 2026-07-01  
-**Verdict:** **Pilot-ready** on staging (UAT-001, UAT-005 PASS; UAT-002/003/004 partial pass; **UAT-007 PARTIAL PASS**). **Not** production-ready until operator completes [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) (DNS, prod DB/env, live integrations, post-cutover smoke).
+**Branch:** `fix/enterprise-production-hardening`
+**Focus of this iteration:** tenant-isolation migration + cross-tenant FK validation + regression gate.
 
-**UAT-008:** Work Order History tab surfaces read-only asset/vehicle maintenance context; Legacy FMS Archive hidden from normal navigation (admin-only raw archive retained).
+## Verification (this iteration)
 
-**UAT-007:** Workforce planning sprint — multi-assignee work orders, conditional asset validation, workload dashboard, leave/capacity checks on assignment API. Roster CRUD UI and full skill suggestion engine remain partial.
+| Check | Command | Result |
+| --- | --- | --- |
+| Typecheck (api + web) | `npm run typecheck` | PASS |
+| Unit/integration tests | `npm run test` | PASS — 850/850 (129 suites) |
+| Tenant fail-open guard | `npm run audit:tenant` | PASS — 0 unapproved (132 grandfathered) |
+| FK validation tests | `jest tenant-fk-validation` | PASS — 11/11 |
+| Vehicle phase2 (fail-closed) | `jest vehicles-phase2` | PASS — 22/22 |
 
-**UAT-006:** Go-live decision pack prepared — **NO-GO for cutover** until operator-owned items complete. See [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md).
+`npm run build` and `npm run lint` were not re-run at the end of this report; `lint` is an alias of
+`typecheck` (which passed). Re-run `npm run build` before merge.
 
-## Executive summary
+## Tenant isolation status
 
-MaintainPro’s **core platform** (multi-tenant API, RBAC, work orders, assets, fleet, inventory, audit, health/readiness, web dashboard, mobile foundation) is **production-oriented** and suitable for a **scoped staging rollout**.
+- **Migrated to fail-closed:** assets, vehicles, fleet, departments, job-codes (with cross-tenant
+  FK validation on their relations).
+- **Remaining fail-open (production blockers):** cleaning, utilities, people, operations, workforce,
+  compliance, auth invitation, farm/*.
+- **Actor-guard-protected pending:** work-orders/*, work-order-taxonomy, inventory, users.
+- **Platform/super-admin (approved, decorator refactor pending):** reports/*,
+  management-intelligence, post-go-live/*, go-live/pilot-rollout, qa, delivery-readiness.
 
-Integrations default to **disabled or mock** and must be explicitly enabled with credentials. Do not claim full production readiness for email, SMS, push, or ERP until env modes are `live` and UAT-signed.
+See `docs/audits/tenant-query-migration-audit.md` for the per-file inventory.
 
-## Resolved vs outdated documentation
+## Regression prevention
 
-| Topic | Old report claim | Verified status (code) |
-|-------|------------------|------------------------|
-| `SECURITY_OFFICER` role | “Not in Prisma enum” | **RESOLVED** — `RoleName.SECURITY_OFFICER` in schema; seeded user `security@maintainpro.local`; permissions `gate.in.create`, `gate.out.create`, `operations.scan_lookup` |
-| Email delivery | “No implementation” | **UPDATED** — Nodemailer SMTP when `EMAIL_MODE=live` |
-| SMS | “No implementation” | **UPDATED** — generic HTTP provider; mock mode for dev |
-| Push | “Noop only” | **PARTIAL** — noop/mock default; HTTP live provider when configured |
-| ERP sync | “MOCK only” | **PARTIAL** — mock default; sandbox/live HTTP read sync available |
-| README architecture | “PostgreSQL” | **FIXED** — MongoDB Atlas documented |
+- `scripts/audit-tenant-queries.mjs` fails CI on any new fail-open tenant pattern.
+- Wired into `.github/workflows/pr-validation.yml` ahead of lint/typecheck/test/build.
 
-## Readiness matrix
+## Known limitations / open risks
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Core API (NestJS + Prisma MongoDB) | **Ready** | Modular monolith, validation, global guards |
-| Multi-tenancy + RBAC | **Ready** | Tenant middleware, JWT, roles, permissions guards |
-| Audit trail | **Ready** | Prisma middleware + domain audit; WO lifecycle audited (UAT-004) |
-| Work order approval | **Partial** | Approve/reject API + kanban UI; auto-approve for privileged creators |
-| Workforce planning (UAT-007) | **Partial** | Multi-assignee model + API; designation filter; leave/capacity checks; roster UI roadmap |
-| Work order history (UAT-008) | **Partial** | Read-only History tab + API; legacy archive admin-only; client FMS localStorage not in API |
-| Fleet gate UI | **Partial** | `/fleet/gate` page shipped; override admin-only on API |
-| File / evidence storage | **Partial** | Readiness indicator ENABLED/DISABLED/MISCONFIGURED; staging disabled |
-| Web dashboard | **Ready** | Role nav, live KPIs on core modules |
-| Mobile app | **Partial** | Flutter features exist; offline parity incomplete |
-| Auth security | **Partial** | HttpOnly refresh + CSRF; access JWT still in localStorage (documented risk) |
-| Frontend security headers | **Ready** | CSP, HSTS, frame denial in `next.config.mjs` |
-| Error boundaries (web) | **Ready** | `app/error.tsx`, `app/global-error.tsx` |
-| Health / readiness | **Ready** | Public liveness; protected deep readiness |
-| Queue / Redis | **Partial** | Graceful degrade; optional in staging render.yaml |
-| Email | **Partial** | Disabled by default; live with SMTP |
-| SMS | **Partial** | Disabled/mock/live modes |
-| Push | **Partial** | Disabled/mock/live; not Firebase-native |
-| ERP stock sync | **Partial** | Mock default; dry-run + read sync when configured |
-| File / evidence storage | **Partial** | Indicator ENABLED/DISABLED/MISCONFIGURED; staging DISABLED; presigned bytes operator-owned |
-| Notification providers | **Partial** | EMAIL_/SMS_/PUSH_ indicators; staging disabled; UAT allowlist for safe tests |
-| Production cutover docs | **Ready** | Runbook + domain checklist (UAT-005) |
-| Go-live decision pack | **Ready** (UAT-006) | Decision matrix, operator checklist, pilot plan — cutover not executed |
-| Reports server export | **Ready** | API `GET /reports/:module/export` verified |
-| Hosted staging smoke | **Partial** | Health/CORS pass; login needs credential alignment |
-| UAT-001 browser sign-off | **Partial** | Wrong-password UX verified; full flow pending login |
-| Custom production domain | **Not ready** | Planned `maintenance.nelna.lk` |
-| Observability (APM/metrics) | **Partial** | Health/readiness only; Sentry-ready pattern documented |
+- 132 fail-open literals remain (grandfathered); guard blocks tenantless non-super-admins, but
+  service-level literals are not yet fail-closed in unmigrated modules.
+- Cross-tenant FK validation not yet applied to work-orders, inventory, procurement, facilities,
+  cleaning, accidents, fines, evidence, ERP relations.
+- `npm audit` still reports outstanding dependency vulnerabilities (operator-owned, tracked
+  separately).
 
-## SECURITY_OFFICER
+## Verdict
 
-**Status: Ready (backend + seed + permissions)**
-
-- Prisma enum: `SECURITY_OFFICER`
-- Seed user: `security@maintainpro.local`
-- Gate endpoints: `@Permissions("gate.out.create")`, `@Permissions("gate.in.create")`
-- UAT checklist: [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md#security-officer)
-
-## Token storage
-
-| Token | Storage | Risk |
-|-------|---------|------|
-| Access JWT | `localStorage` (web) | XSS exposure — mitigated with CSP; future: cookie-only access |
-| Refresh JWT | HttpOnly cookie | Lower risk |
-| CSRF | Cookie + header on refresh/logout | Required for cookie auth path |
-
-Logout clears localStorage session keys. Session expiry redirects to `/login?reason=session_expired`.
-
-## Integration modes (production guards)
-
-`env.validation.ts` blocks mock SMS/push/ERP in production unless `ALLOW_MOCK_IN_PRODUCTION=true` (not recommended for real ops).
-
-## Deployment evidence
-
-| Component | Evidence |
-|-----------|----------|
-| API | `render.yaml`, `https://newmone.onrender.com/health` |
-| Web | `wrangler.jsonc`, `https://newmone.chinthakajayaweera1.workers.dev` |
-| Smoke | `scripts/smoke-deployment.mjs` |
-| CI | `.github/workflows/ci.yml` |
-
-## Launch blockers (P0)
-
-1. ~~Align hosted seed password with smoke/UAT credentials~~ — UAT-001 PASS
-2. ~~Complete UAT-001 browser sign-off~~ — PASS
-3. Production domain + TLS + isolated prod DB — **operator checklist (UAT-006)**
-4. Rotate staging Atlas password post-UAT — operator-owned
-5. Enable only required integrations with live credentials — operator-owned
-6. Post-cutover smoke on production URLs — blocked until cutover
-
-## Launch blockers (P1 — if feature required at go-live)
-
-- Live email/SMS for operational alerts
-- ERP live/sandbox sync with signed mapping
-- Push notifications with real provider
-- Evidence file storage provider UAT
-
-## Recommended next actions
-
-1. Execute [PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md) when go/no-go approves cutover
-2. Complete pilot training per [PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
-3. Re-run `npm run smoke:deploy` and `npm run uat:005:validate` against **production** URLs after cutover
-4. Add Sentry DSN when monitoring account is ready
-5. Capture staging screenshots for README portfolio section
-
-## Related documents
-
-- [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md)
-- [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md)
-- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- [docs/PRODUCTION_GO_LIVE_DECISION_PACK.md](docs/PRODUCTION_GO_LIVE_DECISION_PACK.md)
-- [docs/PRODUCTION_OPERATOR_CHECKLIST.md](docs/PRODUCTION_OPERATOR_CHECKLIST.md)
-- [docs/PILOT_ROLLOUT_PLAN.md](docs/PILOT_ROLLOUT_PLAN.md)
+**NO-GO.** Critical tenant-owned business modules remain fail-open and cross-tenant FK validation is
+incomplete.

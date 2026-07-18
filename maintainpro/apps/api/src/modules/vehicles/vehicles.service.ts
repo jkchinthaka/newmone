@@ -15,6 +15,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
@@ -80,8 +81,8 @@ export class VehiclesService {
     @Inject(ComplianceService) private readonly complianceService: ComplianceService
   ) {}
 
-  private currentTenantId(): string | null {
-    return requestContext.get()?.tenantId ?? null;
+  private currentTenantId(): string {
+    return requireTenantId(requestContext.get()?.tenantId ?? null);
   }
 
   async findAll(query: VehicleListQuery = {}) {
@@ -156,7 +157,7 @@ export class VehiclesService {
       }),
       this.prisma.vehicle.findMany({
         where: {
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
           status: {
             not: VehicleStatus.DISPOSED
           }
@@ -221,7 +222,7 @@ export class VehiclesService {
     const limit = Math.min(50, Math.max(1, options.limit ?? 12));
     const candidates = await this.prisma.vehicle.findMany({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         status: {
           notIn: [VehicleStatus.DISPOSED]
         }
@@ -414,7 +415,7 @@ export class VehiclesService {
 
     return this.prisma.vehicle.create({
       data: {
-        tenantId: tenantId ?? undefined,
+        tenantId,
         registrationNo: data.registrationNo.trim(),
         assetTag: data.assetTag?.trim() || undefined,
         make: data.make.trim(),
@@ -1655,7 +1656,7 @@ export class VehiclesService {
     const criticalOrders = await this.prisma.workOrder.findMany({
       where: {
         vehicleId,
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         status: { in: openStatuses },
         OR: [
           { priority: Priority.CRITICAL },

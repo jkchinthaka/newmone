@@ -559,3 +559,19 @@ Re-generate this report:
 ```bash
 node scripts/generate-backend-rbac-audit.mjs
 ```
+
+
+## Tenant isolation & object-level authorization (update: enterprise hardening)
+
+Tenant ownership validation is necessary but not sufficient; RBAC (`@Roles`, `@Permissions`) is
+preserved and unchanged by the tenant migration. Sensitive actions continue to be gated by their
+existing role/permission decorators, now layered on top of fail-closed tenant scoping and
+cross-tenant FK validation.
+
+- Enforcement model: `docs/audits/tenant-isolation-design.md`
+- Fail-open inventory + status: `docs/audits/tenant-query-migration-audit.md`
+- Object-level authorization checks (assignment, approval, status transitions, gate override,
+  inventory issue/adjustment, PO approval, compliance verification, accident responsibility,
+  evidence deletion, exports, tenant switching) rely on the unchanged RBAC guards. A full
+  object-level authorization review across every unmigrated module is still outstanding and is part
+  of the NO-GO verdict.

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 
 export interface CreateJobCodeInput {
   code: string;
@@ -52,7 +53,7 @@ export class JobCodesService {
 
     return this.prisma.jobCode.findMany({
       where: {
-        tenantId: tenantId ?? null,
+        tenantId: requireTenantId(tenantId),
         isActive: params.includeInactive ? undefined : true,
         ...parentFilter,
         ...(q
@@ -76,7 +77,7 @@ export class JobCodesService {
 
   async findOne(tenantId: string | null, id: string) {
     const job = await this.prisma.jobCode.findFirst({
-      where: { id, tenantId: tenantId ?? null },
+      where: { id, tenantId: requireTenantId(tenantId) },
       include: {
         parent: { select: { id: true, name: true, code: true } },
         subJobs: { where: { isActive: true }, orderBy: { code: "asc" } }
@@ -93,14 +94,14 @@ export class JobCodesService {
     if (!name) throw new BadRequestException("`name` is required");
 
     if (input.parentId) {
-      const parent = await this.prisma.jobCode.findFirst({ where: { id: input.parentId, tenantId: tenantId ?? null } });
+      const parent = await this.prisma.jobCode.findFirst({ where: { id: input.parentId, tenantId: requireTenantId(tenantId) } });
       if (!parent) throw new BadRequestException("Parent job code not found");
       if (parent.parentId) throw new BadRequestException("Sub-jobs cannot be nested more than one level deep");
     }
 
     return this.prisma.jobCode.create({
       data: {
-        tenantId: tenantId ?? null,
+        tenantId: requireTenantId(tenantId),
         code,
         name,
         description: input.description?.trim() || null,
@@ -114,12 +115,12 @@ export class JobCodesService {
   }
 
   async update(tenantId: string | null, id: string, input: UpdateJobCodeInput) {
-    const existing = await this.prisma.jobCode.findFirst({ where: { id, tenantId: tenantId ?? null } });
+    const existing = await this.prisma.jobCode.findFirst({ where: { id, tenantId: requireTenantId(tenantId) } });
     if (!existing) throw new NotFoundException("Job code not found");
 
     if (input.parentId !== undefined && input.parentId !== null) {
       if (input.parentId === id) throw new BadRequestException("A job cannot be its own parent");
-      const parent = await this.prisma.jobCode.findFirst({ where: { id: input.parentId, tenantId: tenantId ?? null } });
+      const parent = await this.prisma.jobCode.findFirst({ where: { id: input.parentId, tenantId: requireTenantId(tenantId) } });
       if (!parent) throw new BadRequestException("Parent job code not found");
       if (parent.parentId) throw new BadRequestException("Sub-jobs cannot be nested more than one level deep");
     }
@@ -139,7 +140,7 @@ export class JobCodesService {
   }
 
   async remove(tenantId: string | null, id: string) {
-    const existing = await this.prisma.jobCode.findFirst({ where: { id, tenantId: tenantId ?? null } });
+    const existing = await this.prisma.jobCode.findFirst({ where: { id, tenantId: requireTenantId(tenantId) } });
     if (!existing) throw new NotFoundException("Job code not found");
     // Soft-delete: deactivate instead of hard delete to preserve history
     return this.prisma.jobCode.update({ where: { id }, data: { isActive: false } });

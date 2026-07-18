@@ -14,6 +14,7 @@ import {
 import type { NextFunction, Request, Response } from "express";
 import request from "supertest";
 
+import { requestContext } from "../src/common/context/request-context";
 import { IS_PUBLIC_KEY } from "../src/common/decorators/public.decorator";
 import { JwtAuthGuard } from "../src/common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../src/common/guards/permissions.guard";
@@ -32,7 +33,8 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const tx = {
     vehicle: {
       update: jest.fn(),
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
+      findFirst: jest.fn()
     },
     vehicleGateMovement: {
       create: jest.fn()
@@ -54,6 +56,7 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const prisma = {
     vehicle: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
       count: jest.fn(),
@@ -107,6 +110,11 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
       return arg;
     })
   };
+
+  // Tenant-scoped reads use findFirst; delegate to findUnique so existing
+  // per-test mockResolvedValueOnce(...) setups continue to drive the result.
+  prisma.vehicle.findFirst.mockImplementation((args: unknown) => prisma.vehicle.findUnique(args));
+  tx.vehicle.findFirst.mockImplementation((args: unknown) => tx.vehicle.findUnique(args));
 
   return {
     prisma,
@@ -194,15 +202,33 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
               .filter(Boolean)
           : [];
 
+      const tenantId = (req.headers["x-tenant-id"] as string) ?? "tenant-1";
+      const role = (req.headers["x-test-role"] as string) ?? "ADMIN";
+      const sub = (req.headers["x-test-user-id"] as string) ?? "user-actor";
+      const email = (req.headers["x-test-email"] as string) ?? "actor@example.com";
+
       req.user = {
-        sub: req.headers["x-test-user-id"] ?? "user-actor",
-        email: req.headers["x-test-email"] ?? "actor@example.com",
-        role: req.headers["x-test-role"] ?? "ADMIN",
-        tenantId: req.headers["x-tenant-id"] ?? "tenant-1",
+        sub,
+        email,
+        role,
+        tenantId,
         permissions
       };
 
-      next();
+      requestContext.run(
+        {
+          actorId: sub,
+          actorEmail: email,
+          actorRole: role,
+          tenantId,
+          module: null,
+          ipAddress: null,
+          userAgent: null,
+          requestPath: req.path ?? null,
+          permissions
+        },
+        () => next()
+      );
     });
 
     await app.init();
