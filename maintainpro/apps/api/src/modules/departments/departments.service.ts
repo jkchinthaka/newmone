@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "./department-master-list";
 
 export interface CreateDepartmentInput {
@@ -47,7 +48,7 @@ export class DepartmentsService {
 
     return this.prisma.department.findMany({
       where: {
-        tenantId: tenantId ?? null,
+        tenantId: requireTenantId(tenantId),
         id: params.ids?.length ? { in: params.ids } : params.exclude ? { not: params.exclude } : undefined,
         isActive: params.includeInactive ? undefined : true,
         ...parentFilter,
@@ -73,7 +74,7 @@ export class DepartmentsService {
 
   async findOne(tenantId: string | null, id: string) {
     const dept = await this.prisma.department.findFirst({
-      where: { id, tenantId: tenantId ?? null },
+      where: { id, tenantId: requireTenantId(tenantId) },
       include: {
         parent: { select: { id: true, name: true, code: true } },
         manager: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -96,7 +97,7 @@ export class DepartmentsService {
 
     return this.prisma.department.create({
       data: {
-        tenantId: tenantId ?? null,
+        tenantId: requireTenantId(tenantId),
         name,
         code,
         description: input.description?.trim() || null,
@@ -107,7 +108,7 @@ export class DepartmentsService {
   }
 
   async update(tenantId: string | null, id: string, input: UpdateDepartmentInput) {
-    const existing = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null } });
+    const existing = await this.prisma.department.findFirst({ where: { id, tenantId: requireTenantId(tenantId) } });
     if (!existing) throw new NotFoundException("Department not found");
 
     // Prevent cycles if parentId is being changed
@@ -138,14 +139,14 @@ export class DepartmentsService {
   }
 
   async deactivate(tenantId: string | null, id: string) {
-    const existing = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null } });
+    const existing = await this.prisma.department.findFirst({ where: { id, tenantId: requireTenantId(tenantId) } });
     if (!existing) throw new NotFoundException("Department not found");
     return this.prisma.department.update({ where: { id }, data: { isActive: false } });
   }
 
   private async assertUniqueName(tenantId: string | null, name: string, excludeId?: string) {
     const departments = await this.prisma.department.findMany({
-      where: { tenantId: tenantId ?? null },
+      where: { tenantId: requireTenantId(tenantId) },
       select: { id: true, name: true }
     });
     const normalized = normalizeDepartmentName(name);
@@ -157,7 +158,7 @@ export class DepartmentsService {
 
   private async resolveCode(tenantId: string | null, name: string, inputCode?: string, excludeId?: string) {
     const departments = await this.prisma.department.findMany({
-      where: { tenantId: tenantId ?? null },
+      where: { tenantId: requireTenantId(tenantId) },
       select: { id: true, code: true }
     });
     const usedCodes = new Set(departments.filter((department) => department.id !== excludeId).map((department) => department.code.toUpperCase()));
@@ -169,7 +170,7 @@ export class DepartmentsService {
   }
 
   private async assertDepartmentExists(tenantId: string | null, id: string) {
-    const department = await this.prisma.department.findFirst({ where: { id, tenantId: tenantId ?? null }, select: { id: true } });
+    const department = await this.prisma.department.findFirst({ where: { id, tenantId: requireTenantId(tenantId) }, select: { id: true } });
     if (!department) throw new BadRequestException("Parent department not found");
   }
 
@@ -178,7 +179,7 @@ export class DepartmentsService {
     if (this.canonicalDepartmentsReady.has(cacheKey)) return;
 
     const departments = await this.prisma.department.findMany({
-      where: { tenantId: tenantId ?? null },
+      where: { tenantId: requireTenantId(tenantId) },
       select: { id: true, name: true, code: true, isActive: true }
     });
     const byName = new Map(departments.map((department) => [normalizeDepartmentName(department.name), department]));
@@ -199,7 +200,7 @@ export class DepartmentsService {
       try {
         await this.prisma.department.create({
           data: {
-            tenantId: tenantId ?? null,
+            tenantId: requireTenantId(tenantId),
             name: department.name,
             code: nextCode,
             isActive: true
@@ -228,7 +229,7 @@ export class DepartmentsService {
       if (visited.has(cursor)) break; // safety
       visited.add(cursor);
       const row: { parentId: string | null } | null = await this.prisma.department.findFirst({
-        where: { id: cursor, tenantId: tenantId ?? null },
+        where: { id: cursor, tenantId: requireTenantId(tenantId) },
         select: { parentId: true }
       });
       if (!row) break;

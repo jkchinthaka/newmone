@@ -15,6 +15,7 @@ import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type {
   AssetExportQueryDto,
   AssetListQueryDto,
@@ -162,7 +163,7 @@ export class AssetsService {
       }),
       this.prisma.asset.count({
         where: {
-          ...(tenantId ? { tenantId } : {}),
+          tenantId: requireTenantId(tenantId),
           archivedAt: {
             not: null
           }
@@ -211,7 +212,7 @@ export class AssetsService {
   async filterOptions(tenantId: string | null | undefined) {
     const locations = await this.prisma.asset.findMany({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId: requireTenantId(tenantId),
         location: {
           not: null
         }
@@ -233,7 +234,7 @@ export class AssetsService {
   }
 
   async validateAssetTag(
-    _tenantId: string | null | undefined,
+    tenantId: string | null | undefined,
     assetTag: string,
     excludeId?: string
   ) {
@@ -242,8 +243,9 @@ export class AssetsService {
       return { exists: false };
     }
 
-    const existing = await this.prisma.asset.findUnique({
-      where: { assetTag: normalizedTag },
+    // Scope tag lookup to the active tenant so callers cannot enumerate tags in other tenants.
+    const existing = await this.prisma.asset.findFirst({
+      where: { assetTag: normalizedTag, tenantId: requireTenantId(tenantId) },
       select: {
         id: true,
         assetTag: true,
@@ -265,7 +267,7 @@ export class AssetsService {
     const asset = await this.prisma.asset.findFirst({
       where: {
         id,
-        ...(tenantId ? { tenantId } : {})
+        tenantId: requireTenantId(tenantId)
       },
       include: {
         maintenanceLogs: {
@@ -1031,7 +1033,7 @@ export class AssetsService {
     >
   ): Prisma.AssetWhereInput {
     const where: Prisma.AssetWhereInput = {
-      ...(tenantId ? { tenantId } : {})
+      tenantId: requireTenantId(tenantId)
     };
 
     if (query.archivedOnly) {
@@ -1136,7 +1138,7 @@ export class AssetsService {
     data: CreateAssetDto | BulkImportAssetItemDto
   ): Prisma.AssetUncheckedCreateInput {
     return {
-      tenantId: tenantId ?? null,
+      tenantId: requireTenantId(tenantId),
       assetTag: data.assetTag.trim(),
       name: data.name.trim(),
       category: data.category,
@@ -1187,7 +1189,7 @@ export class AssetsService {
     const departmentId = this.toNullableString(data.departmentId);
     if (departmentId) {
       const department = await this.prisma.department.findFirst({
-        where: { id: departmentId, tenantId: tenantId ?? null, isActive: true },
+        where: { id: departmentId, tenantId: requireTenantId(tenantId), isActive: true },
         select: { id: true, name: true }
       });
       if (!department) throw new BadRequestException("Selected department was not found or is inactive");
@@ -1202,7 +1204,7 @@ export class AssetsService {
     if (!legacyDepartment) return { departmentId: null, department: null };
 
     const departments = await this.prisma.department.findMany({
-      where: { tenantId: tenantId ?? null, isActive: true },
+      where: { tenantId: requireTenantId(tenantId), isActive: true },
       select: { id: true, name: true }
     });
     const matchedDepartment = departments.find((department) => normalizeDepartmentName(department.name) === normalizeDepartmentName(legacyDepartment));
@@ -1216,7 +1218,7 @@ export class AssetsService {
     const asset = await this.prisma.asset.findFirst({
       where: {
         id,
-        ...(tenantId ? { tenantId } : {})
+        tenantId: requireTenantId(tenantId)
       }
     });
 

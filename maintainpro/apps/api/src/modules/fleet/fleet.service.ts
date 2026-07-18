@@ -9,6 +9,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 
 import { requestContext } from "../../common/context/request-context";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import {
   type FleetAlertSeverity,
@@ -675,11 +676,11 @@ export class FleetService implements OnModuleDestroy {
   }
 
   private async fetchVehicleMeta(vehicleId: string): Promise<VehicleMeta> {
-    const tenantId = requestContext.get()?.tenantId ?? null;
+    const tenantId = requireTenantId(requestContext.get()?.tenantId ?? null);
     const vehicle = await this.prisma.vehicle.findFirst({
       where: {
         id: vehicleId,
-        ...(tenantId ? { tenantId } : {})
+        tenantId
       },
       select: {
         tenantId: true,
