@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 
 import { UtilitiesService } from "../src/modules/utilities/utilities.service";
 
@@ -44,12 +44,14 @@ describe("UtilitiesService tenant isolation", () => {
     );
   });
 
-  it("meters() applies no tenant filter for SUPER_ADMIN (null tenantId)", async () => {
+  it("meters() fails closed when there is no tenant context (null tenantId)", async () => {
     prisma.utilityMeter.findMany.mockResolvedValue([]);
 
-    await service.meters(null);
-
-    expect(prisma.utilityMeter.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    // Fail-closed: without an explicit tenant or request context, deny rather than
+    // return every tenant's meters. Utilities is tenant-owned business data.
+    // requireTenantId throws synchronously before the Prisma call is issued.
+    expect(() => service.meters(null)).toThrow(ForbiddenException);
+    expect(prisma.utilityMeter.findMany).not.toHaveBeenCalled();
   });
 
   it("meter() throws NotFound for a meter belonging to another tenant", async () => {
