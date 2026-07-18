@@ -18,6 +18,13 @@ export const requestContext = {
   run<T>(value: AuditRequestContext, fn: () => T): T {
     return storage.run(value, fn);
   },
+  /**
+   * Set the active context for the current async execution without a callback wrapper.
+   * Primarily used by tests and bootstrap tasks that cannot wrap their body in run().
+   */
+  enterWith(value: AuditRequestContext): void {
+    storage.enterWith(value);
+  },
   get(): AuditRequestContext | undefined {
     return storage.getStore();
   },
