@@ -33,14 +33,20 @@ tenantId: tenantId ?? null           // nullish-null-assign
 | Metric | Count |
 | --- | ---: |
 | Fail-open occurrences found (initial) | 152 |
-| Occurrences migrated to fail-closed | ~50 |
-| Occurrences remaining (grandfathered in exceptions) | 102 |
-| Files with remaining occurrences | 26 |
+| Occurrences migrated to fail-closed | ~85 |
+| Occurrences remaining (grandfathered in exceptions) | 67 |
+| Files with remaining occurrences | 12 |
 
-The remaining 102 are registered, with an owner and reason, in
+The remaining 67 are registered, with an owner and reason, in
 `scripts/tenant-audit-exceptions.json`. CI (`npm run audit:tenant`) fails on any **new** fail-open
-pattern outside that registry. Of the 102, 45 are APPROVED (platform/super-admin surfaces plus the
-dual-scoped work-order taxonomy reference data) and 57 remain PENDING-MIGRATION production blockers.
+pattern outside that registry. All 67 are now APPROVED platform/super-admin surfaces plus the
+dual-scoped work-order taxonomy reference data; the remaining PENDING-MIGRATION debt is the
+**farm/\*** modules (14 occurrences), which are the last tenant-owned business blockers.
+
+> Current pass migrated Cleaning (19), Utilities (11), Operations (4) and Compliance (1) to
+> fail-closed, and additionally hardened the compliance-coupled phase-4 modules (accidents,
+> insurance claims, traffic fines, vehicle documents) which used the equivalent `!== undefined`
+> fail-open form (not one of the four canonical audit patterns, so never in the registry).
 
 ## 3. Migrated modules (fail-closed)
 
@@ -56,6 +62,14 @@ dual-scoped work-order taxonomy reference data) and 57 remain PENDING-MIGRATION 
 | `modules/users/users.service.ts` | User, Role, TenantMembership | list, admin-access, get, create, invite, update, delete-guard | `?? undefined` (super-admin aware) | MIGRATED |
 | `modules/people/people.service.ts` | Employee, Department, Role, User | list, get, create, update, deactivate/reactivate, technician profile, reset/invite | spread-ternary (9) + `?? null` | MIGRATED |
 | `modules/workforce/workforce-employees.service.ts`, `workforce-planning.service.ts` | Employee, Department, Role | create/update employee, department FK, role lookup, workload summary | `?? null` / `?? undefined` | MIGRATED |
+| `modules/cleaning/cleaning.service.ts` | CleaningLocation, CleaningVisit, FacilityIssue, Room, User | list cleaners/locations, get/create/update/remove location, QR regen, scan/start visit, submit/reject/sign-off, facility issue create/update, create-WO-from-issue, dashboard, analytics, schedule calendar, schedule enforcement, notifications | `?? undefined` (19) + fail-open `assertTenantAccessOrThrow` + `tenantId ?? location.tenantId` fallback | MIGRATED |
+| `modules/utilities/utilities.service.ts` | UtilityMeter, MeterReading, UtilityBill | meters list/get/create/update, readings, bills list/get/create/pay, overdue, analytics | spread-ternary + `?? undefined` (11) | MIGRATED |
+| `modules/operations/operations.service.ts` | Asset, Vehicle, Driver, WorkOrder | scan lookup (route-hint + generic resolvers) | spread-ternary (4) | MIGRATED |
+| `modules/compliance/compliance.service.ts` | Vehicle, VehicleDocument | evaluate, refresh-and-persist, vehicle compliance, fleet summary, expiring docs, gate-out eval | `!== undefined` fail-open + requestContext fallback | MIGRATED |
+| `modules/vehicle-documents/vehicle-documents.service.ts` | VehicleDocument, Vehicle | list, get, create, update, verify, reject, remove, valid-on-date | `!== undefined` fail-open; compliance refresh now passes actor | MIGRATED |
+| `modules/accidents/accidents.service.ts` | AccidentReport, AccidentEvidence, Vehicle, Driver, User, WorkOrder | list, get, create, update, add evidence, link work order | `!== undefined` fail-open | MIGRATED |
+| `modules/insurance-claims/insurance-claims.service.ts` | InsuranceClaim, AccidentReport, Vehicle | list, get, create, update, update status | `!== undefined` fail-open | MIGRATED |
+| `modules/traffic-fines/traffic-fines.service.ts` | TrafficFine, Vehicle, Driver, User, WorkOrder | list, get, create, responsibility, payment, link work order | `!== undefined` fail-open | MIGRATED |
 
 Cross-tenant FK validation applied in migrated modules:
 
@@ -70,6 +84,17 @@ Cross-tenant FK validation applied in migrated modules:
   issue-to-work-order tenant-scoped
 - people/users -> role (global-or-tenant-owned only), department (tenant-scoped on create + update),
   linked user (tenant-scoped)
+- cleaning -> assignable cleaner/supervisor (tenant-scoped `ensureAssignableCleaner`), cleaning
+  location (scoped `findFirst` + fail-closed `assertTenantAccessOrThrow`), room
+  (`assertActiveRoomForTenant` scoped by `id + tenantId`), scanned QR location (must match caller
+  tenant), supervisors notified (tenant-scoped)
+- utilities -> meter (bill/reading creation validate meter ownership via tenant-scoped `meter()`)
+- operations -> asset/vehicle/driver/work-order scan resolvers all tenant-scoped `findFirst`
+- compliance -> vehicle resolved by `id + tenantId`; vehicle documents scoped by tenant; document
+  verify/reject/refresh pass the authenticated actor so compliance re-evaluation stays tenant-scoped
+- accidents -> vehicle (scoped), driver (`assertTenantEntityExists`), technician (`assertTenantEntityExists`)
+- insurance claims -> vehicle (scoped), linked accident (`assertTenantEntityExists`)
+- traffic fines -> vehicle (scoped), driver (`assertTenantEntityExists`), technician (`assertTenantEntityExists`)
 - tenant switching -> `TenantContextGuard` now requires an **active** membership in an **active**
   tenant for non-super-admins (disabled memberships / inactive tenants denied)
 
@@ -112,16 +137,16 @@ Tenant-owned business modules not yet converted to `requireTenantId()`. Guard en
 presence at the HTTP boundary, but explicit fail-closed migration is still required. These keep the
 verdict at NO-GO.
 
-- `modules/cleaning/cleaning.service.ts` (19)
-- `modules/utilities/utilities.service.ts` (11)
-- `modules/operations/operations.service.ts` (4)
-- `modules/compliance/compliance.service.ts` (1)
 - `modules/farm/*` (14 across crops, farm-finance, farm-workers, fields, harvest, irrigation, livestock, soil-tests, spray-logs, traceability, weather)
 
-> Migrated out of this list in the current pass: all `work-orders/*`, `inventory`, `users`,
-> `people`, `workforce-employees`, `workforce-planning`, and `auth` (the last was an audit-log
-> tenant stamp, not a data-access query). These files are no longer in the exceptions registry, so CI
-> now blocks any regression that reintroduces a fail-open pattern in them.
+> Migrated out of this list in the current pass: `cleaning`, `utilities`, `operations`,
+> `compliance` (all four removed from the exceptions registry). Additionally, the
+> compliance-coupled phase-4 modules — `accidents`, `insurance-claims`, `traffic-fines`,
+> `vehicle-documents` — were hardened from the `!== undefined` fail-open form (these were never in
+> the registry because they do not match the four canonical audit patterns).
+> Prior passes migrated all `work-orders/*`, `inventory`, `users`, `people`, `workforce-*`, and
+> `auth`. These files are no longer in the exceptions registry, so CI now blocks any regression that
+> reintroduces a fail-open pattern in them. **Farm modules are the only tenant-owned blockers left.**
 
 ## 5. Risk assessment
 
@@ -141,9 +166,14 @@ verdict at NO-GO.
 
 ## 7. Verdict
 
-**NO-GO.** Work Orders, Inventory & Spare Parts, and Users/People/Employees are now fail-closed with
-cross-tenant FK validation, and tenant switching is fail-closed at the guard (active membership +
-active tenant required). However, critical tenant-owned business modules — **cleaning, utilities,
-operations, compliance, and farm/\*** — remain fail-open pending migration. Until those are converted
-to `requireTenantId()`/`tenantWhere()` with cross-tenant FK validation, tenant isolation is NOT
-complete and the platform stays NO-GO for production.
+**NO-GO.** Cleaning, Utilities, Operations, Compliance, and the compliance-coupled Accidents /
+Insurance claims / Traffic fines / Vehicle documents modules are now fail-closed with cross-tenant
+FK validation — joining Work Orders, Inventory & Spare Parts, and Users/People/Employees from prior
+passes. Tenant switching remains fail-closed at the guard (active membership + active tenant
+required). `npm run audit:tenant` reports **0 unapproved** fail-open patterns.
+
+The verdict stays **NO-GO** for one reason: the **farm/\*** tenant-owned business modules
+(14 fail-open occurrences across crops, farm-finance, farm-workers, fields, harvest, irrigation,
+livestock, soil-tests, spray-logs, traceability, weather) remain unmigrated. Until they are
+converted to `requireTenantId()`/`tenantWhere()` with cross-tenant FK validation, tenant isolation
+is NOT complete and the platform stays NO-GO for production.

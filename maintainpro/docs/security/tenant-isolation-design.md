@@ -17,6 +17,13 @@ platform exceptions, migration status and known limitations are maintained in:
 
 ## Current verdict
 
-**NO-GO.** 132 fail-open literals remain across 40 files; cross-tenant FK validation is applied only
-to migrated modules (assets, vehicles, fleet, departments, job-codes). Do not claim tenant isolation
-is complete until the tenant-owned business modules listed in the migration audit are fail-closed.
+**NO-GO.** `npm run audit:tenant` reports **0 unapproved** fail-open patterns (67 approved
+platform/super-admin + shared-reference exceptions remain, tracked in the registry). Fail-closed
+enforcement with cross-tenant FK validation now covers assets, vehicles, fleet, departments,
+job-codes, work-orders (+ sub-services), inventory, users, people, workforce, **cleaning,
+utilities, operations, compliance, accidents, insurance-claims, traffic-fines and vehicle
+documents**.
+
+The verdict stays NO-GO because the **farm/\*** tenant-owned modules (14 fail-open occurrences)
+remain unmigrated. Do not claim tenant isolation is complete until the farm modules listed in the
+migration audit are fail-closed with cross-tenant FK validation.

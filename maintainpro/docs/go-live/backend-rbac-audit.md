@@ -572,6 +572,21 @@ cross-tenant FK validation.
 - Fail-open inventory + status: `docs/audits/tenant-query-migration-audit.md`
 - Object-level authorization checks (assignment, approval, status transitions, gate override,
   inventory issue/adjustment, PO approval, compliance verification, accident responsibility,
-  evidence deletion, exports, tenant switching) rely on the unchanged RBAC guards. A full
-  object-level authorization review across every unmigrated module is still outstanding and is part
-  of the NO-GO verdict.
+  evidence deletion, exports, tenant switching) rely on the unchanged RBAC guards.
+
+### Update — operational modules pass (cleaning, utilities, operations, compliance, accidents/insurance/fines)
+
+- Cleaning, Utilities, Operations, Compliance and the compliance-coupled Accidents / Insurance
+  claims / Traffic fines / Vehicle documents services are now fail-closed (`requireTenantId()`),
+  with cross-tenant FK validation on their relations (cleaner/supervisor, cleaning location, room,
+  meter, vehicle, driver, technician, linked accident). Their controllers keep the existing
+  `@Roles` / `@Permissions` decorators unchanged — RBAC was neither weakened nor bypassed.
+- Responsibility decisions and overrides (accident responsibility, traffic-fine responsibility and
+  payment updates, insurance status changes, compliance verify/reject) continue to write audit
+  entries via `recordPhase4Audit` / `recordAudit`, now on top of tenant-scoped record resolution so
+  the audited entity is guaranteed to belong to the actor's tenant.
+- Object-level authorization for the migrated operational modules is enforced by their unchanged
+  permission decorators plus tenant-scoped record lookups (`findFirst({ id, tenantId })`), so a
+  cross-tenant id resolves to `NotFound` before any mutation.
+- **Still outstanding (NO-GO):** the same fail-closed migration + object-level authorization review
+  for the **farm/\*** modules.
