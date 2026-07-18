@@ -141,7 +141,7 @@ describe("work-order-parts-governance (UAT-010)", () => {
       });
 
       await expect(
-        service.markUsed("wo-1", "line-1", { usedQuantity: 1 }, { sub: "t1", role: RoleName.TECHNICIAN, email: "t@x.com" })
+        service.markUsed("wo-1", "line-1", { usedQuantity: 1 }, { sub: "t1", role: RoleName.TECHNICIAN, email: "t@x.com", tenantId: "tenant-1" })
       ).rejects.toThrow(BadRequestException);
     });
   });

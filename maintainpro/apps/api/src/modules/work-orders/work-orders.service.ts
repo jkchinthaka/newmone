@@ -19,6 +19,11 @@ import {
 import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
+  assertTenantEntitiesExist,
+  assertTenantEntityExists,
+  requireTenantId
+} from "../../common/utils/tenant-scope.util";
+import {
   assertAllowedStatusTransition,
   assertReasonProvided,
   assertRoleCanSetStatus,
@@ -75,12 +80,8 @@ export class WorkOrdersService {
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
-  private resolveTenantId(actor?: Actor): string | null | undefined {
-    if (!actor) {
-      return undefined;
-    }
-
-    return actor.tenantId ?? null;
+  private resolveTenantId(actor?: Actor): string {
+    return requireTenantId(actor?.tenantId);
   }
 
   private async recordAudit(payload: {
@@ -184,9 +185,7 @@ export class WorkOrdersService {
       }
     };
 
-    if (tenantId !== undefined) {
-      where.tenantId = tenantId;
-    }
+    where.tenantId = tenantId;
 
     const count = await this.prisma.workOrder.count({ where });
     const sequence = String(count + 1).padStart(4, "0");
@@ -197,9 +196,7 @@ export class WorkOrdersService {
     const tenantId = this.resolveTenantId(actor);
     const where: Prisma.WorkOrderWhereInput = {};
 
-    if (tenantId !== undefined) {
-      where.tenantId = tenantId;
-    }
+    where.tenantId = tenantId;
 
     return this.prisma.workOrder.findMany({
       where,
@@ -212,9 +209,7 @@ export class WorkOrdersService {
     const tenantId = this.resolveTenantId(actor);
     const where: Prisma.WorkOrderWhereInput = {};
 
-    if (tenantId !== undefined) {
-      where.tenantId = tenantId;
-    }
+    where.tenantId = tenantId;
 
     const safePage = Math.max(1, Math.trunc(page) || 1);
     const safePageSize = Math.min(100, Math.max(1, Math.trunc(pageSize) || 25));
@@ -256,9 +251,7 @@ export class WorkOrdersService {
     const tenantId = this.resolveTenantId(actor);
     const where: Prisma.WorkOrderWhereInput = { id };
 
-    if (tenantId !== undefined) {
-      where.tenantId = tenantId;
-    }
+    where.tenantId = tenantId;
 
     const workOrder = await this.prisma.workOrder.findFirst({
       where,
@@ -322,7 +315,7 @@ export class WorkOrdersService {
     const creator = await this.prisma.user.findFirst({
       where: {
         id: data.createdById,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -330,9 +323,16 @@ export class WorkOrdersService {
       throw new BadRequestException("createdById does not match any existing user in your tenant context.");
     }
 
-    const woNumber = await this.nextWoNumber(actor);
-    const tenantForTaxonomy = tenantId === undefined ? creator.tenantId ?? null : tenantId;
+    // Cross-tenant FK validation: referenced asset/vehicle must belong to the active tenant.
+    if (assetId) {
+      await assertTenantEntityExists(this.prisma.asset, assetId, { tenantId, entityName: "Asset" });
+    }
+    if (vehicleId) {
+      await assertTenantEntityExists(this.prisma.vehicle, vehicleId, { tenantId, entityName: "Vehicle" });
+    }
 
+    const woNumber = await this.nextWoNumber(actor);
+    
     let taxonomyFields: {
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;
@@ -344,7 +344,7 @@ export class WorkOrdersService {
       triageReason?: string;
     } = {};
     if (data.isTriage || data.taxonomyCategoryId || data.taxonomyTypeId || data.taxonomyIssueId) {
-      const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantForTaxonomy, {
+      const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantId, {
         taxonomyCategoryId: data.taxonomyCategoryId,
         taxonomyTypeId: data.taxonomyTypeId,
         taxonomyIssueId: data.taxonomyIssueId,
@@ -380,7 +380,7 @@ export class WorkOrdersService {
     try {
       const created = await this.prisma.workOrder.create({
         data: {
-          tenantId: tenantId === undefined ? creator.tenantId ?? null : tenantId,
+          tenantId: tenantId,
           woNumber,
           title: data.title,
           description: data.description,
@@ -522,7 +522,7 @@ export class WorkOrdersService {
     const technician = await this.prisma.user.findFirst({
       where: {
         id: technicianId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: { role: true }
     });
@@ -1090,9 +1090,7 @@ export class WorkOrdersService {
     const tenantId = this.resolveTenantId(actor);
     const where: Prisma.WorkOrderWhereInput = { id };
 
-    if (tenantId !== undefined) {
-      where.tenantId = tenantId;
-    }
+    where.tenantId = tenantId;
 
     const workOrder = await this.prisma.workOrder.findFirst({
       where,
@@ -1150,7 +1148,7 @@ export class WorkOrdersService {
       where: {
         id: data.partId,
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -1232,7 +1230,7 @@ export class WorkOrdersService {
     return this.prisma.partRequest.findMany({
       where: {
         workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         part: true,
@@ -1306,7 +1304,7 @@ export class WorkOrdersService {
       where: {
         id: data.partId,
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -1327,7 +1325,7 @@ export class WorkOrdersService {
     const created = await this.prisma.$transaction(async (tx) => {
       const partRequest = await tx.partRequest.create({
         data: {
-          tenantId: tenantId ?? null,
+          tenantId,
           workOrderId,
           partId: data.partId,
           requestedById: requester.sub,
@@ -1341,14 +1339,14 @@ export class WorkOrdersService {
 
       const approvalRows = [
         {
-          tenantId: tenantId ?? null,
+          tenantId,
           partRequestId: partRequest.id,
           stage: ApprovalStage.OPERATIONAL,
           sequence: 1,
           status: ApprovalDecisionStatus.PENDING
         },
         {
-          tenantId: tenantId ?? null,
+          tenantId,
           partRequestId: partRequest.id,
           stage: ApprovalStage.FINANCE,
           sequence: 2,
@@ -1375,7 +1373,7 @@ export class WorkOrdersService {
       requestedQuantity: data.quantity,
       unitCost: unitCostSnapshot,
       requestedById: requester.sub,
-      tenantId: tenantId ?? null,
+      tenantId,
       approvalTier,
       procurementRequired,
       actor
@@ -1854,7 +1852,7 @@ export class WorkOrdersService {
       where: {
         id: requestId,
         workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         part: true,
@@ -1970,7 +1968,7 @@ export class WorkOrdersService {
     }
 
     const tenantId = this.resolveTenantId(actor);
-    const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantId ?? null, {
+    const taxonomy = await this.workOrderTaxonomyService.resolveTaxonomySelection(tenantId, {
       taxonomyCategoryId: input.taxonomyCategoryId,
       taxonomyTypeId: input.taxonomyTypeId,
       taxonomyIssueId: input.taxonomyIssueId,

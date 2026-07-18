@@ -21,6 +21,7 @@ import {
   requiresProcurement
 } from "../../common/utils/work-order-parts-governance";
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -40,7 +41,7 @@ export class WorkOrderPartsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private resolveTenantId(actor?: Actor) {
-    return actor?.tenantId ?? undefined;
+    return requireTenantId(actor?.tenantId);
   }
 
   private async recordAudit(payload: {
@@ -84,7 +85,7 @@ export class WorkOrderPartsService {
   async assertWorkOrderForParts(workOrderId: string, actor?: Actor, overrideReason?: string) {
     const tenantId = this.resolveTenantId(actor);
     const workOrder = await this.prisma.workOrder.findFirst({
-      where: { id: workOrderId, ...(tenantId !== undefined ? { tenantId } : {}) }
+      where: { id: workOrderId, tenantId }
     });
     if (!workOrder) {
       throw new NotFoundException("Work order not found");
@@ -108,7 +109,7 @@ export class WorkOrderPartsService {
     const totalCost = input.unitCost * input.requestedQuantity;
     const line = await this.prisma.workOrderPart.create({
       data: {
-        tenantId: input.tenantId ?? null,
+        tenantId: requireTenantId(input.tenantId),
         workOrderId: input.workOrderId,
         partRequestId: input.partRequestId,
         partId: input.partId,
@@ -262,7 +263,7 @@ export class WorkOrderPartsService {
     return this.prisma.workOrderPart.findMany({
       where: {
         workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         part: {
@@ -551,7 +552,7 @@ export class WorkOrderPartsService {
       where: {
         id: lineId,
         workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: { part: true }
     });
@@ -564,7 +565,7 @@ export class WorkOrderPartsService {
 
   async getPartsExceptions(actor?: Actor) {
     const tenantId = this.resolveTenantId(actor);
-    const tenantFilter = tenantId !== undefined ? { tenantId } : {};
+    const tenantFilter = { tenantId };
     const highCostThreshold = PART_APPROVAL_HIGH_THRESHOLD;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
