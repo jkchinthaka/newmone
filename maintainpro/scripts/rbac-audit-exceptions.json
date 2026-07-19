@@ -1,0 +1,4 @@
+{
+  "description": "Reviewed exceptions to the RBAC/authorization static audit (scripts/audit-rbac.mjs). Each entry documents a route that is intentionally allowed to skip an otherwise-required control. Exceptions must have an owner, a compensating control and an expiry date; expired exceptions are ignored and the audit fails. There are currently no approved exceptions: every route is explicitly scoped.",
+  "exceptions": []
+}
