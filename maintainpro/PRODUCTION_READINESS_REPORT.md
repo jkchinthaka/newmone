@@ -1,7 +1,7 @@
 # Production Readiness Report
 
 **Branch:** `fix/enterprise-production-hardening`
-**Focus of this iteration:** tenant-isolation migration + cross-tenant FK validation + regression gate.
+**Focus of this iteration:** RBAC / platform-scope / authorization hardening (builds on completed tenant-isolation migration).
 
 ## Verification (this iteration)
 
@@ -10,9 +10,11 @@
 | Prisma client | `npm run db:generate` | PASS |
 | Typecheck (api + web) | `npm run typecheck` | PASS |
 | Lint (api + web) | `npm run lint` | PASS |
-| Unit/integration tests | `npm run test` | PASS — 923/923 (133 suites) |
+| Unit/integration tests | `npm run test` | PASS — 929/929 (134 suites) |
 | Build (shared-types -> ui -> api -> web) | `npm run build` | PASS |
-| Tenant fail-open guard | `npm run audit:tenant` | PASS — 0 unapproved, 0 pending tenant-owned (52 approved platform/shared exceptions) |
+| Tenant fail-open guard | `npm run audit:tenant` | PASS — 0 unapproved, 0 pending tenant-owned (12 approved platform/shared exceptions) |
+| RBAC / authorization guard | `npm run audit:rbac` | PASS — 641 routes, 0 unscoped, 0 high-risk TODO, 0 exceptions |
+| Authorization tests | `jest rbac-authorization` | PASS — 6/6 |
 | Farm cross-tenant isolation | `jest farm-cross-tenant-isolation` | PASS — 29/29 |
 | Operational cross-tenant isolation | `jest operational-cross-tenant-isolation` | PASS — 21/21 |
 | Cross-tenant isolation | `jest cross-tenant-isolation` | PASS — 12/12 |
@@ -42,6 +44,38 @@
 
 See `docs/audits/tenant-query-migration-audit.md` for the per-file inventory.
 
+## Authorization (RBAC / platform-scope) status
+
+- **Explicit route scope: COMPLETE.** All 641 API routes (including farm inline
+  controllers) carry an explicit authorization scope. `npm run audit:rbac` reports
+  0 unscoped routes, 0 high-risk TODO, 0 exceptions. Distribution: 12 public,
+  1 public-webhook, 33 self-service, 593 tenant, 2 platform.
+- **Legacy "24 TODO" routes resolved.** They were mostly false positives from a
+  buggy generator (decorators above `@Get/@Post` were not scanned). The new
+  scanner (`scripts/audit-rbac.mjs`) associates all handler decorators; the 3
+  genuinely unscoped routes (`/auth/me`, `/auth/logout-all`, `/entitlements/me`)
+  are now `@SelfService()`.
+- **New scope primitives:** `@SelfService()` (own-resource routes) and
+  `@PublicWebhook(provider)` (signature-authenticated webhooks), plus explicit
+  `@TenantScoped()` / `@PlatformScoped()` markers.
+- **Stripe webhook hardened:** signature verification is mandatory in live mode;
+  a missing `STRIPE_WEBHOOK_SECRET` now fails closed instead of trusting an
+  unsigned payload. Event-type allowlist and tenant-from-customer mapping retained.
+- **Platform routes require SUPER_ADMIN:** `GET /admin/replication/status` is now
+  `@PlatformScoped()` + `@Roles('SUPER_ADMIN')`; CI fails any `@PlatformScoped()`
+  route missing SUPER_ADMIN.
+- **CI regression gate:** `npm run audit:rbac` runs in `pr-validation.yml` and
+  fails on unscoped routes, platform routes without SUPER_ADMIN, and public
+  webhooks without a signature marker. Exceptions require a reviewed, expiring
+  entry in `scripts/rbac-audit-exceptions.json` (currently 0).
+- **Object-level authorization:** existing per-module controls (work-order status,
+  inventory maker-checker, gate override, compliance verification, evidence
+  governance) remain in force. See `docs/security/authorization-model.md`.
+
+See `docs/audits/rbac-platform-scope-migration.md`,
+`docs/security/authorization-model.md`, `docs/security/platform-scope-policy.md`
+and `docs/security/export-and-bulk-action-policy.md`.
+
 ## Regression prevention
 
 - `scripts/audit-tenant-queries.mjs` fails CI on any new fail-open tenant pattern.
@@ -65,12 +99,20 @@ See `docs/audits/tenant-query-migration-audit.md` for the per-file inventory.
 
 ## Verdict
 
-**Tenant-isolation migration: COMPLETE.** Every tenant-owned business module — including all
+**Tenant-isolation verdict: COMPLETE.** Every tenant-owned business module — including all
 `farm/*` modules — is fail-closed with cross-tenant FK validation; `npm run audit:tenant` reports 0
 unapproved fail-open patterns and 0 pending tenant-owned migrations.
 
-**Overall production verdict: NO-GO.** Tenant isolation is complete, but production readiness is not
-certified by this workstream: the `@PlatformScoped()` refactor of super-admin reporting surfaces,
-outstanding dependency vulnerabilities, and the broader RBAC / cookie-auth / CSP / CI quality-gate /
-infrastructure / backup / observability go-live items remain open. The platform stays **NO-GO** until
-those are independently cleared.
+**Authorization verdict: route-scope hardening COMPLETE; deeper work remaining.** Every non-public
+route has an explicit scope, platform routes require SUPER_ADMIN, public webhooks validate signatures,
+and CI (`npm run audit:rbac`) blocks authorization regressions. Still open before authorization can be
+declared fully complete: (a) split the cross-tenant reporting services into explicit fail-closed
+tenant + `@PlatformScoped()` platform paths so their tenant-audit exceptions can be removed; (b) a full
+separation-of-duties object-level test matrix across every module; (c) explicit replay/idempotency on
+the Stripe webhook; (d) a documented, DB-enforced capability→role permission model migration.
+
+**Overall production verdict: NO-GO.** Tenant isolation and route-level authorization scope are in
+place, but production readiness is not certified by this workstream: the remaining authorization items
+above, cookie-only authentication, CSP, outstanding dependency vulnerabilities, backup/restore,
+observability, and production infrastructure go-live items remain open. The platform stays **NO-GO**
+until those are independently cleared.
