@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 
 import { Roles } from "../../common/decorators/roles.decorator";
+import { TenantScoped } from "../../common/decorators/tenant-scope.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { ReportExportFormat, ReportModuleKey, ReportQuery, ReportsService } from "./reports.service";
@@ -21,6 +22,7 @@ const REPORT_READ_ROLES = [
 
 @ApiTags("Reports")
 @ApiBearerAuth()
+@TenantScoped()
 @UseGuards(JwtAuthGuard)
 @Controller("reports")
 export class ReportsController {

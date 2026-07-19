@@ -2,6 +2,7 @@ import { Controller, Get, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../common/decorators/permissions.decorator";
+import { Roles } from "../common/decorators/roles.decorator";
 import { PlatformScoped } from "../common/decorators/tenant-scope.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { ReplicationSyncService } from "./replication-sync.service";
@@ -15,6 +16,7 @@ export class ReplicationAdminController {
 
   @Get("status")
   @PlatformScoped()
+  @Roles("SUPER_ADMIN")
   @Permissions("settings.system.manage")
   async status() {
     return {
