@@ -9,15 +9,22 @@ import {
   OnModuleInit,
   Post,
   Query,
+  Req,
   UseGuards
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+import { PlatformScoped } from "../../../common/decorators/tenant-scope.decorator";
 import { Roles } from "../../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../../database/prisma.service";
 import { FarmCacheService } from "../farm-cache.service";
+
+interface AuthedRequest {
+  user?: { sub: string; role: string; tenantId?: string | null };
+}
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const WEATHER_LIST_TTL_MS = 60 * 60 * 1000; // 1h
@@ -47,47 +54,53 @@ export class WeatherService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  list(tenantId?: string, limit = 100) {
+  list(tenantId: string | null, limit = 100) {
+    const scopedTenantId = requireTenantId(tenantId);
     const cap = Math.min(limit, 500);
     return this.cache.wrap(
-      `weather:list:${tenantId ?? "_"}:${cap}`,
+      `weather:list:${scopedTenantId}:${cap}`,
       WEATHER_LIST_TTL_MS,
       () =>
         this.prisma.weatherLog.findMany({
-          where: { tenantId: tenantId ?? undefined },
+          where: { tenantId: scopedTenantId },
           orderBy: { recordedAt: "desc" },
           take: cap
         })
     );
   }
 
-  alerts(tenantId?: string) {
+  alerts(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     return this.cache.wrap(
-      `weather:alerts:${tenantId ?? "_"}`,
+      `weather:alerts:${scopedTenantId}`,
       WEATHER_ALERTS_TTL_MS,
       () =>
         this.prisma.weatherLog.findMany({
-          where: { tenantId: tenantId ?? undefined, alertTriggered: true },
+          where: { tenantId: scopedTenantId, alertTriggered: true },
           orderBy: { recordedAt: "desc" },
           take: 50
         })
     );
   }
 
-  async manualEntry(input: {
-    tenantId: string;
-    temperatureC?: number;
-    rainfallMm?: number;
-    humidityPct?: number;
-    windSpeedKmh?: number;
-    condition?: string;
-    recordedAt?: string;
-  }) {
+  async manualEntry(
+    tenantId: string | null,
+    input: {
+      temperatureC?: number;
+      rainfallMm?: number;
+      humidityPct?: number;
+      windSpeedKmh?: number;
+      condition?: string;
+      recordedAt?: string;
+    }
+  ) {
+    const scopedTenantId = requireTenantId(tenantId);
     const { alert, alertType } = this.evaluateAlert(input.temperatureC, input.rainfallMm);
-    this.cache.invalidate(`weather:`);
+    this.cache.invalidate(`weather:list:${scopedTenantId}`);
+    this.cache.invalidate(`weather:alerts:${scopedTenantId}`);
     return this.prisma.weatherLog.create({
       data: {
-        tenantId: input.tenantId,
+        tenantId: scopedTenantId,
         recordedAt: input.recordedAt ? new Date(input.recordedAt) : new Date(),
         temperatureC: input.temperatureC,
         rainfallMm: input.rainfallMm,
@@ -113,6 +126,13 @@ export class WeatherService implements OnModuleInit, OnModuleDestroy {
     return { alert: false, alertType: null };
   }
 
+  /**
+   * Platform ingestion job. Fetches the current provider observation once and
+   * fans it out into each tenant's own WeatherLog. This is a system-wide write
+   * across all tenants and must only be invoked by the internal scheduler or an
+   * explicit SUPER_ADMIN platform action — never by a tenant user, since it
+   * touches every tenant's data.
+   */
   async pollOpenWeather() {
     const apiKey = this.config.get<string>("OPENWEATHER_API_KEY");
     if (!apiKey) {
@@ -175,27 +195,28 @@ export class WeatherController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
-  async list(@Query("tenantId") tenantId?: string, @Query("limit") limitRaw?: string) {
-    const data = await this.service.list(tenantId, limitRaw ? Number(limitRaw) : 100);
+  async list(@Req() req: AuthedRequest, @Query("limit") limitRaw?: string) {
+    const data = await this.service.list(req.user?.tenantId ?? null, limitRaw ? Number(limitRaw) : 100);
     return { data, message: "Weather logs fetched" };
   }
 
   @Get("alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
-  async alerts(@Query("tenantId") tenantId?: string) {
-    const data = await this.service.alerts(tenantId);
+  async alerts(@Req() req: AuthedRequest) {
+    const data = await this.service.alerts(req.user?.tenantId ?? null);
     return { data, message: "Weather alerts fetched" };
   }
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
-  async record(@Body() body: Parameters<WeatherService["manualEntry"]>[0]) {
-    const data = await this.service.manualEntry(body);
+  async record(@Req() req: AuthedRequest, @Body() body: Parameters<WeatherService["manualEntry"]>[1]) {
+    const data = await this.service.manualEntry(req.user?.tenantId ?? null, body);
     return { data, message: "Weather log recorded" };
   }
 
   @Post("poll")
-  @Roles("SUPER_ADMIN", "ADMIN")
+  @PlatformScoped()
+  @Roles("SUPER_ADMIN")
   async poll() {
     const data = await this.service.pollOpenWeather();
     return { data, message: "Weather poll triggered" };
