@@ -28,6 +28,7 @@ export const envValidationSchema = Joi.object({
   REDIS_REQUIRED_IN_PRODUCTION: Joi.boolean().default(true),
   HEALTHCHECK_DEPENDENCY_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
   ALLOW_MOCK_IN_PRODUCTION: Joi.boolean().default(false),
+  ALLOW_UNSIGNED_STRIPE_WEBHOOK: Joi.boolean().default(false),
   ERP_MODE: Joi.string().valid("disabled", "mock", "sandbox", "live").default("mock"),
   ERP_SYNC_MODE: Joi.string().valid("disabled", "mock", "file_import", "live").default("disabled"),
   BILEETA_API_BASE_URL: Joi.string().allow(""),
