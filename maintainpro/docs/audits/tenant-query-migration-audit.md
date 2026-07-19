@@ -33,20 +33,23 @@ tenantId: tenantId ?? null           // nullish-null-assign
 | Metric | Count |
 | --- | ---: |
 | Fail-open occurrences found (initial) | 152 |
-| Occurrences migrated to fail-closed | ~85 |
-| Occurrences remaining (grandfathered in exceptions) | 67 |
+| Occurrences migrated to fail-closed | ~100 |
+| Occurrences remaining (grandfathered in exceptions) | 52 |
 | Files with remaining occurrences | 12 |
 
-The remaining 67 are registered, with an owner and reason, in
+The remaining 52 are registered, with an owner and reason, in
 `scripts/tenant-audit-exceptions.json`. CI (`npm run audit:tenant`) fails on any **new** fail-open
-pattern outside that registry. All 67 are now APPROVED platform/super-admin surfaces plus the
-dual-scoped work-order taxonomy reference data; the remaining PENDING-MIGRATION debt is the
-**farm/\*** modules (14 occurrences), which are the last tenant-owned business blockers.
+pattern outside that registry. All 52 are now APPROVED platform/super-admin surfaces plus the
+dual-scoped work-order taxonomy reference data. **There are no PENDING-MIGRATION tenant-owned
+entries left** — every tenant-owned business module, including all `farm/*` modules, is fail-closed.
 
-> Current pass migrated Cleaning (19), Utilities (11), Operations (4) and Compliance (1) to
-> fail-closed, and additionally hardened the compliance-coupled phase-4 modules (accidents,
-> insurance claims, traffic fines, vehicle documents) which used the equivalent `!== undefined`
-> fail-open form (not one of the four canonical audit patterns, so never in the registry).
+> Current pass migrated the **farm/\*** modules (crops, fields, harvest, irrigation, livestock,
+> soil-tests, spray-logs, farm-workers, farm-finance, traceability, weather). These were the most
+> severe fail-open surface: their controllers trusted a **client-supplied `tenantId`** (from
+> `@Query("tenantId")` / request body) and their get/update/delete paths had **no tenant scoping at
+> all** (IDOR). They now resolve the tenant from the authenticated request
+> (`req.user.tenantId` -> `requireTenantId()`), scope every query by tenant, force `tenantId` on
+> create, and validate every farm-graph FK.
 
 ## 3. Migrated modules (fail-closed)
 
@@ -70,6 +73,17 @@ dual-scoped work-order taxonomy reference data; the remaining PENDING-MIGRATION 
 | `modules/accidents/accidents.service.ts` | AccidentReport, AccidentEvidence, Vehicle, Driver, User, WorkOrder | list, get, create, update, add evidence, link work order | `!== undefined` fail-open | MIGRATED |
 | `modules/insurance-claims/insurance-claims.service.ts` | InsuranceClaim, AccidentReport, Vehicle | list, get, create, update, update status | `!== undefined` fail-open | MIGRATED |
 | `modules/traffic-fines/traffic-fines.service.ts` | TrafficFine, Vehicle, Driver, User, WorkOrder | list, get, create, responsibility, payment, link work order | `!== undefined` fail-open | MIGRATED |
+| `modules/farm/fields/fields.module.ts` | Field | list, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope get/update/delete | MIGRATED |
+| `modules/farm/crops/crops.module.ts` | CropCycle, Field | list, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope get/update/delete | MIGRATED |
+| `modules/farm/harvest/harvest.module.ts` | HarvestRecord, CropCycle | list, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/irrigation/irrigation.module.ts` | IrrigationLog, Field | list, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/soil-tests/soil-tests.module.ts` | SoilTest, Field | list, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/spray-logs/spray-logs.module.ts` | SprayLog, Field, CropCycle | list, compliance, get, create, update, delete | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/farm-workers/farm-workers.module.ts` | FarmWorker, AttendanceLog | list, get, create, update, delete, attendance list/record/update | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/livestock/livestock.module.ts` | LivestockAnimal, AnimalHealthRecord, AnimalProductionLog, FeedingLog | animals CRUD, health, production, feeding | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/farm-finance/farm-finance.module.ts` | FarmExpense, FarmIncome, CropCycle, Field | expenses/income list/create/update/delete, summary | client-supplied `tenantId` + `?? undefined` + no-scope | MIGRATED |
+| `modules/farm/traceability/traceability.module.ts` | TraceabilityRecord, Field, CropCycle, HarvestRecord, SoilTest, SprayLog | list, create (batch), public lookup | client-supplied `tenantId` + no-scope graph traversal | MIGRATED |
+| `modules/farm/weather/weather.module.ts` | WeatherLog, Tenant | list, alerts, manual entry, provider poll | client-supplied `tenantId` + `?? undefined` | MIGRATED |
 
 Cross-tenant FK validation applied in migrated modules:
 
@@ -97,6 +111,16 @@ Cross-tenant FK validation applied in migrated modules:
 - traffic fines -> vehicle (scoped), driver (`assertTenantEntityExists`), technician (`assertTenantEntityExists`)
 - tenant switching -> `TenantContextGuard` now requires an **active** membership in an **active**
   tenant for non-super-admins (disabled memberships / inactive tenants denied)
+- farm crops/soil/spray/irrigation -> field (`assertTenantEntityExists`); spray/crop-cycle links
+  validated; harvest -> crop cycle; farm-workers attendance -> worker; livestock health/production/
+  feeding -> animal; farm-finance expense/income -> crop cycle + field
+- farm traceability -> field, crop cycle, harvest record, soil test and **every** spray-log id in the
+  batch (`assertTenantEntitiesExist`) validated against the active tenant; the public batch lookup
+  resolves each linked node within the record's own `tenantId`, so the consumer projection can never
+  traverse into another tenant's data
+- farm weather -> tenant-owned observations/alerts/manual entries are fail-closed; the OpenWeather
+  provider poll is a platform ingestion job (`@PlatformScoped()` + `SUPER_ADMIN`) that fans one
+  provider reading into each tenant's own log
 
 ## 4. Remaining modules (documented exceptions, NOT production-clean)
 
@@ -131,30 +155,29 @@ platform-scope decorator.
   tenant for non-super-admins, so the global path is unreachable from tenant-user HTTP requests.
   Retained by design, not a tenant-owned data leak.
 
-### 4c. Tenant-owned business, pending migration (scope: tenant-owned-business, status: PENDING-MIGRATION) — PRODUCTION BLOCKERS
+### 4c. Tenant-owned business, pending migration (scope: tenant-owned-business, status: PENDING-MIGRATION)
 
-Tenant-owned business modules not yet converted to `requireTenantId()`. Guard enforces tenant
-presence at the HTTP boundary, but explicit fail-closed migration is still required. These keep the
-verdict at NO-GO.
+**None.** All tenant-owned business modules are now fail-closed. The `farm/*` modules were the last
+remaining entries and were migrated in the current pass (and removed from the exceptions registry).
 
-- `modules/farm/*` (14 across crops, farm-finance, farm-workers, fields, harvest, irrigation, livestock, soil-tests, spray-logs, traceability, weather)
-
-> Migrated out of this list in the current pass: `cleaning`, `utilities`, `operations`,
-> `compliance` (all four removed from the exceptions registry). Additionally, the
-> compliance-coupled phase-4 modules — `accidents`, `insurance-claims`, `traffic-fines`,
-> `vehicle-documents` — were hardened from the `!== undefined` fail-open form (these were never in
-> the registry because they do not match the four canonical audit patterns).
-> Prior passes migrated all `work-orders/*`, `inventory`, `users`, `people`, `workforce-*`, and
-> `auth`. These files are no longer in the exceptions registry, so CI now blocks any regression that
-> reintroduces a fail-open pattern in them. **Farm modules are the only tenant-owned blockers left.**
+> Migrated out of this list in the current pass: all `farm/*` modules — `crops`, `fields`, `harvest`,
+> `irrigation`, `livestock`, `soil-tests`, `spray-logs`, `farm-workers`, `farm-finance`,
+> `traceability`, `weather`.
+> Prior passes migrated `cleaning`, `utilities`, `operations`, `compliance`, the compliance-coupled
+> phase-4 modules (`accidents`, `insurance-claims`, `traffic-fines`, `vehicle-documents`), and before
+> that all `work-orders/*`, `inventory`, `users`, `people`, `workforce-*`, and `auth`. None of these
+> files remain in the exceptions registry, so CI now blocks any regression that reintroduces a
+> fail-open pattern in them. **No tenant-owned blockers remain.**
+> See `docs/security/farm-tenant-isolation.md` for the farm data-ownership model, the weather
+> shared-vs-tenant analysis, and the traceability graph-isolation design.
 
 ## 5. Risk assessment
 
 | Layer | Residual risk |
 | --- | --- |
-| List / read endpoints on remaining modules | Low-Medium — guard blocks tenantless non-super-admins; risk is a null-tenant / super-admin cross-tenant read |
-| Create with `tenantId ?? null/undefined` | Medium — could persist a null-tenant record if reached without context |
-| Relation writes without FK validation | High where present — frontend-supplied ids for cross-module relations are not all tenant-verified yet |
+| Tenant-owned business modules (incl. farm/*) | Low — fail-closed via `requireTenantId()`; cross-tenant FKs validated; CI blocks regressions |
+| Platform/super-admin reporting surfaces (APPROVED exceptions) | Low — `SUPER_ADMIN`-gated by their own guards; fail-open literal is defense-in-depth debt pending `@PlatformScoped()` refactor |
+| Loose cross-model ids not modeled as Prisma relations (e.g. `operatorId`, `pumpAssetId`, `equipmentAssetId`, `harvestedById`, `markedById`, farm-worker `userId`) | Low-Medium — these point at User/Asset outside the farm graph and are not tenant-validated on write; see limitations in `docs/security/farm-tenant-isolation.md` |
 
 ## 6. Regression prevention
 
@@ -166,14 +189,23 @@ verdict at NO-GO.
 
 ## 7. Verdict
 
-**NO-GO.** Cleaning, Utilities, Operations, Compliance, and the compliance-coupled Accidents /
-Insurance claims / Traffic fines / Vehicle documents modules are now fail-closed with cross-tenant
-FK validation — joining Work Orders, Inventory & Spare Parts, and Users/People/Employees from prior
-passes. Tenant switching remains fail-closed at the guard (active membership + active tenant
-required). `npm run audit:tenant` reports **0 unapproved** fail-open patterns.
+**Tenant-isolation migration: COMPLETE.** Every tenant-owned business module is fail-closed with
+cross-tenant FK validation. The `farm/*` modules were the last remaining blockers and are now
+migrated (client-supplied tenant ids removed, get/update/delete tenant-scoped, farm-graph FKs
+validated, traceability graph isolated, weather provider poll restricted to `SUPER_ADMIN`). Tenant
+switching remains fail-closed at the guard (active membership + active tenant required).
+`npm run audit:tenant` reports **0 unapproved** fail-open patterns and **0 pending tenant-owned
+migrations**.
 
-The verdict stays **NO-GO** for one reason: the **farm/\*** tenant-owned business modules
-(14 fail-open occurrences across crops, farm-finance, farm-workers, fields, harvest, irrigation,
-livestock, soil-tests, spray-logs, traceability, weather) remain unmigrated. Until they are
-converted to `requireTenantId()`/`tenantWhere()` with cross-tenant FK validation, tenant isolation
-is NOT complete and the platform stays NO-GO for production.
+**Overall production verdict: NO-GO.** Tenant isolation being complete does not by itself make the
+platform production-ready. The following non-tenant blockers remain outside the scope of this
+workstream and must be independently cleared before go-live:
+
+- Platform/super-admin reporting surfaces (`reports/*`, `post-go-live/*`, `management-intelligence`,
+  `go-live/pilot-rollout`, `qa`, `delivery-readiness`) still carry fail-open literals gated only by
+  their own `SUPER_ADMIN` guards; they are APPROVED exceptions pending a refactor to an explicit
+  `@PlatformScoped()` decorator (defense-in-depth, not a tenant-user data leak).
+- Outstanding dependency vulnerabilities from `npm audit` (operator-owned, tracked separately).
+- RBAC/object-level-authorization full review, cookie-auth/CSP hardening, CI quality gates,
+  infrastructure, backup/restore and observability readiness are tracked in the go-live docs and are
+  not certified by this tenant-isolation workstream.

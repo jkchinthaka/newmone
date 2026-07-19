@@ -17,13 +17,17 @@ platform exceptions, migration status and known limitations are maintained in:
 
 ## Current verdict
 
-**NO-GO.** `npm run audit:tenant` reports **0 unapproved** fail-open patterns (67 approved
-platform/super-admin + shared-reference exceptions remain, tracked in the registry). Fail-closed
-enforcement with cross-tenant FK validation now covers assets, vehicles, fleet, departments,
-job-codes, work-orders (+ sub-services), inventory, users, people, workforce, **cleaning,
-utilities, operations, compliance, accidents, insurance-claims, traffic-fines and vehicle
-documents**.
+**Tenant-isolation migration: COMPLETE.** `npm run audit:tenant` reports **0 unapproved** fail-open
+patterns and **0 pending tenant-owned migrations** (52 approved platform/super-admin +
+shared-reference exceptions remain, tracked in the registry). Fail-closed enforcement with
+cross-tenant FK validation now covers assets, vehicles, fleet, departments, job-codes, work-orders
+(+ sub-services), inventory, users, people, workforce, cleaning, utilities, operations, compliance,
+accidents, insurance-claims, traffic-fines, vehicle documents, and **all `farm/*` modules** (crops,
+fields, harvest, irrigation, livestock, soil-tests, spray-logs, farm-workers, farm-finance,
+traceability, weather). See `docs/security/farm-tenant-isolation.md`.
 
-The verdict stays NO-GO because the **farm/\*** tenant-owned modules (14 fail-open occurrences)
-remain unmigrated. Do not claim tenant isolation is complete until the farm modules listed in the
-migration audit are fail-closed with cross-tenant FK validation.
+**Overall production verdict: NO-GO.** Tenant isolation being complete does not make the platform
+production-ready on its own. Remaining non-tenant blockers: the `@PlatformScoped()` refactor of the
+super-admin reporting surfaces (currently APPROVED fail-open exceptions), outstanding `npm audit`
+dependency vulnerabilities, and the broader RBAC / cookie-auth / CSP / CI / infrastructure /
+backup / observability go-live items tracked in the go-live docs.

@@ -590,3 +590,23 @@ cross-tenant FK validation.
   cross-tenant id resolves to `NotFound` before any mutation.
 - **Still outstanding (NO-GO):** the same fail-closed migration + object-level authorization review
   for the **farm/\*** modules.
+
+### Update — farm modules pass (fields, crops, harvest, irrigation, livestock, soil-tests, spray-logs, workers, finance, traceability, weather)
+
+- All `farm/*` controllers previously trusted a client-supplied `tenantId` (query/body) and their
+  id-based reads/writes had no tenant scope (IDOR). They now resolve the tenant from the
+  authenticated request (`req.user.tenantId` -> `requireTenantId()`), scope every query, force
+  `tenantId` on create, and validate farm-graph FKs. RBAC was not weakened: the existing `@Roles`
+  decorators are unchanged.
+- Object-level authorization on sensitive farm actions is preserved by the unchanged role decorators
+  layered over tenant-scoped record resolution: destructive deletes are `FARM_OWNER`/admin only;
+  finance mutations are `FARM_OWNER`/`FARM_MANAGER`/admin; finance exports/summaries are read-gated;
+  a cross-tenant id resolves to `NotFound` before any mutation.
+- The OpenWeather provider ingestion (`POST /farm/weather/poll`) writes to every tenant, so it was
+  tightened from `ADMIN`/`SUPER_ADMIN` to **`@PlatformScoped()` + `SUPER_ADMIN` only**.
+- Traceability graph traversal (create + public batch lookup) is tenant-isolated; see
+  `docs/security/farm-tenant-isolation.md`.
+- **Tenant-isolation migration is now complete.** The overall go-live verdict remains **NO-GO** for
+  non-tenant reasons: the `@PlatformScoped()` refactor of super-admin reporting surfaces, dependency
+  vulnerabilities, and the remaining cookie-auth / CSP / CI / infrastructure / backup / observability
+  items tracked elsewhere in this go-live folder.
