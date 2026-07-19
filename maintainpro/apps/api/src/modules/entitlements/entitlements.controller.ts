@@ -1,6 +1,7 @@
 import { Controller, ForbiddenException, Get, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { EntitlementsService } from "./entitlements.service";
 
 type EntitlementsRequest = {
@@ -17,6 +18,7 @@ export class EntitlementsController {
   constructor(private readonly entitlementsService: EntitlementsService) {}
 
   @Get("me")
+  @SelfService()
   async me(@Req() req: EntitlementsRequest) {
     const tenantId = req.user.tenantId ?? req.tenantId ?? null;
 

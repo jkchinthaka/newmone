@@ -4,6 +4,7 @@ import { NotificationType } from "@prisma/client";
 
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { NotificationReadinessService } from "./notification-readiness.service";
 import { NotificationTemplatesService } from "./notification-templates.service";
 import { NotificationUatService } from "./notification-uat.service";
@@ -29,6 +30,7 @@ export class NotificationsController {
   ) {}
 
   @Get()
+  @SelfService()
   async findAll(
     @Req() req: AuthedRequest,
     @Query("status") status?: "ALL" | "READ" | "UNREAD",
@@ -61,18 +63,21 @@ export class NotificationsController {
   }
 
   @Patch(":id/read")
+  @SelfService()
   async markRead(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.notificationsService.markRead(req.user.sub, id);
     return { data, message: "Notification marked as read" };
   }
 
   @Patch("mark-all-read")
+  @SelfService()
   async markAllRead(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.markAllRead(req.user.sub);
     return { data, message: "All notifications marked as read" };
   }
 
   @Post(":id/actions")
+  @SelfService()
   async actions(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -87,30 +92,35 @@ export class NotificationsController {
   }
 
   @Post(":id/explain")
+  @SelfService()
   async explain(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.notificationsService.explain(req.user.sub, id);
     return { data, message: "AI explanation generated" };
   }
 
   @Get("analytics")
+  @SelfService()
   async analytics(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getNotificationAnalytics(req.user.sub);
     return { data, message: "Notification analytics fetched" };
   }
 
   @Get("ai-summary")
+  @SelfService()
   async aiSummary(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getAiDailySummary(req.user.sub);
     return { data, message: "AI daily summary fetched" };
   }
 
   @Get("preferences")
+  @SelfService()
   async preferences(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getPreferences(req.user.sub);
     return { data, message: "Notification preferences fetched" };
   }
 
   @Patch("preferences")
+  @SelfService()
   async updatePreferences(
     @Req() req: AuthedRequest,
     @Body() body: Partial<{ inApp: boolean; email: boolean; sms: boolean; whatsapp: boolean; push: boolean }>
@@ -120,12 +130,14 @@ export class NotificationsController {
   }
 
   @Get("rules")
+  @SelfService()
   async rules(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getRules(req.user.sub);
     return { data, message: "Notification rules fetched" };
   }
 
   @Patch("rules")
+  @SelfService()
   async updateRules(
     @Req() req: AuthedRequest,
     @Body()
@@ -140,6 +152,7 @@ export class NotificationsController {
   }
 
   @Get("push/readiness")
+  @SelfService()
   async pushReadiness(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getPushReadiness(req.user.sub);
     return { data, message: "Push readiness fetched" };
@@ -202,6 +215,7 @@ export class NotificationsController {
   }
 
   @Post("push/devices")
+  @SelfService()
   async registerPushDevice(
     @Req() req: AuthedRequest,
     @Body()
@@ -220,6 +234,7 @@ export class NotificationsController {
   }
 
   @Delete("push/devices/:installationId")
+  @SelfService()
   async unregisterPushDevice(@Req() req: AuthedRequest, @Param("installationId") installationId: string) {
     const data = await this.notificationsService.unregisterPushDevice(req.user.sub, installationId);
     return { data, message: "Push device unregistered" };
