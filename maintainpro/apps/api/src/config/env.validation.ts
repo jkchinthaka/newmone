@@ -131,6 +131,9 @@ export const envValidationSchema = Joi.object({
   NOTIFICATION_UAT_ALLOWED_RECIPIENTS: Joi.string().allow("").default(""),
   FRAUD_CONTROL_ENABLED: Joi.boolean().default(true),
   APP_VERSION: Joi.string().allow("").default("1.2.0"),
+  APP_COMMIT_SHA: Joi.string().allow("").default(""),
+  APP_BUILD_TIMESTAMP: Joi.string().allow("").default(""),
+  APP_ENVIRONMENT: Joi.string().allow("").default(""),
   GIT_COMMIT: Joi.string().allow("").default(""),
   BUILD_TIME: Joi.string().allow("").default("")
 })

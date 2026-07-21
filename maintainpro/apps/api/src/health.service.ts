@@ -8,6 +8,7 @@ import { sanitizeReplicationError } from "./database/replication.config";
 import { InventoryErpAdapterService } from "./modules/inventory/inventory-erp-adapter.service";
 import { NotificationReadinessService } from "./modules/notifications/notification-readiness.service";
 import { QueueHealthService } from "./modules/queues/queue-health.service";
+import { resolveSafeBuildInfo } from "./common/utils/build-info.util";
 
 export type CheckStatus =
   | "operational"
@@ -73,16 +74,24 @@ export class HealthService {
   }
 
   getBuildInfo() {
-    const commit = this.configService.get<string>("GIT_COMMIT", "").trim();
-    const buildTime = this.configService.get<string>("BUILD_TIME", "").trim();
-    const version = this.configService.get<string>("APP_VERSION", "1.2.0").trim();
+    const safe = resolveSafeBuildInfo("maintainpro-api", (key, fallback = "") =>
+      this.configService.get<string>(key, fallback)
+    );
 
     return {
-      version,
-      commit: commit || "unknown",
-      buildTime: buildTime || null,
-      nodeVersion: process.version
+      version: safe.version,
+      commit: safe.commitSha,
+      buildTime: safe.buildTimestamp,
+      nodeVersion: process.version,
+      environment: safe.environment,
+      service: safe.service
     };
+  }
+
+  getSafeBuildInfoPayload() {
+    return resolveSafeBuildInfo("maintainpro-api", (key, fallback = "") =>
+      this.configService.get<string>(key, fallback)
+    );
   }
 
   async getPublicHealth() {
