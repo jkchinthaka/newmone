@@ -29,4 +29,4 @@ jobs:
         run: docker build -f apps/web/Dockerfile --target production -t maintainpro-web:ci .
 
       - name: Validate compose config
-        run: docker compose -f docker-compose.yml config > /tmp/compose-config.txt
+        run: docker compose --env-file .env.compose-ci -f docker-compose.yml config > /tmp/compose-config.txt
