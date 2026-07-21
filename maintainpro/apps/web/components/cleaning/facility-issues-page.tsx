@@ -7,6 +7,7 @@ import { FacilityIssueRoomSelector } from "@/components/cleaning/facility-issue-
 import { FacilityIssueDuplicateWarning } from "@/components/cleaning/facility-issue-duplicate-warning";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { toOptionalNumber } from "@/lib/form-payload";
 import {
   buildDuplicateFacilityIssueCheckPayload,
   duplicateIssueCheckUnavailableMessage,
@@ -117,7 +118,7 @@ export function FacilityIssuesPage() {
       roomId: roomSelectionToRoomId(createRoomSelection),
       category: String(formData.get("category") ?? ""),
       assignedToId: String(formData.get("assignedToId") ?? "") || undefined,
-      slaHours: Number(formData.get("slaHours") ?? 24),
+      slaHours: toOptionalNumber(formData.get("slaHours")) ?? 24,
       photos: String(formData.get("photos") ?? "")
         .split("\n")
         .map((line) => line.trim())

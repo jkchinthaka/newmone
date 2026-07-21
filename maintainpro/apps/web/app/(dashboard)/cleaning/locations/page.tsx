@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Download, Plus, RefreshCw } from "lucide-react";
 
 import { apiClient } from "@/lib/api-client";
+import { toOptionalNumber } from "@/lib/form-payload";
 
 type RoleName = "SUPER_ADMIN" | "ADMIN" | "SUPERVISOR" | "CLEANER" | "VIEWER" | string;
 
@@ -163,13 +164,13 @@ export default function CleaningLocationsPage() {
         floor: String(formData.get("floor") ?? "") || undefined,
         description: String(formData.get("description") ?? "") || undefined,
         shiftWindow: String(formData.get("shiftWindow") ?? "") || undefined,
-        cleaningFrequency: Number(formData.get("cleaningFrequency") ?? 1),
+        cleaningFrequency: toOptionalNumber(formData.get("cleaningFrequency")) ?? 1,
         cleaningFrequencyUnit: String(formData.get("cleaningFrequencyUnit") ?? "PER_DAY"),
         shiftAssignment: String(formData.get("shiftAssignment") ?? "MORNING"),
         assignedCleanerId: String(formData.get("assignedCleanerId") ?? "") || undefined,
         geoLatitude: geoLatitudeValue ? Number(geoLatitudeValue) : undefined,
         geoLongitude: geoLongitudeValue ? Number(geoLongitudeValue) : undefined,
-        geoRadiusMeters: Number(formData.get("geoRadiusMeters") ?? 150),
+        geoRadiusMeters: toOptionalNumber(formData.get("geoRadiusMeters")) ?? 150,
         requireDeviceValidation: formData.get("requireDeviceValidation") === "on",
         requirePhotoEvidence: formData.get("requirePhotoEvidence") === "on",
         checklistItems
