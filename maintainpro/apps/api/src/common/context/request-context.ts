@@ -10,6 +10,7 @@ export interface AuditRequestContext {
   userAgent: string | null;
   requestPath: string | null;
   permissions?: string[];
+  requestId?: string | null;
 }
 
 const storage = new AsyncLocalStorage<AuditRequestContext>();
@@ -33,5 +34,8 @@ export const requestContext = {
   },
   getTenantId(): string | null {
     return storage.getStore()?.tenantId ?? null;
+  },
+  getRequestId(): string | null {
+    return storage.getStore()?.requestId ?? null;
   }
 };
