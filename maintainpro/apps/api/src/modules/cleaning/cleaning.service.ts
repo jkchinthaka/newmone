@@ -29,6 +29,7 @@ import { randomUUID } from "node:crypto";
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
+import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -123,16 +124,18 @@ export class CleaningService {
   }
 
   private assertTenantAccessOrThrow(resourceTenantId: string | null | undefined, notFoundMessage: string) {
-    const actorTenantId = this.currentTenantId();
-    if (actorTenantId && resourceTenantId !== actorTenantId) {
+    // Fail-closed: an active tenant is required, and the resource must belong to it.
+    const actorTenantId = requireTenantId();
+    if (resourceTenantId !== actorTenantId) {
       throw new NotFoundException(notFoundMessage);
     }
   }
 
   async listAssignableCleaners(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     return this.prisma.user.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId: scopedTenantId,
         isActive: true,
         role: {
           name: {
@@ -156,8 +159,9 @@ export class CleaningService {
   }
 
   async createLocation(actorTenantId: string | null, dto: CreateCleaningLocationDto) {
+    const scopedTenantId = requireTenantId(actorTenantId);
     if (dto.assignedCleanerId) {
-      await this.ensureAssignableCleaner(actorTenantId, dto.assignedCleanerId);
+      await this.ensureAssignableCleaner(scopedTenantId, dto.assignedCleanerId);
     }
 
     const qrCode = randomUUID();
@@ -165,7 +169,7 @@ export class CleaningService {
 
     const location = await this.prisma.cleaningLocation.create({
       data: {
-        tenantId: actorTenantId,
+        tenantId: scopedTenantId,
         name: dto.name,
         area: dto.area,
         building: dto.building,
@@ -214,12 +218,13 @@ export class CleaningService {
   }
 
   async listLocations(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
     const startOfToday = this.startOfDayUtc(new Date());
     const startOfTomorrow = new Date(startOfToday.getTime() + MS_IN_DAY);
 
     const [locations, visitCounts, issueCounts] = await Promise.all([
       this.prisma.cleaningLocation.findMany({
-        where: { tenantId: tenantId ?? undefined },
+        where: { tenantId: scopedTenantId },
         include: {
           checklistTemplates: true,
           assignedCleaner: {
@@ -231,7 +236,7 @@ export class CleaningService {
       this.prisma.cleaningVisit.groupBy({
         by: ["locationId", "status"],
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           scannedAt: {
             gte: startOfToday,
             lt: startOfTomorrow
@@ -244,7 +249,7 @@ export class CleaningService {
       this.prisma.facilityIssue.groupBy({
         by: ["locationId"],
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           status: {
             in: [FacilityIssueStatus.OPEN, FacilityIssueStatus.IN_PROGRESS]
           }
@@ -477,6 +482,7 @@ export class CleaningService {
   }
 
   async scanVisit(cleanerId: string, tenantId: string | null, dto: ScanCleaningVisitDto) {
+    const scopedTenantId = requireTenantId(tenantId);
     const qrCode = this.normalizeQrCode(dto.qrCode);
     const location = await this.prisma.cleaningLocation.findUnique({
       where: { qrCode },
@@ -502,7 +508,8 @@ export class CleaningService {
       throw new NotFoundException("QR code does not match an active cleaning location");
     }
 
-    if (tenantId && location.tenantId && location.tenantId !== tenantId) {
+    // Fail-closed: the scanned location must belong to the cleaner's tenant.
+    if (location.tenantId !== scopedTenantId) {
       throw new NotFoundException("QR code does not match an active cleaning location");
     }
 
@@ -513,12 +520,12 @@ export class CleaningService {
     }
 
     const geofence = this.validateGeofence(location, dto.latitude, dto.longitude);
-    const effectiveTenantId = tenantId ?? location.tenantId ?? null;
+    const effectiveTenantId = scopedTenantId;
 
     const duplicateCutoff = new Date(Date.now() - 30 * 60 * 1000);
     const previousVisit = await this.prisma.cleaningVisit.findFirst({
       where: {
-        tenantId: effectiveTenantId ?? undefined,
+        tenantId: effectiveTenantId,
         locationId: location.id,
         cleanerId,
         scannedAt: {
@@ -597,6 +604,7 @@ export class CleaningService {
   }
 
   async startVisit(cleanerId: string, tenantId: string | null, dto: StartCleaningVisitDto) {
+    const scopedTenantId = requireTenantId(tenantId);
     const qrCode = this.normalizeQrCode(dto.qrCode);
     const location = await this.prisma.cleaningLocation.findUnique({
       where: { qrCode },
@@ -609,7 +617,8 @@ export class CleaningService {
       throw new NotFoundException("Cleaning location not found for the scanned QR");
     }
 
-    if (tenantId && location.tenantId && location.tenantId !== tenantId) {
+    // Fail-closed: the scanned location must belong to the cleaner's tenant.
+    if (location.tenantId !== scopedTenantId) {
       throw new NotFoundException("Cleaning location not found for the scanned QR");
     }
 
@@ -623,7 +632,7 @@ export class CleaningService {
     const template = location.checklistTemplates[0];
     const seedItems =
       (template?.items as Array<{ label: string; required?: boolean }> | undefined) ?? [];
-    const effectiveTenantId = tenantId ?? location.tenantId ?? null;
+    const effectiveTenantId = scopedTenantId;
     const now = new Date();
 
     const visit = await this.prisma.cleaningVisit.create({
@@ -978,27 +987,28 @@ export class CleaningService {
     tenantId: string | null,
     dto: CreateFacilityIssueDto
   ): Promise<PublicFacilityIssueResponse> {
+    const scopedTenantId = requireTenantId(tenantId);
     if (dto.locationId) {
       const location = await this.prisma.cleaningLocation.findUnique({
         where: { id: dto.locationId },
         select: { id: true, tenantId: true, isActive: true }
       });
-      if (!location || !location.isActive || (tenantId && location.tenantId !== tenantId)) {
+      if (!location || !location.isActive || location.tenantId !== scopedTenantId) {
         throw new BadRequestException("Location is invalid for this tenant");
       }
     }
 
     if (dto.roomId) {
-      await this.assertActiveRoomForTenant(tenantId, dto.roomId);
+      await this.assertActiveRoomForTenant(scopedTenantId, dto.roomId);
     }
 
     if (dto.assignedToId) {
-      await this.ensureAssignableCleaner(tenantId, dto.assignedToId);
+      await this.ensureAssignableCleaner(scopedTenantId, dto.assignedToId);
     }
 
     const issue = await this.prisma.facilityIssue.create({
       data: {
-        tenantId,
+        tenantId: scopedTenantId,
         reportedById,
         assignedToId: dto.assignedToId,
         title: dto.title,
@@ -1061,7 +1071,7 @@ export class CleaningService {
   ): Promise<PublicFacilityIssueResponse[]> {
     const issues = await this.prisma.facilityIssue.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId: requireTenantId(tenantId),
         status: this.isIssueStatus(status) ? status : undefined
       },
       include: FACILITY_ISSUE_INCLUDE,
@@ -1251,28 +1261,30 @@ export class CleaningService {
   }
 
   private async assertActiveRoomForTenant(tenantId: string | null, roomId: string) {
+    const scopedTenantId = requireTenantId(tenantId);
     const room = await this.prisma.room.findFirst({
-      where: { id: roomId },
+      where: { id: roomId, tenantId: scopedTenantId },
       select: { id: true, tenantId: true, isActive: true }
     });
 
-    if (!room || !room.isActive || (tenantId && room.tenantId !== tenantId)) {
+    if (!room || !room.isActive) {
       throw new BadRequestException("Room is invalid for this tenant");
     }
   }
 
   async dashboard(tenantId: string | null, days = 14) {
+    const scopedTenantId = requireTenantId(tenantId);
     const windowDays = this.normalizeNumber(days, 14, 1, 90);
     const rangeStart = this.startOfDayUtc(new Date(Date.now() - (windowDays - 1) * MS_IN_DAY));
 
     const [enforcement, totalLocations, openIssues, visits, recentRejected] = await Promise.all([
-      this.runScheduleEnforcement(tenantId, { dryRun: true }),
+      this.runScheduleEnforcement(scopedTenantId, { dryRun: true }),
       this.prisma.cleaningLocation.count({
-        where: { tenantId: tenantId ?? undefined, isActive: true }
+        where: { tenantId: scopedTenantId, isActive: true }
       }),
       this.prisma.facilityIssue.count({
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           status: {
             in: [FacilityIssueStatus.OPEN, FacilityIssueStatus.IN_PROGRESS]
           }
@@ -1280,7 +1292,7 @@ export class CleaningService {
       }),
       this.prisma.cleaningVisit.findMany({
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           scannedAt: { gte: rangeStart }
         },
         select: {
@@ -1294,7 +1306,7 @@ export class CleaningService {
       }),
       this.prisma.cleaningVisit.findMany({
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           status: CleaningVisitStatus.REJECTED,
           scannedAt: { gte: new Date(Date.now() - 7 * MS_IN_DAY) }
         },
@@ -1355,7 +1367,7 @@ export class CleaningService {
     });
 
     const activeLocations = await this.prisma.cleaningLocation.findMany({
-      where: { tenantId: tenantId ?? undefined, isActive: true },
+      where: { tenantId: scopedTenantId, isActive: true },
       select: {
         id: true,
         name: true,
@@ -1434,10 +1446,11 @@ export class CleaningService {
   }
 
   async analytics(tenantId: string | null, query: CleaningAnalyticsQuery) {
+    const scopedTenantId = requireTenantId(tenantId);
     const range = this.parseDateRange(query.from, query.to, 30);
 
     const where: Prisma.CleaningVisitWhereInput = {
-      tenantId: tenantId ?? undefined,
+      tenantId: scopedTenantId,
       scannedAt: {
         gte: range.start,
         lte: range.end
@@ -1621,11 +1634,12 @@ export class CleaningService {
   }
 
   async getScheduleCalendar(tenantId: string | null, query: ScheduleCalendarQuery) {
+    const scopedTenantId = requireTenantId(tenantId);
     const range = this.parseDateRange(query.from, query.to, 14);
 
     const locations = await this.prisma.cleaningLocation.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId: scopedTenantId,
         isActive: true,
         id: query.locationId || undefined
       },
@@ -1656,7 +1670,7 @@ export class CleaningService {
 
     const visits = await this.prisma.cleaningVisit.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId: scopedTenantId,
         locationId: {
           in: locations.map((location) => location.id)
         },
@@ -1742,6 +1756,7 @@ export class CleaningService {
   }
 
   async runScheduleEnforcement(tenantId: string | null, options: { dryRun?: boolean } = {}) {
+    const scopedTenantId = requireTenantId(tenantId);
     const { dryRun = false } = options;
     const now = new Date();
     const startOfToday = this.startOfDayUtc(now);
@@ -1750,7 +1765,7 @@ export class CleaningService {
 
     const [locations, visitsToday, issueCounts] = await Promise.all([
       this.prisma.cleaningLocation.findMany({
-        where: { tenantId: tenantId ?? undefined, isActive: true },
+        where: { tenantId: scopedTenantId, isActive: true },
         select: {
           id: true,
           tenantId: true,
@@ -1763,7 +1778,7 @@ export class CleaningService {
       }),
       this.prisma.cleaningVisit.findMany({
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           scannedAt: { gte: startOfToday, lt: startOfTomorrow }
         },
         select: {
@@ -1774,7 +1789,7 @@ export class CleaningService {
       this.prisma.facilityIssue.groupBy({
         by: ["locationId"],
         where: {
-          tenantId: tenantId ?? undefined,
+          tenantId: scopedTenantId,
           status: {
             in: [FacilityIssueStatus.OPEN, FacilityIssueStatus.IN_PROGRESS]
           }
@@ -1910,7 +1925,7 @@ export class CleaningService {
 
   private buildVisitWhere(params: VisitListParams | Omit<VisitListParams, "page" | "pageSize">) {
     const where: Prisma.CleaningVisitWhereInput = {
-      tenantId: params.tenantId ?? undefined,
+      tenantId: requireTenantId(params.tenantId),
       locationId: params.locationId || undefined,
       status: this.isVisitStatus(params.status) ? params.status : undefined
     };
@@ -2278,7 +2293,7 @@ export class CleaningService {
   ) {
     const supervisors = await this.prisma.user.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId: requireTenantId(tenantId),
         isActive: true,
         role: { name: { in: [RoleName.SUPERVISOR, RoleName.ADMIN, RoleName.SUPER_ADMIN] } }
       },
@@ -2330,10 +2345,11 @@ export class CleaningService {
   }
 
   private async ensureAssignableCleaner(tenantId: string | null, userId: string) {
+    const scopedTenantId = requireTenantId(tenantId);
     const cleaner = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        tenantId: tenantId ?? undefined,
+        tenantId: scopedTenantId,
         isActive: true,
         role: {
           name: {

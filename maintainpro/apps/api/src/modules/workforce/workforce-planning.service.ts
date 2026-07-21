@@ -11,6 +11,7 @@ import {
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
 import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -262,14 +263,14 @@ export class WorkforcePlanningService {
       overdueOnly?: boolean;
     }
   ) {
-    const tenantId = actor.tenantId ?? undefined;
+    const tenantId = requireTenantId(actor.tenantId);
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
     const employeeWhere: Prisma.EmployeeWhereInput = {
       active: true,
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      tenantId,
       ...(filters.designation?.trim()
         ? { designation: { equals: filters.designation.trim(), mode: "insensitive" } }
         : {}),
@@ -298,7 +299,7 @@ export class WorkforcePlanningService {
         where: {
           employeeId: employee.id,
           assignmentStatus: { in: [WorkOrderAssigneeStatus.ASSIGNED, WorkOrderAssigneeStatus.IN_PROGRESS] },
-          ...(tenantId !== undefined ? { tenantId } : {}),
+          tenantId,
           workOrder: {
             status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD, WorkOrderStatus.OVERDUE] }
           }
@@ -350,7 +351,7 @@ export class WorkforcePlanningService {
           employeeId: employee.id,
           assignmentStatus: WorkOrderAssigneeStatus.COMPLETED,
           updatedAt: { gte: monthStart, lte: monthEnd },
-          ...(tenantId !== undefined ? { tenantId } : {})
+          tenantId
         }
       });
 

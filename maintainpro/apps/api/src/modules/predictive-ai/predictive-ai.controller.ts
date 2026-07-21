@@ -14,6 +14,7 @@ import type { Request } from "express";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import {
@@ -43,12 +44,14 @@ export class PredictiveAiController {
   private readonly predictiveAiService!: PredictiveAiService;
 
   @Post("copilot")
+  @SelfService()
   async copilot(@Req() req: AuthedRequest, @Body() dto: CopilotChatDto) {
     const data = await this.predictiveAiService.copilotChat(dto, this.getActor(req));
     return { data, message: "AI copilot response generated" };
   }
 
   @Get("context")
+  @SelfService()
   async context(@Req() req: AuthedRequest, @Query() query: CopilotContextQueryDto) {
     const data = await this.predictiveAiService.getCopilotContext(
       this.getActor(req),
@@ -87,6 +90,7 @@ export class PredictiveAiController {
   }
 
   @Get("conversations")
+  @SelfService()
   async conversations(
     @Req() req: AuthedRequest,
     @Query("limit") limitRaw?: string,
@@ -101,12 +105,14 @@ export class PredictiveAiController {
   }
 
   @Post("conversations")
+  @SelfService()
   async createConversation(@Req() req: AuthedRequest, @Body() dto: CopilotCreateConversationDto) {
     const data = await this.predictiveAiService.createConversation(this.getActor(req), dto);
     return { data, message: "Copilot conversation created" };
   }
 
   @Get("conversations/:id")
+  @SelfService()
   async conversation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -117,6 +123,7 @@ export class PredictiveAiController {
   }
 
   @Get("conversations/:id/messages")
+  @SelfService()
   async conversationMessages(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

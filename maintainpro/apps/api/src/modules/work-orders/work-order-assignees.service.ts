@@ -15,6 +15,7 @@ import {
 import { requestContext } from "../../common/context/request-context";
 import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforceEmployeesService } from "../workforce/workforce-employees.service";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
@@ -43,7 +44,7 @@ export class WorkOrderAssigneesService {
   ) {}
 
   private resolveTenantId(actor?: Actor) {
-    return actor?.tenantId ?? undefined;
+    return requireTenantId(actor?.tenantId);
   }
 
   private async recordAudit(payload: {
@@ -81,7 +82,7 @@ export class WorkOrderAssigneesService {
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       }
     });
 
@@ -108,7 +109,7 @@ export class WorkOrderAssigneesService {
       where: {
         workOrderId,
         assignmentStatus: { not: WorkOrderAssigneeStatus.REMOVED },
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         employee: {
@@ -295,7 +296,7 @@ export class WorkOrderAssigneesService {
       where: {
         id: assigneeId,
         workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         employee: { select: { linkedUserId: true } }

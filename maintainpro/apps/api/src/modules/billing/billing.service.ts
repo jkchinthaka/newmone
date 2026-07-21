@@ -615,6 +615,20 @@ export class BillingService {
     const webhookSecret =
       this.configService.get<string>("STRIPE_WEBHOOK_SECRET")?.trim() ?? "";
 
+    // Live mode must never trust an unsigned payload: a missing webhook secret
+    // is a misconfiguration, not a licence to accept spoofable events.
+    if (webhookSecret.length === 0) {
+      const allowUnsigned =
+        this.configService.get<string>("NODE_ENV", "development") !== "production" &&
+        this.configService.get<boolean>("ALLOW_UNSIGNED_STRIPE_WEBHOOK", false) === true;
+
+      if (!allowUnsigned) {
+        throw new BadRequestException(
+          "Stripe live mode requires STRIPE_WEBHOOK_SECRET to verify webhook signatures"
+        );
+      }
+    }
+
     let event: Stripe.Event;
 
     if (webhookSecret.length > 0) {
@@ -634,6 +648,8 @@ export class BillingService {
         );
       }
     } else if (payload && typeof payload === "object") {
+      // Only reachable in non-production with ALLOW_UNSIGNED_STRIPE_WEBHOOK=true
+      // (local integration testing without a signing secret).
       event = payload as Stripe.Event;
     } else {
       throw new BadRequestException("Invalid webhook payload");

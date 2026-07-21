@@ -5,6 +5,7 @@ import {
   IssueSeverity
 } from "@prisma/client";
 
+import { requestContext, type AuditRequestContext } from "../src/common/context/request-context";
 import { CleaningService } from "../src/modules/cleaning/cleaning.service";
 import {
   publicFacilityIssueResponseHasRawRoomRelation,
@@ -15,6 +16,22 @@ import {
 const TENANT_A = "tenant-a";
 const TENANT_B = "tenant-b";
 const REPORTER_ID = "user-reporter";
+
+// Fail-closed cleaning ownership checks resolve the actor tenant from the request
+// context; wrap service calls that read persisted records with an active context.
+const withTenant = <T>(tenantId: string, fn: () => Promise<T>): Promise<T> => {
+  const context: AuditRequestContext = {
+    actorId: REPORTER_ID,
+    actorEmail: null,
+    actorRole: null,
+    tenantId,
+    module: null,
+    ipAddress: null,
+    userAgent: null,
+    requestPath: null
+  };
+  return requestContext.run(context, fn);
+};
 const ROOM_A = "room-a";
 const ROOM_B = "room-b";
 const LOCATION_A = "location-a";
@@ -212,7 +229,7 @@ describe("CleaningService facility issue room linkage", () => {
     });
 
     expect(prisma.room.findFirst).toHaveBeenCalledWith({
-      where: { id: ROOM_A },
+      where: { id: ROOM_A, tenantId: TENANT_A },
       select: { id: true, tenantId: true, isActive: true }
     });
     expect(result.roomId).toBe(ROOM_A);
@@ -221,11 +238,9 @@ describe("CleaningService facility issue room linkage", () => {
   });
 
   it("rejects cross-tenant roomId on create", async () => {
-    prisma.room.findFirst.mockResolvedValue({
-      id: ROOM_B,
-      tenantId: TENANT_B,
-      isActive: true
-    });
+    // The tenant-scoped findFirst({ id, tenantId }) yields nothing for a room in
+    // another tenant, so the ownership guard rejects the link.
+    prisma.room.findFirst.mockResolvedValue(null);
 
     await expect(
       service.createIssue(REPORTER_ID, TENANT_A, {
@@ -234,6 +249,10 @@ describe("CleaningService facility issue room linkage", () => {
         roomId: ROOM_B
       })
     ).rejects.toThrow(BadRequestException);
+    expect(prisma.room.findFirst).toHaveBeenCalledWith({
+      where: { id: ROOM_B, tenantId: TENANT_A },
+      select: { id: true, tenantId: true, isActive: true }
+    });
   });
 
   it("rejects unknown or inactive room on create", async () => {
@@ -261,10 +280,12 @@ describe("CleaningService facility issue room linkage", () => {
     });
     prisma.facilityIssue.update.mockResolvedValue(baseIssueRecord);
 
-    const result = await service.updateIssue("issue-1", REPORTER_ID, {
-      roomId: ROOM_A,
-      category: FacilityIssueCategory.PLUMBING
-    });
+    const result = await withTenant(TENANT_A, () =>
+      service.updateIssue("issue-1", REPORTER_ID, {
+        roomId: ROOM_A,
+        category: FacilityIssueCategory.PLUMBING
+      })
+    );
 
     expect(prisma.facilityIssue.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -285,9 +306,11 @@ describe("CleaningService facility issue room linkage", () => {
       room: null
     });
 
-    const result = await service.updateIssue("issue-1", REPORTER_ID, {
-      roomId: null
-    });
+    const result = await withTenant(TENANT_A, () =>
+      service.updateIssue("issue-1", REPORTER_ID, {
+        roomId: null
+      })
+    );
 
     expect(prisma.room.findFirst).not.toHaveBeenCalled();
     expect(prisma.facilityIssue.update).toHaveBeenCalledWith(
@@ -304,16 +327,15 @@ describe("CleaningService facility issue room linkage", () => {
       roomId: null,
       room: null
     });
-    prisma.room.findFirst.mockResolvedValue({
-      id: ROOM_B,
-      tenantId: TENANT_B,
-      isActive: true
-    });
+    // Tenant-scoped lookup returns nothing for a room owned by another tenant.
+    prisma.room.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.updateIssue("issue-1", REPORTER_ID, {
-        roomId: ROOM_B
-      })
+      withTenant(TENANT_A, () =>
+        service.updateIssue("issue-1", REPORTER_ID, {
+          roomId: ROOM_B
+        })
+      )
     ).rejects.toThrow(BadRequestException);
   });
 

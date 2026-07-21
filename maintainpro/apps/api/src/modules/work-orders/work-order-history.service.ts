@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
@@ -45,7 +46,7 @@ export class WorkOrderHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   private resolveTenantId(actor?: Actor) {
-    return actor?.tenantId ?? undefined;
+    return requireTenantId(actor?.tenantId);
   }
 
   private buildTargetFilter(assetId?: string | null, vehicleId?: string | null): Prisma.WorkOrderWhereInput | null {
@@ -146,7 +147,7 @@ export class WorkOrderHistoryService {
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id: workOrderId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       include: {
         asset: {
@@ -213,7 +214,7 @@ export class WorkOrderHistoryService {
     since.setDate(since.getDate() - windowDays);
 
     const sharedWhere: Prisma.WorkOrderWhereInput = {
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      tenantId,
       id: { not: workOrderId },
       ...targetFilter
     };
@@ -317,7 +318,7 @@ export class WorkOrderHistoryService {
           await this.prisma.vehicleDocument.findMany({
             where: {
               vehicleId: workOrder.vehicleId,
-              ...(tenantId !== undefined ? { tenantId } : {}),
+              tenantId,
               OR: [{ status: "EXPIRED" }, { expiryDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } }]
             },
             orderBy: { expiryDate: "asc" },

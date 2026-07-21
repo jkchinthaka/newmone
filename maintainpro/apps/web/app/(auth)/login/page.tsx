@@ -52,13 +52,12 @@ export default function LoginPage() {
       });
       const payload = res.data?.data;
 
-      if (!payload?.accessToken) {
+      if (!payload?.user) {
         setError("Sign-in failed. Please try again.");
         return;
       }
 
       setAuthSession({
-        accessToken: payload.accessToken,
         user: payload.user
       });
 

@@ -17,6 +17,15 @@ export class HealthController {
     };
   }
 
+  @Public()
+  @Get("build-info")
+  buildInfo() {
+    return {
+      data: this.healthService.getSafeBuildInfoPayload(),
+      message: "Build info fetched"
+    };
+  }
+
   @Roles("SUPER_ADMIN", "ADMIN")
   @Get("readiness")
   async readiness() {

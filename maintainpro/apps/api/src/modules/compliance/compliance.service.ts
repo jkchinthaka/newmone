@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { ComplianceStatus, Prisma, VehicleDocumentStatus, VehicleDocumentType } from "@prisma/client";
 
-import { requestContext } from "../../common/context/request-context";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
-import { Phase4Actor, resolveTenantId } from "../_phase4/phase4-audit.helper";
+import { Phase4Actor } from "../_phase4/phase4-audit.helper";
 
 export const REQUIRED_DOCUMENT_TYPES: VehicleDocumentType[] = [
   VehicleDocumentType.REGISTRATION,
@@ -32,12 +32,10 @@ export interface ComplianceEvaluation {
 export class ComplianceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private resolvedTenantId(actor?: Phase4Actor): string | null | undefined {
-    const actorTenantId = resolveTenantId(actor);
-    if (actorTenantId !== undefined) {
-      return actorTenantId;
-    }
-    return requestContext.get()?.tenantId ?? undefined;
+  // Fail-closed tenant resolution: prefers the actor's tenant, falls back to the
+  // request context, and throws 403 when no tenant is present.
+  private resolvedTenantId(actor?: Phase4Actor): string {
+    return requireTenantId(actor?.tenantId);
   }
 
   async evaluate(
@@ -46,17 +44,18 @@ export class ComplianceService {
     actor?: Phase4Actor
   ): Promise<ComplianceEvaluation> {
     const tenantId = this.resolvedTenantId(actor);
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id: vehicleId }
+    // Cross-tenant FK validation: resolve the vehicle by id AND tenant.
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: vehicleId, tenantId }
     });
-    if (!vehicle || (tenantId !== undefined && vehicle.tenantId !== tenantId)) {
+    if (!vehicle) {
       throw new NotFoundException("Vehicle not found");
     }
 
     const docs = await this.prisma.vehicleDocument.findMany({
       where: {
         vehicleId,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        tenantId
       },
       orderBy: { expiryDate: "desc" }
     });
@@ -123,8 +122,8 @@ export class ComplianceService {
   }
 
   async fleetSummary(actor?: Phase4Actor) {
-    const tenantId = resolveTenantId(actor);
-    const where: Prisma.VehicleWhereInput = tenantId !== undefined ? { tenantId } : {};
+    const tenantId = this.resolvedTenantId(actor);
+    const where: Prisma.VehicleWhereInput = { tenantId };
     const [compliant, attention, nonCompliant, total] = await Promise.all([
       this.prisma.vehicle.count({ where: { ...where, complianceStatus: ComplianceStatus.COMPLIANT } }),
       this.prisma.vehicle.count({ where: { ...where, complianceStatus: ComplianceStatus.ATTENTION_REQUIRED } }),
@@ -135,12 +134,12 @@ export class ComplianceService {
   }
 
   async listExpiringDocuments(actor?: Phase4Actor, withinDays = 30) {
-    const tenantId = resolveTenantId(actor);
+    const tenantId = this.resolvedTenantId(actor);
     const until = new Date();
     until.setDate(until.getDate() + withinDays);
     return this.prisma.vehicleDocument.findMany({
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        tenantId,
         status: VehicleDocumentStatus.VERIFIED,
         expiryDate: { lte: until }
       },

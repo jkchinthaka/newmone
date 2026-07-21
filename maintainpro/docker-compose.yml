@@ -5,7 +5,10 @@ services:
       dockerfile: apps/api/Dockerfile
       target: production
     env_file:
-      - .env
+      - path: .env.compose-ci
+        required: true
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -66,7 +69,10 @@ services:
       dockerfile: apps/web/Dockerfile
       target: production
     env_file:
-      - .env
+      - path: .env.compose-ci
+        required: true
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost/api}

@@ -35,6 +35,9 @@ jobs:
       - name: Tenant fail-open regression guard
         run: npm run audit:tenant
 
+      - name: RBAC / authorization regression guard
+        run: npm run audit:rbac
+
       - name: Lint
         run: npm run lint
 

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 
 import { Roles } from "../../common/decorators/roles.decorator";
+import { TenantScoped } from "../../common/decorators/tenant-scope.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { ManagementIntelligenceService } from "./management-intelligence.service";
@@ -24,6 +25,7 @@ const PARTS_ROLES = [...MANAGEMENT_ROLES, "SUPERVISOR", "INVENTORY_KEEPER"] as c
 
 @ApiTags("Management Intelligence")
 @ApiBearerAuth()
+@TenantScoped()
 @UseGuards(JwtAuthGuard)
 @Controller("reports/management")
 export class ManagementIntelligenceController {

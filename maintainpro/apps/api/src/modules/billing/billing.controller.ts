@@ -2,6 +2,7 @@ import { Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/co
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Public } from "../../common/decorators/public.decorator";
+import { PublicWebhook } from "../../common/decorators/public-webhook.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { BillingService } from "./billing.service";
 import { CreateCheckoutSessionDto } from "./dto/create-checkout-session.dto";
@@ -48,6 +49,7 @@ export class BillingController {
   }
 
   @Public()
+  @PublicWebhook("stripe")
   @Post("webhooks/stripe")
   async stripeWebhook(@Req() req: BillingRequest) {
     const signatureHeader = req.headers["stripe-signature"];
@@ -71,6 +73,7 @@ export class BillingController {
   }
 
   @Get("subscription")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
   async subscription(@Req() req: BillingRequest) {
     const tenantId = req.user.tenantId ?? req.tenantId ?? null;
 
@@ -87,6 +90,7 @@ export class BillingController {
   }
 
   @Get("usage")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
   async usage(@Req() req: BillingRequest) {
     const tenantId = req.user.tenantId ?? req.tenantId ?? null;
 

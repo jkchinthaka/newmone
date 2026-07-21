@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccidentEvidenceType,
   AccidentResponsibility,
@@ -10,8 +10,9 @@ import {
   WorkOrderType
 } from "@prisma/client";
 
+import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
-import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit, resolveTenantId } from "../_phase4/phase4-audit.helper";
+import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
 
 export interface CreateAccidentInput {
   vehicleId: string;
@@ -42,22 +43,20 @@ export class AccidentsService {
 
   private async assertVehicleAccess(vehicleId: string, actor: Phase4Actor) {
     if (!isValidObjectId(vehicleId)) throw new BadRequestException("Invalid vehicleId");
-    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    // Fail-closed + cross-tenant FK validation: resolve the vehicle by id AND tenant.
+    const tenantId = requireTenantId(actor?.tenantId);
+    const vehicle = await this.prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId } });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && vehicle.tenantId !== tenantId) {
-      throw new ForbiddenException("Vehicle not in your tenant");
-    }
     return vehicle;
   }
 
   private async assertAccess(id: string, actor: Phase4Actor) {
-    const acc = await this.prisma.accidentReport.findUnique({ where: { id }, include: { evidence: true, workOrders: true } });
+    const tenantId = requireTenantId(actor?.tenantId);
+    const acc = await this.prisma.accidentReport.findFirst({
+      where: { id, tenantId },
+      include: { evidence: true, workOrders: true }
+    });
     if (!acc) throw new NotFoundException("Accident report not found");
-    const tenantId = resolveTenantId(actor);
-    if (tenantId !== undefined && acc.tenantId !== tenantId) {
-      throw new ForbiddenException("Accident not in your tenant");
-    }
     return this.withPrimaryWorkOrder(acc);
   }
 
@@ -70,9 +69,9 @@ export class AccidentsService {
   }
 
   async list(actor: Phase4Actor, filters?: { vehicleId?: string; status?: AccidentStatus }) {
-    const tenantId = resolveTenantId(actor);
+    const tenantId = requireTenantId(actor?.tenantId);
     const where: Prisma.AccidentReportWhereInput = {
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      tenantId,
       ...(filters?.vehicleId ? { vehicleId: filters.vehicleId } : {}),
       ...(filters?.status ? { status: filters.status } : {})
     };
@@ -99,6 +98,14 @@ export class AccidentsService {
     if (!input.occurredAt) throw new BadRequestException("occurredAt is required");
     if (!input.location?.trim()) throw new BadRequestException("location is required");
     if (!input.description?.trim()) throw new BadRequestException("description is required");
+
+    // Cross-tenant FK validation: an assigned driver must belong to the tenant.
+    if (input.driverId) {
+      await assertTenantEntityExists(this.prisma.driver, input.driverId, {
+        tenantId: vehicle.tenantId,
+        entityName: "Driver"
+      });
+    }
 
     const reportNumber = await this.nextReportNumber();
     const created = await this.prisma.accidentReport.create({
@@ -210,6 +217,13 @@ export class AccidentsService {
     const acc = await this.assertAccess(accidentId, a);
     if (acc.workOrder) {
       return acc.workOrder;
+    }
+    // Cross-tenant FK validation: an assigned technician must belong to the tenant.
+    if (body.technicianId) {
+      await assertTenantEntityExists(this.prisma.user, body.technicianId, {
+        tenantId: acc.tenantId,
+        entityName: "Technician"
+      });
     }
     const year = new Date().getFullYear();
     const count = await this.prisma.workOrder.count({

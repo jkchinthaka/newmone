@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBaseUrl } from "@/lib/api-url";
-import { clearAuthSession, getAccessToken, setAccessToken } from "@/lib/auth-storage";
+import { clearAuthSession } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
@@ -47,7 +47,13 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
       response?: {
         status?: number;
         data?: {
-          error?: { code?: string; message?: string | string[] };
+          error?: {
+            code?: string;
+            message?: string | string[];
+            details?: string[];
+            fieldErrors?: Record<string, string[]>;
+            requestId?: string;
+          };
           message?: string | string[];
         };
       };
@@ -80,6 +86,13 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+export function getApiErrorRequestId(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const requestId = (error as { response?: { data?: { error?: { requestId?: string } }; headers?: Record<string, string> } })
+    .response?.data?.error?.requestId;
+  return typeof requestId === "string" && requestId.trim() ? requestId : null;
 }
 
 export type DeploymentRouteFeature = "workforce" | "work-order-assignees" | "work-order-history";
@@ -119,13 +132,13 @@ function normalizeRequestPath(url?: string): string {
 
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     try {
-      return new URL(raw).pathname.replace(/\/api(?=\/|$)/, "") || "/";
+      return new URL(raw).pathname.replace(/\/api\/backend(?=\/|$)/, "").replace(/\/api(?=\/|$)/, "") || "/";
     } catch {
       return raw;
     }
   }
 
-  return raw.replace(/\/api(?=\/|$)/, "") || raw;
+  return raw.replace(/\/api\/backend(?=\/|$)/, "").replace(/\/api(?=\/|$)/, "") || raw;
 }
 
 function isAuthRequest(url?: string): boolean {
@@ -140,7 +153,8 @@ function isCredentialAuthRequest(url?: string): boolean {
     path === "/auth/login" ||
     path === "/auth/register" ||
     path === "/auth/forgot-password" ||
-    path === "/auth/reset-password"
+    path === "/auth/reset-password" ||
+    path === "/auth/refresh"
   );
 }
 
@@ -184,49 +198,55 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function attemptAccessTokenRefresh(): Promise<boolean> {
-  const csrfToken = getCsrfTokenFromCookie();
-  if (!csrfToken) {
-    return false;
+  if (refreshInFlight) {
+    return refreshInFlight;
   }
 
-  try {
-    const response = await apiClient.post(
-      "/auth/refresh",
-      {},
-      {
-        headers: {
-          [CSRF_HEADER]: csrfToken
-        }
-      }
-    );
-    const nextAccessToken = response?.data?.data?.accessToken;
-    if (typeof nextAccessToken !== "string" || nextAccessToken.trim().length === 0) {
+  refreshInFlight = (async () => {
+    const csrfToken = getCsrfTokenFromCookie();
+    if (!csrfToken) {
       return false;
     }
 
-    setAccessToken(nextAccessToken);
-    return true;
-  } catch {
-    return false;
-  }
+    try {
+      const response = await apiClient.post(
+        "/auth/refresh",
+        {},
+        {
+          headers: {
+            [CSRF_HEADER]: csrfToken
+          }
+        }
+      );
+      return response?.status >= 200 && response?.status < 300;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
 }
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const tenantId = getActiveTenantId();
-  const accessToken = getAccessToken();
   config.headers = config.headers ?? {};
 
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  } else {
-    delete (config.headers as Record<string, unknown>).Authorization;
-  }
+  // Access JWT is HttpOnly via BFF; do not attach from Web Storage.
+  delete (config.headers as Record<string, unknown>).Authorization;
 
   if (tenantId && !isAuthRequest(config.url)) {
     config.headers["X-Tenant-Id"] = tenantId;
   } else {
     delete (config.headers as Record<string, unknown>)["X-Tenant-Id"];
+  }
+
+  if (!config.headers["X-Request-Id"] && typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    config.headers["X-Request-Id"] = crypto.randomUUID();
   }
 
   attachCsrfHeader(config);
@@ -238,10 +258,22 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const status = error?.response?.status;
-    const message = String((error.response?.data as { error?: { message?: string } } | undefined)?.error?.message ?? "").toLowerCase();
+    const errorPayload = error.response?.data as
+      | { error?: { message?: string; code?: string } }
+      | undefined;
+    const message = String(errorPayload?.error?.message ?? "").toLowerCase();
+    const code = String(errorPayload?.error?.code ?? "").toUpperCase();
     const originalRequest = error.config as RetriableRequestConfig | undefined;
 
-    if (typeof window !== "undefined" && status === 403 && message.includes("tenant access denied")) {
+    if (
+      typeof window !== "undefined" &&
+      (status === 403 || status === 401) &&
+      (message.includes("tenant access denied") ||
+        code === "TENANT_ACCESS_DENIED" ||
+        code === "TENANT_REQUIRED" ||
+        code === "TENANT_INACTIVE" ||
+        code === "MEMBERSHIP_DISABLED")
+    ) {
       setActiveTenantId(null);
     }
 
@@ -250,7 +282,7 @@ apiClient.interceptors.response.use(
       status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      !isAuthRequest(originalRequest.url)
+      !isCredentialAuthRequest(originalRequest.url)
     ) {
       originalRequest._retry = true;
       const refreshed = await attemptAccessTokenRefresh();

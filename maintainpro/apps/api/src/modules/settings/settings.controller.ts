@@ -2,6 +2,7 @@ import { Body, Controller, Get, Patch, Query, Req, UseGuards } from "@nestjs/com
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { SettingsService } from "./settings.service";
@@ -18,12 +19,14 @@ export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get("profile")
+  @SelfService()
   async profile(@Req() req: AuthedRequest) {
     const data = await this.settingsService.getProfile(req.user.sub);
     return { data, message: "Profile settings fetched" };
   }
 
   @Patch("profile")
+  @SelfService()
   async updateProfile(
     @Req() req: AuthedRequest,
     @Body()

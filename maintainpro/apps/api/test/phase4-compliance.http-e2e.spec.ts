@@ -42,6 +42,7 @@ const OTHER_TENANT_VEHICLE = "507f1f77bcf86cd799439099";
 const buildPrismaMock = () => ({
   vehicle: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     update: jest.fn(),
     count: jest.fn()
   },
@@ -56,6 +57,7 @@ const buildPrismaMock = () => ({
   accidentReport: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     count: jest.fn()
@@ -66,6 +68,7 @@ const buildPrismaMock = () => ({
   insuranceClaim: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     count: jest.fn()
@@ -73,6 +76,7 @@ const buildPrismaMock = () => ({
   trafficFine: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     count: jest.fn()
@@ -156,6 +160,12 @@ describe("Phase 4 Compliance HTTP e2e", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
+    // Fail-closed tenant scoping resolves owned entities via findFirst({ id, tenantId }).
+    // Delegate to the existing findUnique mocks so per-test fixtures continue to apply.
+    prisma.vehicle.findFirst.mockImplementation((args: unknown) => prisma.vehicle.findUnique(args as never));
+    prisma.accidentReport.findFirst.mockImplementation((args: unknown) => prisma.accidentReport.findUnique(args as never));
+    prisma.insuranceClaim.findFirst.mockImplementation((args: unknown) => prisma.insuranceClaim.findUnique(args as never));
+    prisma.trafficFine.findFirst.mockImplementation((args: unknown) => prisma.trafficFine.findUnique(args as never));
   });
 
   const vehicleOf = (tenant = "tenant-1", id = VALID_ID_1) => ({

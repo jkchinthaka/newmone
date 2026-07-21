@@ -10,6 +10,7 @@ import { FacilityIssueDuplicateWarning } from "@/components/cleaning/facility-is
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { toOptionalNumber } from "@/lib/form-payload";
 import {
   buildDuplicateFacilityIssueCheckPayload,
   duplicateIssueCheckUnavailableMessage,
@@ -115,7 +116,7 @@ export function QrIssueReportPage() {
       roomId,
       category: String(formData.get("category") ?? ""),
       locationId: String(formData.get("locationId") ?? "") || undefined,
-      slaHours: Number(formData.get("slaHours") ?? 24)
+      slaHours: toOptionalNumber(formData.get("slaHours")) ?? 24
     });
 
     setSubmitting(true);

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -24,12 +25,12 @@ export class WorkOrderGovernanceService {
   constructor(private readonly prisma: PrismaService) {}
 
   private resolveTenantId(actor?: Actor) {
-    return actor?.tenantId ?? undefined;
+    return requireTenantId(actor?.tenantId);
   }
 
   async getExceptionSummary(actor?: Actor): Promise<WorkOrderGovernanceExceptions> {
     const tenantId = this.resolveTenantId(actor);
-    const tenantFilter = tenantId !== undefined ? { tenantId } : {};
+    const tenantFilter = { tenantId };
     const highCostThreshold = Number(process.env.WORK_ORDER_HIGH_COST_THRESHOLD ?? 25000);
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

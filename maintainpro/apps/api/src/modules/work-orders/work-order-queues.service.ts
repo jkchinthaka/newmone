@@ -42,6 +42,7 @@ import {
   WORK_ORDER_QUEUE_LABELS
 } from "../../common/utils/work-order-queues";
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
 import { WorkOrderCategoryReportsService } from "../reports/work-order-category-reports.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -675,7 +676,7 @@ export class WorkOrderQueuesService {
   private async listQueue(actor: Actor, queue: WorkOrderQueueKey, query: WorkOrderQueueQuery) {
     const page = Math.max(1, Number(query.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? 25)));
-    const tenantId = actor.tenantId;
+    const tenantId = requireTenantId(actor.tenantId);
 
     const baseWhere = this.buildPrismaWhere(actor, query);
     const where = this.applyQueueDbWhere(baseWhere, queue, actor);
@@ -694,7 +695,7 @@ export class WorkOrderQueuesService {
         })
       ]);
 
-      const enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, []);
+      const enriched = await this.safeEnrichRows(rows, tenantId, []);
       const pageRows = enriched.map((row) => this.toListItem(row));
       const summary = await this.buildListSummary(actor, baseWhere);
 
@@ -717,7 +718,7 @@ export class WorkOrderQueuesService {
       take: fetchCap
     });
 
-    const enriched = await this.safeEnrichRows(rows, tenantId ?? undefined, []);
+    const enriched = await this.safeEnrichRows(rows, tenantId, []);
     let filtered = enriched.filter((row) => this.matchesQueue(row, queue, actor, query));
 
     if (query.overdueOnly === true || query.overdueOnly === "true") {
@@ -1105,9 +1106,7 @@ export class WorkOrderQueuesService {
 
   private buildPrismaWhere(actor: Actor, query: WorkOrderQueueQuery): Prisma.WorkOrderWhereInput {
     const where: Prisma.WorkOrderWhereInput = {};
-    if (actor.tenantId !== undefined) {
-      where.tenantId = actor.tenantId;
-    }
+    where.tenantId = requireTenantId(actor?.tenantId);
 
     if (query.status && query.status !== "ALL") {
       where.status = query.status as WorkOrderStatus;

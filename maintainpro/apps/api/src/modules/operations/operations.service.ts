@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -29,7 +30,8 @@ export class OperationsService {
 
   async scanLookup(rawCode: string, actor?: ScanActor) {
     const code = this.normalizeCode(rawCode);
-    const tenantId = actor?.tenantId ?? null;
+    // Fail-closed: scan lookups are tenant-owned; deny when no tenant context.
+    const tenantId = requireTenantId(actor?.tenantId);
     const routeHint = this.extractRouteHint(code);
 
     if (routeHint) {
@@ -55,7 +57,7 @@ export class OperationsService {
     };
   }
 
-  private async resolveHintedTarget(routeHint: RouteHint, tenantId: string | null): Promise<ScanTarget | null> {
+  private async resolveHintedTarget(routeHint: RouteHint, tenantId: string): Promise<ScanTarget | null> {
     switch (routeHint.type) {
       case "ASSET":
         return this.findAssetTarget(routeHint.identifier, tenantId, "route");
@@ -68,7 +70,7 @@ export class OperationsService {
     }
   }
 
-  private async resolveGenericTarget(code: string, tenantId: string | null): Promise<ScanTarget | null> {
+  private async resolveGenericTarget(code: string, tenantId: string): Promise<ScanTarget | null> {
     const upperCode = code.toUpperCase();
 
     if (upperCode.startsWith("WO-")) {
@@ -104,12 +106,12 @@ export class OperationsService {
 
   private async findAssetTarget(
     code: string,
-    tenantId: string | null,
+    tenantId: string,
     matchedByPrefix: string
   ): Promise<ScanTarget | null> {
     const asset = await this.prisma.asset.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
           { assetTag: { equals: code, mode: "insensitive" } }
@@ -146,12 +148,12 @@ export class OperationsService {
 
   private async findVehicleTarget(
     code: string,
-    tenantId: string | null,
+    tenantId: string,
     matchedByPrefix: string
   ): Promise<ScanTarget | null> {
     const vehicle = await this.prisma.vehicle.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
           { registrationNo: { equals: code, mode: "insensitive" } },
@@ -200,12 +202,12 @@ export class OperationsService {
 
   private async findDriverTarget(
     code: string,
-    tenantId: string | null,
+    tenantId: string,
     matchedByPrefix: string
   ): Promise<ScanTarget | null> {
     const driver = await this.prisma.driver.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }, { userId: code }] : []),
           { licenseNumber: { equals: code, mode: "insensitive" } },
@@ -257,12 +259,12 @@ export class OperationsService {
 
   private async findWorkOrderTarget(
     code: string,
-    tenantId: string | null,
+    tenantId: string,
     matchedByPrefix: string
   ): Promise<ScanTarget | null> {
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
           { woNumber: { equals: code, mode: "insensitive" } }

@@ -28,6 +28,7 @@ import {
   VENDOR_HIGH_COST_QUOTATIONS_REQUIRED
 } from "../../common/utils/vendor-repair-governance";
 import { PrismaService } from "../../database/prisma.service";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -353,7 +354,7 @@ export class VendorRepairService {
     const totalAmount = body.invoiceAmount + (body.taxAmount ?? 0);
 
     const duplicate = await this.prisma.vendorInvoice.findFirst({
-      where: { tenantId: vendorCase.tenantId ?? undefined, supplierId: body.supplierId, invoiceNo: body.invoiceNo.trim() }
+      where: { tenantId: requireTenantId(vendorCase.tenantId), supplierId: body.supplierId, invoiceNo: body.invoiceNo.trim() }
     });
     if (duplicate) {
       throw new BadRequestException("Duplicate vendor invoice detected.");
@@ -487,7 +488,7 @@ export class VendorRepairService {
 
   private async assertSupplierSelectable(supplierId: string, actor: Actor, overrideReason?: string) {
     const supplier = await this.prisma.supplier.findFirst({
-      where: { id: supplierId, ...(actor.tenantId !== undefined ? { tenantId: actor.tenantId } : {}) }
+      where: { id: supplierId, tenantId: requireTenantId(actor?.tenantId) }
     });
     if (!supplier) throw new NotFoundException("Vendor not found.");
     if (!supplier.isActive) throw new BadRequestException("Vendor is inactive.");
@@ -498,7 +499,7 @@ export class VendorRepairService {
 
   private async findWorkOrder(workOrderId: string, actor?: Actor) {
     const wo = await this.prisma.workOrder.findFirst({
-      where: { id: workOrderId, ...(actor?.tenantId !== undefined ? { tenantId: actor.tenantId } : {}) }
+      where: { id: workOrderId, tenantId: requireTenantId(actor?.tenantId) }
     });
     if (!wo) throw new NotFoundException("Work order not found");
     return wo;
@@ -507,7 +508,7 @@ export class VendorRepairService {
   private async requireCase(workOrderId: string, actor?: Actor) {
     const vendorCase = await this.prisma.vendorRepairCase.findUnique({ where: { workOrderId } });
     if (!vendorCase) throw new BadRequestException("Vendor repair has not been requested for this work order.");
-    if (actor?.tenantId !== undefined && vendorCase.tenantId !== actor.tenantId) {
+    if (vendorCase.tenantId !== requireTenantId(actor?.tenantId)) {
       throw new NotFoundException("Vendor repair case not found");
     }
     return vendorCase;
@@ -515,7 +516,7 @@ export class VendorRepairService {
 
   private async findQuotation(workOrderId: string, quotationId: string, actor?: Actor) {
     const quotation = await this.prisma.vendorQuotation.findFirst({
-      where: { id: quotationId, workOrderId, ...(actor?.tenantId !== undefined ? { tenantId: actor.tenantId } : {}) }
+      where: { id: quotationId, workOrderId, tenantId: requireTenantId(actor?.tenantId) }
     });
     if (!quotation) throw new NotFoundException("Quotation not found");
     return quotation;
@@ -523,7 +524,7 @@ export class VendorRepairService {
 
   private async findInvoice(workOrderId: string, invoiceId: string, actor?: Actor) {
     const invoice = await this.prisma.vendorInvoice.findFirst({
-      where: { id: invoiceId, workOrderId, ...(actor?.tenantId !== undefined ? { tenantId: actor.tenantId } : {}) }
+      where: { id: invoiceId, workOrderId, tenantId: requireTenantId(actor?.tenantId) }
     });
     if (!invoice) throw new NotFoundException("Invoice not found");
     return invoice;

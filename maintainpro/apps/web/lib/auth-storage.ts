@@ -1,11 +1,11 @@
 /**
  * Web auth session storage.
  *
- * Security posture:
- * - Access JWT is stored in localStorage for Bearer API calls (XSS exposure — mitigate with CSP and input hygiene).
- * - Refresh token is HttpOnly cookie-only on the API; not stored in Web Storage.
- * - User display profile (non-secret) is cached in localStorage for navigation/dashboard UX.
- * - `clearAuthSession()` removes token, user, and active tenant on logout/session expiry.
+ * Security posture (same-origin BFF):
+ * - Access and refresh JWTs are HttpOnly cookies set by `/api/backend` — never Web Storage.
+ * - CSRF token is a readable cookie on the frontend origin for double-submit.
+ * - User display profile (non-secret) may be cached in localStorage for navigation UX.
+ * - `clearAuthSession()` clears profile + preferred tenant; cookies are cleared by logout BFF.
  */
 export const ACCESS_TOKEN_KEY = "maintainpro_access_token";
 export const USER_KEY = "maintainpro_user";
@@ -17,36 +17,32 @@ export function clearStoredTokens() {
   localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
 }
 
-export function getAccessToken() {
+/**
+ * Access tokens are cookie-only via the BFF. Kept for transitional callers;
+ * always returns null so Authorization is not attached from Web Storage.
+ */
+export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (!token || token.trim().length === 0) {
-    return null;
-  }
-
-  return token;
+  // Migrate away from legacy localStorage access tokens.
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  return null;
 }
 
 export function setAuthSession(payload: {
-  accessToken: string;
+  accessToken?: string;
   user?: unknown;
 }) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken);
-  // Refresh token is cookie-only (HttpOnly) and should never be stored in Web Storage.
-  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  clearStoredTokens();
   if (payload.user) {
     localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
   }
 }
 
-export function setAccessToken(accessToken: string) {
+export function setAccessToken(_accessToken: string) {
   if (typeof window === "undefined") return;
-  if (accessToken && accessToken.trim().length > 0) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  } else {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-  }
+  clearStoredTokens();
 }
 
 export function updateStoredUserTenant(tenantId: string | null) {

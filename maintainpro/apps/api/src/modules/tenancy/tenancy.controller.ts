@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Req, Res } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { TenancyService } from "./tenancy.service";
 
 type AuthenticatedRequest = {
@@ -18,6 +19,7 @@ export class TenancyController {
   constructor(private readonly tenancyService: TenancyService) {}
 
   @Get("me")
+  @SelfService()
   async me(@Req() req: AuthenticatedRequest) {
     const data = await this.tenancyService.getMyTenants(req.user.sub, req.user.tenantId ?? null);
     return {
@@ -27,6 +29,7 @@ export class TenancyController {
   }
 
   @Post(":id/switch")
+  @SelfService()
   async switchTenant(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,

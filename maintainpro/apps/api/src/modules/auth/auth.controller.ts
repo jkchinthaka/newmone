@@ -17,6 +17,7 @@ import type { Request, Response } from "express";
 import { randomBytes } from "node:crypto";
 
 import { Public } from "../../common/decorators/public.decorator";
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
@@ -95,6 +96,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @SelfService()
   @UseGuards(JwtAuthGuard)
   @Post("logout-all")
   async logoutAll(@Req() req: { user: { sub: string } }, @Res({ passthrough: true }) res: Response) {
@@ -136,6 +138,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @SelfService()
   @SkipTenantContext()
   @UseGuards(JwtAuthGuard)
   @Get("me")

@@ -6,6 +6,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
+import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -13,6 +14,7 @@ import { envValidationSchema } from "./config/env.validation";
 import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
+import { BuildInfoController } from "./build-info.controller";
 import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { HealthService } from "./health.service";
 import { AssetsModule } from "./modules/assets/assets.module";
@@ -81,7 +83,7 @@ import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 normalizeDatabaseEnvironment();
 
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, BuildInfoController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
@@ -196,7 +198,7 @@ normalizeDatabaseEnvironment();
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(TenantContextMiddleware, RequestContextMiddleware)
+      .apply(RequestIdMiddleware, TenantContextMiddleware, RequestContextMiddleware)
       .forRoutes({ path: "*", method: RequestMethod.ALL });
   }
 }
