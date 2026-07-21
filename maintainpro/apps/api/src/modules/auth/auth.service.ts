@@ -11,7 +11,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, UserInviteStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
@@ -73,14 +73,20 @@ export class AuthService {
     };
   }
 
-  private async persistRefreshToken(refreshToken: string, payload: JwtPayload): Promise<void> {
+  private async persistRefreshToken(
+    refreshToken: string,
+    payload: JwtPayload,
+    options?: { familyId?: string; replacedTokenHash?: string }
+  ): Promise<{ tokenHash: string; familyId: string }> {
     const tokenHash = this.hashToken(refreshToken);
     const expiresAt = this.decodeTokenExpiry(refreshToken);
     const sessionMeta = this.getSessionMeta();
+    const familyId = options?.familyId ?? randomUUID();
 
     await this.prisma.refreshToken.create({
       data: {
         tokenHash,
+        familyId,
         userId: payload.sub,
         tenantId: payload.tenantId ?? null,
         expiresAt,
@@ -89,9 +95,21 @@ export class AuthService {
         userAgent: sessionMeta.userAgent
       }
     });
+
+    if (options?.replacedTokenHash) {
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash: options.replacedTokenHash },
+        data: { replacedByTokenHash: tokenHash }
+      });
+    }
+
+    return { tokenHash, familyId };
   }
 
-  private async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
+  private async generateTokens(
+    payload: JwtPayload,
+    options?: { familyId?: string; replacedTokenHash?: string }
+  ): Promise<AuthTokens> {
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: getAccessJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_ACCESS_EXPIRES", "15m")
@@ -102,7 +120,7 @@ export class AuthService {
       expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES", "7d")
     });
 
-    await this.persistRefreshToken(refreshToken, payload);
+    await this.persistRefreshToken(refreshToken, payload, options);
 
     return { accessToken, refreshToken };
   }
@@ -335,7 +353,24 @@ export class AuthService {
       where: { tokenHash }
     });
 
-    if (!storedToken || storedToken.revokedAt || storedToken.expiresAt <= now) {
+    if (!storedToken) {
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    if (storedToken.revokedAt) {
+      // Reuse of a rotated refresh token: revoke the entire token family.
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: storedToken.familyId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Refresh token reuse detected");
+    }
+
+    if (storedToken.expiresAt <= now) {
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
       throw new UnauthorizedException("Invalid refresh token");
     }
 
@@ -360,7 +395,7 @@ export class AuthService {
 
     if (!user || !user.isActive) {
       await this.prisma.refreshToken.updateMany({
-        where: { tokenHash, revokedAt: null },
+        where: { familyId: storedToken.familyId, revokedAt: null },
         data: { revokedAt: now, lastUsedAt: now }
       });
       throw new UnauthorizedException("Invalid refresh token");
@@ -368,7 +403,7 @@ export class AuthService {
 
     if (decoded.sub !== storedToken.userId) {
       await this.prisma.refreshToken.updateMany({
-        where: { tokenHash, revokedAt: null },
+        where: { familyId: storedToken.familyId, revokedAt: null },
         data: { revokedAt: now, lastUsedAt: now }
       });
       throw new UnauthorizedException("Invalid refresh token");
@@ -381,13 +416,16 @@ export class AuthService {
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
-    const tokens = await this.generateTokens({
-      sub: user.id,
-      email: user.email,
-      role: user.role.name,
-      permissions: permissionKeys,
-      tenantId: user.tenantId ?? null
-    });
+    const tokens = await this.generateTokens(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role.name,
+        permissions: permissionKeys,
+        tenantId: user.tenantId ?? null
+      },
+      { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
+    );
 
     return {
       data: tokens,
