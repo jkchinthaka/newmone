@@ -46,8 +46,12 @@ export function RegisterFormCard() {
       });
       const payload = res.data?.data;
 
+      if (!payload?.user) {
+        setError("Registration failed. Please try again.");
+        return;
+      }
+
       setAuthSession({
-        accessToken: payload.accessToken,
         user: payload.user
       });
 
