@@ -9,7 +9,7 @@
 | Item | Value |
 |------|-------|
 | Current local branch | `fix/enterprise-production-hardening` |
-| Local HEAD SHA | `a5b50e978224f68ba9999cb517d1f790e2e9ddfb` |
+| Local HEAD SHA | `8827edcd52d25dfde3feff3669a457af71043ac6 (docs commit; subsequent reliability commits follow)` |
 | `origin/fix/enterprise-production-hardening` (before push) | `99161ec79c6edb359ca6d717877d34296be52058` |
 | `origin/main` SHA | `30afa06df860197702e179936c1c280528edb0cd` |
 | Working tree | clean (no untracked / modified files at Phase 0 start) |
@@ -38,7 +38,7 @@ Keep using `fix/enterprise-production-hardening` — it already contains the com
 | Surface | Deployed SHA | Status |
 |---------|--------------|--------|
 | Local feature branch | `a5b50e9…` | known |
-| GitHub feature branch | TBD after `git push -u origin HEAD` | pending push |
+| GitHub feature branch | 8827edc… (pushed) | aligned with local tip at push time |
 | Cloudflare Workers frontend | **unknown** | no `/api/build-info` (or equivalent) exists yet |
 | Render API | **unknown** | no `/api/build-info` exists yet |
 
@@ -65,3 +65,9 @@ Verified in source (`apps/web/lib/auth-storage.ts`, `apps/web/lib/api-client.ts`
 
 **Source:** local hardening commits are valid and ahead of remote — push required.
 **Deployment alignment:** **NOT ALIGNED / SHAs UNKNOWN** — NO-GO for production until build-info + redeploy evidence exists.
+## Post-push update (2026-07-21)
+
+- Pushed feature branch to origin/fix/enterprise-production-hardening.
+- Remote and local matched at 8827edc immediately after push.
+- Subsequent commits on this branch add BFF session, build-info, request IDs, Docker CI env, and refresh-token family.
+- Cloudflare / Render deployed SHAs remain **unknown** until redeploy with APP_COMMIT_SHA set and build-info endpoints live.
