@@ -19,6 +19,7 @@
     "cloudflare:rebuild": "npm run cloudflare:clean && npm run cloudflare:build",
     "cloudflare:deploy": "npm run cloudflare:build && cd apps/web && wrangler deploy",
     "cloudflare:preview": "npm run cloudflare:build && cd apps/web && wrangler dev",
+    "build:cpanel:web": "node scripts/build-cpanel-web-package.mjs",
     "render:build": "npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/api",
     "render:start": "node scripts/render-startup.mjs",
     "render:deploy": "node scripts/render-deploy.mjs",
