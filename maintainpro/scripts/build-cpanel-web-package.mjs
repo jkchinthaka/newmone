@@ -54,16 +54,31 @@ function fail(message) {
 
 function run(command, args, options = {}) {
   console.log(`> ${command} ${args.join(" ")}`);
-  const npmCmd =
-    command === "npm" && process.platform === "win32" ? "npm.cmd" : command;
-  const result = spawnSync(npmCmd, args, {
+
+  const isWindows = process.platform === "win32";
+  // On Windows, npm is a .cmd shim — spawn without shell returns status null / ENOENT.
+  const result = spawnSync(command, args, {
     cwd: options.cwd || maintainproRoot,
-    env: { ...process.env, ...options.env },
+    env: {
+      ...process.env,
+      ...options.env
+    },
     stdio: "inherit",
-    shell: false
+    shell: isWindows,
+    windowsHide: true
   });
+
+  if (result.error) {
+    fail(
+      `Could not start command: ${command} ${args.join(" ")}\n` +
+        `${result.error.name}: ${result.error.message}`
+    );
+  }
+
   if (result.status !== 0) {
-    fail(`Command failed (${result.status}): ${command} ${args.join(" ")}`);
+    fail(
+      `Command failed with exit code ${result.status}: ${command} ${args.join(" ")}`
+    );
   }
 }
 
@@ -176,7 +191,7 @@ function copyStandaloneRuntime(layout) {
 function writePassengerAppJs() {
   const contents = `/**
  * Passenger entrypoint for MaintainPro web (cPanel).
- * Uses the hosting-provided PORT — do not hard-code 3000.
+ * Uses the hosting-provided PORT - do not hard-code 3000.
  */
 process.env.NODE_ENV = process.env.NODE_ENV || "production";
 process.env.HOSTNAME = process.env.HOSTNAME || "0.0.0.0";
