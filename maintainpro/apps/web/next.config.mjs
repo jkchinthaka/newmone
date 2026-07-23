@@ -1,6 +1,14 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 /** @type {import('next').NextConfig} */
 const apiOrigin =
   process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/+$/, "") ?? "https://newmone.onrender.com";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+/** Monorepo root (`maintainpro/`) — required so standalone tracing includes workspace packages. */
+const monorepoRoot = path.join(__dirname, "..", "..");
+const isCpanelDeployment = process.env.DEPLOYMENT_TARGET === "cpanel";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -30,8 +38,11 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  ...(isCpanelDeployment ? { output: "standalone" } : {}),
   experimental: {
-    typedRoutes: true
+    typedRoutes: true,
+    // Next.js 14: keep tracing root under experimental so monorepo workspace deps are included.
+    ...(isCpanelDeployment ? { outputFileTracingRoot: monorepoRoot } : {})
   },
   async headers() {
     return [
