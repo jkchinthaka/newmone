@@ -27,3 +27,11 @@
 - Classification: E2E_CONFIGURATION_DEFECT / TEST_DEFECT (not a production auth defect).
 - Fix: centralized `scripts/lib/e2e-environment.cjs` loads approved `.env.e2e` before Playwright config/helpers; workflow passes file path only.
 - Runtime status: FAILED until the next successful full workflow. Live production login remains unvalidated.
+
+## Phase 4B attempt 3 — env line-boundary (2026-08-01)
+
+- Run `30665797773`: password loading resolved; stack health/seed/preflight/cleanup passed; Playwright **35 passed / 16 failed / 1 skipped**.
+- Failure: login email became `...@e2e.maintainpro.teste2e_run_id=...` because `.env.e2e.example` lacked a final LF and workflow used fragile `echo ... >>` appends.
+- Classification: E2E_CONFIGURATION_DEFECT (env-file materialization / line-boundary) — API `email must be an email` response was correct.
+- Fix: canonical template LF + newline-safe `e2e-materialize-env` (overrides, no duplicate keys) + NL regression validators.
+- Runtime status: FAILED until the next workflow completes. Do not treat application authentication as defective. Live production login remains unvalidated. Mongo root rotation remains operator-owned.

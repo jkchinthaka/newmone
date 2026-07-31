@@ -104,3 +104,5 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
 
 | Playwright missing disposable env | Mitigated by centralized E2E env loader |
+| E2E env template missing final newline / fragile append | Mitigated by materialize + NL validators (attempt 3) |
+

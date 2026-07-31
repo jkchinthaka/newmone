@@ -94,7 +94,7 @@
     "docker:up:dev": "docker compose -f docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml down",
     "docker:down:dev": "docker compose -f docker-compose.dev.yml down",
-    "test:release": "node scripts/test/release-phase3.selftest.mjs && node scripts/test/container-healthchecks.selftest.mjs && node scripts/test/e2e-environment.selftest.mjs",
+    "test:release": "node scripts/test/release-phase3.selftest.mjs && node scripts/test/container-healthchecks.selftest.mjs && node scripts/test/e2e-environment.selftest.mjs && node scripts/test/e2e-env-newline.selftest.mjs && node scripts/validate-e2e-env-lines.mjs",
     "prepare:release": "node scripts/prepare-release-build.mjs",
     "prepare:release:dry": "node scripts/prepare-release-build.mjs --dry-run --skip-docker",
     "validate:e2e-safety": "node scripts/validate-e2e-safety.mjs",
@@ -110,7 +110,9 @@
     "test:e2e:full-stack:headed": "npm run test:e2e:full-stack:headed --workspace @maintainpro/web",
     "test:e2e:full-stack:report": "npm run test:e2e:full-stack:report --workspace @maintainpro/web",
     "e2e:env-preflight": "node scripts/e2e-env-preflight.mjs",
-    "test:e2e-env": "node scripts/test/e2e-environment.selftest.mjs"
+    "e2e:materialize-env": "node scripts/e2e-materialize-env.mjs",
+    "test:e2e-env": "node scripts/test/e2e-environment.selftest.mjs && node scripts/test/e2e-env-newline.selftest.mjs",
+    "validate:e2e-env-lines": "node scripts/validate-e2e-env-lines.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

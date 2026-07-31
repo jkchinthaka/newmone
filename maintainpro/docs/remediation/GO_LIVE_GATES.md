@@ -137,3 +137,5 @@
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
 
 | Playwright E2E env loader | SOURCE_VALIDATED; full runtime pending |
+| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3; runtime pending) |
+

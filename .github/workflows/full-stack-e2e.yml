@@ -58,11 +58,8 @@ jobs:
 
       - name: Prepare disposable E2E env file
         run: |
-          cp .env.e2e.example .env.e2e
-          echo "E2E_RUN_ID=$E2E_RUN_ID" >> .env.e2e
-          echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> .env.e2e
-          echo "APP_COMMIT_SHA=$APP_COMMIT_SHA" >> .env.e2e
-          echo "APP_BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> .env.e2e
+          export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          node scripts/e2e-materialize-env.mjs
 
       - name: E2E safety validation
         run: npm run validate:e2e-safety

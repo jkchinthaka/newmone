@@ -131,6 +131,35 @@ function main() {
     } else {
       pass("E2E-SAFE-016", "Workflow passes E2E env file path without password export");
     }
+
+    const fragileEchoAppend =
+      /echo\s+[\"']?E2E_RUN_ID=\$\{?E2E_RUN_ID\}?[\"']?\s*>>/.test(wf);
+    const usesMaterialize = wf.includes("e2e-materialize-env");
+    if (fragileEchoAppend || !usesMaterialize) {
+      fail(
+        "E2E-SAFE-017",
+        "Workflow must use newline-safe materialize (not fragile echo append)"
+      );
+    } else {
+      pass("E2E-SAFE-017", "E2E runtime append boundary: PASS");
+    }
+  }
+
+  const exampleEnvPath = path.join(maintainproRoot, ".env.e2e.example");
+  if (existsSync(exampleEnvPath)) {
+    const buf = readFileSync(exampleEnvPath);
+    const endsLf = buf.length > 0 && buf[buf.length - 1] === 0x0a;
+    const text = buf.toString("utf8");
+    const domainMatch = text.match(/^E2E_SEED_EMAIL_DOMAIN=(.*)$/m);
+    const domain = domainMatch ? domainMatch[1].trim() : "";
+    const domainConcat = /[A-Za-z_][A-Za-z0-9_]*=/.test(domain);
+    if (!endsLf) {
+      fail("E2E-SAFE-018", "E2E environment template final newline: FAIL");
+    } else if (domain !== "e2e.maintainpro.test" || domainConcat) {
+      fail("E2E-SAFE-018", "E2E_SEED_EMAIL_DOMAIN assignment is malformed");
+    } else {
+      pass("E2E-SAFE-018", "E2E environment template final newline: PASS");
+    }
   }
 
   console.log(`Summary: ${passes} passed, ${failures} failed`);

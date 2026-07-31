@@ -18,3 +18,7 @@
 Tags: `@mocked` (legacy `e2e/`), `@full-stack`, `@security`, `@tenant`, `@erp-control`, `@smoke`
 
 | E2E-ENV-* | Loader/path/precedence/password non-exposure | SOURCE_VALIDATED |
+| E2E-NL-* | Template LF + newline-safe materialize / no domain concat | SOURCE_VALIDATED |
+
+Runtime note (attempt 3): run `30665797773` fixed password loading (35/16/1). Next defect was missing template LF + fragile append corrupting `E2E_SEED_EMAIL_DOMAIN` — not an application auth defect. Runtime remains FAILED until the next workflow.
+

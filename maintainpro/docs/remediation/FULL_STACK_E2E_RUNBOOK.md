@@ -4,7 +4,8 @@
 
 ## Local
 
-1. `cp .env.e2e.example .env.e2e`
+1. `npm run e2e:materialize-env` (or copy `.env.e2e.example` then materialize with runtime `E2E_RUN_ID` / `COMPOSE_PROJECT_NAME`) — never use bare `echo KEY=... >> .env.e2e` without a forced line boundary
+
 2. Set `E2E_RUN_ID` and `COMPOSE_PROJECT_NAME=maintainpro-e2e-$E2E_RUN_ID`
 3. `npm run validate:e2e-safety`
 4. `npm run validate:container-healthchecks`
@@ -27,4 +28,5 @@
 
 ## Playwright environment loading
 
-Before `npm run test:e2e:full-stack`, ensure `.env.e2e` exists (from `.env.e2e.example`) and run `npm run e2e:env-preflight`. Playwright loads the approved file via `MAINTAINPRO_E2E_ENV_FILE`; never export `E2E_SEED_PASSWORD` into the shell or GitHub outputs.
+Before `npm run test:e2e:full-stack`, ensure `.env.e2e` exists via `npm run e2e:materialize-env` (newline-safe) and run `npm run e2e:env-preflight`. Playwright loads the approved file via `MAINTAINPRO_E2E_ENV_FILE`; never export `E2E_SEED_PASSWORD` into the shell or GitHub outputs. Confirm `E2E_SEED_EMAIL_DOMAIN` is exactly `e2e.maintainpro.test` with no concatenated assignment text.
+
