@@ -4,9 +4,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: production
+    # CI injects placeholders via `docker compose --env-file .env.compose-ci`.
+    # Production must use docker-compose.production.yml (requires real `.env`, never compose-ci).
     env_file:
-      - path: .env.compose-ci
-        required: true
       - path: .env
         required: false
     environment:
@@ -69,8 +69,6 @@ services:
       dockerfile: apps/web/Dockerfile
       target: production
     env_file:
-      - path: .env.compose-ci
-        required: true
       - path: .env
         required: false
     environment:
@@ -127,9 +125,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    # Do not publish to 0.0.0.0. Host admin binds belong in
+    # docker-compose.local-admin.yml (dev) or docker-compose.production.yml (127.0.0.1 only).
+    expose:
+      - "9000"
+      - "9001"
     volumes:
       - maintainpro-minio-data:/data
     restart: unless-stopped

@@ -1,0 +1,16 @@
+# Optional CI layer: injects the committed non-production fixture into containers
+# when a workflow needs runtime env_file (most CI steps only use --env-file for interpolation).
+#
+#   docker compose --env-file .env.compose-ci -f docker-compose.yml -f docker-compose.ci.yml config
+#
+# Production MUST NOT include this file.
+
+services:
+  api:
+    env_file:
+      - path: .env.compose-ci
+        required: true
+  web:
+    env_file:
+      - path: .env.compose-ci
+        required: true

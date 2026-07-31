@@ -1,6 +1,5 @@
-import { Controller, Get, Param, Post, Req, Res } from "@nestjs/common";
+import { Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import type { Response } from "express";
 
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { TenancyService } from "./tenancy.service";
@@ -30,26 +29,13 @@ export class TenancyController {
 
   @Post(":id/switch")
   @SelfService()
-  async switchTenant(
-    @Req() req: AuthenticatedRequest,
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: Response
-  ) {
+  async switchTenant(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    // accessToken stays in JSON for the trusted BFF (which updates HttpOnly cookies).
+    // Nest does not Set-Cookie — avoids duplicate/conflicting browser session cookies.
     const data = await this.tenancyService.switchTenant(req.user.sub, id);
-    this.setAccessCookie(res, data.accessToken);
     return {
       data,
       message: "Tenant switched"
     };
-  }
-
-  private setAccessCookie(res: Response, accessToken: string): void {
-    res.cookie("maintainpro_access", accessToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 15 * 60 * 1000
-    });
   }
 }

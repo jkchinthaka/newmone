@@ -15,7 +15,31 @@ const adminUser = {
 const e2ePassword = "E2eValidPass123!";
 
 async function mockAuthenticatedShell(page: Page) {
-  await page.route("**/api/auth/me", async (route) => {
+  await page.context().addCookies([
+    {
+      name: "maintainpro_access",
+      value: "e2e-access-token",
+      url: "http://127.0.0.1:3001",
+      httpOnly: true,
+      sameSite: "Lax"
+    },
+    {
+      name: "maintainpro_refresh",
+      value: "e2e-refresh-token",
+      url: "http://127.0.0.1:3001",
+      httpOnly: true,
+      sameSite: "Lax"
+    },
+    {
+      name: "maintainpro_csrf",
+      value: "e2e-csrf-token",
+      url: "http://127.0.0.1:3001",
+      httpOnly: false,
+      sameSite: "Lax"
+    }
+  ]);
+
+  await page.route("**/api/backend/auth/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -26,7 +50,7 @@ async function mockAuthenticatedShell(page: Page) {
     });
   });
 
-  await page.route("**/api/tenants/me", async (route) => {
+  await page.route("**/api/backend/tenants/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -53,7 +77,7 @@ async function mockAuthenticatedShell(page: Page) {
     });
   });
 
-  await page.route("**/api/notifications**", async (route) => {
+  await page.route("**/api/backend/notifications**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -64,6 +88,15 @@ async function mockAuthenticatedShell(page: Page) {
       })
     });
   });
+}
+
+async function assertNoLegacyTokenStorage(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("maintainpro_access_token")))
+    .toBeNull();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("maintainpro_refresh_token")))
+    .toBeNull();
 }
 
 test.describe("authentication", () => {
@@ -89,7 +122,7 @@ test.describe("authentication", () => {
 
   test("blocks empty login submission with field-level errors", async ({ page }) => {
     let loginCalls = 0;
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/backend/auth/login", async (route) => {
       loginCalls += 1;
       await route.abort();
     });
@@ -106,7 +139,7 @@ test.describe("authentication", () => {
 
   test("rejects invalid email format before calling login API", async ({ page }) => {
     let loginCalls = 0;
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/backend/auth/login", async (route) => {
       loginCalls += 1;
       await route.abort();
     });
@@ -121,7 +154,7 @@ test.describe("authentication", () => {
   });
 
   test("shows a clear invalid-credentials message", async ({ page }) => {
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/backend/auth/login", async (route) => {
       await route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -149,21 +182,44 @@ test.describe("authentication", () => {
     await page.addInitScript(() => {
       localStorage.setItem("maintainpro_active_tenant", "stale-tenant-from-previous-session");
     });
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/backend/auth/login", async (route) => {
       expect(route.request().postDataJSON()).toEqual({
         email: "admin@maintainpro.local",
         password: e2ePassword
       });
       expect(route.request().headers()["x-tenant-id"]).toBeUndefined();
 
+      // Simulate BFF cookie issuance (Playwright intercepts before Next Set-Cookie).
+      await page.context().addCookies([
+        {
+          name: "maintainpro_access",
+          value: "e2e-access-token",
+          url: "http://127.0.0.1:3001",
+          httpOnly: true,
+          sameSite: "Lax"
+        },
+        {
+          name: "maintainpro_refresh",
+          value: "e2e-refresh-token",
+          url: "http://127.0.0.1:3001",
+          httpOnly: true,
+          sameSite: "Lax"
+        },
+        {
+          name: "maintainpro_csrf",
+          value: "e2e-csrf-token",
+          url: "http://127.0.0.1:3001",
+          httpOnly: false,
+          sameSite: "Lax"
+        }
+      ]);
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           data: {
-            user: adminUser,
-            accessToken: "e2e-access-token",
-            refreshToken: "e2e-refresh-token"
+            user: adminUser
           },
           message: "Login successful"
         })
@@ -177,7 +233,17 @@ test.describe("authentication", () => {
 
     await page.waitForURL("**/dashboard");
     await expect(page).not.toHaveURL(/\/home$/);
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("maintainpro_access_token"))).toBe("e2e-access-token");
+    await assertNoLegacyTokenStorage(page);
+
+    const cookies = await page.context().cookies();
+    const access = cookies.find((c) => c.name === "maintainpro_access");
+    const refresh = cookies.find((c) => c.name === "maintainpro_refresh");
+    const csrf = cookies.find((c) => c.name === "maintainpro_csrf");
+    expect(access?.value).toBeTruthy();
+    expect(access?.httpOnly).toBe(true);
+    expect(refresh?.httpOnly).toBe(true);
+    expect(csrf?.value).toBeTruthy();
+    expect(csrf?.httpOnly).toBe(false);
   });
 
   test("logs in as technician and lands on work orders", async ({ page }) => {
@@ -187,7 +253,7 @@ test.describe("authentication", () => {
       role: { id: "role-tech", name: "TECHNICIAN" }
     };
 
-    await page.route("**/api/auth/me", async (route) => {
+    await page.route("**/api/backend/auth/me", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -198,7 +264,7 @@ test.describe("authentication", () => {
       });
     });
 
-    await page.route("**/api/tenants/me", async (route) => {
+    await page.route("**/api/backend/tenants/me", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -217,7 +283,7 @@ test.describe("authentication", () => {
       });
     });
 
-    await page.route("**/api/notifications**", async (route) => {
+    await page.route("**/api/backend/notifications**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -229,15 +295,36 @@ test.describe("authentication", () => {
       });
     });
 
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/backend/auth/login", async (route) => {
+      await page.context().addCookies([
+        {
+          name: "maintainpro_access",
+          value: "e2e-tech-token",
+          url: "http://127.0.0.1:3001",
+          httpOnly: true,
+          sameSite: "Lax"
+        },
+        {
+          name: "maintainpro_refresh",
+          value: "e2e-tech-refresh",
+          url: "http://127.0.0.1:3001",
+          httpOnly: true,
+          sameSite: "Lax"
+        },
+        {
+          name: "maintainpro_csrf",
+          value: "e2e-tech-csrf",
+          url: "http://127.0.0.1:3001",
+          httpOnly: false,
+          sameSite: "Lax"
+        }
+      ]);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           data: {
-            user: technicianUser,
-            accessToken: "e2e-tech-token",
-            refreshToken: "e2e-tech-refresh"
+            user: technicianUser
           },
           message: "Login successful"
         })
@@ -251,10 +338,11 @@ test.describe("authentication", () => {
 
     await page.waitForURL("**/work-orders");
     await expect(page).not.toHaveURL(/\/home$/);
+    await assertNoLegacyTokenStorage(page);
   });
 
   test("redirects unauthenticated protected-route access to login", async ({ page }) => {
-    await page.route("**/api/auth/me", async (route) => {
+    await page.route("**/api/backend/auth/me", async (route) => {
       await route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -318,7 +406,7 @@ test.describe("authentication", () => {
 
   test("admin console loads without crashing for admin role", async ({ page }) => {
     await mockAuthenticatedShell(page);
-    await page.route("**/api/health/readiness", async (route) => {
+    await page.route("**/api/backend/health/readiness", async (route) => {
       await route.fulfill({
         status: 403,
         contentType: "application/json",
@@ -334,18 +422,20 @@ test.describe("authentication", () => {
 
     await page.addInitScript((user) => {
       localStorage.setItem("maintainpro_user", JSON.stringify(user));
-      localStorage.setItem("maintainpro_access_token", "e2e-access-token");
+      // Legacy token must not be relied upon — getAccessToken clears it.
+      localStorage.setItem("maintainpro_access_token", "legacy-should-be-ignored");
     }, adminUser);
 
     await page.goto("/admin");
 
     await expect(page.getByRole("heading", { name: "Admin Console" })).toBeVisible();
     await expect(page.getByText("Administration modules")).toBeVisible();
+    await assertNoLegacyTokenStorage(page);
   });
 
   test("action center loads without crashing for admin role", async ({ page }) => {
     await mockAuthenticatedShell(page);
-    await page.route("**/api/action-center**", async (route) => {
+    await page.route("**/api/backend/action-center**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -363,11 +453,12 @@ test.describe("authentication", () => {
 
     await page.addInitScript((user) => {
       localStorage.setItem("maintainpro_user", JSON.stringify(user));
-      localStorage.setItem("maintainpro_access_token", "e2e-access-token");
+      localStorage.setItem("maintainpro_access_token", "legacy-should-be-ignored");
     }, adminUser);
 
     await page.goto("/action-center");
 
     await expect(page.getByRole("heading", { name: /Action Center/i })).toBeVisible();
+    await assertNoLegacyTokenStorage(page);
   });
 });

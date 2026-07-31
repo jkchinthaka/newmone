@@ -79,11 +79,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const requestId =
       request.requestId ??
       requestContext.getRequestId() ??
-      (typeof response.getHeader("X-Request-Id") === "string"
+      (typeof response.getHeader === "function" &&
+      typeof response.getHeader("X-Request-Id") === "string"
         ? String(response.getHeader("X-Request-Id"))
         : null);
 
-    if (requestId) {
+    if (requestId && typeof response.setHeader === "function") {
       response.setHeader("X-Request-Id", requestId);
     }
 
