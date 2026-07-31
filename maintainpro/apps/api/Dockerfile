@@ -25,7 +25,8 @@ RUN npm run build --workspace @maintainpro/shared-types && npm run build --works
 FROM node:20-alpine AS production
 WORKDIR /workspace
 ENV NODE_ENV=production
-RUN apk add --no-cache openssl
+# wget is required by docker-compose healthchecks (CMD-SHELL wget .../api/health)
+RUN apk add --no-cache openssl wget
 
 COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/apps/api/dist ./apps/api/dist

@@ -118,13 +118,17 @@ jobs:
           # Redact obvious secret patterns without printing values to workflow summary
           sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/compose.log || true
 
-      - name: Dump mongo logs on failure
+      - name: Dump mongo/api logs on failure
         if: failure()
         run: |
           mkdir -p artifacts/e2e-logs
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color mongo > artifacts/e2e-logs/mongo-failure.log || true
-          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/mongo-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color api > artifacts/e2e-logs/api-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml ps > artifacts/e2e-logs/compose-ps.txt || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/mongo-failure.log artifacts/e2e-logs/api-failure.log || true
 
       - name: Stop isolated E2E stack only
         if: always()
