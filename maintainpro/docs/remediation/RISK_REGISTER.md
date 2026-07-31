@@ -68,3 +68,22 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | R-08 Nest SameSite=None | **Mitigated in source (Option A)** — Nest no longer issues browser session cookies; BFF owns Lax cookies |
 | R-02 / R-19 HTTP cookies | Unchanged: dual opt-in required; HTTPS recommended; live smoke operator-owned |
 | R-01 Mongo root | Still OPERATOR_ACTION_REQUIRED |
+
+---
+
+## Phase 3 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Branch / release model | SOURCE_VALIDATED (`RELEASE_BRANCH_STRATEGY.md`) |
+| Build metadata strategy | SOURCE_VALIDATED (`APP_*` + readiness assessment) |
+| Immutable API/Web image tags | SOURCE_VALIDATED (`maintainpro-*:${APP_COMMIT_SHA}`) |
+| Deployment scenarios | SOURCE_VALIDATED (`DEPLOYMENT_SCENARIOS.md`) |
+| Rollback architecture | SOURCE_VALIDATED (`PRODUCTION_ROLLBACK_RUNBOOK.md`) |
+| Schema-change gate | SOURCE_VALIDATED (`PRISMA_SCHEMA_CHANGE_GATE.md`) |
+| Branch protection operator config | OPERATOR_ACTION_REQUIRED |
+| Mongo root rotation | BLOCKED / OPERATOR_ACTION_REQUIRED |
+| Live HTTP smoke | OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
+| Port 80 IIS vs Nginx ownership | unanswered (A-03) |
+| Production deployment | NOT DONE (Phase 3 forbids live deploy) |

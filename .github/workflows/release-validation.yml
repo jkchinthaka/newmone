@@ -1,0 +1,117 @@
+name: Release Validation
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "Optional operator note (no secrets)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: maintainpro
+
+jobs:
+  release-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: maintainpro/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Secret and configuration safety
+        run: npm run validate:secret-safety
+
+      - name: Nginx BFF routing validation
+        run: npm run validate:nginx-routing
+
+      - name: Tenant audit
+        run: npm run audit:tenant
+
+      - name: RBAC audit
+        run: npm run audit:rbac
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm run test
+        env:
+          CI: true
+
+      - name: Phase 3 release self-tests
+        run: npm run test:release
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate compose config (CI fixture)
+        run: docker compose --env-file .env.compose-ci -f docker-compose.yml config --quiet
+
+      - name: Validate compose config (production structure fixture)
+        run: |
+          cp .env.production.structure-fixture.example .env.structure-validate.tmp
+          MAINTAINPRO_COMPOSE_ENV_FILE=.env.structure-validate.tmp \
+            docker compose --env-file .env.structure-validate.tmp \
+            -f docker-compose.yml -f docker-compose.production.yml config --quiet
+          rm -f .env.structure-validate.tmp
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Derive release metadata
+        id: meta
+        run: |
+          SHA=$(git rev-parse HEAD)
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "ts=$TS" >> "$GITHUB_OUTPUT"
+          echo "APP_COMMIT_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "APP_BUILD_TIMESTAMP=$TS" >> "$GITHUB_ENV"
+          echo "APP_ENVIRONMENT=ci" >> "$GITHUB_ENV"
+          echo "APP_VERSION=1.2.0" >> "$GITHUB_ENV"
+
+      - name: Build disposable API image (SHA tag)
+        run: docker build -f apps/api/Dockerfile --target production -t "maintainpro-api:${{ steps.meta.outputs.sha }}" .
+
+      - name: Build disposable Web image (SHA tag)
+        run: docker build -f apps/web/Dockerfile --target production -t "maintainpro-web:${{ steps.meta.outputs.sha }}" .
+
+      - name: Image secret-path validation
+        run: node scripts/validate-image-secret-paths.mjs "maintainpro-api:${{ steps.meta.outputs.sha }}" "maintainpro-web:${{ steps.meta.outputs.sha }}"
+
+      - name: Generate release manifest (validation-only prepare)
+        run: node scripts/prepare-release-build.mjs --dry-run --skip-docker --allow-dirty
+        env:
+          APP_VERSION: "1.2.0"
+          RELEASE_REF: ${{ github.sha }}
+
+      - name: Upload release manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: maintainpro/artifacts/release-manifest.json
+          if-no-files-found: error

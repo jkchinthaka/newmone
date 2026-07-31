@@ -122,3 +122,22 @@
 - Nest no longer issues browser session cookies (verified Option A).
 - Mobile remains JSON-token based with secure storage.
 - OAuth Google browser cookie handoff remains unanswered / P1 incomplete.
+
+---
+
+## Phase 3 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Branch / release model | SOURCE_VALIDATED (`RELEASE_BRANCH_STRATEGY.md`) |
+| Build metadata strategy | SOURCE_VALIDATED (`APP_*` + readiness assessment) |
+| Immutable API/Web image tags | SOURCE_VALIDATED (`maintainpro-*:${APP_COMMIT_SHA}`) |
+| Deployment scenarios | SOURCE_VALIDATED (`DEPLOYMENT_SCENARIOS.md`) |
+| Rollback architecture | SOURCE_VALIDATED (`PRODUCTION_ROLLBACK_RUNBOOK.md`) |
+| Schema-change gate | SOURCE_VALIDATED (`PRISMA_SCHEMA_CHANGE_GATE.md`) |
+| Branch protection operator config | OPERATOR_ACTION_REQUIRED |
+| Mongo root rotation | BLOCKED / OPERATOR_ACTION_REQUIRED |
+| Live HTTP smoke | OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
+| Port 80 IIS vs Nginx ownership | unanswered (A-03) |
+| Production deployment | NOT DONE (Phase 3 forbids live deploy) |

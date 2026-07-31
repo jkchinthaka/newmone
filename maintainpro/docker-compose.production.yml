@@ -13,6 +13,13 @@
 
 services:
   api:
+    # SHA tag is the source of truth. Optional RELEASE_VERSION tag may also be built.
+    # Example: MAINTAINPRO_API_IMAGE=maintainpro-api:d400de4aea65e0ad8379616b983b0e91713cfca9
+    image: ${MAINTAINPRO_API_IMAGE:-maintainpro-api:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: production
     env_file:
       - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
         required: true
@@ -38,14 +45,21 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
+      APP_VERSION: ${APP_VERSION:-1.2.0}
       APP_COMMIT_SHA: ${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}
-      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-}
+      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:?APP_BUILD_TIMESTAMP is required}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      APP_SERVICE_NAME: maintainpro-api
     # API remains internal-only (no host publish).
     expose:
       - "3000"
 
   web:
+    image: ${MAINTAINPRO_WEB_IMAGE:-maintainpro-web:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: production
     env_file:
       - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
         required: true
@@ -60,6 +74,11 @@ services:
       # Cookie Secure policy — production defaults secure unless dual HTTP opt-in is set in `.env`.
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}
+      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:?APP_BUILD_TIMESTAMP is required}
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      APP_SERVICE_NAME: maintainpro-web
     expose:
       - "3001"
 

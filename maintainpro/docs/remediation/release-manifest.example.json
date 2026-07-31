@@ -1,0 +1,45 @@
+{
+  "application": "maintainpro",
+  "releaseVersion": "1.2.1",
+  "gitCommitSha": "d400de4aea65e0ad8379616b983b0e91713cfca9",
+  "gitBranch": "fix/phase3-release-source-alignment",
+  "buildTimestampUtc": "2026-08-01T00:00:00.000Z",
+  "nodeVersion": "v20.19.0",
+  "npmVersion": "10.8.2",
+  "apiImage": "maintainpro-api:d400de4aea65e0ad8379616b983b0e91713cfca9",
+  "webImage": "maintainpro-web:d400de4aea65e0ad8379616b983b0e91713cfca9",
+  "composeFiles": [
+    "docker-compose.yml",
+    "docker-compose.production.yml"
+  ],
+  "prismaSchemaChecksum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "packageLockChecksum": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "nginxConfigChecksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "testsExecuted": [
+    "validate:secret-safety",
+    "validate:nginx-routing",
+    "audit:tenant",
+    "audit:rbac",
+    "lint",
+    "typecheck",
+    "test",
+    "release-phase3.selftest",
+    "build"
+  ],
+  "testResults": {
+    "mode": "full",
+    "dockerImageValidation": "BLOCKED"
+  },
+  "knownBlockers": [
+    "DOCKER_IMAGE_BUILD_OR_SCAN_BLOCKED",
+    "MONGO_ROOT_ROTATION_OPERATOR_REQUIRED",
+    "LIVE_HTTP_SMOKE_OPERATOR_REQUIRED",
+    "PRODUCTION_DEPLOYMENT_NOT_EXECUTED"
+  ],
+  "operatorApprovalsRequired": [
+    "change-ticket",
+    "mongo-root-rotation-gate",
+    "backup-confirmation",
+    "branch-protection-operator-config"
+  ]
+}

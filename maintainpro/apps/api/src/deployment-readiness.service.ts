@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { assessReleaseMetadata, resolveSafeBuildInfo } from "./common/utils/build-info.util";
+
 export type DeploymentReadinessStatus = "ready" | "warning" | "blocked";
 
 export type DeploymentReadinessItem = {
@@ -63,7 +65,8 @@ export class DeploymentReadinessService {
         configuredMessage: "READINESS_API_KEY or JWT admin access is expected for detailed readiness in production.",
         missingMessage: "Production should protect /health/readiness with READINESS_API_KEY or authenticated admin access.",
         env: ["READINESS_API_KEY"]
-      })
+      }),
+      this.releaseMetadataCheck()
     ];
 
     const blockers = checks
@@ -79,6 +82,10 @@ export class DeploymentReadinessService {
         ? "warning"
         : "ready";
 
+    const safe = resolveSafeBuildInfo("maintainpro-api", (key, fallback = "") =>
+      this.configService.get<string>(key, fallback)
+    );
+
     return {
       generatedAt: new Date().toISOString(),
       environment,
@@ -87,10 +94,48 @@ export class DeploymentReadinessService {
       warnings,
       checks,
       build: {
-        version: this.configService.get<string>("APP_VERSION", "1.2.0").trim(),
-        commit: this.configService.get<string>("GIT_COMMIT", "").trim() || "unknown",
-        buildTime: this.configService.get<string>("BUILD_TIME", "").trim() || null
+        version: safe.version,
+        commit: safe.commitSha,
+        buildTime: safe.buildTimestamp
       }
+    };
+  }
+
+  private releaseMetadataCheck(): DeploymentReadinessItem {
+    const safe = resolveSafeBuildInfo("maintainpro-api", (key, fallback = "") =>
+      this.configService.get<string>(key, fallback)
+    );
+    const nodeEnv = this.configService.get<string>("NODE_ENV", "development");
+    const assessment = assessReleaseMetadata(safe, { nodeEnv });
+    const required = assessment.isProductionLike;
+
+    if (assessment.issues.length > 0) {
+      return {
+        key: "releaseMetadata",
+        label: "Release build metadata",
+        status: required ? "blocked" : "warning",
+        required,
+        message: assessment.issues[0],
+        action: "Set APP_VERSION, APP_COMMIT_SHA, APP_BUILD_TIMESTAMP, and APP_ENVIRONMENT from the approved release."
+      };
+    }
+
+    if (assessment.warnings.length > 0) {
+      return {
+        key: "releaseMetadata",
+        label: "Release build metadata",
+        status: "warning",
+        required,
+        message: assessment.warnings[0]
+      };
+    }
+
+    return {
+      key: "releaseMetadata",
+      label: "Release build metadata",
+      status: "ready",
+      required,
+      message: "Release metadata is present and acceptable for this environment."
     };
   }
 
