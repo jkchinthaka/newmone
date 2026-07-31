@@ -10,7 +10,12 @@ describe("HttpExceptionFilter DATABASE_UNAVAILABLE", () => {
     const status = jest.fn(() => ({ json }));
     const host = {
       switchToHttp: () => ({
-        getResponse: () => ({ status, json }),
+        getResponse: () => ({
+          status,
+          json,
+          getHeader: jest.fn(),
+          setHeader: jest.fn()
+        }),
         getRequest: () => ({ method: "GET", url: "/api/work-orders" })
       })
     } as unknown as ArgumentsHost;
@@ -42,7 +47,7 @@ describe("HttpExceptionFilter DATABASE_UNAVAILABLE", () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({
-          code: "HTTP_ERROR",
+          code: "PERMISSION_DENIED",
           message: "Forbidden"
         })
       })

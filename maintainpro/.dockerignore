@@ -1,6 +1,8 @@
+# Build artifacts and dependencies
 node_modules
 **/node_modules
 **/.next
+**/.open-next
 **/dist
 **/.turbo
 **/coverage
@@ -11,3 +13,44 @@ apps/mobile/.dart_tool
 apps/mobile/build
 **/*.tsbuildinfo
 *.log
+
+# ---------------------------------------------------------------------------
+# Secrets and local credentials — NEVER copy into Docker build contexts.
+# Real operator files (.env, private keys, PFX) stay on the host / secret manager.
+# Allowed templates: .env.example, .env.*.example
+# Allowed CI fixture (placeholders only): .env.compose-ci
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.*
+**/.env
+**/.env.local
+**/.env.production
+**/.env.development
+**/.env.test
+**/.env.*
+!.env.example
+!.env.*.example
+!.env.compose-ci
+!**/.env.example
+!**/.env.*.example
+
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# Private key / certificate material
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+
+# Common local secret backup / export filenames (path-based, not content)
+**/*-credentials.json
+**/*-credentials.txt
+**/*.secrets
+**/*.secret
+**/secrets.local.*

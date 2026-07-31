@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 
+import { cookiesShouldBeSecure } from "./runtime-security-config";
+
 export const ACCESS_COOKIE = "maintainpro_access";
 export const REFRESH_COOKIE = "maintainpro_refresh";
 export const CSRF_COOKIE = "maintainpro_csrf";
 export const CSRF_HEADER = "x-csrf-token";
 
-const isProd = process.env.NODE_ENV === "production";
-
 export function sessionCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true as const,
-    secure: isProd,
+    secure: cookiesShouldBeSecure(),
     sameSite: "lax" as const,
     path: "/",
     maxAge: maxAgeSeconds
@@ -20,7 +20,7 @@ export function sessionCookieOptions(maxAgeSeconds: number) {
 export function csrfCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: false as const,
-    secure: isProd,
+    secure: cookiesShouldBeSecure(),
     sameSite: "lax" as const,
     path: "/",
     maxAge: maxAgeSeconds

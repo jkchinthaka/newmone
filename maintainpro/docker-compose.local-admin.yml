@@ -1,0 +1,13 @@
+# Optional local/admin host port binds for development machines only.
+# NEVER use this file on internet-facing production hosts.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local-admin.yml up -d
+#
+services:
+  mongo:
+    ports:
+      - "127.0.0.1:27018:27017"
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"

@@ -1,0 +1,108 @@
+# Production Compose override for MaintainPro (Windows Server / Docker).
+#
+# Usage (operator machine — real `.env` never committed):
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml config
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml up -d
+#
+# Rules:
+# - Loads required `.env` only (never `.env.compose-ci`).
+# - Mandatory secrets have no weak defaults — missing vars fail at config time.
+# - Restricted services bind to 127.0.0.1 only (or remain unpublished).
+# - Public port 80 ownership (Nginx vs IIS) is an unanswered ops question — unchanged here.
+# - Placeholders in `.env.production.example` are NOT deployable credentials.
+
+services:
+  api:
+    env_file:
+      - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
+        required: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      DATABASE_PROVIDER: mongodb
+      PRIMARY_DATABASE_URL: ${PRIMARY_DATABASE_URL:?PRIMARY_DATABASE_URL is required}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI is required}
+      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:?PRIMARY_DATABASE_NAME is required}
+      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:?BACKUP_DATABASE_NAME is required}
+      MONGO_DATABASE_NAME: ${MONGO_DATABASE_NAME:?MONGO_DATABASE_NAME is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}
+      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-}
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+    # API remains internal-only (no host publish).
+    expose:
+      - "3000"
+
+  web:
+    env_file:
+      - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
+        required: true
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL is required}
+      NEXT_PUBLIC_API_ORIGIN: ${NEXT_PUBLIC_API_ORIGIN:?NEXT_PUBLIC_API_ORIGIN is required}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      # Browser uses same-origin BFF; server-side upstream uses Docker DNS.
+      NEXT_PUBLIC_USE_BFF: ${NEXT_PUBLIC_USE_BFF:-true}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:?API_INTERNAL_URL is required}
+      # Cookie Secure policy — production defaults secure unless dual HTTP opt-in is set in `.env`.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
+    expose:
+      - "3001"
+
+  mongo:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?MONGO_INITDB_DATABASE is required}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?MONGO_APP_USERNAME is required}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}
+    # Host access for operators only — never 0.0.0.0.
+    ports:
+      - "127.0.0.1:27018:27017"
+
+  redis:
+    # Explicitly unpublished; Docker network only.
+    expose:
+      - "6379"
+
+  minio:
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+    # Host admin console only on loopback — never 0.0.0.0.
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  minio-init:
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
+    entrypoint: >-
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 \"$$MINIO_ACCESS_KEY\" \"$$MINIO_SECRET_KEY\"; do
+        echo 'Waiting for MinIO to become ready...';
+        sleep 2;
+      done;
+      mc mb -p local/$$MINIO_BUCKET || true;
+      exit 0;"
+
+  nginx:
+    # Public :80 left unchanged pending IIS-versus-Nginx ownership decision.
+    ports:
+      - "80:80"

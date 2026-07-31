@@ -22,11 +22,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Validate compose config (base / CI fixture)
+        run: docker compose --env-file .env.compose-ci -f docker-compose.yml config --quiet
+
+      - name: Validate compose config (production structure fixture)
+        run: |
+          cp .env.production.structure-fixture.example .env
+          docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml config --quiet
+          rm -f .env
+
+      - name: Secret and configuration safety
+        run: node scripts/validate-secret-safety.mjs
+
       - name: Build API image
         run: docker build -f apps/api/Dockerfile --target production -t maintainpro-api:ci .
 
       - name: Build Web image
         run: docker build -f apps/web/Dockerfile --target production -t maintainpro-web:ci .
 
-      - name: Validate compose config
-        run: docker compose --env-file .env.compose-ci -f docker-compose.yml config > /tmp/compose-config.txt
+      - name: Verify images contain no .env or private-key paths
+        run: node scripts/validate-image-secret-paths.mjs maintainpro-api:ci maintainpro-web:ci

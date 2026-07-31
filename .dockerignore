@@ -12,13 +12,38 @@ maintainpro/**/dist
 maintainpro/**/.turbo
 maintainpro/**/coverage
 maintainpro/**/build
-maintainpro/.env
-maintainpro/.env.*
-maintainpro/**/.env
-maintainpro/**/.env.*
-!maintainpro/.env.example
-!maintainpro/**/.env.example
 maintainpro/apps/mobile/.dart_tool
 maintainpro/apps/mobile/build
 maintainpro/**/*.tsbuildinfo
 maintainpro/*.log
+
+# ---------------------------------------------------------------------------
+# Secrets — exclude real env/key files from the root Docker build context.
+# Re-include safe examples and the non-production CI fixture only.
+# ---------------------------------------------------------------------------
+maintainpro/.env
+maintainpro/.env.local
+maintainpro/.env.production
+maintainpro/.env.development
+maintainpro/.env.test
+maintainpro/.env.*
+maintainpro/**/.env
+maintainpro/**/.env.*
+!maintainpro/.env.example
+!maintainpro/.env.*.example
+!maintainpro/.env.compose-ci
+!maintainpro/**/.env.example
+!maintainpro/**/.env.*.example
+
+maintainpro/docker-compose.override.yml
+maintainpro/docker-compose.*.local.yml
+maintainpro/**/*.pem
+maintainpro/**/*.key
+maintainpro/**/*.pfx
+maintainpro/**/*.p12
+maintainpro/**/*.crt
+maintainpro/**/*-credentials.json
+maintainpro/**/*-credentials.txt
+maintainpro/**/*.secrets
+maintainpro/**/*.secret
+maintainpro/**/secrets.local.*

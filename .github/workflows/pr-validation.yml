@@ -56,6 +56,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Secret and configuration safety
+        run: npm run validate:secret-safety
+
       - name: Dependency audit (non-blocking informational)
         continue-on-error: true
         run: npm audit --audit-level=high

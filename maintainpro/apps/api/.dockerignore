@@ -3,5 +3,15 @@ dist
 npm-debug.log
 Dockerfile
 .dockerignore
-.env
 .git
+
+# Secrets (defense in depth if this file is ever used as build context)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
