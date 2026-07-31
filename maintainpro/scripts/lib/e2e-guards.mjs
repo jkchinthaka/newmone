@@ -2,13 +2,24 @@
  * Shared disposable-E2E safety guards. Never print secret values.
  */
 
+import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import {
-  loadEnvFileIfPresent,
   maintainproRoot,
   parseMongoUrl
 } from "./database-identity.mjs";
+
+const require = createRequire(import.meta.url);
+const e2eEnvironment = require("./e2e-environment.cjs");
+
+export const {
+  ensureE2eEnvironmentLoaded,
+  resolveApprovedE2eEnvPath,
+  e2eEnvironmentPreflight,
+  printE2eEnvironmentPreflight,
+  assertE2eSeedPasswordPresent
+} = e2eEnvironment;
 
 export const FORBIDDEN_PRODUCTION_DB_NAMES = new Set([
   "nelna",
@@ -144,33 +155,26 @@ export function resolveE2eDatabaseIdentity() {
   return { url, databaseName, host: parsed?.host || "unknown", urlPresent: Boolean(url) };
 }
 
-export function loadE2eEnvOnly() {
+/**
+ * Backward-compatible loader — delegates to the centralized E2E environment module.
+ */
+export function loadE2eEnvOnly(options = {}) {
+  ensureE2eEnvironmentLoaded(options);
   const preferredRelative = (process.env.MAINTAINPRO_E2E_ENV_FILE || "").trim();
-  const preferred = preferredRelative
-    ? path.isAbsolute(preferredRelative)
+  if (preferredRelative) {
+    return path.isAbsolute(preferredRelative)
       ? preferredRelative
-      : path.join(maintainproRoot, preferredRelative)
-    : path.join(maintainproRoot, ".env.e2e");
-  const example = path.join(maintainproRoot, ".env.e2e.example");
-  let loaded = null;
-  if (existsSync(preferred)) {
-    loadEnvFileIfPresent(preferred);
-    loaded = preferred;
-  } else if (existsSync(example)) {
-    loadEnvFileIfPresent(example);
-    loaded = example;
-  } else {
-    throw new Error("E2E guard failed: neither .env.e2e nor .env.e2e.example is available.");
+      : path.join(maintainproRoot, preferredRelative);
   }
-  const base = path.basename(loaded).toLowerCase();
-  if (base === ".env" || base === ".env.production" || base.includes("production")) {
-    throw new Error("E2E guard failed: refused to load a production env file.");
-  }
-  process.env.MAINTAINPRO_LOADED_ENV_FILES = base;
-  return loaded;
+  const preferred = path.join(maintainproRoot, ".env.e2e");
+  if (existsSync(preferred)) return preferred;
+  return path.join(maintainproRoot, ".env.e2e.example");
 }
 
 export function assertAllE2eGuards(options = {}) {
+  ensureE2eEnvironmentLoaded({
+    requireSeedPassword: options.requireSeedPassword !== false
+  });
   assertE2eMode();
   if (options.requireRunId !== false) {
     assertE2eRunId();

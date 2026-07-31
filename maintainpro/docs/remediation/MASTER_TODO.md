@@ -647,3 +647,5 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
 | Full-stack CI runtime | IN_PROGRESS / not yet RUNTIME_VALIDATED |
 | Live production login | NOT validated |
+
+| Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |

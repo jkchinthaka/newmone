@@ -16,3 +16,5 @@
 | Perf smoke | Performance | Health latency + login timeout (CI only claims) |
 
 Tags: `@mocked` (legacy `e2e/`), `@full-stack`, `@security`, `@tenant`, `@erp-control`, `@smoke`
+
+| E2E-ENV-* | Loader/path/precedence/password non-exposure | SOURCE_VALIDATED |

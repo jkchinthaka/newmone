@@ -24,3 +24,7 @@
 - Point at production URL/IP
 - Load production `.env`
 - `docker compose down -v` on production project names
+
+## Playwright environment loading
+
+Before `npm run test:e2e:full-stack`, ensure `.env.e2e` exists (from `.env.e2e.example`) and run `npm run e2e:env-preflight`. Playwright loads the approved file via `MAINTAINPRO_E2E_ENV_FILE`; never export `E2E_SEED_PASSWORD` into the shell or GitHub outputs.

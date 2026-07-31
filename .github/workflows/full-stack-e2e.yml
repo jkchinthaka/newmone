@@ -29,7 +29,8 @@ jobs:
       COMPOSE_PROJECT_NAME: maintainpro-e2e-ci-${{ github.run_id }}
       E2E_HTTP_PORT: "18080"
       E2E_BASE_URL: http://127.0.0.1:18080
-      MAINTAINPRO_E2E_ENV_FILE: .env.e2e
+      # Path only — never export disposable credentials via GITHUB_ENV/OUTPUT.
+      MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
       APP_COMMIT_SHA: ${{ github.sha }}
       APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
       E2E_DOCKER_RUNTIME: CI
@@ -114,10 +115,14 @@ jobs:
       - name: No-mock validation
         run: npm run validate:e2e-no-mocks
 
+      - name: E2E environment preflight
+        run: npm run e2e:env-preflight
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:
           SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
       - name: Generate evidence manifest
         if: always()

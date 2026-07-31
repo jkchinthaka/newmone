@@ -117,6 +117,22 @@ function main() {
     }
   }
 
+  const workflowPath = path.join(maintainproRoot, "..", ".github", "workflows", "full-stack-e2e.yml");
+  if (existsSync(workflowPath)) {
+    const wf = readFileSync(workflowPath, "utf8");
+    const hardcodes =
+      /E2E_SEED_PASSWORD:\s*\S+/.test(wf) ||
+      /echo\s+["']?E2E_SEED_PASSWORD=/.test(wf) ||
+      /GITHUB_ENV.*E2E_SEED_PASSWORD/.test(wf);
+    if (hardcodes) {
+      fail("E2E-SAFE-016", "Workflow must not hardcode or export E2E_SEED_PASSWORD");
+    } else if (!wf.includes("MAINTAINPRO_E2E_ENV_FILE")) {
+      fail("E2E-SAFE-016", "Workflow must pass MAINTAINPRO_E2E_ENV_FILE path");
+    } else {
+      pass("E2E-SAFE-016", "Workflow passes E2E env file path without password export");
+    }
+  }
+
   console.log(`Summary: ${passes} passed, ${failures} failed`);
   if (failures > 0) process.exit(1);
 }

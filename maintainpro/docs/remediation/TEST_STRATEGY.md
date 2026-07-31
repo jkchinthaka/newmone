@@ -182,3 +182,5 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | Live production login | NOT validated |
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
+
+| Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |

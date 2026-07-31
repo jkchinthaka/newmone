@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { ensureE2eEnvironmentLoaded } from "./e2e-real/helpers/load-e2e-process-env";
+
+// Load approved .env.e2e before baseURL / projects evaluate.
+ensureE2eEnvironmentLoaded({ requireSeedPassword: true });
 
 const baseURL = (process.env.E2E_BASE_URL || "http://127.0.0.1:18080").trim();
 
