@@ -87,3 +87,18 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
 | Port 80 IIS vs Nginx ownership | unanswered (A-03) |
 | Production deployment | NOT DONE (Phase 3 forbids live deploy) |
+
+---
+
+## Phase 4 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Isolated E2E Compose | SOURCE_VALIDATED |
+| E2E safety / no-mock validators | SOURCE_VALIDATED |
+| Real-stack Playwright suite | SOURCE_VALIDATED |
+| Full-stack E2E CI workflow | SOURCE_VALIDATED |
+| Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
+| Live production login | NOT validated |
+| Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
+| Full-stack CI runtime | NOT RUNTIME_VALIDATED |

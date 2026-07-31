@@ -167,3 +167,18 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | --- | --- |
 | DEPLOY-REL-001..018 | `scripts/test/release-phase3.selftest.mjs` (`npm run test:release`) |
 | Build metadata | `apps/api/test/release-metadata.spec.ts` |
+
+---
+
+## Phase 4 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Isolated E2E Compose | SOURCE_VALIDATED |
+| E2E safety / no-mock validators | SOURCE_VALIDATED |
+| Real-stack Playwright suite | SOURCE_VALIDATED |
+| Full-stack E2E CI workflow | SOURCE_VALIDATED |
+| Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
+| Live production login | NOT validated |
+| Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
+| Full-stack CI runtime | NOT RUNTIME_VALIDATED |

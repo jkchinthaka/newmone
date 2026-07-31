@@ -94,9 +94,21 @@
     "docker:up:dev": "docker compose -f docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml down",
     "docker:down:dev": "docker compose -f docker-compose.dev.yml down",
-    "test:release": "node scripts/test/release-phase3.selftest.mjs",
+    "test:release": "node scripts/test/release-phase3.selftest.mjs && node scripts/test/container-healthchecks.selftest.mjs",
     "prepare:release": "node scripts/prepare-release-build.mjs",
-    "prepare:release:dry": "node scripts/prepare-release-build.mjs --dry-run --skip-docker"
+    "prepare:release:dry": "node scripts/prepare-release-build.mjs --dry-run --skip-docker",
+    "validate:e2e-safety": "node scripts/validate-e2e-safety.mjs",
+    "validate:e2e-no-mocks": "node scripts/validate-e2e-no-mocks.mjs",
+    "validate:container-healthchecks": "node scripts/validate-container-healthchecks.mjs",
+    "test:container-healthchecks": "node scripts/test/container-healthchecks.selftest.mjs",
+    "e2e:seed": "node scripts/e2e-seed.mjs",
+    "e2e:cleanup": "node scripts/e2e-cleanup.mjs",
+    "e2e:verify-isolation": "node scripts/e2e-verify-isolation.mjs",
+    "e2e:evidence": "node scripts/generate-e2e-evidence-manifest.mjs",
+    "test:e2e:mocked": "npm run test:e2e --workspace @maintainpro/web",
+    "test:e2e:full-stack": "npm run test:e2e:full-stack --workspace @maintainpro/web",
+    "test:e2e:full-stack:headed": "npm run test:e2e:full-stack:headed --workspace @maintainpro/web",
+    "test:e2e:full-stack:report": "npm run test:e2e:full-stack:report --workspace @maintainpro/web"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

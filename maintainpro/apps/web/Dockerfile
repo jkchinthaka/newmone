@@ -28,6 +28,8 @@ ENV NODE_ENV=production
 COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/apps/web ./apps/web
 COPY --from=build /workspace/packages/shared-types ./packages/shared-types
+# Node-based healthcheck — no wget/curl dependency
+COPY scripts/container-http-healthcheck.cjs /usr/local/bin/container-http-healthcheck.cjs
 
 EXPOSE 3001
 WORKDIR /workspace/apps/web

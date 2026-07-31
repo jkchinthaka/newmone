@@ -1,0 +1,180 @@
+# Isolated disposable full-stack E2E overlay.
+# Never use with production .env.
+#
+# Example:
+#   export E2E_RUN_ID=$(date +%s)
+#   export COMPOSE_PROJECT_NAME=maintainpro-e2e-$E2E_RUN_ID
+#   cp .env.e2e.example .env.e2e
+#   docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+#     -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+#
+# Nginx is bound to 127.0.0.1 only. API/Web stay unpublished.
+# Mongo is loopback-only for host-side guarded seed/cleanup.
+
+name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}
+
+services:
+  api:
+    env_file:
+      - path: ${MAINTAINPRO_E2E_ENV_FILE:-.env.e2e}
+        required: true
+    environment:
+      NODE_ENV: test
+      E2E_TEST_MODE: "true"
+      APP_ENVIRONMENT: e2e
+      APP_SERVICE_NAME: maintainpro-api
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:-e2e0000000000000000000000000000000000001}
+      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-1970-01-01T00:00:00.000Z}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:18080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:18080}
+      ALLOW_INSECURE_HTTP: "true"
+      COOKIE_SECURE: "false"
+      NOTIFICATION_REAL_SENDS_ENABLED: "false"
+      NOTIFICATION_UAT_ENABLED: "false"
+      ALLOW_MOCK_IN_PRODUCTION: "false"
+      STORAGE_MODE: ${STORAGE_MODE:-minio}
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-e2e:}
+    ports: !override []
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "/usr/local/bin/container-http-healthcheck.cjs",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "3000",
+          "--path",
+          "/api/health",
+          "--expect",
+          "200",
+          "--timeout-ms",
+          "4000"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web:
+    env_file:
+      - path: ${MAINTAINPRO_E2E_ENV_FILE:-.env.e2e}
+        required: true
+    environment:
+      NODE_ENV: test
+      E2E_TEST_MODE: "true"
+      APP_ENVIRONMENT: e2e
+      APP_SERVICE_NAME: maintainpro-web
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:-e2e0000000000000000000000000000000000001}
+      APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-1970-01-01T00:00:00.000Z}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api}
+      NEXT_PUBLIC_API_ORIGIN: ${NEXT_PUBLIC_API_ORIGIN:-http://127.0.0.1:18080}
+      NEXT_PUBLIC_USE_BFF: "true"
+      API_INTERNAL_URL: http://api:3000/api
+      ALLOW_INSECURE_HTTP: "true"
+      COOKIE_SECURE: "false"
+    ports: !override []
+    expose:
+      - "3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "/usr/local/bin/container-http-healthcheck.cjs",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "3001",
+          "--path",
+          "/login",
+          "--expect",
+          "200",
+          "--timeout-ms",
+          "4000"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  mongo:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-e2e_root_not_prod}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-e2e_root_password_not_for_production_use}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-maintainpro_e2e_auth}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-e2e_app_not_prod}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-e2e_app_password_not_for_production_use}
+      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}
+      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-maintainpro_e2e_backup}
+    # Override base volumes so production volume names are never attached.
+    volumes: !override
+      - maintainpro-e2e-mongo-data:/data/db
+      - ./infra/mongo/init-app-user.js:/docker-entrypoint-initdb.d/init-app-user.js:ro
+      - ./infra/mongo/docker-entrypoint-e2e.sh:/e2e-entrypoint.sh:ro
+    # Official entrypoint is wrapped so auth+replSet can supply required keyFile (MongoDB 7+).
+    # Base CMD args are ignored; e2e-entrypoint always starts mongod with --keyFile.
+    entrypoint: ["/bin/bash", "/e2e-entrypoint.sh"]
+    ports: !override
+      - "127.0.0.1:${E2E_MONGO_PORT:-27019}:27017"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"try { quit(rs.status().ok ? 0 : 1) } catch (e) { quit(rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok ? 0 : 1) }\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  redis:
+    ports: !override []
+    volumes: !override
+      - maintainpro-e2e-redis-data:/data
+    # Keep base redis command (do not set empty requirepass).
+
+  minio:
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-e2e_minio_access_not_prod}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-e2e_minio_secret_not_for_production}
+    ports: !override []
+    volumes: !override
+      - maintainpro-e2e-minio-data:/data
+
+  minio-init:
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-e2e_minio_access_not_prod}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-e2e_minio_secret_not_for_production}
+      MINIO_BUCKET: ${MINIO_BUCKET:-maintainpro-e2e-files}
+    entrypoint: >-
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 \"$$MINIO_ACCESS_KEY\" \"$$MINIO_SECRET_KEY\"; do
+        echo 'Waiting for MinIO to become ready...';
+        sleep 2;
+      done;
+      mc mb -p local/$$MINIO_BUCKET || true;
+      exit 0;"
+
+  nginx:
+    ports: !override
+      - "127.0.0.1:${E2E_HTTP_PORT:-18080}:80"
+    volumes: !override
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  maintainpro-e2e-mongo-data:
+    name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_mongo_data
+  maintainpro-e2e-redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_redis_data
+  maintainpro-e2e-minio-data:
+    name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_minio_data
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_net
