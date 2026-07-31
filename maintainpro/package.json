@@ -93,7 +93,10 @@
     "docker:up": "docker compose -f docker-compose.yml up -d --build",
     "docker:up:dev": "docker compose -f docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml down",
-    "docker:down:dev": "docker compose -f docker-compose.dev.yml down"
+    "docker:down:dev": "docker compose -f docker-compose.dev.yml down",
+    "test:release": "node scripts/test/release-phase3.selftest.mjs",
+    "prepare:release": "node scripts/prepare-release-build.mjs",
+    "prepare:release:dry": "node scripts/prepare-release-build.mjs --dry-run --skip-docker"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

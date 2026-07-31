@@ -89,7 +89,7 @@
 | G1.4 HTTP mode | SOURCE_DONE (fail-closed dual opt-in); business risk acceptance still required |
 | G1.5 HTTPS default | SOURCE_DONE (Secure remains default) |
 | G3.2 Auth e2e | SOURCE_UPDATED (cookie architecture); full Playwright run not claimed here |
-| Live HTTP login validated | **NO** — smoke table empty |
+| Live HTTP login validated | **NO** ï¿½ smoke table empty |
 | G0.1 Mongo rotation | Still BLOCKED / OPERATOR |
 
 ---
@@ -101,3 +101,22 @@
 | G1.3 Cookies | SOURCE_VALIDATED (BFF-only browser cookies; Nest Option A) |
 | G1.1â€“G1.5 | SOURCE_VALIDATED; live traces OPERATOR_RUNTIME_VALIDATION_REQUIRED |
 | Live HTTP login | Not marked complete |
+
+---
+
+## Phase 3 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Branch / release model | SOURCE_VALIDATED (`RELEASE_BRANCH_STRATEGY.md`) |
+| Build metadata strategy | SOURCE_VALIDATED (`APP_*` + readiness assessment) |
+| Immutable API/Web image tags | SOURCE_VALIDATED (`maintainpro-*:${APP_COMMIT_SHA}`) |
+| Deployment scenarios | SOURCE_VALIDATED (`DEPLOYMENT_SCENARIOS.md`) |
+| Rollback architecture | SOURCE_VALIDATED (`PRODUCTION_ROLLBACK_RUNBOOK.md`) |
+| Schema-change gate | SOURCE_VALIDATED (`PRISMA_SCHEMA_CHANGE_GATE.md`) |
+| Branch protection operator config | OPERATOR_ACTION_REQUIRED |
+| Mongo root rotation | BLOCKED / OPERATOR_ACTION_REQUIRED |
+| Live HTTP smoke | OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
+| Port 80 IIS vs Nginx ownership | unanswered (A-03) |
+| Production deployment | NOT DONE (Phase 3 forbids live deploy) |

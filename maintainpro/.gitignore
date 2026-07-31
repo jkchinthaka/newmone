@@ -60,3 +60,7 @@ apps/api/prisma/dev.db-journal
 
 # PgAdmin session files
 pgadmin-data/
+
+# Release artifacts (generated; example JSON lives under docs/remediation/)
+artifacts/**
+!artifacts/.gitkeep

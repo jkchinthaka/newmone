@@ -320,23 +320,26 @@
 **Rollback:** Redeploy previous tag.  
 **Go/No-Go:** No wide pilot without G2 gates.
 
-#### TODO-P3-001 — Inject real `APP_COMMIT_SHA` / build timestamp at deploy
-- **Priority:** P1 | **Owner:** DevOps | **Status:** NOT_STARTED  
-- **Evidence now:** compose-ci placeholders  
+#### TODO-P3-001 ? Inject real `APP_COMMIT_SHA` / build timestamp at deploy
+- **Priority:** P1 | **Owner:** DevOps | **Status:** SOURCE_VALIDATED  
+- **Evidence now:** `build-info.util.ts` + production Compose require SHA/timestamp; `prepare-release-build.mjs`; release CI injects SHA  
 - **Acceptance criteria:** Health/build-info returns actual SHA matching deployed tag  
-- **Affected files:** compose, CI deploy scripts, Docker build args  
+- **Remaining:** OPERATOR_RUNTIME_VALIDATION_REQUIRED on production host  
+- **Affected files:** compose, prepare-release, Docker build args, health/build-info  
 - **Rollback:** Prior image  
 
-#### TODO-P3-002 — Pin MinIO/mc image digests; review mongo/redis/nginx tags
-- **Priority:** P1 | **Owner:** DevOps | **Status:** NOT_STARTED  
+#### TODO-P3-002 ? Pin MinIO/mc image digests; review mongo/redis/nginx tags
+- **Priority:** P1 | **Owner:** DevOps | **Status:** OPERATOR_ACTION_REQUIRED  
 - **Acceptance criteria:** No `latest` in production compose; digests documented  
+- **Note:** App images now use immutable SHA tags; dependency image digest pinning still open  
 
-#### TODO-P3-003 — Document server vs Git drift process
-- **Priority:** P1 | **Owner:** Tech Lead | **Status:** NOT_STARTED  
+#### TODO-P3-003 ? Document server vs Git drift process
+- **Priority:** P1 | **Owner:** Tech Lead | **Status:** SOURCE_VALIDATED  
 - **Acceptance criteria:** Drift checklist exists; differences ticketed  
+- **Evidence:** `RELEASE_BRANCH_STRATEGY.md`, `audit-server-release.ps1`, DEPLOY-REL-013/014  
 
-#### TODO-P3-004 — Windows reboot auto-start verification
-- **Priority:** P1 | **Owner:** SRE (**OPERATOR**) | **Status:** NOT_STARTED  
+#### TODO-P3-004 ? Windows reboot auto-start verification
+- **Priority:** P1 | **Owner:** SRE (**OPERATOR**) | **Status:** OPERATOR_RUNTIME_VALIDATION_REQUIRED  
 - **Acceptance criteria:** After reboot, nginx/web/api/mongo/redis healthy without manual docker desktop rediscovery (or documented manual step with owner)  
 
 ---
@@ -584,7 +587,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Nginx BFF routing | SOURCE_VALIDATED (static) | `default.conf` + `validate:nginx-routing` |
 | API_INTERNAL_URL | SOURCE_VALIDATED (compose) | `docker-compose.production.yml` + env examples |
 | Auth e2e cookie architecture | SOURCE_UPDATED | `e2e/auth.spec.ts` |
-| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` � table empty |
+| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` � table empty |
 | Mongo root rotation (Phase 1) | **OPERATOR_ACTION_REQUIRED** | Still open |
 | HTTPS recommendation | DOCUMENTED | HTTP is not secure transport; dual opt-in required |
 
@@ -609,3 +612,22 @@ This file is a plan. Implementation begins only when explicitly authorized after
 **OAuth:** Google callback returns profile JSON only — no BFF cookie handoff. Status: **P1 TODO** (incomplete browser OAuth session establishment).
 
 **Operational status:** SOURCE_VALIDATED. Live HTTP login remains **OPERATOR_RUNTIME_VALIDATION_REQUIRED**. Phase 1 Mongo root rotation remains **OPERATOR_ACTION_REQUIRED**. Image secret scan may be **BLOCKED** without Docker engine.
+
+---
+
+## Phase 3 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Branch / release model | SOURCE_VALIDATED (`RELEASE_BRANCH_STRATEGY.md`) |
+| Build metadata strategy | SOURCE_VALIDATED (`APP_*` + readiness assessment) |
+| Immutable API/Web image tags | SOURCE_VALIDATED (`maintainpro-*:${APP_COMMIT_SHA}`) |
+| Deployment scenarios | SOURCE_VALIDATED (`DEPLOYMENT_SCENARIOS.md`) |
+| Rollback architecture | SOURCE_VALIDATED (`PRODUCTION_ROLLBACK_RUNBOOK.md`) |
+| Schema-change gate | SOURCE_VALIDATED (`PRISMA_SCHEMA_CHANGE_GATE.md`) |
+| Branch protection operator config | OPERATOR_ACTION_REQUIRED |
+| Mongo root rotation | BLOCKED / OPERATOR_ACTION_REQUIRED |
+| Live HTTP smoke | OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
+| Port 80 IIS vs Nginx ownership | unanswered (A-03) |
+| Production deployment | NOT DONE (Phase 3 forbids live deploy) |

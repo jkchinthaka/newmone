@@ -179,3 +179,30 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 **OAuth:** Google callback returns profile JSON only — no BFF cookie handoff. Status: **P1 TODO** (incomplete browser OAuth session establishment).
 
 **Operational status:** SOURCE_VALIDATED. Live HTTP login remains **OPERATOR_RUNTIME_VALIDATION_REQUIRED**. Phase 1 Mongo root rotation remains **OPERATOR_ACTION_REQUIRED**. Image secret scan may be **BLOCKED** without Docker engine.
+
+---
+
+## Phase 3 source progress (2026-08-01)
+
+| Item | Status |
+| --- | --- |
+| Branch / release model | SOURCE_VALIDATED (`RELEASE_BRANCH_STRATEGY.md`) |
+| Build metadata strategy | SOURCE_VALIDATED (`APP_*` + readiness assessment) |
+| Immutable API/Web image tags | SOURCE_VALIDATED (`maintainpro-*:${APP_COMMIT_SHA}`) |
+| Deployment scenarios | SOURCE_VALIDATED (`DEPLOYMENT_SCENARIOS.md`) |
+| Rollback architecture | SOURCE_VALIDATED (`PRODUCTION_ROLLBACK_RUNBOOK.md`) |
+| Schema-change gate | SOURCE_VALIDATED (`PRISMA_SCHEMA_CHANGE_GATE.md`) |
+| Branch protection operator config | OPERATOR_ACTION_REQUIRED |
+| Mongo root rotation | BLOCKED / OPERATOR_ACTION_REQUIRED |
+| Live HTTP smoke | OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Docker image secret-path scan (local engine) | BLOCKED when Docker unavailable; CI runs on ubuntu |
+| Port 80 IIS vs Nginx ownership | unanswered (A-03) |
+| Production deployment | NOT DONE (Phase 3 forbids live deploy) |
+
+### 2.x Release identity (Phase 3)
+
+- Canonical env: `APP_VERSION`, `APP_COMMIT_SHA`, `APP_BUILD_TIMESTAMP`, `APP_ENVIRONMENT`, `APP_SERVICE_NAME`.
+- API exposes safe metadata via `/api/health`, `/api/build-info`.
+- Web exposes safe metadata via `/api/build-info`.
+- Production Compose requires SHA + timestamp and tags images `maintainpro-api|web:<SHA>`.
+- Direct server source edits forbidden; use `audit-server-release.ps1`.
