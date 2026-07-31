@@ -78,15 +78,31 @@ jobs:
 
       - name: Wait for health
         run: |
+          set -e
           for i in $(seq 1 60); do
             if curl -fsS "$E2E_BASE_URL/api/health" >/dev/null && curl -fsS "$E2E_BASE_URL/login" >/dev/null; then
               echo "healthy"
+              docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+                -f docker-compose.yml -f docker-compose.e2e.yml ps
               exit 0
             fi
             sleep 5
           done
           echo "health timeout"
-          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml ps
+          mkdir -p artifacts/e2e-logs
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml ps > artifacts/e2e-logs/compose-ps.txt || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 api > artifacts/e2e-logs/api-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 web > artifacts/e2e-logs/web-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 nginx > artifacts/e2e-logs/nginx-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 mongo > artifacts/e2e-logs/mongo-failure.log || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' \
+            artifacts/e2e-logs/*.log 2>/dev/null || true
+          cat artifacts/e2e-logs/compose-ps.txt || true
           exit 1
 
       - name: Seed disposable data

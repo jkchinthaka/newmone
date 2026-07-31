@@ -642,5 +642,8 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | E2E safety / no-mock validators | SOURCE_VALIDATED |
 | Real-stack Playwright suite | SOURCE_VALIDATED |
 | Full-stack E2E CI workflow | SOURCE_VALIDATED |
+| Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
+| Container healthcheck validator | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
+| Full-stack CI runtime | IN_PROGRESS / not yet RUNTIME_VALIDATED |
 | Live production login | NOT validated |

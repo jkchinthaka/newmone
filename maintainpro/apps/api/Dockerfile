@@ -25,14 +25,15 @@ RUN npm run build --workspace @maintainpro/shared-types && npm run build --works
 FROM node:20-alpine AS production
 WORKDIR /workspace
 ENV NODE_ENV=production
-# wget is required by docker-compose healthchecks (CMD-SHELL wget .../api/health)
-RUN apk add --no-cache openssl wget
+RUN apk add --no-cache openssl
 
 COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/apps/api/dist ./apps/api/dist
 COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
 COPY --from=build /workspace/packages/shared-types ./packages/shared-types
 COPY --from=build /workspace/prisma ./prisma
+# Node-based healthcheck — no wget/curl dependency
+COPY scripts/container-http-healthcheck.cjs /usr/local/bin/container-http-healthcheck.cjs
 
 EXPOSE 3000
 WORKDIR /workspace/apps/api

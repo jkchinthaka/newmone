@@ -9,3 +9,14 @@
 5. Redis/MinIO hard-failure chaos tests remain optional and CI-only.
 6. Live production login is **not** validated by this suite.
 7. Auth refresh-expiry edge cases may require deterministic clock control (follow-up).
+## Phase 4B healthcheck remediation (2026-08-01)
+
+| Item | Detail |
+| --- | --- |
+| Original failure (run 30661688505) | API unhealthy after Nest started — Compose used `wget` |
+| Classification | SERVICE_HEALTH_DEFECT / DOCKER_BUILD_DEFECT / E2E_CONFIGURATION_DEFECT |
+| Selected fix | Node `container-http-healthcheck.cjs` inside API/Web images (no apk wget) |
+| Nginx | BusyBox `wget` retained (present in `nginx:1.27-alpine`); probes `/api/health` + `/login` |
+| Follow-on (run 30662568592) | Stack healthy; seed failed — app user lacked `readWrite` on primary DB |
+| Seed fix | `init-app-user.js` grants roles on auth + primary + backup DB names |
+| Runtime status | NOT RUNTIME_VALIDATED until workflow success |

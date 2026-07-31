@@ -133,3 +133,5 @@
 | Full-stack E2E CI workflow | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
 | Live production login | NOT validated |
+| Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
+| Full-stack CI runtime | NOT RUNTIME_VALIDATED |
