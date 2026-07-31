@@ -72,3 +72,7 @@ apps/web/test-results/
 artifacts/e2e-evidence-manifest.json
 artifacts/e2e-logs/
 artifacts/deployment-evidence*.json
+
+# Phase 4B downloaded CI artifacts (never commit)
+.tmp-e2e-artifacts/
+

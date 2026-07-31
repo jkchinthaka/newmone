@@ -118,13 +118,25 @@ jobs:
           # Redact obvious secret patterns without printing values to workflow summary
           sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/compose.log || true
 
+      - name: Dump mongo logs on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts/e2e-logs
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color mongo > artifacts/e2e-logs/mongo-failure.log || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/mongo-failure.log || true
+
       - name: Stop isolated E2E stack only
         if: always()
         run: |
+          # Exact Compose project teardown including project-scoped volumes.
+          # Never prune globally. Project name must start with maintainpro-e2e-.
+          case "$COMPOSE_PROJECT_NAME" in
+            maintainpro-e2e-*) ;;
+            *) echo "Refusing cleanup: unexpected COMPOSE_PROJECT_NAME"; exit 1 ;;
+          esac
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
-            -f docker-compose.yml -f docker-compose.e2e.yml down
-          # Do NOT use down -v here by default; volumes are project-scoped and removable explicitly if needed:
-          docker volume ls -q --filter "name=${COMPOSE_PROJECT_NAME}_" | xargs -r docker volume rm || true
+            -f docker-compose.yml -f docker-compose.e2e.yml down --volumes --remove-orphans
 
       - name: Upload evidence artifacts
         if: always()

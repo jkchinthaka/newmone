@@ -91,6 +91,11 @@ function main() {
     } else {
       pass("E2E-SAFE-008", "Production volume names not reused as primary");
     }
+    if (!text.includes("docker-entrypoint-e2e.sh") || !text.includes("/e2e-entrypoint.sh")) {
+      fail("E2E-SAFE-015", "Mongo E2E must use keyFile-capable entrypoint (auth+replSet)");
+    } else {
+      pass("E2E-SAFE-015", "Mongo E2E keyFile entrypoint wired");
+    }
   }
 
   try {
