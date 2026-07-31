@@ -16,7 +16,10 @@
     "test:e2e:staging:uat002": "playwright test --config playwright.staging-uat002.config.ts",
     "test:e2e:staging:uat003": "playwright test --config playwright.staging-uat003.config.ts",
     "test:e2e:staging:uat004": "playwright test --config playwright.staging-uat004.config.ts",
-    "test:e2e:staging:uat005": "playwright test --config playwright.staging-uat005.config.ts"
+    "test:e2e:staging:uat005": "playwright test --config playwright.staging-uat005.config.ts",
+    "test:e2e:full-stack": "playwright test --config playwright.full-stack.config.ts",
+    "test:e2e:full-stack:headed": "playwright test --config playwright.full-stack.config.ts --headed",
+    "test:e2e:full-stack:report": "playwright show-report e2e-real-report"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

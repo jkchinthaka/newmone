@@ -64,3 +64,11 @@ pgadmin-data/
 # Release artifacts (generated; example JSON lives under docs/remediation/)
 artifacts/**
 !artifacts/.gitkeep
+# Full-stack E2E generated evidence (never commit)
+.env.e2e
+apps/web/e2e-real-report/
+apps/web/e2e-real-results/
+apps/web/test-results/
+artifacts/e2e-evidence-manifest.json
+artifacts/e2e-logs/
+artifacts/deployment-evidence*.json
