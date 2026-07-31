@@ -114,3 +114,11 @@
 - Playwright auth e2e no longer expects localStorage access tokens.
 - Live HTTP login at `http://<PUBLIC_HOST>/login` remains unanswered until operator smoke evidence.
 - Phase 1 Mongo root rotation remains OPERATOR_ACTION_REQUIRED.
+
+---
+
+## Phase 2 closeout assumption updates
+
+- Nest no longer issues browser session cookies (verified Option A).
+- Mobile remains JSON-token based with secure storage.
+- OAuth Google browser cookie handoff remains unanswered / P1 incomplete.

@@ -91,3 +91,13 @@
 | G3.2 Auth e2e | SOURCE_UPDATED (cookie architecture); full Playwright run not claimed here |
 | Live HTTP login validated | **NO** — smoke table empty |
 | G0.1 Mongo rotation | Still BLOCKED / OPERATOR |
+
+---
+
+## Phase 2 closeout gate note
+
+| Gate | Status |
+| --- | --- |
+| G1.3 Cookies | SOURCE_VALIDATED (BFF-only browser cookies; Nest Option A) |
+| G1.1â€“G1.5 | SOURCE_VALIDATED; live traces OPERATOR_RUNTIME_VALIDATION_REQUIRED |
+| Live HTTP login | Not marked complete |

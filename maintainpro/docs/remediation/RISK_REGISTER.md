@@ -58,3 +58,13 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | R-08 Nest SameSite=None | OPEN (TODO-P2-004) |
 | R-19 HTTP MITM | Accepted residual if HTTP mode used; HTTPS recommended |
 | R-01 Compromised Mongo root | Still OPEN |
+
+---
+
+## Phase 2 closeout risk update
+
+| Risk | Update |
+| --- | --- |
+| R-08 Nest SameSite=None | **Mitigated in source (Option A)** — Nest no longer issues browser session cookies; BFF owns Lax cookies |
+| R-02 / R-19 HTTP cookies | Unchanged: dual opt-in required; HTTPS recommended; live smoke operator-owned |
+| R-01 Mongo root | Still OPERATOR_ACTION_REQUIRED |

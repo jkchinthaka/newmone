@@ -232,5 +232,112 @@ describe("BFF backend route", () => {
     expect(text).not.toContain("super-secret-do-not-leak");
     expect(text).not.toContain("JWT_SECRET");
     expect(text).toContain("UPSTREAM_ERROR");
+  })
+
+  it("COOKIE-CLOSE-001/008: BFF login sets canonical cookies and strips tokens from JSON", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            user: { id: "u1" },
+            accessToken: "access-token-value",
+            refreshToken: "refresh-token-value"
+          },
+          message: "ok"
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    const json = (await response.json()) as { data: Record<string, unknown> };
+    expect(json.data.accessToken).toBeUndefined();
+    expect(json.data.refreshToken).toBeUndefined();
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).toMatch(/maintainpro_access=/);
+    expect(joined).toMatch(/maintainpro_refresh=/);
+    expect(joined).toMatch(/maintainpro_csrf=/);
+    expect(joined).toMatch(/HttpOnly/i);
+    expect(joined).toMatch(/SameSite=lax/i);
+    expect(joined.match(/maintainpro_access=/g)?.length).toBe(1);
+    expect(joined.match(/maintainpro_refresh=/g)?.length).toBe(1);
   });
+
+  it("COOKIE-CLOSE-003: HTTP compatibility mode cookies are Lax and not Secure", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.COOKIE_SECURE = "false";
+    process.env.ALLOW_INSECURE_HTTP = "true";
+    process.env.FRONTEND_URL = "http://example.invalid";
+    process.env.NEXT_PUBLIC_API_ORIGIN = "http://example.invalid";
+    process.env.CORS_ORIGIN = "http://example.invalid";
+
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({ data: { accessToken: "a", refreshToken: "r", user: {} }, message: "ok" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: {} }),
+      ["auth", "login"]
+    );
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).toMatch(/SameSite=lax/i);
+    expect(joined).not.toMatch(/; Secure/i);
+  });
+
+  it("COOKIE-CLOSE-004: secure production cookies are Lax and Secure", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.COOKIE_SECURE = "true";
+    process.env.ALLOW_INSECURE_HTTP = "false";
+    process.env.FRONTEND_URL = "https://example.invalid";
+    process.env.NEXT_PUBLIC_API_ORIGIN = "https://example.invalid";
+    process.env.CORS_ORIGIN = "https://example.invalid";
+
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({ data: { accessToken: "a", refreshToken: "r", user: {} }, message: "ok" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: {} }),
+      ["auth", "login"]
+    );
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).toMatch(/SameSite=lax/i);
+    expect(joined).toMatch(/Secure/i);
+  });
+
+  it("updates access cookie on tenant switch and strips accessToken from body", async () => {
+    setSessionCookies({ access: "old", csrf: "csrf" });
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: { accessToken: "new-tenant-access", activeTenant: { id: "t2" } },
+          message: "Tenant switched"
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["tenants", "t2", "switch"], {
+        body: {},
+        headers: { "x-csrf-token": "csrf" }
+      }),
+      ["tenants", "t2", "switch"]
+    );
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { data: Record<string, unknown> };
+    expect(json.data.accessToken).toBeUndefined();
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).toMatch(/maintainpro_access=new-tenant-access/);
+  });
+;
 });

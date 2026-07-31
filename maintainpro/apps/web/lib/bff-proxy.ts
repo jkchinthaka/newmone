@@ -56,6 +56,20 @@ function isAuthTokenPath(pathSegments: string[]): boolean {
   );
 }
 
+/** Paths whose successful responses may rotate BFF session cookies from JSON tokens. */
+function isSessionCookieUpdatePath(pathSegments: string[]): boolean {
+  if (isAuthTokenPath(pathSegments)) {
+    const path = pathSegments.join("/");
+    return path !== "auth/logout" && path !== "auth/logout-all";
+  }
+  // tenants/:id/switch returns a rotated access token for the active tenant.
+  return (
+    pathSegments.length === 3 &&
+    pathSegments[0] === "tenants" &&
+    pathSegments[2] === "switch"
+  );
+}
+
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -232,7 +246,7 @@ export async function proxyBffRequest(
   }
 
   const tokens = extractAuthTokens(parsedBody);
-  const shouldSetSession = isAuthTokenPath(pathSegments) && upstream.ok;
+  const shouldSetSession = isSessionCookieUpdatePath(pathSegments) && upstream.ok;
   const shouldClearSession =
     (path === "auth/logout" || path === "auth/logout-all") && upstream.ok;
 
@@ -259,7 +273,8 @@ export async function proxyBffRequest(
   if (shouldClearSession) {
     applySessionCookies(response, {}, { clear: true });
   } else if (shouldSetSession) {
-    applySessionCookies(response, tokens, { rotateCsrf: true });
+    const rotateCsrf = !(pathSegments[0] === "tenants" && pathSegments[2] === "switch");
+    applySessionCookies(response, tokens, { rotateCsrf });
   }
 
   return response;

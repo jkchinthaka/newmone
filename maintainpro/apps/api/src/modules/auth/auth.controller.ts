@@ -14,7 +14,6 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
-import { randomBytes } from "node:crypto";
 
 import { Public } from "../../common/decorators/public.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
@@ -41,29 +40,23 @@ export class AuthController {
   @Public()
   @Post("register")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.register(dto);
-    this.setAuthCookies(res, result.data);
-    return result;
+  async register(@Body() dto: RegisterDto) {
+    // Tokens remain in the JSON contract for the trusted BFF and mobile clients.
+    // Browser session cookies are owned exclusively by the Next.js BFF — Nest does not Set-Cookie.
+    return this.authService.register(dto);
   }
 
   @Public()
   @Post("login")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.login(dto);
-    this.setAuthCookies(res, result.data);
-    return result;
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   @Public()
   @Post("refresh")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async refresh(
-    @Body() dto: RefreshTokenDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
-  ) {
+  async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
     const refreshTokenFromCookie = this.getCookie(req, AuthController.REFRESH_COOKIE);
     const refreshToken = dto.refreshToken ?? refreshTokenFromCookie;
     if (!refreshToken) {
@@ -73,9 +66,7 @@ export class AuthController {
       this.assertCsrfForCookieFlow(req);
     }
 
-    const result = await this.authService.refresh({ refreshToken });
-    this.setAuthCookies(res, result.data);
-    return result;
+    return this.authService.refresh({ refreshToken });
   }
 
   @Public()
@@ -163,55 +154,17 @@ export class AuthController {
     };
   }
 
-  private setAuthCookies(
-    res: Response,
-    tokens: { accessToken?: string; refreshToken?: string }
-  ): void {
-    const secure = process.env.NODE_ENV === "production";
-    const sameSite = secure ? ("none" as const) : ("lax" as const);
-    const baseOptions = {
-      httpOnly: true,
-      sameSite,
-      secure,
-      path: "/"
-    };
-
-    if (tokens.accessToken) {
-      res.cookie(AuthController.ACCESS_COOKIE, tokens.accessToken, {
-        ...baseOptions,
-        maxAge: 15 * 60 * 1000
-      });
-    }
-
-    if (tokens.refreshToken) {
-      res.cookie(AuthController.REFRESH_COOKIE, tokens.refreshToken, {
-        ...baseOptions,
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
-
-      // Non-httpOnly token used for double-submit CSRF protection.
-      res.cookie(AuthController.CSRF_COOKIE, this.generateCsrfToken(), {
-        httpOnly: false,
-        sameSite,
-        secure,
-        path: "/",
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
-    }
-  }
-
+  /**
+   * Clears residual Nest-era browser cookies if a client still presents them.
+   * Nest no longer issues session cookies (BFF owns maintainpro_* cookies).
+   * Clearing uses SameSite=Lax only — SameSite=None is never used (COOKIE-CLOSE-005).
+   */
   private clearAuthCookies(res: Response): void {
     const secure = process.env.NODE_ENV === "production";
-    const sameSite = secure ? ("none" as const) : ("lax" as const);
-    const options = { httpOnly: true, sameSite, secure, path: "/" };
-    res.clearCookie(AuthController.ACCESS_COOKIE, options);
-    res.clearCookie(AuthController.REFRESH_COOKIE, options);
-    res.clearCookie(AuthController.CSRF_COOKIE, {
-      httpOnly: false,
-      sameSite,
-      secure,
-      path: "/"
-    });
+    const options = { path: "/", sameSite: "lax" as const, secure };
+    res.clearCookie(AuthController.ACCESS_COOKIE, { ...options, httpOnly: true });
+    res.clearCookie(AuthController.REFRESH_COOKIE, { ...options, httpOnly: true });
+    res.clearCookie(AuthController.CSRF_COOKIE, { ...options, httpOnly: false });
   }
 
   private getCookie(req: Request, name: string): string | null {
@@ -236,10 +189,6 @@ export class AuthController {
       return first && first.length > 0 ? first : null;
     }
     return null;
-  }
-
-  private generateCsrfToken(): string {
-    return randomBytes(32).toString("hex");
   }
 
   private assertCsrfForCookieFlow(req: Request): void {

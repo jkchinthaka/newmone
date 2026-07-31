@@ -136,3 +136,8 @@ Every P0/P1 TODO acceptance criterion must attach:
 | DEPLOY-CONFIG-002 | `node scripts/validate-image-secret-paths.mjs ...` |
 | NET-PORT-001 | `npm run validate:secret-safety` |
 | NET-PORT-002 | `npm run validate:secret-safety` |
+---
+
+## Phase 2 closeout test IDs
+
+COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookies.spec.ts`, `runtime-security-config.spec.ts`, and e2e auth cookie assertions.

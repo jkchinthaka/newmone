@@ -587,3 +587,25 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` � table empty |
 | Mongo root rotation (Phase 1) | **OPERATOR_ACTION_REQUIRED** | Still open |
 | HTTPS recommendation | DOCUMENTED | HTTP is not secure transport; dual opt-in required |
+
+---
+
+## Phase 2 closeout (Nest cookie ownership) — SOURCE_VALIDATED
+
+**Selected option:** Option A — NestJS does **not** issue browser session cookies.
+
+**Evidence:**
+- Mobile clients use FlutterSecureStorage + JSON token bodies (pps/mobile/lib/core/storage/token_storage.dart).
+- Next.js BFF strips tokens and sets maintainpro_* cookies (ff-proxy.ts).
+- Nest previously used `SameSite=None` when Secure (auth.controller) and also set cookies from tenancy switch — conflicting with BFF Lax architecture.
+- Nest `Set-Cookie` was not forwarded by the BFF anyway; tenancy switch left stale BFF access cookies.
+
+**Changes:**
+- Removed Nest `res.cookie` session issuance from auth login/register/refresh and tenancy switch.
+- Logout still clears residual Nest-era cookies with `SameSite=Lax` only (never None).
+- BFF updates access cookie on `tenants/:id/switch` and strips `accessToken` from browser-visible JSON.
+- Policy module: `auth-cookie.policy.ts` (`NEST_ISSUES_BROWSER_SESSION_COOKIES=false`).
+
+**OAuth:** Google callback returns profile JSON only — no BFF cookie handoff. Status: **P1 TODO** (incomplete browser OAuth session establishment).
+
+**Operational status:** SOURCE_VALIDATED. Live HTTP login remains **OPERATOR_RUNTIME_VALIDATION_REQUIRED**. Phase 1 Mongo root rotation remains **OPERATOR_ACTION_REQUIRED**. Image secret scan may be **BLOCKED** without Docker engine.
