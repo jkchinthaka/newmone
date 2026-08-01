@@ -157,9 +157,10 @@ export class CreatePurchaseReceiptLineDto {
   @Min(0)
   acceptedQuantity!: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  rejectedQuantity!: number;
+  rejectedQuantity?: number;
 
   @IsOptional()
   @IsString()

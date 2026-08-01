@@ -40,13 +40,14 @@ async function findPart(page: Page) {
   return part as { id: string; quantityInStock: number; partNumber: string };
 }
 
-test.describe.serial("E2E procurement controls @full-stack @procurement-gate @erp-control", () => {
+test.describe.serial("E2E procurement controls @procurement-gate", () => {
   let poId = "";
   let poNumber = "";
   let partId = "";
   let supplierId = "";
   let openingQty = 0;
   let lineId = "";
+  const suiteNonce = `n${Date.now().toString(36)}`;
 
   test("E2E-PROC-001 admin-a can list purchase orders (view)", async ({ page }) => {
     await loginViaUi(page, "admin-a");
@@ -74,7 +75,7 @@ test.describe.serial("E2E procurement controls @full-stack @procurement-gate @er
     const part = await findPart(page);
     partId = part.id;
     openingQty = Number(part.quantityInStock);
-    poNumber = `PO-E2E-${e2eRunId().slice(-8)}`;
+    poNumber = `PO-E2E-${e2eRunId().slice(-6)}-${suiteNonce}`;
     const create = await authenticatedPost(page, "/api/backend/inventory/purchase-orders", {
       data: {
         poNumber,
@@ -222,8 +223,8 @@ test.describe.serial("E2E procurement controls @full-stack @procurement-gate @er
     const beforeQty = Number(((await before.json()).data || {}).quantityInStock ?? openingQty);
     const res = await authenticatedPost(page, `/api/backend/inventory/purchase-orders/${poId}/receipts`, {
       data: {
-        receiptNumber: `GRN-${e2eRunId().slice(-8)}-1`,
-        idempotencyKey: `grn-${e2eRunId()}-1`,
+        receiptNumber: `GRN-${e2eRunId().slice(-6)}-${suiteNonce}-1`,
+        idempotencyKey: `grn-${e2eRunId()}-${suiteNonce}-1`,
         lines: [{ purchaseOrderLineId: lineId, acceptedQuantity: 1, rejectedQuantity: 0 }]
       }
     });
@@ -241,8 +242,8 @@ test.describe.serial("E2E procurement controls @full-stack @procurement-gate @er
     const beforeQty = Number(((await before.json()).data || {}).quantityInStock);
     const res = await authenticatedPost(page, `/api/backend/inventory/purchase-orders/${poId}/receipts`, {
       data: {
-        receiptNumber: `GRN-${e2eRunId().slice(-8)}-1`,
-        idempotencyKey: `grn-${e2eRunId()}-1`,
+        receiptNumber: `GRN-${e2eRunId().slice(-6)}-${suiteNonce}-1`,
+        idempotencyKey: `grn-${e2eRunId()}-${suiteNonce}-1`,
         lines: [{ purchaseOrderLineId: lineId, acceptedQuantity: 1, rejectedQuantity: 0 }]
       }
     });
@@ -255,7 +256,7 @@ test.describe.serial("E2E procurement controls @full-stack @procurement-gate @er
     await loginViaUi(page, "inventory-a");
     const res = await authenticatedPost(page, `/api/backend/inventory/purchase-orders/${poId}/receipts`, {
       data: {
-        receiptNumber: `GRN-OVER-${e2eRunId().slice(-6)}`,
+        receiptNumber: `GRN-OVER-${e2eRunId().slice(-4)}-${suiteNonce}`,
         lines: [{ purchaseOrderLineId: lineId, acceptedQuantity: 99, rejectedQuantity: 0 }]
       }
     });
@@ -268,7 +269,7 @@ test.describe.serial("E2E procurement controls @full-stack @procurement-gate @er
     const beforeQty = Number(((await before.json()).data || {}).quantityInStock);
     const res = await authenticatedPost(page, `/api/backend/inventory/purchase-orders/${poId}/receipts`, {
       data: {
-        receiptNumber: `GRN-REJ-${e2eRunId().slice(-6)}`,
+        receiptNumber: `GRN-REJ-${e2eRunId().slice(-4)}-${suiteNonce}`,
         lines: [
           {
             purchaseOrderLineId: lineId,
