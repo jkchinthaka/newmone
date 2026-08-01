@@ -666,7 +666,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Container healthcheck validator | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
-| Full-stack CI runtime | IN_PROGRESS / not yet RUNTIME_VALIDATED |
+| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`) |
 | Live production login | NOT validated |
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
@@ -700,10 +700,11 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 5D — Management information (dashboard / KPI / reports / audit / export)
 
-- Status: **CONTRACT_DEFINED** (docs) — implementation + runtime pending
+- Status: **RUNTIME_VALIDATED** (workflow `30719294386`, app SHA `5836bc330cc03e7a3f658ed9cee5f334649f3091`)
 - Preserve Phase 5B RUNTIME_VALIDATED: workflow `30712469601`, app SHA `fe3b3992d883d33c916b3595769add2c4db8878a`
 - Preserve Phase 5C RUNTIME_VALIDATED: workflow `30715842098`, app SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`
-- Do **not** invent Phase 5D runtime SHA until Full-Stack E2E management-info gate succeeds
+- Management-info gate: 20 / 0 / 0; full suite: 103 / 0 / 0; timezone Asia/Colombo; currency LKR; ERP MOCK
+- Evidence-document commits after the application SHA are documentation-only
 
 ### Documentation checklist
 
@@ -716,19 +717,20 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - [x] AUDIT_EVENT_COVERAGE_MATRIX.md
 - [x] REPORT_EXPORT_SAFETY_CONTRACT.md
 - [x] E2E matrix / limitations / TEST_STRATEGY / GO_LIVE_GATES / RISK_REGISTER / ARCHITECTURE_FINDINGS updated
+- [x] FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 5D section
 
 ### Implementation checklist
 
-- [ ] Server-side dashboard snapshot DTO + coverageStatus
-- [ ] Granular reports.* permissions in catalog/seed/E2E seed (prod migration operator-owned)
-- [ ] FINANCE canonical + FINANCE_APPROVER alias alignment
-- [ ] Financial basis: default Total Expenses = WO actualCost + utility + farm; separate committed PO
-- [ ] MTBF null + INSUFFICIENT_DATA path
-- [ ] Safe security events for login failure (no passwords/tokens)
-- [ ] Export formula neutralization + truncation metadata + audit
-- [ ] ERP monitoring safe fields (MOCK in E2E)
-- [ ] Playwright @management-info-gate (E2E-DASH/KPI/REPORT/AUDIT/ERP-MON)
-- [ ] Full-Stack E2E RUNTIME_VALIDATED evidence (SHA TBD after success)
+- [x] Server-side dashboard snapshot DTO + coverageStatus
+- [x] Granular reports.* permissions in catalog/seed/E2E seed (prod migration operator-owned)
+- [x] FINANCE canonical + FINANCE_APPROVER alias alignment
+- [x] Financial basis: default Total Expenses = WO actualCost + utility + farm; separate committed PO
+- [x] MTBF null + INSUFFICIENT_DATA path
+- [x] Safe security events for login failure (no passwords/tokens)
+- [x] Export formula neutralization + truncation metadata + audit
+- [x] ERP monitoring safe fields (MOCK in E2E)
+- [x] Playwright @management-info-gate (E2E-DASH/KPI/REPORT/AUDIT/ERP-MON)
+- [x] Full-Stack E2E RUNTIME_VALIDATED evidence (`5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`)
 
 ### Explicitly deferred (not Phase 5D)
 

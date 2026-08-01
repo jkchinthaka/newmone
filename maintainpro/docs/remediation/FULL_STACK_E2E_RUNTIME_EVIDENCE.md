@@ -183,3 +183,65 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 
 Safe gate flags: request/PO/approval/ERP/receipt/stock/duplicate-prevention/audit/tenant controls exercised via @procurement-gate.
 Evidence-document commits after this SHA are documentation-only unless labeled otherwise.
+
+## Phase 5D — Management dashboard, reports, audit, ERP monitoring
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30719294386` |
+| Branch | `fix/phase5d-dashboard-report-audit-controls` |
+| Exact tested application SHA | `5836bc330cc03e7a3f658ed9cee5f334649f3091` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **RUNTIME_VALIDATED** |
+| Reporting timezone | Asia/Colombo |
+| Currency code | LKR |
+| ERP provider (E2E) | MOCK |
+
+### Management-information gate (@management-info-gate)
+
+| Check | Result |
+| --- | --- |
+| Management information gate | PASS (20 passed / 0 failed / 0 skipped) |
+| Dashboard role matrix | PASS |
+| KPI reconciliation (WO total, MTBF insufficient-data) | PASS |
+| Financial / report access | PASS (authorized 200 / unauthorized 403) |
+| Export safety | PASS |
+| Audit soft checks / failed-login non-leakage | PASS |
+| ERP monitoring safe summary | PASS |
+| Tenant isolation | PASS |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Text integrity / nondestructive cleanup / secret safety | PASS |
+| Work-order / inventory / lifecycle / procurement gates | PASS |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped |
+| Cleanup | down --remove-orphans (volumes preserved) |
+
+### Preserved prior evidence
+
+| Phase | Application SHA | Workflow | Totals |
+| --- | --- | --- | --- |
+| 5B | fe3b3992d883d33c916b3595769add2c4db8878a | 30712469601 | 103 / 0 / 0 |
+| 5C | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 | 30715842098 | procurement 20; full 103 / 0 / 0 |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| Passwords / tokens / cookies / CSRF / Authorization | Not observed in safe summaries |
+| ERP provider URLs / payloads / keys | Not observed |
+| Raw artifacts committed | **No** |
+
+### Remaining blockers (not Phase 5D)
+
+1. Phase 6 backup / monitoring infrastructure.
+2. Production role / permission migration for new `reports.*` keys (operator-owned).
+3. Flutter dashboard redesign (out of scope).
+4. Production go-live / IIS / DNS / Azure changes (out of scope).
+5. Do **not** treat as production go-live readiness.
+
+Evidence-document commits after `5836bc330cc03e7a3f658ed9cee5f334649f3091` are documentation-only unless labeled otherwise.
