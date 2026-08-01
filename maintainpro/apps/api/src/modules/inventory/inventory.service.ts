@@ -1278,7 +1278,7 @@ export class InventoryService {
       lines: Array<{
         purchaseOrderLineId: string;
         acceptedQuantity: number;
-        rejectedQuantity: number;
+        rejectedQuantity?: number;
         rejectionReason?: string;
       }>;
     },
