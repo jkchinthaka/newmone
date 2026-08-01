@@ -105,4 +105,6 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 
 | Playwright missing disposable env | Mitigated by centralized E2E env loader |
 | E2E env template missing final newline / fragile append | Mitigated by materialize + NL validators (attempt 3) |
+| Nginx 502 on successful BFF login (large Set-Cookie) | Mitigated by enlarged `/api/backend/` proxy buffers + auth-path A/B/C gate (attempt 4) |
+| API login 401 vs browser 502 correlation | Open until request-ID evidence; do not assume same request |
 

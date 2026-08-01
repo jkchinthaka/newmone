@@ -649,5 +649,6 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Live production login | NOT validated |
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
-| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3; runtime pending) |
+| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
+| Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4; runtime pending) |
 

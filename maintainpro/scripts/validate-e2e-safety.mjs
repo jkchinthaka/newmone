@@ -143,6 +143,26 @@ function main() {
     } else {
       pass("E2E-SAFE-017", "E2E runtime append boundary: PASS");
     }
+
+    if (!wf.includes("e2e-auth-path-diag") || !wf.includes("Auth path diagnostic")) {
+      fail("E2E-SAFE-019", "Workflow must run three-level auth-path diagnostic before Playwright");
+    } else if (/continue-on-error:\s*true[\s\S]{0,120}Auth path diagnostic|Auth path diagnostic[\s\S]{0,120}continue-on-error:\s*true/.test(wf)) {
+      fail("E2E-SAFE-019", "Auth path diagnostic must not use continue-on-error");
+    } else {
+      pass("E2E-SAFE-019", "Auth path diagnostic gate present before Playwright");
+    }
+  }
+
+  const e2eComposeForDiag = path.join(maintainproRoot, "docker-compose.e2e.yml");
+  if (existsSync(e2eComposeForDiag)) {
+    const diagText = readFileSync(e2eComposeForDiag, "utf8");
+    if (!diagText.includes("e2e-auth-path-diag") || !diagText.includes("diagnostics")) {
+      fail("E2E-SAFE-020", "E2E compose must define diagnostics-profile auth-path service");
+    } else if (/e2e-auth-path-diag:[\s\S]*?ports:/.test(diagText)) {
+      fail("E2E-SAFE-020", "Auth-path diagnostic service must not publish ports");
+    } else {
+      pass("E2E-SAFE-020", "Diagnostics-profile auth-path service is internal-only");
+    }
   }
 
   const exampleEnvPath = path.join(maintainproRoot, ".env.e2e.example");

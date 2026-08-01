@@ -115,6 +115,36 @@ jobs:
       - name: E2E environment preflight
         run: npm run e2e:env-preflight
 
+      - name: Auth path diagnostic (A/B/C)
+        id: auth_path_diag
+        run: |
+          set -e
+          mkdir -p artifacts/e2e-logs
+          # Disposable network probe only — never prints credentials or bodies.
+          # Copy approved env into the compose bind mount path expected by the diag service.
+          if [ ! -f .env.e2e ]; then
+            cp "$MAINTAINPRO_E2E_ENV_FILE" .env.e2e
+          fi
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml \
+            --profile diagnostics run --rm --no-deps e2e-auth-path-diag \
+            | tee artifacts/e2e-logs/auth-path-diagnostic.txt
+
+      - name: Collect auth-path failure evidence
+        if: failure() && steps.auth_path_diag.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/e2e-logs
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml ps > artifacts/e2e-logs/compose-ps-auth-path.txt || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 api > artifacts/e2e-logs/api-auth-path.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 web > artifacts/e2e-logs/web-auth-path.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 nginx > artifacts/e2e-logs/nginx-auth-path.log || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' \
+            artifacts/e2e-logs/*.log 2>/dev/null || true
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:

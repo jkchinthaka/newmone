@@ -66,6 +66,22 @@ function main() {
     if (!/proxy_http_version\s+1\.1\s*;/.test(block)) {
       fail("NGINX-BFF-001", "BFF location must use HTTP/1.1");
     }
+    if (!/proxy_buffer_size\s+32k\s*;/.test(block) || !/proxy_buffers\s+8\s+32k\s*;/.test(block)) {
+      fail(
+        "NGINX-BFF-003",
+        "BFF location must enlarge proxy buffers for large Set-Cookie JWT responses"
+      );
+    } else {
+      pass("NGINX-BFF-003", "BFF location has enlarged proxy buffers for login cookies");
+    }
+    if (!/proxy_set_header\s+X-Request-Id\s+\$maintainpro_request_id\s*;/.test(block)) {
+      fail("NGINX-BFF-004", "BFF location must forward sanitized/generated X-Request-Id");
+    } else {
+      pass("NGINX-BFF-004", "BFF location forwards X-Request-Id");
+    }
+    if (!/map\s+\$http_x_request_id\s+\$maintainpro_request_id/.test(text)) {
+      fail("NGINX-BFF-004", "Nginx must map missing X-Request-Id to \$request_id");
+    }
   }
 
   const apiMatch = text.match(/location\s+\/api\/\s*\{([\s\S]*?)\}/);

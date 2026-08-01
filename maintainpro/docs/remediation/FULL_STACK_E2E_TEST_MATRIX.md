@@ -19,6 +19,10 @@ Tags: `@mocked` (legacy `e2e/`), `@full-stack`, `@security`, `@tenant`, `@erp-co
 
 | E2E-ENV-* | Loader/path/precedence/password non-exposure | SOURCE_VALIDATED |
 | E2E-NL-* | Template LF + newline-safe materialize / no domain concat | SOURCE_VALIDATED |
+| BFF-502-* | Upstream URL, hop-by-hop stripping, 4xx preservation, connectivity mapping | SOURCE_VALIDATED |
+| AUTH-PATH A/B/C | Direct API / direct BFF / Nginx login probes (safe metadata only) | SOURCE_VALIDATED (CI gate) |
 
-Runtime note (attempt 3): run `30665797773` fixed password loading (35/16/1). Next defect was missing template LF + fragile append corrupting `E2E_SEED_EMAIL_DOMAIN` — not an application auth defect. Runtime remains FAILED until the next workflow.
+Runtime note (attempt 3): run `30665797773` fixed password loading (35/16/1). Next defect was missing template LF + fragile append corrupting `E2E_SEED_EMAIL_DOMAIN` — not an application auth defect.
+
+Runtime note (attempt 4): run `30670515826` (37/13/2) — clean email; browser login **502** via Nginx while some API logins show **401** (do not equate without correlation). Verified nginx proxy buffer defect on large BFF `Set-Cookie` login responses. Runtime remains FAILED until the next workflow.
 

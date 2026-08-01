@@ -35,3 +35,12 @@
 - Classification: E2E_CONFIGURATION_DEFECT (env-file materialization / line-boundary) — API `email must be an email` response was correct.
 - Fix: canonical template LF + newline-safe `e2e-materialize-env` (overrides, no duplicate keys) + NL regression validators.
 - Runtime status: FAILED until the next workflow completes. Do not treat application authentication as defective. Live production login remains unvalidated. Mongo root rotation remains operator-owned.
+
+## Phase 4B attempt 4 — BFF login 502 / nginx proxy buffers (2026-08-01)
+
+- Run `30670515826`: newline/password defects resolved; clean emails confirmed; Playwright **37 passed / 13 failed / 2 skipped**.
+- Failure: E2E-AUTH-001 reached BFF login but browser received **HTTP 502**. Some NestJS `POST /auth/login` lines showed **401** — treat as a separate request until request-ID correlation proves otherwise.
+- Classification: `E2E_RUNTIME_DEFECT` / `SERVICE_CONNECTIVITY` → verified **`NGINX_PROXY_DEFECT`** (Case 5): successful BFF login sets large JWT `Set-Cookie` headers that exceed default nginx `proxy_buffer_size`.
+- Fix: enlarge `/api/backend/` proxy buffers; preserve/generate `X-Request-Id`; harden BFF upstream URL + 4xx preservation; three-level auth-path diagnostic gate before Playwright.
+- Secondary (not fixed in this attempt unless BFF maps 401→502): possible `AUTH_FIXTURE_MISMATCH` for some API 401s.
+- Runtime status: FAILED until the next workflow succeeds. Live production login remains unvalidated. Mongo root rotation remains operator-owned.

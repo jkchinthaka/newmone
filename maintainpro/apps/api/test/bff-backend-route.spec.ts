@@ -57,6 +57,8 @@ describe("BFF backend route", () => {
     };
     delete process.env.COOKIE_SECURE;
     delete process.env.ALLOW_INSECURE_HTTP;
+    // Unit tests use a mock upstream host; do not apply Docker E2E host hard-checks.
+    delete process.env.E2E_TEST_MODE;
   });
 
   afterEach(() => {
@@ -339,5 +341,186 @@ describe("BFF backend route", () => {
     const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
     expect(joined).toMatch(/maintainpro_access=new-tenant-access/);
   });
-;
+
+  it("BFF-502-008: upstream 400 remains 400", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, error: { code: "VALIDATION_ERROR" } }), {
+        status: 400,
+        headers: { "content-type": "application/json", "x-request-id": "up-400" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "bad", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("x-request-id")).toBe("up-400");
+  });
+
+  it("BFF-502-009: upstream 401 remains 401 and does not set session cookies", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, error: { message: "Invalid email or password" } }), {
+        status: 401,
+        headers: { "content-type": "application/json" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "wrong" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(401);
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).not.toMatch(/maintainpro_access=/);
+  });
+
+  it("BFF-502-010: upstream 403 remains 403", async () => {
+    setSessionCookies({ access: "a", csrf: "csrf" });
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, error: { code: "FORBIDDEN" } }), {
+        status: 403,
+        headers: { "content-type": "application/json" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["work-orders"], {
+        body: { title: "x" },
+        headers: { "x-csrf-token": "csrf" }
+      }),
+      ["work-orders"]
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("BFF-502-011: upstream 409 remains 409", async () => {
+    setSessionCookies({ access: "a", csrf: "csrf" });
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, error: { code: "CONFLICT" } }), {
+        status: 409,
+        headers: { "content-type": "application/json" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["work-orders"], {
+        body: { title: "x" },
+        headers: { "x-csrf-token": "csrf" }
+      }),
+      ["work-orders"]
+    );
+    expect(response.status).toBe(409);
+  });
+
+  it("BFF-502-012: connection refusal maps to controlled 502", async () => {
+    global.fetch = jest.fn(async () => {
+      throw new Error("fetch failed: ECONNREFUSED");
+    }) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(502);
+    const json = (await response.json()) as { error: { code: string; requestId: string; message: string } };
+    expect(json.error.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(json.error.requestId).toBeTruthy();
+    expect(JSON.stringify(json)).not.toContain("api:3000");
+    expect(JSON.stringify(json)).not.toContain("ECONNREFUSED");
+  });
+
+  it("BFF-502-014: malformed upstream 401 body stays 401 (not 502)", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response("not-json-but-unauthorized", {
+        status: 401,
+        headers: { "content-type": "text/plain" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(401);
+    expect(response.status).not.toBe(502);
+  });
+
+  it("BFF-502-005/006: does not forward content-length or hop-by-hop headers", async () => {
+    let captured: Headers | undefined;
+    global.fetch = jest.fn(async (_url, init) => {
+      captured = init?.headers as Headers;
+      return new Response(JSON.stringify({ success: false }), {
+        status: 401,
+        headers: { "content-type": "application/json" }
+      });
+    }) as unknown as typeof fetch;
+
+    await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], {
+        body: { email: "a@b.c", password: "x" },
+        headers: {
+          "content-length": "9999",
+          connection: "keep-alive",
+          host: "evil.example"
+        }
+      }),
+      ["auth", "login"]
+    );
+    expect(captured?.get("content-length")).toBeNull();
+    expect(captured?.get("connection")).toBeNull();
+    expect(captured?.get("host")).toBeNull();
+    expect(captured?.get("content-type")).toMatch(/application\/json/i);
+    expect(captured?.get("x-request-id")).toBeTruthy();
+  });
+
+  it("BFF-502-013: timeout maps to controlled 504", async () => {
+    global.fetch = jest.fn(async () => {
+      const err = new Error("The operation was aborted due to timeout");
+      err.name = "TimeoutError";
+      throw err;
+    }) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(504);
+    const json = (await response.json()) as { error: { code: string; requestId: string } };
+    expect(json.error.code).toBe("UPSTREAM_TIMEOUT");
+    expect(json.error.requestId).toBeTruthy();
+  });
+
+  it("BFF-502-015: request id is forwarded and returned safely", async () => {
+    let captured: Headers | undefined;
+    global.fetch = jest.fn(async (_url, init) => {
+      captured = init?.headers as Headers;
+      return new Response(JSON.stringify({ success: false, message: "Invalid email or password" }), {
+        status: 401,
+        headers: { "content-type": "application/json", "x-request-id": "upstream-id-1" }
+      });
+    }) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], {
+        body: { email: "a@b.c", password: "x" },
+        headers: { "x-request-id": "client-req-id-abc" }
+      }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(401);
+    expect(captured?.get("x-request-id")).toBe("client-req-id-abc");
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
+
+  it("BFF-502-003: missing API_INTERNAL_URL fails closed", async () => {
+    delete process.env.API_INTERNAL_URL;
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect([500, 502]).toContain(response.status);
+    const json = (await response.json()) as { error: { code: string } };
+    expect(["UPSTREAM_CONFIG", "UPSTREAM_UNAVAILABLE"]).toContain(json.error.code);
+  });
 });
