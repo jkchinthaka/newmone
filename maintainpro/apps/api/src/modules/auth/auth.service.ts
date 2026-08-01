@@ -5,7 +5,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -17,8 +16,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
-import { SecurityEventsService } from "../audit/security-events.service";
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
+import { recordAuthSecurityEvent } from "./auth-security-event.util";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -34,16 +33,8 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService,
-    @Optional() @Inject(SecurityEventsService) private readonly securityEventsService?: SecurityEventsService
+    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService
   ) {}
-
-  private async recordSecurityEvent(
-    input: Parameters<SecurityEventsService["record"]>[0]
-  ): Promise<void> {
-    if (!this.securityEventsService) return;
-    await this.securityEventsService.record(input);
-  }
 
   private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
     const { passwordHash: _passwordHash, ...publicUser } = user;
@@ -294,7 +285,7 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
-      await this.recordSecurityEvent({
+      recordAuthSecurityEvent(this.prisma, {
         eventType: "LOGIN_FAILURE",
         outcome: "FAILURE",
         reasonCode: "INVALID_CREDENTIALS",
@@ -307,7 +298,7 @@ export class AuthService {
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
-      await this.recordSecurityEvent({
+      recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
         actorId: user.id,
         eventType: "LOGIN_FAILURE",
@@ -320,7 +311,7 @@ export class AuthService {
     }
 
     if (user.lockedUntil && user.lockedUntil > now) {
-      await this.recordSecurityEvent({
+      recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
         actorId: user.id,
         eventType: "ACCOUNT_LOCK",
@@ -348,7 +339,7 @@ export class AuthService {
           lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
         }
       });
-      await this.recordSecurityEvent({
+      recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
         actorId: user.id,
         eventType: shouldLock ? "ACCOUNT_LOCK" : "LOGIN_FAILURE",
