@@ -108,7 +108,7 @@
     "test:bff-upstream": "node scripts/test/bff-upstream.selftest.mjs",
     "test:e2e-auth-path": "node scripts/e2e-auth-path-diagnostic.mjs",
     "e2e:auth-path-diag": "docker compose --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml --profile diagnostics run --rm --no-deps e2e-auth-path-diag",
-    "test:release": "node scripts/test/release-phase3.selftest.mjs && node scripts/test/container-healthchecks.selftest.mjs && node scripts/test/e2e-environment.selftest.mjs && node scripts/test/e2e-env-newline.selftest.mjs && node scripts/validate-e2e-env-lines.mjs && node scripts/test/bff-upstream.selftest.mjs && node scripts/test/auth-status-contract.selftest.mjs && node scripts/test/logout-csrf-contract.selftest.mjs && node scripts/validate-e2e-request-contexts.mjs && node scripts/validate-e2e-work-order-payloads.mjs && node scripts/test/work-order-create-contract.selftest.mjs && node scripts/validate-e2e-inventory-controls.mjs && node scripts/test/inventory-access-contract.selftest.mjs && node scripts/test/inventory-stock-issue-contract.selftest.mjs && node scripts/validate-e2e-work-order-lifecycle.mjs && node scripts/test/work-order-lifecycle-contract.selftest.mjs && node scripts/validate-nondestructive-docker-cleanup.mjs && node scripts/test/nondestructive-docker-cleanup.selftest.mjs && node scripts/validate-text-integrity.mjs && node scripts/test/text-integrity.selftest.mjs",
+    "test:release": "node scripts/test/release-phase3.selftest.mjs && node scripts/test/container-healthchecks.selftest.mjs && node scripts/test/e2e-environment.selftest.mjs && node scripts/test/e2e-env-newline.selftest.mjs && node scripts/validate-e2e-env-lines.mjs && node scripts/test/bff-upstream.selftest.mjs && node scripts/test/auth-status-contract.selftest.mjs && node scripts/test/logout-csrf-contract.selftest.mjs && node scripts/validate-e2e-request-contexts.mjs && node scripts/validate-e2e-work-order-payloads.mjs && node scripts/test/work-order-create-contract.selftest.mjs && node scripts/validate-e2e-inventory-controls.mjs && node scripts/test/inventory-access-contract.selftest.mjs && node scripts/test/inventory-stock-issue-contract.selftest.mjs && node scripts/validate-e2e-work-order-lifecycle.mjs && node scripts/test/work-order-lifecycle-contract.selftest.mjs && node scripts/validate-nondestructive-docker-cleanup.mjs && node scripts/test/nondestructive-docker-cleanup.selftest.mjs && node scripts/validate-e2e-procurement-controls.mjs && node scripts/test/procurement-lifecycle-contract.selftest.mjs && node scripts/test/purchase-order-approval-contract.selftest.mjs && node scripts/test/purchase-receiving-contract.selftest.mjs && node scripts/test/erp-sync-safety-contract.selftest.mjs && node scripts/validate-text-integrity.mjs && node scripts/test/text-integrity.selftest.mjs",
     "prepare:release": "node scripts/prepare-release-build.mjs",
     "prepare:release:dry": "node scripts/prepare-release-build.mjs --dry-run --skip-docker",
     "validate:e2e-safety": "node scripts/validate-e2e-safety.mjs",
@@ -128,7 +128,12 @@
     "test:e2e-env": "node scripts/test/e2e-environment.selftest.mjs && node scripts/test/e2e-env-newline.selftest.mjs",
     "validate:e2e-env-lines": "node scripts/validate-e2e-env-lines.mjs",
     "validate:text-integrity": "node scripts/validate-text-integrity.mjs",
-    "test:text-integrity": "node scripts/test/text-integrity.selftest.mjs"
+    "test:text-integrity": "node scripts/test/text-integrity.selftest.mjs",
+    "validate:e2e-procurement-controls": "node scripts/validate-e2e-procurement-controls.mjs",
+    "test:procurement-lifecycle-contract": "node scripts/test/procurement-lifecycle-contract.selftest.mjs",
+    "test:purchase-order-approval-contract": "node scripts/test/purchase-order-approval-contract.selftest.mjs",
+    "test:purchase-receiving-contract": "node scripts/test/purchase-receiving-contract.selftest.mjs",
+    "test:erp-sync-safety-contract": "node scripts/test/erp-sync-safety-contract.selftest.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -228,3 +228,7 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 - Stock-out requires tenant-scoped `workOrderId`, atomic conditional decrement, optional tenant-scoped idempotency (`InventoryStockIssueIdempotency`).
 - Movement records carry tenant/WO/actor for reconciliation.
 - E2E creates WO via manager context; no hardcoded ObjectIds.
+
+## Phase 5C architecture
+
+PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads sanitized. inventory.erp_apply separated.

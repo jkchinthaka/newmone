@@ -115,3 +115,8 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 - Corrected workflow 30712469601 on SHA fe3b3992... passed 103/0/0 with down --remove-orphans only.
 - Automated volume deletion remains prohibited repository-wide; enforced by validate:nondestructive-docker-cleanup.
 
+## Phase 5C notes
+
+- Personas: admin-a create, manager-a finance, inventory-a receive; tech-a denied create.
+- Flutter GRN: OPERATOR_ACTION_REQUIRED - stop PATCH RECEIVED; use receipts API.
+- Real Bileeta ERP writes remain out of scope.

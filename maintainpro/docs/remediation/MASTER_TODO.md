@@ -680,6 +680,17 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 
 
+
+
+## Phase 5C — Procurement / PO / ERP / receiving
+
+- Status: **IN_PROGRESS** (source controls; not RUNTIME_VALIDATED)
+- Preserve Phase 5B RUNTIME_VALIDATED evidence (workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)
+
+#### TODO-P5C-001 — Procurement/PO/ERP/receiving controls
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Acceptance:** Server totals, maker-checker, GRN over-receipt, ERP sanitize, E2E-PROC-001..020, focused procurement gate
+
 ## Phase 5B status
 
 - Status: **RUNTIME_VALIDATED** (corrected workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)

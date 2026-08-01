@@ -125,3 +125,10 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Residual | Option B inventory.view deferred; ERP apply role narrowing P1 |
 
 | CI E2E Compose `down --volumes` | CI_CLEANUP_SAFETY_DEFECT | Corrected to `down --remove-orphans`; validator prevents regression | Open until corrected SHA rerun |
+
+## Phase 5C risks
+
+- P1: Receipt reversal not implemented (immutable posted receipts).
+- P1: Production poNumber uniqueness migration needs operator audit.
+- P1: FINANCE/PROCUREMENT_OFFICER production user migration operator-owned.
+- P0 closed in source: client totals, PATCH RECEIVED, live ERP in E2E, keeper apply.

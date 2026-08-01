@@ -21,6 +21,14 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { InventoryService } from "./inventory.service";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
+import {
+  ApprovePurchaseOrderDto,
+  CreatePurchaseOrderDto,
+  CreatePurchaseReceiptDto,
+  RejectPurchaseOrderDto,
+  RetryPurchaseOrderSyncDto,
+  SyncPurchaseOrderDto
+} from "./dto/purchase-order.dto";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -203,44 +211,51 @@ export class InventoryController {
   }
 
   @Get("purchase-orders")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("part_requests.view")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "ASSET_MANAGER",
+    "INVENTORY_KEEPER",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "PROCUREMENT_OFFICER",
+    "FINANCE"
+  )
+  @Permissions("purchase_orders.view")
   async purchaseOrders(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.purchaseOrders(req.user);
     return { data, message: "Purchase orders fetched" };
   }
 
   @Get("purchase-orders/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("part_requests.view")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "ASSET_MANAGER",
+    "INVENTORY_KEEPER",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "PROCUREMENT_OFFICER",
+    "FINANCE"
+  )
+  @Permissions("purchase_orders.view")
   async purchaseOrder(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.getPurchaseOrder(id, req.user);
     return { data, message: "Purchase order fetched" };
   }
 
   @Post("purchase-orders")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage")
-  async createPurchaseOrder(
-    @Req() req: AuthedRequest,
-    @Body() body: {
-      poNumber: string;
-      supplierId: string;
-      orderDate: string;
-      expectedDate?: string;
-      totalAmount: number;
-      notes?: string;
-      pettyCash?: boolean;
-      lines?: Array<{ partId?: string; description: string; quantity: number; unitCost: number }>;
-    }
-  ) {
+  @HttpCode(HttpStatus.CREATED)
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "PROCUREMENT_OFFICER")
+  @Permissions("purchase_orders.create")
+  async createPurchaseOrder(@Req() req: AuthedRequest, @Body() body: CreatePurchaseOrderDto) {
     const data = await this.inventoryService.createPurchaseOrder(body, req.user);
     return { data, message: "Purchase order created" };
   }
 
   @Patch("purchase-orders/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "PROCUREMENT_OFFICER")
+  @Permissions("purchase_orders.create")
   async updatePurchaseOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -251,60 +266,90 @@ export class InventoryController {
   }
 
   @Patch("purchase-orders/:id/approve-operational")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "OPERATIONS_MANAGER")
   @Permissions("purchase_orders.approve_operational")
   async approvePurchaseOrderOperational(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { reason?: string }
+    @Body() body: ApprovePurchaseOrderDto
   ) {
     const data = await this.inventoryService.approvePurchaseOrderOperational(id, body, req.user);
     return { data, message: "Purchase order operationally approved" };
   }
 
   @Patch("purchase-orders/:id/approve-finance")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
   @Permissions("purchase_orders.approve_finance")
   async approvePurchaseOrderFinance(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { reason?: string }
+    @Body() body: ApprovePurchaseOrderDto
   ) {
     const data = await this.inventoryService.approvePurchaseOrderFinance(id, body, req.user);
     return { data, message: "Purchase order finance approved" };
   }
 
   @Patch("purchase-orders/:id/reject")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "OPERATIONS_MANAGER")
   @Permissions("purchase_orders.reject")
   async rejectPurchaseOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { reason: string }
+    @Body() body: RejectPurchaseOrderDto
   ) {
     const data = await this.inventoryService.rejectPurchaseOrder(id, body, req.user);
     return { data, message: "Purchase order rejected" };
   }
 
+  @Get("purchase-orders/:id/receipts")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "ASSET_MANAGER",
+    "INVENTORY_KEEPER",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "PROCUREMENT_OFFICER",
+    "FINANCE"
+  )
+  @Permissions("purchase_orders.view")
+  async listPurchaseReceipts(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.inventoryService.listPurchaseReceipts(id, req.user);
+    return { data, message: "Purchase receipts fetched" };
+  }
+
+  @Post("purchase-orders/:id/receipts")
+  @HttpCode(HttpStatus.CREATED)
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("purchase_orders.receive")
+  async createPurchaseReceipt(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: CreatePurchaseReceiptDto
+  ) {
+    const data = await this.inventoryService.createPurchaseReceipt(id, body, req.user);
+    return { data, message: "Purchase receipt created" };
+  }
+
   @Post("purchase-orders/:id/erp-sync")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("purchase_orders.erp_sync")
   async syncPurchaseOrderToErp(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { forceFailure?: boolean; note?: string }
+    @Body() body: SyncPurchaseOrderDto
   ) {
     const data = await this.inventoryService.syncPurchaseOrderToErp(id, body, req.user);
     return { data, message: "Manual ERP sync executed" };
   }
 
   @Post("purchase-orders/:id/erp-sync/retry")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("purchase_orders.erp_sync_retry")
   async retryPurchaseOrderErpSync(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { forceFailure?: boolean; note?: string }
+    @Body() body: RetryPurchaseOrderSyncDto
   ) {
     const data = await this.inventoryService.retryPurchaseOrderErpSync(id, body, req.user);
     return { data, message: "ERP sync retry executed" };
@@ -336,15 +381,15 @@ export class InventoryController {
     "OPERATIONS_MANAGER",
     "PROCUREMENT_OFFICER"
   )
-  @Permissions("inventory.manage")
+  @Permissions("inventory.erp_dry_run")
   async dryRunErpStockSync(@Req() req: AuthedRequest) {
     const data = await this.erpStockSyncService.dryRunStockSync(req.user);
     return { data, message: "ERP stock sync dry-run completed" };
   }
 
   @Post("erp/stock-sync/apply")
-  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "ASSET_MANAGER")
-  @Permissions("inventory.manage")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("inventory.erp_apply")
   async applyErpStockSync(@Req() req: AuthedRequest) {
     const data = await this.erpStockSyncService.applyStockSnapshot(req.user);
     return { data, message: "ERP stock sync apply completed" };

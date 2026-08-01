@@ -209,3 +209,8 @@ npm run validate:nondestructive-docker-cleanup.
 - docker volume rm
 - docker volume prune
 - docker system prune
+
+## Phase 5C procurement
+
+Validate with validate:e2e-procurement-controls, contract self-tests, and Playwright @procurement-gate.
+Mock ERP only. No direct PATCH RECEIVED.

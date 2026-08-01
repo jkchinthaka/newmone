@@ -1,14 +1,18 @@
+import { createHash } from "crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalStage,
   AuditAction,
   ErpSyncStatus,
+  MovementType,
   NotificationPriority,
   NotificationType,
+  PartRequestStatus,
   POStatus,
   Prisma,
-  PurchaseOrderWorkflowStatus
+  PurchaseOrderWorkflowStatus,
+  RoleName
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
@@ -17,6 +21,22 @@ import { PrismaService } from "../../database/prisma.service";
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
+import {
+  assertMakerCheckerSeparation,
+  assertReasonProvided,
+  isAdminRole
+} from "../../common/utils/fraud-control.util";
+import {
+  buildSafeErpRequestPayload,
+  buildSafeErpResponsePayload,
+  sanitizeErpErrorCode,
+  sanitizeErpErrorMessage
+} from "./erp-error-sanitize.util";
+import {
+  calculatePurchaseOrderTotals,
+  clientTotalMismatch,
+  roundMoney
+} from "./procurement-money.util";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -714,6 +734,10 @@ export class InventoryService {
           include: {
             part: true
           }
+        },
+        receipts: {
+          include: { lines: true },
+          orderBy: { createdAt: "desc" }
         }
       }
     });
@@ -731,27 +755,67 @@ export class InventoryService {
       supplierId: string;
       orderDate: string;
       expectedDate?: string;
-      totalAmount: number;
+      totalAmount?: number;
       notes?: string;
       pettyCash?: boolean;
-      lines?: Array<{ partId?: string; description: string; quantity: number; unitCost: number }>;
+      emergencyOverride?: boolean;
+      emergencyOverrideReason?: string;
+      lines: Array<{
+        partId?: string;
+        partRequestId?: string;
+        description: string;
+        quantity: number;
+        unitCost: number;
+      }>;
     },
     actor?: Actor
   ) {
+    const creator = this.assertActor(actor);
     const tenantId = this.resolveTenantId(actor);
 
-    const supplier = await this.prisma.supplier.findFirst({
-      where: {
-        id: data.supplierId,
-        tenantId
-      }
-    });
+    if (!Array.isArray(data.lines) || data.lines.length === 0) {
+      throw new BadRequestException("Purchase order requires at least one line");
+    }
 
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: data.supplierId, tenantId }
+    });
     if (!supplier) {
       throw new BadRequestException("Supplier not found in tenant context");
     }
+    if (!supplier.isActive) {
+      throw new BadRequestException("Supplier is inactive");
+    }
+    if (supplier.blacklisted) {
+      if (!(data.emergencyOverride && isAdminRole(creator.role))) {
+        throw new BadRequestException("Supplier is blacklisted");
+      }
+      assertReasonProvided("emergencyOverrideReason", data.emergencyOverrideReason);
+    }
 
-    const requiresFinanceApproval = this.requiresFinanceApproval(data.totalAmount, data.pettyCash);
+    const { lineTotals, headerTotal } = calculatePurchaseOrderTotals(data.lines);
+    if (clientTotalMismatch(headerTotal, data.totalAmount)) {
+      throw new BadRequestException(
+        `Client totalAmount differs from server-calculated total by more than 0.009 (client=${data.totalAmount}, server=${headerTotal})`
+      );
+    }
+
+    for (const line of data.lines) {
+      if (!line.partId) {
+        throw new BadRequestException("Each purchase order line requires partId");
+      }
+      const part = await this.prisma.sparePart.findFirst({
+        where: { id: line.partId, tenantId, isActive: true }
+      });
+      if (!part) {
+        throw new BadRequestException(`Part ${line.partId} not found or inactive in tenant`);
+      }
+      if (line.partRequestId) {
+        await this.assertPartRequestEligibleForProcurement(line.partRequestId, line.partId, line.quantity, tenantId);
+      }
+    }
+
+    const requiresFinanceApproval = this.requiresFinanceApproval(headerTotal, data.pettyCash);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const purchaseOrder = await tx.purchaseOrder.create({
@@ -761,14 +825,16 @@ export class InventoryService {
           supplierId: data.supplierId,
           orderDate: new Date(data.orderDate),
           expectedDate: data.expectedDate ? new Date(data.expectedDate) : undefined,
-          totalAmount: data.totalAmount,
+          totalAmount: headerTotal,
           notes: data.notes,
           workflowStatus: PurchaseOrderWorkflowStatus.PENDING_OPERATIONAL,
-          requiresFinanceApproval
+          requiresFinanceApproval,
+          createdById: creator.sub,
+          lastModifiedById: creator.sub
         }
       });
 
-      const approvalRows = [
+      for (const approvalRow of [
         {
           tenantId,
           purchaseOrderId: purchaseOrder.id,
@@ -784,32 +850,78 @@ export class InventoryService {
           status: requiresFinanceApproval ? ApprovalDecisionStatus.PENDING : ApprovalDecisionStatus.SKIPPED,
           reason: requiresFinanceApproval ? null : "Finance approval not required"
         }
-      ];
-
-      for (const approvalRow of approvalRows) {
+      ]) {
         await tx.purchaseOrderApproval.create({ data: approvalRow });
       }
 
-      if (Array.isArray(data.lines) && data.lines.length > 0) {
-        const lineRows = data.lines.map((line) => ({
-          tenantId,
-          purchaseOrderId: purchaseOrder.id,
-          partId: line.partId,
-          description: line.description,
-          quantity: line.quantity,
-          unitCost: line.unitCost,
-          totalCost: line.quantity * line.unitCost
-        }));
-
-        for (const lineRow of lineRows) {
-          await tx.purchaseOrderLine.create({ data: lineRow });
-        }
+      for (let i = 0; i < data.lines.length; i += 1) {
+        const line = data.lines[i];
+        await tx.purchaseOrderLine.create({
+          data: {
+            tenantId,
+            purchaseOrderId: purchaseOrder.id,
+            partId: line.partId,
+            partRequestId: line.partRequestId,
+            description: line.description,
+            quantity: line.quantity,
+            unitCost: roundMoney(line.unitCost),
+            totalCost: lineTotals[i]
+          }
+        });
       }
 
       return purchaseOrder;
     });
 
+    await this.recordAudit({
+      entity: "PURCHASE_ORDER",
+      entityId: created.id,
+      action: AuditAction.CREATE,
+      actor,
+      metadata: {
+        poNumber: created.poNumber,
+        totalAmount: headerTotal,
+        lineCount: data.lines.length
+      }
+    });
+
     return this.getPurchaseOrder(created.id, actor);
+  }
+
+  private async assertPartRequestEligibleForProcurement(
+    partRequestId: string,
+    partId: string,
+    quantity: number,
+    tenantId: string
+  ) {
+    const partRequest = await this.prisma.partRequest.findFirst({
+      where: { id: partRequestId, tenantId }
+    });
+    if (!partRequest) {
+      throw new BadRequestException("Part request not found in tenant context");
+    }
+    if (partRequest.partId !== partId) {
+      throw new BadRequestException("Part request partId does not match line partId");
+    }
+    if (
+      partRequest.status !== PartRequestStatus.APPROVED &&
+      partRequest.status !== PartRequestStatus.PARTIALLY_ISSUED
+    ) {
+      throw new BadRequestException("Part request must be APPROVED (procurement eligible)");
+    }
+
+    const approvedQty = partRequest.approvedQuantity ?? partRequest.requestedQuantity;
+    const linked = await this.prisma.purchaseOrderLine.aggregate({
+      where: { tenantId, partRequestId },
+      _sum: { quantity: true }
+    });
+    const outstanding = approvedQty - partRequest.issuedQuantity - (linked._sum.quantity ?? 0);
+    if (outstanding <= 0) {
+      throw new BadRequestException("Part request has no outstanding procurement quantity");
+    }
+    if (quantity > outstanding) {
+      throw new BadRequestException(`Line quantity exceeds outstanding procurement qty (${outstanding})`);
+    }
   }
 
   async updatePurchaseOrder(
@@ -818,13 +930,20 @@ export class InventoryService {
     actor?: Actor
   ) {
     const order = await this.getPurchaseOrder(id, actor);
-    const isPostApprovalProgression =
-      data.status === POStatus.ORDERED ||
-      data.status === POStatus.PARTIALLY_RECEIVED ||
-      data.status === POStatus.RECEIVED;
+    const modifier = this.assertActor(actor);
 
-    if (isPostApprovalProgression && order.workflowStatus !== PurchaseOrderWorkflowStatus.APPROVED) {
-      throw new BadRequestException("Purchase order cannot advance to ordered/received states before approvals are complete");
+    if (data.status === POStatus.PARTIALLY_RECEIVED || data.status === POStatus.RECEIVED) {
+      throw new BadRequestException(
+        "Cannot set PARTIALLY_RECEIVED or RECEIVED via PATCH; use POST /purchase-orders/:id/receipts"
+      );
+    }
+
+    if (data.status === POStatus.ORDERED) {
+      throw new BadRequestException("ORDERED status is set by successful ERP sync only");
+    }
+
+    if (data.status === POStatus.CANCELLED && order.workflowStatus === PurchaseOrderWorkflowStatus.APPROVED) {
+      throw new BadRequestException("Approved purchase orders cannot be cancelled via PATCH without reject flow");
     }
 
     return this.prisma.purchaseOrder.update({
@@ -832,14 +951,14 @@ export class InventoryService {
       data: {
         status: data.status,
         receivedDate: data.receivedDate ? new Date(data.receivedDate) : undefined,
-        notes: data.notes
+        notes: data.notes,
+        lastModifiedById: modifier.sub
       }
     });
   }
-
   async approvePurchaseOrderOperational(
     id: string,
-    data: { reason?: string },
+    data: { reason?: string; emergencyOverrideReason?: string },
     actor?: Actor
   ) {
     const approver = this.assertActor(actor);
@@ -847,6 +966,23 @@ export class InventoryService {
 
     if (order.workflowStatus !== PurchaseOrderWorkflowStatus.PENDING_OPERATIONAL) {
       throw new BadRequestException("Purchase order is not awaiting operational approval");
+    }
+
+    if (order.createdById) {
+      try {
+        assertMakerCheckerSeparation({
+          requesterId: order.createdById,
+          approverId: approver.sub,
+          approverRole: approver.role,
+          flow: "purchase order operational approval"
+        });
+      } catch (error) {
+        if (data.emergencyOverrideReason && isAdminRole(approver.role)) {
+          assertReasonProvided("emergencyOverrideReason", data.emergencyOverrideReason);
+        } else {
+          throw error;
+        }
+      }
     }
 
     const nextWorkflow = order.requiresFinanceApproval
@@ -865,7 +1001,7 @@ export class InventoryService {
           status: ApprovalDecisionStatus.APPROVED,
           actorId: approver.sub,
           actedAt: new Date(),
-          reason: data.reason?.trim() || null
+          reason: data.reason?.trim() || data.emergencyOverrideReason?.trim() || null
         }
       });
 
@@ -887,7 +1023,8 @@ export class InventoryService {
       await tx.purchaseOrder.update({
         where: { id },
         data: {
-          workflowStatus: nextWorkflow
+          workflowStatus: nextWorkflow,
+          lastModifiedById: approver.sub
         }
       });
     });
@@ -904,8 +1041,7 @@ export class InventoryService {
       }
     });
 
-    await this.notificationsService.createNotification({
-      userId: approver.sub,
+    await this.notifyPurchaseOrderActor(order.createdById || approver.sub, {
       title: "Purchase order approval recorded",
       message: order.requiresFinanceApproval
         ? "Operational approval completed. Finance approval pending."
@@ -913,7 +1049,6 @@ export class InventoryService {
       type: NotificationType.PURCHASE_ORDER_APPROVED,
       priority: NotificationPriority.INFO,
       referenceId: id,
-      referenceType: "PurchaseOrder",
       metadata: {
         stage: "OPERATIONAL",
         nextWorkflow,
@@ -926,7 +1061,7 @@ export class InventoryService {
 
   async approvePurchaseOrderFinance(
     id: string,
-    data: { reason?: string },
+    data: { reason?: string; emergencyOverrideReason?: string },
     actor?: Actor
   ) {
     const approver = this.assertActor(actor);
@@ -934,6 +1069,41 @@ export class InventoryService {
 
     if (order.workflowStatus !== PurchaseOrderWorkflowStatus.PENDING_FINANCE) {
       throw new BadRequestException("Purchase order is not awaiting finance approval");
+    }
+
+    if (order.createdById) {
+      try {
+        assertMakerCheckerSeparation({
+          requesterId: order.createdById,
+          approverId: approver.sub,
+          approverRole: approver.role,
+          flow: "purchase order finance approval"
+        });
+      } catch (error) {
+        if (data.emergencyOverrideReason && isAdminRole(approver.role)) {
+          assertReasonProvided("emergencyOverrideReason", data.emergencyOverrideReason);
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    const operationalApproval = order.approvals.find((a) => a.stage === ApprovalStage.OPERATIONAL);
+    if (
+      operationalApproval?.actorId &&
+      operationalApproval.actorId === approver.sub &&
+      !isAdminRole(approver.role)
+    ) {
+      throw new BadRequestException(
+        "Same actor cannot perform both operational and finance approval unless admin override with reason"
+      );
+    }
+    if (
+      operationalApproval?.actorId &&
+      operationalApproval.actorId === approver.sub &&
+      isAdminRole(approver.role)
+    ) {
+      assertReasonProvided("emergencyOverrideReason", data.emergencyOverrideReason || data.reason);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -948,14 +1118,15 @@ export class InventoryService {
           status: ApprovalDecisionStatus.APPROVED,
           actorId: approver.sub,
           actedAt: new Date(),
-          reason: data.reason?.trim() || null
+          reason: data.reason?.trim() || data.emergencyOverrideReason?.trim() || null
         }
       });
 
       await tx.purchaseOrder.update({
         where: { id },
         data: {
-          workflowStatus: PurchaseOrderWorkflowStatus.APPROVED
+          workflowStatus: PurchaseOrderWorkflowStatus.APPROVED,
+          lastModifiedById: approver.sub
         }
       });
     });
@@ -972,14 +1143,12 @@ export class InventoryService {
       }
     });
 
-    await this.notificationsService.createNotification({
-      userId: approver.sub,
+    await this.notifyPurchaseOrderActor(order.createdById || approver.sub, {
       title: "Purchase order finance approval recorded",
       message: "Purchase order is now fully approved.",
       type: NotificationType.PURCHASE_ORDER_APPROVED,
       priority: NotificationPriority.INFO,
       referenceId: id,
-      referenceType: "PurchaseOrder",
       metadata: {
         stage: "FINANCE",
         nextWorkflow: PurchaseOrderWorkflowStatus.APPROVED
@@ -989,12 +1158,38 @@ export class InventoryService {
     return this.getPurchaseOrder(id, actor);
   }
 
+  private async notifyPurchaseOrderActor(
+    userId: string,
+    payload: {
+      title: string;
+      message: string;
+      type: NotificationType;
+      priority: NotificationPriority;
+      referenceId: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    if (!userId) {
+      return;
+    }
+    await this.notificationsService.createNotification({
+      userId,
+      title: payload.title,
+      message: payload.message,
+      type: payload.type,
+      priority: payload.priority,
+      referenceId: payload.referenceId,
+      referenceType: "PurchaseOrder",
+      metadata: payload.metadata as Prisma.InputJsonValue | undefined
+    });
+  }
+
   async rejectPurchaseOrder(id: string, data: { reason: string }, actor?: Actor) {
     const approver = this.assertActor(actor);
     const order = await this.getPurchaseOrder(id, actor);
 
-    if (!data.reason?.trim()) {
-      throw new BadRequestException("Rejection reason is required");
+    if (!data.reason?.trim() || data.reason.trim().length < 3) {
+      throw new BadRequestException("Rejection reason is required (minimum 3 characters)");
     }
 
     if (order.workflowStatus === PurchaseOrderWorkflowStatus.REJECTED) {
@@ -1027,6 +1222,7 @@ export class InventoryService {
         data: {
           workflowStatus: PurchaseOrderWorkflowStatus.REJECTED,
           status: POStatus.CANCELLED,
+          lastModifiedById: approver.sub,
           notes: order.notes
             ? `${order.notes}\n[${new Date().toISOString()}] REJECTION: ${data.reason.trim()}`
             : `[${new Date().toISOString()}] REJECTION: ${data.reason.trim()}`
@@ -1046,14 +1242,12 @@ export class InventoryService {
       }
     });
 
-    await this.notificationsService.createNotification({
-      userId: approver.sub,
+    await this.notifyPurchaseOrderActor(order.createdById || approver.sub, {
       title: "Purchase order rejected",
       message: "Purchase order has been rejected.",
       type: NotificationType.PURCHASE_ORDER_REJECTED,
       priority: NotificationPriority.WARNING,
       referenceId: id,
-      referenceType: "PurchaseOrder",
       metadata: {
         stage,
         reason: data.reason.trim()
@@ -1062,20 +1256,288 @@ export class InventoryService {
 
     return this.getPurchaseOrder(id, actor);
   }
+  async listPurchaseReceipts(purchaseOrderId: string, actor?: Actor) {
+    const order = await this.getPurchaseOrder(purchaseOrderId, actor);
+    return this.prisma.purchaseReceipt.findMany({
+      where: {
+        tenantId: order.tenantId ?? this.resolveTenantId(actor),
+        purchaseOrderId
+      },
+      include: { lines: true, receivedBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      orderBy: { createdAt: "desc" }
+    });
+  }
 
-  private async executeMockErpSync(
-    orderId: string,
-    data: { forceFailure?: boolean; note?: string },
+  async createPurchaseReceipt(
+    purchaseOrderId: string,
+    data: {
+      receiptNumber: string;
+      supplierDeliveryNote?: string;
+      notes?: string;
+      idempotencyKey?: string;
+      lines: Array<{
+        purchaseOrderLineId: string;
+        acceptedQuantity: number;
+        rejectedQuantity: number;
+        rejectionReason?: string;
+      }>;
+    },
     actor?: Actor
   ) {
-    const order = await this.getPurchaseOrder(orderId, actor);
+    const receiver = this.assertActor(actor);
+    const tenantId = this.resolveTenantId(actor);
+    const order = await this.getPurchaseOrder(purchaseOrderId, actor);
+
+    if (order.workflowStatus !== PurchaseOrderWorkflowStatus.APPROVED) {
+      throw new BadRequestException("Purchase order must be workflow-APPROVED before receiving");
+    }
+    if (order.status !== POStatus.ORDERED && order.status !== POStatus.PARTIALLY_RECEIVED) {
+      throw new BadRequestException("Purchase order status must be ORDERED or PARTIALLY_RECEIVED to receive");
+    }
+    if (!Array.isArray(data.lines) || data.lines.length === 0) {
+      throw new BadRequestException("Receipt requires at least one line");
+    }
+
+    const idempotencyKey = data.idempotencyKey?.trim() || undefined;
+    const requestHash = createHash("sha256")
+      .update(JSON.stringify({ receiptNumber: data.receiptNumber, lines: data.lines }))
+      .digest("hex");
+
+    if (idempotencyKey) {
+      const existing = await this.prisma.purchaseReceiptIdempotency.findUnique({
+        where: { tenantId_key: { tenantId, key: idempotencyKey } }
+      });
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          throw new BadRequestException("Idempotency key reused with a different receipt payload");
+        }
+        return this.prisma.purchaseReceipt.findFirstOrThrow({
+          where: { id: existing.receiptId, tenantId },
+          include: { lines: true }
+        });
+      }
+    }
+
+    const lineById = new Map(order.lines.map((line) => [line.id, line]));
+
+    for (const line of data.lines) {
+      const poLine = lineById.get(line.purchaseOrderLineId);
+      if (!poLine) {
+        throw new BadRequestException(`Purchase order line ${line.purchaseOrderLineId} not found on PO`);
+      }
+      const accepted = Number(line.acceptedQuantity) || 0;
+      const rejected = Number(line.rejectedQuantity) || 0;
+      if (accepted < 0 || rejected < 0) {
+        throw new BadRequestException("Receipt quantities cannot be negative");
+      }
+      if (accepted + rejected <= 0) {
+        throw new BadRequestException("Each receipt line needs accepted or rejected quantity");
+      }
+      if (rejected > 0 && !(line.rejectionReason && line.rejectionReason.trim().length >= 3)) {
+        throw new BadRequestException("rejectionReason required when rejectedQuantity > 0");
+      }
+      const remaining = poLine.quantity - (poLine.receivedQuantity ?? 0);
+      if (accepted + rejected > remaining) {
+        throw new BadRequestException(
+          `Over-receipt blocked for line ${poLine.id}: remaining=${remaining}, attempted=${accepted + rejected}`
+        );
+      }
+    }
+
+    const receipt = await this.prisma.$transaction(async (tx) => {
+      const createdReceipt = await tx.purchaseReceipt.create({
+        data: {
+          tenantId,
+          purchaseOrderId,
+          receiptNumber: data.receiptNumber,
+          receivedById: receiver.sub,
+          receivedAt: new Date(),
+          supplierDeliveryNote: data.supplierDeliveryNote,
+          notes: data.notes
+        }
+      });
+
+      for (const line of data.lines) {
+        const poLine = lineById.get(line.purchaseOrderLineId)!;
+        const accepted = Number(line.acceptedQuantity) || 0;
+        const rejected = Number(line.rejectedQuantity) || 0;
+
+        await tx.purchaseReceiptLine.create({
+          data: {
+            tenantId,
+            receiptId: createdReceipt.id,
+            purchaseOrderLineId: poLine.id,
+            acceptedQuantity: accepted,
+            rejectedQuantity: rejected,
+            rejectionReason: line.rejectionReason?.trim() || null
+          }
+        });
+
+        await tx.purchaseOrderLine.update({
+          where: { id: poLine.id },
+          data: {
+            receivedQuantity: (poLine.receivedQuantity ?? 0) + accepted,
+            rejectedQuantity: (poLine.rejectedQuantity ?? 0) + rejected
+          }
+        });
+
+        if (accepted > 0) {
+          if (!poLine.partId) {
+            throw new BadRequestException("Cannot receive stock for a line without partId");
+          }
+          await tx.sparePart.update({
+            where: { id: poLine.partId },
+            data: { quantityInStock: { increment: accepted } }
+          });
+          await tx.stockMovement.create({
+            data: {
+              tenantId,
+              partId: poLine.partId,
+              type: MovementType.IN,
+              quantity: accepted,
+              reference: `PO:${order.poNumber}/GRN:${data.receiptNumber}`,
+              notes: data.notes ?? "Purchase receipt",
+              actorUserId: receiver.sub
+            }
+          });
+        }
+      }
+
+      const refreshedLines = await tx.purchaseOrderLine.findMany({ where: { purchaseOrderId } });
+      const allReceived = refreshedLines.every(
+        (line) => (line.receivedQuantity ?? 0) + (line.rejectedQuantity ?? 0) >= line.quantity
+      );
+      const anyReceived = refreshedLines.some((line) => (line.receivedQuantity ?? 0) > 0);
+      const nextStatus = allReceived
+        ? POStatus.RECEIVED
+        : anyReceived
+          ? POStatus.PARTIALLY_RECEIVED
+          : order.status;
+
+      await tx.purchaseOrder.update({
+        where: { id: purchaseOrderId },
+        data: {
+          status: nextStatus,
+          receivedDate: allReceived ? new Date() : order.receivedDate,
+          lastModifiedById: receiver.sub
+        }
+      });
+
+      if (idempotencyKey) {
+        await tx.purchaseReceiptIdempotency.create({
+          data: {
+            tenantId,
+            key: idempotencyKey,
+            purchaseOrderId,
+            receiptId: createdReceipt.id,
+            requestHash
+          }
+        });
+      }
+
+      return createdReceipt;
+    });
+
+    await this.recordAudit({
+      entity: "PURCHASE_RECEIPT",
+      entityId: receipt.id,
+      action: AuditAction.CREATE,
+      actor,
+      metadata: {
+        purchaseOrderId,
+        receiptNumber: data.receiptNumber,
+        lineCount: data.lines.length
+      }
+    });
+
+    return this.prisma.purchaseReceipt.findFirstOrThrow({
+      where: { id: receipt.id, tenantId },
+      include: { lines: true }
+    });
+  }
+
+  private assertTestModeErpFailClosed() {
+    const e2e = /^(1|true|yes)$/i.test(String(process.env.E2E_TEST_MODE || ""));
+    const testEnv = process.env.NODE_ENV === "test";
+    if (!(e2e || testEnv)) {
+      return;
+    }
+    const mode = this.erpSyncProviderService.mode;
+    if (mode === "live") {
+      throw new BadRequestException(
+        "Live ERP provider is blocked when E2E_TEST_MODE or NODE_ENV=test (fail closed)"
+      );
+    }
+  }
+
+  private async assertErpSyncGuards(
+    order: Awaited<ReturnType<InventoryService["getPurchaseOrder"]>>,
+    data: { idempotencyKey?: string; forceResync?: boolean; overrideRetryWindow?: boolean }
+  ) {
+    this.assertTestModeErpFailClosed();
 
     if (order.workflowStatus !== PurchaseOrderWorkflowStatus.APPROVED) {
       throw new BadRequestException("Purchase order must be approved before ERP sync");
     }
 
+    const attempts = order.erpSyncAttempts || [];
+    const success = attempts.find((a) => a.status === ErpSyncStatus.SUCCESS);
+    if (success && !data.forceResync) {
+      throw new BadRequestException("ERP sync already succeeded; pass forceResync to resync explicitly");
+    }
+
+    const pending = attempts.find((a) => a.status === ErpSyncStatus.PENDING || a.status === ErpSyncStatus.RETRYING);
+    if (pending) {
+      throw new BadRequestException("ERP sync already in progress for this purchase order");
+    }
+
+    if (attempts.length >= 5 && !data.forceResync) {
+      throw new BadRequestException("Maximum ERP sync attempts (5) exceeded");
+    }
+
+    const key = data.idempotencyKey?.trim();
+    if (key) {
+      const existingKey = attempts.find((a) => a.idempotencyKey === key);
+      if (existingKey) {
+        return existingKey;
+      }
+    }
+
+    const latestFailed = attempts.find((a) => a.status === ErpSyncStatus.FAILED);
+    if (latestFailed?.nextRetryAt && !data.overrideRetryWindow) {
+      const next = new Date(latestFailed.nextRetryAt).getTime();
+      if (Date.now() < next) {
+        throw new BadRequestException("ERP sync retry window not elapsed (15 minutes); pass overrideRetryWindow");
+      }
+    }
+
+    return null;
+  }
+  private async executeMockErpSync(
+    orderId: string,
+    data: {
+      forceFailure?: boolean;
+      note?: string;
+      idempotencyKey?: string;
+      forceResync?: boolean;
+      overrideRetryWindow?: boolean;
+    },
+    actor?: Actor
+  ) {
+    const order = await this.getPurchaseOrder(orderId, actor);
+    const replay = await this.assertErpSyncGuards(order, data);
+    if (replay) {
+      return replay;
+    }
+
     const attempt = (order.erpSyncAttempts[0]?.attempt ?? 0) + 1;
     const shouldFail = Boolean(data.forceFailure) || order.notes?.includes("[ERP_FAIL]") === true;
+    const safeRequest = buildSafeErpRequestPayload({
+      poNumber: order.poNumber,
+      totalAmount: order.totalAmount,
+      lineCount: order.lines.length,
+      note: data.note ?? null
+    });
 
     const created = await this.prisma.purchaseOrderErpSync.create({
       data: {
@@ -1085,11 +1547,8 @@ export class InventoryService {
         status: ErpSyncStatus.PENDING,
         attempt,
         triggeredById: actor?.sub,
-        requestPayload: {
-          poNumber: order.poNumber,
-          totalAmount: order.totalAmount,
-          note: data.note ?? null
-        }
+        idempotencyKey: data.idempotencyKey?.trim() || null,
+        requestPayload: safeRequest as Prisma.InputJsonValue
       }
     });
 
@@ -1100,7 +1559,8 @@ export class InventoryService {
           status: ErpSyncStatus.FAILED,
           lastAttemptAt: new Date(),
           nextRetryAt: new Date(Date.now() + 15 * 60 * 1000),
-          errorMessage: "Mock ERP rejected payload"
+          errorMessage: sanitizeErpErrorMessage("Mock ERP rejected payload"),
+          errorCode: sanitizeErpErrorCode("MOCK_REJECTED")
         }
       });
 
@@ -1114,7 +1574,7 @@ export class InventoryService {
           purchaseOrderId: order.id,
           attempt: failed.attempt,
           status: failed.status,
-          errorMessage: failed.errorMessage
+          errorCode: failed.errorCode
         }
       });
 
@@ -1130,7 +1590,7 @@ export class InventoryService {
           metadata: {
             syncId: failed.id,
             attempt: failed.attempt,
-            errorMessage: failed.errorMessage
+            errorCode: failed.errorCode
           }
         });
       }
@@ -1138,24 +1598,24 @@ export class InventoryService {
       return failed;
     }
 
+    const providerReference = `MOCK-ERP-${order.poNumber}-${attempt}`;
     const succeeded = await this.prisma.purchaseOrderErpSync.update({
       where: { id: created.id },
       data: {
         status: ErpSyncStatus.SUCCESS,
         lastAttemptAt: new Date(),
-        responsePayload: {
+        providerReference,
+        responsePayload: buildSafeErpResponsePayload({
           accepted: true,
-          providerRef: `MOCK-ERP-${order.poNumber}-${attempt}`
-        }
+          providerRef: providerReference
+        }) as Prisma.InputJsonValue
       }
     });
 
     if (order.status === POStatus.PENDING) {
       await this.prisma.purchaseOrder.update({
         where: { id: order.id },
-        data: {
-          status: POStatus.ORDERED
-        }
+        data: { status: POStatus.ORDERED, lastModifiedById: actor?.sub }
       });
     }
 
@@ -1193,24 +1653,29 @@ export class InventoryService {
 
   private async executeConfiguredErpSync(
     orderId: string,
-    data: { forceFailure?: boolean; note?: string },
+    data: {
+      forceFailure?: boolean;
+      note?: string;
+      idempotencyKey?: string;
+      forceResync?: boolean;
+      overrideRetryWindow?: boolean;
+    },
     actor?: Actor
   ) {
     const order = await this.getPurchaseOrder(orderId, actor);
-
-    if (order.workflowStatus !== PurchaseOrderWorkflowStatus.APPROVED) {
-      throw new BadRequestException("Purchase order must be approved before ERP sync");
+    const replay = await this.assertErpSyncGuards(order, data);
+    if (replay) {
+      return replay;
     }
 
     const attempt = (order.erpSyncAttempts[0]?.attempt ?? 0) + 1;
     const provider = this.erpSyncProviderService.describeProvider();
-    const requestPayload = {
+    const safeRequest = buildSafeErpRequestPayload({
       poNumber: order.poNumber,
       totalAmount: order.totalAmount,
-      note: data.note ?? null,
-      supplier: order.supplier,
-      lines: order.lines
-    };
+      lineCount: order.lines.length,
+      note: data.note ?? null
+    });
 
     const created = await this.prisma.purchaseOrderErpSync.create({
       data: {
@@ -1220,12 +1685,20 @@ export class InventoryService {
         status: ErpSyncStatus.PENDING,
         attempt,
         triggeredById: actor?.sub,
-        requestPayload: requestPayload as Prisma.InputJsonValue
+        idempotencyKey: data.idempotencyKey?.trim() || null,
+        requestPayload: safeRequest as Prisma.InputJsonValue
       }
     });
 
     try {
-      const response = await this.erpSyncProviderService.syncPurchaseOrder(requestPayload);
+      if (data.forceFailure) {
+        throw new Error("Forced ERP failure");
+      }
+      const response = await this.erpSyncProviderService.syncPurchaseOrder({
+        poNumber: order.poNumber,
+        totalAmount: order.totalAmount,
+        note: data.note ?? null
+      });
       if (!response.accepted) {
         throw new Error("ERP provider rejected payload");
       }
@@ -1235,18 +1708,18 @@ export class InventoryService {
         data: {
           status: ErpSyncStatus.SUCCESS,
           lastAttemptAt: new Date(),
-          responsePayload: {
+          providerReference: response.providerRef ?? null,
+          responsePayload: buildSafeErpResponsePayload({
             accepted: true,
-            providerRef: response.providerRef ?? null,
-            raw: response.raw ?? null
-          } as Prisma.InputJsonValue
+            providerRef: response.providerRef ?? null
+          }) as Prisma.InputJsonValue
         }
       });
 
       if (order.status === POStatus.PENDING) {
         await this.prisma.purchaseOrder.update({
           where: { id: order.id },
-          data: { status: POStatus.ORDERED }
+          data: { status: POStatus.ORDERED, lastModifiedById: actor?.sub }
         });
       }
 
@@ -1264,23 +1737,6 @@ export class InventoryService {
         }
       });
 
-      if (actor?.sub) {
-        await this.notificationsService.createNotification({
-          userId: actor.sub,
-          title: "ERP sync completed",
-          message: `ERP sync completed for PO ${order.poNumber}.`,
-          type: NotificationType.ERP_SYNC_SUCCESS,
-          priority: NotificationPriority.INFO,
-          referenceId: order.id,
-          referenceType: "PurchaseOrder",
-          metadata: {
-            syncId: succeeded.id,
-            attempt: succeeded.attempt,
-            provider: provider.providerId
-          }
-        });
-      }
-
       return succeeded;
     } catch (error) {
       const failed = await this.prisma.purchaseOrderErpSync.update({
@@ -1289,7 +1745,8 @@ export class InventoryService {
           status: ErpSyncStatus.FAILED,
           lastAttemptAt: new Date(),
           nextRetryAt: new Date(Date.now() + 15 * 60 * 1000),
-          errorMessage: (error as Error).message
+          errorMessage: sanitizeErpErrorMessage((error as Error).message),
+          errorCode: sanitizeErpErrorCode("ERP_SYNC_FAILED")
         }
       });
 
@@ -1304,27 +1761,9 @@ export class InventoryService {
           attempt: failed.attempt,
           status: failed.status,
           provider: provider.providerId,
-          errorMessage: failed.errorMessage
+          errorCode: failed.errorCode
         }
       });
-
-      if (actor?.sub) {
-        await this.notificationsService.createNotification({
-          userId: actor.sub,
-          title: "ERP sync failed",
-          message: `ERP sync failed for PO ${order.poNumber}. Retry is available.`,
-          type: NotificationType.ERP_SYNC_FAILED,
-          priority: NotificationPriority.CRITICAL,
-          referenceId: order.id,
-          referenceType: "PurchaseOrder",
-          metadata: {
-            syncId: failed.id,
-            attempt: failed.attempt,
-            provider: provider.providerId,
-            errorMessage: failed.errorMessage
-          }
-        });
-      }
 
       return failed;
     }
@@ -1332,14 +1771,22 @@ export class InventoryService {
 
   async syncPurchaseOrderToErp(
     id: string,
-    data: { forceFailure?: boolean; note?: string },
+    data: {
+      forceFailure?: boolean;
+      note?: string;
+      idempotencyKey?: string;
+      forceResync?: boolean;
+      overrideRetryWindow?: boolean;
+    },
     actor?: Actor
   ) {
     try {
       this.erpSyncProviderService.assertCanUseSelectedProvider();
     } catch (error) {
-      throw new BadRequestException((error as Error).message);
+      throw new BadRequestException(sanitizeErpErrorMessage((error as Error).message));
     }
+
+    this.assertTestModeErpFailClosed();
 
     return this.erpSyncProviderService.mode === "mock"
       ? this.executeMockErpSync(id, data, actor)
@@ -1348,7 +1795,12 @@ export class InventoryService {
 
   async retryPurchaseOrderErpSync(
     id: string,
-    data: { forceFailure?: boolean; note?: string },
+    data: {
+      forceFailure?: boolean;
+      note?: string;
+      idempotencyKey?: string;
+      overrideRetryWindow?: boolean;
+    },
     actor?: Actor
   ) {
     const order = await this.getPurchaseOrder(id, actor);
@@ -1358,7 +1810,14 @@ export class InventoryService {
       throw new BadRequestException("No failed ERP sync attempt found for retry");
     }
 
-    const retried = await this.syncPurchaseOrderToErp(id, data, actor);
+    const retried = await this.syncPurchaseOrderToErp(
+      id,
+      {
+        ...data,
+        overrideRetryWindow: data.overrideRetryWindow
+      },
+      actor
+    );
 
     await this.recordAudit({
       entity: "PURCHASE_ORDER_ERP_SYNC",
@@ -1372,22 +1831,6 @@ export class InventoryService {
         retrySyncId: retried.id
       }
     });
-
-    if (actor?.sub) {
-      await this.notificationsService.createNotification({
-        userId: actor.sub,
-        title: "ERP sync retry executed",
-        message: "ERP sync retry was executed for the selected purchase order.",
-        type: NotificationType.ERP_SYNC_RETRIED,
-        priority: NotificationPriority.WARNING,
-        referenceId: id,
-        referenceType: "PurchaseOrder",
-        metadata: {
-          retrySyncId: retried.id,
-          previousFailedSyncId: latestFailedAttempt.id
-        }
-      });
-    }
 
     return retried;
   }

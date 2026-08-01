@@ -165,3 +165,8 @@ Focused inventory gate + E2E-INV-001..016 passed with failed=0 skipped=0 on `306
 - Functional E2E may be green while CI cleanup still violates volume-preservation policy.
 - Gate: corrected Full-Stack E2E workflow must use nondestructive Compose down and pass `validate:nondestructive-docker-cleanup`.
 - Phase 5C blocked until this gate is green on the exact corrected SHA.
+
+## Phase 5C gate
+
+- Gate: procurement create to GRN must pass Full-Stack E2E (failed=0, mandatory skipped=0).
+- Gate: Inventory Keeper cannot erp_apply / PO erp_sync.

@@ -24,6 +24,16 @@ const ROLE_PERMS = {
     "work_orders.update_status",
     "work_orders.view_own",
     "inventory.manage",
+    "inventory.stock_issue",
+    "purchase_orders.view",
+    "purchase_orders.approve_operational",
+    "purchase_orders.approve_finance",
+    "purchase_orders.reject",
+    "purchase_orders.erp_sync",
+    "purchase_orders.erp_sync_retry",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.approve_finance",
     "audit.view"
   ],
   TECHNICIAN: [
@@ -37,6 +47,12 @@ const ROLE_PERMS = {
     "dashboard.view",
     "inventory.manage",
     "inventory.stock_issue",
+    "inventory.erp_dry_run",
+    "purchase_orders.view",
+    "purchase_orders.receive",
+    "part_requests.view",
+    "part_requests.approve_operational",
+    "part_requests.issue",
     "work_orders.view_own"
   ]
 };
