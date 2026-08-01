@@ -117,7 +117,7 @@ async function runLifecycleGate(browser: Browser): Promise<{
                 quantity: 1,
                 workOrderId,
                 notes: "gate stock issue",
-                idempotencyKey: `e2e-wo-gate-${e2eRunId()}`
+                idempotencyKey: `e2e-wo-gate-${e2eRunId()}-${workOrderId}`
               }
             }
           );
