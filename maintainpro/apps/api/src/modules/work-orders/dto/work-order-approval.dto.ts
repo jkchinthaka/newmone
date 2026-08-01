@@ -5,6 +5,13 @@ export class ApproveWorkOrderDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /** SUPER_ADMIN/ADMIN only — maker-checker emergency override when approving own work order. */
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  emergencyOverrideReason?: string;
 }
 
 export class RejectWorkOrderDto {

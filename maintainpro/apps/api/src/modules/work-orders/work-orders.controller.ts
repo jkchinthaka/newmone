@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { PartReturnCondition, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
@@ -514,6 +514,8 @@ export class WorkOrdersController {
   }
 
   @Post(":id/assign")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Technician assigned" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
   @Permissions("work_orders.manage")
   async assign(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { technicianId: string }) {
@@ -522,6 +524,8 @@ export class WorkOrdersController {
   }
 
   @Post(":id/submit-for-approval")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order submitted for approval" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   @Permissions("work_orders.manage", "work_orders.update_status")
   async submitForApproval(
@@ -534,10 +538,14 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/approve")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order approved" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("work_orders.manage")
   async approveWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: ApproveWorkOrderDto) {
-    const data = await this.workOrdersService.approveWorkOrder(id, body.notes, req.user);
+    const data = await this.workOrdersService.approveWorkOrder(id, body.notes, req.user, {
+      emergencyOverrideReason: body.emergencyOverrideReason
+    });
     return { data, message: "Work order approved" };
   }
 
@@ -550,6 +558,8 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/status")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order status updated" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   @Permissions("work_orders.update_status")
   async updateStatus(
@@ -575,6 +585,8 @@ export class WorkOrdersController {
   }
 
   @Post(":id/verify-supervisor")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order supervisor verified and completed" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
   @Permissions("work_orders.manage")
   async verifySupervisor(
@@ -666,6 +678,8 @@ export class WorkOrdersController {
   }
 
   @Post(":id/notes")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order note added" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async notes(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { note: string }) {
     const data = await this.workOrdersService.addNote(id, body.note, req.user);

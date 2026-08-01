@@ -89,7 +89,7 @@
 | G1.4 HTTP mode | SOURCE_DONE (fail-closed dual opt-in); business risk acceptance still required |
 | G1.5 HTTPS default | SOURCE_DONE (Secure remains default) |
 | G3.2 Auth e2e | SOURCE_UPDATED (cookie architecture); full Playwright run not claimed here |
-| Live HTTP login validated | **NO** � smoke table empty |
+| Live HTTP login validated | **NO** - smoke table empty |
 | G0.1 Mongo rotation | Still BLOCKED / OPERATOR |
 
 ---
@@ -135,3 +135,38 @@
 | Live production login | NOT validated |
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
+
+| Playwright E2E env loader | SOURCE_VALIDATED; full runtime pending |
+| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
+| Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
+| Browser session request-context + logout CSRF | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
+| Work-order create payload + CSRF-003 exact 201 | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
+| Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (not production go-live) |
+
+## Phase 5A inventory gate
+
+Required before upgrading inventory runtime from PARTIAL to RUNTIME_VALIDATED:
+
+- Focused inventory gate pass
+- E2E-INV mandatory tests: failed=0, skipped=0
+- Negative stock and duplicate issue prevented
+- Cross-tenant issue blocked
+- CSRF inventory mutation path exact
+
+Do not claim production go-live from Phase 5A alone.
+
+## Phase 5A inventory runtime closed
+
+Focused inventory gate + E2E-INV-001..016 passed with failed=0 skipped=0 on `30698756592`. Still not a production go-live approval.
+
+## Phase 5B cleanup safety gate
+
+- Functional E2E may be green while CI cleanup still violates volume-preservation policy.
+- Gate: corrected Full-Stack E2E workflow must use nondestructive Compose down and pass `validate:nondestructive-docker-cleanup`.
+- Phase 5C blocked until this gate is green on the exact corrected SHA.
+
+## Phase 5C gate
+
+- Gate: procurement create to GRN must pass Full-Stack E2E (failed=0, mandatory skipped=0).
+- Gate: Inventory Keeper cannot erp_apply / PO erp_sync.

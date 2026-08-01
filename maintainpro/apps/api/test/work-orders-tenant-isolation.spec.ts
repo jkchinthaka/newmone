@@ -14,6 +14,10 @@ const createPrismaMock = () => ({
   user: {
     findFirst: jest.fn()
   },
+  employee: {
+    findFirst: jest.fn(),
+    create: jest.fn()
+  },
   auditLog: {
     create: jest.fn()
   }
@@ -52,8 +56,12 @@ describe("WorkOrdersService tenant isolation", () => {
     });
     prisma.user.findFirst.mockResolvedValue({
       id: "tech-1",
+      email: "tech@example.com",
+      firstName: "Tech",
+      lastName: "One",
       role: { name: RoleName.TECHNICIAN }
     });
+    prisma.employee.findFirst.mockResolvedValue({ id: "emp-1" });
     prisma.workOrder.update.mockResolvedValue({
       id: "wo-1",
       woNumber: "WO-2026-0001",

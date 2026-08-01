@@ -75,4 +75,5 @@ artifacts/deployment-evidence*.json
 
 # Phase 4B downloaded CI artifacts (never commit)
 .tmp-e2e-artifacts/
-
+.tmp-e2e-env-tests/
+.tmp-e2e-nl-tests/

@@ -36,6 +36,7 @@ type StockDialogState = {
   part: InventoryPart | null;
   quantity: string;
   notes: string;
+  workOrderId: string;
 };
 
 type EditDialogState = {
@@ -77,7 +78,8 @@ export default function InventoryManagementPage() {
     mode: "in",
     part: null,
     quantity: "",
-    notes: ""
+    notes: "",
+    workOrderId: ""
   });
 
   const [editDialog, setEditDialog] = useState<EditDialogState>({
@@ -259,14 +261,19 @@ export default function InventoryManagementPage() {
         notes: stockDialog.notes || undefined
       });
     } else {
+      if (!stockDialog.workOrderId.trim()) {
+        toast.error("A work order is required to deduct stock.");
+        return;
+      }
       await stockOutMutation.mutateAsync({
         id: stockDialog.part.id,
         quantity,
-        notes: stockDialog.notes || undefined
+        notes: stockDialog.notes || undefined,
+        workOrderId: stockDialog.workOrderId.trim()
       });
     }
 
-    setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "" });
+    setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "", workOrderId: "" });
   }
 
   async function submitEditDialog() {
@@ -371,7 +378,8 @@ export default function InventoryManagementPage() {
       mode,
       part,
       quantity: "",
-      notes: ""
+      notes: "",
+      workOrderId: ""
     });
   }
 
@@ -590,12 +598,16 @@ export default function InventoryManagementPage() {
       <ModalShell
         open={stockDialog.open}
         title={stockDialog.mode === "in" ? "Add Stock" : "Deduct Stock"}
-        onClose={() => setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "" })}
+        onClose={() =>
+          setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "", workOrderId: "" })
+        }
         footer={
           <>
             <button
               type="button"
-              onClick={() => setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "" })}
+              onClick={() =>
+                setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "", workOrderId: "" })
+              }
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
             >
               Cancel
@@ -622,6 +634,16 @@ export default function InventoryManagementPage() {
             placeholder="Quantity"
             className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           />
+          {stockDialog.mode === "out" ? (
+            <input
+              type="text"
+              value={stockDialog.workOrderId}
+              onChange={(event) => setStockDialog((prev) => ({ ...prev, workOrderId: event.target.value }))}
+              placeholder="Work order ID (required)"
+              aria-label="Work order ID"
+              className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            />
+          ) : null}
           <textarea
             value={stockDialog.notes}
             onChange={(event) => setStockDialog((prev) => ({ ...prev, notes: event.target.value }))}

@@ -42,6 +42,9 @@ model Tenant {
   purchaseOrderApprovals       PurchaseOrderApproval[]
   purchaseOrderErpSyncAttempts PurchaseOrderErpSync[]
   purchaseOrderLines           PurchaseOrderLine[]
+  purchaseReceipts             PurchaseReceipt[]
+  purchaseReceiptLines         PurchaseReceiptLine[]
+  purchaseReceiptIdempotencies PurchaseReceiptIdempotency[]
   meters                       UtilityMeter[]
   bills                        UtilityBill[]
   audits                       AuditLog[]
@@ -256,7 +259,9 @@ model User {
   partRequestApprovals        PartRequestApproval[]   @relation("PartRequestApprovalActor")
   partIssuesIssued            PartIssue[]             @relation("PartIssueIssuer")
   purchaseOrderApprovals      PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
+  purchaseOrdersCreated       PurchaseOrder[]         @relation("PurchaseOrderCreator")
   purchaseOrderErpSyncActions PurchaseOrderErpSync[]  @relation("PurchaseOrderErpSyncTrigger")
+  purchaseReceiptsReceived    PurchaseReceipt[]       @relation("PurchaseReceiptReceiver")
   vehicleDocsUploaded         VehicleDocument[]       @relation("VehicleDocUploader")
   vehicleDocsVerified         VehicleDocument[]       @relation("VehicleDocVerifier")
   accidentsReported           AccidentReport[]        @relation("AccidentReporter")
@@ -343,6 +348,8 @@ enum RoleName {
   MECHANIC
   ASSET_MANAGER
   INVENTORY_KEEPER
+  PROCUREMENT_OFFICER
+  FINANCE
   SUPERVISOR
   SECURITY_OFFICER
   CLEANER
@@ -1495,16 +1502,35 @@ model SparePart {
 }
 
 model StockMovement {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  partId    String       @db.ObjectId
-  part      SparePart    @relation(fields: [partId], references: [id])
-  type      MovementType
-  quantity  Int
-  reference String?
-  notes     String?
-  createdAt DateTime     @default(now())
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?      @db.ObjectId
+  partId      String       @db.ObjectId
+  part        SparePart    @relation(fields: [partId], references: [id])
+  type        MovementType
+  quantity    Int
+  reference   String?
+  notes       String?
+  workOrderId String?      @db.ObjectId
+  actorUserId String?      @db.ObjectId
+  createdAt   DateTime     @default(now())
 
   @@index([partId, createdAt])
+  @@index([tenantId, workOrderId])
+}
+
+/// Tenant-scoped idempotency for stock-out (only created when client supplies a key).
+model InventoryStockIssueIdempotency {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String   @db.ObjectId
+  key        String
+  partId     String   @db.ObjectId
+  movementId String   @db.ObjectId
+  workOrderId String? @db.ObjectId
+  quantity   Int
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, partId])
 }
 
 enum MovementType {
@@ -1739,7 +1765,8 @@ model PurchaseOrder {
   id                      String                      @id @default(auto()) @map("_id") @db.ObjectId
   tenantId                String?                     @db.ObjectId
   tenant                  Tenant?                     @relation(fields: [tenantId], references: [id])
-  poNumber                String                      @unique
+  // Tenant-scoped uniqueness: production duplicate poNumber audit is operator-owned before db push.
+  poNumber                String
   supplierId              String                      @db.ObjectId
   supplier                Supplier                    @relation(fields: [supplierId], references: [id])
   status                  POStatus                    @default(PENDING)
@@ -1750,37 +1777,47 @@ model PurchaseOrder {
   receivedDate            DateTime?
   totalAmount             Float
   notes                   String?
+  createdById             String?                     @db.ObjectId
+  createdBy               User?                       @relation("PurchaseOrderCreator", fields: [createdById], references: [id])
+  lastModifiedById        String?                     @db.ObjectId
   approvals               PurchaseOrderApproval[]
   erpSyncAttempts         PurchaseOrderErpSync[]
   lines                   PurchaseOrderLine[]
+  receipts                PurchaseReceipt[]
   createdAt               DateTime                    @default(now())
   updatedAt               DateTime                    @updatedAt
 
+  @@unique([tenantId, poNumber])
   @@index([tenantId])
   @@index([tenantId, workflowStatus])
   @@index([supplierId])
+  @@index([createdById])
 }
-
 model PurchaseOrderLine {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?       @db.ObjectId
-  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
-  purchaseOrderId String        @db.ObjectId
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  partId          String?       @db.ObjectId
-  part            SparePart?    @relation(fields: [partId], references: [id])
-  description     String
-  quantity        Int
-  unitCost        Float
-  totalCost       Float
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                 String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?               @db.ObjectId
+  tenant             Tenant?               @relation(fields: [tenantId], references: [id])
+  purchaseOrderId    String                @db.ObjectId
+  purchaseOrder      PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  partId             String?               @db.ObjectId
+  part               SparePart?            @relation(fields: [partId], references: [id])
+  partRequestId      String?               @db.ObjectId
+  partRequest        PartRequest?          @relation(fields: [partRequestId], references: [id])
+  description        String
+  quantity           Int
+  unitCost           Float
+  totalCost          Float
+  receivedQuantity   Int                   @default(0)
+  rejectedQuantity   Int                   @default(0)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  receiptLines       PurchaseReceiptLine[]
 
   @@index([tenantId])
   @@index([purchaseOrderId])
   @@index([partId])
+  @@index([partRequestId])
 }
-
 model PurchaseOrderApproval {
   id              String                 @id @default(auto()) @map("_id") @db.ObjectId
   tenantId        String?                @db.ObjectId
@@ -1803,29 +1840,34 @@ model PurchaseOrderApproval {
 }
 
 model PurchaseOrderErpSync {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?       @db.ObjectId
-  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
-  purchaseOrderId String        @db.ObjectId
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  provider        String        @default("MOCK_ERP")
-  status          ErpSyncStatus @default(PENDING)
-  attempt         Int           @default(1)
-  triggeredById   String?       @db.ObjectId
-  triggeredBy     User?         @relation("PurchaseOrderErpSyncTrigger", fields: [triggeredById], references: [id])
-  lastAttemptAt   DateTime?
-  nextRetryAt     DateTime?
-  errorMessage    String?
-  requestPayload  Json?
-  responsePayload Json?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?       @db.ObjectId
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id])
+  purchaseOrderId   String        @db.ObjectId
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  provider          String        @default("MOCK_ERP")
+  status            ErpSyncStatus @default(PENDING)
+  attempt           Int           @default(1)
+  triggeredById     String?       @db.ObjectId
+  triggeredBy       User?         @relation("PurchaseOrderErpSyncTrigger", fields: [triggeredById], references: [id])
+  lastAttemptAt     DateTime?
+  nextRetryAt       DateTime?
+  errorMessage      String?
+  // Safe code only — never raw provider URLs/secrets.
+  errorCode         String?
+  // Optional; Mongo nulls do not enforce uniqueness — service enforces when present.
+  idempotencyKey    String?
+  providerReference String?
+  requestPayload    Json?
+  responsePayload   Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, idempotencyKey])
   @@index([purchaseOrderId, createdAt])
 }
-
 model PartRequest {
   id                      String            @id @default(auto()) @map("_id") @db.ObjectId
   tenantId                String?           @db.ObjectId
@@ -1847,9 +1889,10 @@ model PartRequest {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
 
-  approvals      PartRequestApproval[]
-  issues         PartIssue[]
-  workOrderParts WorkOrderPart[]
+  approvals           PartRequestApproval[]
+  issues              PartIssue[]
+  workOrderParts      WorkOrderPart[]
+  purchaseOrderLines  PurchaseOrderLine[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1900,6 +1943,60 @@ model PartIssue {
   @@index([partId])
 }
 
+model PurchaseReceipt {
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?               @db.ObjectId
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id])
+  purchaseOrderId      String                @db.ObjectId
+  purchaseOrder        PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receiptNumber        String
+  receivedById         String                @db.ObjectId
+  receivedBy           User                  @relation("PurchaseReceiptReceiver", fields: [receivedById], references: [id])
+  receivedAt           DateTime              @default(now())
+  supplierDeliveryNote String?
+  notes                String?
+  lines                PurchaseReceiptLine[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId])
+  @@index([purchaseOrderId])
+  @@index([receivedById])
+}
+
+model PurchaseReceiptLine {
+  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?            @db.ObjectId
+  tenant              Tenant?            @relation(fields: [tenantId], references: [id])
+  receiptId           String             @db.ObjectId
+  receipt             PurchaseReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  purchaseOrderLineId String             @db.ObjectId
+  purchaseOrderLine   PurchaseOrderLine  @relation(fields: [purchaseOrderLineId], references: [id])
+  acceptedQuantity    Int
+  rejectedQuantity    Int                @default(0)
+  rejectionReason     String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([receiptId, purchaseOrderLineId])
+  @@index([tenantId])
+  @@index([purchaseOrderLineId])
+}
+
+model PurchaseReceiptIdempotency {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String   @db.ObjectId
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  key             String
+  purchaseOrderId String   @db.ObjectId
+  receiptId       String   @db.ObjectId
+  requestHash     String
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, purchaseOrderId])
+}
 enum POStatus {
   PENDING
   ORDERED

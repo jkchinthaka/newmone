@@ -29,7 +29,8 @@ jobs:
       COMPOSE_PROJECT_NAME: maintainpro-e2e-ci-${{ github.run_id }}
       E2E_HTTP_PORT: "18080"
       E2E_BASE_URL: http://127.0.0.1:18080
-      MAINTAINPRO_E2E_ENV_FILE: .env.e2e
+      # Path only — never export disposable credentials via GITHUB_ENV/OUTPUT.
+      MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
       APP_COMMIT_SHA: ${{ github.sha }}
       APP_BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
       E2E_DOCKER_RUNTIME: CI
@@ -55,13 +56,19 @@ jobs:
       - name: Secret safety
         run: npm run validate:secret-safety
 
+      - name: Nondestructive Docker cleanup validation
+        run: npm run validate:nondestructive-docker-cleanup
+
+      - name: Text integrity validation
+        run: npm run validate:text-integrity
+
+      - name: Procurement controls validation
+        run: npm run validate:e2e-procurement-controls
+
       - name: Prepare disposable E2E env file
         run: |
-          cp .env.e2e.example .env.e2e
-          echo "E2E_RUN_ID=$E2E_RUN_ID" >> .env.e2e
-          echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME" >> .env.e2e
-          echo "APP_COMMIT_SHA=$APP_COMMIT_SHA" >> .env.e2e
-          echo "APP_BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> .env.e2e
+          export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          node scripts/e2e-materialize-env.mjs
 
       - name: E2E safety validation
         run: npm run validate:e2e-safety
@@ -114,10 +121,109 @@ jobs:
       - name: No-mock validation
         run: npm run validate:e2e-no-mocks
 
+      - name: E2E environment preflight
+        run: npm run e2e:env-preflight
+
+      - name: Auth path diagnostic (A/B/C)
+        id: auth_path_diag
+        run: |
+          set -e
+          mkdir -p artifacts/e2e-logs
+          # Disposable network probe only — never prints credentials or bodies.
+          # Copy approved env into the compose bind mount path expected by the diag service.
+          if [ ! -f .env.e2e ]; then
+            cp "$MAINTAINPRO_E2E_ENV_FILE" .env.e2e
+          fi
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml \
+            --profile diagnostics run --rm --no-deps e2e-auth-path-diag \
+            | tee artifacts/e2e-logs/auth-path-diagnostic.txt
+
+      - name: Collect auth-path failure evidence
+        if: failure() && steps.auth_path_diag.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/e2e-logs
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml ps > artifacts/e2e-logs/compose-ps-auth-path.txt || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 api > artifacts/e2e-logs/api-auth-path.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 web > artifacts/e2e-logs/web-auth-path.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 nginx > artifacts/e2e-logs/nginx-auth-path.log || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' \
+            artifacts/e2e-logs/*.log 2>/dev/null || true
+
+      - name: Session CSRF diagnostic
+        run: |
+          set -e
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/session-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            | tee artifacts/e2e-logs/session-csrf-diagnostic.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Work-order create gate (CSRF-003 path)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/work-order-create-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            | tee artifacts/e2e-logs/work-order-create-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Inventory controls gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/inventory-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee artifacts/e2e-logs/inventory-controls-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Work-order lifecycle gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/work-order-lifecycle-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee artifacts/e2e-logs/work-order-lifecycle-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Procurement controls gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/procurement.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee artifacts/e2e-logs/procurement-controls-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:
           SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
       - name: Generate evidence manifest
         if: always()
@@ -149,14 +255,16 @@ jobs:
       - name: Stop isolated E2E stack only
         if: always()
         run: |
-          # Exact Compose project teardown including project-scoped volumes.
-          # Never prune globally. Project name must start with maintainpro-e2e-.
+          # Stop the exact isolated Compose project while preserving all volumes.
+          # The GitHub-hosted runner is ephemeral; runner disposal handles the
+          # remaining runner filesystem. Never prune globally. Never delete volumes.
+          # Project name must start with maintainpro-e2e-.
           case "$COMPOSE_PROJECT_NAME" in
             maintainpro-e2e-*) ;;
             *) echo "Refusing cleanup: unexpected COMPOSE_PROJECT_NAME"; exit 1 ;;
           esac
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
-            -f docker-compose.yml -f docker-compose.e2e.yml down --volumes --remove-orphans
+            -f docker-compose.yml -f docker-compose.e2e.yml down --remove-orphans
 
       - name: Upload evidence artifacts
         if: always()

@@ -167,6 +167,39 @@ services:
     volumes: !override
       - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
+  # One-shot auth-path probes (A=API, B=BFF, C=Nginx). Not published.
+  # Start only via: docker compose --profile diagnostics run --rm e2e-auth-path-diag
+  e2e-auth-path-diag:
+    profiles:
+      - diagnostics
+    image: node:20-alpine
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:ro
+    env_file:
+      - path: ${MAINTAINPRO_E2E_ENV_FILE:-.env.e2e}
+        required: true
+    environment:
+      NODE_ENV: test
+      E2E_TEST_MODE: "true"
+      E2E_AUTH_DIAG_MODE: network
+      MAINTAINPRO_E2E_ENV_FILE: /workspace/.env.e2e
+      API_INTERNAL_URL: http://api:3000/api
+      E2E_RUN_ID: ${E2E_RUN_ID:?E2E_RUN_ID is required}
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}
+      E2E_BASE_URL: ${E2E_BASE_URL:-http://127.0.0.1:18080}
+    networks:
+      - default
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+    entrypoint: ["node", "scripts/e2e-auth-path-diagnostic.mjs"]
+    restart: "no"
+
 volumes:
   maintainpro-e2e-mongo-data:
     name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_mongo_data

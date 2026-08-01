@@ -312,9 +312,34 @@ export class WorkOrdersService {
     }
 
     const tenantId = this.resolveTenantId(actor);
+    const actorId = actor?.sub;
+    if (!actorId) {
+      throw new ForbiddenException("Authenticated actor is required to create a work order.");
+    }
+
+    // Attribution: createdById is the authenticated system creator (compatibility: matching client value accepted).
+    // Spoofing another user requires create-on-behalf (admin only) and is audited.
+    let authoritativeCreatorId = actorId;
+    if (data.createdById !== actorId) {
+      const canCreateOnBehalf =
+        actor?.role === RoleName.SUPER_ADMIN || actor?.role === RoleName.ADMIN;
+      if (!canCreateOnBehalf) {
+        throw new ForbiddenException(
+          "createdById must match the authenticated actor unless create-on-behalf is authorized."
+        );
+      }
+      const onBehalf = await this.prisma.user.findFirst({
+        where: { id: data.createdById, tenantId }
+      });
+      if (!onBehalf) {
+        throw new BadRequestException("createdById does not match any existing user in your tenant context.");
+      }
+      authoritativeCreatorId = onBehalf.id;
+    }
+
     const creator = await this.prisma.user.findFirst({
       where: {
-        id: data.createdById,
+        id: authoritativeCreatorId,
         tenantId
       }
     });
@@ -389,7 +414,7 @@ export class WorkOrdersService {
           assetId,
           vehicleId,
           scheduleId,
-          createdById: data.createdById,
+          createdById: authoritativeCreatorId,
           ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate
@@ -418,7 +443,9 @@ export class WorkOrdersService {
           woNumber: created.woNumber,
           approvalStatus: created.approvalStatus,
           priority: created.priority,
-          type: created.type
+          type: created.type,
+          createdById: authoritativeCreatorId,
+          createOnBehalf: authoritativeCreatorId !== actorId
         },
         afterData: {
           status: created.status,
@@ -460,6 +487,16 @@ export class WorkOrdersService {
       },
       { overrideReason: data.overrideReason, actorRole: actor?.role as RoleName | undefined }
     );
+
+    if (data.estimatedHours !== undefined && (!Number.isFinite(data.estimatedHours) || data.estimatedHours <= 0)) {
+      throw new BadRequestException("Estimated hours must be greater than 0");
+    }
+
+    const plannedStartAt = data.plannedStartAt ? new Date(data.plannedStartAt) : existing.plannedStartAt;
+    const plannedEndAt = data.plannedEndAt ? new Date(data.plannedEndAt) : existing.plannedEndAt;
+    if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() < plannedStartAt.getTime()) {
+      throw new BadRequestException("Planned end must not be earlier than planned start");
+    }
 
     const updated = await this.prisma.workOrder.update({
       where: { id },
@@ -535,10 +572,51 @@ export class WorkOrdersService {
       throw new BadRequestException("Cannot assign a work order to a VIEWER or DRIVER role user");
     }
 
+    if (
+      !TECHNICIAN_EXECUTION_ROLES.has(technician.role.name) &&
+      technician.role.name !== RoleName.ASSET_MANAGER &&
+      technician.role.name !== RoleName.MECHANIC
+    ) {
+      // Prefer technician/mechanic; allow other non-viewer operational roles already filtered above.
+    }
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: { technicianId }
     });
+
+    // Canonical assignee model: sync WorkOrderAssignee from legacy technicianId when a linked employee exists.
+    let employee = await this.prisma.employee.findFirst({
+      where: { linkedUserId: technicianId, tenantId, active: true }
+    });
+    if (!employee) {
+      employee = await this.prisma.employee.create({
+        data: {
+          tenantId,
+          fullName: `${technician.firstName} ${technician.lastName}`.trim() || technician.email,
+          email: technician.email,
+          designation: "Technician",
+          linkedUserId: technicianId,
+          canReceiveWorkOrders: true,
+          canLogin: true,
+          active: true,
+          skills: [],
+          workCategories: ["CORRECTIVE"]
+        }
+      });
+    }
+
+    try {
+      await this.workOrderAssigneesService.addAssignee(
+        id,
+        { employeeId: employee.id, isPrimary: true },
+        actor
+      );
+    } catch (error) {
+      if (!(error instanceof BadRequestException && String(error.message).includes("already assigned"))) {
+        throw error;
+      }
+    }
 
     await this.notificationsService.createNotification({
       userId: technicianId,
@@ -566,13 +644,14 @@ export class WorkOrdersService {
       metadata: {
         event: "work_order_assigned",
         woNumber: updated.woNumber,
-        technicianId
+        technicianId,
+        employeeId: employee.id
       },
       beforeData: { technicianId: current.technicianId ?? null },
-      afterData: { technicianId: updated.technicianId ?? null }
+      afterData: { technicianId: updated.technicianId ?? null, employeeId: employee.id }
     });
 
-    return updated;
+    return this.findOneWithRelations(id, actor);
   }
 
   async submitForApproval(id: string, notes: string | undefined, actor?: Actor) {
@@ -614,7 +693,12 @@ export class WorkOrdersService {
     return updated;
   }
 
-  async approveWorkOrder(id: string, notes: string | undefined, actor?: Actor) {
+  async approveWorkOrder(
+    id: string,
+    notes: string | undefined,
+    actor?: Actor,
+    options?: { emergencyOverrideReason?: string }
+  ) {
     const current = await this.findOne(id, actor);
 
     if (current.approvalStatus !== WorkOrderApprovalStatus.PENDING) {
@@ -626,6 +710,31 @@ export class WorkOrdersService {
     }
 
     const approver = this.assertActor(actor);
+
+    // Maker-checker: creator cannot approve their own controlled work order without emergency override.
+    if (current.createdById === approver.sub) {
+      const override = options?.emergencyOverrideReason?.trim() ?? "";
+      const canOverride =
+        (approver.role === RoleName.SUPER_ADMIN || approver.role === RoleName.ADMIN) &&
+        override.length >= 3;
+      if (!canOverride) {
+        throw new ForbiddenException(
+          "Maker-checker separation required: the work-order creator cannot approve their own request."
+        );
+      }
+      await this.recordAudit({
+        entity: "WorkOrder",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: override,
+        metadata: {
+          event: "work_order_approval_maker_checker_override",
+          woNumber: current.woNumber
+        }
+      });
+    }
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
@@ -732,6 +841,22 @@ export class WorkOrdersService {
       targetStatus === WorkOrderStatus.COMPLETED
     ) {
       this.assertWorkOrderApprovedForExecution(current);
+    }
+
+    if (targetStatus === WorkOrderStatus.ON_HOLD) {
+      assertReasonProvided("Hold reason", data.delayReason);
+    }
+
+    if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
+      const assigneeCount = await this.prisma.workOrderAssignee.count({
+        where: {
+          workOrderId: id,
+          assignmentStatus: { not: "REMOVED" }
+        }
+      });
+      if (!current.technicianId && assigneeCount === 0) {
+        throw new BadRequestException("Cannot start work without an assigned technician or employee.");
+      }
     }
 
     if (targetStatus === WorkOrderStatus.CANCELLED) {
@@ -1893,15 +2018,39 @@ export class WorkOrdersService {
   }
 
   async addNote(id: string, note: string, actor?: Actor) {
+    const trimmed = note?.trim() ?? "";
+    if (trimmed.length < 1) {
+      throw new BadRequestException("Note cannot be blank.");
+    }
+    if (trimmed.length > 4000) {
+      throw new BadRequestException("Note exceeds maximum length.");
+    }
+
     const current = await this.findOne(id, actor);
     const existing = current.notes ? `${current.notes}\n` : "";
+    const stamped = `[${new Date().toISOString()}] ${trimmed}`;
 
-    return this.prisma.workOrder.update({
+    const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
-        notes: `${existing}[${new Date().toISOString()}] ${note}`
+        notes: `${existing}${stamped}`
       }
     });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: "Work note added",
+      metadata: {
+        event: "work_order_note_added",
+        woNumber: current.woNumber,
+        noteLength: trimmed.length
+      }
+    });
+
+    return updated;
   }
 
   async addAttachment(id: string, attachmentUrl: string, actor?: Actor) {

@@ -93,3 +93,37 @@ export async function retryErpSync(id: string): Promise<PurchaseOrderErpSync> {
   const res = await apiClient.post(`/inventory/purchase-orders/${id}/erp-sync/retry`);
   return unwrap(res.data, {} as PurchaseOrderErpSync);
 }
+
+export async function createPurchaseOrder(body: {
+  poNumber: string;
+  supplierId: string;
+  orderDate: string;
+  expectedDate?: string;
+  totalAmount?: number;
+  notes?: string;
+  lines: Array<{ partId?: string; description: string; quantity: number; unitCost: number; partRequestId?: string }>;
+}): Promise<PurchaseOrderWorkflowRecord> {
+  const res = await apiClient.post("/inventory/purchase-orders", body);
+  return unwrap(res.data, {} as PurchaseOrderWorkflowRecord);
+}
+
+export async function createPurchaseReceipt(
+  purchaseOrderId: string,
+  body: {
+    receiptNumber: string;
+    supplierDeliveryNote?: string;
+    receivedAt?: string;
+    notes?: string;
+    idempotencyKey?: string;
+    lines: Array<{
+      purchaseOrderLineId: string;
+      acceptedQuantity: number;
+      rejectedQuantity?: number;
+      rejectionReason?: string;
+    }>;
+  }
+): Promise<unknown> {
+  const res = await apiClient.post(`/inventory/purchase-orders/${purchaseOrderId}/receipts`, body);
+  return unwrap(res.data, {});
+}
+

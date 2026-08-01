@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { ensureE2eEnvironmentLoaded } from "./helpers/load-e2e-process-env";
 
 async function globalSetup() {
+  ensureE2eEnvironmentLoaded({ requireSeedPassword: true });
+
   if ((process.env.E2E_TEST_MODE || "").trim() !== "true") {
     throw new Error("global-setup: E2E_TEST_MODE must be true");
   }

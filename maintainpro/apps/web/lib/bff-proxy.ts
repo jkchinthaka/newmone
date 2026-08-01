@@ -6,6 +6,11 @@ import {
   isBffCsrfExempt,
   stripAuthTokensFromBody
 } from "./bff-auth";
+import {
+  joinUpstreamPath,
+  resolveBffUpstreamApiBase,
+  sanitizeRequestId
+} from "./bff-upstream-url";
 import { assertProductionRuntimeSecurity } from "./runtime-security-config";
 import {
   ACCESS_COOKIE,
@@ -16,7 +21,6 @@ import {
   readSessionCookies,
   sessionCookieOptions
 } from "./session-cookies";
-import { apiOrigin } from "./api-url";
 
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
@@ -26,18 +30,8 @@ type AuthTokenPayload = {
   refreshToken?: unknown;
 };
 
-function upstreamApiBase(): string {
-  const configured =
-    process.env.API_INTERNAL_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
-    `${apiOrigin}/api`;
-  return configured.replace(/\/+$/, "");
-}
-
-function joinUpstream(pathSegments: string[]): string {
-  const suffix = pathSegments.map((part) => encodeURIComponent(part)).join("/");
-  return `${upstreamApiBase()}/${suffix}`;
+function resolveRequestId(incoming: string | null): string {
+  return sanitizeRequestId(incoming) || randomUUID();
 }
 
 function isMutation(method: string): boolean {
@@ -62,7 +56,6 @@ function isSessionCookieUpdatePath(pathSegments: string[]): boolean {
     const path = pathSegments.join("/");
     return path !== "auth/logout" && path !== "auth/logout-all";
   }
-  // tenants/:id/switch returns a rotated access token for the active tenant.
   return (
     pathSegments.length === 3 &&
     pathSegments[0] === "tenants" &&
@@ -106,6 +99,39 @@ function applySessionCookies(
   }
 }
 
+function classifyUpstreamFetchError(error: unknown): {
+  status: number;
+  code: string;
+  category: string;
+} {
+  const message = error instanceof Error ? error.message : String(error || "");
+  const name = error instanceof Error ? error.name : "";
+  const lowered = message.toLowerCase();
+  if (
+    name === "TimeoutError" ||
+    name === "AbortError" ||
+    lowered.includes("timeout") ||
+    lowered.includes("aborted")
+  ) {
+    return { status: 504, code: "UPSTREAM_TIMEOUT", category: "timeout" };
+  }
+  if (
+    lowered.includes("econnrefused") ||
+    lowered.includes("enotfound") ||
+    lowered.includes("eai_again") ||
+    lowered.includes("econnreset") ||
+    lowered.includes("fetch failed") ||
+    lowered.includes("network") ||
+    lowered.includes("socket")
+  ) {
+    return { status: 502, code: "UPSTREAM_UNAVAILABLE", category: "connectivity" };
+  }
+  if (name === "BffUpstreamUrlError" || lowered.includes("upstream url") || lowered.includes("api_internal_url")) {
+    return { status: 500, code: "UPSTREAM_CONFIG", category: "configuration" };
+  }
+  return { status: 502, code: "UPSTREAM_UNAVAILABLE", category: "connectivity" };
+}
+
 export async function proxyBffRequest(
   request: NextRequest,
   pathSegments: string[]
@@ -128,7 +154,7 @@ export async function proxyBffRequest(
   }
 
   const method = request.method.toUpperCase();
-  const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
+  const requestId = resolveRequestId(request.headers.get("x-request-id"));
   const session = await readSessionCookies();
 
   if (isMutation(method)) {
@@ -152,11 +178,31 @@ export async function proxyBffRequest(
     }
   }
 
-  const upstreamUrl = new URL(joinUpstream(pathSegments));
+  let upstreamBase: string;
+  try {
+    upstreamBase = resolveBffUpstreamApiBase(process.env).base;
+  } catch (error) {
+    const classified = classifyUpstreamFetchError(error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: classified.code,
+          message: "Upstream API configuration is invalid",
+          requestId
+        }
+      },
+      { status: classified.status, headers: { "X-Request-Id": requestId } }
+    );
+  }
+
+  const upstreamUrl = new URL(joinUpstreamPath(upstreamBase, pathSegments));
   request.nextUrl.searchParams.forEach((value, key) => {
     upstreamUrl.searchParams.set(key, value);
   });
 
+  // Forward only safe application headers. Never forward hop-by-hop headers
+  // (host, connection, content-length, transfer-encoding, etc.).
   const headers = new Headers();
   const forwardHeaders = [
     "content-type",
@@ -212,24 +258,33 @@ export async function proxyBffRequest(
       method,
       headers,
       body,
-      redirect: "manual"
+      redirect: "manual",
+      signal: AbortSignal.timeout(60_000)
     });
-  } catch {
+  } catch (error) {
+    const classified = classifyUpstreamFetchError(error);
+    // Safe server-side category only — never log bodies, tokens, or Authorization.
+    console.error(
+      `[bff] upstream_fetch_failed category=${classified.category} code=${classified.code} requestId=${requestId}`
+    );
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "UPSTREAM_UNAVAILABLE",
-          message: "Upstream API is unavailable",
+          code: classified.code,
+          message:
+            classified.status === 504
+              ? "Upstream API request timed out"
+              : "Upstream API is unavailable",
           requestId
         }
       },
-      { status: 502, headers: { "X-Request-Id": requestId } }
+      { status: classified.status, headers: { "X-Request-Id": requestId } }
     );
   }
 
   const responseHeaders = new Headers();
-  responseHeaders.set("X-Request-Id", upstream.headers.get("x-request-id") ?? requestId);
+  responseHeaders.set("X-Request-Id", sanitizeRequestId(upstream.headers.get("x-request-id")) || requestId);
   const contentType = upstream.headers.get("content-type");
   if (contentType) {
     responseHeaders.set("content-type", contentType);
@@ -250,6 +305,8 @@ export async function proxyBffRequest(
   const shouldClearSession =
     (path === "auth/logout" || path === "auth/logout-all") && upstream.ok;
 
+  // Preserve upstream status for all responses, including 4xx.
+  // Only rewrite non-JSON error bodies; never convert a valid 401/403 into 502.
   let responseBody = rawText;
   if (shouldSetSession && parsedBody) {
     responseBody = JSON.stringify(stripAuthTokensFromBody(parsedBody));
@@ -263,9 +320,19 @@ export async function proxyBffRequest(
       }
     });
     responseHeaders.set("content-type", "application/json");
+  } else if (!parsedBody && !rawText && !upstream.ok) {
+    responseBody = JSON.stringify({
+      success: false,
+      error: {
+        code: "UPSTREAM_ERROR",
+        message: "Upstream request failed",
+        requestId
+      }
+    });
+    responseHeaders.set("content-type", "application/json");
   }
 
-  const response = new NextResponse(responseBody, {
+  const response = new NextResponse(responseBody || null, {
     status: upstream.status,
     headers: responseHeaders
   });

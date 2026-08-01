@@ -42,6 +42,8 @@ Resolution order:
 
 **Phase 2:** Production compose requires `API_INTERNAL_URL=http://api:3000/api` and `NEXT_PUBLIC_USE_BFF=true`.
 
+**Login success status (Phase 4B attempt 5):** NestJS `POST /auth/login` returns exactly **HTTP 200 OK** via `@HttpCode(AUTH_LOGIN_SUCCESS_HTTP_STATUS)` — not Nest's POST default 201. BFF preserves the upstream status; browser cookies remain BFF-owned.
+
 ### 2.4 Cookie policy
 
 | Layer | Secure | SameSite | Notes |
@@ -165,8 +167,8 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 **Selected option:** Option A — NestJS does **not** issue browser session cookies.
 
 **Evidence:**
-- Mobile clients use FlutterSecureStorage + JSON token bodies (pps/mobile/lib/core/storage/token_storage.dart).
-- Next.js BFF strips tokens and sets maintainpro_* cookies (ff-proxy.ts).
+- Mobile clients use FlutterSecureStorage + JSON token bodies (apps/mobile/lib/core/storage/token_storage.dart).
+- Next.js BFF strips tokens and sets maintainpro_* cookies (bff-proxy.ts).
 - Nest previously used `SameSite=None` when Secure (auth.controller) and also set cookies from tenancy switch — conflicting with BFF Lax architecture.
 - Nest `Set-Cookie` was not forwarded by the BFF anyway; tenancy switch left stale BFF access cookies.
 
@@ -219,3 +221,14 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 | Full-stack E2E CI workflow | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
 | Live production login | NOT validated |
+
+## Phase 5A inventory architecture
+
+- Read routes share `INVENTORY_READ_ROLES` including `INVENTORY_KEEPER`.
+- Stock-out requires tenant-scoped `workOrderId`, atomic conditional decrement, optional tenant-scoped idempotency (`InventoryStockIssueIdempotency`).
+- Movement records carry tenant/WO/actor for reconciliation.
+- E2E creates WO via manager context; no hardcoded ObjectIds.
+
+## Phase 5C architecture
+
+PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads sanitized. inventory.erp_apply separated.

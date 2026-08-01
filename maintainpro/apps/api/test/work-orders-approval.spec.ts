@@ -62,16 +62,23 @@ describe("WorkOrdersService approval and audit", () => {
   });
 
   const manager = {
-    sub: "manager-1",
+    sub: "507f1f77bcf86cd799439011",
     email: "manager@maintainpro.local",
     role: RoleName.MANAGER,
     tenantId: "tenant-a"
   };
 
   const technician = {
-    sub: "tech-1",
+    sub: "507f1f77bcf86cd799439012",
     email: "tech@maintainpro.local",
     role: RoleName.TECHNICIAN,
+    tenantId: "tenant-a"
+  };
+
+  const checker = {
+    sub: "507f1f77bcf86cd799439013",
+    email: "admin@maintainpro.local",
+    role: RoleName.ADMIN,
     tenantId: "tenant-a"
   };
 
@@ -150,19 +157,20 @@ describe("WorkOrdersService approval and audit", () => {
       id: "wo-1",
       woNumber: "WO-2026-0003",
       approvalStatus: WorkOrderApprovalStatus.PENDING,
-      status: WorkOrderStatus.OPEN
+      status: WorkOrderStatus.OPEN,
+      createdById: manager.sub
     });
     prisma.workOrder.update.mockResolvedValue({
       id: "wo-1",
       woNumber: "WO-2026-0003",
       approvalStatus: WorkOrderApprovalStatus.APPROVED,
-      approvedById: manager.sub
+      approvedById: checker.sub
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
     const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
-    const updated = await service.approveWorkOrder("wo-1", "Approved for execution", manager);
+    const updated = await service.approveWorkOrder("wo-1", "Approved for execution", checker);
 
     expect(updated.approvalStatus).toBe(WorkOrderApprovalStatus.APPROVED);
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
@@ -172,6 +180,24 @@ describe("WorkOrdersService approval and audit", () => {
         })
       })
     );
+  });
+
+  it("blocks maker self-approval without emergency override", async () => {
+    const prisma = createPrismaMock();
+    prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      woNumber: "WO-2026-0003b",
+      approvalStatus: WorkOrderApprovalStatus.PENDING,
+      status: WorkOrderStatus.OPEN,
+      createdById: manager.sub
+    });
+
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+
+    await expect(service.approveWorkOrder("wo-1", "self approve", manager)).rejects.toThrow(
+      /Maker-checker/
+    );
+    expect(prisma.workOrder.update).not.toHaveBeenCalled();
   });
 
   it("rejects pending work orders with reason and cancels status", async () => {

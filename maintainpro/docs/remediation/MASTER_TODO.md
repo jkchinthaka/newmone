@@ -362,7 +362,7 @@
 
 #### TODO-P4-002 — Disposable real-stack e2e compose profile
 - **Priority:** P1 | **Owner:** QA + DevOps | **Status:** NOT_STARTED  
-- **Acceptance criteria:** Pipeline/job brings up stack, runs smoke, tears down e2e volumes only; never points at prod URLs  
+- **Acceptance criteria:** Pipeline/job brings up stack, runs smoke, stops the isolated E2E Compose project with volumes preserved; never points at prod URLs  
 
 #### TODO-P4-003 — CSRF and session-expiry UX e2e
 - **Priority:** P1 | **Owner:** QA | **Status:** NOT_STARTED  
@@ -370,6 +370,27 @@
 
 #### TODO-P4-004 — Contract/OpenAPI drift check (follow-on)
 - **Priority:** P2 | **Owner:** Backend | **Status:** NOT_STARTED  
+
+---
+
+## Phase 5A — Inventory Keeper access and stock issue (DONE)
+
+#### TODO-P5A-001 — Inventory Keeper read + WO-linked stock issue
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Decision:** Option A RBAC (`INVENTORY_READ_ROLES` includes `INVENTORY_KEEPER`)
+- **Acceptance:** E2E-INV-001..016 no skip; focused inventory gate; negative/idempotent/tenant controls
+
+#### TODO-P5A-002 — ERP apply role narrowing (follow-on)
+- **Priority:** P1 | **Owner:** BA + Backend | **Status:** NOT_STARTED
+- **Note:** Legacy ERP apply still lists keeper — do not expand in 5A
+
+---
+
+## Phase 5B — Work-order lifecycle (IN PROGRESS)
+
+#### TODO-P5B-001 — Complete WO lifecycle controls + E2E
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Acceptance:** Maker-checker, assignment sync, start gate, verify-supervisor, E2E-WO-LC mandatory skips=0
 
 ---
 
@@ -587,7 +608,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Nginx BFF routing | SOURCE_VALIDATED (static) | `default.conf` + `validate:nginx-routing` |
 | API_INTERNAL_URL | SOURCE_VALIDATED (compose) | `docker-compose.production.yml` + env examples |
 | Auth e2e cookie architecture | SOURCE_UPDATED | `e2e/auth.spec.ts` |
-| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` � table empty |
+| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` - table empty |
 | Mongo root rotation (Phase 1) | **OPERATOR_ACTION_REQUIRED** | Still open |
 | HTTPS recommendation | DOCUMENTED | HTTP is not secure transport; dual opt-in required |
 
@@ -598,8 +619,8 @@ This file is a plan. Implementation begins only when explicitly authorized after
 **Selected option:** Option A — NestJS does **not** issue browser session cookies.
 
 **Evidence:**
-- Mobile clients use FlutterSecureStorage + JSON token bodies (pps/mobile/lib/core/storage/token_storage.dart).
-- Next.js BFF strips tokens and sets maintainpro_* cookies (ff-proxy.ts).
+- Mobile clients use FlutterSecureStorage + JSON token bodies (apps/mobile/lib/core/storage/token_storage.dart).
+- Next.js BFF strips tokens and sets maintainpro_* cookies (bff-proxy.ts).
 - Nest previously used `SameSite=None` when Secure (auth.controller) and also set cookies from tenancy switch — conflicting with BFF Lax architecture.
 - Nest `Set-Cookie` was not forwarded by the BFF anyway; tenancy switch left stale BFF access cookies.
 
@@ -647,3 +668,40 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
 | Full-stack CI runtime | IN_PROGRESS / not yet RUNTIME_VALIDATED |
 | Live production login | NOT validated |
+
+| Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
+| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
+| Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
+| Browser session request-context + logout CSRF | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
+| Work-order create payload + CSRF-003 exact 201 | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
+| Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (superseded by Phase 5A) |
+| Phase 5A inventory runtime (`30698756592` / `e41d7ab`) | RUNTIME_VALIDATED |
+
+
+
+
+
+## Phase 5C — Procurement / PO / ERP / receiving
+
+- Status: **RUNTIME_VALIDATED** (workflow 30715842098, app SHA 512745d678a4be6b0d0a62f2400763ff9fd4ec08)
+- Preserve Phase 5B RUNTIME_VALIDATED evidence (workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)
+
+#### TODO-P5C-001 — Procurement/PO/ERP/receiving controls
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Acceptance:** Server totals, maker-checker, GRN over-receipt, ERP sanitize, E2E-PROC-001..020, focused procurement gate
+
+## Phase 5B status
+
+- Status: **RUNTIME_VALIDATED** (corrected workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)
+- Prior functional SHA 15d28f35... / workflow 30703557700 remains recorded evidence
+- Cleanup policy: Compose down --remove-orphans only; volumes preserved
+- Not go-live ready; Phase 5C/5D remain
+
+## Phase 5D / remaining
+
+- P1: Receipt reversal/adjustment workflow
+- P1: Production poNumber uniqueness migration (operator audit)
+- P1: FINANCE/PROCUREMENT_OFFICER production user migration
+- Flutter GRN client: OPERATOR_ACTION_REQUIRED (stop PATCH RECEIVED)
+- Real Bileeta ERP writes remain out of scope

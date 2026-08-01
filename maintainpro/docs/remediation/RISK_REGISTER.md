@@ -102,3 +102,33 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Live production login | NOT validated |
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
+
+| Playwright missing disposable env | Mitigated by centralized E2E env loader |
+| E2E env template missing final newline / fragile append | Mitigated by materialize + NL validators (attempt 3) |
+| Nginx 502 on successful BFF login (large Set-Cookie) | Mitigated by enlarged `/api/backend/` proxy buffers + auth-path A/B/C gate (attempt 4) |
+| API login 401 vs browser 502 correlation | Open until request-ID evidence; do not assume same request |
+| Login success 201 (Nest POST default) vs Playwright 200 | Mitigated by explicit `@HttpCode(200)` + contract tests (attempt 5) |
+| Authenticated E2E used isolated Playwright request (no browser cookies) | Mitigated by browser-session helpers + request-context validator (attempt 6) |
+| Logout Nest POST default 201 | Mitigated by explicit logout HTTP 200 contract (attempt 6) |
+| E2E work-order create omitted required `createdById` | Mitigated by `/auth/me` actor resolution + payload validator (attempt 7) |
+| Client-supplied `createdById` vs authenticated actor attribution | P1 BUSINESS_CONTRACT_REVIEW — not redesigned in Phase 4B attempt 7 |
+| Inventory list 403 for inventory keeper in disposable E2E | P1 PRODUCT_GAP / optional ERP control — does not block Phase 4B partial runtime validation |
+| Phase 4B attempt 7 runtime | PARTIAL_RUNTIME_VALIDATION — run `30696336211`, SHA `0ecd3fa` |
+
+## INV-RBAC-ROUTE-GAP (Phase 5A mitigated)
+
+| Field | Value |
+| --- | --- |
+| Risk | Inventory Keeper 403 on parts list despite seeded permissions |
+| Classification | RBAC_ROUTE_CONTRACT_DEFECT |
+| Mitigation | Option A: add keeper to INVENTORY_READ_ROLES; keep inventory.manage |
+| Residual | Option B inventory.view deferred; ERP apply role narrowing P1 |
+
+| CI E2E Compose `down --volumes` | CI_CLEANUP_SAFETY_DEFECT | Corrected to `down --remove-orphans`; validator prevents regression | Open until corrected SHA rerun |
+
+## Phase 5C risks
+
+- P1: Receipt reversal not implemented (immutable posted receipts).
+- P1: Production poNumber uniqueness migration needs operator audit.
+- P1: FINANCE/PROCUREMENT_OFFICER production user migration operator-owned.
+- P0 closed in source: client totals, PATCH RECEIVED, live ERP in E2E, keeper apply.

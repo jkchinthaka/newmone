@@ -24,6 +24,8 @@ export async function loginViaApi(request: APIRequestContext, emailLocal: string
   const response = await request.post("/api/backend/auth/login", {
     data: { email, password: e2ePassword() }
   });
+  // Canonical Nest/BFF login success is exactly HTTP 200 (not Nest POST default 201).
+  expect(response.status()).toBe(200);
   return { email, response };
 }
 

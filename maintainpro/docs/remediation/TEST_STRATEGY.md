@@ -41,7 +41,7 @@
 
 | Case | Expected |
 | --- | --- |
-| Valid login via `/api/backend/auth/login` | HTTP 2xx; **HttpOnly** access+refresh cookies; CSRF readable cookie; **no** access/refresh in localStorage; tokens stripped from JSON |
+| Valid login via `/api/backend/auth/login` | **HTTP 200 OK** (exact); **HttpOnly** access+refresh cookies; CSRF readable cookie; **no** access/refresh in localStorage; tokens stripped from JSON |
 | Login over HTTP with secure defaults | Cookies may be rejected — session fails (documents need for explicit HTTP mode) |
 | HTTP mode with `COOKIE_SECURE=false` + `ALLOW_INSECURE_HTTP=true` | Cookies set without Secure; warning logged |
 | Mutation without CSRF | HTTP 403 |
@@ -76,7 +76,7 @@
 docker compose -f docker-compose.yml -f docker-compose.e2e.yml up
 seed disposable tenant A/B
 playwright against http://localhost/login
-tear down volumes for e2e project only
+stop E2E Compose project with volumes preserved
 ```
 
 **Must cover:** login, tenant switch, create WO, stock issue (no negative), PO approval path, forbidden cross-tenant read, CSRF failure, session expiry UX.
@@ -182,3 +182,35 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | Live production login | NOT validated |
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Full-stack CI runtime | NOT RUNTIME_VALIDATED |
+
+| Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
+| E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
+| BFF upstream / nginx buffer / auth-path probes | SOURCE_VALIDATED (Phase 4B attempt 4) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
+| Browser session / logout CSRF request-context | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
+| Work-order create payload (`createdById` via `/auth/me`) | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
+| Full-stack E2E CI runtime (attempt 7 SHA `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (INV optional skip) |
+
+## Phase 5A inventory validation
+
+Static: `npm run validate:e2e-inventory-controls`, `test:inventory-access-contract`, `test:inventory-stock-issue-contract`.
+CI: inventory controls gate after work-order create gate, before full Playwright suite.
+Mandatory E2E-INV-001..016 must not use `test.skip`.
+
+## Docker cleanup policy (Phase 5B+)
+
+Automated E2E and CI cleanup must use docker compose ... down --remove-orphans only. Validate with 
+npm run validate:nondestructive-docker-cleanup.
+
+### Forbidden
+
+- docker compose down -v
+- docker compose down --volumes
+- docker volume rm
+- docker volume prune
+- docker system prune
+
+## Phase 5C procurement
+
+Validate with validate:e2e-procurement-controls, contract self-tests, and Playwright @procurement-gate.
+Mock ERP only. No direct PATCH RECEIVED.

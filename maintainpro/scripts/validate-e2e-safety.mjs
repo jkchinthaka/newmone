@@ -117,6 +117,71 @@ function main() {
     }
   }
 
+  const workflowPath = path.join(maintainproRoot, "..", ".github", "workflows", "full-stack-e2e.yml");
+  if (existsSync(workflowPath)) {
+    const wf = readFileSync(workflowPath, "utf8");
+    const hardcodes =
+      /E2E_SEED_PASSWORD:\s*\S+/.test(wf) ||
+      /echo\s+["']?E2E_SEED_PASSWORD=/.test(wf) ||
+      /GITHUB_ENV.*E2E_SEED_PASSWORD/.test(wf);
+    if (hardcodes) {
+      fail("E2E-SAFE-016", "Workflow must not hardcode or export E2E_SEED_PASSWORD");
+    } else if (!wf.includes("MAINTAINPRO_E2E_ENV_FILE")) {
+      fail("E2E-SAFE-016", "Workflow must pass MAINTAINPRO_E2E_ENV_FILE path");
+    } else {
+      pass("E2E-SAFE-016", "Workflow passes E2E env file path without password export");
+    }
+
+    const fragileEchoAppend =
+      /echo\s+[\"']?E2E_RUN_ID=\$\{?E2E_RUN_ID\}?[\"']?\s*>>/.test(wf);
+    const usesMaterialize = wf.includes("e2e-materialize-env");
+    if (fragileEchoAppend || !usesMaterialize) {
+      fail(
+        "E2E-SAFE-017",
+        "Workflow must use newline-safe materialize (not fragile echo append)"
+      );
+    } else {
+      pass("E2E-SAFE-017", "E2E runtime append boundary: PASS");
+    }
+
+    if (!wf.includes("e2e-auth-path-diag") || !wf.includes("Auth path diagnostic")) {
+      fail("E2E-SAFE-019", "Workflow must run three-level auth-path diagnostic before Playwright");
+    } else if (/continue-on-error:\s*true[\s\S]{0,120}Auth path diagnostic|Auth path diagnostic[\s\S]{0,120}continue-on-error:\s*true/.test(wf)) {
+      fail("E2E-SAFE-019", "Auth path diagnostic must not use continue-on-error");
+    } else {
+      pass("E2E-SAFE-019", "Auth path diagnostic gate present before Playwright");
+    }
+  }
+
+  const e2eComposeForDiag = path.join(maintainproRoot, "docker-compose.e2e.yml");
+  if (existsSync(e2eComposeForDiag)) {
+    const diagText = readFileSync(e2eComposeForDiag, "utf8");
+    if (!diagText.includes("e2e-auth-path-diag") || !diagText.includes("diagnostics")) {
+      fail("E2E-SAFE-020", "E2E compose must define diagnostics-profile auth-path service");
+    } else if (/e2e-auth-path-diag:[\s\S]*?ports:/.test(diagText)) {
+      fail("E2E-SAFE-020", "Auth-path diagnostic service must not publish ports");
+    } else {
+      pass("E2E-SAFE-020", "Diagnostics-profile auth-path service is internal-only");
+    }
+  }
+
+  const exampleEnvPath = path.join(maintainproRoot, ".env.e2e.example");
+  if (existsSync(exampleEnvPath)) {
+    const buf = readFileSync(exampleEnvPath);
+    const endsLf = buf.length > 0 && buf[buf.length - 1] === 0x0a;
+    const text = buf.toString("utf8");
+    const domainMatch = text.match(/^E2E_SEED_EMAIL_DOMAIN=(.*)$/m);
+    const domain = domainMatch ? domainMatch[1].trim() : "";
+    const domainConcat = /[A-Za-z_][A-Za-z0-9_]*=/.test(domain);
+    if (!endsLf) {
+      fail("E2E-SAFE-018", "E2E environment template final newline: FAIL");
+    } else if (domain !== "e2e.maintainpro.test" || domainConcat) {
+      fail("E2E-SAFE-018", "E2E_SEED_EMAIL_DOMAIN assignment is malformed");
+    } else {
+      pass("E2E-SAFE-018", "E2E environment template final newline: PASS");
+    }
+  }
+
   console.log(`Summary: ${passes} passed, ${failures} failed`);
   if (failures > 0) process.exit(1);
 }

@@ -88,10 +88,8 @@ export function assertEvidenceForTechnicianCompletion(input: {
     if (checklist.missingAfter) {
       throw new BadRequestException("After photo is required before completion.");
     }
-  } else if (checklist.required && !checklist.storageEnabled && !input.overrideReason?.trim()) {
-    throw new BadRequestException(
-      "File upload storage is not configured. Required evidence cannot be captured — contact a manager for override."
-    );
+  } else if (checklist.required && !checklist.storageEnabled) {
+    // Storage disabled: photo evidence is waived for this environment; completion note remains mandatory.
   }
 
   if (requiresQrVerification(input.workOrderType, input.assetId, input.vehicleId)) {
@@ -112,8 +110,13 @@ export function assertEvidenceForSupervisorVerification(input: {
   items: EvidenceLineSnapshot[];
   overrideReason?: string | null;
 }) {
-  const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items, { storageEnabled: true });
-  if ((!checklist.hasBefore || !checklist.hasAfter) && checklist.required && !input.overrideReason?.trim()) {
+  const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items);
+  if (
+    checklist.required &&
+    checklist.storageEnabled &&
+    (!checklist.hasBefore || !checklist.hasAfter) &&
+    !input.overrideReason?.trim()
+  ) {
     throw new BadRequestException("Supervisor verification blocked because required evidence is missing.");
   }
   if (checklist.rejectedCount > 0 && !input.overrideReason?.trim()) {

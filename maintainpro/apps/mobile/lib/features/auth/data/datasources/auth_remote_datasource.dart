@@ -13,6 +13,8 @@ class AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
+    // NestJS POST /auth/login canonical success is HTTP 200 OK.
+    // Dio treats any 2xx as success; this client does not require 201 Created.
     final response = await _dio.post(
       ApiEndpoints.login,
       data: {
