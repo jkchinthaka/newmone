@@ -30,7 +30,8 @@ const FULL_ACCESS_ROLES = new Set<RoleName>([
   RoleName.OPERATIONS_MANAGER,
   RoleName.ASSET_MANAGER
 ]);
-const FINANCE_ROLE_NAMES = new Set<string>(["FINANCE_APPROVER"]);
+/** Canonical role is FINANCE; FINANCE_APPROVER is a legacy display alias only. */
+const FINANCE_ROLE_NAMES = new Set<string>(["FINANCE", "FINANCE_APPROVER"]);
 const SUPERVISOR_ROLES = new Set<RoleName>([RoleName.SUPERVISOR]);
 const PARTS_ROLES = new Set<RoleName>([RoleName.INVENTORY_KEEPER]);
 

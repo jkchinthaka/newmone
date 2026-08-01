@@ -61,3 +61,86 @@ Runtime closeout (attempt 7): run `30696336211` on `0ecd3fa` — **63 passed / 0
 
 - @procurement-gate: procurement.spec.ts
 - Contract self-tests: totals / approval / receiving / ERP
+
+## Phase 5D management-info gate
+
+Focused Playwright project grep: `@management-info-gate` (dashboard / KPI / report / audit / ERP-monitor).  
+Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / workflow `30712469601` and Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / workflow `30715842098`.  
+Do **not** invent a Phase 5D runtime SHA until Full-Stack E2E succeeds.
+
+### E2E-DASH — role-specific dashboards
+
+| ID | Coverage |
+| --- | --- |
+| E2E-DASH-001 | Admin dashboard loads |
+| E2E-DASH-002 | Management dashboard shows organization KPIs |
+| E2E-DASH-003 | Technician dashboard shows only assigned work |
+| E2E-DASH-004 | Inventory Keeper excludes sensitive finance/system information |
+| E2E-DASH-005 | Finance dashboard shows approval/procurement summary |
+| E2E-DASH-006 | Procurement dashboard shows ERP/GRN backlog |
+| E2E-DASH-007 | VIEWER receives only approved read-only modules |
+| E2E-DASH-008 | Unauthorized role receives exact 403 for restricted report |
+| E2E-DASH-009 | Tenant B cannot see Tenant A counts |
+| E2E-DASH-010 | Degraded source appears as DEGRADED, not zero |
+| E2E-DASH-011 | generatedAt / range / timezone / currency metadata exist |
+| E2E-DASH-012 | Drill-down filters preserve tenant/range context |
+
+No mandatory dashboard test may `test.skip`.
+
+### E2E-KPI — reconciliation
+
+| ID | Coverage |
+| --- | --- |
+| E2E-KPI-001 | Work-order total reconciles |
+| E2E-KPI-002 | Status counts reconcile (non-overlapping rules) |
+| E2E-KPI-003 | Overdue count reconciles |
+| E2E-KPI-004 | Approval backlog reconciles |
+| E2E-KPI-005 | Verification backlog reconciles |
+| E2E-KPI-006 | Technician workload reconciles (canonical assignees) |
+| E2E-KPI-007 | Low-stock count reconciles |
+| E2E-KPI-008 | Inventory value reconciles |
+| E2E-KPI-009 | Procurement approval queues reconcile |
+| E2E-KPI-010 | ERP failure/retry counts reconcile |
+| E2E-KPI-011 | Partial/final receipt counts reconcile |
+| E2E-KPI-012 | MTBF returns null + INSUFFICIENT_DATA when intervals insufficient (never zero) |
+
+### E2E-REPORT — access, time/currency, finance, export
+
+| ID | Coverage |
+| --- | --- |
+| E2E-REPORT-001 | Module permission allow path |
+| E2E-REPORT-002 | Module permission deny → 403 |
+| E2E-REPORT-003 | Invalid/inverted dates → 400; max range enforced |
+| E2E-REPORT-004 | Asia/Colombo day/month boundaries |
+| E2E-REPORT-005 | currencyCode LKR in metadata; numeric amounts |
+| E2E-REPORT-006 | VIEWER limited modules |
+| E2E-REPORT-007 | INVENTORY_KEEPER inventory/ops only |
+| E2E-REPORT-008 | system_logs requires audit.view |
+| E2E-REPORT-010 | Default Total Expenses = consumed WO actualCost + utility + farm |
+| E2E-REPORT-011 | Parts excluded when actualCost present |
+| E2E-REPORT-012 | Committed PO spend is a separate card |
+| E2E-REPORT-020 | CSV/XLSX formula neutralization (=+ -@ tab CR) |
+| E2E-REPORT-021 | Export needs module view + reports.export |
+| E2E-REPORT-022 | Truncation metadata when capped |
+| E2E-REPORT-023 | Export writes audit event |
+
+### E2E-AUDIT — security and lifecycle coverage
+
+| ID | Coverage |
+| --- | --- |
+| E2E-AUDIT-001 | Role/permission change events |
+| E2E-AUDIT-002 | Login failure persisted safely (no password/token) |
+| E2E-AUDIT-003 | WO / inventory / PO / ERP lifecycle coverage |
+| E2E-AUDIT-004 | Report and audit exports audited |
+| E2E-AUDIT-005 | Invalid audit dates → 400 |
+
+### E2E-ERP-MON — safe monitoring
+
+| ID | Coverage |
+| --- | --- |
+| E2E-ERP-MON-001 | Safe ERP summary for management/procurement |
+| E2E-ERP-MON-002 | Inventory Keeper cannot erp_apply |
+| E2E-ERP-MON-003 | No URL / payload / key leakage |
+| E2E-ERP-MON-004 | MOCK provider only in E2E |
+
+Contract self-tests: KPI catalog invariants, financial double-count prevention, export neutralization, report date/currency bounds.

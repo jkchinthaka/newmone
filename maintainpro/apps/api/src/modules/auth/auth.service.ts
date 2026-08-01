@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -16,6 +17,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
+import { SecurityEventsService } from "../audit/security-events.service";
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -32,8 +34,16 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService
+    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService,
+    @Optional() @Inject(SecurityEventsService) private readonly securityEventsService?: SecurityEventsService
   ) {}
+
+  private async recordSecurityEvent(
+    input: Parameters<SecurityEventsService["record"]>[0]
+  ): Promise<void> {
+    if (!this.securityEventsService) return;
+    await this.securityEventsService.record(input);
+  }
 
   private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
     const { passwordHash: _passwordHash, ...publicUser } = user;
@@ -284,15 +294,41 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      await this.recordSecurityEvent({
+        eventType: "LOGIN_FAILURE",
+        outcome: "FAILURE",
+        reasonCode: "INVALID_CREDENTIALS",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null,
+        metadata: { reason: "unknown_or_inactive" }
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
+      await this.recordSecurityEvent({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: "LOGIN_FAILURE",
+        outcome: "FAILURE",
+        reasonCode: "WORKFORCE_INACTIVE",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
     if (user.lockedUntil && user.lockedUntil > now) {
+      await this.recordSecurityEvent({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: "ACCOUNT_LOCK",
+        outcome: "BLOCKED",
+        reasonCode: "LOCKED_UNTIL",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
@@ -311,6 +347,16 @@ export class AuthService {
           failedLoginAttempts: nextFailedAttempts,
           lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
         }
+      });
+      await this.recordSecurityEvent({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: shouldLock ? "ACCOUNT_LOCK" : "LOGIN_FAILURE",
+        outcome: shouldLock ? "BLOCKED" : "FAILURE",
+        reasonCode: shouldLock ? "MAX_FAILED_ATTEMPTS" : "BAD_PASSWORD",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null,
+        metadata: { attemptBucket: nextFailedAttempts }
       });
       throw new UnauthorizedException("Invalid email or password");
     }

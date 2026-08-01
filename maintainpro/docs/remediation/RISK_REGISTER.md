@@ -132,3 +132,26 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 - P1: Production poNumber uniqueness migration needs operator audit.
 - P1: FINANCE/PROCUREMENT_OFFICER production user migration operator-owned.
 - P0 closed in source: client totals, PATCH RECEIVED, live ERP in E2E, keeper apply.
+
+## Phase 5D residual risks
+
+| Risk | Severity | Mitigation / residual |
+| --- | --- | --- |
+| Client-side KPI aggregation undercounts (WO pageSize 25) | P0 until fixed | Server-side dashboard snapshot; E2E-KPI / E2E-DASH |
+| Financial double-count (WO actualCost + parts + PO) | P0 until fixed | FINANCIAL_REPORT_RECONCILIATION_CONTRACT; labeled bases |
+| Hardcoded USD on LKR reports | P1 | REPORT_TIME_AND_CURRENCY_CONTRACT; currencyCode metadata |
+| Broad role arrays vs granular `reports.*` | P1 | REPORT_ACCESS_MATRIX; seed + operator migration |
+| FINANCE vs FINANCE_APPROVER divergence | P1 | FINANCE canonical; FINANCE_APPROVER display alias only |
+| Login failures not queryable | P1 | AUDIT_EVENT_COVERAGE_MATRIX; safe security events |
+| CSV formula injection | P0 until fixed | REPORT_EXPORT_SAFETY_CONTRACT; E2E-REPORT-020 |
+| Silent truncated exports | P1 | Truncation metadata mandatory |
+| ERP secret leakage on dashboard | P0 | ERP_MONITORING_DASHBOARD_CONTRACT allowlist |
+| MTBF shown as zero when unsupported | P1 | value null + INSUFFICIENT_DATA; E2E-KPI-012 |
+| Unbounded report queries / memory | P1 | PERF controls; bounded aggregates |
+| catch-to-null hides degraded sources | P1 | coverageStatus DEGRADED/UNAVAILABLE; E2E-DASH-010 |
+| Production `reports.*` permission migration | P1 | Operator-owned; not executed by CI |
+| Phase 5D runtime not yet validated | — | No invented SHA; gate pending |
+
+Preserve Phase 5B/5C closed evidence; Phase 5C residual P1s (receipt reversal, poNumber migration, FINANCE/PROCUREMENT production users) remain open and out of 5D scope.
+
+Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098.

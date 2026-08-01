@@ -72,6 +72,15 @@ export function ReportsSummary({ readOnly = false }: ReportsSummaryProps) {
     );
   }
 
+  const coverage = dashboard.dataCoverage;
+  const degradedNotice =
+    coverage && !Array.isArray(coverage) ? coverage.degradedNotice ?? null : null;
+  const metaBits = [
+    dashboard.currencyCode ? `Currency ${dashboard.currencyCode}` : null,
+    dashboard.reportingTimezone ? `Timezone ${dashboard.reportingTimezone}` : null,
+    dashboard.generatedAt ? `Generated ${new Date(dashboard.generatedAt).toLocaleString()}` : null
+  ].filter(Boolean);
+
   return (
     <DashboardSection
       title="Reports summary"
@@ -86,6 +95,14 @@ export function ReportsSummary({ readOnly = false }: ReportsSummaryProps) {
         </Link>
       }
     >
+      {degradedNotice ? (
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
+          {degradedNotice}
+        </p>
+      ) : null}
+      {metaBits.length ? (
+        <p className="mb-3 text-xs font-medium text-slate-500">{metaBits.join(" · ")}</p>
+      ) : null}
       <SummaryCards cards={dashboard.summaryCards} />
     </DashboardSection>
   );

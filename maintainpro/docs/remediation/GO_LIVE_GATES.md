@@ -170,3 +170,25 @@ Focused inventory gate + E2E-INV-001..016 passed with failed=0 skipped=0 on `306
 
 - Gate: procurement create to GRN must pass Full-Stack E2E (failed=0, mandatory skipped=0).
 - Gate: Inventory Keeper cannot erp_apply / PO erp_sync.
+
+## Phase 5D gate
+
+Management information / dashboard / reports / audit / export controls.
+
+### Entry criteria
+
+- Phase 5B RUNTIME_VALIDATED: workflow `30712469601`, SHA `fe3b3992d883d33c916b3595769add2c4db8878a`
+- Phase 5C RUNTIME_VALIDATED: workflow `30715842098`, SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`
+- Contracts published under `docs/remediation/` (KPI catalog, access matrices, financial/ERP/audit/export)
+
+### Exit criteria (before claiming RUNTIME_VALIDATED)
+
+- Focused `@management-info-gate` pass: failed=0, mandatory skipped=0
+- Full-Stack E2E pass on the exact tested application SHA (record SHA only after success)
+- KPI reconciliation tests green (including MTBF insufficient-data)
+- Financial double-count prevention proven
+- Export neutralization + audit events proven
+- ERP monitor: MOCK only; no secret leakage
+- Cleanup: `down --remove-orphans` only
+
+Phase 5D alone does **not** authorize production go-live.

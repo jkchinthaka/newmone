@@ -3,6 +3,8 @@ import { extractRoleName } from "./role-redirect";
 export type DashboardVariant =
   | "admin"
   | "management"
+  | "finance"
+  | "procurement"
   | "technician"
   | "cleaner"
   | "inventory"
@@ -11,6 +13,9 @@ export type DashboardVariant =
   | "minimal";
 
 const ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
+
+const FINANCE_ROLES = new Set(["FINANCE", "FINANCE_APPROVER"]);
+const PROCUREMENT_ROLES = new Set(["PROCUREMENT_OFFICER"]);
 
 const MANAGEMENT_ROLES = new Set([
   "MANAGER",
@@ -22,9 +27,7 @@ const MANAGEMENT_ROLES = new Set([
   "ASSET_MANAGER",
   "SECURITY_OFFICER",
   "FACILITY_MANAGER",
-  "BUILDING_SUPERVISOR",
-  "PROCUREMENT_OFFICER",
-  "FINANCE_APPROVER"
+  "BUILDING_SUPERVISOR"
 ]);
 
 const TECHNICIAN_ROLES = new Set(["TECHNICIAN", "MECHANIC"]);
@@ -79,6 +82,14 @@ export function resolveDashboardVariant(roleName: string | null | undefined): Da
     return "driver";
   }
 
+  if (FINANCE_ROLES.has(role)) {
+    return "finance";
+  }
+
+  if (PROCUREMENT_ROLES.has(role)) {
+    return "procurement";
+  }
+
   if (MANAGEMENT_ROLES.has(role) || FARM_ROLES.has(role)) {
     return "management";
   }
@@ -99,15 +110,27 @@ export function dashboardShowsDriverIntelligence(variant: DashboardVariant): boo
 }
 
 export function dashboardShowsWorkOrdersSummary(variant: DashboardVariant): boolean {
-  return variant === "admin" || variant === "management" || variant === "technician";
+  return (
+    variant === "admin" ||
+    variant === "management" ||
+    variant === "finance" ||
+    variant === "procurement" ||
+    variant === "technician"
+  );
 }
 
 export function dashboardShowsInventorySummary(variant: DashboardVariant): boolean {
-  return variant === "admin" || variant === "inventory";
+  return variant === "admin" || variant === "inventory" || variant === "procurement";
 }
 
 export function dashboardShowsReportsSummary(variant: DashboardVariant): boolean {
-  return variant === "admin" || variant === "management" || variant === "viewer";
+  return (
+    variant === "admin" ||
+    variant === "management" ||
+    variant === "finance" ||
+    variant === "procurement" ||
+    variant === "viewer"
+  );
 }
 
 export function dashboardIsReadOnly(variant: DashboardVariant): boolean {
@@ -120,6 +143,10 @@ export function getDashboardTitle(variant: DashboardVariant): string {
       return "Operations Dashboard";
     case "management":
       return "Operations Dashboard";
+    case "finance":
+      return "Finance Dashboard";
+    case "procurement":
+      return "Procurement Dashboard";
     case "technician":
       return "My Work Dashboard";
     case "cleaner":
@@ -142,6 +169,10 @@ export function getDashboardDescription(variant: DashboardVariant): string {
       return "Live fleet intelligence, work order pressure, inventory signals, and system health in one view.";
     case "management":
       return "Operational work order status, report summaries, and quick links to your modules.";
+    case "finance":
+      return "Financial report summaries and consumed-maintenance cost visibility for your tenant.";
+    case "procurement":
+      return "Procurement and inventory signals with report summaries tied to purchase activity.";
     case "technician":
       return "Assigned work orders, overdue priorities, and quick access to your jobs.";
     case "cleaner":

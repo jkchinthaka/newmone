@@ -120,3 +120,16 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 - Personas: admin-a create, manager-a finance, inventory-a receive; tech-a denied create.
 - Flutter GRN: OPERATOR_ACTION_REQUIRED - stop PATCH RECEIVED; use receipts API.
 - Real Bileeta ERP writes remain out of scope.
+
+## Phase 5D notes
+
+- Scope: management dashboard, KPI definitions, report permissions, financial reconciliation, ERP monitoring (safe fields), audit/security events, export safety.
+- Preserve Phase 5B RUNTIME_VALIDATED evidence: workflow `30712469601`, app SHA `fe3b3992d883d33c916b3595769add2c4db8878a`.
+- Preserve Phase 5C RUNTIME_VALIDATED evidence: workflow `30715842098`, app SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`.
+- Phase 5D runtime SHA is **not** claimed until management-info gate + full suite pass (failed=0, mandatory skipped=0).
+- ERP remains MOCK in E2E; real Bileeta writes out of scope.
+- MTBF must surface `INSUFFICIENT_DATA` (value null), never a fake zero.
+- Client-side full-list KPI aggregation is a known pre-5D limitation targeted for server-side snapshot replacement.
+- Production permission migration for granular `reports.*` keys is operator-owned.
+- Receipt reversal, production PO uniqueness migration, and live production login remain out of scope.
+- Cleanup remains `docker compose ... down --remove-orphans` only (volumes preserved).

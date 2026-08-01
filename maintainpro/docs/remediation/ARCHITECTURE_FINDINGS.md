@@ -232,3 +232,34 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 ## Phase 5C architecture
 
 PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads sanitized. inventory.erp_apply separated.
+
+## Phase 5D architecture — management information layer
+
+### Decisions
+
+1. **Single KPI catalog** (`KPI_DEFINITION_CATALOG.md`) owns definitions; API keys align to catalog keys.
+2. **Server-side dashboard snapshot** extends `GET /reports/dashboard` (validated DTO) rather than competing duplicate APIs; browser stops aggregating full lists for org KPIs.
+3. **Coverage status** on every section: COMPLETE | DEGRADED | UNAVAILABLE | INSUFFICIENT_DATA — never fake zeros for missing data; MTBF uses null + INSUFFICIENT_DATA.
+4. **Time/currency**: storage UTC; reporting TZ Asia/Colombo; currency LKR; locale en-LK; no silent FX.
+5. **Report ACL**: granular `reports.<module>.view` + `reports.export`; system logs also need `audit.view`.
+6. **FINANCE** is canonical; **FINANCE_APPROVER** is a display/JWT alias with identical ACL.
+7. **Financial bases** are explicit; default Total Expenses = consumed WO `actualCost` + utilities + farm; committed PO is a separate card; exclude WO parts when `actualCost` present.
+8. **ERP monitoring** is safe-field-only; MOCK in E2E; no URLs/payloads/keys.
+9. **Exports** neutralize formula prefixes, bound rows, require audit + truncation metadata.
+10. **Security events** for login failure are queryable without storing credentials.
+
+### Related contracts
+
+- `DASHBOARD_ACCESS_MATRIX.md`
+- `REPORT_ACCESS_MATRIX.md`
+- `REPORT_TIME_AND_CURRENCY_CONTRACT.md`
+- `FINANCIAL_REPORT_RECONCILIATION_CONTRACT.md`
+- `ERP_MONITORING_DASHBOARD_CONTRACT.md`
+- `AUDIT_EVENT_COVERAGE_MATRIX.md`
+- `REPORT_EXPORT_SAFETY_CONTRACT.md`
+
+### Evidence continuity
+
+- Phase 5B: `fe3b3992d883d33c916b3595769add2c4db8878a` / workflow `30712469601`
+- Phase 5C: `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / workflow `30715842098`
+- Phase 5D runtime SHA: record only after gate success

@@ -698,10 +698,43 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - Cleanup policy: Compose down --remove-orphans only; volumes preserved
 - Not go-live ready; Phase 5C/5D remain
 
-## Phase 5D / remaining
+## Phase 5D — Management information (dashboard / KPI / reports / audit / export)
+
+- Status: **CONTRACT_DEFINED** (docs) — implementation + runtime pending
+- Preserve Phase 5B RUNTIME_VALIDATED: workflow `30712469601`, app SHA `fe3b3992d883d33c916b3595769add2c4db8878a`
+- Preserve Phase 5C RUNTIME_VALIDATED: workflow `30715842098`, app SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`
+- Do **not** invent Phase 5D runtime SHA until Full-Stack E2E management-info gate succeeds
+
+### Documentation checklist
+
+- [x] KPI_DEFINITION_CATALOG.md
+- [x] REPORT_TIME_AND_CURRENCY_CONTRACT.md
+- [x] DASHBOARD_ACCESS_MATRIX.md
+- [x] REPORT_ACCESS_MATRIX.md
+- [x] FINANCIAL_REPORT_RECONCILIATION_CONTRACT.md
+- [x] ERP_MONITORING_DASHBOARD_CONTRACT.md
+- [x] AUDIT_EVENT_COVERAGE_MATRIX.md
+- [x] REPORT_EXPORT_SAFETY_CONTRACT.md
+- [x] E2E matrix / limitations / TEST_STRATEGY / GO_LIVE_GATES / RISK_REGISTER / ARCHITECTURE_FINDINGS updated
+
+### Implementation checklist
+
+- [ ] Server-side dashboard snapshot DTO + coverageStatus
+- [ ] Granular reports.* permissions in catalog/seed/E2E seed (prod migration operator-owned)
+- [ ] FINANCE canonical + FINANCE_APPROVER alias alignment
+- [ ] Financial basis: default Total Expenses = WO actualCost + utility + farm; separate committed PO
+- [ ] MTBF null + INSUFFICIENT_DATA path
+- [ ] Safe security events for login failure (no passwords/tokens)
+- [ ] Export formula neutralization + truncation metadata + audit
+- [ ] ERP monitoring safe fields (MOCK in E2E)
+- [ ] Playwright @management-info-gate (E2E-DASH/KPI/REPORT/AUDIT/ERP-MON)
+- [ ] Full-Stack E2E RUNTIME_VALIDATED evidence (SHA TBD after success)
+
+### Explicitly deferred (not Phase 5D)
 
 - P1: Receipt reversal/adjustment workflow
 - P1: Production poNumber uniqueness migration (operator audit)
 - P1: FINANCE/PROCUREMENT_OFFICER production user migration
 - Flutter GRN client: OPERATOR_ACTION_REQUIRED (stop PATCH RECEIVED)
-- Real Bileeta ERP writes remain out of scope
+- Real Bileeta ERP writes
+- Production deploy / Mongo root rotation / live production login

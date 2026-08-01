@@ -214,3 +214,26 @@ npm run validate:nondestructive-docker-cleanup.
 
 Validate with validate:e2e-procurement-controls, contract self-tests, and Playwright @procurement-gate.
 Mock ERP only. No direct PATCH RECEIVED.
+
+## Phase 5D management information gate
+
+Validate with:
+
+- `npm run validate:e2e-management-info-controls` (when added)
+- Contract self-tests for KPI/MTBF insufficient-data, financial basis, export neutralization, date/currency bounds
+- Playwright focused gate: `@management-info-gate` (E2E-DASH / E2E-KPI / E2E-REPORT / E2E-AUDIT / E2E-ERP-MON)
+- Full-Stack E2E after the focused gate; cleanup nondestructive
+
+Assertions of record:
+
+- Server-side dashboard snapshot (no page-25 WO aggregation for org KPIs)
+- Module permissions + dual export permission
+- Default Total Expenses excludes PO committed and WO parts when `actualCost` present
+- MTBF null + INSUFFICIENT_DATA when intervals insufficient
+- Login failure events store no passwords/tokens
+- CSV formula prefixes neutralized
+- MOCK ERP only; safe monitoring fields only
+
+Preserve Phase 5B/5C evidence SHAs; do not invent Phase 5D runtime SHA early.
+
+Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098.

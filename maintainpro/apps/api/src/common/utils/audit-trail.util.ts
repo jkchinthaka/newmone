@@ -79,15 +79,16 @@ export async function writeAuditTrail(prisma: PrismaService, payload: AuditTrail
 }
 
 export function rowsToCsv(headers: string[], rows: Record<string, unknown>[], metaLines: string[] = []) {
-  const escape = (value: unknown) => {
+  const neutralize = (value: unknown) => {
     const text = value === null || value === undefined ? "" : String(value);
-    if (/[",\n]/.test(text)) {
-      return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
+    return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  };
+  const escape = (value: unknown) => {
+    const text = neutralize(value);
+    return `"${text.replace(/"/g, '""')}"`;
   };
 
-  const lines = [...metaLines, headers.join(",")];
+  const lines = [...metaLines, headers.map((header) => escape(header)).join(",")];
   for (const row of rows) {
     lines.push(headers.map((header) => escape(row[header])).join(","));
   }

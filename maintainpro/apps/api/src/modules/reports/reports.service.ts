@@ -1,11 +1,24 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { AuditAction, ExpenseCategory, Prisma, RoleName, WorkOrderStatus } from "@prisma/client";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { AuditAction, ExpenseCategory, Prisma, PurchaseOrderWorkflowStatus, RoleName, WorkOrderApprovalStatus, WorkOrderStatus } from "@prisma/client";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
+import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
 import { DriverIntelligenceService } from "../driver-intelligence/driver-intelligence.service";
 import { VehiclesService } from "../vehicles/vehicles.service";
+import { assertCanExportReport, assertCanViewReportModule, resolveDashboardRoleVariant } from "./report-access.matrix";
+import {
+  formatReportCurrency,
+  MAX_EXPORT_ROWS,
+  monetaryMetadata,
+  normalizeMonetaryAmount,
+  REPORTING_CURRENCY_CODE,
+  REPORTING_TIMEZONE
+} from "./report-currency.util";
+import { contentDispositionAttachment, csvEscapeCell, neutralizeSpreadsheetValue, safeExportFilename } from "./report-export-safety.util";
+import { colomboMonthKey, resolveBusinessDateRange } from "./report-timezone.util";
+import { ErpMonitoringService } from "./erp-monitoring.service";
 
 export type ReportModuleKey =
   | "operations"
@@ -44,8 +57,21 @@ interface ReportActor {
   sub: string;
   email: string;
   role: RoleName;
+  permissions?: string[];
   tenantId?: string | null;
 }
+
+export type CoverageStatus = "COMPLETE" | "DEGRADED" | "UNAVAILABLE" | "INSUFFICIENT_DATA";
+
+export type KpiValue = {
+  key: string;
+  label: string;
+  value: number | null;
+  coverageStatus: CoverageStatus;
+  unit?: "count" | "currency" | "percent" | "hours" | "days";
+  amount?: number | null;
+  currencyCode?: string;
+};
 
 interface DateRange {
   start: Date;
@@ -181,18 +207,14 @@ const MODULES = Object.keys(REPORT_TITLES) as ReportModuleKey[];
 const DEFAULT_PAGE_SIZE = 15;
 const MAX_PAGE_SIZE = 100;
 const REFRESH_SECONDS = 60;
-const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2
-});
 
 @Injectable()
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly driverIntelligenceService: DriverIntelligenceService,
-    private readonly vehiclesService: VehiclesService
+    private readonly vehiclesService: VehiclesService,
+    private readonly erpMonitoringService: ErpMonitoringService
   ) {}
 
   async options(actor: ReportActor): Promise<ReportFilterOptions> {
@@ -200,34 +222,102 @@ export class ReportsService {
   }
 
   async dashboard(actor: ReportActor, query: ReportQuery = {}) {
-    const range = this.resolveDateRange(query);
+    const businessRange = resolveBusinessDateRange(query);
+    const range = { start: businessRange.start, end: businessRange.end };
     const tenantId = actor.tenantId ?? null;
-    const [operations, financials, inventory, assets, audits, filterOptions, driverDashboard] = await Promise.all([
-      this.prisma.workOrder.findMany({
-        where: this.workOrderWhere(tenantId, range, query),
-        select: {
-          id: true,
-          status: true,
-          dueDate: true,
-          completedDate: true,
-          createdAt: true,
-          actualCost: true,
-          estimatedCost: true
-        }
-      }),
-      this.getFinancialTransactions(tenantId, range, query),
-      this.prisma.sparePart.findMany({
-        where: this.sparePartWhere(tenantId, query),
-        select: {
-          id: true,
-          quantityInStock: true,
-          minimumStock: true,
-          reorderPoint: true,
-          unitCost: true,
-          isActive: true
-        }
-      }),
-      Promise.all([
+    const roleVariant = resolveDashboardRoleVariant(String(actor.role));
+    const generatedAt = new Date().toISOString();
+    const degradedSources: string[] = [];
+    const sourceFreshness: Record<string, string> = {};
+
+    const workOrderWhere = this.workOrderWhere(tenantId, range, query);
+    const now = new Date();
+
+    const workOrdersResult = await this.safeSource("work_orders", degradedSources, async () => {
+      const [totalCreated, statusGroups, overdue, pendingApproval, verificationBacklog, completed, mttrRows] =
+        await Promise.all([
+          this.prisma.workOrder.count({ where: workOrderWhere }),
+          this.prisma.workOrder.groupBy({
+            by: ["status"],
+            where: workOrderWhere,
+            _count: { _all: true }
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              ...workOrderWhere,
+              status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] },
+              OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: now } }]
+            }
+          }),
+          this.prisma.workOrder.count({
+            where: { ...workOrderWhere, approvalStatus: WorkOrderApprovalStatus.PENDING }
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              ...workOrderWhere,
+              status: WorkOrderStatus.TECHNICIAN_COMPLETED
+            }
+          }),
+          this.prisma.workOrder.count({
+            where: { ...workOrderWhere, status: WorkOrderStatus.COMPLETED }
+          }),
+          this.prisma.workOrder.findMany({
+            where: {
+              ...workOrderWhere,
+              status: WorkOrderStatus.COMPLETED,
+              startDate: { not: null },
+              completedDate: { not: null }
+            },
+            select: { startDate: true, completedDate: true },
+            take: 2000
+          })
+        ]);
+      sourceFreshness.work_orders = generatedAt;
+      const byStatus = Object.fromEntries(statusGroups.map((row) => [row.status, row._count._all]));
+      const mttrHours =
+        mttrRows.length > 0
+          ? this.average(mttrRows.map((row) => this.hoursBetween(row.startDate as Date, row.completedDate as Date)))
+          : null;
+      return {
+        totalCreated,
+        byStatus,
+        overdue,
+        pendingApproval,
+        verificationBacklog,
+        completed,
+        mttrHours,
+        mtbf: { value: null as number | null, coverageStatus: "INSUFFICIENT_DATA" as CoverageStatus }
+      };
+    });
+
+    const financialsResult = await this.safeSource("financials", degradedSources, async () => {
+      const transactions = await this.getFinancialTransactions(tenantId, range, query, "consumed_maintenance");
+      const committed = await this.getFinancialTransactions(tenantId, range, query, "committed_spend");
+      sourceFreshness.financials = generatedAt;
+      return {
+        consumed: transactions.reduce((sum, item) => sum + item.amount, 0),
+        committed: committed.reduce((sum, item) => sum + item.amount, 0),
+        consumedCount: transactions.length,
+        trend: transactions
+      };
+    });
+
+    const inventoryResult = await this.safeSource("inventory", degradedSources, async () => {
+      const parts = await this.prisma.sparePart.findMany({
+        where: { ...this.sparePartWhere(tenantId, query), isActive: true },
+        select: { quantityInStock: true, minimumStock: true, reorderPoint: true, unitCost: true }
+      });
+      sourceFreshness.inventory = generatedAt;
+      const stockValue = parts.reduce((sum, part) => sum + part.quantityInStock * part.unitCost, 0);
+      const lowStock = parts.filter(
+        (part) => part.quantityInStock <= Math.max(part.minimumStock, part.reorderPoint)
+      ).length;
+      const outOfStock = parts.filter((part) => part.quantityInStock <= 0).length;
+      return { stockValue, lowStock, outOfStock, partCount: parts.length };
+    });
+
+    const assetsResult = await this.safeSource("assets", degradedSources, async () => {
+      const [assetCount, vehicleCount, upcomingMaintenance] = await Promise.all([
         this.prisma.asset.count({ where: this.assetWhere(tenantId, query) }),
         this.prisma.vehicle.count({ where: this.vehicleWhere(tenantId, query) }),
         this.prisma.maintenanceSchedule.findMany({
@@ -236,141 +326,287 @@ export class ReportsService {
           orderBy: { nextDueDate: "asc" },
           take: 5
         })
-      ]),
-      this.prisma.auditLog.findMany({
-        where: this.auditWhere(tenantId, range, query),
-        include: { actor: { select: { firstName: true, lastName: true, email: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 6
-      }),
-      this.getFilterOptions(tenantId),
-      this.driverIntelligenceService.dashboard(actor, {
-        startDate: this.isoDate(range.start) ?? undefined,
-        endDate: this.isoDate(range.end) ?? undefined,
+      ]);
+      sourceFreshness.assets = generatedAt;
+      return { assetCount, vehicleCount, upcomingMaintenance };
+    });
+
+    const procurementResult = await this.safeSource("procurement", degradedSources, async () => {
+      const [pendingOps, pendingFinance] = await Promise.all([
+        this.prisma.purchaseOrder.count({
+          where: {
+            ...this.tenantWhere(tenantId),
+            workflowStatus: PurchaseOrderWorkflowStatus.PENDING_OPERATIONAL
+          }
+        }),
+        this.prisma.purchaseOrder.count({
+          where: {
+            ...this.tenantWhere(tenantId),
+            workflowStatus: PurchaseOrderWorkflowStatus.PENDING_FINANCE
+          }
+        })
+      ]);
+      sourceFreshness.procurement = generatedAt;
+      return { pendingOps, pendingFinance };
+    });
+
+    const erpResult = await this.safeSource("erp_monitoring", degradedSources, async () => {
+      const summary = await this.erpMonitoringService.getSafeSummary(tenantId);
+      sourceFreshness.erp_monitoring = summary.generatedAt;
+      if (summary.coverageStatus !== "COMPLETE") degradedSources.push("erp_monitoring");
+      return summary;
+    });
+
+    const driverResult = await this.safeSource("driver_intelligence", degradedSources, async () => {
+      const driverDashboard = await this.driverIntelligenceService.dashboard(actor, {
+        startDate: businessRange.startDate,
+        endDate: businessRange.endDate,
         departmentId: query.departmentId,
         driverId: query.driverId,
         vehicleId: query.vehicleId,
         status: query.status
-      })
-    ]);
+      });
+      sourceFreshness.driver_intelligence = generatedAt;
+      return driverDashboard;
+    });
 
-    const now = new Date();
-    const totalJobs = operations.length;
-    const completed = operations.filter((item) => item.status === WorkOrderStatus.COMPLETED).length;
-    const overdue = operations.filter((item) => this.isWorkOrderOverdue(item, now)).length;
-    const totalExpenses = financials.reduce((sum, item) => sum + item.amount, 0);
-    const stockValue = inventory.reduce((sum, part) => sum + part.quantityInStock * part.unitCost, 0);
-    const lowStock = inventory.filter((part) => part.isActive && part.quantityInStock <= Math.max(part.minimumStock, part.reorderPoint)).length;
-    const [assetCount, vehicleCount, upcomingMaintenance] = assets;
+    const filterOptions = await this.getFilterOptions(tenantId);
+    const totalJobs = workOrdersResult?.totalCreated ?? null;
+    const completed = workOrdersResult?.completed ?? null;
+    const overdue = workOrdersResult?.overdue ?? null;
+    const consumedExpenses = financialsResult?.consumed ?? null;
+    const lowStock = inventoryResult?.lowStock ?? null;
+    const stockValue = inventoryResult?.stockValue ?? null;
+
+    const cards: KpiValue[] = [
+      {
+        key: "wo.total_created",
+        label: "Total Jobs",
+        value: totalJobs,
+        coverageStatus: workOrdersResult ? "COMPLETE" : "UNAVAILABLE",
+        unit: "count"
+      },
+      {
+        key: "wo.completion_rate",
+        label: "Completion Rate",
+        value:
+          totalJobs != null && completed != null && totalJobs > 0
+            ? Number((this.safeRatio(completed, totalJobs) * 100).toFixed(1))
+            : totalJobs === 0
+              ? 0
+              : null,
+        coverageStatus: workOrdersResult ? "COMPLETE" : "UNAVAILABLE",
+        unit: "percent"
+      },
+      {
+        key: "finance.consumed_maintenance",
+        label: "Consumed Maintenance Cost",
+        value: consumedExpenses,
+        amount: consumedExpenses,
+        currencyCode: REPORTING_CURRENCY_CODE,
+        coverageStatus: financialsResult ? "COMPLETE" : "UNAVAILABLE",
+        unit: "currency"
+      },
+      {
+        key: "inventory.low_stock",
+        label: "Low Stock",
+        value: lowStock,
+        coverageStatus: inventoryResult ? "COMPLETE" : "UNAVAILABLE",
+        unit: "count"
+      },
+      {
+        key: "wo.mttr_hours",
+        label: "MTTR (hours)",
+        value: workOrdersResult?.mttrHours ?? null,
+        coverageStatus: workOrdersResult?.mttrHours == null ? "INSUFFICIENT_DATA" : "COMPLETE",
+        unit: "hours"
+      },
+      {
+        key: "wo.mtbf",
+        label: "MTBF",
+        value: null,
+        coverageStatus: "INSUFFICIENT_DATA",
+        unit: "hours"
+      }
+    ];
+
+    const showFinance = !["technician", "inventory", "viewer", "driver", "cleaner"].includes(roleVariant);
+    const showErp = ["admin", "management", "finance", "procurement"].includes(roleVariant);
+    const showDriver = !["technician", "inventory", "cleaner"].includes(roleVariant);
+
+    const summaryCards = [
+      {
+        label: "Total Jobs",
+        value: totalJobs ?? "Unavailable",
+        subLabel: workOrdersResult ? "Server-authoritative tenant count" : "Work-order source unavailable",
+        tone: "info" as const
+      },
+      {
+        label: "Completion Rate",
+        value:
+          totalJobs != null && completed != null
+            ? this.formatPercent(this.safeRatio(completed, totalJobs))
+            : "Unavailable",
+        subLabel: completed != null ? `${completed} completed` : "Incomplete source",
+        tone: "neutral" as const
+      },
+      ...(showFinance
+        ? [
+            {
+              label: "Consumed Maintenance Cost",
+              value: consumedExpenses != null ? this.formatCurrency(consumedExpenses) : "Unavailable",
+              subLabel: `Basis: consumed_maintenance (${REPORTING_CURRENCY_CODE})`,
+              tone: "info" as const
+            }
+          ]
+        : []),
+      {
+        label: "Low Stock",
+        value: lowStock ?? "Unavailable",
+        subLabel: inventoryResult ? "At or below threshold" : "Inventory source unavailable",
+        tone: (lowStock ?? 0) > 0 ? ("danger" as const) : ("success" as const)
+      },
+      ...(showDriver && driverResult
+        ? [
+            {
+              label: "High Risk Drivers",
+              value: driverResult.riskDistribution
+                .filter((item) => item.level === "HIGH" || item.level === "CRITICAL")
+                .reduce((sum, item) => sum + item.count, 0),
+              subLabel: "Driver intelligence",
+              tone: "warning" as const
+            }
+          ]
+        : [])
+    ];
 
     const moduleSummaries = [
       {
         module: "operations",
         label: "Operations",
-        value: totalJobs,
-        helper: `${completed} completed, ${overdue} overdue`,
-        tone: overdue > 0 ? "warning" : "success"
+        value: totalJobs ?? "Unavailable",
+        helper:
+          overdue != null && completed != null
+            ? `${completed} completed, ${overdue} overdue`
+            : "Coverage incomplete",
+        tone: (overdue ?? 0) > 0 ? "warning" : "success"
       },
-      {
-        module: "financials",
-        label: "Financials",
-        value: this.formatCurrency(totalExpenses),
-        helper: `${financials.length} cost records in range`,
-        tone: totalExpenses > 0 ? "info" : "neutral"
-      },
-      {
-        module: "assets",
-        label: "Assets & Equipment",
-        value: assetCount + vehicleCount,
-        helper: `${upcomingMaintenance.length} upcoming maintenance alerts`,
-        tone: upcomingMaintenance.length > 0 ? "warning" : "success"
-      },
+      ...(showFinance
+        ? [
+            {
+              module: "financials",
+              label: "Financials",
+              value: consumedExpenses != null ? this.formatCurrency(consumedExpenses) : "Unavailable",
+              helper: "consumed_maintenance basis (no PO/parts double-count)",
+              tone: "info"
+            }
+          ]
+        : []),
       {
         module: "inventory",
         label: "Inventory",
-        value: this.formatCurrency(stockValue),
-        helper: `${lowStock} low-stock items`,
-        tone: lowStock > 0 ? "danger" : "success"
+        value: stockValue != null ? this.formatCurrency(stockValue) : "Unavailable",
+        helper: lowStock != null ? `${lowStock} low-stock items` : "Coverage incomplete",
+        tone: (lowStock ?? 0) > 0 ? "danger" : "success"
       },
-      {
-        module: "driver-intelligence",
-        label: "Driver Intelligence",
-        value: driverDashboard.summaryCards.find((item) => item.label === "Average driver score")?.value ?? 0,
-        helper: `${driverDashboard.riskDistribution
-          .filter((item) => item.level === "HIGH" || item.level === "CRITICAL")
-          .reduce((sum, item) => sum + item.count, 0)} high-risk drivers`,
-        tone: driverDashboard.riskDistribution.some((item) => (item.level === "HIGH" || item.level === "CRITICAL") && item.count > 0)
-          ? "warning"
-          : "success"
-      },
-      {
-        module: "fuel-analytics",
-        label: "Fuel Analytics",
-        value: driverDashboard.fuelInsights.abnormalUsageCount,
-        helper: "Abnormal usage events flagged for review",
-        tone: driverDashboard.fuelInsights.abnormalUsageCount > 0 ? "warning" : "success"
-      },
-      {
-        module: "vehicle-cost-analytics",
-        label: "Vehicle Costs",
-        value: this.formatCurrency(driverDashboard.fleetCostSummary.breakdown.netCost),
-        helper: "Net fleet cost in selected range",
-        tone: "info"
-      }
+      ...(showErp && erpResult
+        ? [
+            {
+              module: "erp-monitoring",
+              label: "ERP Monitoring",
+              value: erpResult.failedAttempts,
+              helper: `${erpResult.providerCategory}: ${erpResult.retriesDue} retries due`,
+              tone: erpResult.failedAttempts > 0 ? "danger" : "success"
+            }
+          ]
+        : [])
     ];
 
     return {
-      generatedAt: new Date().toISOString(),
+      generatedAt,
+      reportingTimezone: REPORTING_TIMEZONE,
+      currencyCode: REPORTING_CURRENCY_CODE,
       refreshSeconds: REFRESH_SECONDS,
+      roleVariant,
+      range: {
+        startDate: businessRange.startDate,
+        endDate: businessRange.endDate,
+        timezone: REPORTING_TIMEZONE
+      },
       filters: this.publicFilters(range, query),
-      summaryCards: [
-        { label: "Total Jobs", value: totalJobs, subLabel: "All work orders in range", tone: "info" },
-        {
-          label: "Completion Rate",
-          value: this.formatPercent(this.safeRatio(completed, totalJobs)),
-          subLabel: `${completed} completed`,
-          tone: completed >= totalJobs && totalJobs > 0 ? "success" : "neutral"
-        },
-        { label: "Total Expenses", value: this.formatCurrency(totalExpenses), subLabel: "Jobs, parts, utilities, POs, farm costs", tone: "info" },
-        { label: "Low Stock", value: lowStock, subLabel: "At or below threshold", tone: lowStock > 0 ? "danger" : "success" },
-        {
-          label: "High Risk Drivers",
-          value: driverDashboard.riskDistribution
-            .filter((item) => item.level === "HIGH" || item.level === "CRITICAL")
-            .reduce((sum, item) => sum + item.count, 0),
-          subLabel: "Driver intelligence score below threshold or with material incidents",
-          tone: driverDashboard.riskDistribution.some((item) => (item.level === "HIGH" || item.level === "CRITICAL") && item.count > 0)
-            ? "warning"
-            : "success"
-        },
-        {
-          label: "Eligible Drivers",
-          value: driverDashboard.summaryCards.find((item) => item.label === "Eligible for new vehicle")?.value ?? 0,
-          subLabel: "Ready for new vehicle assignment",
-          tone: "info"
-        }
-      ],
+      cards,
+      summaryCards,
       moduleSummaries,
-      crossModuleTrend: this.buildMonthlyTrend(financials.map((item) => ({ date: item.date, value: item.amount })), range, "expense"),
-      filterOptions,
+      queues: {
+        pendingApproval: workOrdersResult?.pendingApproval ?? null,
+        verificationBacklog: workOrdersResult?.verificationBacklog ?? null,
+        pendingOperationalPo: procurementResult?.pendingOps ?? null,
+        pendingFinancePo: procurementResult?.pendingFinance ?? null,
+        erpRetriesDue: erpResult?.retriesDue ?? null
+      },
+      trends: {
+        crossModuleExpense: financialsResult
+          ? this.buildMonthlyTrend(
+              financialsResult.trend.map((item) => ({ date: item.date, value: item.amount })),
+              range,
+              "expense"
+            )
+          : []
+      },
       alerts: [
-        ...operations
-          .filter((item) => this.isWorkOrderOverdue(item, now))
-          .slice(0, 4)
-          .map((item) => ({ type: "Overdue job", message: `Work order ${item.id} is past due.`, tone: "danger" })),
-        ...upcomingMaintenance.map((item) => ({
+        ...(overdue != null && overdue > 0
+          ? [{ type: "Overdue jobs", message: `${overdue} work orders are past due.`, tone: "danger" }]
+          : []),
+        ...((assetsResult?.upcomingMaintenance ?? []).map((item) => ({
           type: "Upcoming maintenance",
           message: `${item.name} due ${item.nextDueDate ? this.formatDate(item.nextDueDate) : "soon"}`,
           tone: "warning"
-        })),
-        ...audits.slice(0, 3).map((item) => ({
-          type: "Recent audit",
-          message: `${item.action} ${item.entity} by ${this.userLabel(item.actor)}`,
-          tone: "neutral"
-        })),
-        ...driverDashboard.alerts.slice(0, 4)
+        })) as Array<{ type: string; message: string; tone: string }>),
+        ...(erpResult && erpResult.failedAttempts > 0
+          ? [
+              {
+                type: "ERP sync",
+                message: `${erpResult.failedAttempts} failed ERP attempts (${erpResult.providerCategory}).`,
+                tone: "danger"
+              }
+            ]
+          : []),
+        ...((driverResult?.alerts ?? []).slice(0, 4) as Array<{ type: string; message: string; tone: string }>)
       ],
-      dataCoverage: this.systemCoverageNotes()
+      erpMonitoring: showErp ? erpResult : undefined,
+      filterOptions,
+      dataCoverage: {
+        overall:
+          degradedSources.length === 0
+            ? ("COMPLETE" as CoverageStatus)
+            : degradedSources.length >= 3
+              ? ("UNAVAILABLE" as CoverageStatus)
+              : ("DEGRADED" as CoverageStatus),
+        sources: {
+          work_orders: workOrdersResult ? "COMPLETE" : "UNAVAILABLE",
+          financials: financialsResult ? "COMPLETE" : "UNAVAILABLE",
+          inventory: inventoryResult ? "COMPLETE" : "UNAVAILABLE",
+          assets: assetsResult ? "COMPLETE" : "UNAVAILABLE",
+          procurement: procurementResult ? "COMPLETE" : "UNAVAILABLE",
+          erp_monitoring: erpResult?.coverageStatus ?? "UNAVAILABLE",
+          driver_intelligence: driverResult ? "COMPLETE" : "UNAVAILABLE",
+          mtbf: "INSUFFICIENT_DATA"
+        },
+        notes: this.systemCoverageNotes(),
+        degradedNotice:
+          degradedSources.length > 0
+            ? `Partial dashboard: degraded sources (${Array.from(new Set(degradedSources)).join(", ")}). Unavailable values are not shown as zero.`
+            : null
+      },
+      sourceFreshness,
+      degradedSources: Array.from(new Set(degradedSources)),
+      reconciliationStatus: {
+        financialBasis: "consumed_maintenance",
+        doubleCountPrevention: true,
+        currencyCode: REPORTING_CURRENCY_CODE
+      },
+      locale: monetaryMetadata().locale,
+      fractionDigits: monetaryMetadata().fractionDigits
     };
   }
 
@@ -404,30 +640,57 @@ export class ReportsService {
     }
   }
 
-  async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile> {
+  async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile & { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }> {
+    assertCanExportReport(actor, module);
     const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_PAGE_SIZE });
-    const basename = `${module}-report-${new Date().toISOString().slice(0, 10)}`;
+    const totalMatchedCount = report.table.pagination.total;
+    const truncated = totalMatchedCount > report.table.rows.length;
+    const filename = safeExportFilename(module, format);
 
-    if (format === "csv") {
-      return {
-        buffer: this.toCsvBuffer(report.table.columns, report.table.rows),
-        contentType: "text/csv; charset=utf-8",
-        filename: `${basename}.csv`
-      };
-    }
+    await writeAuditTrail(this.prisma, {
+      entity: "ReportExport",
+      entityId: module,
+      action: AuditAction.CREATE,
+      module: "reports",
+      actor,
+      reason: `export:${format}`,
+      metadata: {
+        format,
+        exportedRowCount: report.table.rows.length,
+        totalMatchedCount,
+        truncated,
+        currencyCode: REPORTING_CURRENCY_CODE
+      }
+    });
 
-    if (format === "xlsx") {
-      return {
-        buffer: await this.toXlsxBuffer(report),
-        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename: `${basename}.xlsx`
-      };
-    }
+    const file =
+      format === "csv"
+        ? {
+            buffer: this.toCsvBuffer(report.table.columns, report.table.rows, {
+              truncated,
+              exportedRowCount: report.table.rows.length,
+              totalMatchedCount
+            }),
+            contentType: "text/csv; charset=utf-8",
+            filename
+          }
+        : format === "xlsx"
+          ? {
+              buffer: await this.toXlsxBuffer(report),
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              filename
+            }
+          : {
+              buffer: await this.toPdfBuffer(report),
+              contentType: "application/pdf",
+              filename
+            };
 
     return {
-      buffer: await this.toPdfBuffer(report),
-      contentType: "application/pdf",
-      filename: `${basename}.pdf`
+      ...file,
+      truncated,
+      exportedRowCount: report.table.rows.length,
+      totalMatchedCount
     };
   }
 
@@ -1003,8 +1266,10 @@ export class ReportsService {
     const range = this.resolveDateRange(query);
     const tenantId = actor.tenantId ?? null;
     const pagination = this.resolvePagination(query);
-    const [transactions, workOrders, filterOptions] = await Promise.all([
-      this.getFinancialTransactions(tenantId, range, query),
+    const [transactions, committed, partsDetail, workOrders, filterOptions] = await Promise.all([
+      this.getFinancialTransactions(tenantId, range, query, "consumed_maintenance"),
+      this.getFinancialTransactions(tenantId, range, query, "committed_spend"),
+      this.getFinancialTransactions(tenantId, range, query, "parts_detail"),
       this.prisma.workOrder.findMany({
         where: this.workOrderWhere(tenantId, range, query),
         include: {
@@ -1020,11 +1285,12 @@ export class ReportsService {
     const sorted = this.sortRows(transactions, query.sortBy ?? "date", query.sortDirection ?? "desc");
     const pageRows = sorted.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
     const totalExpenses = transactions.reduce((sum, item) => sum + item.amount, 0);
+    const committedSpend = committed.reduce((sum, item) => sum + item.amount, 0);
     const jobCosts = workOrders.reduce((sum, item) => sum + (item.actualCost ?? 0), 0);
-    const partsCost = workOrders.flatMap((item) => item.parts).reduce((sum, item) => sum + item.totalCost, 0);
+    const partsCost = partsDetail.reduce((sum, item) => sum + item.amount, 0);
     const estimatedBudget = workOrders.reduce((sum, item) => sum + (item.estimatedCost ?? 0), 0);
     const actualCost = workOrders.reduce((sum, item) => sum + (item.actualCost ?? 0), 0);
-    const supplierCosts = this.countAmountBy(transactions.filter((item) => item.supplier), (item) => item.supplier ?? "Unknown Supplier");
+    const supplierCosts = this.countAmountBy(committed.filter((item) => item.supplier), (item) => item.supplier ?? "Unknown Supplier");
     const departmentCosts = this.departmentCostSummary(workOrders);
 
     return this.composeReport({
@@ -1033,9 +1299,10 @@ export class ReportsService {
       range,
       query,
       summaryCards: [
-        { label: "Total Expenses", value: this.formatCurrency(totalExpenses), subLabel: `${transactions.length} cost records`, tone: "info" },
+        { label: "Consumed Maintenance Cost", value: this.formatCurrency(totalExpenses), subLabel: `Basis: consumed_maintenance (${REPORTING_CURRENCY_CODE})`, tone: "info" },
+        { label: "Committed PO Spend", value: this.formatCurrency(committedSpend), subLabel: "Separate basis — not double-counted", tone: "neutral" },
         { label: "Cost per Job", value: this.formatCurrency(this.safeRatio(jobCosts, workOrders.length)), subLabel: `${workOrders.length} jobs`, tone: "neutral" },
-        { label: "Parts Cost", value: this.formatCurrency(partsCost), subLabel: "Work order parts", tone: "warning" },
+        { label: "Parts Cost (detail)", value: this.formatCurrency(partsCost), subLabel: "Excluded from consumed total", tone: "warning" },
         {
           label: "Budget vs Actual",
           value: estimatedBudget > 0 ? this.formatCurrency(actualCost - estimatedBudget) : "N/A",
@@ -1044,10 +1311,10 @@ export class ReportsService {
         }
       ],
       charts: [
-        { id: "monthly-expenses", title: "Monthly Expense Trends", type: "line", data: this.buildMonthlyTrend(transactions.map((item) => ({ date: item.date, value: item.amount })), range, "expense"), xKey: "period", yKeys: ["expense"] },
+        { id: "monthly-expenses", title: "Monthly Consumed Maintenance", type: "line", data: this.buildMonthlyTrend(transactions.map((item) => ({ date: item.date, value: item.amount })), range, "expense"), xKey: "period", yKeys: ["expense"] },
         { id: "cost-by-category", title: "Cost by Category", type: "pie", data: this.mapToChart(this.countAmountBy(transactions, (item) => item.category)), nameKey: "name", valueKey: "value" },
         { id: "cost-by-department", title: "Cost per Department", type: "bar", data: departmentCosts.slice(0, 8), xKey: "department", yKeys: ["cost"] },
-        { id: "supplier-cost", title: "Supplier-wise Cost", type: "bar", data: this.mapToChart(supplierCosts).slice(0, 8), xKey: "name", yKeys: ["value"] }
+        { id: "supplier-cost", title: "Committed Supplier Spend", type: "bar", data: this.mapToChart(supplierCosts).slice(0, 8), xKey: "name", yKeys: ["value"] }
       ],
       table: {
         columns: [
@@ -1057,7 +1324,7 @@ export class ReportsService {
           { key: "department", label: "Department" },
           { key: "supplier", label: "Supplier" },
           { key: "description", label: "Description" },
-          { key: "amount", label: "Amount", type: "currency" }
+          { key: "amount", label: `Amount (${REPORTING_CURRENCY_CODE})`, type: "currency" }
         ],
         rows: pageRows.map((item) => ({
           date: this.isoDate(item.date),
@@ -1071,12 +1338,16 @@ export class ReportsService {
         pagination: this.paginationMeta(pagination, transactions.length)
       },
       insights: [
-        `${this.formatCurrency(totalExpenses)} in expenses are visible for this period.`,
+        `${this.formatCurrency(totalExpenses)} consumed maintenance cost (${REPORTING_CURRENCY_CODE}) for this period.`,
+        `${this.formatCurrency(committedSpend)} committed PO spend is reported separately and is not double-counted into consumed total.`,
         estimatedBudget > 0 ? `Actual job cost is ${this.formatCurrency(actualCost - estimatedBudget)} against estimated budget.` : "Budget comparison is limited because estimated job costs are not consistently populated.",
-        partsCost > 0 ? `${this.formatCurrency(partsCost)} is tied directly to parts/material usage.` : "No parts/material costs were recorded in the selected range."
+        partsCost > 0 ? `${this.formatCurrency(partsCost)} parts detail is shown separately from work-order actualCost.` : "No parts/material costs were recorded in the selected range."
       ],
       filterOptions,
-      coverageNotes: estimatedBudget > 0 ? [] : ["Budget vs actual uses WorkOrder.estimatedCost and WorkOrder.actualCost where available; no dedicated budget model exists yet."]
+      coverageNotes: [
+        ...this.systemCoverageNotes(),
+        ...(estimatedBudget > 0 ? [] : ["Budget vs actual uses WorkOrder.estimatedCost and WorkOrder.actualCost where available; no dedicated budget model exists yet."])
+      ]
     });
   }
 
@@ -1541,18 +1812,8 @@ export class ReportsService {
   }
 
   private resolveDateRange(query: ReportQuery): DateRange {
-    const end = query.endDate ? new Date(`${query.endDate}T23:59:59.999Z`) : new Date();
-    const start = query.startDate ? new Date(`${query.startDate}T00:00:00.000Z`) : this.daysAgo(29, end);
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new BadRequestException("Invalid report date range.");
-    }
-
-    if (start > end) {
-      throw new BadRequestException("startDate must be before endDate.");
-    }
-
-    return { start, end };
+    const business = resolveBusinessDateRange(query);
+    return { start: business.start, end: business.end };
   }
 
   private resolvePagination(query: ReportQuery) {
@@ -1585,12 +1846,19 @@ export class ReportsService {
   }
 
   private assertModuleAccess(actor: ReportActor, module: ReportModuleKey) {
-    if (module === "system-logs" && !["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER"].includes(actor.role)) {
-      throw new ForbiddenException("System log reports require admin or asset manager access.");
-    }
+    assertCanViewReportModule(actor, module);
+  }
 
-    if (module === "financials" && ["TECHNICIAN", "MECHANIC", "DRIVER", "CLEANER", "VIEWER"].includes(actor.role)) {
-      throw new ForbiddenException("Financial reports require manager-level access.");
+  private async safeSource<T>(
+    source: string,
+    degradedSources: string[],
+    loader: () => Promise<T>
+  ): Promise<T | null> {
+    try {
+      return await loader();
+    } catch {
+      degradedSources.push(source);
+      return null;
     }
   }
 
@@ -1850,8 +2118,71 @@ export class ReportsService {
     return { [sortBy]: query.sortDirection ?? "desc" };
   }
 
-  private async getFinancialTransactions(tenantId: string | null, range: DateRange, query: ReportQuery) {
-    const [workOrders, parts, maintenanceLogs, purchaseOrders, utilityBills, farmExpenses] = await Promise.all([
+  private async getFinancialTransactions(
+    tenantId: string | null,
+    range: DateRange,
+    query: ReportQuery,
+    basis: "consumed_maintenance" | "committed_spend" | "parts_detail" = "consumed_maintenance"
+  ): Promise<
+    Array<{
+      date: Date;
+      source: string;
+      category: string;
+      department: string | null;
+      supplier: string | null;
+      description: string;
+      amount: number;
+      basis: "consumed_maintenance" | "committed_spend" | "parts_detail";
+    }>
+  > {
+    if (basis === "committed_spend") {
+      const purchaseOrders = await this.prisma.purchaseOrder.findMany({
+        where: this.purchaseOrderWhere(tenantId, range, query),
+        include: { supplier: true }
+      });
+      return purchaseOrders.map((item) => ({
+        date: item.orderDate,
+        source: "Purchase Order",
+        category: "Committed Spend",
+        department: null as string | null,
+        supplier: item.supplier.name,
+        description: item.poNumber,
+        amount: normalizeMonetaryAmount(item.totalAmount),
+        basis
+      }));
+    }
+
+    if (basis === "parts_detail") {
+      const parts = await this.prisma.workOrderPart.findMany({
+        where: {
+          workOrder: this.workOrderWhere(tenantId, range, query),
+          part: this.sparePartWhere(tenantId, query)
+        },
+        include: {
+          part: { include: { supplier: true } },
+          workOrder: {
+            include: {
+              asset: { include: { departmentRef: true } },
+              vehicle: { include: { department: true } },
+              technician: { include: { department: true } }
+            }
+          }
+        }
+      });
+      return parts.map((item) => ({
+        date: item.workOrder.completedDate ?? item.workOrder.updatedAt,
+        source: "Work Order Part",
+        category: "Parts/Materials",
+        department: this.departmentLabel(item.workOrder),
+        supplier: item.part.supplier?.name ?? null,
+        description: `${item.part.name} used on ${item.workOrder.woNumber}`,
+        amount: normalizeMonetaryAmount(item.totalCost),
+        basis
+      }));
+    }
+
+    // consumed_maintenance: WO actualCost + utilities + farm. Excludes parts and POs to prevent double-counting.
+    const [workOrders, utilityBills, farmExpenses] = await Promise.all([
       this.prisma.workOrder.findMany({
         where: this.workOrderWhere(tenantId, range, query),
         include: {
@@ -1860,21 +2191,18 @@ export class ReportsService {
           technician: { include: { department: true } }
         }
       }),
-      this.prisma.workOrderPart.findMany({
-        where: {
-          workOrder: this.workOrderWhere(tenantId, range, query),
-          part: this.sparePartWhere(tenantId, query)
-        },
-        include: { part: { include: { supplier: true } }, workOrder: { include: { asset: { include: { departmentRef: true } }, vehicle: { include: { department: true } }, technician: { include: { department: true } } } } }
+      this.prisma.utilityBill.findMany({
+        where: { ...this.tenantWhere(tenantId), billingPeriodStart: { gte: range.start, lte: range.end } },
+        include: { meter: true }
       }),
-      this.prisma.maintenanceLog.findMany({ where: this.maintenanceLogWhere(tenantId, range, query), include: { asset: true, vehicle: true } }),
-      this.prisma.purchaseOrder.findMany({ where: this.purchaseOrderWhere(tenantId, range, query), include: { supplier: true } }),
-      this.prisma.utilityBill.findMany({ where: { ...this.tenantWhere(tenantId), billingPeriodStart: { gte: range.start, lte: range.end } }, include: { meter: true } }),
       this.prisma.farmExpense.findMany({
         where: this.cleanWhere({
           ...(tenantId ? { tenantId } : {}),
           date: { gte: range.start, lte: range.end },
-          category: query.category && Object.values(ExpenseCategory).includes(query.category as ExpenseCategory) ? (query.category as ExpenseCategory) : undefined
+          category:
+            query.category && Object.values(ExpenseCategory).includes(query.category as ExpenseCategory)
+              ? (query.category as ExpenseCategory)
+              : undefined
         })
       })
     ]);
@@ -1889,37 +2217,9 @@ export class ReportsService {
           department: this.departmentLabel(item),
           supplier: null as string | null,
           description: `${item.woNumber} - ${item.title}`,
-          amount: item.actualCost ?? 0
+          amount: normalizeMonetaryAmount(item.actualCost ?? 0),
+          basis: "consumed_maintenance" as const
         })),
-      ...parts.map((item) => ({
-        date: item.workOrder.completedDate ?? item.workOrder.updatedAt,
-        source: "Work Order Part",
-        category: "Parts/Materials",
-        department: this.departmentLabel(item.workOrder),
-        supplier: item.part.supplier?.name ?? null,
-        description: `${item.part.name} used on ${item.workOrder.woNumber}`,
-        amount: item.totalCost
-      })),
-      ...maintenanceLogs
-        .filter((item) => (item.cost ?? 0) > 0)
-        .map((item) => ({
-          date: item.performedAt,
-          source: "Maintenance Log",
-          category: "Maintenance",
-          department: null as string | null,
-          supplier: null as string | null,
-          description: item.description,
-          amount: item.cost ?? 0
-        })),
-      ...purchaseOrders.map((item) => ({
-        date: item.orderDate,
-        source: "Purchase Order",
-        category: "Supplier Purchase",
-        department: null as string | null,
-        supplier: item.supplier.name,
-        description: item.poNumber,
-        amount: item.totalAmount
-      })),
       ...utilityBills.map((item) => ({
         date: item.billingPeriodStart,
         source: "Utility Bill",
@@ -1927,7 +2227,8 @@ export class ReportsService {
         department: null as string | null,
         supplier: item.meter.location,
         description: `${item.meter.type} bill`,
-        amount: item.totalAmount
+        amount: normalizeMonetaryAmount(item.totalAmount),
+        basis: "consumed_maintenance" as const
       })),
       ...farmExpenses.map((item) => ({
         date: item.date,
@@ -1936,7 +2237,8 @@ export class ReportsService {
         department: null as string | null,
         supplier: null as string | null,
         description: item.description,
-        amount: item.amountLkr
+        amount: normalizeMonetaryAmount(item.amountLkr),
+        basis: "consumed_maintenance" as const
       }))
     ];
 
@@ -2027,7 +2329,7 @@ export class ReportsService {
   private buildMonthlyTrend(items: Array<{ date: Date; value: number }>, range: DateRange, valueKey: string) {
     const values = new Map(this.monthKeys(range).map((key) => [key, 0]));
     for (const item of items) {
-      const key = item.date.toISOString().slice(0, 7);
+      const key = colomboMonthKey(item.date);
       if (values.has(key)) values.set(key, (values.get(key) ?? 0) + item.value);
     }
     return Array.from(values.entries()).map(([period, value]) => ({ period, [valueKey]: Number(value.toFixed(2)) }));
@@ -2170,15 +2472,21 @@ export class ReportsService {
   }
 
   private formatCurrency(value: number) {
-    return CURRENCY_FORMATTER.format(Number.isFinite(value) ? value : 0);
+    return formatReportCurrency(Number.isFinite(value) ? value : 0);
   }
 
   private formatDate(date: Date) {
-    return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("en-LK", {
+      timeZone: REPORTING_TIMEZONE,
+      month: "short",
+      day: "2-digit",
+      year: "numeric"
+    }).format(date);
   }
 
   private isoDate(value?: Date | null) {
-    return value ? value.toISOString().slice(0, 10) : null;
+    if (!value) return null;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: REPORTING_TIMEZONE }).format(value);
   }
 
   private daysAgo(days: number, from = new Date()) {
@@ -2196,23 +2504,29 @@ export class ReportsService {
 
   private systemCoverageNotes() {
     return [
-      "API failures and runtime error logs are written through Nest logging but are not persisted in a queryable SystemLog model yet.",
-      "Failed login attempts are rejected by auth but not stored as dedicated security events yet.",
-      "Audit reports use the existing AuditLog model for created, updated, and deleted record history."
+      "Dashboard KPIs are calculated server-side with explicit coverage status per source.",
+      "Failed login attempts are persisted as SecurityEvent records without passwords or tokens.",
+      "Financial Total Expenses uses consumed_maintenance basis (work-order actualCost + utilities + farm) and excludes PO/parts double-counting.",
+      "MTBF returns INSUFFICIENT_DATA (value null) when breakdown intervals are unavailable.",
+      `Reporting timezone: ${REPORTING_TIMEZONE}; currency: ${REPORTING_CURRENCY_CODE}.`
     ];
   }
 
-  private toCsvBuffer(columns: ReportColumn[], rows: Array<Record<string, string | number | null>>) {
+  private toCsvBuffer(
+    columns: ReportColumn[],
+    rows: Array<Record<string, string | number | null>>,
+    meta?: { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }
+  ) {
     const headers = columns.map((column) => column.label);
-    const lines = [headers.join(",")];
+    const lines = [headers.map((h) => csvEscapeCell(h)).join(",")];
     for (const row of rows) {
+      lines.push(columns.map((column) => csvEscapeCell(row[column.key])).join(","));
+    }
+    if (meta?.truncated) {
       lines.push(
-        columns
-          .map((column) => {
-            const raw = String(row[column.key] ?? "");
-            return `"${raw.replaceAll('"', '""')}"`;
-          })
-          .join(",")
+        csvEscapeCell(
+          `TRUNCATED: exported ${meta.exportedRowCount} of ${meta.totalMatchedCount} matched rows (max page ${MAX_PAGE_SIZE}; hard cap ${MAX_EXPORT_ROWS}).`
+        )
       );
     }
     return Buffer.from(lines.join("\n"), "utf8");
@@ -2223,8 +2537,23 @@ export class ReportsService {
     workbook.creator = "MaintainPro";
     workbook.created = new Date();
     const sheet = workbook.addWorksheet("Report");
-    sheet.columns = report.table.columns.map((column) => ({ header: column.label, key: column.key, width: Math.max(14, column.label.length + 4) }));
-    for (const row of report.table.rows) sheet.addRow(row);
+    sheet.columns = report.table.columns.map((column) => ({
+      header: column.label,
+      key: column.key,
+      width: Math.max(14, column.label.length + 4)
+    }));
+    for (const row of report.table.rows) {
+      const safeRow: Record<string, string | number | null> = {};
+      for (const column of report.table.columns) {
+        const value = row[column.key];
+        if (column.type === "number" || column.type === "currency" || typeof value === "number") {
+          safeRow[column.key] = typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0;
+        } else {
+          safeRow[column.key] = neutralizeSpreadsheetValue(value);
+        }
+      }
+      sheet.addRow(safeRow);
+    }
     sheet.getRow(1).font = { bold: true };
     sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
     const buffer = await workbook.xlsx.writeBuffer();
