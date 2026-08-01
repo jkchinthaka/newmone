@@ -247,7 +247,10 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
       const part = await findTenantAPart(page);
       partId = part.id;
       openingQty = Number(part.quantityInStock);
-      stockIssueKey = `e2e-wo-lc-issue-${e2eRunId()}`;
+      expect(openingQty).toBeGreaterThanOrEqual(1);
+      // Key must include this WO id so Playwright serial retries do not collide with
+      // a prior attempt's idempotency row (different workOrderId => HTTP 400).
+      stockIssueKey = `e2e-wo-lc-issue-${e2eRunId()}-${workOrderId}`;
       const issue = await authenticatedPost(
         page,
         `/api/backend/inventory/parts/${partId}/stock-out`,
@@ -404,20 +407,31 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
       `/api/backend/inventory/parts/${partId}/movements`
     );
     expect(movements.status()).toBe(200);
-    const rows = (await movements.json()).data || (await movements.json()) || [];
+    const body = await movements.json();
+    const rows = body.data?.items || body.data || body.items || body || [];
     expect(Array.isArray(rows)).toBe(true);
     expect(rows.length).toBeGreaterThan(0);
   });
 
   test("E2E-WO-LC-020 list contains completed WO by title match", async ({ page }) => {
     await loginViaUi(page, "manager-a");
-    const list = await authenticatedGet(page, "/api/backend/work-orders");
+    // Manager default queue is action-required (excludes COMPLETED). Query completed queue
+    // with title search so list reflection is exact and pagination-safe.
+    const search = encodeURIComponent(lifecycleTitle);
+    const list = await authenticatedGet(
+      page,
+      `/api/backend/work-orders?queue=completed&search=${search}&pageSize=50`
+    );
     expect(list.status()).toBe(200);
     const body = await list.json();
     const items = body.data?.items || body.data || body.items || [];
     const found = (Array.isArray(items) ? items : []).some(
-      (wo: { title?: string; status?: string }) =>
-        wo.title === lifecycleTitle && wo.status === "COMPLETED"
+      (wo: { id?: string; _id?: string; title?: string; status?: string }) => {
+        const id = String(wo.id || wo._id || "");
+        return (
+          (id === workOrderId || wo.title === lifecycleTitle) && wo.status === "COMPLETED"
+        );
+      }
     );
     expect(found).toBe(true);
   });
