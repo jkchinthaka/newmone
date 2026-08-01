@@ -93,3 +93,7 @@
 - ERP apply/dry-run role lists that include `INVENTORY_KEEPER` remain a P1 follow-on (not expanded in 5A).
 - `createdById` attribution P1 remains separate from inventory controls.
 - Live production login remains unvalidated.
+
+## Phase 5A RUNTIME_VALIDATED
+
+Inventory keeper list/issue controls validated on workflow `30698756592` (app SHA `e41d7ab`). Mandatory E2E-INV skips removed. Live production login and Mongo root rotation remain out of scope.

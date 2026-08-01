@@ -373,7 +373,7 @@
 
 ---
 
-## Phase 5A — Inventory Keeper access and stock issue (IN PROGRESS)
+## Phase 5A — Inventory Keeper access and stock issue (DONE)
 
 #### TODO-P5A-001 — Inventory Keeper read + WO-linked stock issue
 - **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
@@ -667,5 +667,6 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
 | Browser session request-context + logout CSRF | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
 | Work-order create payload + CSRF-003 exact 201 | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
-| Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION |
+| Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (superseded by Phase 5A) |
+| Phase 5A inventory runtime (`30698756592` / `e41d7ab`) | RUNTIME_VALIDATED |
 
