@@ -53,6 +53,11 @@ export default defineConfig({
       grep: /@full-stack|@security|@tenant|@erp-control|@smoke/
     },
     {
+      // Focused CI gates (inventory/lifecycle diagnostics) — no suite grep filter.
+      name: "chromium-gate",
+      use: { ...devices["Desktop Chrome"] }
+    },
+    {
       name: "mobile-smoke",
       use: { ...devices["Pixel 5"] },
       grep: /@smoke/
