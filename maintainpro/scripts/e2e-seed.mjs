@@ -346,6 +346,26 @@ async function main() {
         });
       }
 
+      const partNumberB = `E2E-B-PART-${runId}`;
+      if (!(await db.collection("SparePart").findOne({ partNumber: partNumberB }))) {
+        await db.collection("SparePart").insertOne({
+          _id: new ObjectId(),
+          tenantId,
+          partNumber: partNumberB,
+          name: "Tenant B Filter",
+          category: "FILTER",
+          unit: "pcs",
+          quantityInStock: 10,
+          minimumStock: 2,
+          reorderPoint: 4,
+          unitCost: 9.5,
+          images: [],
+          isActive: true,
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+
       return { tenantId, users, assetId: asset._id };
     }
 

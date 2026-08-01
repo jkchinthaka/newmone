@@ -115,3 +115,11 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Inventory list 403 for inventory keeper in disposable E2E | P1 PRODUCT_GAP / optional ERP control — does not block Phase 4B partial runtime validation |
 | Phase 4B attempt 7 runtime | PARTIAL_RUNTIME_VALIDATION — run `30696336211`, SHA `0ecd3fa` |
 
+## INV-RBAC-ROUTE-GAP (Phase 5A mitigated)
+
+| Field | Value |
+| --- | --- |
+| Risk | Inventory Keeper 403 on parts list despite seeded permissions |
+| Classification | RBAC_ROUTE_CONTRACT_DEFECT |
+| Mitigation | Option A: add keeper to INVENTORY_READ_ROLES; keep inventory.manage |
+| Residual | Option B inventory.view deferred; ERP apply role narrowing P1 |

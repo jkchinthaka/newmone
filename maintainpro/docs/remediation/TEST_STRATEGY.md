@@ -191,3 +191,8 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | Work-order create payload (`createdById` via `/auth/me`) | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
 | Full-stack E2E CI runtime (attempt 7 SHA `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (INV optional skip) |
 
+## Phase 5A inventory validation
+
+Static: `npm run validate:e2e-inventory-controls`, `test:inventory-access-contract`, `test:inventory-stock-issue-contract`.
+CI: inventory controls gate after work-order create gate, before full Playwright suite.
+Mandatory E2E-INV-001..016 must not use `test.skip`.

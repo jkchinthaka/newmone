@@ -373,6 +373,19 @@
 
 ---
 
+## Phase 5A — Inventory Keeper access and stock issue (IN PROGRESS)
+
+#### TODO-P5A-001 — Inventory Keeper read + WO-linked stock issue
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Decision:** Option A RBAC (`INVENTORY_READ_ROLES` includes `INVENTORY_KEEPER`)
+- **Acceptance:** E2E-INV-001..016 no skip; focused inventory gate; negative/idempotent/tenant controls
+
+#### TODO-P5A-002 — ERP apply role narrowing (follow-on)
+- **Priority:** P1 | **Owner:** BA + Backend | **Status:** NOT_STARTED
+- **Note:** Legacy ERP apply still lists keeper — do not expand in 5A
+
+---
+
 ## Phase 5 — ERP workflow and control validation
 
 **Objective:** Prove inventory, WO, purchasing controls for pilot.  

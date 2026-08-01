@@ -221,3 +221,10 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 | Full-stack E2E CI workflow | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
 | Live production login | NOT validated |
+
+## Phase 5A inventory architecture
+
+- Read routes share `INVENTORY_READ_ROLES` including `INVENTORY_KEEPER`.
+- Stock-out requires tenant-scoped `workOrderId`, atomic conditional decrement, optional tenant-scoped idempotency (`InventoryStockIssueIdempotency`).
+- Movement records carry tenant/WO/actor for reconciliation.
+- E2E creates WO via manager context; no hardcoded ObjectIds.

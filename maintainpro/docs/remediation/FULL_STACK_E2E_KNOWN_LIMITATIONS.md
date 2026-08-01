@@ -84,3 +84,12 @@
 - Remaining skip: `E2E-INV-001..005` inventory list 403 — `PRODUCT_GAP` / `OPTIONAL_FEATURE_NOT_IMPLEMENTED`.
 - Runtime status: **PARTIAL_RUNTIME_VALIDATION** (mandatory security + WO create validated; optional inventory gap remains).
 - Evidence: `docs/remediation/FULL_STACK_E2E_RUNTIME_EVIDENCE.md`. Live production login remains unvalidated. Mongo root rotation remains operator-owned.
+
+
+## Phase 5A inventory notes
+
+- Phase 4B remaining skip (`E2E-INV-001..005` keeper 403) is addressed by Option A role alignment.
+- `inventory.view` (Option B) is deferred; production permission migration is operator-owned.
+- ERP apply/dry-run role lists that include `INVENTORY_KEEPER` remain a P1 follow-on (not expanded in 5A).
+- `createdById` attribution P1 remains separate from inventory controls.
+- Live production login remains unvalidated.

@@ -10,7 +10,7 @@
 | E2E-RBAC-001..005 | RBAC | Role denial paths |
 | E2E-TENANT-001..008 | Tenant | Cross-tenant exclusion, switch without token leak |
 | E2E-WO-001..012 | Work orders | Create/progress via real BFF API |
-| E2E-INV-001..008 | Inventory | Stock issue + negative rejection |
+| E2E-INV-001..016 | Inventory | Keeper list/issue, idempotency, low-stock, delete deny, RBAC, tenant, CSRF |
 | E2E-FILE-001..006 | Files | Controlled upload rejection paths |
 | E2E-ERR-001..008 | Errors | Controlled 404/validation, no secret leaks |
 | Perf smoke | Performance | Health latency + login timeout (CI only claims) |
@@ -33,3 +33,17 @@ Runtime note (attempt 7): run `30689093849` (51/1/2) — session/logout/CSRF PAS
 
 Runtime closeout (attempt 7): run `30696336211` on `0ecd3fa` — **63 passed / 0 failed / 1 skipped**. Status: **PARTIAL_RUNTIME_VALIDATION**. See `FULL_STACK_E2E_RUNTIME_EVIDENCE.md`.
 
+
+
+## Phase 5A inventory gate
+
+| Gate | Expectation |
+| --- | --- |
+| Inventory Keeper login | HTTP 200 |
+| Parts list | HTTP 200 |
+| Dedicated WO | created via manager BFF path |
+| Stock issue | exact HTTP 200 |
+| Quantity delta | deducted once |
+| Duplicate key replay | no second deduction |
+| Negative stock | HTTP 400 |
+| Movements | HTTP 200 |

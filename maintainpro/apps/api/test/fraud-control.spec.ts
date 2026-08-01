@@ -75,10 +75,19 @@ describe("fraud control (UAT-020)", () => {
 
   describe("InventoryService.stockOut", () => {
     const prisma = {
-      sparePart: { findFirst: jest.fn() },
+      sparePart: {
+        findFirst: jest.fn(),
+        findFirstOrThrow: jest.fn(),
+        updateMany: jest.fn()
+      },
       workOrder: { findFirst: jest.fn() },
       stockMovement: { create: jest.fn() },
-      auditLog: { create: jest.fn() }
+      inventoryStockIssueIdempotency: {
+        findUnique: jest.fn(),
+        create: jest.fn()
+      },
+      auditLog: { create: jest.fn() },
+      $transaction: jest.fn()
     };
 
     const service = new InventoryService(prisma as any, { createNotification: jest.fn() } as any, {} as any);
@@ -91,6 +100,8 @@ describe("fraud control (UAT-020)", () => {
         tenantId: "tenant-1",
         isActive: true
       });
+      prisma.inventoryStockIssueIdempotency.findUnique.mockResolvedValue(null);
+      prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma));
     });
 
     it("blocks stock issue without work order id", async () => {
@@ -105,6 +116,7 @@ describe("fraud control (UAT-020)", () => {
 
     it("blocks negative stock", async () => {
       prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1", status: "IN_PROGRESS", woNumber: "WO-1" });
+      prisma.sparePart.updateMany.mockResolvedValue({ count: 0 });
       prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
       await expect(
@@ -115,6 +127,30 @@ describe("fraud control (UAT-020)", () => {
           { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
         )
       ).rejects.toThrow("Stock quantity cannot go below 0");
+    });
+
+    it("replays identical idempotent stock-out without a second deduction", async () => {
+      prisma.inventoryStockIssueIdempotency.findUnique.mockResolvedValue({
+        partId: "part-1",
+        quantity: 2,
+        workOrderId: "wo-1"
+      });
+      prisma.sparePart.findFirst.mockResolvedValue({
+        id: "part-1",
+        quantityInStock: 8,
+        tenantId: "tenant-1",
+        isActive: true
+      });
+
+      const result = await service.stockOut(
+        "part-1",
+        2,
+        { workOrderId: "wo-1", idempotencyKey: "key-1" },
+        { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
+      );
+
+      expect(result.quantityInStock).toBe(8);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

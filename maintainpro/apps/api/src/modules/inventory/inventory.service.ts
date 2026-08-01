@@ -305,10 +305,17 @@ export class InventoryService {
   async stockOut(
     id: string,
     quantity: number,
-    options: { workOrderId?: string; notes?: string; overrideReason?: string },
+    options: {
+      workOrderId?: string;
+      notes?: string;
+      overrideReason?: string;
+      idempotencyKey?: string;
+    },
     actor?: Actor
   ) {
     const part = await this.part(id, actor);
+    const tenantId = this.resolveTenantId(actor);
+    const idempotencyKey = options.idempotencyKey?.trim() || undefined;
 
     if (!options.workOrderId?.trim()) {
       await this.recordAudit({
@@ -329,7 +336,26 @@ export class InventoryService {
       );
     }
 
-    const tenantId = this.resolveTenantId(actor);
+    if (idempotencyKey) {
+      const existing = await this.prisma.inventoryStockIssueIdempotency.findUnique({
+        where: {
+          tenantId_key: {
+            tenantId,
+            key: idempotencyKey
+          }
+        }
+      });
+      if (existing) {
+        if (existing.partId !== id || existing.quantity !== quantity || existing.workOrderId !== options.workOrderId) {
+          throw new BadRequestException(
+            "Idempotency key was already used with a different stock-out payload for this tenant."
+          );
+        }
+        // Replay: return current part without a second deduction.
+        return this.part(id, actor);
+      }
+    }
+
     const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id: options.workOrderId,
@@ -352,54 +378,100 @@ export class InventoryService {
       throw new BadRequestException("Stock-out quantity must be greater than 0");
     }
 
-    if (part.quantityInStock < quantity) {
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        // Atomic conditional decrement — concurrent issues cannot both consume the same units.
+        const decremented = await tx.sparePart.updateMany({
+          where: {
+            id,
+            tenantId,
+            isActive: true,
+            quantityInStock: { gte: quantity }
+          },
+          data: {
+            quantityInStock: { decrement: quantity }
+          }
+        });
+
+        if (decremented.count !== 1) {
+          throw new BadRequestException("Stock quantity cannot go below 0");
+        }
+
+        const movement = await tx.stockMovement.create({
+          data: {
+            tenantId,
+            partId: id,
+            type: "OUT",
+            quantity,
+            workOrderId: workOrder.id,
+            actorUserId: actor?.sub,
+            reference: `work-order:${workOrder.id}`,
+            notes: options.notes
+          }
+        });
+
+        if (idempotencyKey) {
+          await tx.inventoryStockIssueIdempotency.create({
+            data: {
+              tenantId,
+              key: idempotencyKey,
+              partId: id,
+              movementId: movement.id,
+              workOrderId: workOrder.id,
+              quantity
+            }
+          });
+        }
+
+        return tx.sparePart.findFirstOrThrow({
+          where: { id, tenantId }
+        });
+      });
+
       await this.recordAudit({
         entity: "PART_STOCK_ISSUE",
         entityId: id,
         action: AuditAction.UPDATE,
         actor,
-        reason: "negative_stock_blocked",
-        metadata: { event: "negative_stock_blocked", quantity, available: part.quantityInStock }
+        reason: options.overrideReason ?? options.notes,
+        metadata: {
+          quantity,
+          workOrderId: workOrder.id,
+          woNumber: workOrder.woNumber,
+          source: "inventory.stockOut",
+          event: options.overrideReason ? "parts_issue_override" : "parts_issued_against_work_order",
+          overrideFlag: Boolean(options.overrideReason?.trim()),
+          idempotencyKey: idempotencyKey ?? null
+        }
       });
-      throw new BadRequestException("Stock quantity cannot go below 0");
-    }
 
-    const updated = await this.prisma.sparePart.update({
-      where: { id },
-      data: {
-        quantityInStock: {
-          decrement: quantity
+      return updated;
+    } catch (error) {
+      if (error instanceof BadRequestException && error.message.includes("cannot go below 0")) {
+        await this.recordAudit({
+          entity: "PART_STOCK_ISSUE",
+          entityId: id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: "negative_stock_blocked",
+          metadata: { event: "negative_stock_blocked", quantity, available: part.quantityInStock }
+        });
+      }
+      // Concurrent first-writer wins on idempotency unique key — treat as replay.
+      if (
+        idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
+          where: { tenantId_key: { tenantId, key: idempotencyKey } }
+        });
+        if (raced) {
+          return this.part(id, actor);
         }
       }
-    });
-
-    await this.prisma.stockMovement.create({
-      data: {
-        partId: id,
-        type: "OUT",
-        quantity,
-        reference: `work-order:${workOrder.id}`,
-        notes: options.notes
-      }
-    });
-
-    await this.recordAudit({
-      entity: "PART_STOCK_ISSUE",
-      entityId: id,
-      action: AuditAction.UPDATE,
-      actor,
-      reason: options.overrideReason ?? options.notes,
-      metadata: {
-        quantity,
-        workOrderId: workOrder.id,
-        woNumber: workOrder.woNumber,
-        source: "inventory.stockOut",
-        event: options.overrideReason ? "parts_issue_override" : "parts_issued_against_work_order",
-        overrideFlag: Boolean(options.overrideReason?.trim())
-      }
-    });
-
-    return updated;
+      throw error;
+    }
   }
 
   async movements(id: string, actor?: Actor) {

@@ -144,3 +144,14 @@
 | Work-order create payload + CSRF-003 exact 201 | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
 | Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (not production go-live) |
 
+## Phase 5A inventory gate
+
+Required before upgrading inventory runtime from PARTIAL to RUNTIME_VALIDATED:
+
+- Focused inventory gate pass
+- E2E-INV mandatory tests: failed=0, skipped=0
+- Negative stock and duplicate issue prevented
+- Cross-tenant issue blocked
+- CSRF inventory mutation path exact
+
+Do not claim production go-live from Phase 5A alone.

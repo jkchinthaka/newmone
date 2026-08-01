@@ -1495,16 +1495,35 @@ model SparePart {
 }
 
 model StockMovement {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  partId    String       @db.ObjectId
-  part      SparePart    @relation(fields: [partId], references: [id])
-  type      MovementType
-  quantity  Int
-  reference String?
-  notes     String?
-  createdAt DateTime     @default(now())
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?      @db.ObjectId
+  partId      String       @db.ObjectId
+  part        SparePart    @relation(fields: [partId], references: [id])
+  type        MovementType
+  quantity    Int
+  reference   String?
+  notes       String?
+  workOrderId String?      @db.ObjectId
+  actorUserId String?      @db.ObjectId
+  createdAt   DateTime     @default(now())
 
   @@index([partId, createdAt])
+  @@index([tenantId, workOrderId])
+}
+
+/// Tenant-scoped idempotency for stock-out (only created when client supplies a key).
+model InventoryStockIssueIdempotency {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String   @db.ObjectId
+  key        String
+  partId     String   @db.ObjectId
+  movementId String   @db.ObjectId
+  workOrderId String? @db.ObjectId
+  quantity   Int
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, partId])
 }
 
 enum MovementType {

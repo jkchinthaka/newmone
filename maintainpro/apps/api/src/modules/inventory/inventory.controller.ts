@@ -1,5 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards
+} from "@nestjs/common";
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -12,6 +26,17 @@ type AuthedRequest = {
   user: JwtPayload;
 };
 
+/** Option A: inventory.manage remains the read+master permission; keeper is on read roles only. */
+const INVENTORY_READ_ROLES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "ASSET_MANAGER",
+  "MECHANIC",
+  "INVENTORY_KEEPER",
+  "MANAGER",
+  "OPERATIONS_MANAGER"
+] as const;
+
 @ApiTags("Inventory")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -23,7 +48,7 @@ export class InventoryController {
   ) {}
 
   @Get("parts")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")
   async parts(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.parts(req.user);
@@ -58,7 +83,7 @@ export class InventoryController {
   }
 
   @Get("parts/:id")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")
   async part(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.part(id, req.user);
@@ -94,24 +119,40 @@ export class InventoryController {
   }
 
   @Post("parts/:id/stock-out")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Stock deducted against a tenant-scoped work order" })
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("inventory.stock_issue")
   async stockOut(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { quantity: number; workOrderId: string; notes?: string; overrideReason?: string }
+    @Headers("idempotency-key") idempotencyHeader: string | undefined,
+    @Body()
+    body: {
+      quantity: number;
+      workOrderId: string;
+      notes?: string;
+      overrideReason?: string;
+      idempotencyKey?: string;
+    }
   ) {
+    const idempotencyKey = (body.idempotencyKey || idempotencyHeader || "").trim() || undefined;
     const data = await this.inventoryService.stockOut(
       id,
       body.quantity,
-      { workOrderId: body.workOrderId, notes: body.notes, overrideReason: body.overrideReason },
+      {
+        workOrderId: body.workOrderId,
+        notes: body.notes,
+        overrideReason: body.overrideReason,
+        idempotencyKey
+      },
       req.user
     );
     return { data, message: "Stock deducted" };
   }
 
   @Get("parts/:id/movements")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")
   async movements(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.movements(id, req.user);
@@ -154,7 +195,7 @@ export class InventoryController {
   }
 
   @Get("low-stock")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")
   async lowStock(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.lowStock(req.user);

@@ -147,6 +147,9 @@ export interface StockAdjustmentPayload {
   id: string;
   quantity: number;
   notes?: string;
+  /** Required for stock-out; tenant-scoped work order linkage. */
+  workOrderId?: string;
+  idempotencyKey?: string;
 }
 
 export interface UpdatePartPayload {
