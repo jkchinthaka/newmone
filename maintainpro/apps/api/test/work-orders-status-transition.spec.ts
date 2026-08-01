@@ -14,6 +14,9 @@ const createPrismaMock = () => ({
     findFirst: jest.fn(),
     update: jest.fn()
   },
+  workOrderAssignee: {
+    count: jest.fn().mockResolvedValue(1)
+  },
   auditLog: {
     create: jest.fn()
   }
@@ -33,6 +36,7 @@ describe("WorkOrdersService status transitions", () => {
     approvalStatus: WorkOrderApprovalStatus.APPROVED,
     status: WorkOrderStatus.OPEN,
     priority: "MEDIUM",
+    technicianId: "tech-1",
     startDate: null,
     slaDeadline: null,
     completedDate: null,

@@ -81,6 +81,22 @@ export async function authenticatedPost(
   });
 }
 
+/** Authenticated PATCH via BrowserContext cookies + matching CSRF header. */
+export async function authenticatedPatch(
+  page: Page,
+  path: string,
+  options?: { data?: unknown; headers?: Record<string, string> }
+): Promise<APIResponse> {
+  const csrfHeaders = await getCsrfHeader(page);
+  return page.request.patch(path, {
+    data: options?.data,
+    headers: {
+      ...csrfHeaders,
+      ...(options?.headers ?? {})
+    }
+  });
+}
+
 export async function authenticatedMutationWithoutCsrf(
   page: Page,
   path: string,

@@ -386,6 +386,14 @@
 
 ---
 
+## Phase 5B — Work-order lifecycle (IN PROGRESS)
+
+#### TODO-P5B-001 — Complete WO lifecycle controls + E2E
+- **Priority:** P0 | **Owner:** Backend + QA | **Status:** IN_PROGRESS
+- **Acceptance:** Maker-checker, assignment sync, start gate, verify-supervisor, E2E-WO-LC mandatory skips=0
+
+---
+
 ## Phase 5 — ERP workflow and control validation
 
 **Objective:** Prove inventory, WO, purchasing controls for pilot.  

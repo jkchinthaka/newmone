@@ -184,6 +184,19 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
+      - name: Work-order lifecycle gate
+        run: |
+          set -e
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/work-order-lifecycle-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            | tee artifacts/e2e-logs/work-order-lifecycle-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:

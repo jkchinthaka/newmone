@@ -53,7 +53,8 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus
     WorkOrderStatus.CANCELLED
   ],
   [WorkOrderStatus.ON_HOLD]: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.CANCELLED],
-  [WorkOrderStatus.TECHNICIAN_COMPLETED]: [WorkOrderStatus.REWORK_REQUIRED],
+  // COMPLETED is normally via verify-supervisor; updateStatus allows it for supervisor/admin emergency close.
+  [WorkOrderStatus.TECHNICIAN_COMPLETED]: [WorkOrderStatus.REWORK_REQUIRED, WorkOrderStatus.COMPLETED],
   [WorkOrderStatus.REWORK_REQUIRED]: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.CANCELLED],
   [WorkOrderStatus.COMPLETED]: [],
   [WorkOrderStatus.CANCELLED]: [],

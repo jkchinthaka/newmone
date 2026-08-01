@@ -130,6 +130,12 @@ export class WorkOrderAssigneesService {
 
   async addAssignee(workOrderId: string, input: AddWorkOrderAssigneeInput, actor?: Actor) {
     const workOrder = await this.assertWorkOrder(workOrderId, actor);
+    if (workOrder.approvalStatus === "REJECTED") {
+      throw new BadRequestException("Work order was rejected and cannot be executed");
+    }
+    if (workOrder.approvalStatus === "PENDING") {
+      throw new BadRequestException("Work order requires manager approval before execution");
+    }
     const tenantId = this.resolveTenantId(actor);
 
     const employee = await this.workforceEmployees.resolveAssignableEmployee(input.employeeId, tenantId);

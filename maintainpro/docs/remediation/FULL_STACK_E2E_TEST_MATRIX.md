@@ -47,3 +47,12 @@ Runtime closeout (attempt 7): run `30696336211` on `0ecd3fa` — **63 passed / 0
 | Duplicate key replay | no second deduction |
 | Negative stock | HTTP 400 |
 | Movements | HTTP 200 |
+
+
+## Phase 5B work-order lifecycle
+
+| Suite | Coverage |
+| --- | --- |
+| E2E-WO-LC-001..020 | Full create→approve→assign→start→parts→complete→verify |
+| E2E-WO-NEG-* | Approval, assignment, CSRF, tenant negatives |
+| Work-order lifecycle gate | Focused CI gate after inventory |
