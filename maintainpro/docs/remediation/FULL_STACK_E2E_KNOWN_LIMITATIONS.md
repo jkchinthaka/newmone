@@ -97,3 +97,8 @@
 ## Phase 5A RUNTIME_VALIDATED
 
 Inventory keeper list/issue controls validated on workflow `30698756592` (app SHA `e41d7ab`). Mandatory E2E-INV skips removed. Live production login and Mongo root rotation remain out of scope.
+
+## Phase 5B notes
+
+- Focused inventory/lifecycle gates use Playwright project `chromium-gate` (grep `@inventory-gate|@wo-lifecycle-gate`) and are excluded from the full suite project list.
+- Photo evidence upload remains waived when storage uploads are disabled in the E2E stack; note-only evidence is the validated path.

@@ -82,3 +82,66 @@ Isolated E2E Compose project stopped (project-scoped stop only).
 | Prior status | PARTIAL_RUNTIME_VALIDATION (inventory keeper 403 skip) |
 
 Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A commit above.
+
+## Phase 5B — Work-order lifecycle (approval through supervisor verification)
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30703557700` |
+| Branch | `fix/phase5b-work-order-lifecycle` |
+| Exact tested application SHA | `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **RUNTIME_VALIDATED** |
+
+### Lifecycle contract (safe summary)
+
+- Operational `status` and `approvalStatus` remain separate dimensions.
+- Maker-checker: creator cannot self-approve (403); separate admin/manager approves.
+- `createdById` authoritative from authenticated actor (create-on-behalf limited).
+- Assignment: `POST /assign` syncs legacy `technicianId` + `WorkOrderAssignee`.
+- Start requires APPROVED + assignment; hold requires `delayReason`.
+- Evidence: photo requirements waived when storage uploads disabled; completion note mandatory.
+- Technician completion maps to `TECHNICIAN_COMPLETED`; supervisor `verify-supervisor` finalizes `COMPLETED`.
+- Phase 5A inventory stock-out controls preserved and reused in lifecycle.
+
+### Focused work-order lifecycle gate
+
+| Check | Result |
+| --- | --- |
+| Lifecycle gate step | PASS (1 test on chromium-gate) |
+| create_status | 201 |
+| approval_status | APPROVED |
+| assignment_present | yes |
+| start_status | 200 |
+| stock_issue_status | 200 |
+| evidence present | yes (note metadata; photos waived when storage off) |
+| technician_completion_status | 200 |
+| supervisor_verification_status | 200 |
+| final_status | COMPLETED |
+| history_ok | yes |
+| tenant_isolation | yes |
+
+### Playwright totals (full suite)
+
+| Metric | Count |
+| --- | --- |
+| Passed | 103 |
+| Failed | 0 |
+| Skipped | 0 |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| No passwords/tokens/cookies/CSRF/Authorization in evidence docs | PASS |
+| No raw Playwright reports committed | PASS |
+| Cleanup / disposable stack stop | PASS |
+
+### Remaining blockers (not Phase 5B)
+
+- Phase 5C: procurement / purchase-order lifecycle
+- Phase 5D: broader dashboard/report reflection polish; ERP apply role narrowing
+- Flutter client: status-set coverage incomplete (OPERATOR_ACTION_REQUIRED if Dart changes needed without tooling)
+- Production go-live: not claimed

@@ -678,3 +678,10 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Full-stack CI runtime evidence (`30696336211` / `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (superseded by Phase 5A) |
 | Phase 5A inventory runtime (`30698756592` / `e41d7ab`) | RUNTIME_VALIDATED |
 
+
+
+## Phase 5B status
+
+- Status: **RUNTIME_VALIDATED** (workflow `30703557700`, app SHA `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae`)
+- Scope: work-order lifecycle approval → assignment → start → inventory → evidence → technician completion → supervisor verification
+- Not go-live ready; Phase 5C/5D remain
