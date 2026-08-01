@@ -154,9 +154,9 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 | Prior functional tested SHA | 15d28f35f4c3ab23dd851b6a7ea232678f47a2ae |
 | Prior functional totals | 103 passed / 0 failed / 0 skipped |
 | Safety defect class | CI_CLEANUP_SAFETY_DEFECT / DESTRUCTIVE_AUTOMATION_POLICY_VIOLATION |
-| Correction commit | e3b3992d883d33c916b3595769add2c4db8878a |
+| Correction commit | fe3b3992d883d33c916b3595769add2c4db8878a |
 | Corrected workflow run ID | 30712469601 |
-| Exact tested corrected SHA | e3b3992d883d33c916b3595769add2c4db8878a |
+| Exact tested corrected SHA | fe3b3992d883d33c916b3595769add2c4db8878a |
 | Corrected totals | 103 passed / 0 failed / 0 skipped |
 | Lifecycle gate | PASS |
 | Cleanup command | docker compose ... down --remove-orphans |

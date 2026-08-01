@@ -167,8 +167,8 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 **Selected option:** Option A — NestJS does **not** issue browser session cookies.
 
 **Evidence:**
-- Mobile clients use FlutterSecureStorage + JSON token bodies (pps/mobile/lib/core/storage/token_storage.dart).
-- Next.js BFF strips tokens and sets maintainpro_* cookies (ff-proxy.ts).
+- Mobile clients use FlutterSecureStorage + JSON token bodies (apps/mobile/lib/core/storage/token_storage.dart).
+- Next.js BFF strips tokens and sets maintainpro_* cookies (bff-proxy.ts).
 - Nest previously used `SameSite=None` when Secure (auth.controller) and also set cookies from tenancy switch — conflicting with BFF Lax architecture.
 - Nest `Set-Cookie` was not forwarded by the BFF anyway; tenancy switch left stale BFF access cookies.
 

@@ -200,7 +200,7 @@ Mandatory E2E-INV-001..016 must not use `test.skip`.
 ## Docker cleanup policy (Phase 5B+)
 
 Automated E2E and CI cleanup must use docker compose ... down --remove-orphans only. Validate with 
-pm run validate:nondestructive-docker-cleanup.
+npm run validate:nondestructive-docker-cleanup.
 
 ### Forbidden
 

@@ -59,6 +59,9 @@ jobs:
       - name: Nondestructive Docker cleanup validation
         run: npm run validate:nondestructive-docker-cleanup
 
+      - name: Text integrity validation
+        run: npm run validate:text-integrity
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"

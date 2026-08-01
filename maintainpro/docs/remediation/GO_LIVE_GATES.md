@@ -89,7 +89,7 @@
 | G1.4 HTTP mode | SOURCE_DONE (fail-closed dual opt-in); business risk acceptance still required |
 | G1.5 HTTPS default | SOURCE_DONE (Secure remains default) |
 | G3.2 Auth e2e | SOURCE_UPDATED (cookie architecture); full Playwright run not claimed here |
-| Live HTTP login validated | **NO** � smoke table empty |
+| Live HTTP login validated | **NO** - smoke table empty |
 | G0.1 Mongo rotation | Still BLOCKED / OPERATOR |
 
 ---

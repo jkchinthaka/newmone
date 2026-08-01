@@ -112,6 +112,6 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 
 ## Phase 5B cleanup safety closeout
 
-- Corrected workflow 30712469601 on SHA e3b3992... passed 103/0/0 with down --remove-orphans only.
-- Automated volume deletion remains prohibited repository-wide; enforced by alidate:nondestructive-docker-cleanup.
+- Corrected workflow 30712469601 on SHA fe3b3992... passed 103/0/0 with down --remove-orphans only.
+- Automated volume deletion remains prohibited repository-wide; enforced by validate:nondestructive-docker-cleanup.
 

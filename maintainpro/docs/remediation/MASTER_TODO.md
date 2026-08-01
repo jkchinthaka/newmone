@@ -608,7 +608,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Nginx BFF routing | SOURCE_VALIDATED (static) | `default.conf` + `validate:nginx-routing` |
 | API_INTERNAL_URL | SOURCE_VALIDATED (compose) | `docker-compose.production.yml` + env examples |
 | Auth e2e cookie architecture | SOURCE_UPDATED | `e2e/auth.spec.ts` |
-| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` � table empty |
+| Operator smoke | SPEC ONLY | `HTTP_BFF_SMOKE_TEST.md` - table empty |
 | Mongo root rotation (Phase 1) | **OPERATOR_ACTION_REQUIRED** | Still open |
 | HTTPS recommendation | DOCUMENTED | HTTP is not secure transport; dual opt-in required |
 
@@ -619,8 +619,8 @@ This file is a plan. Implementation begins only when explicitly authorized after
 **Selected option:** Option A — NestJS does **not** issue browser session cookies.
 
 **Evidence:**
-- Mobile clients use FlutterSecureStorage + JSON token bodies (pps/mobile/lib/core/storage/token_storage.dart).
-- Next.js BFF strips tokens and sets maintainpro_* cookies (ff-proxy.ts).
+- Mobile clients use FlutterSecureStorage + JSON token bodies (apps/mobile/lib/core/storage/token_storage.dart).
+- Next.js BFF strips tokens and sets maintainpro_* cookies (bff-proxy.ts).
 - Nest previously used `SameSite=None` when Secure (auth.controller) and also set cookies from tenancy switch — conflicting with BFF Lax architecture.
 - Nest `Set-Cookie` was not forwarded by the BFF anyway; tenancy switch left stale BFF access cookies.
 
@@ -682,7 +682,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 5B status
 
-- Status: **RUNTIME_VALIDATED** (corrected workflow 30712469601, app SHA e3b3992d883d33c916b3595769add2c4db8878a)
+- Status: **RUNTIME_VALIDATED** (corrected workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)
 - Prior functional SHA 15d28f35... / workflow 30703557700 remains recorded evidence
 - Cleanup policy: Compose down --remove-orphans only; volumes preserved
 - Not go-live ready; Phase 5C/5D remain
