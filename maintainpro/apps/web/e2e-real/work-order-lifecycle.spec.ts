@@ -28,6 +28,21 @@ function unwrapWorkOrder(body: unknown): WorkOrderRecord {
   return (envelope.data || body) as WorkOrderRecord;
 }
 
+function unwrapListItems(body: unknown): WorkOrderRecord[] {
+  const root = body as {
+    data?: WorkOrderRecord[] | { data?: WorkOrderRecord[]; items?: WorkOrderRecord[] };
+    items?: WorkOrderRecord[];
+  };
+  const payload = root.data ?? root;
+  if (Array.isArray(payload)) return payload;
+  const nested =
+    (payload as { data?: WorkOrderRecord[]; items?: WorkOrderRecord[] })?.data ||
+    (payload as { items?: WorkOrderRecord[] })?.items ||
+    root.items ||
+    [];
+  return Array.isArray(nested) ? nested : [];
+}
+
 function workOrderIdFrom(body: unknown): string {
   const wo = unwrapWorkOrder(body);
   return String(wo.id || wo._id || "");
@@ -423,16 +438,12 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
       `/api/backend/work-orders?queue=completed&search=${search}&pageSize=50`
     );
     expect(list.status()).toBe(200);
-    const body = await list.json();
-    const items = body.data?.items || body.data || body.items || [];
-    const found = (Array.isArray(items) ? items : []).some(
-      (wo: { id?: string; _id?: string; title?: string; status?: string }) => {
-        const id = String(wo.id || wo._id || "");
-        return (
-          (id === workOrderId || wo.title === lifecycleTitle) && wo.status === "COMPLETED"
-        );
-      }
-    );
+    // BFF envelope: { data: { data: items[], total, page, ... } }
+    const items = unwrapListItems(await list.json());
+    const found = items.some((wo) => {
+      const id = String(wo.id || wo._id || "");
+      return (id === workOrderId || wo.title === lifecycleTitle) && wo.status === "COMPLETED";
+    });
     expect(found).toBe(true);
   });
 });
