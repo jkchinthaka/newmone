@@ -257,14 +257,15 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     let bWoId = "";
     try {
       await loginViaUi(bPage, "admin-b");
-      const list = await authenticatedGet(bPage, "/api/backend/work-orders");
-      expect(list.status()).toBe(200);
-      const body = await list.json();
-      const items = body.data?.items || body.data || body.items || [];
-      const wo = (Array.isArray(items) ? items : []).find((w: { woNumber?: string }) =>
-        String(w.woNumber || "").includes(`E2E-B-WO-${e2eRunId()}`)
-      );
-      bWoId = String(wo?.id || wo?._id || "");
+      await getAuthenticatedUserId(bPage);
+      const payload = await buildValidWorkOrderPayload(bPage, {
+        title: `E2E INV B WO ${e2eRunId().slice(-8)}`
+      });
+      const create = await authenticatedPost(bPage, "/api/backend/work-orders", { data: payload });
+      expect(create.status()).toBe(201);
+      const body = await create.json();
+      const wo = body.data || body;
+      bWoId = String(wo.id || wo._id || "");
       expect(bWoId.length).toBeGreaterThan(0);
     } finally {
       await bContext.close();
