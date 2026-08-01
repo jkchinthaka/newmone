@@ -31,3 +31,5 @@ Runtime note (attempt 6): run `30687319562` (44/6/2) — login/probes PASS; AUTH
 
 Runtime note (attempt 7): run `30689093849` (51/1/2) — session/logout/CSRF PASS; sole failure CSRF-003 **400** `createdById is required`. Payload helper + exact 201 gate added. Skips: INV list 403 (PRODUCT_GAP); prior WO lifecycle skip was create-payload-driven.
 
+Runtime closeout (attempt 7): run `30696336211` on `0ecd3fa` — **63 passed / 0 failed / 1 skipped**. Status: **PARTIAL_RUNTIME_VALIDATION**. See `FULL_STACK_E2E_RUNTIME_EVIDENCE.md`.
+

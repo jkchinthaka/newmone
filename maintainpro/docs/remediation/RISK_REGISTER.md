@@ -112,4 +112,6 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Logout Nest POST default 201 | Mitigated by explicit logout HTTP 200 contract (attempt 6) |
 | E2E work-order create omitted required `createdById` | Mitigated by `/auth/me` actor resolution + payload validator (attempt 7) |
 | Client-supplied `createdById` vs authenticated actor attribution | P1 BUSINESS_CONTRACT_REVIEW — not redesigned in Phase 4B attempt 7 |
+| Inventory list 403 for inventory keeper in disposable E2E | P1 PRODUCT_GAP / optional ERP control — does not block Phase 4B partial runtime validation |
+| Phase 4B attempt 7 runtime | PARTIAL_RUNTIME_VALIDATION — run `30696336211`, SHA `0ecd3fa` |
 

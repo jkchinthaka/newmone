@@ -189,4 +189,5 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
 | Browser session / logout CSRF request-context | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
 | Work-order create payload (`createdById` via `/auth/me`) | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
+| Full-stack E2E CI runtime (attempt 7 SHA `0ecd3fa`) | PARTIAL_RUNTIME_VALIDATION (INV optional skip) |
 

@@ -75,3 +75,12 @@
 - Fix: `/auth/me` actor ID + `buildValidWorkOrderPayload`; exact **201** + read-back; validators + create gate.
 - Skips (30689093849): `E2E-INV-001..005` inventory list 403 — PRODUCT_GAP/OPTIONAL; prior `E2E-WO-001` skip was missing createdById (create smoke restored).
 - Runtime status: FAILED until the next workflow succeeds. Live production login remains unvalidated. Mongo root rotation remains operator-owned.
+
+## Phase 4B attempt 7 closeout — runtime evidence (2026-08-01)
+
+- Run `30696336211` on SHA `0ecd3fa58fcd18c618ef6ffab69b6ebfbf162ad5`: workflow **success**.
+- Totals: **63 passed / 0 failed / 1 skipped** (JUnit tests=64).
+- CSRF-003 exact **201**; create gate PASS; auth path A/B/C=200; cleanup PASS.
+- Remaining skip: `E2E-INV-001..005` inventory list 403 — `PRODUCT_GAP` / `OPTIONAL_FEATURE_NOT_IMPLEMENTED`.
+- Runtime status: **PARTIAL_RUNTIME_VALIDATION** (mandatory security + WO create validated; optional inventory gap remains).
+- Evidence: `docs/remediation/FULL_STACK_E2E_RUNTIME_EVIDENCE.md`. Live production login remains unvalidated. Mongo root rotation remains operator-owned.
