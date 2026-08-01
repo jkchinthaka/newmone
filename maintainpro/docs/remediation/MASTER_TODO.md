@@ -653,4 +653,5 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4) |
 | Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
 | Browser session request-context + logout CSRF | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
+| Work-order create payload + CSRF-003 exact 201 | SOURCE_VALIDATED (Phase 4B attempt 7; runtime pending) |
 

@@ -110,4 +110,6 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Login success 201 (Nest POST default) vs Playwright 200 | Mitigated by explicit `@HttpCode(200)` + contract tests (attempt 5) |
 | Authenticated E2E used isolated Playwright request (no browser cookies) | Mitigated by browser-session helpers + request-context validator (attempt 6) |
 | Logout Nest POST default 201 | Mitigated by explicit logout HTTP 200 contract (attempt 6) |
+| E2E work-order create omitted required `createdById` | Mitigated by `/auth/me` actor resolution + payload validator (attempt 7) |
+| Client-supplied `createdById` vs authenticated actor attribution | P1 BUSINESS_CONTRACT_REVIEW — not redesigned in Phase 4B attempt 7 |
 

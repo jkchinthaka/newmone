@@ -62,3 +62,16 @@
 - Secondary product contract: Nest logout now explicit **HTTP 200 OK** (was incidental POST 201). Logout remains CSRF-protected (not exempt).
 - Fix: `browser-session` helpers using `page.request`, exact logout status, CSRF tests assert `CSRF_INVALID` with browser cookies present, valid CSRF mutation expects exact 201.
 - Runtime status: FAILED until the next workflow completes. Live production login remains unvalidated.
+
+## Phase 4B attempt 7 — work-order create payload (2026-08-01)
+
+- Run `30689093849`: session/logout/CSRF infra PASS; Playwright **51 passed / 1 failed / 2 skipped**.
+- Sole failure: E2E-CSRF-003 Expected **201**, Received **400**.
+- Runtime evidence (JUnit, safe): `VALIDATION_ERROR` / **`createdById is required`** / requestId present.
+- Boundary: browser auth PASS → BFF CSRF PASS → Nest create **400** → DB create not executed.
+- Classification: `TEST_PAYLOAD_CONTRACT_DEFECT` / `WORK_ORDER_CREATE_CONTRACT_MISMATCH` (Case A — E2E only).
+- Contract: API/Web/Flutter require `createdById` from current user; CORRECTIVE may omit asset/vehicle.
+- Attribution: **P1 BUSINESS_CONTRACT_REVIEW** (client `createdById` vs actor.sub) — not redesigned here.
+- Fix: `/auth/me` actor ID + `buildValidWorkOrderPayload`; exact **201** + read-back; validators + create gate.
+- Skips (30689093849): `E2E-INV-001..005` inventory list 403 — PRODUCT_GAP/OPTIONAL; prior `E2E-WO-001` skip was missing createdById (create smoke restored).
+- Runtime status: FAILED until the next workflow succeeds. Live production login remains unvalidated. Mongo root rotation remains operator-owned.

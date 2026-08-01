@@ -22,9 +22,12 @@ Tags: `@mocked` (legacy `e2e/`), `@full-stack`, `@security`, `@tenant`, `@erp-co
 | BFF-502-* | Upstream URL, hop-by-hop stripping, 4xx preservation, connectivity mapping | SOURCE_VALIDATED |
 | AUTH-STATUS-* | Exact login success HTTP **200** (Nest/BFF/Nginx/Playwright/diagnostic) | SOURCE_VALIDATED |
 | SESSION/LOGOUT-CSRF-* | BrowserContext request + CSRF double-submit + logout **200** | SOURCE_VALIDATED |
+| WO-CREATE / CSRF-003 | Valid create payload includes `createdById` from `/auth/me`; exact **201** + read-back | SOURCE_VALIDATED |
 | AUTH-PATH A/B/C | Direct API / direct BFF / Nginx login probes (safe metadata only) | SOURCE_VALIDATED (CI gate) |
 
 Runtime note (attempt 5): run `30685973181` (42/8/2) — 502 resolved; Probes A/B/C=201; E2E-AUTH-001 failed only on exact **200 vs 201**. Canonical contract set to **HTTP 200 OK**.
 
 Runtime note (attempt 6): run `30687319562` (44/6/2) — login/probes PASS; AUTH-011/012 + CSRF-003/004 failed due to isolated Playwright `request` fixture not sharing browser cookies after `loginViaUi`. Logout success set to exact **HTTP 200**. Runtime remains FAILED until the next workflow.
+
+Runtime note (attempt 7): run `30689093849` (51/1/2) — session/logout/CSRF PASS; sole failure CSRF-003 **400** `createdById is required`. Payload helper + exact 201 gate added. Skips: INV list 403 (PRODUCT_GAP); prior WO lifecycle skip was create-payload-driven.
 

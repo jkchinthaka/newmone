@@ -49,4 +49,6 @@ Safe output only: probe level, status, duration, request id, JSON yes/no, cookie
 - Use the isolated Playwright `request` fixture only for public/unauthenticated checks.
 - Logout requires matching CSRF cookie + `x-csrf-token` and returns exact **HTTP 200**.
 - Missing/wrong CSRF on authenticated mutations must return **403 CSRF_INVALID** (not merely 401 from missing cookies).
+- Valid work-order create must include `createdById` from browser-session `GET /api/backend/auth/me` (never hardcoded seeded ObjectIds). Expect exact **HTTP 201** and read-back **200**.
+- CI runs a work-order create gate (`work-order-create-diagnostic.spec.ts`) after the session diagnostic and before the full suite; failure fails the job (no continue-on-error).
 

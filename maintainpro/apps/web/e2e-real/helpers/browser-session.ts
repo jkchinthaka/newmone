@@ -46,6 +46,25 @@ export async function authenticatedGet(
   });
 }
 
+/**
+ * Resolve the authenticated actor ID via BFF `/auth/me`.
+ * Never logs the identifier. Does not use localStorage or Mongo.
+ */
+export async function getAuthenticatedUserId(page: Page): Promise<string> {
+  const response = await authenticatedGet(page, "/api/backend/auth/me");
+  expect(response.status()).toBe(200);
+  const body = (await response.json()) as {
+    data?: { id?: string; _id?: string };
+    id?: string;
+    _id?: string;
+  };
+  const id = String(body.data?.id || body.data?._id || body.id || body._id || "").trim();
+  if (!id) {
+    throw new Error("Authenticated user ID is unavailable from /auth/me.");
+  }
+  return id;
+}
+
 /** Authenticated mutation via BrowserContext cookies + matching CSRF header. */
 export async function authenticatedPost(
   page: Page,
