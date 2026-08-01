@@ -76,7 +76,7 @@
 docker compose -f docker-compose.yml -f docker-compose.e2e.yml up
 seed disposable tenant A/B
 playwright against http://localhost/login
-tear down volumes for e2e project only
+stop E2E Compose project with volumes preserved
 ```
 
 **Must cover:** login, tenant switch, create WO, stock issue (no negative), PO approval path, forbidden cross-tenant read, CSRF failure, session expiry UX.
@@ -196,3 +196,16 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 Static: `npm run validate:e2e-inventory-controls`, `test:inventory-access-contract`, `test:inventory-stock-issue-contract`.
 CI: inventory controls gate after work-order create gate, before full Playwright suite.
 Mandatory E2E-INV-001..016 must not use `test.skip`.
+
+## Docker cleanup policy (Phase 5B+)
+
+Automated E2E and CI cleanup must use docker compose ... down --remove-orphans only. Validate with 
+pm run validate:nondestructive-docker-cleanup.
+
+### Forbidden
+
+- docker compose down -v
+- docker compose down --volumes
+- docker volume rm
+- docker volume prune
+- docker system prune

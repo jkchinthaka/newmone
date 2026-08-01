@@ -102,3 +102,10 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 
 - Focused inventory/lifecycle gates use Playwright project `chromium-gate` (grep `@inventory-gate|@wo-lifecycle-gate`) and are excluded from the full suite project list.
 - Photo evidence upload remains waived when storage uploads are disabled in the E2E stack; note-only evidence is the validated path.
+## Phase 5B CI cleanup safety
+
+- Functional run `30703557700` / SHA `15d28f35...` passed 103/0/0.
+- Post-validation review found automated `down --volumes` in Full-Stack E2E cleanup.
+- Corrected policy: Compose `down --remove-orphans` only; never delete Docker volumes in automation.
+- GitHub-hosted runners are ephemeral; runner disposal handles remaining filesystem.
+- Consolidated `RUNTIME_VALIDATED` for Phase 5B resumes only after the corrected SHA workflow succeeds.

@@ -159,3 +159,9 @@ Do not claim production go-live from Phase 5A alone.
 ## Phase 5A inventory runtime closed
 
 Focused inventory gate + E2E-INV-001..016 passed with failed=0 skipped=0 on `30698756592`. Still not a production go-live approval.
+
+## Phase 5B cleanup safety gate
+
+- Functional E2E may be green while CI cleanup still violates volume-preservation policy.
+- Gate: corrected Full-Stack E2E workflow must use nondestructive Compose down and pass `validate:nondestructive-docker-cleanup`.
+- Phase 5C blocked until this gate is green on the exact corrected SHA.

@@ -362,7 +362,7 @@
 
 #### TODO-P4-002 — Disposable real-stack e2e compose profile
 - **Priority:** P1 | **Owner:** QA + DevOps | **Status:** NOT_STARTED  
-- **Acceptance criteria:** Pipeline/job brings up stack, runs smoke, tears down e2e volumes only; never points at prod URLs  
+- **Acceptance criteria:** Pipeline/job brings up stack, runs smoke, stops the isolated E2E Compose project with volumes preserved; never points at prod URLs  
 
 #### TODO-P4-003 — CSRF and session-expiry UX e2e
 - **Priority:** P1 | **Owner:** QA | **Status:** NOT_STARTED  
@@ -682,6 +682,8 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 5B status
 
-- Status: **RUNTIME_VALIDATED** (workflow `30703557700`, app SHA `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae`)
-- Scope: work-order lifecycle approval → assignment → start → inventory → evidence → technician completion → supervisor verification
+- Functional status: **FUNCTIONAL_RUNTIME_VALIDATED** (workflow 30703557700, app SHA 15d28f35f4c3ab23dd851b6a7ea232678f47a2ae)
+- Safety status: **CI_CLEANUP_SAFETY_PENDING** until nondestructive cleanup SHA rerun succeeds
+- Scope: work-order lifecycle (approval through supervisor verification)
+- Phase 5C blocked until cleanup safety closeout
 - Not go-live ready; Phase 5C/5D remain

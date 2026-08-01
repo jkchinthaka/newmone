@@ -123,3 +123,5 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Classification | RBAC_ROUTE_CONTRACT_DEFECT |
 | Mitigation | Option A: add keeper to INVENTORY_READ_ROLES; keep inventory.manage |
 | Residual | Option B inventory.view deferred; ERP apply role narrowing P1 |
+
+| CI E2E Compose `down --volumes` | CI_CLEANUP_SAFETY_DEFECT | Corrected to `down --remove-orphans`; validator prevents regression | Open until corrected SHA rerun |

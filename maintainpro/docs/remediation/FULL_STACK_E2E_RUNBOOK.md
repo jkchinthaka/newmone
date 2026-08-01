@@ -17,7 +17,7 @@
    (or `npm run e2e:auth-path-diag` when `COMPOSE_PROJECT_NAME` / `E2E_RUN_ID` are already exported)
 9. `npm run test:e2e:full-stack`
 10. `npm run e2e:evidence`
-11. Stop: `docker compose -p $COMPOSE_PROJECT_NAME --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml down --volumes --remove-orphans` (isolated `maintainpro-e2e-*` project only)
+11. Stop: `docker compose -p $COMPOSE_PROJECT_NAME --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml down --remove-orphans` (isolated `maintainpro-e2e-*` project only; volumes preserved)
 
 ## Cleanup
 
@@ -27,7 +27,8 @@
 
 - Point at production URL/IP
 - Load production `.env`
-- `docker compose down -v` on production project names
+- `docker compose down -v` / `down --volumes` (any project, including disposable E2E)
+- `docker volume rm` / `docker volume prune` / `docker system prune`
 
 ## Playwright environment loading
 

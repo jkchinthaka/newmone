@@ -56,6 +56,9 @@ jobs:
       - name: Secret safety
         run: npm run validate:secret-safety
 
+      - name: Nondestructive Docker cleanup validation
+        run: npm run validate:nondestructive-docker-cleanup
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -233,14 +236,16 @@ jobs:
       - name: Stop isolated E2E stack only
         if: always()
         run: |
-          # Exact Compose project teardown including project-scoped volumes.
-          # Never prune globally. Project name must start with maintainpro-e2e-.
+          # Stop the exact isolated Compose project while preserving all volumes.
+          # The GitHub-hosted runner is ephemeral; runner disposal handles the
+          # remaining runner filesystem. Never prune globally. Never delete volumes.
+          # Project name must start with maintainpro-e2e-.
           case "$COMPOSE_PROJECT_NAME" in
             maintainpro-e2e-*) ;;
             *) echo "Refusing cleanup: unexpected COMPOSE_PROJECT_NAME"; exit 1 ;;
           esac
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
-            -f docker-compose.yml -f docker-compose.e2e.yml down --volumes --remove-orphans
+            -f docker-compose.yml -f docker-compose.e2e.yml down --remove-orphans
 
       - name: Upload evidence artifacts
         if: always()

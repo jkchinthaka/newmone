@@ -93,7 +93,7 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 | Exact tested application SHA | `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae` |
 | Runner OS | ubuntu-latest (GitHub Actions) |
 | Workflow conclusion | **success** |
-| Runtime status | **RUNTIME_VALIDATED** |
+| Runtime status | **FUNCTIONAL_RUNTIME_VALIDATED** (see cleanup safety section) |
 
 ### Lifecycle contract (safe summary)
 
@@ -145,3 +145,17 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 - Phase 5D: broader dashboard/report reflection polish; ERP apply role narrowing
 - Flutter client: status-set coverage incomplete (OPERATOR_ACTION_REQUIRED if Dart changes needed without tooling)
 - Production go-live: not claimed
+
+## Phase 5B CI cleanup safety closeout (pending corrected rerun)
+
+| Field | Value |
+| --- | --- |
+| Functional workflow | `30703557700` |
+| Functional tested application SHA | `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae` |
+| Functional totals | 103 passed / 0 failed / 0 skipped |
+| Functional status | **FUNCTIONAL_RUNTIME_VALIDATED** |
+| Safety defect class | `CI_CLEANUP_SAFETY_DEFECT` / `DESTRUCTIVE_AUTOMATION_POLICY_VIOLATION` |
+| Defect | Workflow cleanup used `down --volumes` (project-scoped volume deletion) |
+| Correction | `down --remove-orphans` only; volumes preserved; ephemeral runner disposal |
+| Phase 5B safety status | **CI_CLEANUP_SAFETY_PENDING** until corrected SHA workflow succeeds |
+| Phase 5C | Blocked until corrected workflow succeeds |
