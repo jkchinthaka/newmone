@@ -14,6 +14,7 @@ const {
   loginUpstreamUrl,
   describeUpstreamUrl
 } = require("./lib/bff-upstream-url.cjs");
+const { AUTH_LOGIN_SUCCESS_HTTP_STATUS } = require("./lib/auth-login-status-contract.cjs");
 
 function fail(message) {
   console.error(`AUTH-PATH-DIAG FAIL — ${message}`);
@@ -151,11 +152,12 @@ if (nginxLoginUrl) {
 }
 
 // Gate policy for CI network mode:
-// - A must be reachable (200 or genuine 4xx)
-// - B must match A for success/4xx family (never convert 4xx→502)
-// - C must match B
+// - A must be reachable (canonical success or genuine 4xx)
+// - Successful login must be exactly AUTH_LOGIN_SUCCESS_HTTP_STATUS (200)
+// - B must match A (never convert 4xx to 502; never rewrite success status)
+// - C must match B exactly on success
 function family(status) {
-  if (status === 200) return "ok";
+  if (status === AUTH_LOGIN_SUCCESS_HTTP_STATUS) return "ok";
   if (status >= 400 && status < 500) return "client";
   if (status === 502 || status === 504 || status === 0) return "gateway";
   if (status >= 500) return "server";
@@ -166,24 +168,41 @@ if (mode === "network") {
   if (!results.A || results.A === 0) {
     fail("Probe A: direct API unreachable");
   }
+  if (results.A === 201) {
+    fail(
+      `Probe A: login returned 201 Created; canonical contract is HTTP ${AUTH_LOGIN_SUCCESS_HTTP_STATUS}`
+    );
+  }
   if (family(results.A) === "client" && results.B === 502) {
     fail("Probe B: BFF converted upstream 4xx into 502");
   }
   if (family(results.A) === "ok" && results.B === 502) {
     fail("Probe B: BFF returned 502 while direct API succeeded");
   }
-  if (results.B && results.C && family(results.B) !== family(results.C)) {
+  if (family(results.A) === "ok" && results.B !== AUTH_LOGIN_SUCCESS_HTTP_STATUS) {
     fail(
-      `Probe C status family (${family(results.C)}) differs from Probe B (${family(results.B)})`
+      `Probe B: expected exact status ${AUTH_LOGIN_SUCCESS_HTTP_STATUS}, got ${results.B}`
     );
+  }
+  if (results.B && results.C && results.B !== results.C) {
+    fail(`Probe C status (${results.C}) differs from Probe B (${results.B})`);
   }
   if (family(results.A) === "ok" && family(results.B) === "ok" && results.C === 502) {
     fail("Probe C: Nginx proxy defect on successful BFF login");
   }
+  if (
+    family(results.A) === "ok" &&
+    results.C !== undefined &&
+    results.C !== AUTH_LOGIN_SUCCESS_HTTP_STATUS
+  ) {
+    fail(
+      `Probe C: expected exact status ${AUTH_LOGIN_SUCCESS_HTTP_STATUS}, got ${results.C}`
+    );
+  }
 }
 
 console.log(
-  `AUTH-PATH-DIAG SUMMARY A=${results.A ?? "skip"} B=${results.B ?? "skip"} C=${results.C ?? "skip"}`
+  `AUTH-PATH-DIAG SUMMARY A=${results.A ?? "skip"} B=${results.B ?? "skip"} C=${results.C ?? "skip"} canonical=${AUTH_LOGIN_SUCCESS_HTTP_STATUS}`
 );
 
 if (mode === "network" && (family(results.C) === "gateway" || family(results.B) === "gateway")) {

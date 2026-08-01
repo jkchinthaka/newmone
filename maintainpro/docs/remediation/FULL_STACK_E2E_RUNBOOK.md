@@ -41,5 +41,5 @@ Before `npm run test:e2e:full-stack`, ensure `.env.e2e` exists via `npm run e2e:
 | B | `http://web:3001/api/backend/auth/login` | Direct BFF from Docker network |
 | C | `http://nginx/api/backend/auth/login` | Public E2E nginx path |
 
-Safe output only: probe level, status, duration, request id, JSON yes/no, cookie **names**. Never print email, password, tokens, cookies, Authorization, or bodies. CI fails closed when API is unreachable, BFF converts a valid upstream status into 502/504, or Nginx status family differs from BFF (classic large-cookie buffer 502).
+Safe output only: probe level, status, duration, request id, JSON yes/no, cookie **names**. Never print email, password, tokens, cookies, Authorization, or bodies. CI fails closed when API is unreachable, BFF converts a valid upstream status into 502/504, Nginx status differs from BFF, or successful login is not exactly **HTTP 200** (canonical contract; Nest POST default 201 is rejected).
 

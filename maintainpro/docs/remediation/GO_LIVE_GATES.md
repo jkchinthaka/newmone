@@ -138,5 +138,6 @@
 
 | Playwright E2E env loader | SOURCE_VALIDATED; full runtime pending |
 | E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
-| Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4; runtime pending) |
+| Nginx BFF proxy buffers + auth-path diag | SOURCE_VALIDATED (Phase 4B attempt 4) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5; runtime pending) |
 

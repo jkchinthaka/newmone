@@ -44,3 +44,12 @@
 - Fix: enlarge `/api/backend/` proxy buffers; preserve/generate `X-Request-Id`; harden BFF upstream URL + 4xx preservation; three-level auth-path diagnostic gate before Playwright.
 - Secondary (not fixed in this attempt unless BFF maps 401→502): possible `AUTH_FIXTURE_MISMATCH` for some API 401s.
 - Runtime status: FAILED until the next workflow succeeds. Live production login remains unvalidated. Mongo root rotation remains operator-owned.
+
+## Phase 4B attempt 5 — login HTTP status contract (2026-08-01)
+
+- Run `30685973181`: Nginx 502 resolved; Probes A/B/C returned **201**; Playwright **42 passed / 8 failed / 2 skipped**.
+- Failure: E2E-AUTH-001 expected **200**, received **201** (NestJS POST default Created).
+- Classification: `AUTH_HTTP_STATUS_CONTRACT_MISMATCH` / Case C — no intentional 201 contract; docs and Playwright already expected 200; Flutter/web clients do not require 201.
+- Selected canonical status: **HTTP 200 OK** via explicit `@HttpCode(AUTH_LOGIN_SUCCESS_HTTP_STATUS)` + `@ApiOkResponse`.
+- Rationale: login authenticates and returns a token payload; it does not create a durable REST resource. Explicit decorator removes framework-default ambiguity.
+- Runtime status: FAILED until the next workflow completes. Live production login remains unvalidated.

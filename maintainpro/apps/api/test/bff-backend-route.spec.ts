@@ -66,6 +66,56 @@ describe("BFF backend route", () => {
     process.env = { ...originalEnv };
   });
 
+  it("AUTH-STATUS-006/007/008: BFF preserves 200, sets cookies, strips tokens", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            user: { id: "u1", email: "admin@example.invalid" },
+            accessToken: "access-token-value",
+            refreshToken: "refresh-token-value"
+          },
+          message: "Login successful"
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], {
+        body: { email: "admin@example.invalid", password: "x" }
+      }),
+      ["auth", "login"]
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.status).not.toBe(201);
+    const json = (await response.json()) as { data: Record<string, unknown> };
+    expect(json.data.accessToken).toBeUndefined();
+    expect(json.data.refreshToken).toBeUndefined();
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).toMatch(/maintainpro_access=/);
+    expect(joined).toMatch(/maintainpro_refresh=/);
+    expect(joined).toMatch(/maintainpro_csrf=/);
+  });
+
+  it("AUTH-STATUS-009: BFF preserves upstream 401 without session cookies", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, message: "Invalid email or password" }), {
+        status: 401,
+        headers: { "content-type": "application/json" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
+      ["auth", "login"]
+    );
+    expect(response.status).toBe(401);
+    const joined = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(joined).not.toMatch(/maintainpro_access=[^;]+/);
+  });
+
   it("BFF-001: login success sets session cookies and strips tokens from body", async () => {
     global.fetch = jest.fn(async () =>
       new Response(

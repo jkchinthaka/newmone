@@ -42,6 +42,8 @@ Resolution order:
 
 **Phase 2:** Production compose requires `API_INTERNAL_URL=http://api:3000/api` and `NEXT_PUBLIC_USE_BFF=true`.
 
+**Login success status (Phase 4B attempt 5):** NestJS `POST /auth/login` returns exactly **HTTP 200 OK** via `@HttpCode(AUTH_LOGIN_SUCCESS_HTTP_STATUS)` — not Nest's POST default 201. BFF preserves the upstream status; browser cookies remain BFF-owned.
+
 ### 2.4 Cookie policy
 
 | Layer | Secure | SameSite | Notes |

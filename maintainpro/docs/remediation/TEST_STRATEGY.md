@@ -41,7 +41,7 @@
 
 | Case | Expected |
 | --- | --- |
-| Valid login via `/api/backend/auth/login` | HTTP 2xx; **HttpOnly** access+refresh cookies; CSRF readable cookie; **no** access/refresh in localStorage; tokens stripped from JSON |
+| Valid login via `/api/backend/auth/login` | **HTTP 200 OK** (exact); **HttpOnly** access+refresh cookies; CSRF readable cookie; **no** access/refresh in localStorage; tokens stripped from JSON |
 | Login over HTTP with secure defaults | Cookies may be rejected — session fails (documents need for explicit HTTP mode) |
 | HTTP mode with `COOKIE_SECURE=false` + `ALLOW_INSECURE_HTTP=true` | Cookies set without Secure; warning logged |
 | Mutation without CSRF | HTTP 403 |
@@ -185,5 +185,6 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
 | E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
-| BFF upstream / nginx buffer / auth-path probes | SOURCE_VALIDATED (Phase 4B attempt 4; runtime pending) |
+| BFF upstream / nginx buffer / auth-path probes | SOURCE_VALIDATED (Phase 4B attempt 4) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5; runtime pending) |
 

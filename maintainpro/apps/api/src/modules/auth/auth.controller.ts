@@ -4,13 +4,14 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
   Inject,
   Post,
   Req,
   Res,
   UseGuards
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
@@ -19,6 +20,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
 import { AuthService } from "./auth.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -48,8 +50,14 @@ export class AuthController {
 
   @Public()
   @Post("login")
+  @HttpCode(AUTH_LOGIN_SUCCESS_HTTP_STATUS)
+  @ApiOkResponse({
+    description:
+      "Successful login returns HTTP 200 OK with user + token JSON for trusted BFF/mobile clients. Browser session cookies are owned by the Next.js BFF only."
+  })
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(@Body() dto: LoginDto) {
+    // Explicit status via AUTH_LOGIN_SUCCESS_HTTP_STATUS — not NestJS POST default 201.
     return this.authService.login(dto);
   }
 
