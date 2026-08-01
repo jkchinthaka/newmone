@@ -684,7 +684,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 5C — Procurement / PO / ERP / receiving
 
-- Status: **IN_PROGRESS** (source controls; not RUNTIME_VALIDATED)
+- Status: **RUNTIME_VALIDATED** (workflow 30715842098, app SHA 512745d678a4be6b0d0a62f2400763ff9fd4ec08)
 - Preserve Phase 5B RUNTIME_VALIDATED evidence (workflow 30712469601, app SHA fe3b3992d883d33c916b3595769add2c4db8878a)
 
 #### TODO-P5C-001 — Procurement/PO/ERP/receiving controls
@@ -697,3 +697,11 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - Prior functional SHA 15d28f35... / workflow 30703557700 remains recorded evidence
 - Cleanup policy: Compose down --remove-orphans only; volumes preserved
 - Not go-live ready; Phase 5C/5D remain
+
+## Phase 5D / remaining
+
+- P1: Receipt reversal/adjustment workflow
+- P1: Production poNumber uniqueness migration (operator audit)
+- P1: FINANCE/PROCUREMENT_OFFICER production user migration
+- Flutter GRN client: OPERATOR_ACTION_REQUIRED (stop PATCH RECEIVED)
+- Real Bileeta ERP writes remain out of scope

@@ -166,3 +166,20 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 | Artifact security review | PASS |
 | Final Phase 5B status | **RUNTIME_VALIDATED** |
 | Phase 5C | Unblocked for start after this closeout |
+
+## Phase 5C procurement RUNTIME_VALIDATED
+
+| Field | Value |
+|---|---|
+| Runtime status | **RUNTIME_VALIDATED** |
+| Branch | fix/phase5c-procurement-po-erp-controls |
+| Exact tested application SHA | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 |
+| Workflow run ID | 30715842098 |
+| Procurement gate | PASS (20 passed) |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped |
+| ERP provider | MOCK |
+| Cleanup | down --remove-orphans (volumes preserved) |
+| Phase 5B preserved | fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601 / 103/0/0 |
+
+Safe gate flags: request/PO/approval/ERP/receipt/stock/duplicate-prevention/audit/tenant controls exercised via @procurement-gate.
+Evidence-document commits after this SHA are documentation-only unless labeled otherwise.
