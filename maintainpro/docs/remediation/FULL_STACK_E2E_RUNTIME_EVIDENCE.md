@@ -93,7 +93,7 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 | Exact tested application SHA | `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae` |
 | Runner OS | ubuntu-latest (GitHub Actions) |
 | Workflow conclusion | **success** |
-| Runtime status | **FUNCTIONAL_RUNTIME_VALIDATED** (see cleanup safety section) |
+| Runtime status | **RUNTIME_VALIDATED** |
 
 ### Lifecycle contract (safe summary)
 
@@ -146,16 +146,23 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 - Flutter client: status-set coverage incomplete (OPERATOR_ACTION_REQUIRED if Dart changes needed without tooling)
 - Production go-live: not claimed
 
-## Phase 5B CI cleanup safety closeout (pending corrected rerun)
+## Phase 5B CI cleanup safety closeout
 
 | Field | Value |
 | --- | --- |
-| Functional workflow | `30703557700` |
-| Functional tested application SHA | `15d28f35f4c3ab23dd851b6a7ea232678f47a2ae` |
-| Functional totals | 103 passed / 0 failed / 0 skipped |
-| Functional status | **FUNCTIONAL_RUNTIME_VALIDATED** |
-| Safety defect class | `CI_CLEANUP_SAFETY_DEFECT` / `DESTRUCTIVE_AUTOMATION_POLICY_VIOLATION` |
-| Defect | Workflow cleanup used `down --volumes` (project-scoped volume deletion) |
-| Correction | `down --remove-orphans` only; volumes preserved; ephemeral runner disposal |
-| Phase 5B safety status | **CI_CLEANUP_SAFETY_PENDING** until corrected SHA workflow succeeds |
-| Phase 5C | Blocked until corrected workflow succeeds |
+| Prior functional workflow | 30703557700 |
+| Prior functional tested SHA | 15d28f35f4c3ab23dd851b6a7ea232678f47a2ae |
+| Prior functional totals | 103 passed / 0 failed / 0 skipped |
+| Safety defect class | CI_CLEANUP_SAFETY_DEFECT / DESTRUCTIVE_AUTOMATION_POLICY_VIOLATION |
+| Correction commit | e3b3992d883d33c916b3595769add2c4db8878a |
+| Corrected workflow run ID | 30712469601 |
+| Exact tested corrected SHA | e3b3992d883d33c916b3595769add2c4db8878a |
+| Corrected totals | 103 passed / 0 failed / 0 skipped |
+| Lifecycle gate | PASS |
+| Cleanup command | docker compose ... down --remove-orphans |
+| Volume deletion | none (no -v / --volumes / volume rm / prune) |
+| Cleanup result | PASS (containers + project network removed; volumes preserved) |
+| Nondestructive validator in CI | PASS |
+| Artifact security review | PASS |
+| Final Phase 5B status | **RUNTIME_VALIDATED** |
+| Phase 5C | Unblocked for start after this closeout |

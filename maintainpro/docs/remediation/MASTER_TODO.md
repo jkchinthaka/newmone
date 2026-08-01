@@ -682,8 +682,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 5B status
 
-- Functional status: **FUNCTIONAL_RUNTIME_VALIDATED** (workflow 30703557700, app SHA 15d28f35f4c3ab23dd851b6a7ea232678f47a2ae)
-- Safety status: **CI_CLEANUP_SAFETY_PENDING** until nondestructive cleanup SHA rerun succeeds
-- Scope: work-order lifecycle (approval through supervisor verification)
-- Phase 5C blocked until cleanup safety closeout
+- Status: **RUNTIME_VALIDATED** (corrected workflow 30712469601, app SHA e3b3992d883d33c916b3595769add2c4db8878a)
+- Prior functional SHA 15d28f35... / workflow 30703557700 remains recorded evidence
+- Cleanup policy: Compose down --remove-orphans only; volumes preserved
 - Not go-live ready; Phase 5C/5D remain
