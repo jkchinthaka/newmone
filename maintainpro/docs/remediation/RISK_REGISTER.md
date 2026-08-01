@@ -108,4 +108,6 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 | Nginx 502 on successful BFF login (large Set-Cookie) | Mitigated by enlarged `/api/backend/` proxy buffers + auth-path A/B/C gate (attempt 4) |
 | API login 401 vs browser 502 correlation | Open until request-ID evidence; do not assume same request |
 | Login success 201 (Nest POST default) vs Playwright 200 | Mitigated by explicit `@HttpCode(200)` + contract tests (attempt 5) |
+| Authenticated E2E used isolated Playwright request (no browser cookies) | Mitigated by browser-session helpers + request-context validator (attempt 6) |
+| Logout Nest POST default 201 | Mitigated by explicit logout HTTP 200 contract (attempt 6) |
 

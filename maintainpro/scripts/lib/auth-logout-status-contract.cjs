@@ -1,0 +1,3 @@
+'use strict';
+const AUTH_LOGOUT_SUCCESS_HTTP_STATUS = 200;
+module.exports = { AUTH_LOGOUT_SUCCESS_HTTP_STATUS };

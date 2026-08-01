@@ -18,4 +18,6 @@ Phase 2 closeout review: no exemptions were added or removed. Each row was re-va
 
 **Not exempt:** `auth/logout`, `auth/refresh`, `tenants/:id/switch`, work-orders, inventory, purchasing, and other business mutations.
 
+**E2E request-context rule (Phase 4B attempt 6):** After `loginViaUi`, authenticated BFF calls must use `page.request` / BrowserContext helpers so access/refresh/CSRF cookies are shared. The isolated Playwright `request` fixture is only for deliberately unauthenticated checks (for example CSRF-005 login exemption). Logout remains CSRF-protected.
+
 **Decision:** No unnecessary exemptions identified for removal in this closeout. Expanding the list requires a P1 TODO with security review.

@@ -145,6 +145,19 @@ jobs:
           sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' \
             artifacts/e2e-logs/*.log 2>/dev/null || true
 
+      - name: Session CSRF diagnostic
+        run: |
+          set -e
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/session-diagnostic.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            | tee artifacts/e2e-logs/session-csrf-diagnostic.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:

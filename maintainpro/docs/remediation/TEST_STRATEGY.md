@@ -186,5 +186,6 @@ COOKIE-CLOSE-001…010 covered by `bff-backend-route.spec.ts`, `nest-auth-cookie
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
 | E2E env line-boundary / materialize | SOURCE_VALIDATED (Phase 4B attempt 3) |
 | BFF upstream / nginx buffer / auth-path probes | SOURCE_VALIDATED (Phase 4B attempt 4) |
-| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5; runtime pending) |
+| Login success HTTP 200 contract | SOURCE_VALIDATED (Phase 4B attempt 5) |
+| Browser session / logout CSRF request-context | SOURCE_VALIDATED (Phase 4B attempt 6; runtime pending) |
 

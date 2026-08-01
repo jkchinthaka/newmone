@@ -21,6 +21,7 @@ import { SelfService } from "../../common/decorators/self-service.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
+import { AUTH_LOGOUT_SUCCESS_HTTP_STATUS } from "./auth-logout-status.contract";
 import { AuthService } from "./auth.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -79,6 +80,11 @@ export class AuthController {
 
   @Public()
   @Post("logout")
+  @HttpCode(AUTH_LOGOUT_SUCCESS_HTTP_STATUS)
+  @ApiOkResponse({
+    description:
+      "Successful logout returns HTTP 200 OK with a safe confirmation body. Browser session cookies are cleared by the Next.js BFF only."
+  })
   async logout(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -89,6 +95,7 @@ export class AuthController {
     if (!dto.refreshToken && refreshTokenFromCookie) {
       this.assertCsrfForCookieFlow(req);
     }
+    // Explicit status via AUTH_LOGOUT_SUCCESS_HTTP_STATUS - not NestJS POST default 201.
     const result = await this.authService.logout({ refreshToken: refreshToken ?? "" });
     this.clearAuthCookies(res);
     return result;

@@ -170,7 +170,7 @@ describe("BFF backend route", () => {
   it("BFF logout clears session cookies", async () => {
     setSessionCookies({ access: "a", refresh: "r", csrf: "c" });
     global.fetch = jest.fn(async () =>
-      new Response(JSON.stringify({ data: { ok: true }, message: "Logged out" }), {
+      new Response(JSON.stringify({ data: { loggedOut: true }, message: "Logout successful" }), {
         status: 200,
         headers: { "content-type": "application/json" }
       })
@@ -188,6 +188,82 @@ describe("BFF backend route", () => {
     expect(setCookie).toMatch(/maintainpro_access=;/);
     expect(setCookie).toMatch(/maintainpro_refresh=;/);
     expect(setCookie).toMatch(/maintainpro_csrf=;/);
+  });
+
+  it("LOGOUT-CSRF-002: logout without CSRF returns 403 and does not clear cookies", async () => {
+    setSessionCookies({ access: "a", refresh: "r", csrf: "expected" });
+    global.fetch = jest.fn() as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "logout"], { body: {} }),
+      ["auth", "logout"]
+    );
+    expect(response.status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
+    const json = (await response.json()) as { error: { code: string } };
+    expect(json.error.code).toBe("CSRF_INVALID");
+    const setCookie = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(setCookie).not.toMatch(/maintainpro_access=/);
+  });
+
+  it("LOGOUT-CSRF-003: logout with wrong CSRF returns 403", async () => {
+    setSessionCookies({ access: "a", refresh: "r", csrf: "expected" });
+    global.fetch = jest.fn() as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "logout"], {
+        body: {},
+        headers: { "x-csrf-token": "wrong" }
+      }),
+      ["auth", "logout"]
+    );
+    expect(response.status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("LOGOUT-CSRF-004/005: logout injects refresh cookie and preserves upstream 200", async () => {
+    setSessionCookies({ access: "a", refresh: "cookie-refresh-token", csrf: "c" });
+    let upstreamBody = "";
+    global.fetch = jest.fn(async (_url, init) => {
+      upstreamBody = Buffer.from(init?.body as ArrayBuffer).toString("utf8");
+      return new Response(JSON.stringify({ data: { loggedOut: true }, message: "Logout successful" }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "logout"], {
+        body: {},
+        headers: { "x-csrf-token": "c" }
+      }),
+      ["auth", "logout"]
+    );
+    expect(response.status).toBe(200);
+    expect(JSON.parse(upstreamBody).refreshToken).toBe("cookie-refresh-token");
+    const json = (await response.json()) as { data?: { loggedOut?: boolean } };
+    expect(json.data?.loggedOut).toBe(true);
+  });
+
+  it("LOGOUT-CSRF-010: BFF does not clear cookies when upstream logout fails", async () => {
+    setSessionCookies({ access: "a", refresh: "r", csrf: "c" });
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ success: false, message: "Upstream error" }), {
+        status: 500,
+        headers: { "content-type": "application/json" }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("POST", ["auth", "logout"], {
+        body: {},
+        headers: { "x-csrf-token": "c" }
+      }),
+      ["auth", "logout"]
+    );
+    expect(response.status).toBe(500);
+    const setCookie = (response.headers.getSetCookie?.() ?? []).join("\n");
+    expect(setCookie).not.toMatch(/maintainpro_access=;/);
   });
 
   it("refresh injects HttpOnly refresh cookie into upstream body", async () => {

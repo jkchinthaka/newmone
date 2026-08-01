@@ -43,3 +43,10 @@ Before `npm run test:e2e:full-stack`, ensure `.env.e2e` exists via `npm run e2e:
 
 Safe output only: probe level, status, duration, request id, JSON yes/no, cookie **names**. Never print email, password, tokens, cookies, Authorization, or bodies. CI fails closed when API is unreachable, BFF converts a valid upstream status into 502/504, Nginx status differs from BFF, or successful login is not exactly **HTTP 200** (canonical contract; Nest POST default 201 is rejected).
 
+## Browser session / CSRF E2E policy
+
+- After UI login, use `page.request` (or `helpers/browser-session.ts`) so access/refresh/CSRF cookies travel with authenticated BFF calls.
+- Use the isolated Playwright `request` fixture only for public/unauthenticated checks.
+- Logout requires matching CSRF cookie + `x-csrf-token` and returns exact **HTTP 200**.
+- Missing/wrong CSRF on authenticated mutations must return **403 CSRF_INVALID** (not merely 401 from missing cookies).
+

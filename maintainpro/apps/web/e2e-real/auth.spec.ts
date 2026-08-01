@@ -4,6 +4,12 @@ import {
   loginViaUi,
   readCookieMap
 } from "./helpers/auth";
+import {
+  authenticatedGet,
+  CANONICAL_LOGOUT_SUCCESS_STATUS,
+  cookieNamesPresent,
+  logoutBrowserSession
+} from "./helpers/browser-session";
 import { e2eEmail, e2ePassword } from "./helpers/env";
 
 test.describe("E2E authentication @full-stack @security @smoke", () => {
@@ -51,25 +57,56 @@ test.describe("E2E authentication @full-stack @security @smoke", () => {
     await expect(page).not.toHaveURL(/\/login$/);
   });
 
-  test("E2E-AUTH-011 logout clears cookies", async ({ page, request }) => {
+  test("E2E-AUTH-011 logout clears cookies", async ({ page }) => {
     await loginViaUi(page, "admin-a");
-    const cookies = await readCookieMap(page);
-    const csrf = cookies.get("maintainpro_csrf")?.value;
-    const response = await request.post("/api/backend/auth/logout", {
-      headers: csrf ? { "x-csrf-token": csrf } : {}
-    });
-    expect([200, 201, 204]).toContain(response.status());
+    const before = await cookieNamesPresent(page);
+    expect(before.access).toBeTruthy();
+    expect(before.refresh).toBeTruthy();
+    expect(before.csrf).toBeTruthy();
+
+    const response = await logoutBrowserSession(page);
+    expect(response.status()).toBe(CANONICAL_LOGOUT_SUCCESS_STATUS);
+    const body = await response.json().catch(() => ({}));
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toMatch(/"accessToken"\s*:/);
+    expect(serialized).not.toMatch(/"refreshToken"\s*:/);
+    expect(serialized).toMatch(/loggedOut|Logout successful/i);
+
+    const setCookies = response
+      .headersArray()
+      .filter((h) => h.name.toLowerCase() === "set-cookie")
+      .map((h) => h.value)
+      .join("\n");
+    expect(setCookies.toLowerCase()).toMatch(/maintainpro_access=/);
+    expect(setCookies.toLowerCase()).toMatch(/maintainpro_refresh=/);
+    expect(setCookies.toLowerCase()).toMatch(/maintainpro_csrf=/);
+
+    const me = await authenticatedGet(page, "/api/backend/auth/me");
+    expect(me.status()).toBe(401);
+
     const after = await readCookieMap(page);
-    // Cookies may be cleared or expired; access should be gone or empty
     const access = after.get("maintainpro_access");
-    expect(!access || !access.value || access.expires < Date.now() / 1000).toBeTruthy();
+    const refresh = after.get("maintainpro_refresh");
+    const csrf = after.get("maintainpro_csrf");
+    const accessGone = !access || !access.value || access.expires * 1000 < Date.now();
+    const refreshGone = !refresh || !refresh.value || refresh.expires * 1000 < Date.now();
+    const csrfGone = !csrf || !csrf.value || csrf.expires * 1000 < Date.now();
+    expect(accessGone).toBeTruthy();
+    expect(refreshGone).toBeTruthy();
+    expect(csrfGone).toBeTruthy();
   });
 
   test("E2E-AUTH-012 protected page redirects after logout", async ({ page }) => {
     await loginViaUi(page, "admin-a");
     await page.goto("/work-orders");
-    // logout via UI if available, else API then navigate
-    await page.request.post("/api/backend/auth/logout").catch(() => undefined);
+    await expect(page).not.toHaveURL(/\/login/i);
+
+    const logout = await logoutBrowserSession(page);
+    expect(logout.status()).toBe(CANONICAL_LOGOUT_SUCCESS_STATUS);
+
+    const me = await authenticatedGet(page, "/api/backend/auth/me");
+    expect(me.status()).toBe(401);
+
     await page.goto("/work-orders");
     await expect(page).toHaveURL(/login/i);
   });
