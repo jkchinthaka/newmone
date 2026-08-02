@@ -119,9 +119,11 @@ function main() {
   stopRecovery();
   console.log("recovery_api_boot=starting");
 
-  const user = process.env.MONGO_APP_USERNAME || "e2e_app_not_prod";
-  const pass = process.env.MONGO_APP_PASSWORD || "e2e_app_password_not_for_production_use";
-  const authDb = process.env.MONGO_INITDB_DATABASE || "maintainpro_e2e_auth";
+  // E2E-only: use disposable mongo root against the fresh restore DB so app-user
+  // role grants cannot block recovery smoke. Never used for production.
+  const user = process.env.MONGO_INITDB_ROOT_USERNAME || "e2e_root_not_prod";
+  const pass = process.env.MONGO_INITDB_ROOT_PASSWORD || "e2e_root_password_not_for_production_use";
+  const authDb = "admin";
   const backupDb = process.env.BACKUP_DATABASE_NAME || "maintainpro_e2e_backup";
   const dbUrl = `mongodb://${user}:${pass}@mongo:27017/${target}?authSource=${authDb}&replicaSet=rs0`;
   const backupUrl = `mongodb://${user}:${pass}@mongo:27017/${backupDb}?authSource=${authDb}&replicaSet=rs0`;

@@ -154,32 +154,28 @@ async function main() {
   }
   console.log("collection_reconciliation=pass");
 
-  // App user is scoped to E2E primary/backup DBs only. Grant readWrite on the fresh restore DB.
+  // App user is created in MONGO_INITDB_DATABASE authSource with roles for primary/backup only.
   const appUser = process.env.MONGO_APP_USERNAME || "e2e_app_not_prod";
-  mongoshEval(`
+  const authDbName = process.env.MONGO_INITDB_DATABASE || "maintainpro_e2e_auth";
+  const grantOut = mongoshEval(`
+    const authDb=${JSON.stringify(authDbName)};
     const dbn=${JSON.stringify(targetDb)};
     const user=${JSON.stringify(appUser)};
-    try {
-      db.getSiblingDB("admin").grantRolesToUser(user, [{ role: "readWrite", db: dbn }]);
-      print(JSON.stringify({ granted: true }));
-    } catch (e) {
-      // createUser fallback when grant fails because user is authSource-local
-      try {
-        db.getSiblingDB(dbn).createUser({
-          user: user,
-          pwd: "unused-if-exists",
-          roles: [{ role: "readWrite", db: dbn }]
-        });
-      } catch (e2) {}
-      try {
-        db.getSiblingDB("admin").grantRolesToUser(user, [{ role: "readWrite", db: dbn }]);
-        print(JSON.stringify({ granted: true, retry: true }));
-      } catch (e3) {
-        print(JSON.stringify({ granted: false, error: String(e3.message || e3) }));
+    const adb = db.getSiblingDB(authDb);
+    const existing = adb.getUser(user);
+    if (!existing) {
+      print(JSON.stringify({ granted: false, reason: "missing_user" }));
+    } else {
+      const roles = Array.isArray(existing.roles) ? existing.roles.slice() : [];
+      if (!roles.some((r) => r.role === "readWrite" && r.db === dbn)) {
+        roles.push({ role: "readWrite", db: dbn });
+        adb.updateUser(user, { roles });
       }
+      print(JSON.stringify({ granted: true, roleCount: roles.length }));
     }
   `);
-  console.log("restore_db_grant=attempted");
+  const grantLine = grantOut.trim().split(/\r?\n/).filter(Boolean).pop() || "{}";
+  console.log(`restore_db_grant=${grantLine.includes('"granted":true') ? "yes" : "no"}`);
   console.log("restore_status=success");
   console.log(`restore_duration_ms=${Date.now() - started}`);
   console.log("drop_used=no");
