@@ -93,22 +93,37 @@ export type ReportModuleResponse = {
   coverageNotes: string[];
 };
 
+export type ReportDataCoverage =
+  | string[]
+  | {
+      overall?: string;
+      notes?: string[];
+      degradedNotice?: string | null;
+      sources?: Record<string, string>;
+    };
+
 export type ReportsDashboardResponse = {
   generatedAt: string;
   refreshSeconds: number;
+  reportingTimezone?: string;
+  currencyCode?: string;
+  roleVariant?: string;
+  range?: { startDate?: string; endDate?: string; timezone?: string };
   filters: Partial<ReportFilters>;
   summaryCards: ReportSummaryCard[];
   moduleSummaries: Array<{
-    module: ReportModuleSlug;
+    module: string;
     label: string;
     value: string | number;
     helper: string;
     tone?: ReportTone;
   }>;
-  crossModuleTrend: Array<Record<string, string | number>>;
+  crossModuleTrend?: Array<Record<string, string | number>>;
+  trends?: { crossModuleExpense?: Array<Record<string, string | number>> };
   filterOptions: ReportFilterOptions;
   alerts: Array<{ type: string; message: string; tone?: ReportTone }>;
-  dataCoverage: string[];
+  dataCoverage: ReportDataCoverage;
+  degradedSources?: string[];
 };
 
 export type ReportModuleDefinition = {

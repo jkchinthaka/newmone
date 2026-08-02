@@ -34,13 +34,27 @@ const ROLE_PERMS = {
     "part_requests.view",
     "part_requests.approve_operational",
     "part_requests.approve_finance",
-    "audit.view"
+    "audit.view",
+    "reports.view",
+    "reports.operations.view",
+    "reports.financials.view",
+    "reports.user_activity.view",
+    "reports.assets.view",
+    "reports.inventory.view",
+    "reports.performance.view",
+    "reports.driver_intelligence.view",
+    "reports.fuel.view",
+    "reports.vehicle_cost.view",
+    "reports.export",
+    "reports.management.view"
   ],
   TECHNICIAN: [
     "dashboard.view",
     "work_orders.view_own",
     "work_orders.update_status",
-    "inventory.manage"
+    "inventory.manage",
+    "reports.operations.view",
+    "reports.performance.view"
   ],
   SECURITY_OFFICER: ["dashboard.view", "gate.in.create", "gate.out.create"],
   INVENTORY_KEEPER: [
@@ -53,7 +67,9 @@ const ROLE_PERMS = {
     "part_requests.view",
     "part_requests.approve_operational",
     "part_requests.issue",
-    "work_orders.view_own"
+    "work_orders.view_own",
+    "reports.inventory.view",
+    "reports.operations.view"
   ]
 };
 
@@ -190,6 +206,11 @@ async function main() {
           roleIds[roleName] = await createRole(db, tenantId, roleName, ids, now);
         } else {
           roleIds[roleName] = role._id;
+          // Refresh permission links so Phase gates remain compatible with preserved volumes.
+          await db.collection("Role").updateOne(
+            { _id: role._id },
+            { $set: { permissionIds: ids, updatedAt: now } }
+          );
         }
       }
 

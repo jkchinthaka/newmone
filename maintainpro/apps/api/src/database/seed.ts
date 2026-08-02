@@ -121,6 +121,18 @@ const permissionCatalog = [
   "purchase_orders.erp_sync",
   "purchase_orders.erp_sync_retry",
   "reports.view",
+  "reports.operations.view",
+  "reports.financials.view",
+  "reports.user_activity.view",
+  "reports.assets.view",
+  "reports.inventory.view",
+  "reports.performance.view",
+  "reports.system_logs.view",
+  "reports.driver_intelligence.view",
+  "reports.fuel.view",
+  "reports.vehicle_cost.view",
+  "reports.export",
+  "reports.management.view",
   "utilities.manage",
   "system.configure",
   "cleaning.manage",
@@ -501,9 +513,70 @@ const rolePermissions: Record<RoleName, string[]> = {
     "part_requests.approve_finance",
     "part_requests.view",
     "reports.view",
+    "reports.financials.view",
+    "reports.operations.view",
+    "reports.inventory.view",
+    "reports.performance.view",
+    "reports.export",
     "modules.view_all"
   ]
 };
+
+/** Phase 5D fine-grained report keys appended for management roles that already hold reports.view. */
+const PHASE5D_REPORT_PERMISSIONS = [
+  "reports.operations.view",
+  "reports.financials.view",
+  "reports.user_activity.view",
+  "reports.assets.view",
+  "reports.inventory.view",
+  "reports.performance.view",
+  "reports.system_logs.view",
+  "reports.driver_intelligence.view",
+  "reports.fuel.view",
+  "reports.vehicle_cost.view",
+  "reports.export",
+  "reports.management.view"
+] as const;
+
+for (const role of ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "FLEET_MANAGER"] as const) {
+  const current = rolePermissions[role] ?? [];
+  rolePermissions[role] = Array.from(new Set([...current, ...PHASE5D_REPORT_PERMISSIONS]));
+}
+
+rolePermissions.INVENTORY_KEEPER = Array.from(
+  new Set([...(rolePermissions.INVENTORY_KEEPER ?? []), "reports.inventory.view", "reports.operations.view"])
+);
+rolePermissions.VIEWER = Array.from(
+  new Set([
+    ...(rolePermissions.VIEWER ?? []),
+    "reports.operations.view",
+    "reports.assets.view",
+    "reports.inventory.view",
+    "reports.performance.view"
+  ])
+);
+rolePermissions.PROCUREMENT_OFFICER = Array.from(
+  new Set([
+    ...(rolePermissions.PROCUREMENT_OFFICER ?? []),
+    "reports.inventory.view",
+    "reports.operations.view",
+    "reports.financials.view",
+    "reports.export"
+  ])
+);
+rolePermissions.TECHNICIAN = Array.from(
+  new Set([...(rolePermissions.TECHNICIAN ?? []), "reports.operations.view", "reports.performance.view"])
+);
+rolePermissions.SUPERVISOR = Array.from(
+  new Set([
+    ...(rolePermissions.SUPERVISOR ?? []),
+    "reports.operations.view",
+    "reports.assets.view",
+    "reports.inventory.view",
+    "reports.performance.view",
+    "reports.driver_intelligence.view"
+  ])
+);
 
 async function ensurePermissions() {
   for (const key of permissionCatalog) {

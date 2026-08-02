@@ -123,16 +123,30 @@ export function ReportsDashboardPage() {
             })}
           </div>
 
-          {dashboard.dataCoverage.length ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
-              <p className="font-semibold text-amber-950">Data Coverage Notes</p>
-              <div className="mt-2 space-y-1">
-                {dashboard.dataCoverage.map((note) => (
-                  <p key={note}>{note}</p>
-                ))}
+          {(() => {
+            const coverage = dashboard.dataCoverage;
+            const notes = Array.isArray(coverage)
+              ? coverage
+              : [...(coverage.notes ?? []), ...(coverage.degradedNotice ? [coverage.degradedNotice] : [])];
+            if (!notes.length) return null;
+            return (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+                <p className="font-semibold text-amber-950">Data Coverage Notes</p>
+                <div className="mt-2 space-y-1">
+                  {notes.map((note) => (
+                    <p key={note}>{note}</p>
+                  ))}
+                </div>
+                {dashboard.currencyCode || dashboard.reportingTimezone ? (
+                  <p className="mt-2 text-xs text-amber-800">
+                    {[dashboard.currencyCode ? `Currency ${dashboard.currencyCode}` : null, dashboard.reportingTimezone ? `Timezone ${dashboard.reportingTimezone}` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
               </div>
-            </div>
-          ) : null}
+            );
+          })()}
         </>
       ) : (
         <StatePanel type="empty" title="No report data" message="No dashboard metrics are available for the selected range." />

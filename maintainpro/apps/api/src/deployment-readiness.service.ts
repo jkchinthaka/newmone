@@ -58,6 +58,8 @@ export class DeploymentReadinessService {
         missingMessage: "Backup replication is required for readiness but backup URL/policy is incomplete.",
         env: ["BACKUP_DATABASE_URL"]
       }),
+      this.recoveryBackupCheck(),
+      this.recoveryRestoreTestCheck(),
       this.configCheck({
         key: "readinessGuard",
         label: "Detailed readiness access guard",
@@ -66,6 +68,8 @@ export class DeploymentReadinessService {
         missingMessage: "Production should protect /health/readiness with READINESS_API_KEY or authenticated admin access.",
         env: ["READINESS_API_KEY"]
       }),
+      this.portOwnerDecisionCheck(environment),
+      this.productionSecurityBlockerCheck(environment),
       this.releaseMetadataCheck()
     ];
 
@@ -98,6 +102,132 @@ export class DeploymentReadinessService {
         commit: safe.commitSha,
         buildTime: safe.buildTimestamp
       }
+    };
+  }
+
+
+  /**
+   * Independent recoverable backup status (not replication lag).
+   * E2E may supply synthetic evidence; production must not rely on E2E alone.
+   */
+  private recoveryBackupCheck(): DeploymentReadinessItem {
+    const environment = this.configService.get<string>("NODE_ENV", "development");
+    const required = this.configService.get<boolean>("BACKUP_RESTORE_REQUIRED_FOR_READINESS", false);
+    const policyConfigured =
+      String(this.configService.get<string>("RECOVERY_BACKUP_POLICY_CONFIGURED", "")).toLowerCase() ===
+        "true" ||
+      this.configService.get<boolean>("RECOVERY_BACKUP_POLICY_CONFIGURED", false) === true;
+    const integrity = String(
+      this.configService.get<string>("RECOVERY_LAST_BACKUP_INTEGRITY_STATUS", "unknown")
+    ).toLowerCase();
+    const ageRaw = this.configService.get<string | number>("RECOVERY_LAST_BACKUP_AGE_HOURS", "");
+    const ageHours = ageRaw === "" || ageRaw === undefined || ageRaw === null ? null : Number(ageRaw);
+    const e2eEvidence =
+      String(this.configService.get<string>("RECOVERY_EVIDENCE_SOURCE", "")).toLowerCase() === "e2e";
+
+    if (environment === "production" && e2eEvidence) {
+      return {
+        key: "backupPolicyConfigured",
+        label: "Recoverable backup policy",
+        status: required ? "blocked" : "warning",
+        required,
+        message: "E2E recovery evidence cannot satisfy production backup readiness.",
+        action: "Record production backup integrity evidence outside the application failure domain."
+      };
+    }
+
+    if (!policyConfigured) {
+      return {
+        key: "backupPolicyConfigured",
+        label: "Recoverable backup policy",
+        status: required ? "blocked" : "warning",
+        required,
+        message: "Independent backup policy evidence is not configured (replication alone is insufficient).",
+        action: "Set RECOVERY_BACKUP_POLICY_CONFIGURED and last-backup integrity/age metadata."
+      };
+    }
+
+    if (integrity !== "valid" && integrity !== "success") {
+      return {
+        key: "lastBackupIntegrityStatus",
+        label: "Last backup integrity",
+        status: required ? "blocked" : "warning",
+        required,
+        message: "Last backup integrity status is not valid.",
+        action: "Run a checksum-verified backup and record RECOVERY_LAST_BACKUP_INTEGRITY_STATUS=valid."
+      };
+    }
+
+    if (ageHours !== null && Number.isFinite(ageHours) && ageHours > 48) {
+      return {
+        key: "lastBackupAge",
+        label: "Last backup age",
+        status: "warning",
+        required: false,
+        message: "Last backup age exceeds provisional 48h freshness window.",
+        action: "Create a fresher recoverable backup (MANAGEMENT_APPROVAL_REQUIRED for RPO)."
+      };
+    }
+
+    return {
+      key: "backupPolicyConfigured",
+      label: "Recoverable backup policy",
+      status: "ready",
+      required,
+      message: "Recoverable backup policy and integrity evidence are present (separate from replication)."
+    };
+  }
+
+  private recoveryRestoreTestCheck(): DeploymentReadinessItem {
+    const environment = this.configService.get<string>("NODE_ENV", "development");
+    const required = this.configService.get<boolean>("BACKUP_RESTORE_REQUIRED_FOR_READINESS", false);
+    const status = String(
+      this.configService.get<string>("RECOVERY_LAST_RESTORE_TEST_STATUS", "unknown")
+    ).toLowerCase();
+    const ageRaw = this.configService.get<string | number>("RECOVERY_LAST_RESTORE_TEST_AGE_HOURS", "");
+    const ageHours = ageRaw === "" || ageRaw === undefined || ageRaw === null ? null : Number(ageRaw);
+    const e2eEvidence =
+      String(this.configService.get<string>("RECOVERY_EVIDENCE_SOURCE", "")).toLowerCase() === "e2e";
+
+    if (environment === "production" && e2eEvidence) {
+      return {
+        key: "lastRestoreTestStatus",
+        label: "Last restore rehearsal",
+        status: required ? "blocked" : "warning",
+        required,
+        message: "E2E restore rehearsal cannot mark production restore readiness.",
+        action: "Perform an operator-approved restore rehearsal against disposable non-production targets."
+      };
+    }
+
+    if (status !== "success" && status !== "pass") {
+      return {
+        key: "lastRestoreTestStatus",
+        label: "Last restore rehearsal",
+        status: required ? "blocked" : "warning",
+        required,
+        message: "No successful restore rehearsal evidence is recorded.",
+        action: "Complete a fresh-target restore rehearsal and set RECOVERY_LAST_RESTORE_TEST_STATUS=success."
+      };
+    }
+
+    if (ageHours !== null && Number.isFinite(ageHours) && ageHours > 720) {
+      return {
+        key: "lastRestoreTestAge",
+        label: "Last restore rehearsal age",
+        status: "warning",
+        required: false,
+        message: "Restore rehearsal age exceeds provisional 30-day window.",
+        action: "Schedule another restore rehearsal (MANAGEMENT_APPROVAL_REQUIRED for RTO)."
+      };
+    }
+
+    return {
+      key: "lastRestoreTestStatus",
+      label: "Last restore rehearsal",
+      status: "ready",
+      required,
+      message: "Restore rehearsal evidence is present and separate from replication status."
     };
   }
 
@@ -345,5 +475,62 @@ export class DeploymentReadinessService {
   private hasConfigValue(key: string): boolean {
     const value = this.configService.get<string | number | boolean | undefined>(key);
     return value !== undefined && String(value).trim().length > 0;
+  }
+
+  private portOwnerDecisionCheck(environment: string): DeploymentReadinessItem {
+    const owner = String(this.configService.get<string>("EDGE_PROXY_OWNER", "UNDECIDED") || "UNDECIDED")
+      .trim()
+      .toUpperCase();
+    const decided = owner === "NGINX" || owner === "IIS";
+    const required = environment === "production";
+    if (decided) {
+      return {
+        key: "portOwner",
+        label: "Edge port ownership decision",
+        status: "ready",
+        required,
+        message: `EDGE_PROXY_OWNER=${owner} recorded.`
+      };
+    }
+    return {
+      key: "portOwner",
+      label: "Edge port ownership decision",
+      status: required ? "blocked" : "warning",
+      required,
+      message: "PORT_OWNER_DECISION_REQUIRED — select OPTION A (Nginx) or OPTION B (IIS).",
+      action: "Set EDGE_PROXY_OWNER=NGINX or EDGE_PROXY_OWNER=IIS after operator decision."
+    };
+  }
+
+  private productionSecurityBlockerCheck(environment: string): DeploymentReadinessItem {
+    if (environment !== "production") {
+      return {
+        key: "productionSecurityEvidence",
+        label: "Production security evidence separation",
+        status: "ready",
+        required: false,
+        message: "Non-production environment — E2E evidence may be used for mechanics only."
+      };
+    }
+    const e2eMode = String(this.configService.get<string>("E2E_TEST_MODE", "false")).toLowerCase() === "true";
+    if (e2eMode) {
+      return {
+        key: "productionSecurityEvidence",
+        label: "Production security evidence separation",
+        status: "blocked",
+        required: true,
+        message: "E2E_TEST_MODE cannot satisfy production security readiness.",
+        action: "Unset E2E flags and complete operator checklist / HTTPS / backup / permission migration."
+      };
+    }
+    return {
+      key: "productionSecurityEvidence",
+      label: "Production security evidence separation",
+      status: "warning",
+      required: true,
+      message:
+        "Production still requires operator evidence: HTTPS, port owner, credential rotation, permission migration, off-host backup, and management sign-offs. E2E recovery/ops evidence does not satisfy these.",
+      action: "Complete PRODUCTION_OPERATOR_CHECKLIST.md items with real evidence."
+    };
   }
 }

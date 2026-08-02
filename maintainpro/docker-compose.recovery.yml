@@ -1,0 +1,69 @@
+# Temporary recovery-API overlay for Phase 6A E2E rehearsal only.
+# Loopback-only published port. Never points at production databases.
+
+services:
+  recovery-api:
+    profiles: ["recovery"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: production
+    container_name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}-recovery-api
+    env_file:
+      - path: ${MAINTAINPRO_E2E_ENV_FILE:-.env.e2e}
+        required: true
+    environment:
+      NODE_ENV: test
+      E2E_TEST_MODE: "true"
+      RECOVERY_REHEARSAL: "true"
+      APP_ENVIRONMENT: e2e-recovery
+      APP_SERVICE_NAME: maintainpro-api-recovery
+      DATABASE_REPLICATION_MODE: disabled
+      BACKUP_DATABASE_REQUIRED_FOR_READINESS: "false"
+      PRIMARY_DATABASE_NAME: ${RECOVERY_TARGET_DATABASE:?RECOVERY_TARGET_DATABASE required}
+      PRIMARY_DATABASE_URL: "mongodb://${MONGO_APP_USERNAME:-e2e_app_not_prod}:${MONGO_APP_PASSWORD:-e2e_app_password_not_for_production_use}@mongo:27017/${RECOVERY_TARGET_DATABASE}?authSource=${MONGO_INITDB_DATABASE:-maintainpro_e2e_auth}&replicaSet=rs0"
+      DATABASE_URL: "mongodb://${MONGO_APP_USERNAME:-e2e_app_not_prod}:${MONGO_APP_PASSWORD:-e2e_app_password_not_for_production_use}@mongo:27017/${RECOVERY_TARGET_DATABASE}?authSource=${MONGO_INITDB_DATABASE:-maintainpro_e2e_auth}&replicaSet=rs0"
+      MONGODB_URI: "mongodb://${MONGO_APP_USERNAME:-e2e_app_not_prod}:${MONGO_APP_PASSWORD:-e2e_app_password_not_for_production_use}@mongo:27017/${RECOVERY_TARGET_DATABASE}?authSource=${MONGO_INITDB_DATABASE:-maintainpro_e2e_auth}&replicaSet=rs0"
+      BACKUP_DATABASE_URL: "mongodb://${MONGO_APP_USERNAME:-e2e_app_not_prod}:${MONGO_APP_PASSWORD:-e2e_app_password_not_for_production_use}@mongo:27017/${BACKUP_DATABASE_NAME:-maintainpro_e2e_backup}?authSource=${MONGO_INITDB_DATABASE:-maintainpro_e2e_auth}&replicaSet=rs0"
+      REDIS_URL: "redis://redis:6379"
+      REDIS_KEY_PREFIX: "e2e-recovery:"
+      STORAGE_MODE: minio
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      ALLOW_INSECURE_HTTP: "true"
+      COOKIE_SECURE: "false"
+      NOTIFICATION_REAL_SENDS_ENABLED: "false"
+      CORS_ORIGIN: "http://127.0.0.1:${E2E_RECOVERY_API_PORT:-19091}"
+      FRONTEND_URL: "http://127.0.0.1:${E2E_RECOVERY_API_PORT:-19091}"
+    ports:
+      - "127.0.0.1:${E2E_RECOVERY_API_PORT:-19091}:3000"
+    expose:
+      - "3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "/usr/local/bin/container-http-healthcheck.cjs",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "3000",
+          "--path",
+          "/api/health",
+          "--expect",
+          "200",
+          "--timeout-ms",
+          "4000"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 40s

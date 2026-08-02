@@ -120,3 +120,59 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 - Personas: admin-a create, manager-a finance, inventory-a receive; tech-a denied create.
 - Flutter GRN: OPERATOR_ACTION_REQUIRED - stop PATCH RECEIVED; use receipts API.
 - Real Bileeta ERP writes remain out of scope.
+
+## Phase 5D notes
+
+- Scope: management dashboard, KPI definitions, report permissions, financial reconciliation, ERP monitoring (safe fields), audit/security events, export safety.
+- Preserve Phase 5B RUNTIME_VALIDATED evidence: workflow `30712469601`, app SHA `fe3b3992d883d33c916b3595769add2c4db8878a`.
+- Preserve Phase 5C RUNTIME_VALIDATED evidence: workflow `30715842098`, app SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`.
+- Phase 5D runtime SHA is **not** claimed until management-info gate + full suite pass (failed=0, mandatory skipped=0).
+- ERP remains MOCK in E2E; real Bileeta writes out of scope.
+- MTBF must surface `INSUFFICIENT_DATA` (value null), never a fake zero.
+- Client-side full-list KPI aggregation is a known pre-5D limitation targeted for server-side snapshot replacement.
+- Production permission migration for granular `reports.*` keys is operator-owned.
+- Receipt reversal, production PO uniqueness migration, and live production login remain out of scope.
+- Cleanup remains `docker compose ... down --remove-orphans` only (volumes preserved).
+
+## Phase 6A — disaster recovery limitations
+
+**Mechanics status:** `RECOVERY_RUNTIME_VALIDATED` (`baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / `30735445667`). Production DR remains unproven.
+
+1. Phase 6A E2E recovery rehearsal does **not** prove production disaster recovery, off-host backup, or Atlas PITR.
+2. E2E recovery durations are **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not approved business RTO (`MANAGEMENT_APPROVAL_REQUIRED`).
+3. Proposed RPO/RTO in `RPO_RTO_POLICY.md` remain **PROVISIONAL** until management approval — do not cite as compliance.
+4. MongoDB root credential rotation is **OPERATOR_OWNED_P0** — not executed in Phase 6A.
+5. Replication to backup DB is **not** a substitute for independent backup (`SAME_FAILURE_DOMAIN` in default Compose).
+6. Redis queue full startup reconciler (Policy B) may remain **P1 OPERATIONAL_BLOCKER** — policy documented, implementation may be incomplete.
+7. Raw Mongo archives and MinIO objects are **never** uploaded as CI artifacts; safe manifests only.
+8. `productionApproved: false` on all E2E backup manifests.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED evidence unchanged.
+
+## Phase 6B - operations limitations
+
+**Runtime status:** `OPERATIONS_RUNTIME_VALIDATED` — workflow `30737905003`, application SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` (isolated CI only; not `PRODUCTION_OPERATIONS_VALIDATED`).
+
+1. Host reboot recovery is **OPERATOR_ACTION_REQUIRED** (Linux/Docker and Windows Server). CI container restart / SIGTERM tests must **never** be labeled HOST_REBOOT_VALIDATED.
+2. Phase 6B does **not** claim PRODUCTION_OPERATIONS_VALIDATED.
+3. Alert thresholds and log retention periods are **PROVISIONAL** until OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED.
+4. Docker json-file logging is **local only** - not an off-host compliance archive.
+5. Real PagerDuty/Teams/Slack/SMS escalation is out of scope; E2E uses mock/disabled notification mode only (`real_notifications_sent=no`).
+6. GitHub Actions cannot prove Windows Server or production-host reboot recovery.
+7. Off-host centralized log retention and G5.3 disk evidence remain operator-owned.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED evidence unchanged:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667;
+6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

@@ -32,6 +32,8 @@ services:
       COOKIE_SECURE: "false"
       NOTIFICATION_REAL_SENDS_ENABLED: "false"
       NOTIFICATION_UAT_ENABLED: "false"
+      OPERATIONAL_ALERT_NOTIFICATION_MODE: "mock"
+      QUEUE_STARTUP_RECONCILIATION_ENABLED: "true"
       ALLOW_MOCK_IN_PRODUCTION: "false"
       STORAGE_MODE: ${STORAGE_MODE:-minio}
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-e2e:}
@@ -49,7 +51,7 @@ services:
           "--port",
           "3000",
           "--path",
-          "/api/health",
+          "/api/health/live",
           "--expect",
           "200",
           "--timeout-ms",

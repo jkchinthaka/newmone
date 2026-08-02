@@ -6,7 +6,10 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { TenantScoped } from "../../common/decorators/tenant-scope.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { contentDispositionAttachment } from "./report-export-safety.util";
+import { assertReportModuleKey, parseExportFormat, parseValidatedReportQuery } from "./report-query.dto";
 import { ReportExportFormat, ReportModuleKey, ReportQuery, ReportsService } from "./reports.service";
+import { ErpMonitoringService } from "./erp-monitoring.service";
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -14,10 +17,17 @@ const REPORT_READ_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
   "MANAGER",
+  "OPERATIONS_MANAGER",
   "ASSET_MANAGER",
+  "FLEET_MANAGER",
   "SUPERVISOR",
+  "FINANCE",
+  "PROCUREMENT_OFFICER",
   "INVENTORY_KEEPER",
-  "VIEWER"
+  "TECHNICIAN",
+  "MECHANIC",
+  "VIEWER",
+  "DRIVER"
 ] as const;
 
 @ApiTags("Reports")
@@ -26,7 +36,10 @@ const REPORT_READ_ROLES = [
 @UseGuards(JwtAuthGuard)
 @Controller("reports")
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly erpMonitoringService: ErpMonitoringService
+  ) {}
 
   @Get("options")
   @Roles(...REPORT_READ_ROLES)
@@ -38,8 +51,15 @@ export class ReportsController {
   @Get("dashboard")
   @Roles(...REPORT_READ_ROLES)
   async dashboard(@Req() req: AuthedRequest, @Query() query: ReportQuery) {
-    const data = await this.reportsService.dashboard(req.user, this.parseQuery(query));
+    const data = await this.reportsService.dashboard(req.user, parseValidatedReportQuery(query));
     return { data, message: "Reports dashboard fetched" };
+  }
+
+  @Get("erp-monitoring")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE", "PROCUREMENT_OFFICER")
+  async erpMonitoring(@Req() req: AuthedRequest) {
+    const data = await this.erpMonitoringService.getSafeSummary(req.user.tenantId ?? null);
+    return { data, message: "ERP monitoring summary fetched" };
   }
 
   @Get("maintenance-cost")
@@ -89,14 +109,25 @@ export class ReportsController {
   async exportModule(
     @Req() req: AuthedRequest,
     @Res() res: Response,
-    @Param("module") module: ReportModuleKey,
+    @Param("module") module: string,
     @Query("format") formatRaw?: ReportExportFormat,
     @Query() query?: ReportQuery
   ) {
-    const format = formatRaw && ["csv", "xlsx", "pdf"].includes(formatRaw) ? formatRaw : "csv";
-    const file = await this.reportsService.exportModule(req.user, module, format, this.parseQuery(query ?? {}));
+    assertReportModuleKey(module);
+    const format = parseExportFormat(formatRaw);
+    const file = await this.reportsService.exportModule(
+      req.user,
+      module as ReportModuleKey,
+      format,
+      parseValidatedReportQuery(query ?? {})
+    );
     res.setHeader("Content-Type", file.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.setHeader("Content-Disposition", contentDispositionAttachment(file.filename));
+    if (file.truncated) {
+      res.setHeader("X-Export-Truncated", "true");
+      res.setHeader("X-Export-Row-Count", String(file.exportedRowCount ?? 0));
+      res.setHeader("X-Export-Total-Matched", String(file.totalMatchedCount ?? 0));
+    }
     res.send(file.buffer);
   }
 
@@ -104,30 +135,15 @@ export class ReportsController {
   @Roles(...REPORT_READ_ROLES)
   async moduleReport(
     @Req() req: AuthedRequest,
-    @Param("module") module: ReportModuleKey,
+    @Param("module") module: string,
     @Query() query: ReportQuery
   ) {
-    const data = await this.reportsService.moduleReport(req.user, module, this.parseQuery(query));
+    assertReportModuleKey(module);
+    const data = await this.reportsService.moduleReport(
+      req.user,
+      module as ReportModuleKey,
+      parseValidatedReportQuery(query)
+    );
     return { data, message: "Report fetched" };
-  }
-
-  private parseQuery(query: ReportQuery): ReportQuery {
-    const departmentIds = this.parseDepartmentIds(query.departmentIds, query.departmentId);
-    return {
-      ...query,
-      departmentIds,
-      departmentId: departmentIds[0] ?? query.departmentId,
-      page: query.page ? Number(query.page) : undefined,
-      pageSize: query.pageSize ? Number(query.pageSize) : undefined,
-      sortDirection: query.sortDirection === "asc" ? "asc" : query.sortDirection === "desc" ? "desc" : undefined
-    };
-  }
-
-  private parseDepartmentIds(rawIds?: string[] | string, rawId?: string) {
-    const values = [rawId, rawIds]
-      .flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
-      .map((value) => value.trim())
-      .filter(Boolean);
-    return Array.from(new Set(values));
   }
 }

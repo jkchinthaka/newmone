@@ -65,6 +65,21 @@ jobs:
       - name: Procurement controls validation
         run: npm run validate:e2e-procurement-controls
 
+      - name: Dashboard report controls validation
+        run: npm run validate:e2e-dashboard-report-controls
+
+      - name: Recovery safety validation
+        run: npm run validate:recovery-safety
+
+      - name: Operations controls validation
+        run: npm run validate:e2e-operations-controls
+
+      - name: Production security and configuration gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npm run security:production-gate | tee artifacts/e2e-logs/production-security-gate.txt
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -87,7 +102,9 @@ jobs:
         run: |
           set -e
           for i in $(seq 1 60); do
-            if curl -fsS "$E2E_BASE_URL/api/health" >/dev/null && curl -fsS "$E2E_BASE_URL/login" >/dev/null; then
+            if curl -fsS "$E2E_BASE_URL/api/health/live" >/dev/null \
+              && curl -fsS "$E2E_BASE_URL/api/health/ready" >/dev/null \
+              && curl -fsS "$E2E_BASE_URL/login" >/dev/null; then
               echo "healthy"
               docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
                 -f docker-compose.yml -f docker-compose.e2e.yml ps
@@ -219,6 +236,55 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
+      - name: Backup / restore / disaster-recovery rehearsal gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export RECOVERY_REHEARSAL=true
+          export RECOVERY_MONGO_HOST=mongo
+          export RECOVERY_SOURCE_DATABASE="${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}"
+          export RECOVERY_TARGET_DATABASE="maintainpro_restore_${E2E_RUN_ID//[^a-zA-Z0-9_]/_}"
+          export RECOVERY_WORK_DIR="$PWD/artifacts/recovery-tmp/$E2E_RUN_ID"
+          node scripts/recovery/run-recovery-rehearsal.mjs | tee artifacts/e2e-logs/recovery-rehearsal-gate.txt
+        env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Management information gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/management-info.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee artifacts/e2e-logs/management-info-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Monitoring / alerting / restart recovery gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/operations-controls.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee ../../artifacts/e2e-logs/operations-controls-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Exact-service restart and dependency recovery rehearsal
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export OPERATIONS_REHEARSAL=true
+          export E2E_TEST_MODE=true
+          node scripts/operations/run-operations-rehearsal.mjs | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
+        env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack
         env:
@@ -276,4 +342,5 @@ jobs:
             maintainpro/apps/web/e2e-real-results/**
             maintainpro/artifacts/e2e-evidence-manifest.json
             maintainpro/artifacts/e2e-logs/**
+            !maintainpro/artifacts/recovery-tmp/**
           if-no-files-found: warn

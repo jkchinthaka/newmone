@@ -666,7 +666,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Container healthcheck validator | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
-| Full-stack CI runtime | IN_PROGRESS / not yet RUNTIME_VALIDATED |
+| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`); Phase 6A **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`); Phase 6B **OPERATIONS_RUNTIME_VALIDATED** (`30737905003` / `dfcb136`) |
 | Live production login | NOT validated |
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
@@ -698,10 +698,160 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - Cleanup policy: Compose down --remove-orphans only; volumes preserved
 - Not go-live ready; Phase 5C/5D remain
 
-## Phase 5D / remaining
+## Phase 5D — Management information (dashboard / KPI / reports / audit / export)
+
+- Status: **RUNTIME_VALIDATED** (workflow `30719294386`, app SHA `5836bc330cc03e7a3f658ed9cee5f334649f3091`)
+- Preserve Phase 5B RUNTIME_VALIDATED: workflow `30712469601`, app SHA `fe3b3992d883d33c916b3595769add2c4db8878a`
+- Preserve Phase 5C RUNTIME_VALIDATED: workflow `30715842098`, app SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`
+- Management-info gate: 20 / 0 / 0; full suite: 103 / 0 / 0; timezone Asia/Colombo; currency LKR; ERP MOCK
+- Evidence-document commits after the application SHA are documentation-only
+
+### Documentation checklist
+
+- [x] KPI_DEFINITION_CATALOG.md
+- [x] REPORT_TIME_AND_CURRENCY_CONTRACT.md
+- [x] DASHBOARD_ACCESS_MATRIX.md
+- [x] REPORT_ACCESS_MATRIX.md
+- [x] FINANCIAL_REPORT_RECONCILIATION_CONTRACT.md
+- [x] ERP_MONITORING_DASHBOARD_CONTRACT.md
+- [x] AUDIT_EVENT_COVERAGE_MATRIX.md
+- [x] REPORT_EXPORT_SAFETY_CONTRACT.md
+- [x] E2E matrix / limitations / TEST_STRATEGY / GO_LIVE_GATES / RISK_REGISTER / ARCHITECTURE_FINDINGS updated
+- [x] FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 5D section
+
+### Implementation checklist
+
+- [x] Server-side dashboard snapshot DTO + coverageStatus
+- [x] Granular reports.* permissions in catalog/seed/E2E seed (prod migration operator-owned)
+- [x] FINANCE canonical + FINANCE_APPROVER alias alignment
+- [x] Financial basis: default Total Expenses = WO actualCost + utility + farm; separate committed PO
+- [x] MTBF null + INSUFFICIENT_DATA path
+- [x] Safe security events for login failure (no passwords/tokens)
+- [x] Export formula neutralization + truncation metadata + audit
+- [x] ERP monitoring safe fields (MOCK in E2E)
+- [x] Playwright @management-info-gate (E2E-DASH/KPI/REPORT/AUDIT/ERP-MON)
+- [x] Full-Stack E2E RUNTIME_VALIDATED evidence (`5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`)
+
+### Explicitly deferred (not Phase 5D)
 
 - P1: Receipt reversal/adjustment workflow
 - P1: Production poNumber uniqueness migration (operator audit)
 - P1: FINANCE/PROCUREMENT_OFFICER production user migration
 - Flutter GRN client: OPERATOR_ACTION_REQUIRED (stop PATCH RECEIVED)
-- Real Bileeta ERP writes remain out of scope
+- Real Bileeta ERP writes
+- Production deploy / Mongo root rotation / live production login
+
+## Phase 6A — Backup, restore, and disaster recovery
+
+**Status:** **RECOVERY_RUNTIME_VALIDATED** (disposable E2E mechanics only — not `PRODUCTION_DR_VALIDATED`)  
+**Branch:** `fix/phase6a-backup-restore-recovery`  
+**Exact tested application SHA:** `baad89621c87ddd4b840bb9c77cb20efcb1b79b6`  
+**Workflow run ID:** `30735445667`  
+**Base after Phase 5D:** application SHA `5836bc330cc03e7a3f658ed9cee5f334649f3091` / workflow `30719294386`
+
+**Objective:** Define and verify safe recovery mechanics on disposable E2E data only — not production DR.
+
+| Item | Status |
+| --- | --- |
+| BACKUP_AND_RECOVERY_ARCHITECTURE.md | CONTRACT_DEFINED |
+| RPO_RTO_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| REPLICATION_AND_BACKUP_SEPARATION.md | CONTRACT_DEFINED |
+| BACKUP_MANIFEST_CONTRACT.md | CONTRACT_DEFINED (schemaVersion 1.0) |
+| REDIS_QUEUE_RECOVERY_POLICY.md | CONTRACT_DEFINED (Policy B; reconciler P1) |
+| SECRET_AND_CONFIGURATION_RECOVERY.md | CONTRACT_DEFINED |
+| BACKUP_RETENTION_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| DISASTER_RECOVERY_RUNBOOK.md | CONTRACT_DEFINED |
+| DISASTER_RECOVERY_TEST_MATRIX.md | **RECOVERY_RUNTIME_VALIDATED** (`30735445667`) |
+| Recovery safety guard + validator | SOURCE_VALIDATED + CI PASS |
+| Mongo backup/restore scripts | RECOVERY_RUNTIME_VALIDATED |
+| Object backup/restore scripts | RECOVERY_RUNTIME_VALIDATED |
+| Deployment readiness backup≠replication | SOURCE_IMPLEMENTED |
+| E2E recovery gate runtime | **RECOVERY_RUNTIME_VALIDATED** — `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / `30735445667` |
+| Full suite | 103 passed / 0 failed / 0 skipped |
+| G5.1 production backup drill | OPERATOR_ACTION_REQUIRED |
+
+#### TODO-P6A-001 — Recovery contracts and separation
+- **Priority:** P0 | **Status:** DONE
+- **Acceptance:** Replication ≠ backup documented; never label replication alone BACKUP_VALIDATED
+
+#### TODO-P6A-002 — E2E recovery rehearsal gate
+- **Priority:** P0 | **Status:** DONE
+- **Acceptance:** DR-E2E-001..025 mandatory skipped=0; DR-INTEGRITY/OBJECT suites pass — workflow `30735445667`
+
+#### TODO-P6A-003 — Operator off-host backup + G5.1
+- **Priority:** P1 | **Owner:** Ops (**OPERATOR**)
+- **Status:** NOT_STARTED
+- **Acceptance:** Off-host encrypted backup + counted restore; MANAGEMENT_APPROVAL_REQUIRED retention
+
+**Preserve Phase 5 evidence:** 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - Observability and operational readiness
+
+**Status:** **OPERATIONS_RUNTIME_VALIDATED** (isolated CI only — not `PRODUCTION_OPERATIONS_VALIDATED`)
+**Exact tested application SHA:** `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`
+**Workflow run ID:** `30737905003`
+**Objective:** Detect failures before users report them; separate live/ready probes; correlation; low-cardinality metrics; provisional alerts; queue reconcile; graceful shutdown; startup stages; host reboot runbook; log retention.
+**Base evidence preserved:**
+- Phase 5B: fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601
+- Phase 5C: 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098
+- Phase 5D: 5836bc330cc03e7a3f658ed9cee5f334649f3091 / workflow 30719294386
+- Phase 6A: baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / workflow 30735445667 - RECOVERY_RUNTIME_VALIDATED
+
+| Item | Status |
+| --- | --- |
+| OBSERVABILITY_AND_OPERATIONS_ARCHITECTURE.md | SOURCE_IMPLEMENTED |
+| HEALTH_AND_READINESS_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
+| REQUEST_CORRELATION_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
+| OPERATIONAL_METRICS_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (protected JSON) |
+| OPERATIONAL_ALERT_CATALOG.md | SOURCE_IMPLEMENTED / PROVISIONAL thresholds |
+| QUEUE_STARTUP_RECONCILIATION_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (`redis_reconciled=yes`) |
+| GRACEFUL_SHUTDOWN_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (API restart) |
+| STARTUP_AND_RESTART_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
+| HOST_REBOOT_RECOVERY_RUNBOOK.md | OPERATOR_ACTION_REQUIRED |
+| LOG_RETENTION_AND_ACCESS_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| E2E-OPS / E2E-FAIL / E2E-QUEUE runtime | **OPERATIONS_RUNTIME_VALIDATED** — `dfcb136` / `30737905003` |
+| FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 6B | UPDATED |
+| PRODUCTION_OPERATIONS_VALIDATED | NOT CLAIMED |
+| HOST_REBOOT_VALIDATED | NOT CLAIMED (operator-owned) |
+
+#### TODO-P6B-001 - Health live/ready split + probe policy
+- **Priority:** P0 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** Container HC = /api/health/live; CI gate = /api/health/ready; readiness protected; legacy /api/health documented
+
+#### TODO-P6B-002 - Correlation max 64 + Nginx generate
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** Allowlist A-Za-z0-9._:-; propagate all paths; not a metrics label
+
+#### TODO-P6B-003 - Metrics + provisional alert catalog
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED (metrics); catalog thresholds remain PROVISIONAL
+- **Acceptance:** Low-cardinality catalog; forbidden labels; PROVISIONAL thresholds marked
+
+#### TODO-P6B-004 - Queue startup reconciliation (Policy B)
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** Idempotent stable job IDs; ready waits when enabled
+
+#### TODO-P6B-005 - Graceful shutdown + startup stages 1-11
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** SIGTERM drain order; bounded grace; staged live/ready
+
+#### TODO-P6B-006 - Host reboot drill (G5.2)
+- **Priority:** P1 | **Owner:** Ops (**OPERATOR**)
+- **Status:** OPERATOR_ACTION_REQUIRED
+- **Acceptance:** Linux or Windows Server reboot evidence; never from container restart alone
+
+#### TODO-P6B-007 - Log rotation + access
+- **Priority:** P1 | **Status:** PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED
+- **Acceptance:** json-file max-size/max-file; disk alert; access list OPERATOR_APPROVAL_REQUIRED
+
+#### TODO-P6B-008 - E2E operations gate runtime
+- **Priority:** P0 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** Workflow `30737905003`; app SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`; ops gate 11/0/0; rehearsal success; full suite 103/0/0
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

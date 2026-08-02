@@ -15,7 +15,9 @@ import {
 } from "./bootstrap/swagger-guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { sanitizeErrorForLog } from "./common/logging/sanitize-for-log.util";
 import { getAccessJwtSecret } from "./config/jwt-secrets";
+import { PrismaService } from "./database/prisma.service";
 import { HealthService } from "./health.service";
 import { QueueHealthService } from "./modules/queues/queue-health.service";
 
@@ -37,9 +39,6 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
 
-  // Development environments frequently run frontends from dynamic hosts
-  // (localhost ports, Cloudflare Workers previews, etc.), so only enforce a
-  // strict origin allowlist in production.
   const isProd = process.env.NODE_ENV === "production";
 
   app.enableCors({
@@ -69,6 +68,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.setGlobalPrefix("api");
+  app.enableShutdownHooks();
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -84,21 +84,27 @@ async function bootstrap(): Promise<void> {
   const healthService = app.get(HealthService);
   const queueHealthService = app.get(QueueHealthService);
   const configService = app.get(ConfigService);
+  const prismaService = app.get(PrismaService);
+  await prismaService.enableShutdownHooks(app);
 
   process.on("unhandledRejection", (reason: unknown) => {
     if (queueHealthService.captureBootstrapRedisError("unhandledRejection", reason)) {
       return;
     }
+    const safe = sanitizeErrorForLog(reason);
     // eslint-disable-next-line no-console
-    console.error("[bootstrap] Unhandled rejection:", reason);
+    console.error(`[bootstrap] ${safe.event} category=${safe.errorCategory} ${safe.messageSafe}`);
   });
 
   process.on("uncaughtException", (err: Error) => {
     if (queueHealthService.captureBootstrapRedisError("uncaughtException", err)) {
       return;
     }
+    const safe = sanitizeErrorForLog(err);
     // eslint-disable-next-line no-console
-    console.error("[bootstrap] Uncaught exception:", err);
+    console.error(`[bootstrap] ${safe.event} category=${safe.errorCategory} ${safe.messageSafe}`);
+    // Fatal process corruption: exit and let container restart policy recover.
+    process.exit(1);
   });
 
   type ExpressRequest = {
@@ -116,7 +122,7 @@ async function bootstrap(): Promise<void> {
 
   express.get("/", async (_req, res) => {
     res.json({
-      data: await healthService.getPublicHealth(),
+      data: healthService.getLiveness(),
       message: "MaintainPro API is running"
     });
   });
@@ -128,10 +134,22 @@ async function bootstrap(): Promise<void> {
     });
   });
 
-  // Detailed readiness exposes dependency/configuration internals (DB replication
-  // status, which third-party integrations are configured, etc.) and must not be
-  // public in production. Allow either an ADMIN/SUPER_ADMIN bearer token or a
-  // shared READINESS_API_KEY (for uptime/infra monitoring that can't hold a JWT).
+  express.get("/health/live", (_req, res) => {
+    res.status(200).json({
+      data: healthService.getLiveness(),
+      message: "Liveness check passed"
+    });
+  });
+
+  express.get("/health/ready", async (_req, res) => {
+    const payload = await healthService.getMinimalReadiness();
+    res.status(payload.httpStatus).json({
+      data: payload.body,
+      message:
+        payload.body.status === "ready" ? "Readiness check passed" : "Readiness check failed"
+    });
+  });
+
   const readinessApiKey = process.env.READINESS_API_KEY;
   const accessJwtSecret = getAccessJwtSecret(configService);
 
@@ -147,8 +165,6 @@ async function bootstrap(): Promise<void> {
     });
   });
 
-  // Swagger is always available outside production. In production it is opt-in via
-  // SWAGGER_ENABLED=true and protected by HTTP Basic Auth (SWAGGER_USER/SWAGGER_PASSWORD).
   const swaggerOptions = {
     isProd,
     swaggerEnabled: process.env.SWAGGER_ENABLED === "true",
@@ -185,9 +201,9 @@ async function bootstrap(): Promise<void> {
       const document = SwaggerModule.createDocument(app, config);
       SwaggerModule.setup("api/docs", app, document);
     } catch (err) {
-      // Don't let Swagger introspection errors crash the API at boot.
+      const safe = sanitizeErrorForLog(err);
       // eslint-disable-next-line no-console
-      console.warn("[Swagger] Skipped doc generation:", (err as Error).message);
+      console.warn(`[Swagger] Skipped doc generation: ${safe.messageSafe}`);
     }
   } else if (isProd && swaggerOptions.swaggerEnabled) {
     // eslint-disable-next-line no-console
@@ -195,11 +211,30 @@ async function bootstrap(): Promise<void> {
   }
 
   const port = Number(process.env.PORT ?? 3000);
-  // Bind to 0.0.0.0 so both IPv4 (127.0.0.1) and IPv6 (::1) clients can connect.
-  // On Windows, defaulting to "::" can refuse IPv4 connections from browsers
-  // that resolve "localhost" to 127.0.0.1, causing ERR_CONNECTION_REFUSED.
   const host = process.env.HOST ?? "0.0.0.0";
   await app.listen(port, host);
+
+  const shutdown = async (signal: string) => {
+    const safe = sanitizeErrorForLog(`graceful_shutdown_signal=${signal}`);
+    // eslint-disable-next-line no-console
+    console.log(`[bootstrap] ${safe.messageSafe}`);
+    try {
+      await app.close();
+      await prismaService.disconnectAll();
+    } catch (error) {
+      const errSafe = sanitizeErrorForLog(error);
+      // eslint-disable-next-line no-console
+      console.error(`[bootstrap] shutdown_error ${errSafe.messageSafe}`);
+    }
+    process.exit(0);
+  };
+
+  process.once("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+  process.once("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
 }
 
 bootstrap();

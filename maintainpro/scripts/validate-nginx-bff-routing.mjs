@@ -94,6 +94,11 @@ function main() {
     } else {
       pass("NGINX-BFF-002", "Generic /api/ proxies to NestJS API upstream");
     }
+    if (!/proxy_set_header\s+X-Request-Id\s+\$maintainpro_request_id\s*;/.test(block)) {
+      fail("NGINX-BFF-005", "Generic /api/ must forward X-Request-Id");
+    } else {
+      pass("NGINX-BFF-005", "Generic /api/ forwards X-Request-Id");
+    }
   }
 
   const socketMatch = text.match(/location\s+\/socket\.io\/\s*\{([\s\S]*?)\}/);
@@ -101,8 +106,10 @@ function main() {
     fail("NGINX-BFF-002", "Missing /socket.io/ location");
   } else if (!/proxy_pass\s+http:\/\/maintainpro_api\/socket\.io\//.test(socketMatch[1])) {
     fail("NGINX-BFF-002", "/socket.io/ must proxy to maintainpro_api");
+  } else if (!/proxy_set_header\s+X-Request-Id\s+\$maintainpro_request_id\s*;/.test(socketMatch[1])) {
+    fail("NGINX-CORR-001", "/socket.io/ must forward X-Request-Id");
   } else {
-    pass("NGINX-BFF-002", "/socket.io/ proxies to API");
+    pass("NGINX-BFF-002", "/socket.io/ proxies to API with request correlation");
   }
 
   const rootMatch = text.match(/location\s+\/\s*\{([\s\S]*?)\}/);

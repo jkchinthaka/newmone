@@ -48,6 +48,7 @@ model Tenant {
   meters                       UtilityMeter[]
   bills                        UtilityBill[]
   audits                       AuditLog[]
+  securityEvents               SecurityEvent[]
   cleaningLocations            CleaningLocation[]
   cleaningVisits               CleaningVisit[]
   facilityIssues               FacilityIssue[]
@@ -116,6 +117,70 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([tenantId, module, createdAt])
   @@index([actorId, createdAt])
+}
+
+/// Queryable security/ops events (login failures, locks). Never store passwords/tokens.
+model SecurityEvent {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?  @db.ObjectId
+  tenant                Tenant?  @relation(fields: [tenantId], references: [id])
+  actorId               String?  @db.ObjectId
+  eventType             String
+  outcome               String
+  requestId             String?
+  reasonCode            String?
+  sourceCategory        String   @default("AUTH")
+  identifierFingerprint String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, eventType, createdAt])
+  @@index([eventType, createdAt])
+  @@index([requestId])
+}
+
+/// Phase 6B durable operational alert state (safe metadata only — no URIs/credentials).
+model OperationalAlert {
+  id                 String                   @id @default(auto()) @map("_id") @db.ObjectId
+  key                String
+  fingerprint        String
+  severity           OperationalAlertSeverity
+  status             OperationalAlertStatus   @default(OPEN)
+  source             String
+  safeSummary        String
+  firstObservedAt    DateTime                 @default(now())
+  lastObservedAt     DateTime                 @default(now())
+  occurrenceCount    Int                      @default(1)
+  acknowledgedAt     DateTime?
+  acknowledgedById   String?                  @db.ObjectId
+  resolvedAt         DateTime?
+  resolutionReason   String?
+  lastNotificationAt DateTime?
+  cooldownUntil      DateTime?
+  tenantId           String?                  @db.ObjectId
+  metadataSafe       Json?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([fingerprint, status])
+  @@index([key, status])
+  @@index([tenantId, status, lastObservedAt])
+  @@index([status, lastObservedAt])
+}
+
+enum OperationalAlertSeverity {
+  CRITICAL
+  HIGH
+  WARNING
+  INFO
+}
+
+enum OperationalAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  SUPPRESSED
 }
 
 model AppSetting {

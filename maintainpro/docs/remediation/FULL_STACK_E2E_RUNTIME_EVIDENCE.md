@@ -183,3 +183,230 @@ Phase 5A supersedes the inventory skip with RUNTIME_VALIDATED for the Phase 5A c
 
 Safe gate flags: request/PO/approval/ERP/receipt/stock/duplicate-prevention/audit/tenant controls exercised via @procurement-gate.
 Evidence-document commits after this SHA are documentation-only unless labeled otherwise.
+
+## Phase 5D — Management dashboard, reports, audit, ERP monitoring
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30719294386` |
+| Branch | `fix/phase5d-dashboard-report-audit-controls` |
+| Exact tested application SHA | `5836bc330cc03e7a3f658ed9cee5f334649f3091` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **RUNTIME_VALIDATED** |
+| Reporting timezone | Asia/Colombo |
+| Currency code | LKR |
+| ERP provider (E2E) | MOCK |
+
+### Management-information gate (@management-info-gate)
+
+| Check | Result |
+| --- | --- |
+| Management information gate | PASS (20 passed / 0 failed / 0 skipped) |
+| Dashboard role matrix | PASS |
+| KPI reconciliation (WO total, MTBF insufficient-data) | PASS |
+| Financial / report access | PASS (authorized 200 / unauthorized 403) |
+| Export safety | PASS |
+| Audit soft checks / failed-login non-leakage | PASS |
+| ERP monitoring safe summary | PASS |
+| Tenant isolation | PASS |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Text integrity / nondestructive cleanup / secret safety | PASS |
+| Work-order / inventory / lifecycle / procurement gates | PASS |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped |
+| Cleanup | down --remove-orphans (volumes preserved) |
+
+### Preserved prior evidence
+
+| Phase | Application SHA | Workflow | Totals |
+| --- | --- | --- | --- |
+| 5B | fe3b3992d883d33c916b3595769add2c4db8878a | 30712469601 | 103 / 0 / 0 |
+| 5C | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 | 30715842098 | procurement 20; full 103 / 0 / 0 |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| Passwords / tokens / cookies / CSRF / Authorization | Not observed in safe summaries |
+| ERP provider URLs / payloads / keys | Not observed |
+| Raw artifacts committed | **No** |
+
+### Remaining blockers (not Phase 5D)
+
+1. Phase 6 backup / monitoring infrastructure.
+2. Production role / permission migration for new `reports.*` keys (operator-owned).
+3. Flutter dashboard redesign (out of scope).
+4. Production go-live / IIS / DNS / Azure changes (out of scope).
+5. Do **not** treat as production go-live readiness.
+
+Evidence-document commits after `5836bc330cc03e7a3f658ed9cee5f334649f3091` are documentation-only unless labeled otherwise.
+
+## Phase 6A — Backup / restore / disaster-recovery rehearsal
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30735445667` |
+| Branch | `fix/phase6a-backup-restore-recovery` |
+| Exact tested application SHA | `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **RECOVERY_RUNTIME_VALIDATED** |
+| Production DR status | **not claimed** (not `PRODUCTION_DR_VALIDATED`) |
+| ERP provider (E2E) | MOCK |
+| Timing label | `E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE` |
+
+### Recovery gate (safe summary)
+
+| Check | Result |
+| --- | --- |
+| recovery_mode | e2e |
+| source_safe | yes |
+| target_fresh | yes (`maintainpro_restore_*`) |
+| backup_id_alias | `e2e-backup-ci-30735445667-1937e245` |
+| backup_status | success |
+| checksum_status | valid |
+| corruption_rejected | yes |
+| restore_status | success |
+| collection_reconciliation | pass |
+| recovery_api_health | 200 |
+| recovery_login | 200 |
+| application_smoke_status | pass |
+| object_reconciliation | pass |
+| recovery_duration_seconds | 11 |
+| raw_archive_uploaded | no |
+| volumes_removed | no |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Recovery safety / text integrity / nondestructive cleanup / secret safety | PASS |
+| Management-information gate | 20 passed / 0 failed / 0 skipped |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped |
+| Cleanup | `down --remove-orphans` (volumes preserved) |
+
+### Preserved prior evidence
+
+| Phase | Application SHA | Workflow | Totals |
+| --- | --- | --- | --- |
+| 5B | fe3b3992d883d33c916b3595769add2c4db8878a | 30712469601 | 103 / 0 / 0 |
+| 5C | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 | 30715842098 | procurement 20; full 103 / 0 / 0 |
+| 5D | 5836bc330cc03e7a3f658ed9cee5f334649f3091 | 30719294386 | management-info 20; full 103 / 0 / 0 |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| Passwords / tokens / cookies / CSRF / Authorization | Not observed in safe summaries |
+| Database URIs / MinIO keys / archive bytes | Not observed / not uploaded |
+| Raw Mongo archives or object payloads as CI artifacts | **No** (`raw_archive_uploaded=no`) |
+| Raw artifacts committed to git | **No** |
+
+### Remaining blockers (not Phase 6A mechanics)
+
+1. Off-host production backup + G5.1 counted restore drill — **OPERATOR_ACTION_REQUIRED**.
+2. RPO/RTO / retention — **PROVISIONAL** / **MANAGEMENT_APPROVAL_REQUIRED**.
+3. Redis queue reconciler — addressed in Phase 6B (`redis_reconciled=yes` on `dfcb136` / `30737905003`); production on-call channels remain operator-owned.
+4. Production Mongo root rotation — **OPERATOR_OWNED_P0**.
+5. Do **not** treat as production DR or go-live readiness.
+
+Evidence-document commits after `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` are documentation-only unless labeled otherwise.
+
+## Phase 6B — Monitoring / alerting / restart recovery
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30737905003` |
+| Branch | `fix/phase6b-monitoring-alerting-restart` |
+| Exact tested application SHA | `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **OPERATIONS_RUNTIME_VALIDATED** |
+| Production operations status | **not claimed** (not `PRODUCTION_OPERATIONS_VALIDATED`) |
+| Host reboot status | **OPERATOR_ACTION_REQUIRED** (not `HOST_REBOOT_VALIDATED`) |
+| ERP provider (E2E) | MOCK |
+| Real notifications sent | **no** |
+
+### Operations Playwright gate (`@operations-gate`)
+
+| Check | Result |
+| --- | --- |
+| E2E-OPS-001 live 200 | PASS |
+| E2E-OPS-002 ready 200 | PASS |
+| E2E-OPS-003 detailed readiness unauthorized | PASS |
+| E2E-OPS-004 admin readiness 200 | PASS |
+| E2E-OPS-005 request id returned | PASS |
+| E2E-OPS-006 invalid request id safe | PASS |
+| E2E-OPS-009 metrics unauthorized | PASS |
+| E2E-OPS-011 soft alerts evaluate | PASS |
+| E2E-OPS-012 soft alerts list | PASS |
+| E2E-OPS-013 soft metrics after login | PASS |
+| E2E-OPS-014 soft queue reconciliation status | PASS |
+| Gate totals | **11 passed / 0 failed / 0 skipped** |
+
+### Exact-service restart and dependency recovery rehearsal
+
+| Check | Result |
+| --- | --- |
+| liveness_status | 200 |
+| readiness_status | 200 |
+| request_correlation | pass |
+| api_restart | pass |
+| web_restart | pass |
+| nginx_restart | pass |
+| mongo_outage_detected | yes |
+| mongo_recovered | yes |
+| redis_outage_detected | yes |
+| redis_reconciled | yes |
+| minio_outage_detected | yes |
+| minio_recovered | yes |
+| data_persisted | yes |
+| volumes_removed | no |
+| real_notifications_sent | no |
+| operations_rehearsal_status | **success** |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Operations / recovery / text / nondestructive / secret safety validators | PASS |
+| Backup / restore / disaster-recovery rehearsal | PASS (volumes_removed=no) |
+| Management-information gate | PASS |
+| Full Playwright suite | **103 passed / 0 failed / 0 skipped** |
+| Cleanup | `down --remove-orphans` (volumes preserved) |
+
+### Preserved prior evidence
+
+| Phase | Application SHA | Workflow | Status |
+| --- | --- | --- | --- |
+| 5B | fe3b3992d883d33c916b3595769add2c4db8878a | 30712469601 | RUNTIME_VALIDATED |
+| 5C | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 | 30715842098 | RUNTIME_VALIDATED |
+| 5D | 5836bc330cc03e7a3f658ed9cee5f334649f3091 | 30719294386 | RUNTIME_VALIDATED |
+| 6A | baad89621c87ddd4b840bb9c77cb20efcb1b79b6 | 30735445667 | RECOVERY_RUNTIME_VALIDATED |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| Passwords / tokens / cookies / CSRF / Authorization | Not observed in safe summaries |
+| Database / Redis URIs / provider credentials | Not observed in safe summaries |
+| Real notification recipients | **no** |
+| Raw artifacts committed to git | **No** |
+| Artifact upload | safe evidence only (`full-stack-e2e-evidence`) |
+
+### Remaining blockers (not Phase 6B isolated-CI mechanics)
+
+1. Host reboot drill (G5.2) — **OPERATOR_ACTION_REQUIRED** (Linux/Docker and Windows Server).
+2. Alert thresholds / on-call routing — **PROVISIONAL** / **OPERATOR_APPROVAL_REQUIRED**.
+3. Off-host log retention / G5.3 disk evidence — **PROVISIONAL** / **MANAGEMENT_APPROVAL_REQUIRED**.
+4. Real PagerDuty/Teams/Slack/SMS escalation — **out of scope** (mock/UAT only in Phase 6B).
+5. Do **not** treat as `PRODUCTION_OPERATIONS_VALIDATED` or production go-live readiness.
+
+Evidence-document commits after `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` are documentation-only unless labeled otherwise.

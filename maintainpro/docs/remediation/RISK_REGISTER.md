@@ -132,3 +132,61 @@ Public HTTP **cannot** be made equivalent to HTTPS. Even with `COOKIE_SECURE=fal
 - P1: Production poNumber uniqueness migration needs operator audit.
 - P1: FINANCE/PROCUREMENT_OFFICER production user migration operator-owned.
 - P0 closed in source: client totals, PATCH RECEIVED, live ERP in E2E, keeper apply.
+
+## Phase 5D residual risks
+
+| Risk | Severity | Mitigation / residual |
+| --- | --- | --- |
+| Client-side KPI aggregation undercounts (WO pageSize 25) | P0 until fixed | Server-side dashboard snapshot; E2E-KPI / E2E-DASH |
+| Financial double-count (WO actualCost + parts + PO) | P0 until fixed | FINANCIAL_REPORT_RECONCILIATION_CONTRACT; labeled bases |
+| Hardcoded USD on LKR reports | P1 | REPORT_TIME_AND_CURRENCY_CONTRACT; currencyCode metadata |
+| Broad role arrays vs granular `reports.*` | P1 | REPORT_ACCESS_MATRIX; seed + operator migration |
+| FINANCE vs FINANCE_APPROVER divergence | P1 | FINANCE canonical; FINANCE_APPROVER display alias only |
+| Login failures not queryable | P1 | AUDIT_EVENT_COVERAGE_MATRIX; safe security events |
+| CSV formula injection | P0 until fixed | REPORT_EXPORT_SAFETY_CONTRACT; E2E-REPORT-020 |
+| Silent truncated exports | P1 | Truncation metadata mandatory |
+| ERP secret leakage on dashboard | P0 | ERP_MONITORING_DASHBOARD_CONTRACT allowlist |
+| MTBF shown as zero when unsupported | P1 | value null + INSUFFICIENT_DATA; E2E-KPI-012 |
+| Unbounded report queries / memory | P1 | PERF controls; bounded aggregates |
+| catch-to-null hides degraded sources | P1 | coverageStatus DEGRADED/UNAVAILABLE; E2E-DASH-010 |
+| Production `reports.*` permission migration | P1 | Operator-owned; not executed by CI |
+| Phase 5D runtime not yet validated | — | No invented SHA; gate pending |
+
+Preserve Phase 5B/5C closed evidence; Phase 5C residual P1s (receipt reversal, poNumber migration, FINANCE/PROCUREMENT production users) remain open and out of 5D scope.
+
+Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098.
+
+## Phase 6A — replication versus backup
+
+| Risk | Update |
+| --- | --- |
+| R-14 Backup/restore RPO/RTO undefined | **OPEN (business):** `RPO_RTO_POLICY.md` remains PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED; E2E timings `E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE`. Mechanics: **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`) |
+| R-14b Replication mistaken for backup | **MITIGATED (mechanics):** Async replication remains SAME_FAILURE_DOMAIN on default Compose; Phase 6A documents separation and verified independent archive + integrity + fresh restore. Never BACKUP_VALIDATED from replication alone. Production off-host DR still OPERATOR_ACTION_REQUIRED |
+| Queue loss on Redis failure | **Policy B documented;** full startup reconciler P1 OPERATIONAL_BLOCKER until implemented |
+
+Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - operations risks mitigation
+
+| Risk | Update |
+| --- | --- |
+| R-ops-01 Overloaded /api/health used for container restart | **MITIGATED (runtime):** HC = `/api/health/live`; CI = `/api/health/ready`; workflow `30737905003` |
+| R-ops-02 Missing request correlation across Nginx/BFF/API | **MITIGATED (runtime):** `request_correlation=pass`; max 64 allowlist |
+| R-ops-03 High-cardinality metrics / label explosion | **MITIGATED (runtime):** protected metrics; unauthorized without auth |
+| R-ops-04 No alert catalog / unapproved thresholds treated as SLO | **OPEN (process):** OPERATIONAL_ALERT_CATALOG.md marks all numbers PROVISIONAL; OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED |
+| R-ops-05 Redis queue loss after restart without reconcile | **MITIGATED (runtime):** Policy B reconciler; `redis_reconciled=yes` |
+| R-ops-06 Ungraceful kill drops in-flight work | **MITIGATED (runtime):** API restart pass; graceful shutdown hooks |
+| R-ops-07 Host reboot mistaken for container restart validation | **MITIGATED (runbook):** HOST_REBOOT_RECOVERY_RUNBOOK.md - OPERATOR_ACTION_REQUIRED; never HOST_REBOOT_VALIDATED from compose restart |
+| R-ops-08 Unbounded Docker json-file disk fill | **OPEN (operator):** LOG_RETENTION_AND_ACCESS_POLICY.md provisional rotation; G5.3 evidence pending (local max-size configured) |
+| R-ops-09 Premature PRODUCTION_OPERATIONS_VALIDATED claim | **MITIGATED (docs):** Explicit non-claim; status is OPERATIONS_RUNTIME_VALIDATED only |
+
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED; Phase 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

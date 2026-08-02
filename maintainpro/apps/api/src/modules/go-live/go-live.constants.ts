@@ -1,4 +1,4 @@
-import { CutoverChecklistCategory } from "@prisma/client";
+import { CutoverChecklistCategory, RoleName } from "@prisma/client";
 
 export type CutoverCatalogItem = {
   itemKey: string;
@@ -135,6 +135,42 @@ export const REQUIRED_SIGN_OFF_ROLES = [
   "BUSINESS_OWNER",
   "SYSTEM_ADMIN"
 ] as const;
+
+export type RequiredSignOffRole = (typeof REQUIRED_SIGN_OFF_ROLES)[number];
+
+/**
+ * Signer-to-signoff-role matrix. A generic go_live.sign_off permission alone
+ * does not authorize arbitrary categories — actor role must match the matrix.
+ * Category-specific permissions (go_live.sign_off.<category>) may also authorize.
+ */
+export const SIGN_OFF_ROLE_AUTHORIZATION: Record<
+  RequiredSignOffRole,
+  { allowedRoles: RoleName[]; categoryPermission: string }
+> = {
+  IT_MANAGER: {
+    allowedRoles: [RoleName.SUPER_ADMIN, RoleName.ADMIN, RoleName.OPERATIONS_MANAGER],
+    categoryPermission: "go_live.sign_off.it_manager"
+  },
+  DEPARTMENT_MANAGER: {
+    allowedRoles: [RoleName.SUPER_ADMIN, RoleName.ADMIN, RoleName.MANAGER],
+    categoryPermission: "go_live.sign_off.department_manager"
+  },
+  QA_TESTER: {
+    allowedRoles: [RoleName.SUPER_ADMIN, RoleName.ADMIN],
+    categoryPermission: "go_live.sign_off.qa_tester"
+  },
+  BUSINESS_OWNER: {
+    allowedRoles: [RoleName.SUPER_ADMIN, RoleName.ADMIN],
+    categoryPermission: "go_live.sign_off.business_owner"
+  },
+  SYSTEM_ADMIN: {
+    allowedRoles: [RoleName.SUPER_ADMIN, RoleName.ADMIN],
+    categoryPermission: "go_live.sign_off.system_admin"
+  }
+};
+
+/** One human actor must not satisfy every mandatory category by default. */
+export const MAX_SIGN_OFF_CATEGORIES_PER_USER = 2;
 
 export const PASSING_CUTOVER_STATUSES = new Set(["PASS", "ACCEPTED_RISK"]);
 

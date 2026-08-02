@@ -67,13 +67,13 @@ if (apiHcUsesWget) {
   pass("HEALTH-VAL-002", "API healthcheck avoids wget/curl");
 }
 
-if (!base.includes("container-http-healthcheck.cjs") || !base.includes("/api/health")) {
-  fail("HEALTH-VAL-003", "Base compose API healthcheck must call /api/health via Node script");
+if (!base.includes("container-http-healthcheck.cjs") || !base.includes("/api/health/live")) {
+  fail("HEALTH-VAL-003", "Base compose API healthcheck must call /api/health/live via Node script");
 } else {
-  pass("HEALTH-VAL-003", "Base compose API uses Node health script for /api/health");
+  pass("HEALTH-VAL-003", "Base compose API uses Node health script for /api/health/live");
 }
 
-if (!/healthcheck:[\s\S]*?127\.0\.0\.1[\s\S]*?\/api\/health/.test(base)) {
+if (!/healthcheck:[\s\S]*?127\.0\.0\.1[\s\S]*?\/api\/health\/live/.test(base)) {
   fail("HEALTH-VAL-004", "API healthcheck must target container loopback 127.0.0.1");
 } else {
   pass("HEALTH-VAL-004", "API healthcheck uses loopback");
@@ -92,10 +92,10 @@ if (!/healthcheck:[\s\S]*?\/login/.test(base)) {
   pass("HEALTH-VAL-006", "Web healthcheck probes /login");
 }
 
-if (!/nginx:[\s\S]*?healthcheck:[\s\S]*?\/api\/health/.test(base)) {
-  fail("HEALTH-VAL-007", "Nginx healthcheck must probe /api/health");
+if (!/nginx:[\s\S]*?healthcheck:[\s\S]*?\/api\/health\/live/.test(base)) {
+  fail("HEALTH-VAL-007", "Nginx healthcheck must probe /api/health/live");
 } else {
-  pass("HEALTH-VAL-007", "Nginx healthcheck probes proxied /api/health");
+  pass("HEALTH-VAL-007", "Nginx healthcheck probes proxied /api/health/live");
 }
 
 if (!e2e.includes("127.0.0.1:${E2E_HTTP_PORT:-18080}:80")) {

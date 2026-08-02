@@ -214,3 +214,90 @@ npm run validate:nondestructive-docker-cleanup.
 
 Validate with validate:e2e-procurement-controls, contract self-tests, and Playwright @procurement-gate.
 Mock ERP only. No direct PATCH RECEIVED.
+
+## Phase 5D management information gate
+
+Validate with:
+
+- `npm run validate:e2e-management-info-controls` (when added)
+- Contract self-tests for KPI/MTBF insufficient-data, financial basis, export neutralization, date/currency bounds
+- Playwright focused gate: `@management-info-gate` (E2E-DASH / E2E-KPI / E2E-REPORT / E2E-AUDIT / E2E-ERP-MON)
+- Full-Stack E2E after the focused gate; cleanup nondestructive
+
+Assertions of record:
+
+- Server-side dashboard snapshot (no page-25 WO aggregation for org KPIs)
+- Module permissions + dual export permission
+- Default Total Expenses excludes PO committed and WO parts when `actualCost` present
+- MTBF null + INSUFFICIENT_DATA when intervals insufficient
+- Login failure events store no passwords/tokens
+- CSV formula prefixes neutralized
+- MOCK ERP only; safe monitoring fields only
+
+Preserve Phase 5B/5C evidence SHAs; do not invent Phase 5D runtime SHA early.
+
+Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098.
+
+## Phase 6A — recovery gate recipe
+
+**Tag:** `@recovery-gate` (focused) + DR-E2E / DR-INTEGRITY / DR-OBJECT IDs in Full-Stack workflow.
+
+### Execution order (after seed, alongside existing gates)
+
+1. `npm run validate:recovery-safety`
+2. `node scripts/recovery/validate-recovery-target.mjs` (DR-E2E-001)
+3. Create Mongo backup → manifest → checksum (DR-E2E-002..004)
+4. Corruption rejection on copied archive (DR-E2E-005, DR-INTEGRITY-*)
+5. Restore to fresh `maintainpro_restore_*` without drop (DR-E2E-006..009)
+6. Boot temporary recovery API — health, login, WO/inventory/PO/dashboard reads (DR-E2E-010..015)
+7. Object backup/restore reconcile (DR-E2E-016..017, DR-OBJECT-*)
+8. Assert replication ≠ backup in readiness (DR-E2E-018)
+9. Full Playwright suite; cleanup `down --remove-orphans` only (DR-E2E-020)
+
+### Contract tests
+
+`npm run test:backup-manifest-contract`, `test:mongo-restore-contract`, `test:object-recovery-contract`, `test:recovery-readiness-contract`, `test:recovery-safety-contract`
+
+### Timing evidence
+
+Label all recovery durations **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not approved RTO.
+
+**Runtime:** `RECOVERY_RUNTIME_VALIDATED` — SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` / full suite 103/0/0.
+
+Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - operations gate recipe
+
+**Tag focus:** `@operations-gate` covering E2E-OPS IDs; exact-service rehearsal covers restart + Mongo/Redis/MinIO recovery.
+
+### Execution order (disposable E2E stack)
+
+1. Confirm contracts present under docs/remediation (Phase 6B set).
+2. Boot stack; poll GET /api/health/live until 200 (container HC target).
+3. Poll GET /api/health/ready until 200 before traffic tests (CI gate).
+4. E2E-OPS: correlation - valid X-Request-Id echoed; missing ID generated; invalid replaced; ID not used as metrics label in any scrape fixture.
+5. E2E-OPS: ready returns 503 reasons when primary Mongo stopped (controlled); live remains 200 if process up.
+6. E2E-FAIL: SIGTERM API container; assert ready=503 then clean exit within grace; restart reaches ready=200.
+7. E2E-QUEUE: Redis flush/cold; Mongo pending anchor; restart API; stable jobId enqueued once; second reconcile idempotent.
+8. Assert detailed /api/health/readiness rejects unauthorized (403).
+9. Full Playwright suite; cleanup down --remove-orphans only.
+10. Do **not** claim HOST_REBOOT_VALIDATED or PRODUCTION_OPERATIONS_VALIDATED from this recipe.
+
+### Runtime evidence
+
+**Runtime:** `OPERATIONS_RUNTIME_VALIDATED` — SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` / workflow `30737905003` / ops gate 11/0/0 / full suite 103/0/0 / `volumes_removed=no` / `real_notifications_sent=no`.
+
+### Threshold / retention notes
+
+Alert numbers and log retention remain PROVISIONAL / OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED.
+
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED; Phase 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

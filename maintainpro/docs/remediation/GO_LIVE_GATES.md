@@ -170,3 +170,66 @@ Focused inventory gate + E2E-INV-001..016 passed with failed=0 skipped=0 on `306
 
 - Gate: procurement create to GRN must pass Full-Stack E2E (failed=0, mandatory skipped=0).
 - Gate: Inventory Keeper cannot erp_apply / PO erp_sync.
+
+## Phase 5D gate
+
+Management information / dashboard / reports / audit / export controls.
+
+### Entry criteria
+
+- Phase 5B RUNTIME_VALIDATED: workflow `30712469601`, SHA `fe3b3992d883d33c916b3595769add2c4db8878a`
+- Phase 5C RUNTIME_VALIDATED: workflow `30715842098`, SHA `512745d678a4be6b0d0a62f2400763ff9fd4ec08`
+- Contracts published under `docs/remediation/` (KPI catalog, access matrices, financial/ERP/audit/export)
+
+### Exit criteria (before claiming RUNTIME_VALIDATED)
+
+- Focused `@management-info-gate` pass: failed=0, mandatory skipped=0
+- Full-Stack E2E pass on the exact tested application SHA (record SHA only after success)
+- KPI reconciliation tests green (including MTBF insufficient-data)
+- Financial double-count prevention proven
+- Export neutralization + audit events proven
+- ERP monitor: MOCK only; no secret leakage
+- Cleanup: `down --remove-orphans` only
+
+Phase 5D alone does **not** authorize production go-live.
+
+## Phase 6A — recovery rehearsal gate
+
+| Gate | Status | Notes |
+| --- | --- | --- |
+| G5.1 Backup + restore drill | **OPERATOR_ACTION_REQUIRED** | Requires operator off-host Mongo backup + counted restore; Phase 6A E2E rehearsal is mechanics-only |
+| G5.1 E2E recovery gate | **RECOVERY_RUNTIME_VALIDATED** | Workflow `30735445667`; app SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6`; DR-E2E / integrity / object passed; full suite 103/0/0 |
+| Replication vs backup | **CONTRACT_DEFINED** | Replication health must not satisfy G5.1 alone |
+
+Phase 6A does **not** approve production go-live or `PRODUCTION_DR_VALIDATED`. Preserve Phase 5B/5C/5D RUNTIME_VALIDATED SHAs.
+
+## Phase 6B - operations / observability gate
+
+| Gate | Status | Notes |
+| --- | --- | --- |
+| G5.2 Host reboot recovery | OPERATOR_ACTION_REQUIRED | HOST_REBOOT_RECOVERY_RUNBOOK.md; never claim HOST_REBOOT_VALIDATED from container restart |
+| G5.3 Disk / log rotation | PROVISIONAL / OPERATOR_ACTION_REQUIRED | LOG_RETENTION_AND_ACCESS_POLICY.md json-file local only; MANAGEMENT_APPROVAL_REQUIRED retention |
+| G5.4 On-call owner | OPERATOR_ACTION_REQUIRED | OPERATIONAL_ALERT_CATALOG.md P0 routing |
+| Live vs ready probe split | OPERATIONS_RUNTIME_VALIDATED | Workflow `30737905003`; live 200 / ready 200; mongo outage ready 503 path in rehearsal |
+| Request correlation | OPERATIONS_RUNTIME_VALIDATED | `request_correlation=pass`; max 64 allowlist |
+| Metrics + alerts | OPERATIONS_RUNTIME_VALIDATED (protected) / PROVISIONAL thresholds | Soft evaluate/list + metrics auth; no real sends |
+| Queue startup reconcile | OPERATIONS_RUNTIME_VALIDATED | `redis_reconciled=yes` |
+| Graceful shutdown / startup stages | OPERATIONS_RUNTIME_VALIDATED | api/web/nginx restart pass; data_persisted=yes |
+| E2E-OPS / E2E-FAIL / E2E-QUEUE | OPERATIONS_RUNTIME_VALIDATED | App SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`; ops 11/0/0; full suite 103/0/0 |
+| PRODUCTION_OPERATIONS_VALIDATED | NOT CLAIMED | Isolated CI only; host reboot + real channels remain operator-owned |
+
+Phase 6B does **not** approve production go-live. Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED SHAs:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667;
+6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

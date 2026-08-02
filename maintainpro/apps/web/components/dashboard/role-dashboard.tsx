@@ -91,7 +91,7 @@ export function RoleDashboard() {
         />
       ) : null}
 
-      {variant === "admin" || variant === "management" || variant === "inventory" || variant === "viewer" ? (
+      {variant === "admin" || variant === "management" || variant === "finance" || variant === "procurement" || variant === "inventory" || variant === "viewer" ? (
         <DashboardQuickLinks roleName={roleName} />
       ) : null}
     </div>

@@ -4,7 +4,12 @@ import { AuditAction, GoLiveSignOffDecision, Prisma, RoleName } from "@prisma/cl
 import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
-import { REQUIRED_SIGN_OFF_ROLES } from "./go-live.constants";
+import {
+  MAX_SIGN_OFF_CATEGORIES_PER_USER,
+  REQUIRED_SIGN_OFF_ROLES,
+  SIGN_OFF_ROLE_AUTHORIZATION,
+  type RequiredSignOffRole
+} from "./go-live.constants";
 import type { CreateGoLiveSignOffDto, RevokeSignOffDto } from "./dto/go-live.dto";
 
 @Injectable()
@@ -51,6 +56,28 @@ export class GoLiveSignOffService {
     });
   }
 
+  /**
+   * Reject client-forged sign-off categories and enforce signer-to-role matrix.
+   */
+  assertSignOffRoleAuthorized(signOffRole: string): asserts signOffRole is RequiredSignOffRole {
+    if (!(REQUIRED_SIGN_OFF_ROLES as readonly string[]).includes(signOffRole)) {
+      throw new BadRequestException("Invalid sign-off category");
+    }
+    const role = signOffRole as RequiredSignOffRole;
+    const matrix = SIGN_OFF_ROLE_AUTHORIZATION[role];
+    const { actorRole, permissions } = this.ctx();
+    const hasCategoryPermission = permissions.includes(matrix.categoryPermission);
+    const roleAllowed =
+      !!actorRole && (matrix.allowedRoles as string[]).includes(actorRole);
+    const hasBase = this.canSignOff();
+    if (!hasBase) {
+      throw new ForbiddenException("You do not have permission to sign off go-live");
+    }
+    if (!roleAllowed && !hasCategoryPermission) {
+      throw new ForbiddenException("You are not authorized for the selected sign-off category");
+    }
+  }
+
   async findAll() {
     if (!this.canView()) throw new ForbiddenException("You do not have permission to view sign-offs");
     return this.prisma.goLiveSignOff.findMany({
@@ -68,7 +95,8 @@ export class GoLiveSignOffService {
       signOffs
         .filter(
           (s) =>
-            s.decision === GoLiveSignOffDecision.APPROVED || s.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK
+            s.decision === GoLiveSignOffDecision.APPROVED ||
+            s.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK
         )
         .map((s) => s.signOffRole)
     );
@@ -80,11 +108,37 @@ export class GoLiveSignOffService {
     const actorId = this.ctx().actorId;
     if (!actorId) throw new ForbiddenException("You do not have permission to perform this action");
 
-    if (dto.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK && !dto.acceptedRisks?.trim() && !dto.reason?.trim()) {
+    this.assertSignOffRoleAuthorized(dto.signOffRole);
+
+    if (
+      dto.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK &&
+      !dto.acceptedRisks?.trim() &&
+      !dto.reason?.trim()
+    ) {
       throw new BadRequestException("Accepted risk requires reason or acceptedRisks");
     }
 
     const tenantId = this.tenantId();
+    const existingForActor = await this.prisma.goLiveSignOff.findMany({
+      where: {
+        tenantId,
+        signedByUserId: actorId,
+        revokedAt: null,
+        decision: {
+          in: [GoLiveSignOffDecision.APPROVED, GoLiveSignOffDecision.APPROVED_WITH_RISK]
+        }
+      }
+    });
+    const distinctCategories = new Set(existingForActor.map((s) => s.signOffRole));
+    if (
+      !distinctCategories.has(dto.signOffRole) &&
+      distinctCategories.size >= MAX_SIGN_OFF_CATEGORIES_PER_USER
+    ) {
+      throw new ForbiddenException(
+        "Signer has reached the maximum number of sign-off categories for this tenant"
+      );
+    }
+
     const created = await this.prisma.goLiveSignOff.create({
       data: {
         tenantId,
@@ -96,14 +150,20 @@ export class GoLiveSignOffService {
         signedAt: new Date()
       }
     });
-    await this.audit("go_live_signoff_created", created.id, dto.reason, { role: dto.signOffRole, decision: dto.decision });
+    await this.audit("go_live_signoff_created", created.id, dto.reason, {
+      role: dto.signOffRole,
+      decision: dto.decision
+    });
     return created;
   }
 
   async revokeSignOff(id: string, dto: RevokeSignOffDto) {
     if (!this.canSignOff()) throw new ForbiddenException("You do not have permission to revoke sign-offs");
+    if (!dto.reason?.trim()) throw new BadRequestException("Revocation requires a reason");
     const tenantId = this.tenantId();
-    const existing = await this.prisma.goLiveSignOff.findFirst({ where: { id, tenantId, revokedAt: null } });
+    const existing = await this.prisma.goLiveSignOff.findFirst({
+      where: { id, tenantId, revokedAt: null }
+    });
     if (!existing) throw new NotFoundException("Sign-off not found");
 
     const updated = await this.prisma.goLiveSignOff.update({

@@ -41,7 +41,8 @@ import { SmsDispatchService } from "./sms-dispatch.service";
     PushDispatchService,
     NotificationReadinessService,
     NotificationTemplatesService,
-    NotificationUatService
+    NotificationUatService,
+    BullModule
   ]
 })
 export class NotificationsModule {}

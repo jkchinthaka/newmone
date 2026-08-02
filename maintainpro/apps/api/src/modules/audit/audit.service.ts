@@ -36,6 +36,7 @@ export class AuditService {
 
     const from = this.parseDate(query.from);
     const to = this.parseDate(query.to);
+    this.assertDateOrder(from, to);
     if (from || to) {
       where.createdAt = {
         ...(from ? { gte: from } : {}),
@@ -146,9 +147,15 @@ export class AuditService {
 
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
-      return undefined;
+      throw new BadRequestException("Invalid audit date. Use an ISO date or datetime value.");
     }
 
     return parsed;
+  }
+
+  private assertDateOrder(from?: Date, to?: Date) {
+    if (from && to && from > to) {
+      throw new BadRequestException("from must be before or equal to to.");
+    }
   }
 }

@@ -17,6 +17,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
+import { recordAuthSecurityEvent } from "./auth-security-event.util";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -284,15 +285,41 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      recordAuthSecurityEvent(this.prisma, {
+        eventType: "LOGIN_FAILURE",
+        outcome: "FAILURE",
+        reasonCode: "INVALID_CREDENTIALS",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null,
+        metadata: { reason: "unknown_or_inactive" }
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
+      recordAuthSecurityEvent(this.prisma, {
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: "LOGIN_FAILURE",
+        outcome: "FAILURE",
+        reasonCode: "WORKFORCE_INACTIVE",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
     if (user.lockedUntil && user.lockedUntil > now) {
+      recordAuthSecurityEvent(this.prisma, {
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: "ACCOUNT_LOCK",
+        outcome: "BLOCKED",
+        reasonCode: "LOCKED_UNTIL",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null
+      });
       throw new UnauthorizedException("Invalid email or password");
     }
 
@@ -311,6 +338,16 @@ export class AuthService {
           failedLoginAttempts: nextFailedAttempts,
           lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
         }
+      });
+      recordAuthSecurityEvent(this.prisma, {
+        tenantId: user.tenantId,
+        actorId: user.id,
+        eventType: shouldLock ? "ACCOUNT_LOCK" : "LOGIN_FAILURE",
+        outcome: shouldLock ? "BLOCKED" : "FAILURE",
+        reasonCode: shouldLock ? "MAX_FAILED_ATTEMPTS" : "BAD_PASSWORD",
+        identifierHint: dto.email,
+        requestId: requestContext.get()?.requestId ?? null,
+        metadata: { attemptBucket: nextFailedAttempts }
       });
       throw new UnauthorizedException("Invalid email or password");
     }

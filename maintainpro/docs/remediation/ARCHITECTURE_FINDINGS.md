@@ -232,3 +232,73 @@ Local admin loopback binds: `docker-compose.local-admin.yml`.
 ## Phase 5C architecture
 
 PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads sanitized. inventory.erp_apply separated.
+
+## Phase 5D architecture — management information layer
+
+### Decisions
+
+1. **Single KPI catalog** (`KPI_DEFINITION_CATALOG.md`) owns definitions; API keys align to catalog keys.
+2. **Server-side dashboard snapshot** extends `GET /reports/dashboard` (validated DTO) rather than competing duplicate APIs; browser stops aggregating full lists for org KPIs.
+3. **Coverage status** on every section: COMPLETE | DEGRADED | UNAVAILABLE | INSUFFICIENT_DATA — never fake zeros for missing data; MTBF uses null + INSUFFICIENT_DATA.
+4. **Time/currency**: storage UTC; reporting TZ Asia/Colombo; currency LKR; locale en-LK; no silent FX.
+5. **Report ACL**: granular `reports.<module>.view` + `reports.export`; system logs also need `audit.view`.
+6. **FINANCE** is canonical; **FINANCE_APPROVER** is a display/JWT alias with identical ACL.
+7. **Financial bases** are explicit; default Total Expenses = consumed WO `actualCost` + utilities + farm; committed PO is a separate card; exclude WO parts when `actualCost` present.
+8. **ERP monitoring** is safe-field-only; MOCK in E2E; no URLs/payloads/keys.
+9. **Exports** neutralize formula prefixes, bound rows, require audit + truncation metadata.
+10. **Security events** for login failure are queryable without storing credentials.
+
+### Related contracts
+
+- `DASHBOARD_ACCESS_MATRIX.md`
+- `REPORT_ACCESS_MATRIX.md`
+- `REPORT_TIME_AND_CURRENCY_CONTRACT.md`
+- `FINANCIAL_REPORT_RECONCILIATION_CONTRACT.md`
+- `ERP_MONITORING_DASHBOARD_CONTRACT.md`
+- `AUDIT_EVENT_COVERAGE_MATRIX.md`
+- `REPORT_EXPORT_SAFETY_CONTRACT.md`
+
+### Evidence continuity
+
+- Phase 5B: `fe3b3992d883d33c916b3595769add2c4db8878a` / workflow `30712469601`
+- Phase 5C: `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / workflow `30715842098`
+- Phase 5D: `5836bc330cc03e7a3f658ed9cee5f334649f3091` / workflow `30719294386`
+
+## Phase 6A — backup versus replication
+
+- **Replication** (`ReplicationOutbox` → backup DB) is a near-current secondary copy, often **SAME_FAILURE_DOMAIN** as primary in Compose (one `mongo` service/volume).
+- **Backup** requires off-host encrypted archive, SHA-256 manifest, and tested restore to a **fresh** database namespace.
+- E2E rehearsal (`maintainpro_e2e_*` → `maintainpro_restore_*`) validates mechanics only — not production DR or approved RPO/RTO.
+- Readiness must keep `replicationStatus` and `backupRestoreTestStatus` separate.
+- **RECOVERY_RUNTIME_VALIDATED:** SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` (not `PRODUCTION_DR_VALIDATED`).
+
+Preserve Phase 5B/5C/5D evidence SHAs unchanged.
+
+## Phase 6B - observability and operations findings
+
+- MaintainPro historically exposes public /api/health and protected detailed readiness; Phase 6B splits **live** (process) vs **ready** (traffic/CI) to stop container restart loops when dependencies flap.
+- Request IDs exist in API middleware and BFF but length/allowlist must converge to max 64 and A-Za-z0-9._:-; Nginx must generate when absent; IDs must never become metric labels.
+- Operational metrics must stay low-cardinality; forensic detail stays in logs + AuditLog/SecurityEvent.
+- Alert thresholds are catalogued as PROVISIONAL only - not approved SLOs.
+- Queue recovery remains Policy B (Mongo authoritative) with explicit startup reconciliation, idempotent enqueues, and stable job IDs.
+- Shutdown requires SIGTERM drain and ordered disconnect (HTTP -> queues -> Redis -> Mongo) within bounded grace.
+- Startup is staged 1-11 so live comes before ready; queue reconcile gates ready when enabled.
+- Host reboot recovery is operator-owned on Linux/Docker and Windows Server; container restart evidence must not be labeled HOST_REBOOT_VALIDATED.
+- Docker json-file logging is local-only; rotation and retention need operator/management approval (G5.3).
+- Phase 6B status: **OPERATIONS_RUNTIME_VALIDATED** — SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` / workflow `30737905003` — not PRODUCTION_OPERATIONS_VALIDATED.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED evidence SHAs unchanged:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667;
+6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

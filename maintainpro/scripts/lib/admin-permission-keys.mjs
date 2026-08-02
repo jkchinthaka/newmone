@@ -84,6 +84,8 @@ export const ADMIN_PERMISSION_KEYS = [
   "qa.view",
   "release.manage",
   "reports.view",
+  "reports.export",
+  "reports.management.view",
   "roles.manage",
   "roles.view",
   "service.rules.manage",
