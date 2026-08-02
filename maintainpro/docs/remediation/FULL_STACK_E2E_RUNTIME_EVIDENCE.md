@@ -410,3 +410,57 @@ Evidence-document commits after `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` are d
 5. Do **not** treat as `PRODUCTION_OPERATIONS_VALIDATED` or production go-live readiness.
 
 Evidence-document commits after `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` are documentation-only unless labeled otherwise.
+
+## Phase 6C — Production configuration and security hardening
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30738838804` |
+| Branch | `fix/phase6c-production-security-hardening` |
+| Exact tested application SHA | `205d2d23825ff0959310b3a6735b58dff88f1858` |
+| Workflow conclusion | **success** |
+| Runtime status | **SECURITY_RUNTIME_VALIDATED** |
+| Production security status | **not claimed** (not `PRODUCTION_SECURITY_VALIDATED`) |
+| Port owner | **PORT_OWNER_DECISION_REQUIRED** |
+| Real notifications sent | **no** |
+| Volumes removed | **no** |
+
+### Security gate (safe summary)
+
+| Check | Result |
+| --- | --- |
+| config_contract | pass |
+| secret_policy | pass |
+| cookie_https_contract | pass |
+| cors_contract | pass |
+| port_ownership_contract | decision_required |
+| network_exposure | pass |
+| readiness_protection | pass |
+| swagger_policy | pass |
+| privileged_role_matrix | pass |
+| signoff_role_spoofing | blocked |
+| container_hardening | pass |
+| production_mutation_performed | no |
+| security_gate_status | **success** |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Operations / recovery / secret / text validators | PASS |
+| Ops Playwright gate | 11 passed / 0 failed / 0 skipped |
+| Exact-service rehearsal | success (`volumes_removed=no`) |
+| Full Playwright suite | 102 passed / 0 failed / 0 skipped / 1 flaky (retried pass) |
+| Cleanup | `down --remove-orphans` |
+
+### Remaining operator blockers (not fixture mechanics)
+
+1. PORT_OWNER_DECISION_REQUIRED (Nginx vs IIS).
+2. HTTPS certificate / live domain — OPERATOR_ACTION_REQUIRED.
+3. Mongo root rotation — OPERATOR_OWNED_P0.
+4. Production permission migration apply — OPERATOR (dry-run only in CI).
+5. Off-host production backup/restore drill — OPERATOR.
+6. Do **not** treat as production go-live readiness.
+
+Evidence-document commits after `205d2d23825ff0959310b3a6735b58dff88f1858` are documentation-only unless labeled otherwise.

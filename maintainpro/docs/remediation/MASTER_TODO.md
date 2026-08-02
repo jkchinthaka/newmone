@@ -849,7 +849,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 6C - production security hardening
 
-**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Status:** **SECURITY_RUNTIME_VALIDATED** (fixture/CI only — not PRODUCTION_SECURITY_VALIDATED). Workflow `30738838804` / SHA `205d2d23825ff0959310b3a6735b58dff88f1858`.
 **Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
 **Port owner:** PORT_OWNER_DECISION_REQUIRED.
 **Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
