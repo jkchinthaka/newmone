@@ -151,6 +151,10 @@
     "recovery:rehearsal": "node scripts/recovery/run-recovery-rehearsal.mjs",
     "validate:e2e-operations-controls": "node scripts/validate-e2e-operations-controls.mjs",
     "operations:rehearsal": "node scripts/operations/run-operations-rehearsal.mjs",
+    "validate:production-configuration": "node scripts/validate-production-configuration.mjs",
+    "validate:production-security-controls": "node scripts/validate-production-security-controls.mjs",
+    "analyze:permission-migration": "node scripts/security/analyze-permission-migration.mjs",
+    "security:production-gate": "node scripts/security/run-production-security-gate.mjs",
     "test:health-readiness-contract": "node scripts/test/health-readiness-contract.selftest.mjs",
     "test:request-correlation-contract": "node scripts/test/request-correlation-contract.selftest.mjs",
     "test:structured-logging-contract": "node scripts/test/structured-logging-contract.selftest.mjs",
@@ -159,7 +163,16 @@
     "test:queue-reconciliation-contract": "node scripts/test/queue-reconciliation-contract.selftest.mjs",
     "test:graceful-shutdown-contract": "node scripts/test/graceful-shutdown-contract.selftest.mjs",
     "test:restart-recovery-contract": "node scripts/test/restart-recovery-contract.selftest.mjs",
-    "test:log-retention-contract": "node scripts/test/log-retention-contract.selftest.mjs"
+    "test:log-retention-contract": "node scripts/test/log-retention-contract.selftest.mjs",
+    "test:production-config-contract": "node scripts/test/production-config-contract.selftest.mjs",
+    "test:credential-rotation-contract": "node scripts/test/credential-rotation-contract.selftest.mjs",
+    "test:permission-migration-contract": "node scripts/test/permission-migration-contract.selftest.mjs",
+    "test:signoff-authorization-contract": "node scripts/test/signoff-authorization-contract.selftest.mjs",
+    "test:https-cookie-contract": "node scripts/test/https-cookie-contract.selftest.mjs",
+    "test:port-ownership-contract": "node scripts/test/port-ownership-contract.selftest.mjs",
+    "test:network-exposure-contract": "node scripts/test/network-exposure-contract.selftest.mjs",
+    "test:container-hardening-contract": "node scripts/test/container-hardening-contract.selftest.mjs",
+    "test:repository-governance-contract": "node scripts/test/repository-governance-contract.selftest.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

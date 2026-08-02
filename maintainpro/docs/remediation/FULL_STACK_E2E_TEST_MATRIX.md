@@ -174,3 +174,12 @@ See contracts: HEALTH_AND_READINESS_CONTRACT.md, REQUEST_CORRELATION_CONTRACT.md
 **Host reboot:** Not part of CI matrix - OPERATOR_ACTION_REQUIRED via HOST_REBOOT_RECOVERY_RUNBOOK.md; never equate E2E-FAIL container restart to HOST_REBOOT_VALIDATED.
 
 Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED; Phase 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

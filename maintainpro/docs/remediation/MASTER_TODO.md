@@ -846,3 +846,12 @@ This file is a plan. Implementation begins only when explicitly authorized after
 #### TODO-P6B-008 - E2E operations gate runtime
 - **Priority:** P0 | **Status:** OPERATIONS_RUNTIME_VALIDATED
 - **Acceptance:** Workflow `30737905003`; app SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`; ops gate 11/0/0; rehearsal success; full suite 103/0/0
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

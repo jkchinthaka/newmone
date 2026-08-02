@@ -68,6 +68,8 @@ export class DeploymentReadinessService {
         missingMessage: "Production should protect /health/readiness with READINESS_API_KEY or authenticated admin access.",
         env: ["READINESS_API_KEY"]
       }),
+      this.portOwnerDecisionCheck(environment),
+      this.productionSecurityBlockerCheck(environment),
       this.releaseMetadataCheck()
     ];
 
@@ -473,5 +475,62 @@ export class DeploymentReadinessService {
   private hasConfigValue(key: string): boolean {
     const value = this.configService.get<string | number | boolean | undefined>(key);
     return value !== undefined && String(value).trim().length > 0;
+  }
+
+  private portOwnerDecisionCheck(environment: string): DeploymentReadinessItem {
+    const owner = String(this.configService.get<string>("EDGE_PROXY_OWNER", "UNDECIDED") || "UNDECIDED")
+      .trim()
+      .toUpperCase();
+    const decided = owner === "NGINX" || owner === "IIS";
+    const required = environment === "production";
+    if (decided) {
+      return {
+        key: "portOwner",
+        label: "Edge port ownership decision",
+        status: "ready",
+        required,
+        message: `EDGE_PROXY_OWNER=${owner} recorded.`
+      };
+    }
+    return {
+      key: "portOwner",
+      label: "Edge port ownership decision",
+      status: required ? "blocked" : "warning",
+      required,
+      message: "PORT_OWNER_DECISION_REQUIRED — select OPTION A (Nginx) or OPTION B (IIS).",
+      action: "Set EDGE_PROXY_OWNER=NGINX or EDGE_PROXY_OWNER=IIS after operator decision."
+    };
+  }
+
+  private productionSecurityBlockerCheck(environment: string): DeploymentReadinessItem {
+    if (environment !== "production") {
+      return {
+        key: "productionSecurityEvidence",
+        label: "Production security evidence separation",
+        status: "ready",
+        required: false,
+        message: "Non-production environment — E2E evidence may be used for mechanics only."
+      };
+    }
+    const e2eMode = String(this.configService.get<string>("E2E_TEST_MODE", "false")).toLowerCase() === "true";
+    if (e2eMode) {
+      return {
+        key: "productionSecurityEvidence",
+        label: "Production security evidence separation",
+        status: "blocked",
+        required: true,
+        message: "E2E_TEST_MODE cannot satisfy production security readiness.",
+        action: "Unset E2E flags and complete operator checklist / HTTPS / backup / permission migration."
+      };
+    }
+    return {
+      key: "productionSecurityEvidence",
+      label: "Production security evidence separation",
+      status: "warning",
+      required: true,
+      message:
+        "Production still requires operator evidence: HTTPS, port owner, credential rotation, permission migration, off-host backup, and management sign-offs. E2E recovery/ops evidence does not satisfy these.",
+      action: "Complete PRODUCTION_OPERATOR_CHECKLIST.md items with real evidence."
+    };
   }
 }

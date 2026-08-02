@@ -224,3 +224,12 @@ Phase 6B does **not** approve production go-live. Preserve Phase 5B/5C/5D RUNTIM
 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667;
 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
+
+## Phase 6C - production security hardening
+
+**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
+**Port owner:** PORT_OWNER_DECISION_REQUIRED.
+**Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
+
+Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.

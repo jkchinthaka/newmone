@@ -74,6 +74,12 @@ jobs:
       - name: Operations controls validation
         run: npm run validate:e2e-operations-controls
 
+      - name: Production security and configuration gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npm run security:production-gate | tee artifacts/e2e-logs/production-security-gate.txt
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
