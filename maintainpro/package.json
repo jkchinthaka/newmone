@@ -172,7 +172,18 @@
     "test:port-ownership-contract": "node scripts/test/port-ownership-contract.selftest.mjs",
     "test:network-exposure-contract": "node scripts/test/network-exposure-contract.selftest.mjs",
     "test:container-hardening-contract": "node scripts/test/container-hardening-contract.selftest.mjs",
-    "test:repository-governance-contract": "node scripts/test/repository-governance-contract.selftest.mjs"
+    "test:repository-governance-contract": "node scripts/test/repository-governance-contract.selftest.mjs",
+    "validate:e2e-uat-go-live-controls": "node scripts/validate-e2e-uat-go-live-controls.mjs",
+    "uat:go-live-gate": "node scripts/uat/run-uat-go-live-gate.mjs",
+    "uat:rollback-rehearsal": "node scripts/uat/run-rollback-rehearsal.mjs",
+    "test:uat-governance-contract": "node scripts/test/uat-governance-contract.selftest.mjs",
+    "test:uat-result-contract": "node scripts/test/uat-result-contract.selftest.mjs",
+    "test:training-readiness-contract": "node scripts/test/training-readiness-contract.selftest.mjs",
+    "test:go-live-signoff-contract": "node scripts/test/go-live-signoff-contract.selftest.mjs",
+    "test:go-live-decision-contract": "node scripts/test/go-live-decision-contract.selftest.mjs",
+    "test:accepted-risk-contract": "node scripts/test/accepted-risk-contract.selftest.mjs",
+    "test:rollback-rehearsal-contract": "node scripts/test/rollback-rehearsal-contract.selftest.mjs",
+    "test:cutover-stage-contract": "node scripts/test/cutover-stage-contract.selftest.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

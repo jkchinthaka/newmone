@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AuditAction, GoLiveSignOffDecision, Prisma, RoleName } from "@prisma/client";
+import { AuditAction, GoLiveSignOffDecision, Prisma, RoleName, UatEvidenceClass } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
@@ -88,16 +88,32 @@ export class GoLiveSignOffService {
 
   async hasRequiredSignOffs(): Promise<boolean> {
     const tenantId = this.tenantId();
+    const commitSha = String(process.env.APP_COMMIT_SHA || "").trim();
+    const e2eMode = ["true", "1", "yes", "on"].includes(
+      String(process.env.E2E_TEST_MODE || "").trim().toLowerCase()
+    );
     const signOffs = await this.prisma.goLiveSignOff.findMany({
       where: { tenantId, revokedAt: null }
     });
     const approvedRoles = new Set(
       signOffs
-        .filter(
-          (s) =>
+        .filter((s) => {
+          const approved =
             s.decision === GoLiveSignOffDecision.APPROVED ||
-            s.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK
-        )
+            s.decision === GoLiveSignOffDecision.APPROVED_WITH_RISK;
+          if (!approved) return false;
+          // Synthetic CI sign-offs never satisfy formal readiness.
+          if (!e2eMode && (s as { evidenceClass?: string }).evidenceClass === UatEvidenceClass.SYNTHETIC) return false;
+          if (
+            !e2eMode &&
+            commitSha &&
+            (s as { applicationCommitSha?: string | null }).applicationCommitSha &&
+            (s as { applicationCommitSha?: string | null }).applicationCommitSha !== commitSha
+          ) {
+            return false;
+          }
+          return true;
+        })
         .map((s) => s.signOffRole)
     );
     return REQUIRED_SIGN_OFF_ROLES.every((role) => approvedRoles.has(role));
@@ -147,7 +163,12 @@ export class GoLiveSignOffService {
         decision: dto.decision,
         comments: dto.comments,
         acceptedRisks: dto.acceptedRisks ?? dto.reason,
-        signedAt: new Date()
+        signedAt: new Date(),
+        applicationCommitSha: String(process.env.APP_COMMIT_SHA || "").trim() || null,
+        evidenceClass:
+          String(process.env.E2E_TEST_MODE || "").toLowerCase() === "true"
+            ? UatEvidenceClass.SYNTHETIC
+            : UatEvidenceClass.FORMAL_BUSINESS_UAT
       }
     });
     await this.audit("go_live_signoff_created", created.id, dto.reason, {
