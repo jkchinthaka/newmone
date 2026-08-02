@@ -862,3 +862,10 @@ Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
 **Base:** Phase 6C evidence tip `1a435c71c58c22e195c4c2199e48812bf4cd5b81` / SECURITY_RUNTIME_VALIDATED.
 **Expected CI recommendation:** DELAYED (no formal UAT/training/HTTPS/port-owner/management sign-offs in CI).
 **Phase 8:** not executed.
+
+## Phase 7A - release candidate test stability
+
+**Status:** SOURCE_IMPLEMENTED — awaiting CI `RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED`.
+**Base:** Phase 7 evidence tip `346572ee88fa3f8cf95a823e0fe0304d63263fa4`.
+**Scope:** Stabilize E2E-AUTH-012 post-logout protected-route redirect (client-side login redirect race / `net::ERR_ABORTED`).
+**Recommendation:** remains DELAYED. Phase 8 not started.
