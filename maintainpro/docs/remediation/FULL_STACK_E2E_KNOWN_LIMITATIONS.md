@@ -148,3 +148,22 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 8. `productionApproved: false` on all E2E backup manifests.
 
 Preserve Phase 5B/5C/5D RUNTIME_VALIDATED evidence unchanged.
+
+## Phase 6B - operations limitations
+
+**Contracts status:** SOURCE_IMPLEMENTED. Runtime evidence not written yet (FULL_STACK_E2E_RUNTIME_EVIDENCE.md intentionally unchanged).
+
+1. Host reboot recovery is **OPERATOR_ACTION_REQUIRED** (Linux/Docker and Windows Server). CI container restart / SIGTERM tests must **never** be labeled HOST_REBOOT_VALIDATED.
+2. Phase 6B does **not** claim PRODUCTION_OPERATIONS_VALIDATED.
+3. Alert thresholds and log retention periods are **PROVISIONAL** until OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED.
+4. Docker json-file logging is **local only** - not an off-host compliance archive.
+5. Distinct /api/health/live and /api/health/ready may still be aligning in source vs legacy /api/health container checks until runtime closes the gap.
+6. Full queue startup reconciler may remain **P1** until E2E-QUEUE runtime passes.
+7. Correlation max length 64 may still need middleware/BFF/Nginx convergence from older 128-char helpers.
+8. Do not invent a Phase 6B runtime application SHA or workflow ID until Full-Stack E2E ops gate succeeds.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED evidence unchanged:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667.

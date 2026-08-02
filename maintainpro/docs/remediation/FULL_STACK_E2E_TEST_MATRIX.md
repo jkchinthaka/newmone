@@ -158,3 +158,19 @@ See `DISASTER_RECOVERY_TEST_MATRIX.md` for per-ID assertions.
 **Phase 6A runtime:** `RECOVERY_RUNTIME_VALIDATED` — SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` / full suite 103/0/0.
 
 Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - operations / failure / queue matrix
+
+| Suite | IDs | Gate | Assertions (summary) |
+| --- | --- | --- | --- |
+| Operations | E2E-OPS-001..015 | @ops-gate | live 200; ready 200 for CI; correlation generate/validate/echo; readiness 403 without auth; build-info SHA present in disposable stack; metrics forbidden-label self-check when exporter present |
+| Failure / shutdown | E2E-FAIL-001..010 | @ops-gate | SIGTERM drain; ready=503 while shutting down; exit within grace; restart to ready; Mongo down => ready 503 and live 200; no restart-loop when ready would flap |
+| Queue reconcile | E2E-QUEUE-001..010 | @ops-gate | Policy B; Redis cold start; stable job IDs; idempotent second reconcile; ready waits or documented degrade |
+
+See contracts: HEALTH_AND_READINESS_CONTRACT.md, REQUEST_CORRELATION_CONTRACT.md, QUEUE_STARTUP_RECONCILIATION_CONTRACT.md, GRACEFUL_SHUTDOWN_CONTRACT.md, STARTUP_AND_RESTART_CONTRACT.md.
+
+**Phase 6B runtime:** PENDING - do not invent SHA. Do not update FULL_STACK_E2E_RUNTIME_EVIDENCE.md until workflow evidence exists.
+
+**Host reboot:** Not part of CI matrix - OPERATOR_ACTION_REQUIRED via HOST_REBOOT_RECOVERY_RUNBOOK.md; never equate E2E-FAIL container restart to HOST_REBOOT_VALIDATED.
+
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED.

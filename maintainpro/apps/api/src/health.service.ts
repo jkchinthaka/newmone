@@ -69,7 +69,49 @@ export class HealthService {
       environment: this.configService.get<string>("NODE_ENV", "development"),
       uptimeSeconds: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
-      build: this.getBuildInfo()
+      build: {
+        version: this.getBuildInfo().version,
+        commit: this.getBuildInfo().commit
+      }
+    };
+  }
+
+  /**
+   * Minimal readiness for load balancers / CI. No hostnames, DB names, or secrets.
+   * HTTP 200 when required dependencies are up; HTTP 503 otherwise.
+   */
+  async getMinimalReadiness(): Promise<{
+    httpStatus: number;
+    body: {
+      status: "ready" | "not_ready";
+      timestamp: string;
+      service: string;
+      build: { version: string; commit: string };
+    };
+  }> {
+    const database = await this.checkDatabase();
+    const objectStorage = await this.checkObjectStorage();
+    const queueChecks = await this.checkQueues();
+
+    const requiredDown =
+      database.status !== "operational" ||
+      (objectStorage.required && objectStorage.status !== "operational") ||
+      queueChecks.some((check) => check.required && check.status !== "operational");
+
+    const build = this.getBuildInfo();
+    const body = {
+      status: requiredDown ? ("not_ready" as const) : ("ready" as const),
+      timestamp: new Date().toISOString(),
+      service: "maintainpro-api",
+      build: {
+        version: build.version,
+        commit: build.commit
+      }
+    };
+
+    return {
+      httpStatus: requiredDown ? 503 : 200,
+      body
     };
   }
 

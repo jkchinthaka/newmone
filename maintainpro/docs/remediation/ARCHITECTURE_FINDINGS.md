@@ -273,3 +273,22 @@ PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads 
 - **RECOVERY_RUNTIME_VALIDATED:** SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` (not `PRODUCTION_DR_VALIDATED`).
 
 Preserve Phase 5B/5C/5D evidence SHAs unchanged.
+
+## Phase 6B - observability and operations findings
+
+- MaintainPro historically exposes public /api/health and protected detailed readiness; Phase 6B splits **live** (process) vs **ready** (traffic/CI) to stop container restart loops when dependencies flap.
+- Request IDs exist in API middleware and BFF but length/allowlist must converge to max 64 and A-Za-z0-9._:-; Nginx must generate when absent; IDs must never become metric labels.
+- Operational metrics must stay low-cardinality; forensic detail stays in logs + AuditLog/SecurityEvent.
+- Alert thresholds are catalogued as PROVISIONAL only - not approved SLOs.
+- Queue recovery remains Policy B (Mongo authoritative) with explicit startup reconciliation, idempotent enqueues, and stable job IDs.
+- Shutdown requires SIGTERM drain and ordered disconnect (HTTP -> queues -> Redis -> Mongo) within bounded grace.
+- Startup is staged 1-11 so live comes before ready; queue reconcile gates ready when enabled.
+- Host reboot recovery is operator-owned on Linux/Docker and Windows Server; container restart evidence must not be labeled HOST_REBOOT_VALIDATED.
+- Docker json-file logging is local-only; rotation and retention need operator/management approval (G5.3).
+- Phase 6B status: SOURCE_IMPLEMENTED (contracts) pending runtime - not PRODUCTION_OPERATIONS_VALIDATED.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED evidence SHAs unchanged:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667.

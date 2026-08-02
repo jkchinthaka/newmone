@@ -71,6 +71,9 @@ jobs:
       - name: Recovery safety validation
         run: npm run validate:recovery-safety
 
+      - name: Operations controls validation
+        run: npm run validate:e2e-operations-controls
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -93,7 +96,9 @@ jobs:
         run: |
           set -e
           for i in $(seq 1 60); do
-            if curl -fsS "$E2E_BASE_URL/api/health" >/dev/null && curl -fsS "$E2E_BASE_URL/login" >/dev/null; then
+            if curl -fsS "$E2E_BASE_URL/api/health/live" >/dev/null \
+              && curl -fsS "$E2E_BASE_URL/api/health/ready" >/dev/null \
+              && curl -fsS "$E2E_BASE_URL/login" >/dev/null; then
               echo "healthy"
               docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
                 -f docker-compose.yml -f docker-compose.e2e.yml ps
@@ -249,6 +254,29 @@ jobs:
         working-directory: maintainpro/apps/web
         env:
           SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Monitoring / alerting / restart recovery gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npx playwright test e2e-real/operations-controls.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-gate \
+            | tee ../../artifacts/e2e-logs/operations-controls-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Exact-service restart and dependency recovery rehearsal
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export OPERATIONS_REHEARSAL=true
+          export E2E_TEST_MODE=true
+          node scripts/operations/run-operations-rehearsal.mjs | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
+        env:
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
       - name: Run full-stack Playwright suite

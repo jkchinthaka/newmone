@@ -5,8 +5,8 @@ import type { NextFunction, Request, Response } from "express";
 import { requestContext } from "../context/request-context";
 
 const REQUEST_ID_HEADER = "x-request-id";
-const MAX_REQUEST_ID_LENGTH = 128;
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9\-_.]+$/;
+const MAX_REQUEST_ID_LENGTH = 64;
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9\-_.:]+$/;
 
 export function normalizeIncomingRequestId(raw: unknown): string | null {
   if (typeof raw !== "string") {

@@ -140,6 +140,49 @@ model SecurityEvent {
   @@index([requestId])
 }
 
+/// Phase 6B durable operational alert state (safe metadata only — no URIs/credentials).
+model OperationalAlert {
+  id                 String                   @id @default(auto()) @map("_id") @db.ObjectId
+  key                String
+  fingerprint        String
+  severity           OperationalAlertSeverity
+  status             OperationalAlertStatus   @default(OPEN)
+  source             String
+  safeSummary        String
+  firstObservedAt    DateTime                 @default(now())
+  lastObservedAt     DateTime                 @default(now())
+  occurrenceCount    Int                      @default(1)
+  acknowledgedAt     DateTime?
+  acknowledgedById   String?                  @db.ObjectId
+  resolvedAt         DateTime?
+  resolutionReason   String?
+  lastNotificationAt DateTime?
+  cooldownUntil      DateTime?
+  tenantId           String?                  @db.ObjectId
+  metadataSafe       Json?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([fingerprint, status])
+  @@index([key, status])
+  @@index([tenantId, status, lastObservedAt])
+  @@index([status, lastObservedAt])
+}
+
+enum OperationalAlertSeverity {
+  CRITICAL
+  HIGH
+  WARNING
+  INFO
+}
+
+enum OperationalAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  SUPPRESSED
+}
+
 model AppSetting {
   id        String          @id @default(auto()) @map("_id") @db.ObjectId
   scope     AppSettingScope @default(GLOBAL)

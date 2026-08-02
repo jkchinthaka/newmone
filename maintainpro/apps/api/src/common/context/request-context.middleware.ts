@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 import { requestContext } from "./request-context";
 
 type AuthAwareRequest = Request & {
+  requestId?: string;
   user?: {
     sub?: string;
     email?: string;
@@ -17,6 +18,7 @@ type AuthAwareRequest = Request & {
 @Injectable()
 export class RequestContextMiddleware implements NestMiddleware {
   use(req: AuthAwareRequest, _res: Response, next: NextFunction): void {
+    const existing = requestContext.get();
     const actorId = req.user?.sub ?? null;
     const actorEmail = req.user?.email ?? null;
     const actorRole = req.user?.role ?? null;
@@ -34,6 +36,7 @@ export class RequestContextMiddleware implements NestMiddleware {
     const userAgent =
       typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null;
     const requestPath = req.originalUrl || req.url || null;
+    const requestId = req.requestId ?? existing?.requestId ?? null;
 
     requestContext.run(
       {
@@ -45,6 +48,7 @@ export class RequestContextMiddleware implements NestMiddleware {
         ipAddress,
         userAgent,
         requestPath,
+        requestId,
         permissions: Array.isArray(req.user?.permissions) ? req.user.permissions : []
       },
       () => next()

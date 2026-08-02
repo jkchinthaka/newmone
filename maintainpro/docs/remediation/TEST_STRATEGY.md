@@ -265,3 +265,34 @@ Label all recovery durations **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not ap
 **Runtime:** `RECOVERY_RUNTIME_VALIDATED` — SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` / full suite 103/0/0.
 
 Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - operations gate recipe
+
+**Tag focus:** @ops-gate (when added) covering E2E-OPS / E2E-FAIL / E2E-QUEUE IDs.
+
+### Execution order (disposable E2E stack)
+
+1. Confirm contracts present under docs/remediation (Phase 6B set).
+2. Boot stack; poll GET /api/health/live until 200 (container HC target).
+3. Poll GET /api/health/ready until 200 before traffic tests (CI gate).
+4. E2E-OPS: correlation - valid X-Request-Id echoed; missing ID generated; invalid replaced; ID not used as metrics label in any scrape fixture.
+5. E2E-OPS: ready returns 503 reasons when primary Mongo stopped (controlled); live remains 200 if process up.
+6. E2E-FAIL: SIGTERM API container; assert ready=503 then clean exit within grace; restart reaches ready=200.
+7. E2E-QUEUE: Redis flush/cold; Mongo pending anchor; restart API; stable jobId enqueued once; second reconcile idempotent.
+8. Assert detailed /api/health/readiness rejects unauthorized (403).
+9. Full Playwright suite; cleanup down --remove-orphans only.
+10. Do **not** claim HOST_REBOOT_VALIDATED or PRODUCTION_OPERATIONS_VALIDATED from this recipe.
+11. Do **not** append FULL_STACK_E2E_RUNTIME_EVIDENCE.md until a real workflow run succeeds - no invented SHA.
+
+### Contract / unit checks (as implemented)
+
+- Request ID allowlist max 64
+- Health live vs ready status codes
+- Queue stable job ID helper
+- Shutdown hook ordering smoke (unit)
+
+### Threshold / retention notes
+
+Alert numbers and log retention remain PROVISIONAL / OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED.
+
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED.

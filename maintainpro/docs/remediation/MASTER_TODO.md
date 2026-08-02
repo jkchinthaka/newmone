@@ -784,3 +784,63 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - **Acceptance:** Off-host encrypted backup + counted restore; MANAGEMENT_APPROVAL_REQUIRED retention
 
 **Preserve Phase 5 evidence:** 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
+
+## Phase 6B - Observability and operational readiness
+
+**Status:** SOURCE_IMPLEMENTED (contracts/docs) - runtime pending; not PRODUCTION_OPERATIONS_VALIDATED
+**Objective:** Detect failures before users report them; separate live/ready probes; correlation; low-cardinality metrics; provisional alerts; queue reconcile; graceful shutdown; startup stages; host reboot runbook; log retention.
+**Base evidence preserved:**
+- Phase 5B: fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601
+- Phase 5C: 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098
+- Phase 5D: 5836bc330cc03e7a3f658ed9cee5f334649f3091 / workflow 30719294386
+- Phase 6A: baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / workflow 30735445667 - RECOVERY_RUNTIME_VALIDATED
+
+| Item | Status |
+| --- | --- |
+| OBSERVABILITY_AND_OPERATIONS_ARCHITECTURE.md | SOURCE_IMPLEMENTED |
+| HEALTH_AND_READINESS_CONTRACT.md | SOURCE_IMPLEMENTED (runtime endpoint align pending) |
+| REQUEST_CORRELATION_CONTRACT.md | SOURCE_IMPLEMENTED (max 64 align pending) |
+| OPERATIONAL_METRICS_CONTRACT.md | SOURCE_IMPLEMENTED |
+| OPERATIONAL_ALERT_CATALOG.md | SOURCE_IMPLEMENTED / PROVISIONAL thresholds |
+| QUEUE_STARTUP_RECONCILIATION_CONTRACT.md | SOURCE_IMPLEMENTED (reconciler P1 until runtime) |
+| GRACEFUL_SHUTDOWN_CONTRACT.md | SOURCE_IMPLEMENTED |
+| STARTUP_AND_RESTART_CONTRACT.md | SOURCE_IMPLEMENTED |
+| HOST_REBOOT_RECOVERY_RUNBOOK.md | OPERATOR_ACTION_REQUIRED |
+| LOG_RETENTION_AND_ACCESS_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| E2E-OPS / E2E-FAIL / E2E-QUEUE runtime | PENDING - do not invent SHA |
+| FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 6B | NOT UPDATED (runtime pending) |
+| PRODUCTION_OPERATIONS_VALIDATED | NOT CLAIMED |
+| HOST_REBOOT_VALIDATED | NOT CLAIMED (operator-owned) |
+
+#### TODO-P6B-001 - Health live/ready split + probe policy
+- **Priority:** P0 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Acceptance:** Container HC = /api/health/live; CI gate = /api/health/ready; readiness protected; legacy /api/health documented
+
+#### TODO-P6B-002 - Correlation max 64 + Nginx generate
+- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Acceptance:** Allowlist A-Za-z0-9._:-; propagate all paths; not a metrics label
+
+#### TODO-P6B-003 - Metrics + provisional alert catalog
+- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Acceptance:** Low-cardinality catalog; forbidden labels; PROVISIONAL thresholds marked
+
+#### TODO-P6B-004 - Queue startup reconciliation (Policy B)
+- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract); implementation may remain P1
+- **Acceptance:** Idempotent stable job IDs; ready waits when enabled
+
+#### TODO-P6B-005 - Graceful shutdown + startup stages 1-11
+- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Acceptance:** SIGTERM drain order; bounded grace; staged live/ready
+
+#### TODO-P6B-006 - Host reboot drill (G5.2)
+- **Priority:** P1 | **Owner:** Ops (**OPERATOR**)
+- **Status:** OPERATOR_ACTION_REQUIRED
+- **Acceptance:** Linux or Windows Server reboot evidence; never from container restart alone
+
+#### TODO-P6B-007 - Log rotation + access
+- **Priority:** P1 | **Status:** PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED
+- **Acceptance:** json-file max-size/max-file; disk alert; access list OPERATOR_APPROVAL_REQUIRED
+
+#### TODO-P6B-008 - E2E operations gate runtime
+- **Priority:** P0 | **Status:** PENDING
+- **Acceptance:** E2E-OPS / E2E-FAIL / E2E-QUEUE pass; then append FULL_STACK_E2E_RUNTIME_EVIDENCE.md - do not invent SHA early

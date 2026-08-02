@@ -679,6 +679,7 @@ export class NotificationsService {
 
     try {
       await this.notificationsQueue.add("send", payload, {
+        jobId: payload.notificationId ? `notification:${payload.notificationId}` : undefined,
         attempts: payload.channel === "IN_APP" ? 1 : 3,
         backoff: {
           type: "exponential",

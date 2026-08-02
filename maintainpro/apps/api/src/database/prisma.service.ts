@@ -39,6 +39,7 @@ const AUDIT_SKIP_MODELS = new Set<string>([
   "UsageMetric",
   "PasswordResetToken",
   "UserInvitation",
+  "OperationalAlert",
   ...AUDIT_SECURITY_SKIP_MODELS
 ]);
 

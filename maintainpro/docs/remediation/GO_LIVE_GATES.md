@@ -202,3 +202,24 @@ Phase 5D alone does **not** authorize production go-live.
 | Replication vs backup | **CONTRACT_DEFINED** | Replication health must not satisfy G5.1 alone |
 
 Phase 6A does **not** approve production go-live or `PRODUCTION_DR_VALIDATED`. Preserve Phase 5B/5C/5D RUNTIME_VALIDATED SHAs.
+
+## Phase 6B - operations / observability gate
+
+| Gate | Status | Notes |
+| --- | --- | --- |
+| G5.2 Host reboot recovery | OPERATOR_ACTION_REQUIRED | HOST_REBOOT_RECOVERY_RUNBOOK.md; never claim HOST_REBOOT_VALIDATED from container restart |
+| G5.3 Disk / log rotation | PROVISIONAL / OPERATOR_ACTION_REQUIRED | LOG_RETENTION_AND_ACCESS_POLICY.md json-file local only; MANAGEMENT_APPROVAL_REQUIRED retention |
+| G5.4 On-call owner | OPERATOR_ACTION_REQUIRED | OPERATIONAL_ALERT_CATALOG.md P0 routing |
+| Live vs ready probe split | SOURCE_IMPLEMENTED (contract) | Container HC = live; CI = ready; detailed readiness protected |
+| Request correlation | SOURCE_IMPLEMENTED (contract) | Max 64; allowlist; Nginx generate when absent |
+| Metrics + alerts | SOURCE_IMPLEMENTED / PROVISIONAL | Thresholds OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED |
+| Queue startup reconcile | SOURCE_IMPLEMENTED (contract) | Policy B; stable job IDs |
+| Graceful shutdown / startup stages | SOURCE_IMPLEMENTED (contract) | SIGTERM drain; stages 1-11 |
+| E2E-OPS / E2E-FAIL / E2E-QUEUE | PENDING runtime | Do not invent Phase 6B runtime SHA |
+| PRODUCTION_OPERATIONS_VALIDATED | NOT CLAIMED | Docs/contracts only until runtime + operator evidence |
+
+Phase 6B does **not** approve production go-live. Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED SHAs:
+5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
+5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
+5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667.

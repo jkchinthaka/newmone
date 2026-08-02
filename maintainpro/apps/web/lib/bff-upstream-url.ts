@@ -111,7 +111,7 @@ export function loginUpstreamUrl(base: string): string {
 
 export function sanitizeRequestId(incoming: string | null | undefined): string {
   const trimmed = String(incoming || "").trim();
-  if (!trimmed || trimmed.length > 128 || /[^\w\-.:]/.test(trimmed)) {
+  if (!trimmed || trimmed.length > 64 || /[^\w\-.:]/.test(trimmed)) {
     return "";
   }
   return trimmed;
