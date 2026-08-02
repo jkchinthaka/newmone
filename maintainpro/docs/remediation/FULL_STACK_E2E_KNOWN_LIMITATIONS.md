@@ -183,3 +183,10 @@ Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
 **Base:** Phase 6C evidence tip `1a435c71c58c22e195c4c2199e48812bf4cd5b81` / SECURITY_RUNTIME_VALIDATED.
 **Expected CI recommendation:** DELAYED (no formal UAT/training/HTTPS/port-owner/management sign-offs in CI).
 **Phase 8:** not executed.
+
+## Phase 7A - release candidate auth redirect stability
+
+**Classification:** TEST_RELIABILITY_DEBT / MOBILE_REDIRECT_RACE_CONDITION (not an auth product defect).
+**Root cause:** No Next.js middleware auth redirect. After logout, dashboard client layout calls `router.replace("/login?reason=session_expired")`. Playwright `page.goto("/work-orders")` can observe `net::ERR_ABORTED` when that client redirect cancels the in-flight document navigation (more visible on mobile-smoke).
+**Fix:** Deterministic helper `navigateToProtectedRouteAndExpectLogin` waits for `/login` before/during navigation, accepts only expected `ERR_ABORTED`, asserts login UI visible and work-order content absent. Focused CI gate: E2E-AUTH-012 on chromium-desktop + mobile-smoke, `--retries=0 --repeat-each=10`.
+**Recommendation:** remains DELAYED. Phase 8 not started.

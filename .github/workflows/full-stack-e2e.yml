@@ -88,6 +88,9 @@ jobs:
           export ROLLBACK_REHEARSAL=true
           npm run uat:rollback-rehearsal | tee artifacts/e2e-logs/rollback-rehearsal-gate.txt
 
+      - name: Release-candidate stability structural validation
+        run: npm run validate:release-candidate-stability
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -291,6 +294,23 @@ jobs:
           export E2E_TEST_MODE=true
           node scripts/operations/run-operations-rehearsal.mjs | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
         env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Release-candidate auth stability gate
+        run: |
+          set -euo pipefail
+          mkdir -p ../../artifacts/e2e-logs
+          npx playwright test e2e-real/auth.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            --project=mobile-smoke \
+            --grep "E2E-AUTH-012" \
+            --retries=0 \
+            --repeat-each=10 \
+            | tee ../../artifacts/e2e-logs/release-candidate-auth-stability-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
       - name: Run full-stack Playwright suite

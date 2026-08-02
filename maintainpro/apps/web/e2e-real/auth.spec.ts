@@ -11,6 +11,7 @@ import {
   logoutBrowserSession
 } from "./helpers/browser-session";
 import { e2eEmail, e2ePassword } from "./helpers/env";
+import { navigateToProtectedRouteAndExpectLogin } from "./helpers/protected-navigation";
 
 test.describe("E2E authentication @full-stack @security @smoke", () => {
   test("E2E-AUTH-001 valid admin login succeeds", async ({ page }) => {
@@ -97,17 +98,38 @@ test.describe("E2E authentication @full-stack @security @smoke", () => {
   });
 
   test("E2E-AUTH-012 protected page redirects after logout", async ({ page }) => {
-    await loginViaUi(page, "admin-a");
-    await page.goto("/work-orders");
-    await expect(page).not.toHaveURL(/\/login/i);
+    const { loginResponse } = await loginViaUi(page, "admin-a");
+    expect(loginResponse.status()).toBe(200);
 
+    await page.goto("/work-orders");
+    await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+
+    const beforeLogout = await cookieNamesPresent(page);
+    expect(beforeLogout.access).toBeTruthy();
+    expect(beforeLogout.refresh).toBeTruthy();
+    expect(beforeLogout.csrf).toBeTruthy();
+
+    const sessionBefore = await authenticatedGet(page, "/api/backend/auth/me");
+    expect(sessionBefore.status()).toBe(200);
+
+    // logoutBrowserSession requires matching CSRF; missing CSRF is covered in session-diagnostic.
     const logout = await logoutBrowserSession(page);
     expect(logout.status()).toBe(CANONICAL_LOGOUT_SUCCESS_STATUS);
 
     const me = await authenticatedGet(page, "/api/backend/auth/me");
     expect(me.status()).toBe(401);
 
-    await page.goto("/work-orders");
-    await expect(page).toHaveURL(/login/i);
+    const after = await readCookieMap(page);
+    const access = after.get("maintainpro_access");
+    const refresh = after.get("maintainpro_refresh");
+    const csrf = after.get("maintainpro_csrf");
+    const accessGone = !access || !access.value || access.expires * 1000 < Date.now();
+    const refreshGone = !refresh || !refresh.value || refresh.expires * 1000 < Date.now();
+    const csrfGone = !csrf || !csrf.value || csrf.expires * 1000 < Date.now();
+    expect(accessGone).toBeTruthy();
+    expect(refreshGone).toBeTruthy();
+    expect(csrfGone).toBeTruthy();
+
+    await navigateToProtectedRouteAndExpectLogin(page, "/work-orders");
   });
 });
