@@ -209,7 +209,7 @@ function main() {
   console.log(`recovery_work_orders=${wo.status}`);
   const inv = httpJson("GET", "/api/inventory/parts?page=1&pageSize=5", { headers });
   console.log(`recovery_inventory=${inv.status}`);
-  const po = httpJson("GET", "/api/purchase-orders?page=1&pageSize=5", { headers });
+  const po = httpJson("GET", "/api/inventory/purchase-orders?page=1&pageSize=5", { headers });
   console.log(`recovery_purchase_orders=${po.status}`);
   const dash = httpJson("GET", "/api/reports/dashboard", { headers });
   console.log(`recovery_dashboard=${dash.status}`);
