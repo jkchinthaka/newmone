@@ -262,7 +262,7 @@ PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads 
 
 - Phase 5B: `fe3b3992d883d33c916b3595769add2c4db8878a` / workflow `30712469601`
 - Phase 5C: `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / workflow `30715842098`
-- Phase 5D runtime SHA: record only after gate success
+- Phase 5D: `5836bc330cc03e7a3f658ed9cee5f334649f3091` / workflow `30719294386`
 
 ## Phase 6A — backup versus replication
 
@@ -270,5 +270,6 @@ PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads 
 - **Backup** requires off-host encrypted archive, SHA-256 manifest, and tested restore to a **fresh** database namespace.
 - E2E rehearsal (`maintainpro_e2e_*` → `maintainpro_restore_*`) validates mechanics only — not production DR or approved RPO/RTO.
 - Readiness must keep `replicationStatus` and `backupRestoreTestStatus` separate.
+- **RECOVERY_RUNTIME_VALIDATED:** SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` (not `PRODUCTION_DR_VALIDATED`).
 
 Preserve Phase 5B/5C/5D evidence SHAs unchanged.

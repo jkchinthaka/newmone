@@ -153,6 +153,8 @@ Contract self-tests: KPI catalog invariants, financial double-count prevention, 
 | Integrity | DR-INTEGRITY-001..006 | Contract + CI step |
 | Object storage | DR-OBJECT-001..007 | E2E MinIO disposable buckets |
 
-See `DISASTER_RECOVERY_TEST_MATRIX.md` for per-ID assertions. Runtime SHA recorded only after RECOVERY_RUNTIME_VALIDATED.
+See `DISASTER_RECOVERY_TEST_MATRIX.md` for per-ID assertions.
+
+**Phase 6A runtime:** `RECOVERY_RUNTIME_VALIDATED` — SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / workflow `30735445667` / full suite 103/0/0.
 
 Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.

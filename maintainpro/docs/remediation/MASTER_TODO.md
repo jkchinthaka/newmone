@@ -666,7 +666,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Container healthcheck validator | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
-| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`) |
+| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`); Phase 6A **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`) |
 | Live production login | NOT validated |
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
@@ -743,8 +743,10 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 6A — Backup, restore, and disaster recovery
 
-**Status:** **SOURCE_IMPLEMENTED** — runtime pending Full-Stack E2E recovery gate  
-**Branch target:** `fix/phase6a-backup-restore-recovery`  
+**Status:** **RECOVERY_RUNTIME_VALIDATED** (disposable E2E mechanics only — not `PRODUCTION_DR_VALIDATED`)  
+**Branch:** `fix/phase6a-backup-restore-recovery`  
+**Exact tested application SHA:** `baad89621c87ddd4b840bb9c77cb20efcb1b79b6`  
+**Workflow run ID:** `30735445667`  
 **Base after Phase 5D:** application SHA `5836bc330cc03e7a3f658ed9cee5f334649f3091` / workflow `30719294386`
 
 **Objective:** Define and verify safe recovery mechanics on disposable E2E data only — not production DR.
@@ -759,21 +761,22 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | SECRET_AND_CONFIGURATION_RECOVERY.md | CONTRACT_DEFINED |
 | BACKUP_RETENTION_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
 | DISASTER_RECOVERY_RUNBOOK.md | CONTRACT_DEFINED |
-| DISASTER_RECOVERY_TEST_MATRIX.md | CONTRACT_DEFINED |
-| Recovery safety guard + validator | SOURCE_VALIDATED |
-| Mongo backup/restore scripts | SOURCE_IMPLEMENTED |
-| Object backup/restore scripts | SOURCE_IMPLEMENTED |
+| DISASTER_RECOVERY_TEST_MATRIX.md | **RECOVERY_RUNTIME_VALIDATED** (`30735445667`) |
+| Recovery safety guard + validator | SOURCE_VALIDATED + CI PASS |
+| Mongo backup/restore scripts | RECOVERY_RUNTIME_VALIDATED |
+| Object backup/restore scripts | RECOVERY_RUNTIME_VALIDATED |
 | Deployment readiness backup≠replication | SOURCE_IMPLEMENTED |
-| E2E recovery gate runtime | **PENDING** — not RECOVERY_RUNTIME_VALIDATED |
+| E2E recovery gate runtime | **RECOVERY_RUNTIME_VALIDATED** — `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / `30735445667` |
+| Full suite | 103 passed / 0 failed / 0 skipped |
 | G5.1 production backup drill | OPERATOR_ACTION_REQUIRED |
 
 #### TODO-P6A-001 — Recovery contracts and separation
-- **Priority:** P0 | **Status:** IN_PROGRESS (docs CONTRACT_DEFINED)
+- **Priority:** P0 | **Status:** DONE
 - **Acceptance:** Replication ≠ backup documented; never label replication alone BACKUP_VALIDATED
 
 #### TODO-P6A-002 — E2E recovery rehearsal gate
-- **Priority:** P0 | **Status:** IN_PROGRESS
-- **Acceptance:** DR-E2E-001..025 mandatory skipped=0; DR-INTEGRITY/OBJECT suites pass
+- **Priority:** P0 | **Status:** DONE
+- **Acceptance:** DR-E2E-001..025 mandatory skipped=0; DR-INTEGRITY/OBJECT suites pass — workflow `30735445667`
 
 #### TODO-P6A-003 — Operator off-host backup + G5.1
 - **Priority:** P1 | **Owner:** Ops (**OPERATOR**)

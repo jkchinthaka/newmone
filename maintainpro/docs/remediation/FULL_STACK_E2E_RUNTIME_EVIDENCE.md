@@ -245,3 +245,75 @@ Evidence-document commits after this SHA are documentation-only unless labeled o
 5. Do **not** treat as production go-live readiness.
 
 Evidence-document commits after `5836bc330cc03e7a3f658ed9cee5f334649f3091` are documentation-only unless labeled otherwise.
+
+## Phase 6A — Backup / restore / disaster-recovery rehearsal
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30735445667` |
+| Branch | `fix/phase6a-backup-restore-recovery` |
+| Exact tested application SHA | `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` |
+| Runner OS | ubuntu-latest (GitHub Actions) |
+| Workflow conclusion | **success** |
+| Runtime status | **RECOVERY_RUNTIME_VALIDATED** |
+| Production DR status | **not claimed** (not `PRODUCTION_DR_VALIDATED`) |
+| ERP provider (E2E) | MOCK |
+| Timing label | `E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE` |
+
+### Recovery gate (safe summary)
+
+| Check | Result |
+| --- | --- |
+| recovery_mode | e2e |
+| source_safe | yes |
+| target_fresh | yes (`maintainpro_restore_*`) |
+| backup_id_alias | `e2e-backup-ci-30735445667-1937e245` |
+| backup_status | success |
+| checksum_status | valid |
+| corruption_rejected | yes |
+| restore_status | success |
+| collection_reconciliation | pass |
+| recovery_api_health | 200 |
+| recovery_login | 200 |
+| application_smoke_status | pass |
+| object_reconciliation | pass |
+| recovery_duration_seconds | 11 |
+| raw_archive_uploaded | no |
+| volumes_removed | no |
+
+### Prior gates in same workflow
+
+| Gate | Result |
+| --- | --- |
+| Recovery safety / text integrity / nondestructive cleanup / secret safety | PASS |
+| Management-information gate | 20 passed / 0 failed / 0 skipped |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped |
+| Cleanup | `down --remove-orphans` (volumes preserved) |
+
+### Preserved prior evidence
+
+| Phase | Application SHA | Workflow | Totals |
+| --- | --- | --- | --- |
+| 5B | fe3b3992d883d33c916b3595769add2c4db8878a | 30712469601 | 103 / 0 / 0 |
+| 5C | 512745d678a4be6b0d0a62f2400763ff9fd4ec08 | 30715842098 | procurement 20; full 103 / 0 / 0 |
+| 5D | 5836bc330cc03e7a3f658ed9cee5f334649f3091 | 30719294386 | management-info 20; full 103 / 0 / 0 |
+
+### Artifact security review
+
+| Check | Result |
+| --- | --- |
+| Passwords / tokens / cookies / CSRF / Authorization | Not observed in safe summaries |
+| Database URIs / MinIO keys / archive bytes | Not observed / not uploaded |
+| Raw Mongo archives or object payloads as CI artifacts | **No** (`raw_archive_uploaded=no`) |
+| Raw artifacts committed to git | **No** |
+
+### Remaining blockers (not Phase 6A mechanics)
+
+1. Off-host production backup + G5.1 counted restore drill — **OPERATOR_ACTION_REQUIRED**.
+2. RPO/RTO / retention — **PROVISIONAL** / **MANAGEMENT_APPROVAL_REQUIRED**.
+3. Redis queue reconciler implementation — **P1 OPERATIONAL_BLOCKER** (Policy B documented).
+4. Production Mongo root rotation — **OPERATOR_OWNED_P0**.
+5. Do **not** treat as production DR or go-live readiness.
+
+Evidence-document commits after `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` are documentation-only unless labeled otherwise.

@@ -160,8 +160,8 @@ Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db
 
 | Risk | Update |
 | --- | --- |
-| R-14 Backup/restore RPO/RTO undefined | **Mitigation in progress (Phase 6A):** `RPO_RTO_POLICY.md` marks PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED; E2E timings labeled E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE |
-| R-14b Replication mistaken for backup | **NEW / OPEN:** Async `ReplicationOutbox` shares SAME_FAILURE_DOMAIN with primary in default Compose; deletes/corrupt updates replicate. **Phase 6A mitigation:** `REPLICATION_AND_BACKUP_SEPARATION.md`, independent archive + integrity + fresh restore rehearsal; never BACKUP_VALIDATED from replication alone |
+| R-14 Backup/restore RPO/RTO undefined | **OPEN (business):** `RPO_RTO_POLICY.md` remains PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED; E2E timings `E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE`. Mechanics: **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`) |
+| R-14b Replication mistaken for backup | **MITIGATED (mechanics):** Async replication remains SAME_FAILURE_DOMAIN on default Compose; Phase 6A documents separation and verified independent archive + integrity + fresh restore. Never BACKUP_VALIDATED from replication alone. Production off-host DR still OPERATOR_ACTION_REQUIRED |
 | Queue loss on Redis failure | **Policy B documented;** full startup reconciler P1 OPERATIONAL_BLOCKER until implemented |
 
 Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; Phase 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.

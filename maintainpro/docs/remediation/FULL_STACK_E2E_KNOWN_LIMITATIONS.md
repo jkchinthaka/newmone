@@ -136,6 +136,8 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 
 ## Phase 6A — disaster recovery limitations
 
+**Mechanics status:** `RECOVERY_RUNTIME_VALIDATED` (`baad89621c87ddd4b840bb9c77cb20efcb1b79b6` / `30735445667`). Production DR remains unproven.
+
 1. Phase 6A E2E recovery rehearsal does **not** prove production disaster recovery, off-host backup, or Atlas PITR.
 2. E2E recovery durations are **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not approved business RTO (`MANAGEMENT_APPROVAL_REQUIRED`).
 3. Proposed RPO/RTO in `RPO_RTO_POLICY.md` remain **PROVISIONAL** until management approval — do not cite as compliance.

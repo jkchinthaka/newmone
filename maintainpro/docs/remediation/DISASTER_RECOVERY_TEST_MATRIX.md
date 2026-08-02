@@ -2,7 +2,7 @@
 
 **Phase:** 6A  
 **Rule:** No mandatory test may `skip`.  
-**Runtime status:** CONTRACT_DEFINED until `RECOVERY_RUNTIME_VALIDATED` workflow evidence exists.
+**Runtime status:** **RECOVERY_RUNTIME_VALIDATED** — workflow `30735445667`, application SHA `baad89621c87ddd4b840bb9c77cb20efcb1b79b6` (disposable E2E only; not `PRODUCTION_DR_VALIDATED`).
 
 ## E2E recovery rehearsal (mandatory)
 
