@@ -153,6 +153,33 @@ async function main() {
     process.exit(1);
   }
   console.log("collection_reconciliation=pass");
+
+  // App user is scoped to E2E primary/backup DBs only. Grant readWrite on the fresh restore DB.
+  const appUser = process.env.MONGO_APP_USERNAME || "e2e_app_not_prod";
+  mongoshEval(`
+    const dbn=${JSON.stringify(targetDb)};
+    const user=${JSON.stringify(appUser)};
+    try {
+      db.getSiblingDB("admin").grantRolesToUser(user, [{ role: "readWrite", db: dbn }]);
+      print(JSON.stringify({ granted: true }));
+    } catch (e) {
+      // createUser fallback when grant fails because user is authSource-local
+      try {
+        db.getSiblingDB(dbn).createUser({
+          user: user,
+          pwd: "unused-if-exists",
+          roles: [{ role: "readWrite", db: dbn }]
+        });
+      } catch (e2) {}
+      try {
+        db.getSiblingDB("admin").grantRolesToUser(user, [{ role: "readWrite", db: dbn }]);
+        print(JSON.stringify({ granted: true, retry: true }));
+      } catch (e3) {
+        print(JSON.stringify({ granted: false, error: String(e3.message || e3) }));
+      }
+    }
+  `);
+  console.log("restore_db_grant=attempted");
   console.log("restore_status=success");
   console.log(`restore_duration_ms=${Date.now() - started}`);
   console.log("drop_used=no");

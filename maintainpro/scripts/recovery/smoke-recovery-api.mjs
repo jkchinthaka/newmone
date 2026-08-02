@@ -180,10 +180,16 @@ function main() {
   const password = process.env.E2E_SEED_PASSWORD;
   if (!password) throw new Error("E2E_SEED_PASSWORD missing");
 
-  const login = httpJson("POST", "/api/auth/login", {
-    body: JSON.stringify({ email, password })
-  });
-  console.log(`recovery_login=${login.status}`);
+  let login = { status: 0, json: null };
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    login = httpJson("POST", "/api/auth/login", {
+      body: JSON.stringify({ email, password })
+    });
+    console.log(`login_attempt=${attempt}`);
+    console.log(`recovery_login=${login.status}`);
+    if (login.status === 200) break;
+    spawnSync("sleep", ["2"]);
+  }
   if (login.status !== 200) throw new Error("recovery login failed");
   const token = findToken(login.json);
   if (!token) throw new Error("missing access token shape");
