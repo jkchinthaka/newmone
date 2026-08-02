@@ -84,7 +84,7 @@ Setting `productionApproved: true` requires operator evidence: off-host encrypte
 
 ## Persistence decision (Phase 6A)
 
-Phase 6A uses **signed external / file-based manifests** for E2E recovery evidence (rtifacts/e2e-logs/recovery-rehearsal-summary.json and temporary work-dir manifests).
+Phase 6A uses **signed external / file-based manifests** for E2E recovery evidence (artifacts/e2e-logs/recovery-rehearsal-summary.json and temporary work-dir manifests).
 
 A Prisma `RecoveryEvidence` model was **not** added: the safe summary + readiness env metadata are sufficient for rehearsal and readiness separation without storing archive bytes or URIs in MongoDB.
 
