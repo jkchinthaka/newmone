@@ -19,12 +19,13 @@ function runNode(script, extraEnv = {}) {
     env: { ...process.env, ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"]
   });
+  const out = `${r.stdout || ""}${r.stderr || ""}`;
   process.stdout.write(r.stdout || "");
+  if (r.stderr) process.stdout.write(r.stderr);
   if (r.status !== 0) {
-    process.stderr.write((r.stderr || "").slice(0, 800));
     throw new Error(`${script} failed`);
   }
-  return r.stdout || "";
+  return out;
 }
 
 function main() {
@@ -45,12 +46,16 @@ function main() {
   mkdirSync(process.env.RECOVERY_WORK_DIR, { recursive: true });
 
   console.log("recovery_mode=e2e");
+  let smokeOut = "";
   runNode("validate-recovery-target.mjs");
   runNode("create-mongo-backup.mjs");
   runNode("verify-mongo-backup.mjs");
   runNode("restore-mongo-backup.mjs");
   runNode("verify-restored-data.mjs");
-  runNode("smoke-recovery-api.mjs");
+  smokeOut = runNode("smoke-recovery-api.mjs");
+  if (!/recovery_api_health=200/.test(smokeOut) || !/recovery_login=200/.test(smokeOut) || !/application_smoke_status=pass/.test(smokeOut)) {
+    throw new Error("recovery API smoke markers missing");
+  }
   runNode("create-object-backup.mjs");
   runNode("restore-object-backup.mjs");
   runNode("verify-object-backup.mjs");
@@ -65,7 +70,7 @@ function main() {
     corruption_rejected: "yes",
     restore_status: "success",
     collection_reconciliation: "pass",
-    application_smoke_status: "pass",
+    application_smoke_status: /application_smoke_status=pass/.test(smokeOut) ? "pass" : "fail",
     object_reconciliation: "pass",
     recovery_duration_seconds: durationSec,
     timing_label: "E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE",

@@ -81,6 +81,8 @@ function stopRecovery() {
 }
 
 async function main() {
+  // Ensure logs are visible even if the process is interrupted.
+
   const target = (process.env.RECOVERY_TARGET_DATABASE || "").trim();
   if (!target.startsWith("maintainpro_restore_")) throw new Error("invalid restore target");
 
@@ -126,6 +128,17 @@ async function main() {
     ])
   );
 
+  // Confirm detached container is running before health polling.
+  const ps = spawnSync("docker", ["inspect", "-f", "{{.State.Running}}", containerName], {
+    encoding: "utf8"
+  });
+  console.log(`recovery_container_running=${String(ps.stdout || "").trim() || "unknown"}`);
+  if (String(ps.stdout || "").trim() !== "true") {
+    const logs = spawnSync("docker", ["logs", "--tail", "40", containerName], { encoding: "utf8" });
+    const safe = `${logs.stdout || ""}${logs.stderr || ""}`.slice(0, 500).replace(/mongodb:\/\/[^\s]+/gi, "mongodb://REDACTED");
+    console.error(`recovery_container_logs=${safe}`);
+    throw new Error("recovery container not running");
+  }
   await waitHealth();
   console.log("recovery_api_health=200");
 
@@ -183,11 +196,16 @@ async function main() {
 
   stopRecovery();
   console.log("recovery_api_stopped=yes");
+  process.exitCode = 0;
 }
 
-main().catch((err) => {
-  console.error("application_smoke_status=fail");
-  console.error(`error=${String(err.message || err).slice(0, 250)}`);
-  stopRecovery();
-  process.exit(1);
-});
+main()
+  .then(() => {
+    if (process.exitCode === undefined) process.exitCode = 0;
+  })
+  .catch((err) => {
+    console.error("application_smoke_status=fail");
+    console.error(`error=${String(err.message || err).slice(0, 250)}`);
+    stopRecovery();
+    process.exit(1);
+  });
