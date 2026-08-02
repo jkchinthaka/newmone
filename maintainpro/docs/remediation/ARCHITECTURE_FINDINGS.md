@@ -285,10 +285,11 @@ Preserve Phase 5B/5C/5D evidence SHAs unchanged.
 - Startup is staged 1-11 so live comes before ready; queue reconcile gates ready when enabled.
 - Host reboot recovery is operator-owned on Linux/Docker and Windows Server; container restart evidence must not be labeled HOST_REBOOT_VALIDATED.
 - Docker json-file logging is local-only; rotation and retention need operator/management approval (G5.3).
-- Phase 6B status: SOURCE_IMPLEMENTED (contracts) pending runtime - not PRODUCTION_OPERATIONS_VALIDATED.
+- Phase 6B status: **OPERATIONS_RUNTIME_VALIDATED** — SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` / workflow `30737905003` — not PRODUCTION_OPERATIONS_VALIDATED.
 
 Preserve Phase 5B/5C/5D RUNTIME_VALIDATED and Phase 6A RECOVERY_RUNTIME_VALIDATED evidence SHAs unchanged:
 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601;
 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098;
 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386;
-6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667.
+6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667;
+6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003.

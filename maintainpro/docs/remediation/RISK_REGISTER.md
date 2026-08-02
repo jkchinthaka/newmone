@@ -170,14 +170,14 @@ Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Ph
 
 | Risk | Update |
 | --- | --- |
-| R-ops-01 Overloaded /api/health used for container restart | **MITIGATED (contract):** HEALTH_AND_READINESS_CONTRACT.md - container HC = /api/health/live; CI = /api/health/ready; avoids restart loops. Runtime align pending. |
-| R-ops-02 Missing request correlation across Nginx/BFF/API | **MITIGATED (contract):** REQUEST_CORRELATION_CONTRACT.md max 64 allowlist; Nginx generate when absent; not a metrics label |
-| R-ops-03 High-cardinality metrics / label explosion | **MITIGATED (contract):** OPERATIONAL_METRICS_CONTRACT.md forbidden labels list |
+| R-ops-01 Overloaded /api/health used for container restart | **MITIGATED (runtime):** HC = `/api/health/live`; CI = `/api/health/ready`; workflow `30737905003` |
+| R-ops-02 Missing request correlation across Nginx/BFF/API | **MITIGATED (runtime):** `request_correlation=pass`; max 64 allowlist |
+| R-ops-03 High-cardinality metrics / label explosion | **MITIGATED (runtime):** protected metrics; unauthorized without auth |
 | R-ops-04 No alert catalog / unapproved thresholds treated as SLO | **OPEN (process):** OPERATIONAL_ALERT_CATALOG.md marks all numbers PROVISIONAL; OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED |
-| R-ops-05 Redis queue loss after restart without reconcile | **MITIGATED (policy+contract):** Phase 6A Policy B + QUEUE_STARTUP_RECONCILIATION_CONTRACT.md; full reconciler remains P1 until runtime |
-| R-ops-06 Ungraceful kill drops in-flight work | **MITIGATED (contract):** GRACEFUL_SHUTDOWN_CONTRACT.md SIGTERM drain + bounded grace; idempotent handlers required |
+| R-ops-05 Redis queue loss after restart without reconcile | **MITIGATED (runtime):** Policy B reconciler; `redis_reconciled=yes` |
+| R-ops-06 Ungraceful kill drops in-flight work | **MITIGATED (runtime):** API restart pass; graceful shutdown hooks |
 | R-ops-07 Host reboot mistaken for container restart validation | **MITIGATED (runbook):** HOST_REBOOT_RECOVERY_RUNBOOK.md - OPERATOR_ACTION_REQUIRED; never HOST_REBOOT_VALIDATED from compose restart |
-| R-ops-08 Unbounded Docker json-file disk fill | **OPEN (operator):** LOG_RETENTION_AND_ACCESS_POLICY.md provisional rotation; G5.3 evidence pending |
-| R-ops-09 Premature PRODUCTION_OPERATIONS_VALIDATED claim | **MITIGATED (docs):** Explicit non-claim; RUNTIME_EVIDENCE.md not updated until runtime |
+| R-ops-08 Unbounded Docker json-file disk fill | **OPEN (operator):** LOG_RETENTION_AND_ACCESS_POLICY.md provisional rotation; G5.3 evidence pending (local max-size configured) |
+| R-ops-09 Premature PRODUCTION_OPERATIONS_VALIDATED claim | **MITIGATED (docs):** Explicit non-claim; status is OPERATIONS_RUNTIME_VALIDATED only |
 
-Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED.
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED; Phase 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.

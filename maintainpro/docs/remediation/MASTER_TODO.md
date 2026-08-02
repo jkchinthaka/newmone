@@ -666,7 +666,7 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Node-based API/Web healthchecks | SOURCE_VALIDATED (Phase 4B) |
 | Container healthcheck validator | SOURCE_VALIDATED |
 | Docker runtime on this agent | BLOCKED / OPERATOR_RUNTIME_VALIDATION_REQUIRED when engine down |
-| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`); Phase 6A **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`) |
+| Full-stack CI runtime | RUNTIME_VALIDATED through Phase 5D (`30719294386` / `5836bc3`); Phase 6A **RECOVERY_RUNTIME_VALIDATED** (`30735445667` / `baad8962`); Phase 6B **OPERATIONS_RUNTIME_VALIDATED** (`30737905003` / `dfcb136`) |
 | Live production login | NOT validated |
 
 | Playwright E2E env loader | SOURCE_VALIDATED (Phase 4B attempt 2) |
@@ -787,7 +787,9 @@ This file is a plan. Implementation begins only when explicitly authorized after
 
 ## Phase 6B - Observability and operational readiness
 
-**Status:** SOURCE_IMPLEMENTED (contracts/docs) - runtime pending; not PRODUCTION_OPERATIONS_VALIDATED
+**Status:** **OPERATIONS_RUNTIME_VALIDATED** (isolated CI only — not `PRODUCTION_OPERATIONS_VALIDATED`)
+**Exact tested application SHA:** `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`
+**Workflow run ID:** `30737905003`
 **Objective:** Detect failures before users report them; separate live/ready probes; correlation; low-cardinality metrics; provisional alerts; queue reconcile; graceful shutdown; startup stages; host reboot runbook; log retention.
 **Base evidence preserved:**
 - Phase 5B: fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601
@@ -798,38 +800,38 @@ This file is a plan. Implementation begins only when explicitly authorized after
 | Item | Status |
 | --- | --- |
 | OBSERVABILITY_AND_OPERATIONS_ARCHITECTURE.md | SOURCE_IMPLEMENTED |
-| HEALTH_AND_READINESS_CONTRACT.md | SOURCE_IMPLEMENTED (runtime endpoint align pending) |
-| REQUEST_CORRELATION_CONTRACT.md | SOURCE_IMPLEMENTED (max 64 align pending) |
-| OPERATIONAL_METRICS_CONTRACT.md | SOURCE_IMPLEMENTED |
+| HEALTH_AND_READINESS_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
+| REQUEST_CORRELATION_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
+| OPERATIONAL_METRICS_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (protected JSON) |
 | OPERATIONAL_ALERT_CATALOG.md | SOURCE_IMPLEMENTED / PROVISIONAL thresholds |
-| QUEUE_STARTUP_RECONCILIATION_CONTRACT.md | SOURCE_IMPLEMENTED (reconciler P1 until runtime) |
-| GRACEFUL_SHUTDOWN_CONTRACT.md | SOURCE_IMPLEMENTED |
-| STARTUP_AND_RESTART_CONTRACT.md | SOURCE_IMPLEMENTED |
+| QUEUE_STARTUP_RECONCILIATION_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (`redis_reconciled=yes`) |
+| GRACEFUL_SHUTDOWN_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED (API restart) |
+| STARTUP_AND_RESTART_CONTRACT.md | OPERATIONS_RUNTIME_VALIDATED |
 | HOST_REBOOT_RECOVERY_RUNBOOK.md | OPERATOR_ACTION_REQUIRED |
 | LOG_RETENTION_AND_ACCESS_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
-| E2E-OPS / E2E-FAIL / E2E-QUEUE runtime | PENDING - do not invent SHA |
-| FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 6B | NOT UPDATED (runtime pending) |
+| E2E-OPS / E2E-FAIL / E2E-QUEUE runtime | **OPERATIONS_RUNTIME_VALIDATED** — `dfcb136` / `30737905003` |
+| FULL_STACK_E2E_RUNTIME_EVIDENCE.md Phase 6B | UPDATED |
 | PRODUCTION_OPERATIONS_VALIDATED | NOT CLAIMED |
 | HOST_REBOOT_VALIDATED | NOT CLAIMED (operator-owned) |
 
 #### TODO-P6B-001 - Health live/ready split + probe policy
-- **Priority:** P0 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Priority:** P0 | **Status:** OPERATIONS_RUNTIME_VALIDATED
 - **Acceptance:** Container HC = /api/health/live; CI gate = /api/health/ready; readiness protected; legacy /api/health documented
 
 #### TODO-P6B-002 - Correlation max 64 + Nginx generate
-- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
 - **Acceptance:** Allowlist A-Za-z0-9._:-; propagate all paths; not a metrics label
 
 #### TODO-P6B-003 - Metrics + provisional alert catalog
-- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED (metrics); catalog thresholds remain PROVISIONAL
 - **Acceptance:** Low-cardinality catalog; forbidden labels; PROVISIONAL thresholds marked
 
 #### TODO-P6B-004 - Queue startup reconciliation (Policy B)
-- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract); implementation may remain P1
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
 - **Acceptance:** Idempotent stable job IDs; ready waits when enabled
 
 #### TODO-P6B-005 - Graceful shutdown + startup stages 1-11
-- **Priority:** P1 | **Status:** SOURCE_IMPLEMENTED (contract)
+- **Priority:** P1 | **Status:** OPERATIONS_RUNTIME_VALIDATED
 - **Acceptance:** SIGTERM drain order; bounded grace; staged live/ready
 
 #### TODO-P6B-006 - Host reboot drill (G5.2)
@@ -842,5 +844,5 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - **Acceptance:** json-file max-size/max-file; disk alert; access list OPERATOR_APPROVAL_REQUIRED
 
 #### TODO-P6B-008 - E2E operations gate runtime
-- **Priority:** P0 | **Status:** PENDING
-- **Acceptance:** E2E-OPS / E2E-FAIL / E2E-QUEUE pass; then append FULL_STACK_E2E_RUNTIME_EVIDENCE.md - do not invent SHA early
+- **Priority:** P0 | **Status:** OPERATIONS_RUNTIME_VALIDATED
+- **Acceptance:** Workflow `30737905003`; app SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd`; ops gate 11/0/0; rehearsal success; full suite 103/0/0

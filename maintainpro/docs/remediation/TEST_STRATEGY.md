@@ -268,7 +268,7 @@ Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Ph
 
 ## Phase 6B - operations gate recipe
 
-**Tag focus:** @ops-gate (when added) covering E2E-OPS / E2E-FAIL / E2E-QUEUE IDs.
+**Tag focus:** `@operations-gate` covering E2E-OPS IDs; exact-service rehearsal covers restart + Mongo/Redis/MinIO recovery.
 
 ### Execution order (disposable E2E stack)
 
@@ -282,17 +282,13 @@ Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Ph
 8. Assert detailed /api/health/readiness rejects unauthorized (403).
 9. Full Playwright suite; cleanup down --remove-orphans only.
 10. Do **not** claim HOST_REBOOT_VALIDATED or PRODUCTION_OPERATIONS_VALIDATED from this recipe.
-11. Do **not** append FULL_STACK_E2E_RUNTIME_EVIDENCE.md until a real workflow run succeeds - no invented SHA.
 
-### Contract / unit checks (as implemented)
+### Runtime evidence
 
-- Request ID allowlist max 64
-- Health live vs ready status codes
-- Queue stable job ID helper
-- Shutdown hook ordering smoke (unit)
+**Runtime:** `OPERATIONS_RUNTIME_VALIDATED` — SHA `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` / workflow `30737905003` / ops gate 11/0/0 / full suite 103/0/0 / `volumes_removed=no` / `real_notifications_sent=no`.
 
 ### Threshold / retention notes
 
 Alert numbers and log retention remain PROVISIONAL / OPERATOR_APPROVAL_REQUIRED / MANAGEMENT_APPROVAL_REQUIRED.
 
-Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED.
+Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / 30715842098; Phase 5D 5836bc330cc03e7a3f658ed9cee5f334649f3091 / 30719294386; Phase 6A baad89621c87ddd4b840bb9c77cb20efcb1b79b6 / 30735445667 RECOVERY_RUNTIME_VALIDATED; Phase 6B dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd / 30737905003 OPERATIONS_RUNTIME_VALIDATED.
