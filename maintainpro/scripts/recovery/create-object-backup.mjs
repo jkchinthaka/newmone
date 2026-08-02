@@ -3,7 +3,7 @@
  * Disposable MinIO object backup using mc inside compose network.
  * Never prints access keys or signed URLs. Never deletes buckets.
  */
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -27,15 +27,32 @@ function composeBase() {
   ];
 }
 
-function run(args) {
-  const r = spawnSync("docker", args, {
-    cwd: root,
-    encoding: "utf8",
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"]
-  });
+function mcRun(script) {
+  const r = spawnSync(
+    "docker",
+    [
+      ...composeBase(),
+      "run",
+      "--rm",
+      "--no-deps",
+      "-e",
+      `MINIO_ACCESS_KEY=${process.env.MINIO_ACCESS_KEY || "minioadmin"}`,
+      "-e",
+      `MINIO_SECRET_KEY=${process.env.MINIO_SECRET_KEY || "minioadmin123"}`,
+      "--entrypoint",
+      "/bin/sh",
+      "minio-init",
+      "-c",
+      script
+    ],
+    { cwd: root, encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "pipe"] }
+  );
   if (r.status !== 0) {
-    throw new Error((r.stderr || r.stdout || "").slice(0, 400).replace(/(key|secret|password)=[^\s]+/gi, "$1=REDACTED"));
+    throw new Error(
+      (r.stderr || r.stdout || "")
+        .slice(0, 400)
+        .replace(/(key|secret|password)=[^\s]+/gi, "$1=REDACTED")
+    );
   }
   return r.stdout || "";
 }
@@ -44,9 +61,7 @@ function main() {
   const runId = process.env.E2E_RUN_ID;
   const sourceBucket = (process.env.RECOVERY_SOURCE_BUCKET || `maintainpro-e2e-files-${runId}`).trim();
   const restoreBucket = (process.env.RECOVERY_RESTORE_BUCKET || `maintainpro-e2e-restore-${runId}`).trim();
-  if (!sourceBucket.includes(runId) && !sourceBucket.includes("e2e")) {
-    throw new Error("source bucket must be E2E-scoped");
-  }
+  if (!sourceBucket.includes("e2e")) throw new Error("source bucket must be E2E-scoped");
   if (sourceBucket === restoreBucket) throw new Error("source and restore buckets must differ");
   if (/prod|production/i.test(sourceBucket) || /prod|production/i.test(restoreBucket)) {
     throw new Error("production-like bucket rejected");
@@ -64,40 +79,31 @@ function main() {
   if (!guard.ok) process.exit(1);
 
   const workDir =
-    process.env.RECOVERY_WORK_DIR ||
-    path.join(root, "artifacts", "recovery-tmp", runId || "local");
+    process.env.RECOVERY_WORK_DIR || path.join(root, "artifacts", "recovery-tmp", runId || "local");
   mkdirSync(workDir, { recursive: true });
 
-  // Seed a tiny safe fixture via mc pipe (text only; no executables).
   const fixtureKey = `recovery/${runId}/fixture.txt`;
-  const fixtureBody = `maintainpro-e2e-recovery-fixture:${runId}\n`;
-  const fixtureHash = createHash("sha256").update(fixtureBody).digest("hex");
+  const fixtureBody = `maintainpro-e2e-recovery-fixture:${runId}`;
+  const b64 = Buffer.from(fixtureBody, "utf8").toString("base64");
 
-  const mcScript = `
-set -e
-mc alias set local http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null
-mc mb -p "local/${sourceBucket}" >/dev/null || true
-printf %s ${JSON.stringify(fixtureBody)} | mc pipe "local/${sourceBucket}/${fixtureKey}" >/dev/null
-mc ls --recursive "local/${sourceBucket}" >/tmp/objlist.txt
-wc -l </tmp/objlist.txt
-`;
+  mcRun(
+    [
+      "set -e",
+      'mc alias set local http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null',
+      `mc mb -p "local/${sourceBucket}" >/dev/null || true`,
+      `echo '${b64}' | base64 -d | mc pipe "local/${sourceBucket}/${fixtureKey}" >/dev/null`
+    ].join("\n")
+  );
 
-  // Use minio-init image (mc) against the running network.
-  const out = run([
-    ...composeBase(),
-    "run",
-    "--rm",
-    "--no-deps",
-    "-e",
-    `MINIO_ACCESS_KEY=${process.env.MINIO_ACCESS_KEY || "minioadmin"}`,
-    "-e",
-    `MINIO_SECRET_KEY=${process.env.MINIO_SECRET_KEY || "minioadmin123"}`,
-    "--entrypoint",
-    "/bin/sh",
-    "minio-init",
-    "-c",
-    mcScript
-  ]);
+  // Authoritative checksum is whatever MinIO stored (round-trip).
+  const stored = mcRun(
+    [
+      "set -e",
+      'mc alias set local http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null',
+      `mc cat "local/${sourceBucket}/${fixtureKey}"`
+    ].join("\n")
+  );
+  const fixtureHash = createHash("sha256").update(stored).digest("hex");
 
   const objectManifest = {
     schemaVersion: "1.0",
@@ -109,7 +115,7 @@ wc -l </tmp/objlist.txt
     objects: [
       {
         key: fixtureKey,
-        size: Buffer.byteLength(fixtureBody),
+        size: Buffer.byteLength(stored),
         checksum: fixtureHash
       }
     ],

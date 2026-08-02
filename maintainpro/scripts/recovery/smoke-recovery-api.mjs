@@ -48,7 +48,7 @@ async function waitHealth(timeoutMs = 120000) {
     } catch {
       /* retry */
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    if ((Date.now() - start) % 15000 < 2100) console.log("waiting_recovery_api=yes"); await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error("recovery_api_health_timeout");
 }
