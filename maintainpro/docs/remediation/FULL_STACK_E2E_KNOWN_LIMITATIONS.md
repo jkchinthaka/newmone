@@ -190,3 +190,5 @@ Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
 **Root cause:** No Next.js middleware auth redirect. After logout, dashboard client layout calls `router.replace("/login?reason=session_expired")`. Playwright `page.goto("/work-orders")` can observe `net::ERR_ABORTED` when that client redirect cancels the in-flight document navigation (more visible on mobile-smoke).
 **Fix:** Deterministic helper `navigateToProtectedRouteAndExpectLogin` waits for `/login` before/during navigation, accepts only expected `ERR_ABORTED`, asserts login UI visible and work-order content absent. Focused CI gate: E2E-AUTH-012 on chromium-desktop + mobile-smoke, `--retries=0 --repeat-each=10`.
 **Recommendation:** remains DELAYED. Phase 8 not started.
+
+**Runtime status:** RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED on workflow `30740626683` / SHA `5e3c470f3d7bc2fa15d84252db6492b7c4b65522`. Focused AUTH-012 gate 20/0/0 retries=0; full suite 103/0/0/0 flaky. Recommendation remains DELAYED.

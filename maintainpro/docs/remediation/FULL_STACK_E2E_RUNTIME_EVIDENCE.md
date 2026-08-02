@@ -513,3 +513,41 @@ Evidence-document commits after `205d2d23825ff0959310b3a6735b58dff88f1858` are d
 9. Phase 8 deployment approval absent
 
 Evidence-document commits after `95cd576cab29482e1b6e307053290aced62d33de` are documentation-only unless labeled otherwise.
+
+## Phase 7A — release candidate test stability
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30740626683` |
+| Branch | `fix/phase7a-release-candidate-stability` |
+| Exact tested application SHA | `5e3c470f3d7bc2fa15d84252db6492b7c4b65522` |
+| Workflow conclusion | **success** |
+| Technical runtime status | **RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED** |
+| Focused gate (E2E-AUTH-012) | 20 passed (10 chromium-desktop + 10 mobile-smoke) / 0 failed / 0 skipped |
+| Focused retries | **0** |
+| Full Playwright suite | 103 passed / 0 failed / 0 skipped / 0 flaky |
+| Recommendation | **DELAYED** (unchanged) |
+| Phase 8 | **not executed** |
+| Cleanup | `docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml down --remove-orphans` |
+| Volumes removed | **no** |
+| Artifact security | no password/token/cookie/CSRF/Authorization/DB URI values observed in uploaded evidence |
+| Production deployment | **no** |
+
+### Root cause (confirmed)
+
+Client-side dashboard session redirect (`router.replace("/login?reason=session_expired")` in `app/(dashboard)/layout.tsx`) can abort Playwright `page.goto("/work-orders")` after logout, producing `net::ERR_ABORTED` (especially mobile-smoke). Not a middleware/auth product defect.
+
+### Remaining operator/human blockers (unchanged)
+
+1. FORMAL_UAT_PENDING
+2. FORMAL_TRAINING_PENDING
+3. MANAGEMENT_SIGNOFF_PENDING
+4. PORT_OWNER_DECISION_REQUIRED
+5. Production HTTPS evidence pending
+6. Production off-host backup drill pending
+7. Production permission apply pending
+8. Mongo root rotation OPERATOR_OWNED_P0
+9. Phase 8 approval absent
+
+Evidence-document commits after `5e3c470f3d7bc2fa15d84252db6492b7c4b65522` are documentation-only unless labeled otherwise.
