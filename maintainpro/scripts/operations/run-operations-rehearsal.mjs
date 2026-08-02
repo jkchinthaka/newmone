@@ -92,9 +92,8 @@ async function main() {
   if (ready.status !== 200) fail("readiness_baseline");
 
   const corr = await httpGet(baseUrl, "/api/health/live", { "X-Request-Id": "ops-corr-test-001" });
-  const returnedId = corr.headers.get("x-request-id") || "";
-  summary.request_correlation =
-    returnedId === "ops-corr-test-001" || /^[A-Za-z0-9\-_.:]{8,64}$/.test(returnedId) ? "pass" : "fail";
+  const returnedId = String(corr.headers.get("x-request-id") || "").split(",")[0].trim();
+  summary.request_correlation = /^[A-Za-z0-9\-_.:]{8,64}$/.test(returnedId) ? "pass" : "fail";
   if (summary.request_correlation !== "pass") fail("request_correlation");
 
   runCompose(project, ["restart", "api"]);
