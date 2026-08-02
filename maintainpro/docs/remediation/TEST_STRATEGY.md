@@ -295,9 +295,16 @@ Preserve Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / 30712469601; Phase 
 
 ## Phase 6C - production security hardening
 
-**Status:** SOURCE_IMPLEMENTED — runtime pending; not PRODUCTION_SECURITY_VALIDATED.
+**Status:** **SECURITY_RUNTIME_VALIDATED** (fixture/CI only — not PRODUCTION_SECURITY_VALIDATED). Workflow `30738838804` / SHA `205d2d23825ff0959310b3a6735b58dff88f1858`.
 **Prerequisite:** Phase 6B OPERATIONS_RUNTIME_VALIDATED (`dfcb136` / `30737905003`).
 **Port owner:** PORT_OWNER_DECISION_REQUIRED.
 **Mongo root rotation:** OPERATOR_OWNED_P0 — never auto-rotated.
 
 Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
+
+## Phase 7 - UAT / training / rollback / go-live decision
+
+**Status:** SOURCE_IMPLEMENTED — awaiting CI `UAT_CONTROL_RUNTIME_VALIDATED`.
+**Base:** Phase 6C evidence tip `1a435c71c58c22e195c4c2199e48812bf4cd5b81` / SECURITY_RUNTIME_VALIDATED.
+**Expected CI recommendation:** DELAYED (no formal UAT/training/HTTPS/port-owner/management sign-offs in CI).
+**Phase 8:** not executed.

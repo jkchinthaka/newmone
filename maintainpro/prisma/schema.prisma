@@ -81,6 +81,7 @@ model Tenant {
   goLiveDecisions              GoLiveDecision[]
   rollbackPlans                RollbackPlan[]
   goLiveSignOffs               GoLiveSignOff[]
+  uatScenarioExecutions        UatScenarioExecution[]
   erpFieldMappings             ErpFieldMapping[]
   erpImportBatches             ErpImportBatch[]
   erpReconciliationMismatches  ErpReconciliationMismatch[]
@@ -4148,6 +4149,29 @@ enum GoLiveDecisionOption {
   ROLLBACK_REQUIRED
 }
 
+/// Phase 7 decision stage separation (additive; historical GO maps to PRE_CUTOVER semantics).
+enum GoLiveDecisionStage {
+  READINESS_REVIEW
+  PRE_CUTOVER_DECISION
+  POST_DEPLOYMENT_ACCEPTANCE
+  ROLLBACK_DECISION
+}
+
+enum UatEvidenceClass {
+  SYNTHETIC
+  CONTROLLED_REHEARSAL
+  FORMAL_BUSINESS_UAT
+}
+
+enum UatScenarioOutcome {
+  NOT_RUN
+  PASS
+  FAIL
+  BLOCKED
+  ACCEPTED_RISK
+  NOT_APPLICABLE
+}
+
 enum RollbackTestedStatus {
   NOT_TESTED
   PARTIALLY_TESTED
@@ -4246,6 +4270,11 @@ model GoLiveDecision {
   tenantId              String?              @db.ObjectId
   tenant                Tenant?              @relation(fields: [tenantId], references: [id])
   decision              GoLiveDecisionOption
+  /// PRE_CUTOVER_DECISION is the Phase 7 default; POST_DEPLOYMENT_ACCEPTANCE is Phase 8 only.
+  decisionStage         GoLiveDecisionStage  @default(PRE_CUTOVER_DECISION)
+  /// Exact application commit this decision binds to (stale SHA invalidates readiness).
+  applicationCommitSha  String?
+  evidenceClass         UatEvidenceClass     @default(SYNTHETIC)
   reason                String?
   criteriaSnapshot      Json?
   recordedByUserId      String               @db.ObjectId
@@ -4260,6 +4289,7 @@ model GoLiveDecision {
   createdAt             DateTime             @default(now())
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, decisionStage])
 }
 
 model RollbackPlan {
@@ -4287,22 +4317,54 @@ model RollbackPlan {
 }
 
 model GoLiveSignOff {
-  id              String                @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?               @db.ObjectId
-  tenant          Tenant?               @relation(fields: [tenantId], references: [id])
-  signOffRole     String
-  signedByUserId  String                @db.ObjectId
-  decision        GoLiveSignOffDecision @default(PENDING)
-  comments        String?
-  acceptedRisks   String?
-  signedAt        DateTime?
-  revokedAt       DateTime?
-  revokeReason    String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?               @db.ObjectId
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id])
+  signOffRole          String
+  signedByUserId       String                @db.ObjectId
+  decision             GoLiveSignOffDecision @default(PENDING)
+  comments             String?
+  acceptedRisks        String?
+  applicationCommitSha String?
+  evidenceClass        UatEvidenceClass      @default(SYNTHETIC)
+  signedAt             DateTime?
+  revokedAt            DateTime?
+  revokeReason         String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@index([tenantId, signOffRole])
   @@index([tenantId, decision])
+  @@index([tenantId, applicationCommitSha])
+}
+
+/// Formal / synthetic UAT scenario execution evidence (Phase 7).
+model UatScenarioExecution {
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?            @db.ObjectId
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id])
+  scenarioId        String
+  executionId       String
+  testerId          String?            @db.ObjectId
+  roleTested        String?
+  environment       String?
+  applicationCommit String?
+  executedAt        DateTime           @default(now())
+  outcome           UatScenarioOutcome @default(NOT_RUN)
+  actualResult      String?
+  evidenceReference String?
+  defectId          String?
+  retestOf          String?
+  evidenceClass     UatEvidenceClass   @default(SYNTHETIC)
+  signedAt          DateTime?
+  comments          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([tenantId, scenarioId])
+  @@index([tenantId, evidenceClass])
+  @@index([tenantId, outcome])
+  @@unique([tenantId, executionId])
 }
 
 /// Bileeta ERP integration readiness (UAT-029).

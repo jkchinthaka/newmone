@@ -80,6 +80,14 @@ jobs:
           mkdir -p artifacts/e2e-logs
           npm run security:production-gate | tee artifacts/e2e-logs/production-security-gate.txt
 
+      - name: UAT / training / rollback / go-live decision gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          npm run uat:go-live-gate | tee artifacts/e2e-logs/uat-go-live-gate.txt
+          export ROLLBACK_REHEARSAL=true
+          npm run uat:rollback-rehearsal | tee artifacts/e2e-logs/rollback-rehearsal-gate.txt
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
