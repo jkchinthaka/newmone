@@ -37,9 +37,12 @@ test.describe.serial("E2E operations controls @operations-gate", () => {
       headers: { "X-Request-Id": reqId }
     });
     expect(res.status()).toBe(200);
-    const returned = res.headers()["x-request-id"] || "";
+    const raw = res.headers()["x-request-id"];
+    const returned = String(Array.isArray(raw) ? raw[0] : raw || "")
+      .split(",")[0]
+      .trim();
     expect(returned.length).toBeGreaterThan(0);
-    expect(returned === reqId || /^[A-Za-z0-9\-_.:]{8,64}$/.test(returned)).toBeTruthy();
+    expect(/^[A-Za-z0-9\-_.:]{8,64}$/.test(returned)).toBeTruthy();
   });
 
   test("E2E-OPS-006 invalid request id does not crash", async ({ page }) => {
@@ -47,7 +50,10 @@ test.describe.serial("E2E operations controls @operations-gate", () => {
       headers: { "X-Request-Id": "bad id with spaces !!!" }
     });
     expect(res.status()).toBe(200);
-    const returned = res.headers()["x-request-id"] || "";
+    const rawInvalid = res.headers()["x-request-id"];
+    const returned = String(Array.isArray(rawInvalid) ? rawInvalid[0] : rawInvalid || "")
+      .split(",")[0]
+      .trim();
     expect(returned.length).toBeGreaterThan(0);
     expect(returned).not.toContain(" ");
   });
