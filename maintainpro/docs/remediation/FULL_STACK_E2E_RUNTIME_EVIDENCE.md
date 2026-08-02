@@ -464,3 +464,52 @@ Evidence-document commits after `dfcb136edf1ca6ecf8aff94fe892418c0d40d0cd` are d
 6. Do **not** treat as production go-live readiness.
 
 Evidence-document commits after `205d2d23825ff0959310b3a6735b58dff88f1858` are documentation-only unless labeled otherwise.
+
+## Phase 7 — UAT / training / rollback / go-live decision controls
+
+| Field | Value |
+| --- | --- |
+| Workflow name | Full-Stack E2E |
+| Workflow run ID | `30739452422` |
+| Branch | `test/phase7-uat-go-live-decision` |
+| Exact tested application SHA | `95cd576cab29482e1b6e307053290aced62d33de` |
+| Workflow conclusion | **success** |
+| Technical runtime status | **UAT_CONTROL_RUNTIME_VALIDATED** |
+| Formal business UAT | **FORMAL_UAT_PENDING** |
+| Formal training | **FORMAL_TRAINING_PENDING** |
+| Management sign-off | **MANAGEMENT_SIGNOFF_PENDING** |
+| Recommendation | **DELAYED** |
+| Human decision | **PENDING_AUTHORIZED_HUMAN_DECISION** |
+| Phase 8 | **not executed** |
+| Volumes removed | **no** |
+| Production deployment | **no** |
+
+### UAT control gate
+
+| Check | Result |
+| --- | --- |
+| uat_mechanics | pass |
+| synthetic_excluded_from_formal | yes |
+| training_mechanics | pass |
+| rollback_rehearsal | pass (`ROLLBACK_REHEARSAL_VALIDATED`) |
+| signoff_authorization | pass |
+| recommended_decision | **DELAYED** |
+| uat_control_gate_status | **success** |
+
+### Full suite
+
+| Totals | 103 passed / 0 failed / 0 skipped |
+
+### Exact blockers preventing GO_FOR_CUTOVER
+
+1. Formal business UAT incomplete
+2. Formal training attendance/competency incomplete
+3. PORT_OWNER_DECISION_REQUIRED
+4. Production HTTPS certificate evidence missing
+5. Production off-host backup/restore drill missing
+6. Production permission migration apply pending (dry-run only in CI)
+7. Mongo root rotation still OPERATOR_OWNED_P0
+8. Management sign-offs not completed by authorized humans
+9. Phase 8 deployment approval absent
+
+Evidence-document commits after `95cd576cab29482e1b6e307053290aced62d33de` are documentation-only unless labeled otherwise.

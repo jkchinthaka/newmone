@@ -305,7 +305,7 @@ Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
 
 ## Phase 7 - UAT / training / rollback / go-live decision
 
-**Status:** SOURCE_IMPLEMENTED — awaiting CI `UAT_CONTROL_RUNTIME_VALIDATED`.
+**Status:** **UAT_CONTROL_RUNTIME_VALIDATED** — workflow `30739452422` / SHA `95cd576cab29482e1b6e307053290aced62d33de`. Recommendation: DELAYED.
 **Base:** Phase 6C evidence tip `1a435c71c58c22e195c4c2199e48812bf4cd5b81` / SECURITY_RUNTIME_VALIDATED.
 **Expected CI recommendation:** DELAYED (no formal UAT/training/HTTPS/port-owner/management sign-offs in CI).
 **Phase 8:** not executed.
