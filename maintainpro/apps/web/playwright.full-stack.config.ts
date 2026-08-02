@@ -56,7 +56,7 @@ export default defineConfig({
       // Focused CI gates only — excluded from full-suite project list.
       name: "chromium-gate",
       use: { ...devices["Desktop Chrome"] },
-      grep: /@wo-lifecycle-gate|@inventory-gate|@procurement-gate|@management-info-gate/
+      grep: /@wo-lifecycle-gate|@inventory-gate|@procurement-gate|@management-info-gate|@operations-gate/
     },
     {
       name: "mobile-smoke",
