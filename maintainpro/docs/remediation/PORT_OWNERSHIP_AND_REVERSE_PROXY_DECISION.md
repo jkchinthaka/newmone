@@ -24,3 +24,15 @@ Until an operator formally selects OPTION A or OPTION B, production readiness re
 - Fixture `EDGE_PROXY_OWNER=UNDECIDED` until decision.
 - Reject simultaneous IIS+Nginx public ownership claims.
 - Do not auto-select.
+
+## Phase 7B Nelna reconciliation
+
+For the **Nelna Windows Server MaintainPro** deployment scope, port ownership is recorded as:
+
+- `PORT_OWNER_DECISION=NGINX`
+- `PORT_OWNER_STATUS=CONFIRMED`
+- `PUBLIC_HTTP_PORT=80`
+
+Evidence pack: `docs/production/PHASE7B_NELNA_READINESS_RECONCILIATION.md`.
+
+This does not authorize Phase 8. HTTP-only approval remains `HTTP_ONLY_APPROVAL_PENDING`. Recommendation remains **DELAYED**.
