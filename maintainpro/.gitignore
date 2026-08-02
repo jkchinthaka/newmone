@@ -77,3 +77,6 @@ artifacts/deployment-evidence*.json
 .tmp-e2e-artifacts/
 .tmp-e2e-env-tests/
 .tmp-e2e-nl-tests/
+
+artifacts/recovery-tmp/
+*.archive.gz

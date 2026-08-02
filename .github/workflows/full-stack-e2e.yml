@@ -68,6 +68,9 @@ jobs:
       - name: Dashboard report controls validation
         run: npm run validate:e2e-dashboard-report-controls
 
+      - name: Recovery safety validation
+        run: npm run validate:recovery-safety
+
       - name: Prepare disposable E2E env file
         run: |
           export APP_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -222,6 +225,19 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
+      - name: Backup / restore / disaster-recovery rehearsal gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export RECOVERY_REHEARSAL=true
+          export RECOVERY_MONGO_HOST=mongo
+          export RECOVERY_SOURCE_DATABASE="${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}"
+          export RECOVERY_TARGET_DATABASE="maintainpro_restore_${E2E_RUN_ID//[^a-zA-Z0-9_]/_}"
+          export RECOVERY_WORK_DIR="$PWD/artifacts/recovery-tmp/$E2E_RUN_ID"
+          node scripts/recovery/run-recovery-rehearsal.mjs | tee artifacts/e2e-logs/recovery-rehearsal-gate.txt
+        env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Management information gate
         run: |
           set -euo pipefail
@@ -292,4 +308,5 @@ jobs:
             maintainpro/apps/web/e2e-real-results/**
             maintainpro/artifacts/e2e-evidence-manifest.json
             maintainpro/artifacts/e2e-logs/**
+            !maintainpro/artifacts/recovery-tmp/**
           if-no-files-found: warn

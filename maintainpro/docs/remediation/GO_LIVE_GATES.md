@@ -192,3 +192,13 @@ Management information / dashboard / reports / audit / export controls.
 - Cleanup: `down --remove-orphans` only
 
 Phase 5D alone does **not** authorize production go-live.
+
+## Phase 6A — recovery rehearsal gate
+
+| Gate | Status | Notes |
+| --- | --- | --- |
+| G5.1 Backup + restore drill | **PENDING RUNTIME** | Requires operator off-host Mongo backup + counted restore; Phase 6A E2E rehearsal is mechanics-only |
+| G5.1 E2E recovery gate | **CONTRACT_DEFINED** | DR-E2E-001..025; must pass with failed=0, mandatory skipped=0 before RECOVERY_RUNTIME_VALIDATED |
+| Replication vs backup | **CONTRACT_DEFINED** | Replication health must not satisfy G5.1 alone |
+
+Phase 6A does **not** approve production go-live. Preserve Phase 5B/5C/5D RUNTIME_VALIDATED SHAs.

@@ -133,3 +133,16 @@ Inventory keeper list/issue controls validated on workflow `30698756592` (app SH
 - Production permission migration for granular `reports.*` keys is operator-owned.
 - Receipt reversal, production PO uniqueness migration, and live production login remain out of scope.
 - Cleanup remains `docker compose ... down --remove-orphans` only (volumes preserved).
+
+## Phase 6A — disaster recovery limitations
+
+1. Phase 6A E2E recovery rehearsal does **not** prove production disaster recovery, off-host backup, or Atlas PITR.
+2. E2E recovery durations are **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not approved business RTO (`MANAGEMENT_APPROVAL_REQUIRED`).
+3. Proposed RPO/RTO in `RPO_RTO_POLICY.md` remain **PROVISIONAL** until management approval — do not cite as compliance.
+4. MongoDB root credential rotation is **OPERATOR_OWNED_P0** — not executed in Phase 6A.
+5. Replication to backup DB is **not** a substitute for independent backup (`SAME_FAILURE_DOMAIN` in default Compose).
+6. Redis queue full startup reconciler (Policy B) may remain **P1 OPERATIONAL_BLOCKER** — policy documented, implementation may be incomplete.
+7. Raw Mongo archives and MinIO objects are **never** uploaded as CI artifacts; safe manifests only.
+8. `productionApproved: false` on all E2E backup manifests.
+
+Preserve Phase 5B/5C/5D RUNTIME_VALIDATED evidence unchanged.

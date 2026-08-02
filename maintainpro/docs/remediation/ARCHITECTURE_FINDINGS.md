@@ -263,3 +263,12 @@ PurchaseReceipt models added. PO creator + maker-checker enforced. ERP payloads 
 - Phase 5B: `fe3b3992d883d33c916b3595769add2c4db8878a` / workflow `30712469601`
 - Phase 5C: `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / workflow `30715842098`
 - Phase 5D runtime SHA: record only after gate success
+
+## Phase 6A — backup versus replication
+
+- **Replication** (`ReplicationOutbox` → backup DB) is a near-current secondary copy, often **SAME_FAILURE_DOMAIN** as primary in Compose (one `mongo` service/volume).
+- **Backup** requires off-host encrypted archive, SHA-256 manifest, and tested restore to a **fresh** database namespace.
+- E2E rehearsal (`maintainpro_e2e_*` → `maintainpro_restore_*`) validates mechanics only — not production DR or approved RPO/RTO.
+- Readiness must keep `replicationStatus` and `backupRestoreTestStatus` separate.
+
+Preserve Phase 5B/5C/5D evidence SHAs unchanged.

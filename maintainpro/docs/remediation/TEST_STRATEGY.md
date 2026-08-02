@@ -237,3 +237,29 @@ Assertions of record:
 Preserve Phase 5B/5C evidence SHAs; do not invent Phase 5D runtime SHA early.
 
 Authoritative evidence to preserve: Phase 5B fe3b3992d883d33c916b3595769add2c4db8878a / workflow 30712469601; Phase 5C 512745d678a4be6b0d0a62f2400763ff9fd4ec08 / workflow 30715842098.
+
+## Phase 6A — recovery gate recipe
+
+**Tag:** `@recovery-gate` (focused) + DR-E2E / DR-INTEGRITY / DR-OBJECT IDs in Full-Stack workflow.
+
+### Execution order (after seed, alongside existing gates)
+
+1. `npm run validate:recovery-safety`
+2. `node scripts/recovery/validate-recovery-target.mjs` (DR-E2E-001)
+3. Create Mongo backup → manifest → checksum (DR-E2E-002..004)
+4. Corruption rejection on copied archive (DR-E2E-005, DR-INTEGRITY-*)
+5. Restore to fresh `maintainpro_restore_*` without drop (DR-E2E-006..009)
+6. Boot temporary recovery API — health, login, WO/inventory/PO/dashboard reads (DR-E2E-010..015)
+7. Object backup/restore reconcile (DR-E2E-016..017, DR-OBJECT-*)
+8. Assert replication ≠ backup in readiness (DR-E2E-018)
+9. Full Playwright suite; cleanup `down --remove-orphans` only (DR-E2E-020)
+
+### Contract tests
+
+`npm run test:backup-manifest-contract`, `test:mongo-restore-contract`, `test:object-recovery-contract`, `test:recovery-readiness-contract`, `test:recovery-safety-contract`
+
+### Timing evidence
+
+Label all recovery durations **E2E_SMOKE_ONLY_NOT_CAPACITY_EVIDENCE** — not approved RTO.
+
+Preserve Phase 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; Phase 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`.

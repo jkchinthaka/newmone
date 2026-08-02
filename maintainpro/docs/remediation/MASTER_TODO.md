@@ -740,3 +740,44 @@ This file is a plan. Implementation begins only when explicitly authorized after
 - Flutter GRN client: OPERATOR_ACTION_REQUIRED (stop PATCH RECEIVED)
 - Real Bileeta ERP writes
 - Production deploy / Mongo root rotation / live production login
+
+## Phase 6A — Backup, restore, and disaster recovery
+
+**Status:** **SOURCE_IMPLEMENTED** — runtime pending Full-Stack E2E recovery gate  
+**Branch target:** `fix/phase6a-backup-restore-recovery`  
+**Base after Phase 5D:** application SHA `5836bc330cc03e7a3f658ed9cee5f334649f3091` / workflow `30719294386`
+
+**Objective:** Define and verify safe recovery mechanics on disposable E2E data only — not production DR.
+
+| Item | Status |
+| --- | --- |
+| BACKUP_AND_RECOVERY_ARCHITECTURE.md | CONTRACT_DEFINED |
+| RPO_RTO_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| REPLICATION_AND_BACKUP_SEPARATION.md | CONTRACT_DEFINED |
+| BACKUP_MANIFEST_CONTRACT.md | CONTRACT_DEFINED (schemaVersion 1.0) |
+| REDIS_QUEUE_RECOVERY_POLICY.md | CONTRACT_DEFINED (Policy B; reconciler P1) |
+| SECRET_AND_CONFIGURATION_RECOVERY.md | CONTRACT_DEFINED |
+| BACKUP_RETENTION_POLICY.md | PROVISIONAL / MANAGEMENT_APPROVAL_REQUIRED |
+| DISASTER_RECOVERY_RUNBOOK.md | CONTRACT_DEFINED |
+| DISASTER_RECOVERY_TEST_MATRIX.md | CONTRACT_DEFINED |
+| Recovery safety guard + validator | SOURCE_VALIDATED |
+| Mongo backup/restore scripts | SOURCE_IMPLEMENTED |
+| Object backup/restore scripts | SOURCE_IMPLEMENTED |
+| Deployment readiness backup≠replication | SOURCE_IMPLEMENTED |
+| E2E recovery gate runtime | **PENDING** — not RECOVERY_RUNTIME_VALIDATED |
+| G5.1 production backup drill | OPERATOR_ACTION_REQUIRED |
+
+#### TODO-P6A-001 — Recovery contracts and separation
+- **Priority:** P0 | **Status:** IN_PROGRESS (docs CONTRACT_DEFINED)
+- **Acceptance:** Replication ≠ backup documented; never label replication alone BACKUP_VALIDATED
+
+#### TODO-P6A-002 — E2E recovery rehearsal gate
+- **Priority:** P0 | **Status:** IN_PROGRESS
+- **Acceptance:** DR-E2E-001..025 mandatory skipped=0; DR-INTEGRITY/OBJECT suites pass
+
+#### TODO-P6A-003 — Operator off-host backup + G5.1
+- **Priority:** P1 | **Owner:** Ops (**OPERATOR**)
+- **Status:** NOT_STARTED
+- **Acceptance:** Off-host encrypted backup + counted restore; MANAGEMENT_APPROVAL_REQUIRED retention
+
+**Preserve Phase 5 evidence:** 5B `fe3b3992d883d33c916b3595769add2c4db8878a` / `30712469601`; 5C `512745d678a4be6b0d0a62f2400763ff9fd4ec08` / `30715842098`; 5D `5836bc330cc03e7a3f658ed9cee5f334649f3091` / `30719294386`.
