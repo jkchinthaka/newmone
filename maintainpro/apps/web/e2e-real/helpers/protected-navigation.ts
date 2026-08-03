@@ -1,33 +1,51 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Post-logout protected navigation is a client-side redirect race, not middleware.
- * Dashboard layout (app/(dashboard)/layout.tsx) calls router.replace("/login?...")
- * when the session is expired. Playwright page.goto("/work-orders") can therefore
- * observe net::ERR_ABORTED when that client redirect cancels the document load,
- * especially under mobile-smoke. Treat ERR_ABORTED as acceptable only when the
- * final URL is the login page; re-throw every other failure.
+ * Verify that a logged-out browser cannot keep a protected page open.
+ *
+ * The dashboard shell performs a client-side redirect to /login. That redirect
+ * can cancel the original page.goto() request, so ERR_ABORTED/frame-detached
+ * errors are acceptable only while the browser is settling on the login page.
  */
 export async function navigateToProtectedRouteAndExpectLogin(
   page: Page,
   protectedPath = "/work-orders"
 ): Promise<void> {
-  const loginRedirect = page.waitForURL(/\/login(?:\?|$)/, { timeout: 10_000 });
-
-  const navigation = page.goto(protectedPath, { waitUntil: "commit" }).catch((error: unknown) => {
+  await page.goto(protectedPath, { waitUntil: "commit" }).catch((error: unknown) => {
     const message = String(error);
-    if (!message.includes("net::ERR_ABORTED")) {
+
+    if (
+      !message.includes("net::ERR_ABORTED") &&
+      !message.toLowerCase().includes("frame was detached")
+    ) {
       throw error;
     }
+
+    return null;
   });
 
-  await Promise.all([navigation, loginRedirect]);
+  await expect
+    .poll(
+      () => {
+        try {
+          return new URL(page.url()).pathname;
+        } catch {
+          return "";
+        }
+      },
+      {
+        timeout: 15_000,
+        intervals: [100, 250, 500, 1_000]
+      }
+    )
+    .toBe("/login");
 
-  await expect(page).toHaveURL(/\/login(?:\?|$)/);
-  await expect(page.locator("#login-email")).toBeVisible();
-  await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
+  await expect(page.locator("#login-email")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible({
+    timeout: 15_000
+  });
 
-  // Protected work-order shell must not remain visible after logout redirect.
+  // The protected work-order shell must not remain visible after logout.
   await expect(page.getByText(/\d+\s+work order\(s\) shown/i)).not.toBeVisible();
   await expect(page.getByRole("heading", { name: /work orders/i })).not.toBeVisible();
 }
