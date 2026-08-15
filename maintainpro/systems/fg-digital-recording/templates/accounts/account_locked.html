@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Account notice — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}auth-shell{% endblock %}
+{% block site_header %}{% endblock %}
+{% block site_footer %}{% endblock %}
+{% block content %}
+  <div class="auth-layout">
+    <div class="auth-layout__inner">
+      <header class="auth-brand">
+        <p class="auth-brand__mark" aria-hidden="true">NELNA</p>
+        <p class="auth-brand__name">Nelna</p>
+        <p class="auth-brand__product">FG Digital Recording System</p>
+      </header>
+      <section class="auth-card" aria-labelledby="locked-heading">
+        <h1 class="auth-card__title" id="locked-heading">Sign-in temporarily unavailable</h1>
+        <p class="auth-card__lead">
+          Access is temporarily unavailable. Try again later or contact an
+          administrator if you need help.
+        </p>
+        <p class="auth-card__lead">
+          This page does not confirm whether a specific employee code exists or
+          is locked.
+        </p>
+        <a class="btn btn--primary" href="{% url 'accounts:login' %}">Return to sign in</a>
+      </section>
+      <footer class="auth-footer">
+        <p>Nelna FG Digital Recording System</p>
+        <p class="auth-footer-note">Internal system — not a public service.</p>
+      </footer>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Shift {{ shift.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="shift-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="shift-detail-heading">{{ shift.code }} — {{ shift.name }}</h1>
+        <p class="mgmt-page__lead">
+          {% if shift.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+          <span class="scope-label">{{ shift.scope_label }}</span>
+        </p>
+      </div>
+      <div class="mgmt-page__actions">
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'organizations:shift_list' %}">Back to list</a>
+        {% if can_manage %}
+          <a class="btn btn--secondary btn--inline"
+             href="{% url 'organizations:shift_edit' shift.id %}">Edit</a>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="detail-list">
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ shift.organization.code }} — {{ shift.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Site</dt>
+        <dd>
+          {% if shift.site %}
+            {{ shift.site.code }} — {{ shift.site.name }}
+          {% else %}
+            Organization-wide
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Department</dt>
+        <dd>
+          {% if shift.department %}
+            {{ shift.department.code }} — {{ shift.department.name }}
+          {% else %}
+            {% if shift.site %}
+              Site-wide
+            {% else %}
+              Not applicable
+            {% endif %}
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Start time</dt>
+        <dd>
+          {{ shift.start_time|time:"H:i" }}
+        </dd>
+      </div>
+      <div>
+        <dt>End time</dt>
+        <dd>
+          {{ shift.end_time|time:"H:i" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Overnight classification</dt>
+        <dd>
+          {% if shift.is_overnight %}
+            Overnight
+            <span class="field-help">Classified as overnight by the current technical rule (end ≤ start).</span>
+          {% else %}
+            Same-day
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Effective from</dt>
+        <dd>
+          {{ shift.effective_from|date:"Y-m-d" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Effective to</dt>
+        <dd>
+          {% if shift.effective_to %}
+            {{ shift.effective_to|date:"Y-m-d" }}
+          {% else %}
+            No end date
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Created</dt>
+        <dd>
+          {{ shift.created_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>
+          {{ shift.updated_at }}
+        </dd>
+      </div>
+    </dl>
+    {% if can_manage %}
+      <div class="mgmt-lifecycle">
+        {% if shift.is_active %}
+          <form method="post"
+                action="{% url 'organizations:shift_deactivate' shift.id %}"
+                onsubmit="return confirm('Deactivate Shift {{ shift.code }}? Historical records remain.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--secondary btn--inline">Deactivate Shift</button>
+          </form>
+        {% else %}
+          <form method="post"
+                action="{% url 'organizations:shift_activate' shift.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary btn--inline">Activate Shift</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}{{ template.code }} v{{ version.version_number }}{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="version-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="version-detail-heading">{{ template.code }} — version {{ version.version_number }}</h1>
+        <p class="mgmt-page__lead">
+          <span class="status-pill {% if version.status == 'PUBLISHED' %}status-pill--success{% else %}status-pill--muted{% endif %}">
+            {{ version.get_status_display }}
+          </span>
+          {% if version.is_immutable %}<span>— read-only definition</span>{% endif %}
+        </p>
+      </div>
+      <div class="mgmt-page__actions">
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'checklists:template_detail' template.id %}">Back to template</a>
+        {% if can_manage and version.status == 'DRAFT' %}
+          <form method="post"
+                action="{% url 'checklists:version_publish' version.id %}"
+                onsubmit="return confirm('Publish version {{ version.version_number }}? Published definitions become immutable. FG-QA-001 proposals should only be published after QA/Production validation.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary btn--inline">Publish</button>
+          </form>
+        {% endif %}
+        {% if can_manage and version.status == 'PUBLISHED' %}
+          <form method="post"
+                action="{% url 'checklists:version_retire' version.id %}"
+                onsubmit="return confirm('Retire version {{ version.version_number }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--secondary btn--inline">Retire</button>
+          </form>
+        {% endif %}
+      </div>
+    </header>
+    {% if show_proposal_review_banner %}
+      <div class="mgmt-page__lead" role="status" aria-live="polite">
+        <p>
+          <strong>Proposed draft — pending QA / Production validation.</strong>
+          FG-QA-001 is a project-proposed baseline.
+          <strong>NOT APPROVED FOR PRODUCTION USE.</strong>
+          SELECT disposition labels (RELEASE / HOLD / REJECT) are definition choices only —
+          they do not run release, HOLD, or REJECT automation.
+          This screen is definition review only — no checklist execution / recording.
+        </p>
+        {% if is_fg_qa_001_proposal_draft %}
+          <p>
+            Lifecycle status remains <strong>Draft</strong> until an authorized publish after validation.
+          </p>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if can_edit_structure %}
+      <section class="mgmt-editor" aria-labelledby="add-section-heading">
+        <h2 id="add-section-heading">Add section</h2>
+        <form method="post"
+              action="{% url 'checklists:section_add' version.id %}"
+              novalidate>
+          {% csrf_token %}
+          {% include "components/form_field.html" with field=section_form.title %}
+          {% include "components/form_field.html" with field=section_form.description %}
+          <button type="submit" class="btn btn--secondary btn--inline">Add section</button>
+        </form>
+      </section>
+    {% endif %}
+    {% for section in sections %}
+      <article class="shift-card" aria-labelledby="section-{{ section.id }}">
+        <div class="shift-card__header">
+          <h2 id="section-{{ section.id }}">{{ section.position }}. {{ section.title }}</h2>
+          {% if can_edit_structure %}
+            <div class="data-table__actions">
+              <a href="{% url 'checklists:section_edit' section.id %}">Edit</a>
+              <form method="post"
+                    action="{% url 'checklists:section_move' section.id %}"
+                    class="inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="direction" value="up">
+                <button type="submit" class="btn btn--ghost btn--inline">Move up</button>
+              </form>
+              <form method="post"
+                    action="{% url 'checklists:section_move' section.id %}"
+                    class="inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="direction" value="down">
+                <button type="submit" class="btn btn--ghost btn--inline">Move down</button>
+              </form>
+              <form method="post"
+                    action="{% url 'checklists:section_delete' section.id %}"
+                    onsubmit="return confirm('Remove this section and its items?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--inline">Remove</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+        {% if section.description %}<p class="shift-card__meta">{{ section.description }}</p>{% endif %}
+        <ul class="shift-card-list">
+          {% for item in section.items.all %}
+            <li class="shift-card">
+              <div class="shift-card__header">
+                <strong>{{ item.code }}</strong> — {{ item.label }}
+                {% if item.response_type %}
+                  <span class="status-pill status-pill--muted">{{ item.get_response_type_display }}</span>
+                {% else %}
+                  <span class="status-pill status-pill--muted">Response type unset</span>
+                {% endif %}
+                {% if item.is_required %}
+                  <span class="status-pill status-pill--muted">Required</span>
+                {% else %}
+                  <span class="status-pill status-pill--muted">Optional</span>
+                {% endif %}
+              </div>
+              {% if item.help_text %}<p class="shift-card__meta">{{ item.help_text }}</p>{% endif %}
+              {% if item.response_type == 'NUMBER' %}
+                <p class="shift-card__meta">
+                  Unit:
+                  {% if item.unit %}
+                    {{ item.unit }}
+                  {% else %}
+                    unset
+                  {% endif %}
+                  · Min:
+                  {% if item.minimum_value != None %}
+                    {{ item.minimum_value }}
+                  {% else %}
+                    unset
+                  {% endif %}
+                  · Max:
+                  {% if item.maximum_value != None %}
+                    {{ item.maximum_value }}
+                  {% else %}
+                    unset
+                  {% endif %}
+                </p>
+              {% endif %}
+              {% if item.response_type == 'SELECT' %}
+                <p class="shift-card__meta">
+                  Options:
+                  {% for option in item.options.all %}
+                    {{ option.label }}
+                    {% if not forloop.last %},{% endif %}
+                  {% empty %}
+                    none yet
+                  {% endfor %}
+                </p>
+              {% endif %}
+              {% if can_edit_structure %}
+                <p class="shift-card__meta data-table__actions">
+                  <a href="{% url 'checklists:item_edit' item.id %}">Edit</a>
+                  <form method="post"
+                        action="{% url 'checklists:item_move' item.id %}"
+                        class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="direction" value="up">
+                    <button type="submit" class="btn btn--ghost btn--inline">Move up</button>
+                  </form>
+                  <form method="post"
+                        action="{% url 'checklists:item_move' item.id %}"
+                        class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="direction" value="down">
+                    <button type="submit" class="btn btn--ghost btn--inline">Move down</button>
+                  </form>
+                  <form method="post"
+                        action="{% url 'checklists:item_delete' item.id %}"
+                        onsubmit="return confirm('Remove this item?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn--ghost btn--inline">Remove</button>
+                  </form>
+                </p>
+              {% endif %}
+            </li>
+          {% empty %}
+            <li class="shift-card__meta">No items in this section.</li>
+          {% endfor %}
+        </ul>
+        {% if can_edit_structure %}
+          <form method="post"
+                action="{% url 'checklists:item_add' section.id %}"
+                novalidate>
+            {% csrf_token %}
+            <h3>Add item to {{ section.title }}</h3>
+            <div class="form-field">
+              <label for="id_item_code_{{ section.id }}">Item code</label>
+              <input class="form-input"
+                     type="text"
+                     name="code"
+                     id="id_item_code_{{ section.id }}"
+                     maxlength="64"
+                     required
+                     autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label for="id_item_label_{{ section.id }}">Label / question text</label>
+              <input class="form-input"
+                     type="text"
+                     name="label"
+                     id="id_item_label_{{ section.id }}"
+                     maxlength="500"
+                     required
+                     autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label for="id_item_help_{{ section.id }}">Help / instruction text</label>
+              <textarea class="form-input"
+                        name="help_text"
+                        id="id_item_help_{{ section.id }}"
+                        rows="2"></textarea>
+            </div>
+            <div class="form-field">
+              <label for="id_item_required_{{ section.id }}">
+                <input type="checkbox"
+                       name="is_required"
+                       id="id_item_required_{{ section.id }}"
+                       checked>
+                Required
+              </label>
+            </div>
+            <div class="form-field">
+              <label for="id_item_response_{{ section.id }}">Response type</label>
+              <select class="form-input"
+                      name="response_type"
+                      id="id_item_response_{{ section.id }}">
+                <option value="">Select response type</option>
+                <option value="YES_NO">Yes / No</option>
+                <option value="YES_NO_NA">Yes / No / N/A</option>
+                <option value="NUMBER">Number</option>
+                <option value="TEXT">Text</option>
+                <option value="SELECT">Select</option>
+              </select>
+              <p class="form-help">Publish requires a type. Temperature uses Number + optional unit.</p>
+            </div>
+            <div class="form-field">
+              <label for="id_item_unit_{{ section.id }}">Unit (NUMBER only, optional)</label>
+              <input class="form-input"
+                     type="text"
+                     name="unit"
+                     id="id_item_unit_{{ section.id }}"
+                     maxlength="32"
+                     autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label for="id_item_min_{{ section.id }}">Minimum (NUMBER only, optional)</label>
+              <input class="form-input"
+                     type="number"
+                     step="any"
+                     name="minimum_value"
+                     id="id_item_min_{{ section.id }}">
+            </div>
+            <div class="form-field">
+              <label for="id_item_max_{{ section.id }}">Maximum (NUMBER only, optional)</label>
+              <input class="form-input"
+                     type="number"
+                     step="any"
+                     name="maximum_value"
+                     id="id_item_max_{{ section.id }}">
+            </div>
+            <div class="form-field">
+              <label for="id_item_cp_{{ section.id }}">Control-point class</label>
+              <select class="form-input"
+                      name="control_point_class"
+                      id="id_item_cp_{{ section.id }}">
+                <option value="NONE" selected>None (unset / not classified)</option>
+                <option value="CCP">CCP (evidence-gated)</option>
+                <option value="OPRP">OPRP (evidence-gated)</option>
+                <option value="PRP">PRP (evidence-gated)</option>
+                <option value="GMP">GMP (evidence-gated)</option>
+                <option value="QUALITY">Quality (evidence-gated)</option>
+              </select>
+              <p class="form-help">
+                Default NONE. Non-NONE production values require ASM-002 / APR-027.
+                Metadata does not HOLD/REJECT/RELEASE.
+              </p>
+            </div>
+            <div class="form-field">
+              <label for="id_item_crit_{{ section.id }}">Criticality (optional)</label>
+              <select class="form-input"
+                      name="criticality"
+                      id="id_item_crit_{{ section.id }}">
+                <option value="" selected>Unset</option>
+                <option value="MINOR">Minor</option>
+                <option value="MAJOR">Major</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn--secondary btn--inline">Add item</button>
+          </form>
+        {% endif %}
+      </article>
+    {% empty %}
+      {% include "components/empty_state.html" with title="No sections yet." message="Add a section to begin defining this draft version." %}
+    {% endfor %}
+  </section>
+{% endblock %}

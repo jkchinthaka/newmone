@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Open dispatch record — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="dispatch-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="dispatch-create-heading">Open dispatch quality record</h1>
+        <p class="mgmt-page__lead">Organization {{ organization.code }}. This does not write to ERP.</p>
+      </div>
+    </header>
+    <form method="post" class="mgmt-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="id_code">Code</label>
+        <input class="form-input" id="id_code" name="code" required>
+      </div>
+      <div class="form-field">
+        <label for="id_vehicle_reference">Vehicle reference</label>
+        <input class="form-input" id="id_vehicle_reference" name="vehicle_reference">
+      </div>
+      <div class="form-field">
+        <label for="id_delivery_loading_reference">Delivery / loading reference</label>
+        <input class="form-input"
+               id="id_delivery_loading_reference"
+               name="delivery_loading_reference">
+      </div>
+      <div class="form-field">
+        <label for="id_batch_reference">Batch reference</label>
+        <input class="form-input" id="id_batch_reference" name="batch_reference">
+      </div>
+      <div class="form-field">
+        <label for="id_notes">Notes</label>
+        <textarea class="form-input" id="id_notes" name="notes" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn--primary">Open record</button>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,30 @@
+---
+description: Git and phase workflow controls
+alwaysApply: false
+---
+
+# Git and Phase Workflow
+
+## Branching
+
+- Do not commit directly to `main`.
+- Use phase-specific branches (for example `foundation/project-discovery`, `feature/phase-02-django-foundation`).
+- Open pull requests for review; manual PR review is required before merge.
+
+## Safety
+
+- Do not force-push to `main`.
+- Do not merge automatically without human review.
+- Do not deploy to production without explicit written approval.
+- Do not skip hooks unless explicitly requested by the repository owner for a documented emergency.
+
+## Commits
+
+- Prefer clear, purposeful commit messages focused on why.
+- Keep secrets out of commits.
+- Do not introduce application code before the phase that authorizes it.
+
+## Phase gates
+
+- Meet documented exit criteria and approval gates before starting the next phase.
+- Discovery and governance documents remain the source of delivery control until superseded by approved updates.

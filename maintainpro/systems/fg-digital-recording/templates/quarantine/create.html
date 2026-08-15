@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Open quarantine — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="quarantine-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="quarantine-create-heading">Open quality quarantine</h1>
+        <p class="mgmt-page__lead">Organization {{ organization.code }}. Opening a case does not move ERP stock.</p>
+      </div>
+    </header>
+    <form method="post" class="mgmt-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="id_code">Code</label>
+        <input class="form-input" id="id_code" name="code" required>
+      </div>
+      <div class="form-field">
+        <label for="id_batch_reference">Batch reference</label>
+        <input class="form-input"
+               id="id_batch_reference"
+               name="batch_reference"
+               required>
+      </div>
+      <div class="form-field">
+        <label for="id_source">Source</label>
+        <select class="form-input" id="id_source" name="source">
+          {% for value, label in source_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="id_source_reference">Source reference</label>
+        <input class="form-input"
+               id="id_source_reference"
+               name="source_reference"
+               required>
+      </div>
+      <div class="form-field">
+        <label for="id_reason_reference">Reason reference</label>
+        <input class="form-input"
+               id="id_reason_reference"
+               name="reason_reference"
+               required>
+      </div>
+      <button type="submit" class="btn btn--primary">Open quarantine</button>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,4 @@
+<div class="loading-state" role="status" aria-live="polite">
+  {% if show_spinner %}<span class="loading-indicator" aria-hidden="true"></span>{% endif %}
+  <p>{{ message|default:"Loading…" }}</p>
+</div>

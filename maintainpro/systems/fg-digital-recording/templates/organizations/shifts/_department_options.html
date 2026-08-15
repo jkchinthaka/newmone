@@ -1,0 +1,5 @@
+<option value="">Site-wide (no department)</option>
+{% for dept in departments %}
+  <option value="{{ dept.id }}"
+          {% if selected and selected == dept.id %}selected{% endif %}>{{ dept.code }} — {{ dept.name }}</option>
+{% endfor %}

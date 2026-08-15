@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load recording_extras %}
+{% block title %}Correction Draft — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="correction-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="correction-heading">Correction draft</h1>
+        <p class="mgmt-page__lead">
+          CORRECTION DRAFT — correcting Submission #{{ source_submission.submission_number }}.
+          Resubmission will create Submission #{{ next_submission_number }}.
+          Source Submission #{{ source_submission.submission_number }} remains immutable.
+          Item evaluation (PASS/FAIL/WARN) is recalculated for the new submission only —
+          it is not QA RELEASE/HOLD/REJECT.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:returned_submission' submission_id=source_submission.id %}">View source submission</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Correction context">
+      <div>
+        <dt>Recording state</dt>
+        <dd>
+          CORRECTION DRAFT (record remains SUBMITTED)
+        </dd>
+      </div>
+      <div>
+        <dt>Source submission</dt>
+        <dd>
+          #{{ source_submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Future result</dt>
+        <dd>
+          Submission #{{ next_submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      {% if source_review %}
+        <div>
+          <dt>Supervisor decision</dt>
+          <dd>
+            {{ source_review.decision }}
+          </dd>
+        </div>
+        {% if source_review.review_note %}
+          <div>
+            <dt>Supervisor note</dt>
+            <dd>
+              {{ source_review.review_note }}
+            </dd>
+          </div>
+        {% endif %}
+      {% endif %}
+    </dl>
+    <p class="form-help" role="status">
+      Answered {{ completeness.answered_items }} of {{ completeness.total_items }}.
+      Required answered {{ completeness.answered_required_items }} of {{ completeness.required_items }}.
+      Missing required: {{ completeness.missing_required_items|length }}.
+    </p>
+    <form method="post"
+          action="{% url 'recording:correction_detail' correction_id=correction.id %}"
+          class="mgmt-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <ul class="form-errors">
+          {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% for section in sections %}
+        <section class="recording-section"
+                 aria-labelledby="corr-section-{{ section.id }}">
+          <h2 id="corr-section-{{ section.id }}">{{ section.title }}</h2>
+          {% for item in section.items.all %}
+            {% if item.parent_item_id %}
+            {% elif item.item_kind == "REPEATING_GROUP" %}
+              {% with indexes=sample_indexes_by_group|dict_get:item.id children=children_by_parent|dict_get:item.id %}
+                <fieldset class="recording-item recording-item--repeating">
+                  <legend>{{ item.code }} — {{ item.label }}</legend>
+                  {% if item.help_text %}<p class="form-help">{{ item.help_text }}</p>{% endif %}
+                  <input type="hidden"
+                         name="sample_count_{{ item.id.hex }}"
+                         value="{{ indexes|length }}">
+                  {% for sample_index in indexes %}
+                    <fieldset class="recording-sample">
+                      <legend>Sample {{ sample_index }}</legend>
+                      {% for child in children %}
+                        {% if child.item_kind == "CALCULATED" %}
+                          <div class="form-field">
+                            <p>
+                              <strong>{{ child.code }} — {{ child.label }}</strong>
+                              (calculated {{ child.calculation_operator }})
+                            </p>
+                            {% calculated_preview responses child sample_index as preview %}
+                            <p>Preview: {{ preview }}</p>
+                            {% evaluation_slot responses child sample_index as eval_meta %}
+                            {% with evaluation_result=eval_meta.result evaluation_icon=eval_meta.icon evaluation_label=eval_meta.label %}
+                              {% include "recording/_evaluation_indicator.html" %}
+                              {% with control_point_class=child.control_point_class criticality=child.criticality control_point_label=child.control_point_class|control_point_label_for criticality_label=child.criticality|criticality_label_for %}
+                                {% include "recording/_control_point_marker.html" %}
+                              {% endwith %}
+                            {% endwith %}
+                          </div>
+                        {% else %}
+                          {% condition_slot condition_flags child sample_index as cmeta %}
+                          {% response_bound_field_at form child sample_index as field %}
+                          {% if field %}
+                            <div class="form-field"{% if not cmeta.visible %} hidden{% endif %}>
+                              <label for="{{ field.id_for_label }}">
+                                {{ child.code }} — {{ child.label }}
+                                {% if cmeta.required %}(required){% endif %}
+                              </label>
+                              {{ field }}
+                              {% if field.errors %}
+                                <ul class="form-errors">
+                                  {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                                </ul>
+                              {% endif %}
+                              {% evaluation_slot responses child sample_index as eval_meta %}
+                              {% with evaluation_result=eval_meta.result evaluation_icon=eval_meta.icon evaluation_label=eval_meta.label %}
+                                {% include "recording/_evaluation_indicator.html" %}
+                                {% with control_point_class=child.control_point_class criticality=child.criticality control_point_label=child.control_point_class|control_point_label_for criticality_label=child.criticality|criticality_label_for %}
+                                  {% include "recording/_control_point_marker.html" %}
+                                {% endwith %}
+                              {% endwith %}
+                            </div>
+                          {% endif %}
+                        {% endif %}
+                      {% endfor %}
+                    </fieldset>
+                  {% empty %}
+                    <p class="form-help">No sample rows yet.</p>
+                  {% endfor %}
+                  <div class="landing-actions">
+                    <button type="submit"
+                            class="btn btn--ghost btn--inline"
+                            name="sample_action"
+                            value="add:{{ item.id }}">Add sample row</button>
+                    {% if indexes %}
+                      <button type="submit"
+                              class="btn btn--ghost btn--inline"
+                              name="sample_action"
+                              value="remove:{{ item.id }}">Remove last sample row</button>
+                    {% endif %}
+                  </div>
+                </fieldset>
+              {% endwith %}
+            {% elif item.item_kind == "CALCULATED" %}
+              {% condition_slot condition_flags item 1 as cmeta %}
+              <article class="recording-item recording-item--calculated"
+                       {% if not cmeta.visible %}hidden{% endif %}>
+                <h3>
+                  {{ item.code }} — {{ item.label }}
+                  {% if cmeta.required %}<span class="recording-item__required">Required</span>{% endif %}
+                </h3>
+                <p class="form-help">Calculated ({{ item.calculation_operator }}) — server-authoritative.</p>
+                {% calculated_preview responses item 1 as preview %}
+                <p>
+                  <strong>Preview:</strong> {{ preview }}
+                </p>
+                {% evaluation_slot responses item 1 as eval_meta %}
+                {% with evaluation_result=eval_meta.result evaluation_icon=eval_meta.icon evaluation_label=eval_meta.label %}
+                  {% include "recording/_evaluation_indicator.html" %}
+                  {% with control_point_class=item.control_point_class criticality=item.criticality control_point_label=item.control_point_class|control_point_label_for criticality_label=item.criticality|criticality_label_for %}
+                    {% include "recording/_control_point_marker.html" %}
+                  {% endwith %}
+                {% endwith %}
+              </article>
+            {% else %}
+              {% condition_slot condition_flags item 1 as cmeta %}
+              {% with bound=form|response_bound_field:item %}
+                <article class="recording-item"{% if not cmeta.visible %} hidden{% endif %}>
+                  <label for="{% if bound %}{{ bound.id_for_label }}{% endif %}">
+                    {{ item.code }} — {{ item.label }}
+                    {% if cmeta.required %}<span class="recording-item__required">Required</span>{% endif %}
+                  </label>
+                  {% if item.help_text %}<p class="form-help">{{ item.help_text }}</p>{% endif %}
+                  {% if item.response_type == "NUMBER" %}
+                    {% if item.unit %}<p class="form-help">Unit: {{ item.unit }}</p>{% endif %}
+                  {% endif %}
+                  {% if bound %}{{ bound }}{% endif %}
+                  {% if bound and bound.errors %}
+                    <ul class="form-errors">
+                      {% for error in bound.errors %}<li>{{ error }}</li>{% endfor %}
+                    </ul>
+                  {% endif %}
+                  {% evaluation_slot responses item 1 as eval_meta %}
+                  {% with evaluation_result=eval_meta.result evaluation_icon=eval_meta.icon evaluation_label=eval_meta.label %}
+                    {% include "recording/_evaluation_indicator.html" %}
+                    {% with control_point_class=item.control_point_class criticality=item.criticality control_point_label=item.control_point_class|control_point_label_for criticality_label=item.criticality|criticality_label_for %}
+                      {% include "recording/_control_point_marker.html" %}
+                    {% endwith %}
+                  {% endwith %}
+                </article>
+              {% endwith %}
+            {% endif %}
+          {% endfor %}
+        </section>
+      {% endfor %}
+      <div class="landing-actions">
+        <button type="submit" class="btn btn--secondary">Save Correction Draft</button>
+        <a class="btn btn--primary"
+           href="{% url 'recording:correction_resubmit' correction_id=correction.id %}">Resubmit Checklist</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

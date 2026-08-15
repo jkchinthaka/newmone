@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Open CAPA — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="capa-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="capa-create-heading">Open CAPA</h1>
+        <p class="mgmt-page__lead">Organization {{ organization.code }}. No automatic creation from FAIL.</p>
+      </div>
+    </header>
+    <form method="post" class="mgmt-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="id_code">Code</label>
+        <input class="form-input" id="id_code" name="code" required>
+      </div>
+      <div class="form-field">
+        <label for="id_title">Title</label>
+        <input class="form-input" id="id_title" name="title" required>
+      </div>
+      <div class="form-field">
+        <label for="id_summary">Summary</label>
+        <textarea class="form-input" id="id_summary" name="summary" rows="4"></textarea>
+      </div>
+      <button type="submit" class="btn btn--primary">Open CAPA</button>
+    </form>
+  </section>
+{% endblock %}

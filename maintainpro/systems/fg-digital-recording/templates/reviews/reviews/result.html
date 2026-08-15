@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Supervisor Review Completed — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="review-result-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="review-result-heading">Supervisor review completed</h1>
+        <p class="mgmt-page__lead">
+          Read-only immutable Supervisor decision. Decision status is also shown as text
+          (not color alone). No QA, HOLD, RELEASE, or REJECT controls in this phase.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'reviews:queue' %}">Back to queue</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Supervisor review result">
+      <div>
+        <dt>Review state</dt>
+        <dd>
+          SUPERVISOR REVIEW COMPLETED
+        </dd>
+      </div>
+      <div>
+        <dt>Decision</dt>
+        <dd>
+          <span class="status-text">
+            {% if review.decision == SupervisorReviewDecision.APPROVED %}
+              APPROVED — Supervisor review complete (not QA approval / not RELEASE)
+            {% else %}
+              RETURNED FOR CORRECTION — correction/resubmission required later
+            {% endif %}
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt>Reviewed by</dt>
+        <dd>
+          {{ review.reviewed_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Reviewed at</dt>
+        <dd>
+          {{ review.reviewed_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ review.organization.code }} — {{ review.organization.name }}
+        </dd>
+      </div>
+      {% if review.review_note %}
+        <div>
+          <dt>Review note</dt>
+          <dd>
+            {{ review.review_note }}
+          </dd>
+        </div>
+      {% endif %}
+    </dl>
+    <h2>Submitted answers (immutable snapshot)</h2>
+    {% include "recording/_snapshot_sections.html" %}
+  </section>
+{% endblock %}

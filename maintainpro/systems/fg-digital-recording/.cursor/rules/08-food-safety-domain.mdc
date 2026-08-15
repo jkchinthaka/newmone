@@ -1,0 +1,32 @@
+---
+description: Food safety domain constraints for digital recording
+alwaysApply: false
+---
+
+# Food Safety Domain Constraints
+
+## Deterministic control
+
+- Critical failures must trigger deterministic rules configured from approved business evidence.
+- AI must never make final food-safety, QA, loading-release, CAPA-closure, or access-control decisions.
+
+## Record integrity
+
+- Submitted and approved records must not be edited in place.
+- Corrections require amendments with full before/after history.
+- Preserve history instead of deleting operational records.
+
+## Evidence
+
+- Evidence files live in object storage; metadata and linkage live in PostgreSQL.
+- Evidence access must be controlled and auditable.
+
+## Business rules
+
+- Temperature limits, CCP/OPRP classifications, checklist content, approval chains, and similar rules must come from named business owners with documented evidence sources.
+- Until approved, treat such values as unconfirmed — do not hard-code invented figures.
+
+## Continuity
+
+- Factory-floor recording must remain possible when ERP is unavailable.
+- Emergency paper fallback and retrospective entry rules require QA-approved procedures before operational use.

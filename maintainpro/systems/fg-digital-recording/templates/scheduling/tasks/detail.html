@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load scheduling_extras workflow_extras %}
+{% block title %}
+  Task
+  {% if task.batch_reference %}
+    {{ task.batch_reference }}
+  {% else %}
+    {{ task.occurrence_key }}
+  {% endif %}
+  — Nelna FG
+{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="task-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="task-detail-heading">
+          {% if task.batch_reference %}
+            Batch {{ task.batch_reference }}
+          {% else %}
+            {{ task.occurrence_key }}
+          {% endif %}
+        </h1>
+        <p class="mgmt-page__lead">
+          <span class="status-pill status-pill--muted">{{ task.get_status_display }}</span>
+          {% if workflow %}
+            {% workflow_badge workflow %}
+          {% endif %}
+          <span class="{{ due_badge_class }}">{{ due_display_label }}</span>
+          — orchestration task only. Overdue is not an automatic NCR.
+          Workflow badges are derived (ADR-022); QA terminals do not close warehouse/ERP/dispatch.
+        </p>
+      </div>
+      <div class="mgmt-page__actions">
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'scheduling:task_list' %}">Back to tasks</a>
+        {% if can_cancel %}
+          <form method="post"
+                action="{% url 'scheduling:task_cancel' task.id %}"
+                onsubmit="return confirm('Cancel this checklist task?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--secondary btn--inline">Cancel task</button>
+          </form>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="mgmt-editor">
+      <div class="form-field">
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Definition version</dt>
+        <dd>
+          Version {{ task.checklist_version.version_number }} ({{ task.checklist_version.get_status_display }})
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>due_from</dt>
+        <dd>
+          {% if task.due_from %}
+            {{ task.due_from }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>due_at / due_to</dt>
+        <dd>
+          {% if task.due_at %}
+            {{ task.due_at }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>due_soon_minutes</dt>
+        <dd>
+          {% if task.due_soon_minutes %}
+            {{ task.due_soon_minutes }} (configured)
+          {% else %}
+            Not configured — DUE_SOON unused
+          {% endif %}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Window start / end</dt>
+        <dd>
+          {% if task.window_start_at %}
+            {{ task.window_start_at }}
+          {% else %}
+            —
+          {% endif %}
+          /
+          {% if task.window_end_at %}
+            {{ task.window_end_at }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Operational workflow</dt>
+        <dd>
+          {% if workflow %}
+            {% workflow_badge workflow %}
+            <span class="form-help">(derived — not a stored Task status)</span>
+            {% if workflow.is_qa_terminal %}
+              <p class="form-help">QA terminal in-app only — does not close warehouse/ERP/dispatch.</p>
+            {% endif %}
+            {% if workflow.inconsistencies %}
+              <p class="alert alert-error" role="alert">Inconsistency markers: {{ workflow.inconsistencies|join:", " }}</p>
+            {% endif %}
+          {% else %}
+            -
+          {% endif %}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Created</dt>
+        <dd>
+          {{ task.created_at }}
+        </dd>
+      </div>
+      <div class="form-field">
+        <dt>Updated</dt>
+        <dd>
+          {{ task.updated_at }}
+        </dd>
+      </div>
+    </dl>
+  </section>
+{% endblock %}

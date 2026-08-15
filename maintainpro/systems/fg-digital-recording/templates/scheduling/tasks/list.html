@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Checklist Tasks — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="task-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="task-list-heading">Checklist Tasks</h1>
+        <p class="mgmt-page__lead">
+          Batch-triggered checklist orchestration. Due display states are derived from configured
+          due_from / due_at windows — no invented SLA durations. Overdue is not an automatic NCR.
+        </p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'scheduling:task_create' %}">Create batch task</a>
+      {% endif %}
+    </header>
+    {% if overdue_count %}
+      <p class="mgmt-page__lead" role="status">
+        <a href="{% url 'scheduling:task_list' %}?due=OVERDUE{% if selected_organization %}&amp;organization={{ selected_organization.id }}{% endif %}">
+          Overdue queue: {{ overdue_count }}
+        </a>
+        — overdue display only; does not create Non-Conformance.
+      </p>
+    {% endif %}
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'scheduling:task_list' %}"
+          hx-get="{% url 'scheduling:task_list' %}"
+          hx-target="#task-list-results"
+          hx-push-url="true"
+          hx-trigger="change delay:200ms from:select, submit">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_q">Batch reference</label>
+          <input class="form-input"
+                 type="search"
+                 name="q"
+                 id="id_q"
+                 value="{{ search }}"
+                 placeholder="Batch reference"
+                 autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" name="status" id="id_status">
+            <option value="all" {% if status == "all" %}selected{% endif %}>All</option>
+            <option value="PENDING" {% if status == "PENDING" %}selected{% endif %}>Pending</option>
+            <option value="CANCELLED" {% if status == "CANCELLED" %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_workflow">Operational workflow</label>
+          <select class="form-input" name="workflow" id="id_workflow">
+            <option value="all" {% if workflow_state == "all" %}selected{% endif %}>All workflow states</option>
+            {% for code, label in workflow_choices %}
+              <option value="{{ code }}" {% if workflow_state == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_due">Due state</label>
+          <select class="form-input" name="due" id="id_due">
+            <option value="all" {% if due_state == "all" %}selected{% endif %}>All due states</option>
+            <option value="NOT_DUE" {% if due_state == "NOT_DUE" %}selected{% endif %}>Not due</option>
+            <option value="DUE" {% if due_state == "DUE" %}selected{% endif %}>Due</option>
+            <option value="DUE_SOON" {% if due_state == "DUE_SOON" %}selected{% endif %}>Due soon</option>
+            <option value="OVERDUE" {% if due_state == "OVERDUE" %}selected{% endif %}>Overdue</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_organization">Organization</label>
+          <select class="form-input" name="organization" id="id_organization">
+            <option value="">All organizations</option>
+            {% for org in organizations %}
+              <option value="{{ org.id }}"
+                      {% if selected_organization and selected_organization.id == org.id %}selected{% endif %}>
+                {{ org.code }} — {{ org.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_template">Checklist</label>
+          <select class="form-input" name="template" id="id_template">
+            <option value="">All checklists</option>
+            {% for template in templates %}
+              <option value="{{ template.id }}"
+                      {% if selected_template and selected_template.id == template.id %}selected{% endif %}>
+                {{ template.code }} — {{ template.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'scheduling:task_list' %}">Clear</a>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'scheduling:task_list' %}?due=OVERDUE{% if selected_organization %}&amp;organization={{ selected_organization.id }}{% endif %}">Overdue queue</a>
+      </div>
+    </form>
+    <div id="task-list-results">{% include "scheduling/tasks/_list_results.html" %}</div>
+  </section>
+{% endblock %}

@@ -1,0 +1,30 @@
+---
+description: Testing and quality standards
+globs: "**/{tests,test_*}/**/*"
+alwaysApply: false
+---
+
+# Testing and Quality
+
+## Required coverage areas
+
+- Unit tests for services, selectors, and policies
+- Integration tests for multi-model workflows
+- Authorization tests for deny-by-default and scoped roles
+- Workflow tests for submit/check/verify/amend paths
+- PostgreSQL transaction tests for multi-record operations
+- Browser end-to-end tests with Playwright for critical journeys
+- Security-focused tests for authentication and privilege boundaries
+
+## Tools
+
+- Pytest for automated backend tests
+- Playwright for browser end-to-end tests
+- GitHub Actions for CI when workflows are introduced
+
+## Quality bar
+
+- Every security and workflow rule must have tests.
+- Do not claim production readiness without UAT, restore testing, security review, and owner approval.
+- Test evidence must be traceable to requirement IDs where requirements exist.
+- Deviations must be recorded; they do not silently become accepted behavior.

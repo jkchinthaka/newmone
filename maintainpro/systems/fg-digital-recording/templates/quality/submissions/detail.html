@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}QA Review Submission — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="qa-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="qa-detail-heading">QA review — submission detail</h1>
+        <p class="mgmt-page__lead">
+          Answers below are from the immutable submission snapshot. Working draft
+          responses are not used as historical truth. Disposition is a manual QA decision.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'quality:queue' %}">Back to QA queue</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Submission context">
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted by</dt>
+        <dd>
+          {{ submission.submitted_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted at</dt>
+        <dd>
+          {{ submission.submitted_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Template</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }} ({{ task.checklist_version.status }})
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Record status</dt>
+        <dd>
+          {{ record.status }}
+        </dd>
+      </div>
+      {% if supervisor_review %}
+        <div>
+          <dt>Supervisor decision</dt>
+          <dd>
+            {{ supervisor_review.decision }}
+          </dd>
+        </div>
+        <div>
+          <dt>Supervisor reviewed by</dt>
+          <dd>
+            {{ supervisor_review.reviewed_by.employee_code }}
+          </dd>
+        </div>
+        <div>
+          <dt>Supervisor reviewed at</dt>
+          <dd>
+            {{ supervisor_review.reviewed_at }}
+          </dd>
+        </div>
+        {% if supervisor_review.review_note %}
+          <div>
+            <dt>Supervisor note</dt>
+            <dd>
+              {{ supervisor_review.review_note }}
+            </dd>
+          </div>
+        {% endif %}
+      {% endif %}
+    </dl>
+    {% if history_rows %}
+      <section aria-labelledby="qa-history-heading">
+        <h2 id="qa-history-heading">Submission history</h2>
+        <ol class="mgmt-list">
+          {% for row in history_rows %}
+            <li>
+              Submission #{{ row.submission.submission_number }}
+              {% if row.supervisor_review %}
+                — Supervisor: {{ row.supervisor_review.decision }}
+              {% else %}
+                — Supervisor: pending
+              {% endif %}
+              {% if row.qa_review %}
+                — QA: {{ row.qa_review.decision }}
+              {% elif row.submission.id == submission.id %}
+                — QA: pending / current
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    {% endif %}
+    <div class="review-workspace">
+      <div class="review-workspace__main">{% include "recording/_snapshot_sections.html" %}</div>
+      <aside class="review-workspace__panel" aria-labelledby="qa-actions-heading">
+        <h2 id="qa-actions-heading">QA disposition</h2>
+        <p class="form-help">
+          These actions record a provisional QA disposition only. They do not evaluate
+          checklist answers automatically and do not perform ERP, inventory, warehouse,
+          or dispatch actions. Confirmation is required on the next screen.
+        </p>
+        <div class="review-actions">
+          <a class="btn btn--release"
+             href="{% url 'quality:confirm_decision' submission_id=submission.id decision=QAReviewDecision.RELEASE %}">
+            RELEASE
+          </a>
+          <a class="btn btn--hold"
+             href="{% url 'quality:confirm_decision' submission_id=submission.id decision=QAReviewDecision.HOLD %}">
+            HOLD
+          </a>
+          <a class="btn btn--reject"
+             href="{% url 'quality:confirm_decision' submission_id=submission.id decision=QAReviewDecision.REJECT %}">
+            REJECT
+          </a>
+        </div>
+      </aside>
+    </div>
+  </section>
+{% endblock %}

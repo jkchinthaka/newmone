@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ plan.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="haccp-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="haccp-detail-heading">{{ plan.code }} — {{ plan.title }}</h1>
+        <p class="mgmt-page__lead">{{ plan.organization.code }}. Limits appear only when configured on the plan version.</p>
+      </div>
+    </header>
+    <form class="mgmt-filters" method="get">
+      <div class="form-field">
+        <label for="id_version">Version</label>
+        <select class="form-input" id="id_version" name="version">
+          {% for version in versions %}
+            <option value="{{ version.id }}"
+                    {% if selected and selected.id == version.id %}selected{% endif %}>
+              v{{ version.version_number }} {{ version.get_status_display }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Show version</button>
+    </form>
+    {% if points %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Control point</th>
+              <th scope="col">Type</th>
+              <th scope="col">Advisory policy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in points %}
+              <tr>
+                <td>{{ row.point.code }} — {{ row.point.title }}</td>
+                <td>{{ row.point.get_control_point_type_display }}</td>
+                <td>{{ row.policy.reason_code }} (advisory only)</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No control points" message="This version has no control points, or no version is selected." %}
+    {% endif %}
+  </section>
+{% endblock %}

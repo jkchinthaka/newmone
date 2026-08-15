@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ case.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page review-workspace"
+           aria-labelledby="complaint-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="complaint-detail-heading">{{ case.code }}</h1>
+        <p class="mgmt-page__lead">
+          {{ case.get_status_display }} · {{ case.organization.code }}.
+          Communication shells never auto-send.
+        </p>
+      </div>
+    </header>
+    <dl class="mgmt-meta">
+      <div>
+        <dt>Product</dt>
+        <dd>
+          {{ case.product_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch</dt>
+        <dd>
+          {{ case.batch_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Channel</dt>
+        <dd>
+          {{ case.channel_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Customer</dt>
+        <dd>
+          {% if show_sensitive %}
+            {{ case.customer_display_label|default:case.erp_customer_reference|default:"—" }}
+          {% else %}
+            Restricted
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+    <article class="work-card">
+      <h2>Description</h2>
+      <p>{{ case.description|default:"No description recorded." }}</p>
+    </article>
+    <article class="work-card">
+      <h2>Timeline</h2>
+      <ul>
+        {% for entry in timeline %}
+          <li>{{ entry.summary }} — {{ entry.created_at }}</li>
+        {% empty %}
+          <li>No timeline entries.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

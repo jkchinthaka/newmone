@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Record history — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="history-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="{% url 'accounts:landing' %}">Dashboard</a>
+          <span aria-hidden="true">/</span>
+          <a href="{% url 'recording:daily_home' %}">Daily Records</a>
+          <span aria-hidden="true">/</span>
+          <span>History</span>
+        </nav>
+        <h1 id="history-heading">Record history</h1>
+        <p class="mgmt-page__lead">
+          Stored controlled-form records only. Filters use fields that exist on
+          the record identity. Export is CSV with formula-injection protection.
+          CSV export is limited to {{ csv_export_row_limit }} rows; larger result
+          sets are truncated with an explicit marker row.
+        </p>
+      </div>
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'recording:daily_history' %}">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_date_from">Date from</label>
+          <input class="form-input"
+                 type="date"
+                 id="id_date_from"
+                 name="date_from"
+                 value="{{ filters.date_from }}">
+        </div>
+        <div class="form-field">
+          <label for="id_date_to">Date to</label>
+          <input class="form-input"
+                 type="date"
+                 id="id_date_to"
+                 name="date_to"
+                 value="{{ filters.date_to }}">
+        </div>
+        <div class="form-field">
+          <label for="id_form">Form</label>
+          <select class="form-input" id="id_form" name="form">
+            <option value="">All forms</option>
+            {% for form in forms %}
+              <option value="{{ form.code }}"
+                      {% if filters.form == form.code %}selected{% endif %}>{{ form.code }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_batch">Batch / identity</label>
+          <input class="form-input"
+                 id="id_batch"
+                 name="batch"
+                 value="{{ filters.batch }}">
+        </div>
+        <div class="form-field">
+          <label for="id_vehicle">Vehicle</label>
+          <input class="form-input"
+                 id="id_vehicle"
+                 name="vehicle"
+                 value="{{ filters.vehicle }}">
+        </div>
+        <div class="form-field">
+          <label for="id_gin">GIN</label>
+          <input class="form-input" id="id_gin" name="gin" value="{{ filters.gin }}">
+        </div>
+        <div class="form-field">
+          <label for="id_cold_room">Cold room</label>
+          <input class="form-input"
+                 id="id_cold_room"
+                 name="cold_room"
+                 value="{{ filters.cold_room }}">
+        </div>
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" id="id_status" name="status">
+            <option value="">All</option>
+            <option value="DRAFT"{% if filters.status == "DRAFT" %} selected{% endif %}>Draft</option>
+            <option value="SUBMITTED"
+                    {% if filters.status == "SUBMITTED" %}selected{% endif %}>Submitted</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_recorder">Recorder</label>
+          <input class="form-input"
+                 id="id_recorder"
+                 name="recorder"
+                 value="{{ filters.recorder }}">
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'recording:daily_export_csv' %}?date_from={{ filters.date_from }}&amp;date_to={{ filters.date_to }}&amp;form={{ filters.form }}&amp;batch={{ filters.batch }}&amp;vehicle={{ filters.vehicle }}&amp;gin={{ filters.gin }}&amp;cold_room={{ filters.cold_room }}&amp;status={{ filters.status }}&amp;recorder={{ filters.recorder }}">Export CSV</a>
+      </div>
+    </form>
+    {% if page.object_list %}
+      <div class="table-wrap" role="region" aria-label="Record history">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Form</th>
+              <th scope="col">Identity</th>
+              <th scope="col">Status</th>
+              <th scope="col">Recorder</th>
+              <th scope="col">Updated</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in page.object_list %}
+              <tr>
+                <td>{{ record.checklist_task.checklist_template.code }}</td>
+                <td>{{ record.checklist_task.batch_reference }}</td>
+                <td>
+                  <span class="status-badge">{{ record.status }}</span>
+                </td>
+                <td>{{ record.started_by.employee_code }}</td>
+                <td>{{ record.updated_at }}</td>
+                <td>
+                  <a href="{% url 'recording:record_detail' record_id=record.id %}">View</a>
+                  <a href="{% url 'recording:daily_print' record_id=record.id %}">Print</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page.has_other_pages %}
+        <nav aria-label="History pages">
+          {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      {% include "components/empty_state.html" with title="No matching records" message="No controlled-form records match these filters in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

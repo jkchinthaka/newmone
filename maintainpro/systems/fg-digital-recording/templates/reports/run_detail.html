@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Report run{% endblock %}
+{% block content %}
+  <div class="space-y-4">
+    <h1 class="text-xl font-semibold">Report run</h1>
+    <p class="text-sm">
+      <a href="{% url 'reports:catalogue' %}?organization_id={{ organization.id }}">← Catalogue</a>
+    </p>
+    <dl class="text-sm grid gap-2">
+      <div>
+        <dt class="font-medium">Code</dt>
+        <dd class="font-mono">
+          {{ run.report_code }}
+        </dd>
+      </div>
+      <div>
+        <dt class="font-medium">Status</dt>
+        <dd>
+          {{ run.status }}
+        </dd>
+      </div>
+      <div>
+        <dt class="font-medium">Rows</dt>
+        <dd>
+          {{ run.row_count }}
+        </dd>
+      </div>
+      <div>
+        <dt class="font-medium">Requested</dt>
+        <dd>
+          {{ run.created_at }}
+        </dd>
+      </div>
+      {% if run.error_summary %}
+        <div>
+          <dt class="font-medium">Error</dt>
+          <dd>
+            {{ run.error_summary }}
+          </dd>
+        </div>
+      {% endif %}
+    </dl>
+    {% if run.status == "COMPLETED" %}
+      <p>
+        <a class="border px-3 py-1 text-sm inline-block"
+           href="{% url 'reports:run_export_csv' report_run_id=run.id %}?organization_id={{ organization.id }}">
+          Download CSV
+        </a>
+      </p>
+      <pre class="text-xs overflow-auto max-h-96 border p-2 bg-slate-50">{{ run.result_csv|truncatechars:4000 }}</pre>
+    {% elif run.status == "PENDING" or run.status == "RUNNING" %}
+      <p class="text-sm">Generation in progress. Refresh this page shortly.</p>
+    {% endif %}
+  </div>
+{% endblock %}

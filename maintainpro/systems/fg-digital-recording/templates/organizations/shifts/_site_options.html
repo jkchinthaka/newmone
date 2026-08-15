@@ -1,0 +1,5 @@
+<option value="">Organization-wide (no site)</option>
+{% for site in sites %}
+  <option value="{{ site.id }}"
+          {% if selected and selected == site.id %}selected{% endif %}>{{ site.code }} — {{ site.name }}</option>
+{% endfor %}

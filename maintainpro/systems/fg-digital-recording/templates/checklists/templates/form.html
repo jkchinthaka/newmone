@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="checklist-form-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="checklist-form-heading">{{ page_title }}</h1>
+        <p class="mgmt-page__lead">
+          Enter configurable checklist definition values. Do not invent unofficial Nelna form content.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'checklists:template_list' %}">Back to list</a>
+    </header>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% include "components/form_field.html" with field=form.organization %}
+      {% include "components/form_field.html" with field=form.product %}
+      {% include "components/form_field.html" with field=form.code %}
+      {% include "components/form_field.html" with field=form.name %}
+      {% include "components/form_field.html" with field=form.description %}
+      {% include "components/form_field.html" with field=form.is_active %}
+      <div class="mgmt-page__actions">
+        <button type="submit" class="btn btn--primary btn--inline">{{ submit_label }}</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}HACCP — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="haccp-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="haccp-heading">HACCP plans</h1>
+        <p class="mgmt-page__lead">
+          Versioned plan viewer. Control-point evaluation is advisory. Checklist PASS
+          is not QA RELEASE.
+        </p>
+      </div>
+    </header>
+    {% if page.object_list %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Title</th>
+              <th scope="col">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for plan in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'haccp:detail' plan_id=plan.id %}">{{ plan.code }}</a>
+                </td>
+                <td>{{ plan.title }}</td>
+                <td>{{ plan.organization.code }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No HACCP plans" message="No HACCP plans are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

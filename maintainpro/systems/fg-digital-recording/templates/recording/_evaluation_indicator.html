@@ -1,0 +1,12 @@
+{# Text + status icon — never color alone. PASS ≠ released product. #}
+{% if evaluation_result %}
+  <p class="recording-evaluation"
+     data-evaluation-result="{{ evaluation_result }}"
+     role="status"
+     aria-label="{{ evaluation_label }}">
+    <span class="recording-evaluation__icon" aria-hidden="true">{{ evaluation_icon }}</span>
+    <span class="recording-evaluation__text">
+      <strong>Item evaluation:</strong> {{ evaluation_label }}
+    </span>
+  </p>
+{% endif %}

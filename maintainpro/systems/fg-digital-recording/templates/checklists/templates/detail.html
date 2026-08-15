@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}{{ template.code }} — Checklist template{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="checklist-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="checklist-detail-heading">{{ template.code }} — {{ template.name }}</h1>
+        <p class="mgmt-page__lead">
+          {% if template.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="mgmt-page__actions">
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'checklists:template_list' %}">Back to list</a>
+        {% if can_manage %}
+          <a class="btn btn--secondary btn--inline"
+             href="{% url 'checklists:template_edit' template.id %}">Edit</a>
+          <a class="btn btn--primary btn--inline"
+             href="{% url 'checklists:version_create' template.id %}">New version</a>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="detail-list">
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ template.organization.code }} — {{ template.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>FG Product</dt>
+        <dd>
+          {% if template.product %}
+            {{ template.product.code }} — {{ template.product.name }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Description</dt>
+        <dd>
+          {% if template.description %}
+            {{ template.description }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+    {% if can_manage %}
+      <div class="mgmt-lifecycle">
+        {% if template.is_active %}
+          <form method="post"
+                action="{% url 'checklists:template_deactivate' template.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--secondary btn--inline">Deactivate template</button>
+          </form>
+        {% else %}
+          <form method="post"
+                action="{% url 'checklists:template_activate' template.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary btn--inline">Activate template</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+    <h2>Versions</h2>
+    {% if versions %}
+      <div class="shift-table-wrap"
+           role="region"
+           aria-label="Checklist versions">
+        <table class="data-table shift-table">
+          <thead>
+            <tr>
+              <th scope="col">Version</th>
+              <th scope="col">Status</th>
+              <th scope="col">Sections</th>
+              <th scope="col">Items</th>
+              <th scope="col">Published</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for version in versions %}
+              <tr>
+                <td>
+                  <a href="{% url 'checklists:version_detail' version.id %}">v{{ version.version_number }}</a>
+                </td>
+                <td>
+                  <span class="status-pill {% if version.status == 'PUBLISHED' %}status-pill--success{% elif version.status == 'DRAFT' %}status-pill--muted{% else %}status-pill--muted{% endif %}">
+                    {{ version.get_status_display }}
+                  </span>
+                </td>
+                <td>{{ version.section_count }}</td>
+                <td>{{ version.item_count }}</td>
+                <td>
+                  {% if version.published_at %}
+                    {{ version.published_at }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="data-table__actions">
+                  <a href="{% url 'checklists:version_detail' version.id %}">
+                    {% if version.status == 'DRAFT' and can_manage %}
+                      Edit
+                    {% else %}
+                      View
+                    {% endif %}
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No versions yet." message="Create a draft version to define sections and items." %}
+    {% endif %}
+  </section>
+{% endblock %}

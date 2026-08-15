@@ -1,0 +1,34 @@
+---
+description: Python and Django coding standards
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python and Django Standards
+
+## Python
+
+- Use Python 3.12+ typing for public functions, services, selectors, and policies.
+- Prefer explicit types over `Any`.
+- Keep modules focused; avoid circular imports across domain packages.
+- Fail loudly on unexpected states in business operations; do not silently swallow exceptions.
+
+## Django
+
+- Target Django 5.2 LTS.
+- Prefer Django security defaults: CSRF protection, secure cookies in production, `SECURE_*` settings when deploying HTTPS.
+- Keep views thin: validate input, call services/policies, render responses.
+- Templates must not contain business rules.
+- Use forms or serializers for input validation as appropriate to the stack phase.
+- Never disable CSRF for authenticated browser workflows without an approved security exception.
+
+## Configuration and secrets
+
+- Load secrets from environment or secret managers — never commit credentials, API keys, or connection strings.
+- Separate settings per environment; production settings must require HTTPS and secure cookie flags.
+- Debug mode must never be enabled in production.
+
+## Dependencies
+
+- Pin dependencies with lockfiles when introduced.
+- Prefer well-maintained packages; justify new dependencies in the relevant ADR or decision register entry.

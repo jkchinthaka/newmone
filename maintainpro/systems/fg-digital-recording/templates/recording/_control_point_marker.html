@@ -1,0 +1,18 @@
+{# Calm control-point / criticality marker — not a QA disposition. #}
+{% if control_point_class and control_point_class != "NONE" or criticality %}
+  <p class="recording-control-point"
+     data-control-point-class="{{ control_point_class|default:'NONE' }}"
+     data-criticality="{{ criticality|default:'' }}"
+     role="note">
+    <span class="recording-control-point__text">
+      {% if control_point_class and control_point_class != "NONE" %}
+        <strong>Control point:</strong> {{ control_point_label }}
+      {% endif %}
+      {% if criticality %}
+        {% if control_point_class and control_point_class != "NONE" %}·{% endif %}
+        <strong>Criticality:</strong> {{ criticality_label }}
+      {% endif %}
+      <span class="recording-control-point__note">(metadata only — not HOLD/REJECT/RELEASE)</span>
+    </span>
+  </p>
+{% endif %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ sample.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="lab-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="lab-detail-heading">Sample {{ sample.code }}</h1>
+        <p class="mgmt-page__lead">
+          {{ sample.get_status_display }} · {{ sample.organization.code }}.
+          Results are recorded values only. No invented specification limits.
+        </p>
+      </div>
+    </header>
+    <dl class="mgmt-meta">
+      <div>
+        <dt>Product</dt>
+        <dd>
+          {% if sample.product %}
+            {{ sample.product.code }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch</dt>
+        <dd>
+          {{ sample.batch_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Registered</dt>
+        <dd>
+          {{ sample.registered_at }}
+        </dd>
+      </div>
+    </dl>
+    <h2>Latest results</h2>
+    {% if results %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Parameter</th>
+            <th scope="col">Value</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in results %}
+            <tr>
+              <td>{{ result.parameter.code }}</td>
+              <td>{{ result.numeric_value|default:result.text_value }}</td>
+              <td>{{ result.get_status_display }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No results entered.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% if total_count == 0 and not filters_active %}
+  {% include "components/empty_state.html" with title="No FG products have been configured yet." message="Authorized users can create FG Product definitions for their organization. No product catalogue is seeded." %}
+  {% if can_create %}
+    <p class="mgmt-empty-cta">
+      <a class="btn btn--primary btn--inline"
+         href="{% url 'master_data:product_create' %}">Create Product</a>
+    </p>
+  {% endif %}
+{% elif total_count == 0 %}
+  {% include "components/empty_state.html" with title="No FG products match the current filters." message="Try clearing search or status filters, or choose a different organization." %}
+{% else %}
+  <p class="mgmt-result-count" role="status">{{ total_count }} product{{ total_count|pluralize }}</p>
+  <div class="shift-table-wrap" role="region" aria-label="FG Product list">
+    <table class="data-table shift-table">
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">ERP item</th>
+          <th scope="col">Category</th>
+          <th scope="col">Organization</th>
+          <th scope="col">Status</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+          <tr>
+            <td>
+              <a href="{% url 'master_data:product_detail' product.id %}">{{ product.code }}</a>
+            </td>
+            <td>{{ product.name }}</td>
+            <td>
+              {% if product.erp_item_code %}
+                {{ product.erp_item_code }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if product.category %}
+                {{ product.category }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ product.organization.code }} — {{ product.organization.name }}</td>
+            <td>
+              {% if product.is_active %}
+                <span class="status-pill status-pill--success">Active</span>
+              {% else %}
+                <span class="status-pill status-pill--muted">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="data-table__actions">
+              <a href="{% url 'master_data:product_detail' product.id %}">View</a>
+              {% if product.organization_id in manageable_organization_ids %}
+                <a href="{% url 'master_data:product_edit' product.id %}">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <ul class="shift-card-list" aria-label="FG Product list (compact)">
+    {% for product in products %}
+      <li class="shift-card">
+        <div class="shift-card__header">
+          <a href="{% url 'master_data:product_detail' product.id %}">
+            <strong>{{ product.code }}</strong> — {{ product.name }}
+          </a>
+          {% if product.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+        </div>
+        <p class="shift-card__meta">{{ product.organization.code }} — {{ product.organization.name }}</p>
+        {% if product.erp_item_code %}<p class="shift-card__meta">ERP: {{ product.erp_item_code }}</p>{% endif %}
+        {% if product.category %}<p class="shift-card__meta">Category: {{ product.category }}</p>{% endif %}
+        <p class="shift-card__meta data-table__actions">
+          <a href="{% url 'master_data:product_detail' product.id %}">View</a>
+          {% if product.organization_id in manageable_organization_ids %}
+            <a href="{% url 'master_data:product_edit' product.id %}">Edit</a>
+          {% endif %}
+        </p>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="FG Product list pages">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;category={{ category|urlencode }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}">Previous</a>
+      {% endif %}
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;category={{ category|urlencode }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endif %}

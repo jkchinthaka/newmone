@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load workflow_extras %}
+{% block title %}Checklist Recording — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="recording-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="recording-list-heading">Checklist Recording</h1>
+        <p class="mgmt-page__lead">
+          Draft recording and submission for PENDING checklist tasks.
+          Operational workflow badges are derived from Task / Record / Submission /
+          Supervisor / Correction / QA owners — not a duplicated status column.
+          Production recording remains blocked until approved published definitions
+          and recorder role mapping are evidenced.
+        </p>
+      </div>
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'recording:task_list' %}">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_workflow">Operational workflow</label>
+          <select class="form-input" name="workflow" id="id_workflow">
+            <option value="all" {% if workflow_state == "all" %}selected{% endif %}>All workflow states</option>
+            {% for code, label in workflow_choices %}
+              <option value="{{ code }}" {% if workflow_state == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'recording:task_list' %}">Clear</a>
+      </div>
+    </form>
+    {% if not tasks %}
+      {% include "components/empty_state.html" with title="No recordable tasks" message="No recordable checklist tasks are available." %}
+    {% else %}
+      <div class="table-wrap"
+           role="region"
+           aria-label="Recordable checklist tasks">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Batch reference</th>
+              <th scope="col">Checklist</th>
+              <th scope="col">Version</th>
+              <th scope="col">Organization</th>
+              <th scope="col">Task status</th>
+              <th scope="col">Workflow</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+              <tr>
+                <td>{{ task.batch_reference }}</td>
+                <td>{{ task.checklist_template.code }} — {{ task.checklist_template.name }}</td>
+                <td>v{{ task.checklist_version.version_number }}</td>
+                <td>{{ task.organization.code }}</td>
+                <td>{{ task.get_status_display }}</td>
+                <td>
+                  {% if task.workflow_snapshot %}
+                    {% workflow_badge task.workflow_snapshot %}
+                  {% else %}
+                    {% workflow_badge task=task %}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if task.checklist_record %}
+                    {% if task.checklist_record.status == "SUBMITTED" %}
+                      {% if task.checklist_record.active_corrections %}
+                        <a class="btn btn--secondary btn--inline"
+                           href="{% url 'recording:correction_detail' correction_id=task.checklist_record.active_corrections.0.id %}">
+                          Continue Correction
+                        </a>
+                      {% else %}
+                        <a class="btn btn--secondary btn--inline"
+                           href="{% url 'recording:record_submitted' record_id=task.checklist_record.id %}">
+                          View Submitted
+                        </a>
+                      {% endif %}
+                    {% else %}
+                      <a class="btn btn--secondary btn--inline"
+                         href="{% url 'recording:record_detail' record_id=task.checklist_record.id %}">
+                        Continue Recording
+                      </a>
+                    {% endif %}
+                  {% else %}
+                    <form method="post"
+                          action="{% url 'recording:start_recording' task_id=task.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn--primary btn--inline">Start Recording</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page.has_other_pages %}
+        <nav class="pagination" aria-label="Recording task pages">
+          {% if page.has_previous %}
+            <a href="?page={{ page.previous_page_number }}&amp;workflow={{ workflow_state }}">Previous</a>
+          {% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}
+            <a href="?page={{ page.next_page_number }}&amp;workflow={{ workflow_state }}">Next</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    {% endif %}
+  </section>
+{% endblock %}

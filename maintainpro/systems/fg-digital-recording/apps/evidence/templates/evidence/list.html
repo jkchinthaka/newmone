@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Evidence list{% endblock %}
+{% block content %}
+<section class="nelna-page">
+  <h1>Evidence attachments</h1>
+  <p class="nelna-lede">
+    Active private attachments for <code>{{ linked_kind }}</code>
+    / <code>{{ linked_object_id }}</code>.
+  </p>
+  <p>
+    <a href="{% url 'evidence:upload' linked_kind linked_object_id %}">Upload evidence</a>
+  </p>
+  {% if attachments %}
+  <ul>
+    {% for item in attachments %}
+    <li>
+      <a href="{% url 'evidence:download' item.id %}">{{ item.original_filename }}</a>
+      — {{ item.content_type }}, {{ item.size_bytes }} bytes,
+      scan: {{ item.malware_scan_status }}
+      {% if item.caption %} — {{ item.caption }}{% endif %}
+      —
+      <a href="{% url 'evidence:retire' item.id %}">Soft-retire</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No active attachments.</p>
+  {% endif %}
+</section>
+{% endblock %}

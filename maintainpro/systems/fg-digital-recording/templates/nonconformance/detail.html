@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ ncr.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page review-workspace"
+           aria-labelledby="ncr-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="ncr-detail-heading">{{ ncr.code }} — {{ ncr.title }}</h1>
+        <p class="mgmt-page__lead">
+          Status {{ ncr.get_status_display }} · {{ ncr.organization.code }}.
+          Case management only — not automatic RELEASE/HOLD.
+        </p>
+      </div>
+    </header>
+    <article class="work-card">
+      <h2>Overview</h2>
+      <p>{{ ncr.description|default:"No description recorded." }}</p>
+      <p>Source {{ ncr.get_source_display }} · Batch {{ ncr.batch_reference|default:"—" }}</p>
+      <p>Opened by {{ ncr.created_by.employee_code }} at {{ ncr.created_at }}</p>
+    </article>
+    <article class="work-card">
+      <h2>Containment / investigation</h2>
+      <form method="post"
+            action="{% url 'nonconformance:update' ncr_id=ncr.id %}">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_containment">Containment / hold notes</label>
+          <textarea class="form-input" id="id_containment" name="containment" rows="3">{{ ncr.containment }}</textarea>
+        </div>
+        <div class="form-field">
+          <label for="id_investigation">Investigation</label>
+          <textarea class="form-input"
+                    id="id_investigation"
+                    name="investigation"
+                    rows="3">{{ ncr.investigation }}</textarea>
+        </div>
+        <div class="form-field">
+          <label for="id_description">Description</label>
+          <textarea class="form-input" id="id_description" name="description" rows="3">{{ ncr.description }}</textarea>
+        </div>
+        <button type="submit" class="btn btn--secondary">Save case fields</button>
+      </form>
+    </article>
+    <article class="work-card">
+      <h2>Linked CAPA</h2>
+      {% for capa in capas %}
+        <p>
+          <a href="{% url 'capa:detail' capa_id=capa.id %}">{{ capa.code }}</a> — {{ capa.title }}
+        </p>
+      {% empty %}
+        <p>No CAPA linked. Linking is an explicit human action.</p>
+      {% endfor %}
+    </article>
+    <article class="work-card">
+      <h2>Holds</h2>
+      {% for hold in holds %}
+        <p>{{ hold.code }} — {{ hold.get_status_display }}</p>
+      {% empty %}
+        <p>No hold cases linked.</p>
+      {% endfor %}
+    </article>
+    <article class="work-card">
+      <h2>Workflow</h2>
+      <form method="post"
+            action="{% url 'nonconformance:transition' ncr_id=ncr.id %}">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_to_status">Move to</label>
+          <select class="form-input" id="id_to_status" name="to_status">
+            {% for value, label in status_choices %}
+              {% if value != "CLOSED" %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_note">Note</label>
+          <input class="form-input" id="id_note" name="note">
+        </div>
+        <button type="submit" class="btn btn--secondary">Change status</button>
+      </form>
+      <form method="post" action="{% url 'nonconformance:close' ncr_id=ncr.id %}">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_closure_notes">Closure notes</label>
+          <textarea class="form-input"
+                    id="id_closure_notes"
+                    name="closure_notes"
+                    rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn--danger">Close case</button>
+      </form>
+    </article>
+    <article class="work-card">
+      <h2>Timeline / audit</h2>
+      <ol>
+        {% for event in history %}
+          <li>{{ event.created_at }} — {{ event.event_type }} — {{ event.actor.employee_code }} — {{ event.note }}</li>
+        {% empty %}
+          <li>No history entries.</li>
+        {% endfor %}
+      </ol>
+    </article>
+  </section>
+{% endblock %}
