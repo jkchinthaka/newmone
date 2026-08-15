@@ -17,6 +17,9 @@ maintainpro/apps/mobile/build
 maintainpro/**/*.tsbuildinfo
 maintainpro/*.log
 
+# Sibling Django system mirrored via git subtree — not part of MaintainPro Node builds
+maintainpro/systems/
+
 # ---------------------------------------------------------------------------
 # Secrets — exclude real env/key files from the root Docker build context.
 # Re-include safe examples and the non-production CI fixture only.
