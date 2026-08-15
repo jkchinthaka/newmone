@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
@@ -39,7 +39,7 @@ from apps.batch_genealogy.selectors import (
     edges_to_node,
     get_node_by_key,
 )
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic, atomic_fn, lock_queryset
 from apps.organizations.models import Organization
 from apps.security_audit.services import record_event
 
@@ -136,7 +136,7 @@ class GenealogyTraceResult:
         }
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_genealogy_policy(
     *,
     actor: User | None,
@@ -176,7 +176,7 @@ def upsert_genealogy_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_genealogy_node(
     *,
     actor: User | None,
@@ -335,7 +335,7 @@ def ingest_erp_genealogy_edge(
         )
         raise ValidationError({"edge": "Cycle prevention rejected this genealogy edge."})
 
-    with transaction.atomic():
+    with atomic():
         rework = bool(is_rework) or relation == GenealogyRelationKind.REWORKED_FROM
         edge = GenealogyEdge(
             organization=organization,

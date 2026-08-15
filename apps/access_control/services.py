@@ -8,13 +8,13 @@ from datetime import datetime
 
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from apps.access_control.models import Role, ScopedRoleAssignment
 from apps.accounts.models import User
-from apps.core.persistence import prefetch_related_compat
+from apps.core.persistence import atomic_fn, prefetch_related_compat
 from apps.organizations.models import Department, Organization, Site
 
 
@@ -306,7 +306,7 @@ def get_accessible_departments(
     return qs.distinct()
 
 
-@transaction.atomic
+@atomic_fn
 def create_role(
     *,
     code: str,
@@ -324,7 +324,7 @@ def create_role(
     return role
 
 
-@transaction.atomic
+@atomic_fn
 def assign_role(
     *,
     user: User,
@@ -402,7 +402,7 @@ def assign_role(
     return assignment
 
 
-@transaction.atomic
+@atomic_fn
 def revoke_role_assignment(
     assignment: ScopedRoleAssignment,
     *,

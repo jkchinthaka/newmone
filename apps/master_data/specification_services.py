@@ -8,12 +8,12 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.master_data.historical_safety import (
     refuse_hard_delete_product_specification,
     refuse_hard_delete_specification_version,
@@ -164,7 +164,7 @@ def _next_version_number(specification: ProductSpecification) -> int:
     return int(latest or 0) + 1
 
 
-@transaction.atomic
+@atomic_fn
 def create_product_specification(
     *,
     actor: User | None,
@@ -229,7 +229,7 @@ def create_product_specification(
     return spec
 
 
-@transaction.atomic
+@atomic_fn
 def create_specification_version(
     *,
     actor: User | None,
@@ -275,7 +275,7 @@ def create_specification_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def update_draft_specification_version(
     *,
     actor: User | None,
@@ -325,7 +325,7 @@ def update_draft_specification_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_specification_parameter(
     *,
     actor: User | None,
@@ -426,7 +426,7 @@ def upsert_specification_parameter(
     return param
 
 
-@transaction.atomic
+@atomic_fn
 def remove_specification_parameter(
     *,
     actor: User | None,
@@ -454,7 +454,7 @@ def remove_specification_parameter(
     )
 
 
-@transaction.atomic
+@atomic_fn
 def approve_specification_version(
     *,
     actor: User | None,
@@ -500,7 +500,7 @@ def approve_specification_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_specification_version(
     *,
     actor: User | None,
@@ -529,7 +529,7 @@ def retire_specification_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def clone_specification_version_as_draft(
     *,
     actor: User | None,

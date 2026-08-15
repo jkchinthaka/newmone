@@ -12,12 +12,12 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset, locked_get
+from apps.core.persistence import atomic, atomic_fn, lock_queryset, locked_get
 from apps.dispatch.models import (
     ColdChainTemperatureReading,
     DispatchHistoryEntry,
@@ -145,7 +145,7 @@ def evaluate_release_gate(
     return result
 
 
-@transaction.atomic
+@atomic_fn
 def create_dispatch_quality_record(
     *,
     actor: User | None,
@@ -226,7 +226,7 @@ def create_dispatch_quality_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def update_dispatch_quality_record(
     *,
     actor: User | None,
@@ -318,7 +318,7 @@ def update_dispatch_quality_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def link_vehicle_inspection(
     *,
     actor: User | None,
@@ -367,7 +367,7 @@ def link_vehicle_inspection(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def link_qa_review(
     *,
     actor: User | None,
@@ -408,7 +408,7 @@ def link_qa_review(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def record_cold_chain_temperature(
     *,
     actor: User | None,
@@ -468,7 +468,7 @@ def record_cold_chain_temperature(
     return reading
 
 
-@transaction.atomic
+@atomic_fn
 def set_dispatch_quantity_line(
     *,
     actor: User | None,
@@ -565,7 +565,7 @@ def set_dispatch_quantity_line(
     return line
 
 
-@transaction.atomic
+@atomic_fn
 def set_dispatch_release_policy(
     *,
     actor: User | None,
@@ -608,7 +608,7 @@ def complete_dispatch_quality_record(
     """
     user = _require_authenticated_actor(actor)
     try:
-        with transaction.atomic():
+        with atomic():
             record = lock_queryset(
                 DispatchQualityRecord.objects.filter(pk=dispatch_record_id)
             ).first()
@@ -694,8 +694,7 @@ def complete_dispatch_quality_record(
         raise
 
 
-@transaction.atomic
-@transaction.atomic
+@atomic_fn
 def cancel_dispatch_quality_record(
     *,
     actor: User | None,

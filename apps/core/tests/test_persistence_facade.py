@@ -16,6 +16,10 @@ from apps.core.persistence import (
 
 
 def test_detect_postgresql_default() -> None:
+    from apps.core.persistence.backend import is_mongodb
+
+    if is_mongodb():
+        pytest.skip("Active Django database engine is MongoDB in this settings module")
     assert detect_database_vendor() is DatabaseVendor.POSTGRESQL
     assert is_mongodb() is False
 

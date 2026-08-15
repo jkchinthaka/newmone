@@ -11,9 +11,10 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistItem, ChecklistTemplate
@@ -74,7 +75,7 @@ def _assert_draft(version: ArtworkVersion) -> None:
         raise ValidationError({"status": "Approved or retired artwork versions are immutable."})
 
 
-@transaction.atomic
+@atomic_fn
 def create_packaging_artwork(
     *,
     actor: User | None,
@@ -130,7 +131,7 @@ def create_packaging_artwork(
     return artwork
 
 
-@transaction.atomic
+@atomic_fn
 def create_artwork_version_draft(
     *,
     actor: User | None,
@@ -181,7 +182,7 @@ def create_artwork_version_draft(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def update_artwork_version_draft(
     *,
     actor: User | None,
@@ -231,7 +232,7 @@ def update_artwork_version_draft(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def approve_artwork_version(
     *,
     actor: User | None,
@@ -277,7 +278,7 @@ def approve_artwork_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_artwork_version(
     *,
     actor: User | None,
@@ -305,7 +306,7 @@ def retire_artwork_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def bind_checklist_item_to_artwork(
     *,
     actor: User | None,
@@ -355,7 +356,7 @@ def bind_checklist_item_to_artwork(
     return binding
 
 
-@transaction.atomic
+@atomic_fn
 def create_line_clearance_hook(
     *,
     actor: User | None,
@@ -409,7 +410,7 @@ def create_line_clearance_hook(
     return hook
 
 
-@transaction.atomic
+@atomic_fn
 def record_artwork_verification(
     *,
     actor: User | None,

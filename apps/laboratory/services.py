@@ -12,12 +12,12 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
-from apps.core.persistence import locked_get
+from apps.core.persistence import atomic_fn, locked_get
 from apps.laboratory.models import (
     LAB_SAMPLE_STATUS_TRANSITIONS,
     LabAuditEventKind,
@@ -91,7 +91,7 @@ def _assert_same_org(organization_id: uuid.UUID, **fk_org_ids: uuid.UUID | None)
             raise PermissionDenied(f"Cross-organization {name} link is denied.")
 
 
-@transaction.atomic
+@atomic_fn
 def register_lab_sample(
     *,
     actor: User | None,
@@ -161,7 +161,7 @@ def register_lab_sample(
     return sample
 
 
-@transaction.atomic
+@atomic_fn
 def transition_lab_sample(
     *,
     actor: User | None,
@@ -204,7 +204,7 @@ def transition_lab_sample(
     return sample
 
 
-@transaction.atomic
+@atomic_fn
 def create_lab_test(
     *,
     actor: User | None,
@@ -256,7 +256,7 @@ def _parse_decimal(raw: Any) -> Decimal | None:
         raise ValidationError({"numeric_value": "Invalid numeric value."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def enter_lab_result(
     *,
     actor: User | None,
@@ -356,7 +356,7 @@ def enter_lab_result(
     return result
 
 
-@transaction.atomic
+@atomic_fn
 def verify_lab_result(*, actor: User | None, result_id: uuid.UUID) -> LabResult:
     user = _require_actor(actor)
     result = locked_get(LabResult, pk=result_id)
@@ -389,7 +389,7 @@ def verify_lab_result(*, actor: User | None, result_id: uuid.UUID) -> LabResult:
     return result
 
 
-@transaction.atomic
+@atomic_fn
 def finalize_lab_result(*, actor: User | None, result_id: uuid.UUID) -> LabResult:
     user = _require_actor(actor)
     result = locked_get(LabResult, pk=result_id)
@@ -423,7 +423,7 @@ def finalize_lab_result(*, actor: User | None, result_id: uuid.UUID) -> LabResul
     return result
 
 
-@transaction.atomic
+@atomic_fn
 def amend_lab_result(
     *,
     actor: User | None,
@@ -500,7 +500,7 @@ def amend_lab_result(
     return amended
 
 
-@transaction.atomic
+@atomic_fn
 def create_test_method_reference(
     *,
     actor: User | None,
@@ -525,7 +525,7 @@ def create_test_method_reference(
         raise ValidationError({"code": "Method code already exists."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def create_lab_test_parameter(
     *,
     actor: User | None,
@@ -571,7 +571,7 @@ def create_lab_test_parameter(
     return param
 
 
-@transaction.atomic
+@atomic_fn
 def record_external_lab_certificate(
     *,
     actor: User | None,
@@ -620,7 +620,7 @@ def record_external_lab_certificate(
     return cert
 
 
-@transaction.atomic
+@atomic_fn
 def update_positive_release_policy(
     *,
     actor: User | None,

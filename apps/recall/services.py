@@ -13,7 +13,6 @@ from typing import Any
 
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -22,7 +21,7 @@ from apps.access_control.services import Scope, require_permission, user_has_per
 from apps.accounts.models import User
 from apps.batch_genealogy.models import GenealogyNodeKind
 from apps.batch_genealogy.services import trace_backward, trace_forward
-from apps.core.persistence import prefetch_related_compat
+from apps.core.persistence import atomic_fn, prefetch_related_compat
 from apps.organizations.models import Organization
 from apps.recall.models import (
     MOCK_RECALL_BANNER,
@@ -140,7 +139,7 @@ def _transition(case: RecallCase, new_status: str) -> None:
     case.status = new_status
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_recall_policy(
     *,
     actor: User | None,
@@ -174,7 +173,7 @@ def upsert_recall_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def create_recall_case(
     *,
     actor: User | None,
@@ -259,7 +258,7 @@ def create_recall_case(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def initiate_recall_case(
     *, actor: User | None, organization: Organization, case_id: uuid.UUID
 ) -> RecallCase:
@@ -298,7 +297,7 @@ def initiate_recall_case(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def add_affected_product(
     *,
     actor: User | None,
@@ -342,7 +341,7 @@ def add_affected_product(
     return row
 
 
-@transaction.atomic
+@atomic_fn
 def add_affected_batch(
     *,
     actor: User | None,
@@ -402,7 +401,7 @@ def add_affected_batch(
     return row
 
 
-@transaction.atomic
+@atomic_fn
 def expand_genealogy_for_recall(
     *,
     actor: User | None,
@@ -528,7 +527,7 @@ def expand_genealogy_for_recall(
     }
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_quantity_reconciliation(
     *,
     actor: User | None,
@@ -611,7 +610,7 @@ def upsert_quantity_reconciliation(
     return line
 
 
-@transaction.atomic
+@atomic_fn
 def record_communication_reference(
     *,
     actor: User | None,
@@ -837,7 +836,7 @@ def attempt_erp_distribution_pull(
     }
 
 
-@transaction.atomic
+@atomic_fn
 def close_recall_case(
     *,
     actor: User | None,

@@ -11,9 +11,10 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistTemplate, ChecklistVersion
@@ -99,7 +100,7 @@ def _iqc_batch_reference(receipt: ReceiptQualityRecord) -> str:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_iqc_workflow_policy(
     *,
     actor: User | None,
@@ -133,7 +134,7 @@ def upsert_iqc_workflow_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def open_iqc_case_for_receipt(
     *,
     actor: User | None,
@@ -174,7 +175,7 @@ def open_iqc_case_for_receipt(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def generate_iqc_task(
     *,
     actor: User | None,
@@ -240,7 +241,7 @@ def generate_iqc_task(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def resolve_iqc_sampling(
     *,
     actor: User | None,
@@ -281,7 +282,7 @@ def resolve_iqc_sampling(
     return resolution.as_dict()
 
 
-@transaction.atomic
+@atomic_fn
 def link_iqc_lab_sample(
     *,
     actor: User | None,
@@ -321,7 +322,7 @@ def link_iqc_lab_sample(
     }
 
 
-@transaction.atomic
+@atomic_fn
 def attach_iqc_review(
     *,
     actor: User | None,
@@ -380,7 +381,7 @@ def attach_iqc_review(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def complete_iqc_disposition(
     *,
     actor: User | None,
@@ -462,7 +463,7 @@ def complete_iqc_disposition(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def ingest_incoming_receipt_event(
     *,
     actor: User | None,

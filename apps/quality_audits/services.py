@@ -7,9 +7,9 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
@@ -88,7 +88,7 @@ def _transition_finding(finding: QualityAuditFinding, target: str) -> None:
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_quality_audit(
     *,
     actor: User,
@@ -149,7 +149,7 @@ def create_quality_audit(
     return audit
 
 
-@transaction.atomic
+@atomic_fn
 def add_audit_participant(
     *, actor: User, audit_id: uuid.UUID, user: User, role_reference: str = ""
 ) -> QualityAuditParticipant:
@@ -177,7 +177,7 @@ def add_audit_participant(
     return participant
 
 
-@transaction.atomic
+@atomic_fn
 def register_audit_checklist_template(
     *, actor: User, organization_id: uuid.UUID, checklist_template_id: uuid.UUID
 ) -> QualityAuditChecklistBinding:
@@ -207,7 +207,7 @@ def register_audit_checklist_template(
     return binding
 
 
-@transaction.atomic
+@atomic_fn
 def bind_audit_checklist(
     *,
     actor: User,
@@ -252,7 +252,7 @@ def bind_audit_checklist(
     return audit
 
 
-@transaction.atomic
+@atomic_fn
 def start_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     audit = QualityAudit.objects.select_related("organization").get(pk=audit_id)
     _require(actor, PERM_EXECUTE, audit.organization_id)
@@ -275,7 +275,7 @@ def start_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     return audit
 
 
-@transaction.atomic
+@atomic_fn
 def create_audit_finding(
     *,
     actor: User,
@@ -356,7 +356,7 @@ def create_audit_finding(
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def complete_finding_action(*, actor: User, finding_id: uuid.UUID) -> QualityAuditFinding:
     finding = QualityAuditFinding.objects.select_related("audit").get(pk=finding_id)
     _require(actor, PERM_EXECUTE, finding.audit.organization_id)
@@ -387,7 +387,7 @@ def complete_finding_action(*, actor: User, finding_id: uuid.UUID) -> QualityAud
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def verify_audit_finding(*, actor: User, finding_id: uuid.UUID) -> QualityAuditFinding:
     finding = QualityAuditFinding.objects.select_related("audit").get(pk=finding_id)
     _require(actor, PERM_CLOSE, finding.audit.organization_id)
@@ -416,7 +416,7 @@ def verify_audit_finding(*, actor: User, finding_id: uuid.UUID) -> QualityAuditF
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def close_audit_finding(*, actor: User, finding_id: uuid.UUID) -> QualityAuditFinding:
     finding = QualityAuditFinding.objects.select_related("audit").get(pk=finding_id)
     _require(actor, PERM_CLOSE, finding.audit.organization_id)
@@ -445,7 +445,7 @@ def close_audit_finding(*, actor: User, finding_id: uuid.UUID) -> QualityAuditFi
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def link_finding_quality_case(
     *,
     actor: User,
@@ -546,7 +546,7 @@ def link_finding_quality_case(
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def cancel_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     audit = QualityAudit.objects.select_related("organization").get(pk=audit_id)
     _require(actor, PERM_CLOSE, audit.organization_id)
@@ -572,7 +572,7 @@ def cancel_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     return audit
 
 
-@transaction.atomic
+@atomic_fn
 def reopen_finding_action(*, actor: User, finding_id: uuid.UUID) -> QualityAuditFinding:
     finding = QualityAuditFinding.objects.select_related("audit").get(pk=finding_id)
     _require(actor, PERM_EXECUTE, finding.audit.organization_id)
@@ -591,7 +591,7 @@ def reopen_finding_action(*, actor: User, finding_id: uuid.UUID) -> QualityAudit
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def close_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     audit = QualityAudit.objects.select_related("organization").get(pk=audit_id)
     _require(actor, PERM_CLOSE, audit.organization_id)
@@ -617,7 +617,7 @@ def close_quality_audit(*, actor: User, audit_id: uuid.UUID) -> QualityAudit:
     return audit
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_finding_code(
     *,
     actor: User,

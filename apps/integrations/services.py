@@ -10,8 +10,8 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import (
@@ -87,7 +87,7 @@ def _idempotency_key(contract: InboundBatchEventContract) -> str:
     return f"{contract.source_system}:{contract.source_event_id}"
 
 
-@transaction.atomic
+@atomic_fn
 def ingest_inbound_batch_event(
     *,
     actor: User | None,
@@ -289,7 +289,7 @@ def attempt_live_pull_blocked(*, actor: User | None) -> None:
     LiveBileetaClient().fetch_batch_events()
 
 
-@transaction.atomic
+@atomic_fn
 def mark_attempt_dead_letter(
     *,
     actor: User | None,

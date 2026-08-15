@@ -12,8 +12,8 @@ from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, locked_get
 from django.utils import timezone
 from django.utils.html import strip_tags
 
@@ -72,7 +72,7 @@ def get_or_create_notification_policy(
     )
 
 
-@transaction.atomic
+@atomic_fn
 def set_notification_policy(
     *,
     actor: User | None,
@@ -118,7 +118,7 @@ def _can_dispatch(user: User, organization_id: uuid.UUID) -> bool:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def create_in_app_notification(
     *,
     actor: User | None,
@@ -237,7 +237,7 @@ def queue_sms_notification(**_kwargs: Any) -> None:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def mark_notification_read(*, actor: User | None, notification_id: uuid.UUID) -> Notification:
     user = _require_authenticated_actor(actor)
     notification = locked_get(Notification, pk=notification_id)

@@ -7,11 +7,11 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset, locked_get
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from apps.master_data.historical_safety import refuse_hard_delete_fg_product
 from apps.master_data.models import FGProduct
 from apps.organizations.models import Organization
@@ -142,7 +142,7 @@ def _reraise_product_persistence_error(exc: Exception) -> None:
     raise
 
 
-@transaction.atomic
+@atomic_fn
 def create_fg_product(
     *,
     actor: User | None,
@@ -200,7 +200,7 @@ def create_fg_product(
     return product
 
 
-@transaction.atomic
+@atomic_fn
 def update_fg_product(
     *,
     actor: User | None,
@@ -277,7 +277,7 @@ def update_fg_product(
     return product
 
 
-@transaction.atomic
+@atomic_fn
 def activate_fg_product(*, actor: User | None, product_id: uuid.UUID) -> FGProduct:
     user = _require_authenticated_actor(actor)
     product = locked_get(FGProduct, pk=product_id)
@@ -296,7 +296,7 @@ def activate_fg_product(*, actor: User | None, product_id: uuid.UUID) -> FGProdu
     return product
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_fg_product(*, actor: User | None, product_id: uuid.UUID) -> FGProduct:
     user = _require_authenticated_actor(actor)
     product = locked_get(FGProduct, pk=product_id)

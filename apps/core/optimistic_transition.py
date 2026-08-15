@@ -35,8 +35,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import Model, QuerySet
+
+from apps.core.persistence.transactions import atomic
 
 
 class TransitionConflictError(Exception):
@@ -126,30 +128,61 @@ def create_immutable_unique(
     Returns:
         (instance, created) tuple where created=True only for fresh inserts.
     """
-    try:
-        obj = model(**create_kwargs)
-        if hasattr(obj, "full_clean"):
-            obj.full_clean()
-        with transaction.atomic():
-            obj.save()
-        return (obj, True)
-    except IntegrityError:
-        existing = _resolve_unique_conflict(
-            model=model,
-            unique_lookup=unique_lookup,
-            decision_field=decision_field,
-            decision_value=decision_value,
-        )
-        return (existing, False)
-    except ValidationError:
-        # Django unique validators fire in full_clean before IntegrityError.
-        existing = _resolve_unique_conflict(
-            model=model,
-            unique_lookup=unique_lookup,
-            decision_field=decision_field,
-            decision_value=decision_value,
-        )
-        return (existing, False)
+    from django.db import DatabaseError
+
+    from apps.core.persistence.transactions import is_transient_transaction_error
+
+    last_error: BaseException | None = None
+    for _attempt in range(5):
+        try:
+            obj = model(**create_kwargs)
+            if hasattr(obj, "full_clean"):
+                obj.full_clean()
+            with atomic():
+                obj.save()
+            return (obj, True)
+        except IntegrityError:
+            existing = _resolve_unique_conflict(
+                model=model,
+                unique_lookup=unique_lookup,
+                decision_field=decision_field,
+                decision_value=decision_value,
+            )
+            return (existing, False)
+        except ValidationError:
+            # Django unique validators fire in full_clean before IntegrityError.
+            existing = _resolve_unique_conflict(
+                model=model,
+                unique_lookup=unique_lookup,
+                decision_field=decision_field,
+                decision_value=decision_value,
+            )
+            return (existing, False)
+        except DatabaseError as exc:
+            last_error = exc
+            # Duplicate-key may arrive wrapped; WriteConflict needs re-read/retry.
+            text = str(exc)
+            if "E11000" in text or "duplicate key" in text.lower():
+                existing = _resolve_unique_conflict(
+                    model=model,
+                    unique_lookup=unique_lookup,
+                    decision_field=decision_field,
+                    decision_value=decision_value,
+                )
+                return (existing, False)
+            if is_transient_transaction_error(exc):
+                existing = model.objects.filter(**unique_lookup).first()
+                if existing is not None:
+                    if getattr(existing, decision_field) == decision_value:
+                        return (existing, False)
+                    raise TransitionConflictError(
+                        "Immutable decision already exists with a different value."
+                    ) from exc
+                continue
+            raise
+    if last_error is not None:
+        raise last_error
+    raise TransitionConflictError("Unable to create immutable unique row after retries.")
 
 
 def cas_versioned_update(

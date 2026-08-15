@@ -12,9 +12,10 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistTemplate, ChecklistVersion
@@ -87,7 +88,7 @@ def _parse_decimal(value: Any) -> Decimal | None:
         raise ValidationError({"quantity": "Invalid quantity."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def create_material_reference(
     *,
     actor: User | None,
@@ -126,7 +127,7 @@ def create_material_reference(
     return material
 
 
-@transaction.atomic
+@atomic_fn
 def create_material_specification(
     *,
     actor: User | None,
@@ -164,7 +165,7 @@ def create_material_specification(
     return spec
 
 
-@transaction.atomic
+@atomic_fn
 def add_material_specification_parameter(
     *,
     actor: User | None,
@@ -201,7 +202,7 @@ def add_material_specification_parameter(
     return param
 
 
-@transaction.atomic
+@atomic_fn
 def approve_material_specification_version(
     *,
     actor: User | None,
@@ -228,7 +229,7 @@ def approve_material_specification_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def create_receipt_quality_record(
     *,
     actor: User | None,
@@ -344,7 +345,7 @@ def create_receipt_quality_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def set_receipt_quality_disposition(
     *,
     actor: User | None,
@@ -401,7 +402,7 @@ def set_receipt_quality_disposition(
     return receipt
 
 
-@transaction.atomic
+@atomic_fn
 def link_lab_sample_to_receipt(
     *,
     actor: User | None,
@@ -433,7 +434,7 @@ def link_lab_sample_to_receipt(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def register_incoming_lab_sample(
     *,
     actor: User | None,

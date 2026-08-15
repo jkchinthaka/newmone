@@ -12,13 +12,12 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.customer_complaints.models import (
     COMPLAINT_STATUS_TRANSITIONS,
     ComplaintCaseStatus,
@@ -88,7 +87,7 @@ def can_view_customer_sensitive(user: User | None, *, organization_id: uuid.UUID
     return user_has_permission(user, VIEW_SENSITIVE, scope=_org_scope(organization_id))
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_complaint_policy(
     *,
     actor: User | None,
@@ -122,7 +121,7 @@ def upsert_complaint_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_category_config(
     *,
     actor: User | None,
@@ -173,7 +172,7 @@ def upsert_category_config(
     return row
 
 
-@transaction.atomic
+@atomic_fn
 def create_complaint_case(
     *,
     actor: User | None,
@@ -240,7 +239,7 @@ def create_complaint_case(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def open_complaint_case(
     *, actor: User | None, organization: Organization, case_id: uuid.UUID
 ) -> CustomerComplaintCase:
@@ -268,7 +267,7 @@ def open_complaint_case(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def set_complaint_batch_reference(
     *,
     actor: User | None,
@@ -308,7 +307,7 @@ def set_complaint_batch_reference(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_batch_trace(
     *,
     actor: User | None,
@@ -418,7 +417,7 @@ def upsert_batch_trace(
     return trace
 
 
-@transaction.atomic
+@atomic_fn
 def link_complaint_evidence(
     *,
     actor: User | None,
@@ -465,7 +464,7 @@ def link_complaint_evidence(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def record_investigation_link(
     *,
     actor: User | None,
@@ -583,7 +582,7 @@ def record_investigation_link(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def record_complaint_communication(
     *,
     actor: User | None,
@@ -684,7 +683,7 @@ def attempt_customer_response_send(
     return payload
 
 
-@transaction.atomic
+@atomic_fn
 def close_complaint_case(
     *,
     actor: User | None,

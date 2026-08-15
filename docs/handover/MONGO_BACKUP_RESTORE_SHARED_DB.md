@@ -32,6 +32,25 @@ Authoritative inventory generators (static, no company writes):
 
 Use the isolated replica-set POC (`compose.mongo-poc.yaml`, database `fg_same_db_poc`). Never point dump/restore at `mgintginpro_prod`.
 
+## Tooling (implemented)
+
+```bash
+# Inventory + dry-run (isolated)
+uv run python scripts/migration/fg_mongo_backup.py \
+  --uri "$MONGODB_URI" --database fg_same_db_poc \
+  --out .mongo_fg_backup_poc --dry-run
+
+# Restore refuses company DB
+uv run python scripts/migration/fg_mongo_restore.py \
+  --uri "$MONGODB_URI" --target-database mgintginpro_prod \
+  --dump-dir .mongo_fg_backup_poc/fg_same_db_poc
+# → REFUSED WRITE (exit 2)
+
+# Dump of company DB name also refuses unless --allow-production-read
+```
+
+POC dry-run (2026-08-13): **232** `fg_*` collections; **0** non-fg ignored leftovers in `fg_same_db_poc`.
+
 ## Dump plan (FG collections only)
 
 ```text

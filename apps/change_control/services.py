@@ -7,9 +7,9 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.change_control.models import (
@@ -71,7 +71,7 @@ def _transition(change: QualityChangeRequest, target: str) -> None:
         raise ValidationError({"status": f"Cannot transition from {change.status} to {target}."})
 
 
-@transaction.atomic
+@atomic_fn
 def create_quality_change(
     *,
     actor: User,
@@ -125,7 +125,7 @@ def create_quality_change(
     return change
 
 
-@transaction.atomic
+@atomic_fn
 def start_change_assessment(*, actor: User, change_id: uuid.UUID) -> QualityChangeRequest:
     change = QualityChangeRequest.objects.select_related("organization").get(pk=change_id)
     _require(actor, PERM_ASSESS, change.organization_id)
@@ -151,7 +151,7 @@ def start_change_assessment(*, actor: User, change_id: uuid.UUID) -> QualityChan
     return change
 
 
-@transaction.atomic
+@atomic_fn
 def record_change_impact_assessment(
     *,
     actor: User,
@@ -216,7 +216,7 @@ def record_change_impact_assessment(
     return assessment
 
 
-@transaction.atomic
+@atomic_fn
 def add_affected_link(
     *,
     actor: User,
@@ -281,7 +281,7 @@ def add_affected_link(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def approve_quality_change(
     *,
     actor: User,
@@ -334,7 +334,7 @@ def approve_quality_change(
     return change
 
 
-@transaction.atomic
+@atomic_fn
 def start_change_implementation(*, actor: User, change_id: uuid.UUID) -> QualityChangeRequest:
     change = QualityChangeRequest.objects.select_related("organization").get(pk=change_id)
     _require(actor, PERM_IMPLEMENT, change.organization_id)
@@ -360,7 +360,7 @@ def start_change_implementation(*, actor: User, change_id: uuid.UUID) -> Quality
     return change
 
 
-@transaction.atomic
+@atomic_fn
 def record_implementation_link(
     *,
     actor: User,
@@ -426,7 +426,7 @@ def record_implementation_link(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def submit_change_for_verification(*, actor: User, change_id: uuid.UUID) -> QualityChangeRequest:
     change = QualityChangeRequest.objects.select_related("organization").get(pk=change_id)
     _require(actor, PERM_IMPLEMENT, change.organization_id)
@@ -456,7 +456,7 @@ def submit_change_for_verification(*, actor: User, change_id: uuid.UUID) -> Qual
     return change
 
 
-@transaction.atomic
+@atomic_fn
 def verify_and_close_quality_change(
     *,
     actor: User,

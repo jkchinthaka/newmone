@@ -13,9 +13,10 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.checklists.models import (
@@ -149,7 +150,7 @@ def _ipqc_batch_reference(case: IpqcInspectionCase) -> str:
     return "|".join(parts)[:128]
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_ipqc_workflow_policy(
     *,
     actor: User | None,
@@ -180,7 +181,7 @@ def upsert_ipqc_workflow_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def create_ipqc_process_check_definition(
     *,
     actor: User | None,
@@ -278,7 +279,7 @@ def _build_occurrence_key(
     return f"{base}:INTERVAL:{interval}:{window}"
 
 
-@transaction.atomic
+@atomic_fn
 def generate_ipqc_case(
     *,
     actor: User | None,
@@ -406,7 +407,7 @@ def generate_ipqc_case(
     return case, True
 
 
-@transaction.atomic
+@atomic_fn
 def generate_scheduled_ipqc_cases(
     *,
     actor: User | None,
@@ -448,7 +449,7 @@ def generate_scheduled_ipqc_cases(
     return created
 
 
-@transaction.atomic
+@atomic_fn
 def generate_ipqc_task(
     *,
     actor: User | None,
@@ -497,7 +498,7 @@ def generate_ipqc_task(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def attach_ipqc_equipment_trace(
     *,
     actor: User | None,
@@ -554,7 +555,7 @@ def attach_ipqc_equipment_trace(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def record_ipqc_measurement(
     *,
     actor: User | None,
@@ -617,7 +618,7 @@ def record_ipqc_measurement(
     return measurement
 
 
-@transaction.atomic
+@atomic_fn
 def resolve_ipqc_sampling(
     *,
     actor: User | None,
@@ -658,7 +659,7 @@ def resolve_ipqc_sampling(
     return snapshot
 
 
-@transaction.atomic
+@atomic_fn
 def attach_ipqc_haccp_metadata(
     *,
     actor: User | None,
@@ -688,7 +689,7 @@ def attach_ipqc_haccp_metadata(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def mark_ipqc_failure(
     *,
     actor: User | None,
@@ -751,7 +752,7 @@ def mark_ipqc_failure(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def escalate_ipqc_to_ncr(
     *,
     actor: User | None,
@@ -796,7 +797,7 @@ def escalate_ipqc_to_ncr(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def escalate_ipqc_to_hold(
     *,
     actor: User | None,
@@ -838,7 +839,7 @@ def escalate_ipqc_to_hold(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def attach_ipqc_submission(
     *,
     actor: User | None,
@@ -858,7 +859,7 @@ def attach_ipqc_submission(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def complete_ipqc_case(
     *,
     actor: User | None,

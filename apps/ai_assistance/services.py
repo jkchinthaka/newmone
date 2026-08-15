@@ -10,8 +10,8 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
+from apps.core.persistence.transactions import atomic
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
 from apps.ai_assistance.anomaly import AdvisoryAnomaly, evaluate_advisory_anomalies
@@ -111,7 +111,7 @@ def run_ai_assistance(
             actor=user, organization=organization, use_case=parsed, params=params
         )
     except (ValidationError, PermissionDenied) as exc:
-        with transaction.atomic():
+        with atomic():
             row = AIAssistanceRequest.objects.create(
                 organization=organization,
                 requested_by=user,

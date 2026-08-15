@@ -10,7 +10,8 @@ from django.db import connection
 @pytest.mark.django_db
 @pytest.mark.integration
 def test_migrations_applied_on_postgresql() -> None:
-    assert connection.vendor == "postgresql"
+    if connection.vendor != "postgresql":
+        pytest.skip("PostgreSQL-only migration smoke; active vendor is " + connection.vendor)
     call_command("showmigrations", verbosity=0)
 
 

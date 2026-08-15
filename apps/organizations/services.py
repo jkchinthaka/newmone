@@ -7,8 +7,8 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
@@ -167,7 +167,7 @@ def _reraise_unique(exc: Exception, *, field_message: str) -> None:
 # --- Organization lifecycle -------------------------------------------------
 
 
-@transaction.atomic
+@atomic_fn
 def create_organization(
     *,
     code: str,
@@ -210,7 +210,7 @@ def create_organization(
     return organization
 
 
-@transaction.atomic
+@atomic_fn
 def update_organization(
     *,
     actor: User | None,
@@ -252,7 +252,7 @@ def update_organization(
     return organization
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_organization(
     organization: Organization,
     *,
@@ -275,7 +275,7 @@ def deactivate_organization(
     return organization
 
 
-@transaction.atomic
+@atomic_fn
 def reactivate_organization(
     organization: Organization,
     *,
@@ -301,7 +301,7 @@ def reactivate_organization(
 # --- Site lifecycle ---------------------------------------------------------
 
 
-@transaction.atomic
+@atomic_fn
 def create_site(
     *,
     organization: Organization,
@@ -335,7 +335,7 @@ def create_site(
     return site
 
 
-@transaction.atomic
+@atomic_fn
 def update_site(
     *,
     actor: User | None,
@@ -381,7 +381,7 @@ def update_site(
     return site
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_site(site: Site, *, actor: User | None = None) -> Site:
     user: User | None = None
     if actor is not None:
@@ -396,7 +396,7 @@ def deactivate_site(site: Site, *, actor: User | None = None) -> Site:
     return site
 
 
-@transaction.atomic
+@atomic_fn
 def reactivate_site(site: Site, *, actor: User | None = None) -> Site:
     user: User | None = None
     if actor is not None:
@@ -416,7 +416,7 @@ def reactivate_site(site: Site, *, actor: User | None = None) -> Site:
 # --- Department lifecycle ---------------------------------------------------
 
 
-@transaction.atomic
+@atomic_fn
 def create_department(
     *,
     organization: Organization,
@@ -463,7 +463,7 @@ def create_department(
     return department
 
 
-@transaction.atomic
+@atomic_fn
 def update_department(
     *,
     actor: User | None,
@@ -525,7 +525,7 @@ def update_department(
     return department
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_department(
     department: Department,
     *,
@@ -555,7 +555,7 @@ def deactivate_department(
     return department
 
 
-@transaction.atomic
+@atomic_fn
 def reactivate_department(
     department: Department,
     *,
@@ -609,7 +609,7 @@ def _reraise_shift_persistence_error(exc: Exception) -> None:
     raise
 
 
-@transaction.atomic
+@atomic_fn
 def create_shift(
     *,
     actor: User | None,
@@ -665,7 +665,7 @@ def create_shift(
     return shift
 
 
-@transaction.atomic
+@atomic_fn
 def update_shift(
     *,
     actor: User | None,
@@ -744,7 +744,7 @@ def update_shift(
     return shift
 
 
-@transaction.atomic
+@atomic_fn
 def activate_shift(*, actor: User | None, shift_id: uuid.UUID) -> Shift:
     user = _require_authenticated_actor(actor)
     shift = locked_get(Shift, pk=shift_id)
@@ -763,7 +763,7 @@ def activate_shift(*, actor: User | None, shift_id: uuid.UUID) -> Shift:
     return shift
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_shift(*, actor: User | None, shift_id: uuid.UUID) -> Shift:
     user = _require_authenticated_actor(actor)
     shift = locked_get(Shift, pk=shift_id)

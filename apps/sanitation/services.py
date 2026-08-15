@@ -6,13 +6,13 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistTemplate
-from apps.core.persistence import lock_queryset, locked_get
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from apps.instruments.models import Equipment
 from apps.organizations.models import Department, Organization, Site
 from apps.organizations.services import normalize_code
@@ -84,7 +84,7 @@ def _assert_same_org_template(organization: Organization, template: ChecklistTem
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_sanitation_program(
     *,
     actor: User | None,
@@ -130,7 +130,7 @@ def create_sanitation_program(
     return program
 
 
-@transaction.atomic
+@atomic_fn
 def create_draft_program_version(
     *,
     actor: User | None,
@@ -178,7 +178,7 @@ def create_draft_program_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def add_sanitation_scope(
     *,
     actor: User | None,
@@ -222,7 +222,7 @@ def add_sanitation_scope(
     return scope
 
 
-@transaction.atomic
+@atomic_fn
 def add_schedule_link(
     *,
     actor: User | None,
@@ -254,7 +254,7 @@ def add_schedule_link(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def create_chemical_reference(
     *,
     actor: User | None,
@@ -285,7 +285,7 @@ def create_chemical_reference(
         raise ValidationError({"code": "Chemical code already exists in organization."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def link_chemical_to_version(
     *,
     actor: User | None,
@@ -317,7 +317,7 @@ def link_chemical_to_version(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def approve_program_version(
     *,
     actor: User | None,
@@ -355,7 +355,7 @@ def approve_program_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_program_version(
     *,
     actor: User | None,
@@ -387,7 +387,7 @@ def retire_program_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def bind_checklist_template_to_sanitation_program(
     *,
     actor: User | None,
@@ -431,7 +431,7 @@ def bind_checklist_template_to_sanitation_program(
     return binding
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_sanitation_fail_policy(
     *,
     actor: User | None,

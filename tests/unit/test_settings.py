@@ -20,6 +20,10 @@ def test_auth_user_model_is_accounts_user() -> None:
 
 
 def test_database_engine_is_postgresql() -> None:
+    from apps.core.persistence.backend import is_mongodb
+
+    if is_mongodb():
+        pytest.skip("Active settings use MongoDB; PostgreSQL engine asserted on PG test settings")
     assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql"
 
 

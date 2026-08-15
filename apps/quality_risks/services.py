@@ -11,10 +11,10 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
@@ -157,7 +157,7 @@ def _resolve_link_object(
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_quality_risk(
     *,
     actor: User,
@@ -224,7 +224,7 @@ def create_quality_risk(
     return risk
 
 
-@transaction.atomic
+@atomic_fn
 def open_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     risk = QualityRisk.objects.select_related("organization").get(pk=risk_id)
     _require(actor, PERM_MANAGE, risk.organization_id)
@@ -247,7 +247,7 @@ def open_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     return risk
 
 
-@transaction.atomic
+@atomic_fn
 def accept_quality_risk(
     *, actor: User, risk_id: uuid.UUID, acceptance_rationale: str
 ) -> QualityRisk:
@@ -286,7 +286,7 @@ def accept_quality_risk(
     return risk
 
 
-@transaction.atomic
+@atomic_fn
 def close_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     risk = QualityRisk.objects.select_related("organization").get(pk=risk_id)
     _require(actor, PERM_MANAGE, risk.organization_id)
@@ -311,7 +311,7 @@ def close_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     return risk
 
 
-@transaction.atomic
+@atomic_fn
 def cancel_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     risk = QualityRisk.objects.select_related("organization").get(pk=risk_id)
     _require(actor, PERM_MANAGE, risk.organization_id)
@@ -336,7 +336,7 @@ def cancel_quality_risk(*, actor: User, risk_id: uuid.UUID) -> QualityRisk:
     return risk
 
 
-@transaction.atomic
+@atomic_fn
 def record_risk_assessment(
     *,
     actor: User,
@@ -412,7 +412,7 @@ def record_risk_assessment(
     return assessment
 
 
-@transaction.atomic
+@atomic_fn
 def record_risk_review(
     *,
     actor: User,
@@ -455,7 +455,7 @@ def record_risk_review(
     return review
 
 
-@transaction.atomic
+@atomic_fn
 def link_quality_risk(
     *,
     actor: User,
@@ -503,7 +503,7 @@ def link_quality_risk(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def add_risk_mitigation(
     *,
     actor: User,
@@ -645,7 +645,7 @@ def add_risk_mitigation(
     return mitigation
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_risk_category(
     *, actor: User, organization_id: uuid.UUID, code: str, label: str, is_active: bool = True
 ) -> QualityRiskCategoryConfig:
@@ -673,7 +673,7 @@ def upsert_risk_category(
     return config
 
 
-@transaction.atomic
+@atomic_fn
 def configure_scoring_policy(
     *,
     actor: User,
