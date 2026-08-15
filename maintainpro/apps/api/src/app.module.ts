@@ -11,7 +11,6 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { envValidationSchema } from "./config/env.validation";
-import { MongoSyncService } from "./database/mongo-sync.service";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { BuildInfoController } from "./build-info.controller";
@@ -176,7 +175,6 @@ normalizeDatabaseEnvironment();
   providers: [
     HealthService,
     DeploymentReadinessService,
-    MongoSyncService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard
