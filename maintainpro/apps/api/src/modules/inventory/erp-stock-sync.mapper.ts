@@ -7,7 +7,8 @@ export type ErpStockSyncStatus =
   | "not_configured"
   | "misconfigured"
   | "ready"
-  | "completed";
+  | "completed"
+  | "partial";
 
 export type ErpStockSyncComparisonRow = {
   partId: string;
@@ -46,6 +47,8 @@ export type ErpStockSyncDryRunResult = {
   unmatchedMaintainProSamples: ErpStockSyncUnmatchedRow[];
   applyEnabled: boolean;
   message: string;
+  /** Full ERP balances from this dry-run (pass to apply to avoid refetch drift). */
+  erpBalances: StockBalanceSnapshot[];
 };
 
 export type ErpStockSyncApplyResult = {
@@ -54,8 +57,12 @@ export type ErpStockSyncApplyResult = {
   appliedAt: string;
   updatedCount: number;
   skippedCount: number;
+  failedCount: number;
+  failedPartNumbers: string[];
   warnings: string[];
   message: string;
+  /** Echo of ERP balances used for this apply (for retry/audit; not secrets). */
+  snapshotBalanceCount: number;
 };
 
 export type ErpStockSyncReadiness = {
@@ -89,7 +96,8 @@ const PUBLIC_DRY_RUN_KEYS = new Set<string>([
   "unmatchedErpSamples",
   "unmatchedMaintainProSamples",
   "applyEnabled",
-  "message"
+  "message",
+  "erpBalances"
 ]);
 
 export function normalizeErpItemCode(value: string | null | undefined): string {
@@ -197,6 +205,7 @@ export function buildDryRunResult(input: {
   comparison: ReturnType<typeof compareStockBalances>;
   applyEnabled: boolean;
   message: string;
+  erpBalances?: StockBalanceSnapshot[];
 }): ErpStockSyncDryRunResult {
   return {
     mode: input.mode,
@@ -205,14 +214,16 @@ export function buildDryRunResult(input: {
     summary: input.comparison.summary,
     warnings: input.comparison.warnings,
     sampleRows: input.comparison.matchedRows.slice(0, ERP_STOCK_SYNC_SAMPLE_LIMIT),
-    changedRows: input.comparison.changedRows.slice(0, ERP_STOCK_SYNC_SAMPLE_LIMIT),
+    // Full changed set (not sampled) so dry-run→apply handoff can stay consistent.
+    changedRows: input.comparison.changedRows,
     unmatchedErpSamples: input.comparison.unmatchedErpItems.slice(0, ERP_STOCK_SYNC_SAMPLE_LIMIT),
     unmatchedMaintainProSamples: input.comparison.unmatchedMaintainProItems.slice(
       0,
       ERP_STOCK_SYNC_SAMPLE_LIMIT
     ),
     applyEnabled: input.applyEnabled,
-    message: input.message
+    message: input.message,
+    erpBalances: input.erpBalances ?? []
   };
 }
 

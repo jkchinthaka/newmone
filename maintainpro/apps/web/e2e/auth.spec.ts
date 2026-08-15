@@ -177,7 +177,7 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("logs in as admin and lands on the dashboard route", async ({ page }) => {
+  test("logs in as admin and lands on the action center route", async ({ page }) => {
     await mockAuthenticatedShell(page);
     await page.addInitScript(() => {
       localStorage.setItem("maintainpro_active_tenant", "stale-tenant-from-previous-session");
@@ -231,7 +231,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/dashboard");
+    await page.waitForURL("**/action-center");
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
 
@@ -246,7 +246,7 @@ test.describe("authentication", () => {
     expect(csrf?.httpOnly).toBe(false);
   });
 
-  test("logs in as technician and lands on work orders", async ({ page }) => {
+  test("logs in as technician and lands on action center", async ({ page }) => {
     const technicianUser = {
       ...adminUser,
       id: "user-e2e-tech",
@@ -336,7 +336,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/work-orders");
+    await page.waitForURL("**/action-center");
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
   });
@@ -364,6 +364,9 @@ test.describe("authentication", () => {
 
   test("legacy /home route shows archive label and dashboard link", async ({ page }) => {
     await mockAuthenticatedShell(page);
+    await page.addInitScript((user) => {
+      localStorage.setItem("maintainpro_user", JSON.stringify(user));
+    }, adminUser);
 
     await page.goto("/home");
 
@@ -382,9 +385,16 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     const mainNav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(mainNav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(mainNav.getByRole("link", { name: "Work Orders" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
     await expect(mainNav.getByRole("link", { name: "System Health" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Admin Console" })).toBeVisible();
+
+    await mainNav.getByRole("button", { name: "Overview" }).click();
+    await expect(mainNav.getByRole("link", { name: "Dashboard" })).toBeVisible();
+
+    await mainNav.getByRole("button", { name: "Operations", exact: true }).click();
+    await expect(mainNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
+
     await expect(mainNav.getByRole("link", { name: "Home", exact: true })).toHaveCount(0);
   });
 
@@ -399,7 +409,9 @@ test.describe("authentication", () => {
 
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const mobileNav = page.getByRole("dialog", { name: "Mobile navigation" });
-    await expect(mobileNav.getByRole("link", { name: "Work Orders" })).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
+    await mobileNav.getByRole("button", { name: "Operations", exact: true }).click();
+    await expect(mobileNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
     await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
     await expect(page.getByRole("dialog", { name: "Mobile navigation" })).toHaveCount(0);
   });

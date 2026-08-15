@@ -273,9 +273,10 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
   const { badges } = useNavBadges(showBadgeFetch);
 
   const toggleGroup = (category: NavCategory) => {
+    const currentlyCollapsed = collapsedGroups[category] ?? category !== "workspace";
     const next = {
       ...collapsedGroups,
-      [category]: !collapsedGroups[category]
+      [category]: !currentlyCollapsed
     };
     setCollapsedGroups(next);
     writeCollapsedNavGroups(user.id, next);

@@ -20,6 +20,9 @@ import { getAccessJwtSecret } from "./config/jwt-secrets";
 import { PrismaService } from "./database/prisma.service";
 import { HealthService } from "./health.service";
 import { QueueHealthService } from "./modules/queues/queue-health.service";
+import {
+  registerFatalProcessHandlers
+} from "./bootstrap/fatal-process-handlers";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -87,24 +90,14 @@ async function bootstrap(): Promise<void> {
   const prismaService = app.get(PrismaService);
   await prismaService.enableShutdownHooks(app);
 
-  process.on("unhandledRejection", (reason: unknown) => {
-    if (queueHealthService.captureBootstrapRedisError("unhandledRejection", reason)) {
-      return;
-    }
-    const safe = sanitizeErrorForLog(reason);
-    // eslint-disable-next-line no-console
-    console.error(`[bootstrap] ${safe.event} category=${safe.errorCategory} ${safe.messageSafe}`);
-  });
-
-  process.on("uncaughtException", (err: Error) => {
-    if (queueHealthService.captureBootstrapRedisError("uncaughtException", err)) {
-      return;
-    }
-    const safe = sanitizeErrorForLog(err);
-    // eslint-disable-next-line no-console
-    console.error(`[bootstrap] ${safe.event} category=${safe.errorCategory} ${safe.messageSafe}`);
-    // Fatal process corruption: exit and let container restart policy recover.
-    process.exit(1);
+  registerFatalProcessHandlers({
+    captureBootstrapRedisError: (origin, error) =>
+      queueHealthService.captureBootstrapRedisError(origin, error),
+    logFatal: (line) => {
+      // eslint-disable-next-line no-console
+      console.error(line);
+    },
+    exitProcess: (code) => process.exit(code)
   });
 
   type ExpressRequest = {
