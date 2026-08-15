@@ -27,6 +27,7 @@ from apps.dispatch.models import (
     DispatchRecordStatus,
     DispatchReleasePolicy,
 )
+from apps.integrations.maintainpro.validation import bind_vehicle_from_post
 from apps.organizations.models import Organization
 from apps.organizations.services import normalize_code
 from apps.quality.models import QAReview, QAReviewDecision
@@ -153,6 +154,7 @@ def create_dispatch_quality_record(
     code: str,
     delivery_loading_reference: str = "",
     vehicle_reference: str = "",
+    maintainpro_vehicle_id: str = "",
     driver_reference: str = "",
     loading_bay: str = "",
     started_at: datetime | None = None,
@@ -166,6 +168,7 @@ def create_dispatch_quality_record(
     notes: str = "",
     vehicle_inspection_checklist_version_id: uuid.UUID | None = None,
     qa_review_id: uuid.UUID | None = None,
+    allow_pending_vehicle_reference: bool = False,
 ) -> DispatchQualityRecord:
     user = _require_authenticated_actor(actor)
     org_scope = Scope(organization_id=organization.id)
@@ -178,11 +181,27 @@ def create_dispatch_quality_record(
     if not normalized_code:
         raise ValidationError({"code": "Code cannot be blank."})
     qty = _to_decimal(quantity, "quantity")
+    binding = bind_vehicle_from_post(
+        organization=organization,
+        maintainpro_vehicle_id=maintainpro_vehicle_id,
+        typed_vehicle_text=vehicle_reference,
+        allow_empty=True,
+        allow_pending_on_unavailable=allow_pending_vehicle_reference,
+    )
     record = DispatchQualityRecord(
         organization=organization,
         code=normalized_code,
         delivery_loading_reference=(delivery_loading_reference or "").strip(),
-        vehicle_reference=(vehicle_reference or "").strip(),
+        vehicle_reference=(binding.vehicle_reference if binding else ""),
+        maintainpro_vehicle_id=(binding.maintainpro_vehicle_id if binding else ""),
+        vehicle_registration_snapshot=(
+            binding.vehicle_registration_snapshot if binding else ""
+        ),
+        vehicle_make_snapshot=(binding.vehicle_make_snapshot if binding else ""),
+        vehicle_model_snapshot=(binding.vehicle_model_snapshot if binding else ""),
+        reference_verification_status=(
+            binding.reference_verification_status if binding else ""
+        ),
         driver_reference=(driver_reference or "").strip(),
         loading_bay=(loading_bay or "").strip(),
         started_at=started_at,
@@ -212,7 +231,11 @@ def create_dispatch_quality_record(
         actor=user,
         to_status=record.status,
         note=record.code,
-        metadata={"code": record.code},
+        metadata={
+            "code": record.code,
+            "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
+            "reference_verification_status": record.reference_verification_status or None,
+        },
     )
     record_event(
         event_type="DISPATCH_QUALITY_RECORD_CREATED",
@@ -221,6 +244,7 @@ def create_dispatch_quality_record(
             "dispatch_record_id": str(record.id),
             "organization_id": str(organization.id),
             "code": record.code,
+            "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
         },
     )
     return record

@@ -145,7 +145,7 @@ def liveness(_request: HttpRequest) -> JsonResponse:
     return JsonResponse(
         {
             "status": "alive",
-            "service": "nelna-fg",
+            "service": "maintainpro-fg",
             "version": getattr(settings, "APP_VERSION", "unknown"),
         }
     )

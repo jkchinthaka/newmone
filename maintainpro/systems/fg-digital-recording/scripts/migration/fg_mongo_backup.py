@@ -15,7 +15,7 @@ Usage (isolated POC)::
   uv run python scripts/migration/fg_mongo_backup.py \\
     --uri \"%MONGODB_URI%\" --database fg_same_db_poc --out .mongo_fg_backup_poc
 
-Does NOT authorize production execution against mgintginpro_prod.
+Does NOT authorize production execution against maintainpro_prod.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 
-PRODUCTION_DB_DEFAULT = "mgintginpro_prod"
+PRODUCTION_DB_DEFAULT = "maintainpro_prod"
 FG_PREFIX = "fg_"
 
 

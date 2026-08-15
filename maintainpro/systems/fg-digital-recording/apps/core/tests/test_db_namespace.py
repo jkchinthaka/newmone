@@ -66,8 +66,8 @@ def test_mongo_same_db_poc_rejects_production_database_name(
         "MONGODB_URI",
         "mongodb://127.0.0.1:27027/?replicaSet=nelnaPocRs&directConnection=true",
     )
-    monkeypatch.setenv("MONGODB_DATABASE", "mgintginpro_prod")
-    monkeypatch.setenv("MONGODB_PRODUCTION_TARGET_DATABASE", "mgintginpro_prod")
+    monkeypatch.setenv("MONGODB_DATABASE", "maintainpro_prod")
+    monkeypatch.setenv("MONGODB_PRODUCTION_TARGET_DATABASE", "maintainpro_prod")
     sys.modules.pop("config.settings.mongo_same_db_poc", None)
 
     with pytest.raises(ImproperlyConfigured, match="refuses to use the production"):

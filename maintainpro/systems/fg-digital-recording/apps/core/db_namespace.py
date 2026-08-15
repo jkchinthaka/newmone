@@ -1,6 +1,6 @@
 """Permanent FG MongoDB collection naming convention.
 
-Source of truth for same-database cutover into ``mgintginpro_prod``.
+Source of truth for same-database cutover into ``maintainpro_prod``.
 
 Naming rule (mandatory):
     fg_{django_default_db_table}

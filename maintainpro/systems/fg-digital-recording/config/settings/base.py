@@ -178,6 +178,18 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static" / "dist"]
 
+# Same-domain mount under MaintainPro: set FORCE_SCRIPT_NAME=/fg (no trailing slash).
+# Nginx should proxy /fg/ → Django with X-Script-Name or use this setting.
+_force_script = env.str("FORCE_SCRIPT_NAME", default="").strip()
+FORCE_SCRIPT_NAME = _force_script or None
+if FORCE_SCRIPT_NAME:
+    STATIC_URL = f"{FORCE_SCRIPT_NAME.rstrip('/')}/static/"
+
+# MaintainPro shared Mongo reference lookups (env placeholders only — never commit URIs).
+MAINTAINPRO_TENANT_ID = env.str("MAINTAINPRO_TENANT_ID", default="")
+MAINTAINPRO_REFERENCE_DATABASE = env.str("MAINTAINPRO_REFERENCE_DATABASE", default="")
+# Optional MONGODB_URI / MONGODB_DATABASE also used by mongo_same_db settings.
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

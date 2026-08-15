@@ -36,7 +36,7 @@ MONGODB_DATABASE = env("MONGODB_DATABASE")
 # Documented company MaintainPro logical database (same-server target).
 MONGODB_PRODUCTION_TARGET_DATABASE = env.str(
     "MONGODB_PRODUCTION_TARGET_DATABASE",
-    default="mgintginpro_prod",
+    default="maintainpro_prod",
 )
 
 if MONGODB_DATABASE != MONGODB_PRODUCTION_TARGET_DATABASE:

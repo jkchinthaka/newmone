@@ -16,6 +16,13 @@ class Organization(models.Model):
     code = models.CharField(max_length=64)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
+    # MaintainPro Tenant ObjectId — FG never trusts browser-supplied tenantId.
+    maintainpro_tenant_id = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+        help_text="MaintainPro Tenant _id (ObjectId hex). Required for shared reference lookups.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

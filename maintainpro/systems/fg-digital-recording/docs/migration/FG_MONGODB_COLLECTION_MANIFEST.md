@@ -1,7 +1,7 @@
 # FG MongoDB Collection Manifest
 
 **Generated (UTC):** 2026-08-13T05:27:00Z  
-**Production logical database:** `mgintginpro_prod`  
+**Production logical database:** `maintainpro_prod`  
 **Namespace prefix:** `fg_`  
 **Collection count:** 231  
 
@@ -19,7 +19,7 @@ Do **not** reuse or rename MaintainPro collections.
 
 | Field | Value |
 | --- | --- |
-| EXISTING_DATABASE_NAME | `mgintginpro_prod` |
+| EXISTING_DATABASE_NAME | `maintainpro_prod` |
 | PLANNED_FG_COLLECTION_COUNT | 231 |
 | MAINTAINPRO_PRISMA_MODELS (reference) | 115 |
 | EXACT_COLLISIONS | 0 |

@@ -1,7 +1,7 @@
 # Collection Collision Audit — FG vs MaintainPro
 
 **Generated (UTC):** 2026-08-12T09:55:20Z  
-**Production logical database (documented):** `mgintginpro_prod`  
+**Production logical database (documented):** `maintainpro_prod`  
 **MongoDB connection:** None (static analysis only)  
 **Prisma schema source:** `C:\Users\chint\source\newmone\maintainpro\prisma\schema.prisma`  
 
@@ -9,7 +9,7 @@
 
 | Field | Value |
 | --- | --- |
-| EXISTING_DATABASE_NAME | `mgintginpro_prod` |
+| EXISTING_DATABASE_NAME | `maintainpro_prod` |
 | EXISTING_COLLECTION_COUNT (MaintainPro Prisma models) | 114 |
 | PLANNED_FG_COLLECTION_COUNT (fg_ namespace) | 231 |
 | EXACT_NAME_COLLISIONS | 0 |
@@ -19,7 +19,7 @@
 
 - MaintainPro owns existing PascalCase Prisma collections — **do not touch**.
 - FG owns only `fg_*` collections in the same logical database.
-- No development/POC writes to `mgintginpro_prod` until full gate passage.
+- No development/POC writes to `maintainpro_prod` until full gate passage.
 
 ## MaintainPro collections (reference sample)
 
@@ -81,7 +81,7 @@ First 20 Prisma model / collection names:
 Run read-only on authorized staging/production host:
 
 ```javascript
-use mgintginpro_prod
+use maintainpro_prod
 db.getCollectionNames().sort()
 ```
 

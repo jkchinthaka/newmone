@@ -2,17 +2,17 @@
 
 Simulates FG + MaintainPro coexisting in one logical database using:
 - FG collections with ``fg_`` namespace (via FG_COLLECTION_NAMESPACE_ENABLED)
-- A dedicated POC database name (NOT ``mgintginpro_prod``)
+- A dedicated POC database name (NOT ``maintainpro_prod``)
 
 Company production target (documented only — not used for writes here):
-  MONGODB_DATABASE=mgintginpro_prod
+  MONGODB_DATABASE=maintainpro_prod
   Host/port supplied by operations (example: 127.0.0.1:27018)
 
 Environment for this POC:
   DJANGO_SETTINGS_MODULE=config.settings.mongo_same_db_poc
   MONGODB_URI=mongodb://127.0.0.1:27027/?replicaSet=nelnaPocRs&directConnection=true&...
   MONGODB_DATABASE=fg_same_db_poc
-  MONGODB_PRODUCTION_TARGET_DATABASE=mgintginpro_prod  (read-only label; no writes)
+  MONGODB_PRODUCTION_TARGET_DATABASE=maintainpro_prod  (read-only label; no writes)
 
 Never commit real credentials in MONGODB_URI.
 """
@@ -51,7 +51,7 @@ ENVIRONMENT_LABEL = "mongo_same_db_poc"
 # Documented company target — informational; POC uses a separate database name.
 MONGODB_PRODUCTION_TARGET_DATABASE = env.str(
     "MONGODB_PRODUCTION_TARGET_DATABASE",
-    default="mgintginpro_prod",
+    default="maintainpro_prod",
 )
 
 _REQUIRED = ("MONGODB_URI", "MONGODB_DATABASE")

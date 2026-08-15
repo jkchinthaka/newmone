@@ -54,7 +54,7 @@ def main() -> int:
         "# FG MongoDB Collection Manifest",
         "",
         f"**Generated (UTC):** {stamp}  ",
-        f"**Production logical database:** `mgintginpro_prod`  ",
+        f"**Production logical database:** `maintainpro_prod`  ",
         f"**Namespace prefix:** `{args.prefix}`  ",
         f"**Collection count:** {len(specs)}  ",
         "",
@@ -72,7 +72,7 @@ def main() -> int:
         "",
         "| Field | Value |",
         "| --- | --- |",
-        "| EXISTING_DATABASE_NAME | `mgintginpro_prod` |",
+        "| EXISTING_DATABASE_NAME | `maintainpro_prod` |",
         f"| PLANNED_FG_COLLECTION_COUNT | {len(specs)} |",
         f"| MAINTAINPRO_PRISMA_MODELS (reference) | {len(mp_names) or 'n/a'} |",
         "| EXACT_COLLISIONS | "

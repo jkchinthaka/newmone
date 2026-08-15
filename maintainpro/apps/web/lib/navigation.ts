@@ -168,6 +168,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/farm/attendance",
   "/farm/finance",
   "/farm/traceability",
+  "/fg",
   LEGACY_FMS_HOME_PATH
 ]);
 
@@ -436,6 +437,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Layers",
     allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, PROCUREMENT_ROLES),
     category: "operations"
+  },
+  {
+    id: "fg-digital-recording",
+    label: "FG Digital Recording",
+    href: "/fg/",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
+    category: "operations",
+    activeMatch: "startsWith",
+    description: "Finished goods digital recording module (Django)"
   },
   {
     id: "procurement",

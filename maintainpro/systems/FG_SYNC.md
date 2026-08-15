@@ -1,86 +1,124 @@
-# FG Digital Recording — dual-repository sync
+# FG Digital Recording — dual-repository sync & shared MongoDB architecture
 
-MaintainPro (`jkchinthaka/newmone`) is the umbrella repository. The Finished Goods
-Digital Recording System remains a standalone Django project. This directory is a
-**Git subtree mirror**, not a rewrite and not a submodule.
+MaintainPro (`jkchinthaka/newmone`) is the umbrella repository. FG Digital Recording
+remains a Django application, mirrored under:
 
-## Source of truth
+`maintainpro/systems/fg-digital-recording/`
 
 Canonical FG repository:
 
 `https://github.com/jkchinthaka/nelna-fg-digital-recording-system`
 
-Default branch: `main`
+## Same MongoDB database (target)
 
-## Mirror location
+Production application data for MaintainPro **and** FG lives in one logical database:
 
-Inside MaintainPro:
+```text
+MONGODB_DATABASE=maintainpro_prod
+```
 
-`maintainpro/systems/fg-digital-recording/`
+Do **not** use:
 
-Remote name used for subtree operations (MaintainPro clone only):
+- a separate FG PostgreSQL production database as the final SoR
+- a second FG-only MongoDB database
+- MongoDB system databases: `admin`, `config`, `local`
 
-`fg-origin` → `https://github.com/jkchinthaka/nelna-fg-digital-recording-system.git`
+### Collection ownership
 
-`origin` must remain `https://github.com/jkchinthaka/newmone.git`.
-
-## Architecture boundaries (do not collapse)
-
-| System | Stack | Data |
+| Owner | Collections | Rule |
 | --- | --- | --- |
-| MaintainPro | Next.js / NestJS / MongoDB / Redis | MaintainPro tenants |
-| FG Digital Recording | Django / PostgreSQL / Redis / Celery | FG operational data |
+| MaintainPro | `Vehicle`, `Asset`, `Department`, `User`, `WorkOrder`, … | PascalCase Prisma collections; FG must **not** mutate them directly |
+| FG | `fg_*` (e.g. `fg_accounts_user`, `fg_dispatch_dispatchqualityrecord`) | Namespace prefix `fg_` via `apps/core/db_namespace.py` |
 
-Do **not**: convert Django to NestJS, merge databases, merge auth, or deploy FG
-through MaintainPro production pipelines until explicitly planned.
+FG must **not** create duplicate master collections such as `fg_vehicle`, `fg_asset`,
+`fg_department`, or `fg_facility`. MaintainPro remains source of truth for those
+entities. FG transaction documents store MaintainPro IDs plus optional display
+snapshots (for example `maintainproVehicleId` / `vehicle_registration_snapshot`).
 
-Keep FG under `systems/fg-digital-recording/`. Do **not** move Django apps into
-`maintainpro/apps/`.
+### Environment (placeholders only)
+
+Never commit real credentials. Use process environment / secret managers:
+
+```text
+MONGODB_URI=<application least-privilege URI — never root>
+MONGODB_DATABASE=maintainpro_prod
+MONGODB_PRODUCTION_TARGET_DATABASE=maintainpro_prod
+MAINTAINPRO_TENANT_ID=<ObjectId hex for default tenant mapping>
+FORCE_SCRIPT_NAME=/fg
+REDIS_URL=<redis url>
+DJANGO_SECRET_KEY=<django secret>
+```
+
+Django settings modules:
+
+- `config.settings.mongo_same_db` — fail-closed production same-DB mode
+- `config.settings.mongo_same_db_poc` — isolated POC DB only (refuses `maintainpro_prod`)
+
+### Shared reference layer
+
+Centralized read-only access:
+
+`apps/integrations/maintainpro/`
+
+- Allowlisted collections only (`Vehicle`, `Asset`, `Department`)
+- Tenant fail-closed (`tenantId` required on every query)
+- Vehicle autocomplete + server revalidation on submit
+- No raw Mongo queries in Django views/forms
+
+### Same-domain routing (prepared, not production-deployed by this work)
+
+```text
+/          → MaintainPro Next.js
+/api/...   → MaintainPro NestJS
+/fg/...    → FG Django (FORCE_SCRIPT_NAME=/fg)
+/fg/static → FG static
+/fg/health/live
+/fg/health/ready
+```
+
+See `maintainpro/infra/nginx/default.conf`.
 
 ## Sync workflow (FG → MaintainPro)
 
-1. Develop and test in the standalone FG repository.
-2. Commit and push to `nelna-fg-digital-recording-system` (`main` or a PR branch).
-3. In a MaintainPro worktree, fetch and pull the subtree:
+1. Develop/test in standalone FG repository.
+2. Commit and push to `nelna-fg-digital-recording-system` (feature branch or `main`).
+3. In MaintainPro worktree:
 
 ```bash
 git fetch fg-origin
-git subtree pull --prefix=maintainpro/systems/fg-digital-recording fg-origin main --squash
+git subtree pull --prefix=maintainpro/systems/fg-digital-recording fg-origin <branch> --squash
 ```
 
-4. Review the MaintainPro diff, commit if needed, and push `origin`
-   (integration/feature branch or main via PR). Never force-push.
+4. Review, commit, push MaintainPro integration branch. Never force-push.
 
 ## Sync workflow (MaintainPro → FG)
 
-If Cursor or a contributor edits files under
-`maintainpro/systems/fg-digital-recording/` inside MaintainPro:
-
-1. Treat those edits as FG product changes.
-2. Push them back to the standalone FG repository with subtree push (or an
-   equivalent split + PR into FG). Example:
+If FG files are edited under the subtree:
 
 ```bash
-git subtree push --prefix=maintainpro/systems/fg-digital-recording fg-origin main
+git subtree push --prefix=maintainpro/systems/fg-digital-recording fg-origin <branch>
 ```
 
-Prefer opening a PR on the FG repo rather than pushing straight to `main` when
-review is required.
+Do not push the whole MaintainPro repository into the FG repository.
 
-3. Do **not** consider FG work complete until the standalone FG repository has
-   received the change.
-4. Never push the whole MaintainPro/`newmone` repository into the FG repository.
+## Secret handling
 
-## What must not be committed
+Never commit:
 
-- Real `.env` files and secrets
-- `node_modules`, Python venvs, `__pycache__`
-- Local DB dumps, runtime uploads, `.git` directories
+- Real `.env` files / Mongo URIs / passwords
+- Root credentials
+- Local DB dumps, venvs, `__pycache__`, `node_modules`
 
-Only tracked FG source belongs in the mirror.
+## Testing process
 
-## Build isolation
+1. FG unit/integration tests (PostgreSQL CI still default on `main` until cutover).
+2. Mongo same-DB POC suite against isolated DB (`fg_same_db_poc`), never `maintainpro_prod`.
+3. MaintainPro `npm run typecheck` / `npm run test` / `npm run build` for umbrella changes.
+4. Verify vehicle autocomplete, tenant isolation, and no writes to MaintainPro master collections from FG.
 
-MaintainPro npm workspaces are limited to `apps/*` and `packages/*`. FG lives
-under `systems/` so it is not an npm workspace. Root MaintainPro Docker builds
-exclude `maintainpro/systems/` via `.dockerignore`.
+## Status note
+
+Full Django Postgres → Mongo cutover of every FG model remains gated by the
+compatibility inventory (`docs/migration/MONGO_COMPATIBILITY_INVENTORY.md`).
+Platform integration (shared DB target name, reference layer, `/fg` routing,
+branding) proceeds ahead of claiming complete cutover readiness.

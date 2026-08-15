@@ -4,7 +4,7 @@
 Restores ONLY ``fg_*`` BSON dumps into an isolated target database.
 
 Safety:
-  * REFUSES target database name == mgintginpro_prod (or configured production name)
+  * REFUSES target database name == maintainpro_prod (or configured production name)
   * REFUSES any dump artifact whose collection name does not start with ``fg_``
   * Never restores MaintainPro collections
 
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 
-PRODUCTION_DB_DEFAULT = "mgintginpro_prod"
+PRODUCTION_DB_DEFAULT = "maintainpro_prod"
 FG_PREFIX = "fg_"
 
 

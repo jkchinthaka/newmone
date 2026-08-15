@@ -56,7 +56,19 @@ class DispatchQualityRecord(models.Model):
     )
     code = models.CharField(max_length=64)
     delivery_loading_reference = models.CharField(max_length=128, blank=True, default="")
+    # Display / legacy field — when MaintainPro-linked, mirrors registration snapshot.
     vehicle_reference = models.CharField(max_length=128, blank=True, default="")
+    # Canonical MaintainPro Vehicle._id — never free-text-only vehicle identity.
+    maintainpro_vehicle_id = models.CharField(max_length=24, blank=True, default="")
+    vehicle_registration_snapshot = models.CharField(max_length=128, blank=True, default="")
+    vehicle_make_snapshot = models.CharField(max_length=128, blank=True, default="")
+    vehicle_model_snapshot = models.CharField(max_length=128, blank=True, default="")
+    reference_verification_status = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        help_text="VERIFIED | PENDING | empty when no vehicle linked.",
+    )
     driver_reference = models.CharField(max_length=128, blank=True, default="")
     loading_bay = models.CharField(max_length=64, blank=True, default="")
     started_at = models.DateTimeField(null=True, blank=True)
@@ -174,6 +186,10 @@ class DispatchQualityRecord(models.Model):
             models.Index(
                 fields=["organization", "delivery_loading_reference"],
                 name="dispatch_org_delivery_idx",
+            ),
+            models.Index(
+                fields=["organization", "maintainpro_vehicle_id"],
+                name="dispatch_org_mp_vehicle_idx",
             ),
         ]
 
