@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load organizations_extras master_data_extras checklists_extras scheduling_extras recording_extras reviews_extras quality_extras %}
+{% block title %}Dashboard — Nelna FG Digital Recording System{% endblock %}
+{% block content %}
+  <section class="dashboard" aria-labelledby="landing-heading">
+    <header class="page-header">
+      <div>
+        <h1 id="landing-heading">Welcome</h1>
+        <p class="page-header__lead">
+          {% if user.is_authenticated %}
+            Signed in as
+            <strong>
+              {% if user.employee_code %}
+                {{ user.employee_code }}
+              {% else %}
+                {{ user.get_username }}
+              {% endif %}
+            </strong>
+          {% endif %}
+        </p>
+      </div>
+    </header>
+    {% if dashboard_cards %}
+      <div class="stat-grid" aria-label="Work queues">
+        {% for card in dashboard_cards %}
+          {% include "components/stat_card.html" with label=card.label value=card.value hint=card.hint href=card.href %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    <aside class="landing-notice" role="note">
+      Production use remains gated. No production master data or forms are seeded.
+      Counts reflect authorized records only. Keep this session private on shared devices.
+    </aside>
+    <div class="landing-actions">
+      {% user_can_record_checklist_tasks as show_recording %}
+      {% if show_recording %}
+        <a class="btn btn--primary" href="{% url 'recording:task_list' %}">Open recording</a>
+      {% endif %}
+      {% user_can_view_checklist_tasks as show_checklist_tasks %}
+      {% if show_checklist_tasks %}
+        <a class="btn btn--secondary" href="{% url 'scheduling:task_list' %}">View tasks</a>
+      {% endif %}
+      <a class="btn btn--secondary"
+         href="{% url 'accounts:change_password' %}">Change password</a>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--ghost">Sign out</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

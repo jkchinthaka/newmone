@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}FG Product {{ product.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="product-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="product-detail-heading">{{ product.code }} — {{ product.name }}</h1>
+        <p class="mgmt-page__lead">
+          {% if product.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="mgmt-page__actions">
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'master_data:product_list' %}">Back to list</a>
+        {% if can_manage %}
+          <a class="btn btn--secondary btn--inline"
+             href="{% url 'master_data:product_edit' product.id %}">Edit</a>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="detail-list">
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ product.organization.code }} — {{ product.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Code</dt>
+        <dd>
+          {{ product.code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Name</dt>
+        <dd>
+          {{ product.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Description</dt>
+        <dd>
+          {% if product.description %}
+            {{ product.description }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>ERP item code</dt>
+        <dd>
+          {% if product.erp_item_code %}
+            {{ product.erp_item_code }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Category</dt>
+        <dd>
+          {% if product.category %}
+            {{ product.category }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Brand</dt>
+        <dd>
+          {% if product.brand %}
+            {{ product.brand }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Pack size</dt>
+        <dd>
+          {% if product.pack_size %}
+            {{ product.pack_size }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>UOM</dt>
+        <dd>
+          {% if product.uom %}
+            {{ product.uom }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Barcode / SKU</dt>
+        <dd>
+          {% if product.barcode %}
+            {{ product.barcode }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Storage category</dt>
+        <dd>
+          {% if product.storage_category %}
+            {{ product.storage_category }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Shelf-life reference</dt>
+        <dd>
+          {% if product.shelf_life_reference %}
+            {{ product.shelf_life_reference }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Label / artwork reference</dt>
+        <dd>
+          {% if product.label_artwork_reference %}
+            {{ product.label_artwork_reference }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Effective from</dt>
+        <dd>
+          {% if product.effective_from %}
+            {{ product.effective_from }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Effective to</dt>
+        <dd>
+          {% if product.effective_to %}
+            {{ product.effective_to }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Created</dt>
+        <dd>
+          {{ product.created_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>
+          {{ product.updated_at }}
+        </dd>
+      </div>
+    </dl>
+    {% if can_manage %}
+      <div class="mgmt-lifecycle">
+        {% if product.is_active %}
+          <form method="post"
+                action="{% url 'master_data:product_deactivate' product.id %}"
+                onsubmit="return confirm('Deactivate FG Product {{ product.code }}? Historical references remain.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--secondary btn--inline">Deactivate Product</button>
+          </form>
+        {% else %}
+          <form method="post"
+                action="{% url 'master_data:product_activate' product.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary btn--inline">Activate Product</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

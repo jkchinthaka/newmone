@@ -1,0 +1,28 @@
+---
+description: AI safety constraints for assistance features
+alwaysApply: false
+---
+
+# AI Safety
+
+## Allowed
+
+- Local AI assistance (for example Python ML and Ollama) may be added in later phases for drafting, anomaly hints, or operator guidance suggestions.
+- AI outputs are advisory only and require human review where they touch operational workflows.
+
+## Prohibited
+
+- AI must never make final food-safety decisions.
+- AI must never make final QA verification decisions.
+- AI must never authorize loading release.
+- AI must never close CAPA.
+- AI must never grant, deny, or escalate access control.
+- No paid external AI API is required for core delivery.
+- Core recording, review, and release workflows must not depend on AI availability.
+
+## Controls
+
+- Sensitive operational data sent to AI components must follow the AI safety policy.
+- Prompt/output audit requirements apply where AI touches regulated workflows.
+- Model versions used for assistance must be identifiable.
+- On AI failure, fall back to deterministic human workflows without blocking recording.

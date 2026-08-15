@@ -1,0 +1,56 @@
+---
+description: Project constitution for Nelna FG Digital Recording System
+alwaysApply: true
+---
+
+# Project Constitution — Nelna FG Digital Recording System
+
+## Purpose
+
+This repository implements a Finished Goods digital recording system. Documentation and code in this repository must support safe, auditable factory-floor recording without inventing business rules or claiming production readiness prematurely.
+
+## Non-negotiable principles
+
+1. Modular monolith only — no microservices in initial delivery.
+2. Business logic lives in domain services, not views or templates.
+3. Complex reads use selectors/query services.
+4. Authorization and separation-of-duty rules use policies; deny by default.
+5. Multi-record business operations use database transactions.
+6. Preserve operational history; do not destroy submitted or approved records.
+7. Corrections use amendments with full before/after history.
+8. Critical failures trigger deterministic rules, never AI final decisions.
+9. Important operations create audit events.
+10. Photos and large files are not stored in PostgreSQL.
+11. ERP availability must not be required for factory-floor recording.
+12. Do not invent temperature limits, CCP classifications, sites, departments, shifts, products, checklist items, or approval rules.
+13. Every business rule must identify its business owner and evidence source.
+14. Sinhala support is mandatory for operator-facing content.
+15. Operator workflows must minimize typing and be faster than paper in normal use.
+16. Production readiness requires UAT, restore testing, security review, and owner approval.
+
+## Approved technical direction
+
+- Python backend, Django 5.2 LTS, PostgreSQL, Redis, Celery
+- Django Templates, HTMX, Tailwind CSS, minimal JavaScript, Alpine.js only where needed
+- Responsive installable PWA; no native mobile app in initial phases
+- MinIO locally; S3-compatible object storage in production
+- Pytest and Playwright; GitHub Actions CI
+- Local AI (e.g. Ollama) may be added later as assistance only
+
+## Explicit prohibitions
+
+- No secrets in source control
+- No shared user accounts
+- No direct ERP database writes
+- No destructive deletion of operational data
+- No production deployment without explicit written approval
+- No unsupported compliance claims
+- No invented Nelna operational values
+- No AI final decisions for food safety, QA, loading release, CAPA closure, or access control
+- Do not reuse or copy code from any previous repository
+
+## Delivery control
+
+- Work proceeds phase by phase on dedicated branches with pull requests
+- Manual PR review is required before merge
+- Phase exit criteria and approval gates must be met before the next phase starts

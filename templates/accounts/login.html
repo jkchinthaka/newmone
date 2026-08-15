@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}auth-shell{% endblock %}
+{% block site_header %}{% endblock %}
+{% block site_footer %}{% endblock %}
+{% block content %}
+  <div class="auth-layout">
+    <div class="auth-layout__inner">
+      <header class="auth-brand">
+        <p class="auth-brand__mark" aria-hidden="true">NELNA</p>
+        <p class="auth-brand__name">Nelna</p>
+        <p class="auth-brand__product">FG Digital Recording System</p>
+        <p class="auth-brand__tagline">Secure employee access</p>
+        <p class="env-chip env-chip--auth">{{ ENVIRONMENT_BADGE }}</p>
+      </header>
+      <section class="auth-card" aria-labelledby="login-heading">
+        <h1 class="auth-card__title" id="login-heading">Sign in</h1>
+        <p class="auth-card__lead">Use your employee code and password. Shared accounts are not permitted.</p>
+        {% if form.non_field_errors %}
+          {% include "components/auth_error.html" with errors=form.non_field_errors %}
+        {% endif %}
+        <form class="auth-form"
+              method="post"
+              action="{% url 'accounts:login' %}"
+              data-auth-form
+              novalidate>
+          {% csrf_token %}
+          {% include "components/form_field.html" with field=form.employee_code %}
+          {% include "components/form_field.html" with field=form.password %}
+          <button type="submit" class="btn btn--primary" data-auth-submit>
+            <span data-auth-submit-idle>Sign in</span>
+            <span data-auth-submit-busy hidden>Signing in…</span>
+          </button>
+        </form>
+      </section>
+      <p class="auth-security-notice">
+        For authorized Nelna Farm internal users only. Sign-in failures use a
+        generic message and do not confirm whether an employee code exists.
+      </p>
+      <footer class="auth-footer">
+        <p>Nelna FG Digital Recording System</p>
+        <p class="auth-footer-note">Internal system — not a public service.</p>
+        <p class="auth-footer-note">{{ ENVIRONMENT_LABEL }} · v{{ APP_VERSION }}</p>
+      </footer>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,62 @@
+﻿# Generated manually for Phase 39 — customer complaint evidence linked kind.
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("evidence", "0011_phase37_recall_management"),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name="evidenceattachment",
+            name="linked_kind",
+            field=models.CharField(
+                choices=[
+                    ("CHECKLIST_RESPONSE", "Checklist response (draft)"),
+                    ("CHECKLIST_SUBMISSION", "Checklist submission"),
+                    ("SUPERVISOR_REVIEW", "Supervisor review"),
+                    ("QA_REVIEW", "QA review"),
+                    ("NONCONFORMANCE", "Nonconformance (future)"),
+                    ("CAPA", "CAPA (future)"),
+                    ("LAB_SAMPLE", "Laboratory sample"),
+                    ("LAB_EXTERNAL_CERTIFICATE", "Laboratory external certificate"),
+                    (
+                        "CALIBRATION_CERTIFICATE",
+                        "Calibration certificate (equipment record)",
+                    ),
+                    ("SANITATION_PROGRAM", "Sanitation / SSOP program"),
+                    ("MONITORING_READING", "Environmental monitoring reading"),
+                    (
+                        "PACKAGING_ARTWORK_VERSION",
+                        "Packaging artwork version evidence",
+                    ),
+                    (
+                        "CHANGEOVER_RECORD",
+                        "Changeover / allergen changeover record",
+                    ),
+                    ("LINE_CLEARANCE_RECORD", "Line clearance record"),
+                    (
+                        "RECEIPT_QUALITY_RECORD",
+                        "Raw material receipt quality record",
+                    ),
+                    (
+                        "IQC_INSPECTION_CASE",
+                        "Incoming quality control inspection case",
+                    ),
+                    (
+                        "IPQC_INSPECTION_CASE",
+                        "In-process quality control inspection case",
+                    ),
+                    ("RECALL_CASE", "Product recall / withdrawal case"),
+                    (
+                        "CUSTOMER_COMPLAINT_CASE",
+                        "Customer quality complaint case",
+                    ),
+                ],
+                max_length=32,
+            ),
+        ),
+    ]

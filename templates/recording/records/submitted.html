@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Submitted Checklist — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="submitted-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="submitted-heading">Read-only submitted record</h1>
+        <p class="mgmt-page__lead">
+          Answers below are from the immutable submission snapshot. Working draft
+          responses are not used as historical truth. Supervisor review and QA
+          decision belong to later phases.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:record_history' record_id=record.id %}">Submission history</a>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:task_list' %}">Back to recordable tasks</a>
+    </header>
+    {% if latest_review and latest_review.decision == SupervisorReviewDecision.RETURNED_FOR_CORRECTION %}
+      <p role="status">
+        Latest submission was RETURNED FOR CORRECTION.
+        <a href="{% url 'recording:returned_submission' submission_id=submission.id %}">Open returned submission</a>
+        {% if active_correction %}
+          —
+          <a href="{% url 'recording:correction_detail' correction_id=active_correction.id %}">Continue Correction</a>
+        {% endif %}
+      </p>
+    {% endif %}
+    <dl class="mgmt-meta" aria-label="Submitted recording context">
+      <div>
+        <dt>Recording state</dt>
+        <dd>
+          SUBMITTED
+        </dd>
+      </div>
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted by</dt>
+        <dd>
+          {{ submission.submitted_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted at</dt>
+        <dd>
+          {{ submission.submitted_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Template</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }} ({{ task.checklist_version.status }})
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+    </dl>
+    {% include "recording/_snapshot_sections.html" %}
+  </section>
+{% endblock %}

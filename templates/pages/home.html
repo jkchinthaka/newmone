@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}auth-shell{% endblock %}
+{% block site_header %}{% endblock %}
+{% block site_footer %}{% endblock %}
+{% block content %}
+  <div class="auth-layout">
+    <div class="auth-layout__inner">
+      <section class="auth-card" aria-labelledby="home-heading">
+        <h1 class="auth-card__title" id="home-heading">{{ project_name }}</h1>
+        <p class="auth-card__lead">Finished-goods quality recording for authorized plant users.</p>
+        <p class="auth-footer-note">{{ environment_label }} · v{{ app_version }}</p>
+        <div class="landing-actions">
+          <a class="btn btn--primary" href="{% url 'accounts:login' %}">Sign in</a>
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock %}

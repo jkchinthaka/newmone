@@ -1,0 +1,36 @@
+---
+description: UI, PWA, and accessibility standards
+globs: "**/*.{html,js,css,tsx,jsx}"
+alwaysApply: false
+---
+
+# UI, PWA, and Accessibility
+
+## Delivery model
+
+- One responsive installable Progressive Web Application.
+- Do not create Flutter, React Native, or native mobile apps in initial phases.
+- Mobile-first for operators; tablet/desktop for QA, administration, and management.
+
+## Stack
+
+- Django Templates + HTMX + Tailwind CSS.
+- Minimal JavaScript; Alpine.js only for small client-side state.
+- IndexedDB may be used later for offline drafts and sync queues.
+
+## Operator UX
+
+- Minimize typing; prefer selection, scanning, and structured inputs.
+- Normal operator workflow must aim to be faster than paper.
+- Sinhala support is mandatory for operator-facing content; English for administrative/QA surfaces as confirmed by stakeholders.
+
+## Accessibility
+
+- Target WCAG-aligned practices for interactive controls, labels, contrast, and keyboard use.
+- Error states must be visible and actionable.
+- Do not rely on color alone to convey critical status.
+
+## Design handoff
+
+- UI work follows Figma Professional journeys and design-system handoff.
+- Do not invent unchecked visual patterns that conflict with the approved design system once published.

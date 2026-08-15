@@ -1,0 +1,787 @@
+{
+  "$schema": "https://design-tokens.org/draft/dtcg-schema/1.0.0",
+  "$metadata": {
+    "name": "Nelna FG Digital Recording System",
+    "description": "Design tokens for Nelna Finished Goods digital recording system. Light mode only. Sinhala and English support. Operator-optimized for mobile factory floor use.",
+    "version": "1.0.0",
+    "created": "2026-08-04",
+    "approvalStatus": "Proposed - Pending design review and stakeholder approval",
+    "note": "Do NOT invent temperature limits, sites, products, or business rules. Warning color #B76E00 is NOT AA compliant for normal body text."
+  },
+  "color": {
+    "primitive": {
+      "green": {
+        "900": {
+          "value": "#18572C",
+          "type": "color",
+          "description": "Primary green hover (darkest)",
+          "approvalStatus": "Approved"
+        },
+        "700": {
+          "value": "#216E39",
+          "type": "color",
+          "description": "Primary green (brand color)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#E8F4EB",
+          "type": "color",
+          "description": "Primary green soft (light tint)",
+          "approvalStatus": "Approved"
+        }
+      },
+      "gold": {
+        "700": {
+          "value": "#C7A94B",
+          "type": "color",
+          "description": "Gold decorative (accent only, not functional)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#F8F2DD",
+          "type": "color",
+          "description": "Gold soft (light tint)",
+          "approvalStatus": "Approved"
+        }
+      },
+      "gray": {
+        "900": {
+          "value": "#17211A",
+          "type": "color",
+          "description": "Text primary (darkest gray)",
+          "approvalStatus": "Approved"
+        },
+        "700": {
+          "value": "#5C685F",
+          "type": "color",
+          "description": "Text secondary (medium gray)",
+          "approvalStatus": "Approved"
+        },
+        "300": {
+          "value": "#DDE4DF",
+          "type": "color",
+          "description": "Border light (light gray)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#F6F8F6",
+          "type": "color",
+          "description": "App background (lightest gray)",
+          "approvalStatus": "Approved"
+        }
+      },
+      "white": {
+        "value": "#FFFFFF",
+        "type": "color",
+        "description": "Surface white (pure white)",
+        "approvalStatus": "Approved"
+      },
+      "success": {
+        "700": {
+          "value": "#237A45",
+          "type": "color",
+          "description": "Success green (status color)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#E8F7ED",
+          "type": "color",
+          "description": "Success soft (light tint)",
+          "approvalStatus": "Proposed"
+        }
+      },
+      "warning": {
+        "700": {
+          "value": "#B76E00",
+          "type": "color",
+          "description": "Warning orange (status color) - NOT AA compliant for normal body text on white. Use for large text only or darken.",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#FFF4E5",
+          "type": "color",
+          "description": "Warning soft (light tint)",
+          "approvalStatus": "Proposed"
+        }
+      },
+      "critical": {
+        "700": {
+          "value": "#C93434",
+          "type": "color",
+          "description": "Critical red (error/failure color)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#FDEAEA",
+          "type": "color",
+          "description": "Critical soft (light tint)",
+          "approvalStatus": "Proposed"
+        }
+      },
+      "info": {
+        "700": {
+          "value": "#2563A8",
+          "type": "color",
+          "description": "Info blue (informational color)",
+          "approvalStatus": "Approved"
+        },
+        "100": {
+          "value": "#E8F1F9",
+          "type": "color",
+          "description": "Info soft (light tint)",
+          "approvalStatus": "Proposed"
+        }
+      }
+    },
+    "semantic": {
+      "action": {
+        "primary": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Primary action buttons, links, selected states"
+        },
+        "primary-hover": {
+          "value": "{color.primitive.green.900}",
+          "type": "color",
+          "description": "Primary action hover state"
+        },
+        "primary-soft": {
+          "value": "{color.primitive.green.100}",
+          "type": "color",
+          "description": "Primary action soft background (tinted)"
+        },
+        "secondary": {
+          "value": "{color.primitive.gray.700}",
+          "type": "color",
+          "description": "Secondary action buttons"
+        },
+        "tertiary": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Tertiary action (text links)"
+        },
+        "disabled": {
+          "value": "{color.primitive.gray.300}",
+          "type": "color",
+          "description": "Disabled action background"
+        },
+        "icon": {
+          "value": "{color.primitive.gray.700}",
+          "type": "color",
+          "description": "Icon buttons default"
+        },
+        "scan": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Scan action buttons (operator)"
+        }
+      },
+      "surface": {
+        "app-background": {
+          "value": "{color.primitive.gray.100}",
+          "type": "color",
+          "description": "Main app background"
+        },
+        "card": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Card backgrounds"
+        },
+        "modal": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Modal/dialog backgrounds"
+        },
+        "navigation": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Top bar, sidebar backgrounds"
+        },
+        "input": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Input field backgrounds"
+        },
+        "overlay": {
+          "value": "rgba(0, 0, 0, 0.5)",
+          "type": "color",
+          "description": "Backdrop overlays (modals, drawers)"
+        }
+      },
+      "text": {
+        "primary": {
+          "value": "{color.primitive.gray.900}",
+          "type": "color",
+          "description": "Primary body text"
+        },
+        "secondary": {
+          "value": "{color.primitive.gray.700}",
+          "type": "color",
+          "description": "Secondary text, hints"
+        },
+        "on-action": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Text on primary buttons"
+        },
+        "on-success": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Text on success backgrounds"
+        },
+        "on-critical": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Text on critical backgrounds"
+        },
+        "disabled": {
+          "value": "{color.primitive.gray.300}",
+          "type": "color",
+          "description": "Disabled text"
+        },
+        "link": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Hyperlinks"
+        },
+        "placeholder": {
+          "value": "{color.primitive.gray.700}",
+          "type": "color",
+          "description": "Placeholder text in inputs"
+        }
+      },
+      "status": {
+        "success": {
+          "value": "{color.primitive.success.700}",
+          "type": "color",
+          "description": "Success badges, alerts"
+        },
+        "success-soft": {
+          "value": "{color.primitive.success.100}",
+          "type": "color",
+          "description": "Success backgrounds (soft)"
+        },
+        "warning": {
+          "value": "{color.primitive.warning.700}",
+          "type": "color",
+          "description": "Warning badges, alerts (NOT AA for body text)"
+        },
+        "warning-soft": {
+          "value": "{color.primitive.warning.100}",
+          "type": "color",
+          "description": "Warning backgrounds (soft)"
+        },
+        "critical": {
+          "value": "{color.primitive.critical.700}",
+          "type": "color",
+          "description": "Critical/error badges, alerts"
+        },
+        "critical-soft": {
+          "value": "{color.primitive.critical.100}",
+          "type": "color",
+          "description": "Critical backgrounds (soft)"
+        },
+        "info": {
+          "value": "{color.primitive.info.700}",
+          "type": "color",
+          "description": "Info badges, alerts"
+        },
+        "info-soft": {
+          "value": "{color.primitive.info.100}",
+          "type": "color",
+          "description": "Info backgrounds (soft)"
+        },
+        "neutral": {
+          "value": "{color.primitive.gray.700}",
+          "type": "color",
+          "description": "Neutral badges"
+        }
+      },
+      "border": {
+        "default": {
+          "value": "{color.primitive.gray.300}",
+          "type": "color",
+          "description": "Default borders"
+        },
+        "focus": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Focus state borders"
+        },
+        "error": {
+          "value": "{color.primitive.critical.700}",
+          "type": "color",
+          "description": "Error state borders"
+        },
+        "warning": {
+          "value": "{color.primitive.warning.700}",
+          "type": "color",
+          "description": "Warning state borders"
+        }
+      },
+      "input": {
+        "background": {
+          "value": "{color.primitive.white}",
+          "type": "color",
+          "description": "Input field background"
+        },
+        "border": {
+          "value": "{color.primitive.gray.300}",
+          "type": "color",
+          "description": "Input field border"
+        },
+        "border-focus": {
+          "value": "{color.primitive.green.700}",
+          "type": "color",
+          "description": "Input field focus border"
+        },
+        "border-error": {
+          "value": "{color.primitive.critical.700}",
+          "type": "color",
+          "description": "Input field error border"
+        },
+        "disabled": {
+          "value": "{color.primitive.gray.100}",
+          "type": "color",
+          "description": "Disabled input background"
+        }
+      }
+    }
+  },
+  "typography": {
+    "font-family": {
+      "primary": {
+        "value": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif",
+        "type": "fontFamily",
+        "description": "Primary font (English and Latin script)"
+      },
+      "sinhala": {
+        "value": "'Noto Sans Sinhala', sans-serif",
+        "type": "fontFamily",
+        "description": "Sinhala font"
+      },
+      "monospace": {
+        "value": "'Courier New', Courier, monospace",
+        "type": "fontFamily",
+        "description": "Monospace font (for codes, if needed)"
+      }
+    },
+    "size": {
+      "10": {
+        "value": "10px",
+        "type": "fontSize",
+        "description": "Smallest (captions, badges)"
+      },
+      "12": {
+        "value": "12px",
+        "type": "fontSize",
+        "description": "Small (hints, secondary info)"
+      },
+      "14": {
+        "value": "14px",
+        "type": "fontSize",
+        "description": "Body regular (desktop), labels"
+      },
+      "16": {
+        "value": "16px",
+        "type": "fontSize",
+        "description": "Body large (mobile operator), inputs"
+      },
+      "18": {
+        "value": "18px",
+        "type": "fontSize",
+        "description": "Heading small, large buttons"
+      },
+      "20": {
+        "value": "20px",
+        "type": "fontSize",
+        "description": "Heading medium"
+      },
+      "24": {
+        "value": "24px",
+        "type": "fontSize",
+        "description": "Heading large"
+      },
+      "32": {
+        "value": "32px",
+        "type": "fontSize",
+        "description": "Display heading"
+      }
+    },
+    "weight": {
+      "regular": {
+        "value": "400",
+        "type": "fontWeight",
+        "description": "Regular body text"
+      },
+      "medium": {
+        "value": "500",
+        "type": "fontWeight",
+        "description": "Medium emphasis (labels)"
+      },
+      "semibold": {
+        "value": "600",
+        "type": "fontWeight",
+        "description": "Semibold (buttons, headings)"
+      },
+      "bold": {
+        "value": "700",
+        "type": "fontWeight",
+        "description": "Bold (headings)"
+      }
+    },
+    "line-height": {
+      "tight": {
+        "value": "1.2",
+        "type": "lineHeight",
+        "description": "Tight (headings)"
+      },
+      "normal": {
+        "value": "1.5",
+        "type": "lineHeight",
+        "description": "Normal (body text)"
+      },
+      "relaxed": {
+        "value": "1.75",
+        "type": "lineHeight",
+        "description": "Relaxed (long-form content)"
+      }
+    }
+  },
+  "spacing": {
+    "2": {
+      "value": "2px",
+      "type": "spacing",
+      "description": "Smallest (focus offset)"
+    },
+    "4": {
+      "value": "4px",
+      "type": "spacing",
+      "description": "Extra small"
+    },
+    "8": {
+      "value": "8px",
+      "type": "spacing",
+      "description": "Small"
+    },
+    "12": {
+      "value": "12px",
+      "type": "spacing",
+      "description": "Medium"
+    },
+    "16": {
+      "value": "16px",
+      "type": "spacing",
+      "description": "Default (cards, sections)"
+    },
+    "20": {
+      "value": "20px",
+      "type": "spacing",
+      "description": "Medium-large"
+    },
+    "24": {
+      "value": "24px",
+      "type": "spacing",
+      "description": "Large (modals, panels)"
+    },
+    "32": {
+      "value": "32px",
+      "type": "spacing",
+      "description": "Extra large"
+    },
+    "48": {
+      "value": "48px",
+      "type": "spacing",
+      "description": "XXL (section separation)"
+    }
+  },
+  "size": {
+    "touch": {
+      "minimum": {
+        "value": "48px",
+        "type": "dimension",
+        "description": "Minimum touch target (WCAG AAA)",
+        "approvalStatus": "Approved"
+      },
+      "operator": {
+        "value": "56px",
+        "type": "dimension",
+        "description": "Operator touch target (factory floor)",
+        "approvalStatus": "Proposed"
+      },
+      "operator-large": {
+        "value": "64px",
+        "type": "dimension",
+        "description": "Large operator touch target (critical actions)",
+        "approvalStatus": "Proposed"
+      }
+    },
+    "icon": {
+      "small": {
+        "value": "16px",
+        "type": "dimension",
+        "description": "Small icon"
+      },
+      "medium": {
+        "value": "20px",
+        "type": "dimension",
+        "description": "Medium icon (inline)"
+      },
+      "large": {
+        "value": "24px",
+        "type": "dimension",
+        "description": "Large icon (standalone)"
+      },
+      "xlarge": {
+        "value": "32px",
+        "type": "dimension",
+        "description": "Extra large icon (alerts)"
+      }
+    },
+    "input": {
+      "height-default": {
+        "value": "48px",
+        "type": "dimension",
+        "description": "Default input height"
+      },
+      "height-operator": {
+        "value": "56px",
+        "type": "dimension",
+        "description": "Operator input height (mobile)"
+      }
+    },
+    "button": {
+      "height-default": {
+        "value": "48px",
+        "type": "dimension",
+        "description": "Default button height"
+      },
+      "height-operator": {
+        "value": "56px",
+        "type": "dimension",
+        "description": "Operator button height"
+      }
+    }
+  },
+  "radius": {
+    "small": {
+      "value": "4px",
+      "type": "borderRadius",
+      "description": "Small (badges, small elements)"
+    },
+    "medium": {
+      "value": "8px",
+      "type": "borderRadius",
+      "description": "Medium (buttons, cards)"
+    },
+    "large": {
+      "value": "12px",
+      "type": "borderRadius",
+      "description": "Large (modals, panels)"
+    },
+    "xlarge": {
+      "value": "16px",
+      "type": "borderRadius",
+      "description": "Extra large (bottom sheets, top corners)"
+    },
+    "full": {
+      "value": "999px",
+      "type": "borderRadius",
+      "description": "Fully rounded (pills, circles)"
+    }
+  },
+  "border": {
+    "width": {
+      "thin": {
+        "value": "1px",
+        "type": "borderWidth",
+        "description": "Default borders"
+      },
+      "medium": {
+        "value": "2px",
+        "type": "borderWidth",
+        "description": "Emphasis borders (focus, error)"
+      },
+      "thick": {
+        "value": "4px",
+        "type": "borderWidth",
+        "description": "Strong borders (loading blocked)"
+      }
+    }
+  },
+  "elevation": {
+    "none": {
+      "value": "none",
+      "type": "shadow",
+      "description": "No shadow"
+    },
+    "subtle": {
+      "value": "0 1px 2px rgba(0, 0, 0, 0.05)",
+      "type": "shadow",
+      "description": "Subtle (cards at rest)"
+    },
+    "low": {
+      "value": "0 2px 4px rgba(0, 0, 0, 0.08)",
+      "type": "shadow",
+      "description": "Low (cards hover)"
+    },
+    "medium": {
+      "value": "0 4px 8px rgba(0, 0, 0, 0.12)",
+      "type": "shadow",
+      "description": "Medium (dropdowns, popovers)"
+    },
+    "high": {
+      "value": "0 8px 16px rgba(0, 0, 0, 0.16)",
+      "type": "shadow",
+      "description": "High (modals, bottom sheets)"
+    },
+    "extreme": {
+      "value": "0 16px 32px rgba(0, 0, 0, 0.20)",
+      "type": "shadow",
+      "description": "Extreme (rarely used)"
+    }
+  },
+  "motion": {
+    "duration": {
+      "instant": {
+        "value": "0ms",
+        "type": "duration",
+        "description": "No animation"
+      },
+      "fast": {
+        "value": "150ms",
+        "type": "duration",
+        "description": "Fast transitions (hover, focus)"
+      },
+      "normal": {
+        "value": "250ms",
+        "type": "duration",
+        "description": "Normal transitions (modals open)"
+      },
+      "slow": {
+        "value": "400ms",
+        "type": "duration",
+        "description": "Slow transitions (page transitions)"
+      }
+    },
+    "easing": {
+      "ease-out": {
+        "value": "ease-out",
+        "type": "cubicBezier",
+        "description": "Ease out (opening, entering)"
+      },
+      "ease-in": {
+        "value": "ease-in",
+        "type": "cubicBezier",
+        "description": "Ease in (closing, exiting)"
+      },
+      "ease-in-out": {
+        "value": "ease-in-out",
+        "type": "cubicBezier",
+        "description": "Ease in and out (smooth)"
+      }
+    }
+  },
+  "component": {
+    "modal": {
+      "max-width-small": {
+        "value": "400px",
+        "type": "dimension",
+        "description": "Small modal (confirmations)"
+      },
+      "max-width-medium": {
+        "value": "600px",
+        "type": "dimension",
+        "description": "Medium modal (forms)"
+      },
+      "max-width-large": {
+        "value": "800px",
+        "type": "dimension",
+        "description": "Large modal (complex content)"
+      }
+    },
+    "sidebar": {
+      "width-expanded": {
+        "value": "240px",
+        "type": "dimension",
+        "description": "Desktop sidebar expanded"
+      },
+      "width-collapsed": {
+        "value": "64px",
+        "type": "dimension",
+        "description": "Desktop sidebar collapsed"
+      }
+    },
+    "top-bar": {
+      "height": {
+        "value": "64px",
+        "type": "dimension",
+        "description": "Top bar height (desktop)"
+      }
+    },
+    "mobile-top-bar": {
+      "height": {
+        "value": "56px",
+        "type": "dimension",
+        "description": "Mobile top bar height"
+      }
+    },
+    "mobile-bottom-nav": {
+      "height": {
+        "value": "64px",
+        "type": "dimension",
+        "description": "Mobile bottom nav height"
+      }
+    },
+    "task-card": {
+      "min-height": {
+        "value": "96px",
+        "type": "dimension",
+        "description": "Task card minimum height"
+      }
+    },
+    "checklist-item": {
+      "min-height": {
+        "value": "64px",
+        "type": "dimension",
+        "description": "Checklist item minimum height"
+      }
+    }
+  },
+  "breakpoint": {
+    "reference": {
+      "phone": {
+        "small": {
+          "value": "360px",
+          "type": "dimension",
+          "description": "Small phone (reference frame)"
+        },
+        "medium": {
+          "value": "390px",
+          "type": "dimension",
+          "description": "Medium phone (reference frame)"
+        },
+        "large": {
+          "value": "430px",
+          "type": "dimension",
+          "description": "Large phone (reference frame)"
+        }
+      },
+      "tablet": {
+        "value": "768px",
+        "type": "dimension",
+        "description": "Tablet (min-width for desktop sidebar)"
+      },
+      "desktop": {
+        "value": "1280px",
+        "type": "dimension",
+        "description": "Desktop (reference frame)"
+      },
+      "desktop-large": {
+        "value": "1920px",
+        "type": "dimension",
+        "description": "Large desktop (reference frame)"
+      }
+    }
+  }
+}

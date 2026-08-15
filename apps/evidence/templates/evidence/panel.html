@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Evidence attachments{% endblock %}
+{% block content %}
+<section class="nelna-page">
+  <h1>Evidence attachments</h1>
+  <p class="nelna-lede">Optional private attachments for quality workflows. Evidence is not required unless a separate policy says so.</p>
+  {% if malware_notice %}
+  <p class="nelna-notice" role="status">{{ malware_notice }}</p>
+  {% endif %}
+  {% if error %}
+  <p class="nelna-error">{{ error }}</p>
+  {% endif %}
+
+  <p>Target: <code>{{ linked_kind }}</code> / <code>{{ linked_object_id }}</code></p>
+
+  <h2>Upload</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload to private storage</button>
+  </form>
+
+  <h2>Active attachments</h2>
+  {% if attachments %}
+  <ul>
+    {% for item in attachments %}
+    <li>
+      <a href="{% url 'evidence:download' item.id %}">{{ item.original_filename }}</a>
+      — {{ item.content_type }}, {{ item.size_bytes }} bytes,
+      scan: {{ item.malware_scan_status }}
+      {% if item.caption %} — {{ item.caption }}{% endif %}
+      <form method="post" action="{% url 'evidence:retire' item.id %}" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="text" name="reason" placeholder="Retirement reason" required>
+        <button type="submit">Soft-retire</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No active attachments.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Submission History — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="history-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="history-heading">Checklist submission history</h1>
+        <p class="mgmt-page__lead">
+          Immutable submissions and Supervisor decisions for this record.
+          QA disposition belongs to a later phase.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:record_submitted' record_id=record.id %}">Latest submission</a>
+    </header>
+    <dl class="mgmt-meta">
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Record status</dt>
+        <dd>
+          {{ record.status }}
+        </dd>
+      </div>
+    </dl>
+    {% if active_correction %}
+      <p role="status">
+        Active correction draft for Submission #{{ active_correction.source_submission.submission_number }}.
+        <a href="{% url 'recording:correction_detail' correction_id=active_correction.id %}">Continue Correction</a>
+      </p>
+    {% endif %}
+    <ol class="mgmt-list">
+      {% for row in history_rows %}
+        <li>
+          <strong>Submission #{{ row.submission.submission_number }}</strong>
+          — submitted by {{ row.submission.submitted_by.employee_code }}
+          at {{ row.submission.submitted_at }}
+          {% if row.review %}
+            <br>
+            Supervisor: {{ row.review.decision }}
+            by {{ row.review.reviewed_by.employee_code }}
+            at {{ row.review.reviewed_at }}
+            {% if row.review.decision == SupervisorReviewDecision.RETURNED_FOR_CORRECTION %}
+              —
+              <a href="{% url 'recording:returned_submission' submission_id=row.submission.id %}">View returned submission</a>
+            {% endif %}
+          {% else %}
+            <br>
+            Supervisor: pending
+          {% endif %}
+          {% if row.correction %}
+            <br>
+            Correction: {{ row.correction.status }}
+            started by {{ row.correction.started_by.employee_code }}
+            {% if row.correction.resulting_submission %}
+              → resulting Submission #{{ row.correction.resulting_submission.submission_number }}
+            {% endif %}
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>No submissions yet.</li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endblock %}

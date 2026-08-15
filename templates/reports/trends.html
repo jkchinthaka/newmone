@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Quality trends — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="trends-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="trends-heading">Quality trends</h1>
+        <p class="mgmt-page__lead">Counts from stored records only. No invented SLAs, control limits, or targets.</p>
+      </div>
+    </header>
+    <form class="mgmt-filters" method="get">
+      <div class="form-field">
+        <label for="id_date_from">Date from</label>
+        <input class="form-input"
+               type="date"
+               id="id_date_from"
+               name="date_from"
+               value="{{ date_from }}">
+      </div>
+      <div class="form-field">
+        <label for="id_date_to">Date to</label>
+        <input class="form-input"
+               type="date"
+               id="id_date_to"
+               name="date_to"
+               value="{{ date_to }}">
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Apply</button>
+    </form>
+    <ul class="stat-grid">
+      <li class="stat-card">
+        <p class="stat-card__label">Cleaning unacceptable</p>
+        <p class="stat-card__value">{{ counts.cleaning_unacceptable }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Cold room out of target</p>
+        <p class="stat-card__value">{{ counts.cold_room_out_of_target }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Dispatch out of target</p>
+        <p class="stat-card__value">{{ counts.dispatch_out_of_target }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Truck FAIL</p>
+        <p class="stat-card__value">{{ counts.truck_fail }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">NCR</p>
+        <p class="stat-card__value">{{ counts.ncr }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">CAPA</p>
+        <p class="stat-card__value">{{ counts.capa }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">RCA</p>
+        <p class="stat-card__value">{{ counts.rca }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Complaints</p>
+        <p class="stat-card__value">{{ counts.complaints }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Supervisor returns</p>
+        <p class="stat-card__value">{{ counts.supervisor_returns }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">QA HOLD</p>
+        <p class="stat-card__value">{{ counts.qa_hold }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">QA REJECT</p>
+        <p class="stat-card__value">{{ counts.qa_reject }}</p>
+      </li>
+    </ul>
+    <h2>Stored measurement series</h2>
+    <p class="mgmt-page__lead">
+      COPQ prices, yield percentages, and full OEE are not calculated. Cost rates and
+      Availability/Performance sources are BUSINESS CONFIGURATION REQUIRED. The
+      quality component below uses stored readings only and is not full OEE.
+    </p>
+    {% for series in series_stats %}
+      <article class="work-card">
+        <h3>{{ series.form_code }}</h3>
+        <p>
+          Count {{ series.count }} · Mean {{ series.mean|default:"—" }} · Min {{ series.minimum|default:"—" }} · Max {{ series.maximum|default:"—" }} · Stddev {{ series.stddev|default:"—" }}
+        </p>
+        <p>Quality component {{ series.quality_component|default:"—" }}</p>
+        <p class="form-help">{{ series.note }}</p>
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}

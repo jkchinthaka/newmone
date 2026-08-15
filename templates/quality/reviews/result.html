@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}QA Review Completed — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="qa-result-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="qa-result-heading">QA review completed</h1>
+        <p class="mgmt-page__lead">
+          Read-only immutable QA disposition. Decision status is shown as text
+          (not color alone). No change, delete, ERP, correction, or task-completion
+          actions are available here.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'quality:queue' %}">Back to QA queue</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="QA review result">
+      <div>
+        <dt>Review state</dt>
+        <dd>
+          QA REVIEW COMPLETED
+        </dd>
+      </div>
+      <div>
+        <dt>QA decision</dt>
+        <dd>
+          <span class="status-text">{{ qa_review.decision }}</span>
+          <span class="form-help">(provisional disposition — not an external system command)</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Reviewed by</dt>
+        <dd>
+          {{ qa_review.reviewed_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Reviewed at</dt>
+        <dd>
+          {{ qa_review.reviewed_at }}
+        </dd>
+      </div>
+      {% if qa_review.review_note %}
+        <div>
+          <dt>QA note</dt>
+          <dd>
+            {{ qa_review.review_note }}
+          </dd>
+        </div>
+      {% endif %}
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      {% if supervisor_review %}
+        <div>
+          <dt>Supervisor decision</dt>
+          <dd>
+            {{ supervisor_review.decision }}
+          </dd>
+        </div>
+        <div>
+          <dt>Supervisor reviewed by</dt>
+          <dd>
+            {{ supervisor_review.reviewed_by.employee_code }}
+          </dd>
+        </div>
+        <div>
+          <dt>Supervisor reviewed at</dt>
+          <dd>
+            {{ supervisor_review.reviewed_at }}
+          </dd>
+        </div>
+      {% endif %}
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ qa_review.organization.code }} — {{ qa_review.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Record status</dt>
+        <dd>
+          {{ record.status }}
+        </dd>
+      </div>
+      <div>
+        <dt>Task status</dt>
+        <dd>
+          {{ task.status }}
+        </dd>
+      </div>
+    </dl>
+    <h2>Submitted answers (immutable snapshot)</h2>
+    {% include "recording/_snapshot_sections.html" %}
+  </section>
+{% endblock %}

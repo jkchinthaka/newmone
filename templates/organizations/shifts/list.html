@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Shift Management — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="shift-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="shift-list-heading">Shift Management</h1>
+        <p class="mgmt-page__lead">
+          Configure operational Shift definitions for organizations you can access.
+          Official business values are entered by authorized users — none are seeded.
+        </p>
+      </div>
+      {% if can_manage %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'organizations:shift_create' %}">Create Shift</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'organizations:shift_list' %}"
+          hx-get="{% url 'organizations:shift_list' %}"
+          hx-target="#shift-list-results"
+          hx-push-url="true"
+          hx-trigger="change delay:200ms from:select, submit">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_q">Search</label>
+          <input class="form-input"
+                 type="search"
+                 name="q"
+                 id="id_q"
+                 value="{{ search }}"
+                 placeholder="Code or name"
+                 autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" name="status" id="id_status">
+            <option value="all" {% if status == "all" %}selected{% endif %}>All</option>
+            <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_organization">Organization</label>
+          <select class="form-input" name="organization" id="id_organization">
+            <option value="">All organizations</option>
+            {% for org in organizations %}
+              <option value="{{ org.id }}"
+                      {% if selected_organization and selected_organization.id == org.id %}selected{% endif %}>
+                {{ org.code }} — {{ org.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_site">Site</label>
+          <select class="form-input" name="site" id="id_site">
+            <option value="">All sites</option>
+            {% for site in sites %}
+              <option value="{{ site.id }}"
+                      {% if selected_site and selected_site.id == site.id %}selected{% endif %}>
+                {{ site.code }} — {{ site.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_department">Department</label>
+          <select class="form-input" name="department" id="id_department">
+            <option value="">All departments</option>
+            {% for dept in departments %}
+              <option value="{{ dept.id }}"
+                      {% if selected_department and selected_department.id == dept.id %}selected{% endif %}>
+                {{ dept.code }} — {{ dept.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'organizations:shift_list' %}">Clear</a>
+      </div>
+    </form>
+    <div id="shift-list-results">{% include "organizations/shifts/_list_results.html" %}</div>
+  </section>
+{% endblock %}

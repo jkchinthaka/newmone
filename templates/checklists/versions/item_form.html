@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Edit item — {{ version.template.code }}{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="item-edit-heading">
+    <header class="mgmt-page__header">
+      <h1 id="item-edit-heading">Edit item</h1>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'checklists:version_detail' version.id %}">Back to version</a>
+    </header>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "components/form_field.html" with field=form.code %}
+      {% include "components/form_field.html" with field=form.label %}
+      {% include "components/form_field.html" with field=form.help_text %}
+      {% include "components/form_field.html" with field=form.is_required %}
+      {% include "components/form_field.html" with field=form.response_type %}
+      {% include "components/form_field.html" with field=form.unit %}
+      {% include "components/form_field.html" with field=form.decimal_precision %}
+      {% include "components/form_field.html" with field=form.rounding_mode %}
+      {% include "components/form_field.html" with field=form.minimum_value %}
+      {% include "components/form_field.html" with field=form.maximum_value %}
+      {% include "components/form_field.html" with field=form.min_inclusive %}
+      {% include "components/form_field.html" with field=form.max_inclusive %}
+      {% include "components/form_field.html" with field=form.control_point_class %}
+      {% include "components/form_field.html" with field=form.criticality %}
+      <p class="mgmt-page__lead">
+        Unit must be a technical catalog code or blank (free-form rejected). Precision and
+        rounding are optional — rounding applies only when both are set; otherwise the
+        exact parsed Decimal is stored. Min/max inclusivity is explicit; leave limits blank
+        when Product specifications are not yet approved. Measurement semantics and
+        control-point metadata are not QA HOLD/REJECT/RELEASE.
+      </p>
+      <button type="submit" class="btn btn--primary btn--inline">Save item</button>
+    </form>
+    {% if is_select %}
+      <section class="mgmt-editor" aria-labelledby="options-heading">
+        <h2 id="options-heading">Select options</h2>
+        <ul class="shift-card-list">
+          {% for option in options %}
+            <li class="shift-card">
+              <div class="shift-card__header">
+                <strong>{{ option.value }}</strong> — {{ option.label }}
+              </div>
+              <p class="shift-card__meta data-table__actions">
+                <a href="{% url 'checklists:option_edit' option.id %}">Edit</a>
+                <form method="post"
+                      action="{% url 'checklists:option_move' option.id %}"
+                      class="inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="direction" value="up">
+                  <button type="submit" class="btn btn--ghost btn--inline">Move up</button>
+                </form>
+                <form method="post"
+                      action="{% url 'checklists:option_move' option.id %}"
+                      class="inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="direction" value="down">
+                  <button type="submit" class="btn btn--ghost btn--inline">Move down</button>
+                </form>
+                <form method="post"
+                      action="{% url 'checklists:option_delete' option.id %}"
+                      onsubmit="return confirm('Remove this option?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn--ghost btn--inline">Remove</button>
+                </form>
+              </p>
+            </li>
+          {% empty %}
+            <li class="shift-card__meta">No options yet. Add at least one before publishing.</li>
+          {% endfor %}
+        </ul>
+        <form method="post"
+              action="{% url 'checklists:option_add' item.id %}"
+              novalidate>
+          {% csrf_token %}
+          <h3>Add option</h3>
+          {% include "components/form_field.html" with field=option_form.value %}
+          {% include "components/form_field.html" with field=option_form.label %}
+          <button type="submit" class="btn btn--secondary btn--inline">Add option</button>
+        </form>
+      </section>
+    {% endif %}
+  </section>
+{% endblock %}

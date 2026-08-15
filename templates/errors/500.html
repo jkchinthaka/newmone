@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Server error — Nelna FG Digital Recording System{% endblock %}
+{% block content %}
+  <section class="error-page-card" aria-labelledby="error-heading">
+    <h1 id="error-heading">500 — Server error</h1>
+    <p>Something went wrong. Please try again later.</p>
+    <p>
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:landing' %}">Return to dashboard</a>
+      {% else %}
+        <a href="{% url 'accounts:login' %}">Sign in</a>
+      {% endif %}
+    </p>
+  </section>
+{% endblock %}

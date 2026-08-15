@@ -1,0 +1,10 @@
+from __future__ import annotations
+
+from django.apps import AppConfig
+
+
+class RecallConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.recall"
+    label = "recall"
+    verbose_name = "Product Recall / Withdrawal"

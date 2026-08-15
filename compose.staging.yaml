@@ -1,0 +1,44 @@
+# Staging / production-like Compose template
+# Usage (example): docker compose -f compose.yaml -f compose.staging.yaml config
+# Do not commit real secrets. Copy env.staging.example to a private env file.
+
+services:
+  web:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_DEBUG: "False"
+      ENVIRONMENT_LABEL: staging
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-fg-staging.nelna.lk,localhost,web}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-https://fg-staging.nelna.lk}
+      SESSION_COOKIE_SECURE: "True"
+      CSRF_COOKIE_SECURE: "True"
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-True}
+      # Use STAGING_POSTGRES_DB so a local .env POSTGRES_DB cannot silently reuse the dev DB name.
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-nelna_fg_staging}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+  celery-worker:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_DEBUG: "False"
+      ENVIRONMENT_LABEL: staging
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-nelna_fg_staging}
+    restart: unless-stopped
+
+  celery-beat:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_DEBUG: "False"
+      ENVIRONMENT_LABEL: staging
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-nelna_fg_staging}
+    restart: unless-stopped
+
+  postgres:
+    environment:
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-nelna_fg_staging}
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped

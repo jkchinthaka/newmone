@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Edit option — {{ item.code }}{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="option-edit-heading">
+    <header class="mgmt-page__header">
+      <h1 id="option-edit-heading">Edit option</h1>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'checklists:item_edit' item.id %}">Back to item</a>
+    </header>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "components/form_field.html" with field=form.value %}
+      {% include "components/form_field.html" with field=form.label %}
+      <button type="submit" class="btn btn--primary btn--inline">Save option</button>
+    </form>
+  </section>
+{% endblock %}

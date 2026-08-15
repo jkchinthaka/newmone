@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Quality quarantine — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="quarantine-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="quarantine-heading">Quality quarantine</h1>
+        <p class="mgmt-page__lead">
+          Application quality state only. This is not the inventory ledger. ERP sync remains blocked.
+        </p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'quarantine:create' %}">Open quarantine</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters" method="get">
+      <div class="form-field">
+        <label for="id_status">Status</label>
+        <select class="form-input" id="id_status" name="status">
+          <option value="">All</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Apply</button>
+    </form>
+    {% if page.object_list %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Batch</th>
+              <th scope="col">Source</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'quarantine:detail' quarantine_id=record.id %}">{{ record.code }}</a>
+                </td>
+                <td>{{ record.batch_reference }}</td>
+                <td>{{ record.get_source_display }}</td>
+                <td>
+                  <span class="status-badge">{{ record.get_status_display }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No quarantine records" message="No quality quarantine cases are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

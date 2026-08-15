@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Confirm Resubmission — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="resubmit-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="resubmit-heading">Confirm checklist resubmission</h1>
+        <p class="mgmt-page__lead">
+          Source Submission #{{ source_submission.submission_number }} remains unchanged.
+          A new immutable Submission #{{ next_submission_number }} will be created from the
+          current full answered working state.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:correction_detail' correction_id=correction.id %}">Back to correction</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Resubmission summary">
+      <div>
+        <dt>Source submission</dt>
+        <dd>
+          #{{ source_submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>New submission will be</dt>
+        <dd>
+          #{{ next_submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Answered items</dt>
+        <dd>
+          {{ completeness.answered_items }} / {{ completeness.total_items }}
+        </dd>
+      </div>
+      <div>
+        <dt>Missing required</dt>
+        <dd>
+          {{ completeness.missing_required_items|length }}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+    </dl>
+    {% if completeness.missing_required_items %}
+      <div class="form-errors" role="alert">
+        <p>Complete these required items before resubmitting:</p>
+        <ul>
+          {% for item in completeness.missing_required_items %}<li>{{ item.code }} — {{ item.label }}</li>{% endfor %}
+        </ul>
+        <a class="btn btn--secondary"
+           href="{% url 'recording:correction_detail' correction_id=correction.id %}">Return to correction</a>
+      </div>
+    {% else %}
+      <form method="post"
+            action="{% url 'recording:correction_resubmit' correction_id=correction.id %}">
+        {% csrf_token %}
+        <div class="landing-actions">
+          <button type="submit" class="btn btn--primary">Confirm Resubmit</button>
+          <a class="btn btn--ghost"
+             href="{% url 'recording:correction_detail' correction_id=correction.id %}">Cancel</a>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

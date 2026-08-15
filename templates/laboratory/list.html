@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Laboratory — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="lab-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="lab-heading">Laboratory samples</h1>
+        <p class="mgmt-page__lead">Sample queue only. Limits are not invented. Lab PASS is not QA RELEASE.</p>
+      </div>
+    </header>
+    {% if page.object_list %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Status</th>
+              <th scope="col">Product</th>
+              <th scope="col">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sample in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'laboratory:detail' sample_id=sample.id %}">{{ sample.code }}</a>
+                </td>
+                <td>
+                  <span class="status-badge">{{ sample.get_status_display }}</span>
+                </td>
+                <td>
+                  {% if sample.product %}
+                    {{ sample.product.code }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>{{ sample.organization.code }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No laboratory samples" message="No samples are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

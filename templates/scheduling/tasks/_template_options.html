@@ -1,0 +1,4 @@
+<option value="">Select checklist template</option>
+{% for template in templates %}
+  <option value="{{ template.id }}">{{ template.code }} — {{ template.name }}</option>
+{% endfor %}

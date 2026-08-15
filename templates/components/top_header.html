@@ -1,0 +1,59 @@
+<header class="app-topbar" role="banner">
+  <div class="app-topbar__start">
+    <button type="button"
+            class="app-menu-toggle"
+            data-nav-toggle
+            aria-controls="app-sidebar"
+            aria-expanded="false">Menu</button>
+    <div class="app-topbar__titles">
+      {% if page_title %}<p class="app-topbar__title">{{ page_title }}</p>{% endif %}
+      {% if breadcrumbs %}
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <ol>
+            <li>
+              <a href="{% url 'accounts:landing' %}">Home</a>
+            </li>
+            {% for crumb in breadcrumbs %}
+              <li>
+                {% if crumb.url %}
+                  <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+                {% else %}
+                  <span aria-current="page">{{ crumb.label }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </nav>
+      {% endif %}
+    </div>
+  </div>
+  {% if user.is_authenticated %}
+    <div class="app-topbar__end">
+      <a class="app-topbar__notify"
+         href="{% url 'notifications:list' %}"
+         aria-label="Notifications">
+        Notifications
+        {% if unread_notification_count %}<span class="nav-count">{{ unread_notification_count }}</span>{% endif %}
+      </a>
+      <details class="user-menu">
+        <summary>
+          <span class="user-menu__code">
+            {% if user.employee_code %}
+              {{ user.employee_code }}
+            {% else %}
+              {{ user.get_username }}
+            {% endif %}
+          </span>
+        </summary>
+        <div class="user-menu__panel">
+          <p class="user-menu__meta">Signed in</p>
+          <a href="{% url 'accounts:change_password' %}">Change password</a>
+          <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--ghost btn--inline">Sign out</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  {% endif %}
+</header>
