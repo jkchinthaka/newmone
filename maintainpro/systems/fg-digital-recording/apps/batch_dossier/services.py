@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
@@ -52,7 +51,7 @@ from apps.batch_dossier.selectors import (
     supervisor_reviews_for_batch,
     tasks_for_batch,
 )
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.organizations.models import Organization
 from apps.security_audit.services import record_event
 
@@ -134,7 +133,7 @@ def _can(user: User, permission: str, organization_id: uuid.UUID) -> bool:
     return user_has_permission(user, permission, scope=_org_scope(organization_id))
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_batch_dossier_policy(
     *,
     actor: User | None,
@@ -997,7 +996,7 @@ def assemble_batch_quality_dossier(
 build_batch_quality_dossier = assemble_batch_quality_dossier
 
 
-@transaction.atomic
+@atomic_fn
 def prepare_batch_dossier_pdf_export(
     *,
     actor: User | None,

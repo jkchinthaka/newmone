@@ -9,7 +9,6 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from apps.core.persistence import atomic_fn, conditional_update, lock_queryset
 from django.http import HttpRequest
 from django.utils import timezone
@@ -305,7 +304,7 @@ def logout_user(request: HttpRequest) -> None:
         )
 
 
-@transaction.atomic
+@atomic_fn
 def change_password(
     user: User,
     *,
@@ -339,7 +338,7 @@ def change_password(
     return user
 
 
-@transaction.atomic
+@atomic_fn
 def force_password_change(
     user: User,
     *,
@@ -370,7 +369,7 @@ def force_password_change(
     return user
 
 
-@transaction.atomic
+@atomic_fn
 def unlock_account(
     user: User,
     *,
@@ -400,14 +399,14 @@ def unlock_account(
     return locked_user
 
 
-@transaction.atomic
+@atomic_fn
 def set_must_change_password(user: User, *, enabled: bool = True) -> User:
     user.must_change_password = enabled
     user.save(update_fields=["must_change_password"])
     return user
 
 
-@transaction.atomic
+@atomic_fn
 def admin_reset_password(
     user: User,
     *,

@@ -41,7 +41,17 @@ from apps.scheduling.services import create_batch_checklist_task
 DEMO_BANNER = "DEMO / TEST DATA — NOT COMPANY MASTER DATA"
 DEMO_ORG_CODE = "DEMOORG1"
 DEMO_PASSWORD = "Demo-Only-Pass-123!"  # noqa: S105 — local synthetic only
-ALLOWED_DEMO_ENVIRONMENTS = frozenset({"local", "test", "development", "ci"})
+ALLOWED_DEMO_ENVIRONMENTS = frozenset(
+    {
+        "local",
+        "test",
+        "development",
+        "ci",
+        # Isolated Mongo compatibility POC only — never production/UAT/staging.
+        "mongo_same_db_poc",
+        "mongo_poc",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)

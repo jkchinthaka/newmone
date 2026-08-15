@@ -836,7 +836,10 @@ def _allocate_next_version_number(template: ChecklistTemplate) -> int:
     locked = locked_get(ChecklistTemplate, pk=template.pk)
     if locked is None:
         raise ValidationError({"template": "Checklist template not found."})
-    current = locked.versions.aggregate(m=Max("version_number"))["m"]
+    # Prefer order_by over Max() — more portable across PostgreSQL and Mongo.
+    current = (
+        locked.versions.order_by("-version_number").values_list("version_number", flat=True).first()
+    )
     return int(current or 0) + 1
 
 
@@ -1121,7 +1124,7 @@ def create_checklist_version(
     # Template row lock serializes allocation; unique constraint retry
     # covers residual races if another writer sneaks between max() and insert.
     # No nested atomic() — already inside atomic_fn, Mongo has no savepoints.
-    for _attempt in range(8):
+    for _attempt in range(16):
         version_number = _allocate_next_version_number(template)
         candidate = ChecklistVersion(
             template=template,
@@ -1137,9 +1140,15 @@ def create_checklist_version(
             last_error = exc
             continue
         except ValidationError as exc:
-            raise ValidationError(
-                {"version_number": "Unable to allocate the next checklist version number."}
-            ) from exc
+            # full_clean unique validation races the same as IntegrityError —
+            # retry with a freshly allocated number.
+            messages = " ".join(str(m) for m in getattr(exc, "messages", ()) or ())
+            err_dict = getattr(exc, "message_dict", None) or getattr(exc, "error_dict", None) or {}
+            text = f"{messages} {err_dict} {exc}".lower()
+            if "already exists" in text or "version_number" in text or "unique" in text:
+                last_error = exc
+                continue
+            raise
     if version is None:
         raise ValidationError(
             {"version_number": "Unable to allocate the next checklist version number."}

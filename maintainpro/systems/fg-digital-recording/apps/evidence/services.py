@@ -7,8 +7,7 @@ from typing import Any, BinaryIO
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
-from apps.core.persistence import locked_get
+from apps.core.persistence import atomic_fn, locked_get
 from django.http import FileResponse
 from django.utils import timezone
 
@@ -69,7 +68,7 @@ def _read_upload_bytes(
     return data, name, ctype
 
 
-@transaction.atomic
+@atomic_fn
 def upload_evidence_attachment(
     *,
     actor: User | None,
@@ -247,7 +246,7 @@ def build_evidence_file_response(
     return response
 
 
-@transaction.atomic
+@atomic_fn
 def retire_evidence_attachment(
     *,
     actor: User | None,
@@ -302,7 +301,7 @@ def retire_evidence_attachment(
 soft_retire_evidence_attachment = retire_evidence_attachment
 
 
-@transaction.atomic
+@atomic_fn
 def mark_draft_response_evidence_immutable_for_record(*, record_id: uuid.UUID) -> int:
     """After ChecklistRecord submit — draft response attachments become immutable."""
     from apps.recording.models import ChecklistResponse

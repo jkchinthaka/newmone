@@ -11,9 +11,9 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
@@ -180,7 +180,7 @@ def _resolve_evidence_object(
         )
 
 
-@transaction.atomic
+@atomic_fn
 def register_compliance_source(
     *,
     actor: User,
@@ -253,7 +253,7 @@ def register_compliance_source(
     return source, edition
 
 
-@transaction.atomic
+@atomic_fn
 def add_source_edition(
     *,
     actor: User,
@@ -323,7 +323,7 @@ def add_source_edition(
     return edition
 
 
-@transaction.atomic
+@atomic_fn
 def update_edition_applicability(
     *,
     actor: User,
@@ -366,7 +366,7 @@ def update_edition_applicability(
     return edition
 
 
-@transaction.atomic
+@atomic_fn
 def withdraw_source_edition(*, actor: User, edition_id: uuid.UUID) -> ComplianceSourceEdition:
     edition = ComplianceSourceEdition.objects.select_related("source").get(pk=edition_id)
     _require(actor, PERM_MANAGE_SOURCE, edition.source.organization_id)
@@ -393,7 +393,7 @@ def withdraw_source_edition(*, actor: User, edition_id: uuid.UUID) -> Compliance
     return edition
 
 
-@transaction.atomic
+@atomic_fn
 def create_control_mapping(
     *,
     actor: User,
@@ -450,7 +450,7 @@ def create_control_mapping(
     return mapping
 
 
-@transaction.atomic
+@atomic_fn
 def transition_mapping_status(
     *, actor: User, mapping_id: uuid.UUID, target_status: str
 ) -> ComplianceControlMapping:
@@ -488,7 +488,7 @@ def transition_mapping_status(
     return mapping
 
 
-@transaction.atomic
+@atomic_fn
 def verify_control_mapping(*, actor: User, mapping_id: uuid.UUID) -> ComplianceControlMapping:
     mapping = ComplianceControlMapping.objects.select_related("edition", "edition__source").get(
         pk=mapping_id
@@ -521,7 +521,7 @@ def verify_control_mapping(*, actor: User, mapping_id: uuid.UUID) -> ComplianceC
     return mapping
 
 
-@transaction.atomic
+@atomic_fn
 def link_mapping_evidence(
     *,
     actor: User,
@@ -574,7 +574,7 @@ def link_mapping_evidence(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def record_compliance_gap(*, actor: User, mapping_id: uuid.UUID, description: str) -> ComplianceGap:
     mapping = ComplianceControlMapping.objects.select_related("edition", "edition__source").get(
         pk=mapping_id
@@ -617,7 +617,7 @@ def record_compliance_gap(*, actor: User, mapping_id: uuid.UUID, description: st
     return gap
 
 
-@transaction.atomic
+@atomic_fn
 def link_gap_action(
     *,
     actor: User,
@@ -798,7 +798,7 @@ def set_mapping_status(
     return transition_mapping_status(actor=actor, mapping_id=mapping_id, target_status=status)
 
 
-@transaction.atomic
+@atomic_fn
 def revise_compliance_source(
     *,
     actor: User,
@@ -834,7 +834,7 @@ def open_compliance_gap(*, actor: User, mapping_id: uuid.UUID, description: str)
     return record_compliance_gap(actor=actor, mapping_id=mapping_id, description=description)
 
 
-@transaction.atomic
+@atomic_fn
 def close_compliance_gap(*, actor: User, gap_id: uuid.UUID) -> ComplianceGap:
     gap = ComplianceGap.objects.select_related(
         "mapping", "mapping__edition", "mapping__edition__source"

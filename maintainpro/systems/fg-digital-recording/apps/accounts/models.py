@@ -6,9 +6,9 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.db.models.functions import Lower
 
 from apps.accounts.managers import UserManager
+from apps.accounts.validators import normalize_employee_code
 
 
 class User(AbstractUser):
@@ -19,6 +19,9 @@ class User(AbstractUser):
     via direct ORM construction. UserManager.create_user / create_superuser and
     Django admin creation require a non-empty employee_code. Authentication via
     EmployeeCodeBackend rejects accounts without a code.
+
+    Codes are stored normalized (strip + uppercase). Uniqueness is therefore a
+    plain unique constraint — Mongo-compatible (no expression index / Lower()).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -37,15 +40,21 @@ class User(AbstractUser):
         verbose_name_plural = "users"
         constraints = [
             models.UniqueConstraint(
-                Lower("employee_code"),
+                fields=["employee_code"],
                 condition=models.Q(employee_code__isnull=False),
                 name="acct_user_emp_code_ci_uniq",
             ),
         ]
         indexes = [
-            models.Index(Lower("employee_code"), name="acct_user_emp_code_idx"),
+            models.Index(fields=["employee_code"], name="acct_user_emp_code_idx"),
             models.Index(fields=["locked_until"], name="acct_user_locked_until_idx"),
         ]
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        if self.employee_code is not None:
+            normalized = normalize_employee_code(str(self.employee_code))
+            self.employee_code = normalized or None
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         if self.employee_code:

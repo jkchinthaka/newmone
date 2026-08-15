@@ -247,9 +247,33 @@ def update_nonconformance_case_fields(
         changed.append("investigation")
     if not changed:
         return record
+    # Never persist status via full-model save — a concurrent close would be
+    # overwritten back to OPEN. Restrict update_fields and CAS on still-open.
+    update_fields: list[str] = []
+    field_map = {
+        "title": "title",
+        "description": "description",
+        "summary": "summary",
+        "batch_reference": "batch_reference",
+        "quantity_reference": "quantity_reference",
+        "owner": "owner_id",
+        "containment": "containment",
+        "investigation": "investigation",
+    }
+    for label in changed:
+        mapped = field_map.get(label, label)
+        if mapped not in update_fields:
+            update_fields.append(mapped)
+    update_fields.append("updated_at")
+    record.updated_at = timezone.now()
     record.full_clean()
-    record.save()
-    _verify_ncr_still_open(record)
+    payload = {name: getattr(record, name) for name in update_fields}
+    matched = NonConformanceRecord.objects.filter(
+        pk=record.pk,
+    ).exclude(status=NonConformanceStatus.CLOSED).update(**payload)
+    if matched != 1:
+        raise ValidationError({"status": "Nonconformance was closed during this operation."})
+    record.refresh_from_db()
     _append_history(
         organization_id=record.organization_id,
         case_kind=QualityCaseHistoryKind.NONCONFORMANCE,

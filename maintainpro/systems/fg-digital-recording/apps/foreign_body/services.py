@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -98,7 +98,7 @@ def _piece_snapshot(piece: TestPiece, expected_detected: bool) -> dict[str, Any]
     }
 
 
-@transaction.atomic
+@atomic_fn
 def create_test_piece(
     *,
     actor: User | None,
@@ -140,7 +140,7 @@ def create_test_piece(
     return piece
 
 
-@transaction.atomic
+@atomic_fn
 def create_schedule_rule(
     *,
     actor: User | None,
@@ -192,7 +192,7 @@ def create_schedule_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def record_challenge_test(
     *,
     actor: User | None,
@@ -294,7 +294,7 @@ def record_challenge_test(
     return test
 
 
-@transaction.atomic
+@atomic_fn
 def verify_challenge_test(
     *,
     actor: User | None,
@@ -336,7 +336,7 @@ def verify_challenge_test(
     return test
 
 
-@transaction.atomic
+@atomic_fn
 def void_challenge_test(
     *,
     actor: User | None,
@@ -375,7 +375,7 @@ def void_challenge_test(
     return test
 
 
-@transaction.atomic
+@atomic_fn
 def assess_and_persist_containment(
     *,
     actor: User,

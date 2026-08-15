@@ -7,9 +7,9 @@ from collections.abc import Iterable, Mapping
 from datetime import datetime
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistTemplate, ChecklistVersion
@@ -78,7 +78,7 @@ def _clean_reference(value: object, *, max_length: int) -> str:
     return (str(value) if value is not None else "").strip()[:max_length]
 
 
-@transaction.atomic
+@atomic_fn
 def create_return_quality_record(
     *,
     actor: User | None,
@@ -140,7 +140,7 @@ def create_return_quality_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def update_return_quantity(
     *,
     actor: User | None,
@@ -184,7 +184,7 @@ def update_return_quantity(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def start_return_inspection(
     *,
     actor: User | None,
@@ -245,7 +245,7 @@ def start_return_inspection(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def mark_return_ready_for_disposition(
     *, actor: User | None, record: ReturnQualityRecord
 ) -> ReturnQualityRecord:
@@ -270,7 +270,7 @@ def _allowed_dispositions(organization_id: uuid.UUID) -> set[str]:
     return set(policy.allowed_disposition_codes if policy else [])
 
 
-@transaction.atomic
+@atomic_fn
 def apply_return_disposition(
     *, actor: User | None, record: ReturnQualityRecord, disposition: str, disposition_note: str = ""
 ) -> ReturnQualityRecord:
@@ -322,7 +322,7 @@ def apply_return_disposition(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_return_quality_policy(
     *,
     actor: User | None,

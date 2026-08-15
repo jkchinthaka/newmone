@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -18,6 +18,7 @@ from apps.checklists.models import (
     ChecklistVersionStatus,
 )
 from apps.core.persistence import (
+    atomic,
     TransitionConflictError,
     cas_status_transition,
     lock_queryset,
@@ -192,7 +193,7 @@ def create_batch_checklist_task(
         return existing
 
     try:
-        with transaction.atomic():
+        with atomic():
             task = ChecklistTask(
                 organization=organization,
                 checklist_template=template,
@@ -293,7 +294,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
     """Cancel a PENDING task. Soft cancel only — never hard-delete."""
     user = _require_authenticated_actor(actor)
 
-    with transaction.atomic():
+    with atomic():
         task = lock_queryset(
             ChecklistTask.objects.select_related(
                 "organization", "checklist_template", "checklist_version"

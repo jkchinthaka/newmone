@@ -6,14 +6,14 @@ import uuid
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.batch_genealogy.models import GenealogyNodeKind, GenealogyRelationKind
 from apps.batch_genealogy.services import ingest_erp_genealogy_edge, upsert_genealogy_node
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.nonconformance.models import HoldCase, NonConformanceRecord
 from apps.organizations.models import Organization
 from apps.quality.models import QAReview
@@ -133,7 +133,7 @@ def reject_does_not_create_rework() -> None:
     return None
 
 
-@transaction.atomic
+@atomic_fn
 def create_rework_case(
     *,
     actor: User | None,
@@ -203,7 +203,7 @@ def create_rework_case(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def authorize_rework_case(*, actor: User | None, case: ReworkCase) -> ReworkCase:
     user = _require(actor, AUTHORIZE, case.organization_id)
     locked = lock_queryset(ReworkCase.objects.filter(pk=case.pk)).get()
@@ -229,7 +229,7 @@ def authorize_rework_case(*, actor: User | None, case: ReworkCase) -> ReworkCase
     return locked
 
 
-@transaction.atomic
+@atomic_fn
 def start_rework_case(*, actor: User | None, case: ReworkCase) -> ReworkCase:
     user = _require(actor, EXECUTE, case.organization_id)
     locked = lock_queryset(ReworkCase.objects.filter(pk=case.pk)).get()
@@ -306,7 +306,7 @@ def _record_genealogy(*, actor: User, case: ReworkCase) -> None:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def complete_rework_case(
     *,
     actor: User | None,
@@ -383,7 +383,7 @@ def complete_rework_case(
     return locked
 
 
-@transaction.atomic
+@atomic_fn
 def cancel_rework_case(
     *, actor: User | None, case: ReworkCase, detail_reference: str = ""
 ) -> ReworkCase:
@@ -414,7 +414,7 @@ def cancel_rework_case(
     return locked
 
 
-@transaction.atomic
+@atomic_fn
 def open_rework_reinspection(
     *,
     actor: User | None,
@@ -470,7 +470,7 @@ def open_rework_reinspection(
     return locked
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_rework_policy(
     *,
     actor: User | None,

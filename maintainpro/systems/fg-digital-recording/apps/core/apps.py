@@ -11,7 +11,9 @@ class CoreConfig(AppConfig):
 
     def ready(self) -> None:
         from apps.core.db_namespace import apply_fg_collection_namespace
+        from apps.core.mongo_schema_compat import apply_mongo_schema_compat
         from apps.core.persistence.queries import apply_mongo_queryset_compat
 
         apply_fg_collection_namespace()
         apply_mongo_queryset_compat()
+        apply_mongo_schema_compat()

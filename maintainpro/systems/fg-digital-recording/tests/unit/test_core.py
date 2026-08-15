@@ -51,6 +51,13 @@ def test_readiness_ok_with_dependencies() -> None:
 
 @pytest.mark.django_db
 def test_readiness_503_when_postgres_fails() -> None:
+    from django.conf import settings
+
+    from apps.core.persistence.backend import is_mongodb
+
+    if is_mongodb() or getattr(settings, "HEALTHCHECK_MONGODB_ENABLED", False):
+        pytest.skip("PostgreSQL is not a required readiness dependency in Mongo mode")
+
     client = Client()
     with (
         patch(
@@ -74,24 +81,49 @@ def test_readiness_503_when_postgres_fails() -> None:
 
 @pytest.mark.django_db
 def test_readiness_503_when_redis_fails() -> None:
+    from apps.core.persistence.backend import is_mongodb
+
     client = Client()
-    with (
-        patch(
-            "apps.core.health.check_postgres", return_value={"name": "postgresql", "status": "ok"}
-        ),
-        patch(
-            "apps.core.health.check_redis", return_value={"name": "redis", "status": "unavailable"}
-        ),
-        patch(
-            "apps.core.health.check_celery_broker",
-            return_value={"name": "celery_broker", "status": "ok"},
-        ),
-        patch(
-            "apps.core.health.check_evidence_storage",
-            return_value={"name": "evidence_storage", "status": "ok"},
-        ),
-    ):
-        response = client.get(reverse("core:health-ready"))
+    if is_mongodb():
+        with (
+            patch(
+                "apps.core.health.check_mongodb",
+                return_value={"name": "mongodb", "status": "ok"},
+            ),
+            patch(
+                "apps.core.health.check_redis",
+                return_value={"name": "redis", "status": "unavailable"},
+            ),
+            patch(
+                "apps.core.health.check_celery_broker",
+                return_value={"name": "celery_broker", "status": "ok"},
+            ),
+            patch(
+                "apps.core.health.check_evidence_storage",
+                return_value={"name": "evidence_storage", "status": "ok"},
+            ),
+        ):
+            response = client.get(reverse("core:health-ready"))
+    else:
+        with (
+            patch(
+                "apps.core.health.check_postgres",
+                return_value={"name": "postgresql", "status": "ok"},
+            ),
+            patch(
+                "apps.core.health.check_redis",
+                return_value={"name": "redis", "status": "unavailable"},
+            ),
+            patch(
+                "apps.core.health.check_celery_broker",
+                return_value={"name": "celery_broker", "status": "ok"},
+            ),
+            patch(
+                "apps.core.health.check_evidence_storage",
+                return_value={"name": "evidence_storage", "status": "ok"},
+            ),
+        ):
+            response = client.get(reverse("core:health-ready"))
     assert response.status_code == 503
 
 

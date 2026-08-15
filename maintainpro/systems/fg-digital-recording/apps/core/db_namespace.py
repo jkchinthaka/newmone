@@ -128,11 +128,29 @@ def apply_fg_collection_namespace() -> int:
             continue
         model._meta.db_table = target
         patched += 1
+
+    # Django migration history must also live under the FG namespace in a shared DB.
+    try:
+        from django.db.migrations.recorder import MigrationRecorder
+
+        mig_table = f"{prefix}django_migrations"
+        if MigrationRecorder.Migration._meta.db_table != mig_table:
+            MigrationRecorder.Migration._meta.db_table = mig_table
+            patched += 1
+    except Exception:  # noqa: BLE001
+        pass
     return patched
 
 
 def restore_postgresql_table_names() -> int:
-    """Undo runtime ``fg_`` db_table patches (for PostgreSQL tests / teardown)."""
+    """Undo runtime ``fg_`` db_table patches (for PostgreSQL tests / teardown).
+
+    No-op when ``FG_COLLECTION_NAMESPACE_ENABLED`` is on (Mongo same-DB POC /
+    cutover modes). Stripping ``fg_`` there would point ORM reads at bare
+    collections and break auth/RBAC against the namespaced schema.
+    """
+    if namespace_enabled():
+        return 0
     prefix = fg_prefix()
     restored = 0
     for model in iter_fg_models(include_auto_created=True):

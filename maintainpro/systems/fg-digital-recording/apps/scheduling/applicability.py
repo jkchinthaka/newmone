@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import Q, QuerySet
 
 from apps.access_control.services import Scope, require_permission
@@ -29,7 +29,7 @@ from apps.checklists.models import (
     ChecklistVersion,
     ChecklistVersionStatus,
 )
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.master_data.models import FGProduct
 from apps.organizations.models import Department, Organization, Shift, Site
 from apps.scheduling.models import (
@@ -449,7 +449,7 @@ def _optional_fk(
     return obj
 
 
-@transaction.atomic
+@atomic_fn
 def create_checklist_applicability_rule(
     *,
     actor: User | None,
@@ -511,7 +511,7 @@ def create_checklist_applicability_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def update_checklist_applicability_rule(
     *,
     actor: User | None,
@@ -590,7 +590,7 @@ def update_checklist_applicability_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_checklist_applicability_rule(
     *,
     actor: User | None,

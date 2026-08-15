@@ -11,9 +11,9 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import require_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
@@ -91,7 +91,7 @@ def _ensure_metrics(case: RecallCase, *, actor: User) -> MockExerciseMetrics:
     return metrics
 
 
-@transaction.atomic
+@atomic_fn
 def create_mock_recall_exercise(
     *,
     actor: User | None,
@@ -164,7 +164,7 @@ def create_mock_recall_exercise(
     return case
 
 
-@transaction.atomic
+@atomic_fn
 def start_mock_exercise(
     *,
     actor: User | None,
@@ -206,7 +206,7 @@ def start_mock_exercise(
     return metrics
 
 
-@transaction.atomic
+@atomic_fn
 def update_mock_exercise_metrics(
     *,
     actor: User | None,
@@ -289,7 +289,7 @@ def serialize_mock_metrics(metrics: MockExerciseMetrics) -> dict[str, Any]:
     }
 
 
-@transaction.atomic
+@atomic_fn
 def complete_mock_exercise(
     *,
     actor: User | None,
@@ -358,7 +358,7 @@ def complete_mock_exercise(
     return payload
 
 
-@transaction.atomic
+@atomic_fn
 def run_mock_genealogy_exercise(
     *,
     actor: User | None,
@@ -470,7 +470,7 @@ def attempt_mock_side_effects(
     return result
 
 
-@transaction.atomic
+@atomic_fn
 def create_mock_finding(
     *,
     actor: User | None,
@@ -511,7 +511,7 @@ def create_mock_finding(
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def link_mock_finding_to_ncr(
     *,
     actor: User | None,
@@ -570,7 +570,7 @@ def link_mock_finding_to_ncr(
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def link_mock_finding_to_capa(
     *,
     actor: User | None,
@@ -630,7 +630,7 @@ def link_mock_finding_to_capa(
     return finding
 
 
-@transaction.atomic
+@atomic_fn
 def create_mock_improvement_action(
     *,
     actor: User | None,

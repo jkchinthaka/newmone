@@ -1,6 +1,6 @@
 # FG MongoDB Collection Manifest
 
-**Generated (UTC):** 2026-08-12T09:55:37Z  
+**Generated (UTC):** 2026-08-13T05:27:00Z  
 **Production logical database:** `mgintginpro_prod`  
 **Namespace prefix:** `fg_`  
 **Collection count:** 231  
@@ -98,7 +98,7 @@ Do **not** reuse or rename MaintainPro collections.
 - **Proposed Mongo collection:** `fg_accounts_user`
 - **PK field / type:** `id` / `UUIDField`
 - **PK classification:** UUID — SAFE CANDIDATE
-- **Indexes / uniques:** pk:id; Index; locked_until; constraint:UniqueConstraint:acct_user_emp_code_ci_uniq; unique:username
+- **Indexes / uniques:** pk:id; employee_code; locked_until; constraint:UniqueConstraint:acct_user_emp_code_ci_uniq; unique:username
 - **Relationships:** M2M:groups->auth.Group via User_groups; M2M:user_permissions->auth.Permission via User_user_permissions
 - **Migration concern:** standard model
 - **MaintainPro collision:** NONE
@@ -148,11 +148,11 @@ Do **not** reuse or rename MaintainPro collections.
 - **Django model:** `auth.Group`
 - **Existing PostgreSQL table:** `auth_group`
 - **Proposed Mongo collection:** `fg_auth_group`
-- **PK field / type:** `id` / `AutoField`
-- **PK classification:** CONTRIB MODEL — REVIEW
+- **PK field / type:** `id` / `ObjectIdAutoField`
+- **PK classification:** OBJECTID-COMPATIBLE
 - **Indexes / uniques:** pk:id; unique:name
 - **Relationships:** M2M:permissions->auth.Permission via Group_permissions
-- **Migration concern:** standard model; PK: CONTRIB MODEL — REVIEW
+- **Migration concern:** standard model
 - **MaintainPro collision:** NONE
 - **Auto-created:** False
 
@@ -161,7 +161,7 @@ Do **not** reuse or rename MaintainPro collections.
 - **Django model:** `auth.Group_permissions`
 - **Existing PostgreSQL table:** `auth_group_permissions`
 - **Proposed Mongo collection:** `fg_auth_group_permissions`
-- **PK field / type:** `id` / `AutoField`
+- **PK field / type:** `id` / `ObjectIdAutoField`
 - **PK classification:** THROUGH MODEL — REVIEW
 - **Indexes / uniques:** pk:id; unique_together:group,permission
 - **Relationships:** FK:group->auth.Group; FK:permission->auth.Permission
@@ -174,11 +174,11 @@ Do **not** reuse or rename MaintainPro collections.
 - **Django model:** `auth.Permission`
 - **Existing PostgreSQL table:** `auth_permission`
 - **Proposed Mongo collection:** `fg_auth_permission`
-- **PK field / type:** `id` / `AutoField`
-- **PK classification:** CONTRIB MODEL — REVIEW
+- **PK field / type:** `id` / `ObjectIdAutoField`
+- **PK classification:** OBJECTID-COMPATIBLE
 - **Indexes / uniques:** pk:id; unique_together:content_type,codename
 - **Relationships:** FK:content_type->contenttypes.ContentType
-- **Migration concern:** standard model; PK: CONTRIB MODEL — REVIEW
+- **Migration concern:** standard model
 - **MaintainPro collision:** NONE
 - **Auto-created:** False
 
@@ -811,11 +811,11 @@ Do **not** reuse or rename MaintainPro collections.
 - **Django model:** `admin.LogEntry`
 - **Existing PostgreSQL table:** `django_admin_log`
 - **Proposed Mongo collection:** `fg_django_admin_log`
-- **PK field / type:** `id` / `AutoField`
-- **PK classification:** CONTRIB MODEL — REVIEW
+- **PK field / type:** `id` / `ObjectIdAutoField`
+- **PK classification:** OBJECTID-COMPATIBLE
 - **Indexes / uniques:** pk:id
 - **Relationships:** FK:user->accounts.User; FK:content_type->contenttypes.ContentType
-- **Migration concern:** standard model; PK: CONTRIB MODEL — REVIEW
+- **Migration concern:** standard model
 - **MaintainPro collision:** NONE
 - **Auto-created:** False
 
@@ -824,11 +824,11 @@ Do **not** reuse or rename MaintainPro collections.
 - **Django model:** `contenttypes.ContentType`
 - **Existing PostgreSQL table:** `django_content_type`
 - **Proposed Mongo collection:** `fg_django_content_type`
-- **PK field / type:** `id` / `AutoField`
-- **PK classification:** CONTRIB MODEL — REVIEW
+- **PK field / type:** `id` / `ObjectIdAutoField`
+- **PK classification:** OBJECTID-COMPATIBLE
 - **Indexes / uniques:** pk:id; unique_together:app_label,model
 - **Relationships:** (none)
-- **Migration concern:** standard model; PK: CONTRIB MODEL — REVIEW
+- **Migration concern:** standard model
 - **MaintainPro collision:** NONE
 - **Auto-created:** False
 

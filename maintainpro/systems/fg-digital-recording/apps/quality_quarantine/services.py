@@ -6,8 +6,7 @@ import uuid
 from datetime import datetime
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
@@ -81,7 +80,7 @@ def _append_event(
     return event
 
 
-@transaction.atomic
+@atomic_fn
 def open_quarantine_record(
     *,
     actor: User | None,
@@ -163,7 +162,7 @@ def open_quarantine_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def update_quarantine_quantity(
     *,
     actor: User | None,
@@ -220,7 +219,7 @@ def update_quarantine_quantity(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def release_quarantine_record(
     *,
     actor: User | None,
@@ -280,7 +279,7 @@ def release_quarantine_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def cancel_quarantine_record(
     *,
     actor: User | None,
@@ -316,7 +315,7 @@ def cancel_quarantine_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def record_erp_sync_status(
     *,
     actor: User | None,
@@ -371,7 +370,7 @@ def attempt_quarantine_erp_sync(
     send_quarantine_erp_sync(command=command, actor=user, reason_code=decision.reason_code)
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_quarantine_policy(
     *,
     actor: User | None,

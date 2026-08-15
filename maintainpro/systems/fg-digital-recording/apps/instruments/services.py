@@ -7,8 +7,8 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
@@ -97,7 +97,7 @@ def _reraise_equipment_unique(exc: Exception) -> None:
     raise
 
 
-@transaction.atomic
+@atomic_fn
 def create_equipment(
     *,
     actor: User | None,
@@ -160,7 +160,7 @@ def create_equipment(
     return equipment
 
 
-@transaction.atomic
+@atomic_fn
 def update_equipment(
     *,
     actor: User | None,
@@ -236,7 +236,7 @@ def update_equipment(
     return equipment
 
 
-@transaction.atomic
+@atomic_fn
 def set_equipment_operational_status(
     *,
     actor: User | None,
@@ -267,7 +267,7 @@ def set_equipment_operational_status(
     return equipment
 
 
-@transaction.atomic
+@atomic_fn
 def activate_equipment(*, actor: User | None, equipment_id: uuid.UUID) -> Equipment:
     user = _require_authenticated_actor(actor)
     equipment = locked_get(Equipment, pk=equipment_id)
@@ -286,7 +286,7 @@ def activate_equipment(*, actor: User | None, equipment_id: uuid.UUID) -> Equipm
     return equipment
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_equipment(*, actor: User | None, equipment_id: uuid.UUID) -> Equipment:
     user = _require_authenticated_actor(actor)
     equipment = locked_get(Equipment, pk=equipment_id)
@@ -305,7 +305,7 @@ def deactivate_equipment(*, actor: User | None, equipment_id: uuid.UUID) -> Equi
     return equipment
 
 
-@transaction.atomic
+@atomic_fn
 def create_calibration_record(
     *,
     actor: User | None,
@@ -350,7 +350,7 @@ def create_calibration_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def update_calibration_certificate_metadata(
     *,
     actor: User | None,

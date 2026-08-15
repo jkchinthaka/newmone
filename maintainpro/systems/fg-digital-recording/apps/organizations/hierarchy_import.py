@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import TextIO
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
+from apps.core.persistence.transactions import atomic
 from apps.access_control.services import Scope, require_permission, user_has_permission_any_scope
 from apps.accounts.models import User
 from apps.organizations.models import Department, Organization, Shift, Site
@@ -527,7 +527,7 @@ def import_organization_hierarchy(
         "shifts": [],
     }
     try:
-        with transaction.atomic():
+        with atomic():
             # Codes are stored uppercase; keys use normalize_code for case-safe lookup.
             org_by_code: dict[str, Organization] = {
                 normalize_code(o.code): o for o in Organization.objects.all()

@@ -12,8 +12,8 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import (
@@ -125,7 +125,7 @@ def _freeze_binding_context(
     }
 
 
-@transaction.atomic
+@atomic_fn
 def create_haccp_plan(
     *,
     actor: User | None,
@@ -163,7 +163,7 @@ def create_haccp_plan(
     return plan
 
 
-@transaction.atomic
+@atomic_fn
 def create_draft_plan_version(
     *,
     actor: User | None,
@@ -216,7 +216,7 @@ def create_draft_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def add_process_step(
     *,
     actor: User | None,
@@ -258,7 +258,7 @@ def add_process_step(
     return step
 
 
-@transaction.atomic
+@atomic_fn
 def add_hazard(
     *,
     actor: User | None,
@@ -297,7 +297,7 @@ def add_hazard(
     return hazard
 
 
-@transaction.atomic
+@atomic_fn
 def add_control_measure(
     *,
     actor: User | None,
@@ -335,7 +335,7 @@ def add_control_measure(
         raise ValidationError({"code": "Control measure code already exists."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def add_control_point(
     *,
     actor: User | None,
@@ -401,7 +401,7 @@ def add_control_point(
     return cp
 
 
-@transaction.atomic
+@atomic_fn
 def set_critical_limit_reference(
     *,
     actor: User | None,
@@ -448,7 +448,7 @@ def set_critical_limit_reference(
     return ref
 
 
-@transaction.atomic
+@atomic_fn
 def set_monitoring_rule(
     *,
     actor: User | None,
@@ -484,7 +484,7 @@ def set_monitoring_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def set_corrective_action_reference(
     *,
     actor: User | None,
@@ -523,7 +523,7 @@ def set_corrective_action_reference(
     return ref
 
 
-@transaction.atomic
+@atomic_fn
 def approve_plan_version(
     *,
     actor: User | None,
@@ -588,7 +588,7 @@ def approve_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> HaccpPlanVersion:
     user = _require_actor(actor)
     version = (
@@ -622,7 +622,7 @@ def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> Ha
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def bind_checklist_item_to_control_point(
     *,
     actor: User | None,
