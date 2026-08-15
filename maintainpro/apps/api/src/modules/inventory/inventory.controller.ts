@@ -390,8 +390,20 @@ export class InventoryController {
   @Post("erp/stock-sync/apply")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
   @Permissions("inventory.erp_apply")
-  async applyErpStockSync(@Req() req: AuthedRequest) {
-    const data = await this.erpStockSyncService.applyStockSnapshot(req.user);
+  async applyErpStockSync(
+    @Req() req: AuthedRequest,
+    @Body()
+    body?: {
+      erpBalances?: Array<{
+        partSku: string;
+        quantityOnHand: number;
+        warehouseCode?: string | null;
+      }>;
+    }
+  ) {
+    const data = await this.erpStockSyncService.applyStockSnapshot(req.user, {
+      erpBalances: body?.erpBalances
+    });
     return { data, message: "ERP stock sync apply completed" };
   }
 }
