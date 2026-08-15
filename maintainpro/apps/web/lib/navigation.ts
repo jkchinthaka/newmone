@@ -133,6 +133,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/fleet",
   "/fleet/gate",
   "/inventory",
+  "/inventory/erp-import",
   "/procurement",
   "/compliance",
   "/reports",
@@ -435,6 +436,14 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/inventory",
     icon: "Layers",
     allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, PROCUREMENT_ROLES),
+    category: "operations"
+  },
+  {
+    id: "inventory-erp-import",
+    label: "ERP Stock Import",
+    href: "/inventory/erp-import",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES),
     category: "operations"
   },
   {
