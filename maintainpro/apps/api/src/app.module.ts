@@ -7,9 +7,11 @@ import { ThrottlerModule } from "@nestjs/throttler";
 
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
+import { HttpThrottlerGuard } from "./common/guards/http-throttler.guard";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
+import { resolveTrustedClientIp } from "./common/security/client-ip.util";
 import { envValidationSchema } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
@@ -107,12 +109,18 @@ normalizeDatabaseEnvironment();
         };
       }
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 100
-      }
-    ]),
+    ThrottlerModule.forRoot({
+      // Prefer Nginx X-Real-IP when the peer is a private proxy hop; never key
+      // solely on spoofable client-supplied X-Forwarded-For.
+      getTracker: (req) => resolveTrustedClientIp(req),
+      throttlers: [
+        {
+          name: "default",
+          ttl: 60_000,
+          limit: 100
+        }
+      ]
+    }),
     PrismaModule,
     AuthModule,
     TenancyModule,
@@ -175,6 +183,12 @@ normalizeDatabaseEnvironment();
   providers: [
     HealthService,
     DeploymentReadinessService,
+    // Enforce @Throttle / default limits before auth work (abuse protection).
+    // HTTP-only so WebSocket gateways are not affected.
+    {
+      provide: APP_GUARD,
+      useClass: HttpThrottlerGuard
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard

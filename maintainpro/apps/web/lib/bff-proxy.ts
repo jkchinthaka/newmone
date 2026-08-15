@@ -21,6 +21,7 @@ import {
   readSessionCookies,
   sessionCookieOptions
 } from "./session-cookies";
+import { applyCanonicalClientIpHeader } from "./canonical-client-ip";
 
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
@@ -219,6 +220,9 @@ export async function proxyBffRequest(
     }
   }
   headers.set("X-Request-Id", requestId);
+
+  // Preserve Nginx canonical client IP for API throttling (single validated IP only).
+  applyCanonicalClientIpHeader(headers, request.headers.get("x-real-ip"));
 
   if (session.accessToken) {
     headers.set("Authorization", `Bearer ${session.accessToken}`);
