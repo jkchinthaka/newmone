@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Retire evidence — Nelna FG{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+<section class="mgmt-page" aria-labelledby="ev-retire-heading">
+  <header class="mgmt-page__header">
+    <div>
+      <h1 id="ev-retire-heading">Soft-retire evidence</h1>
+      <p class="mgmt-page__lead">
+        Soft-retirement keeps metadata and the private blob; hard delete is not available in Phase 11.
+        A reason is required for audit.
+      </p>
+    </div>
+  </header>
+  <form method="post" class="mgmt-editor">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn--secondary btn--inline">Confirm soft-retire</button>
+  </form>
+</section>
+{% endblock %}

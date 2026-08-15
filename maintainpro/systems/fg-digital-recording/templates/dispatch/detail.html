@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ record.code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page review-workspace"
+           aria-labelledby="dispatch-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="dispatch-detail-heading">{{ record.code }}</h1>
+        <p class="mgmt-page__lead">
+          {{ record.get_status_display }} · {{ record.organization.code }}.
+          Temperature limits are not invented here.
+        </p>
+      </div>
+    </header>
+    <dl class="mgmt-meta">
+      <div>
+        <dt>Vehicle</dt>
+        <dd>
+          {{ record.vehicle_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Loading reference</dt>
+        <dd>
+          {{ record.delivery_loading_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Batch</dt>
+        <dd>
+          {{ record.batch_reference|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>QA RELEASE gate</dt>
+        <dd>
+          {% if release_gate.gate_enabled %}
+            Enabled
+          {% else %}
+            Disabled (default)
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+    <article class="work-card">
+      <h2>Notes</h2>
+      <p>{{ record.notes|default:"No notes recorded." }}</p>
+    </article>
+    <article class="work-card">
+      <h2>History</h2>
+      <ul>
+        {% for entry in history %}
+          <li>{{ entry.get_event_type_display }} — {{ entry.created_at }}</li>
+        {% empty %}
+          <li>No history entries.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

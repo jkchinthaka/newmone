@@ -1,0 +1,30 @@
+# Example Nginx for fg-staging.nelna.lk — replace certificate paths.
+# TLS certificates: EXTERNAL BLOCKER until issued.
+
+upstream fg_staging_web {
+    server 127.0.0.1:8000;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name fg-staging.nelna.lk;
+
+    # ssl_certificate     /etc/ssl/certs/fg-staging.fullchain.pem;
+    # ssl_certificate_key /etc/ssl/private/fg-staging.key;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://fg_staging_web;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name fg-staging.nelna.lk;
+    return 301 https://$host$request_uri;
+}

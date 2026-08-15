@@ -1,0 +1,153 @@
+services:
+  postgres:
+    image: postgres:17.10-alpine3.23
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nelna_fg}
+      POSTGRES_USER: ${POSTGRES_USER:-nelna_fg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelna_fg_local_only}
+    ports:
+      # Host publish only — do not reuse POSTGRES_PORT (Django/container connection port).
+      - "127.0.0.1:${COMPOSE_POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nelna_fg} -d ${POSTGRES_DB:-nelna_fg}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4.10-alpine3.21
+    ports:
+      # Host publish only — separate from Redis URL / container port 6379.
+      - "127.0.0.1:${COMPOSE_REDIS_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Production-like application runtime (no pytest / no test tooling).
+  web:
+    build:
+      context: .
+      target: runtime
+    image: nelna-fg-foundation:local
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-only-insecure-development-key-not-for-production}
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost,web}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://127.0.0.1:8000,http://localhost:8000}
+      ENVIRONMENT_LABEL: local
+      APP_VERSION: ${APP_VERSION:-0.2.0}
+      POSTGRES_DB: ${POSTGRES_DB:-nelna_fg}
+      POSTGRES_USER: ${POSTGRES_USER:-nelna_fg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelna_fg_local_only}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      WAIT_FOR_POSTGRES: "1"
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+  celery-worker:
+    image: nelna-fg-foundation:local
+    build:
+      context: .
+      target: runtime
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-only-insecure-development-key-not-for-production}
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost,web}
+      ENVIRONMENT_LABEL: local
+      POSTGRES_DB: ${POSTGRES_DB:-nelna_fg}
+      POSTGRES_USER: ${POSTGRES_USER:-nelna_fg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelna_fg_local_only}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      WAIT_FOR_POSTGRES: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO"]
+    # Worker does not serve HTTP; do not inherit the web image HEALTHCHECK on :8000.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+
+  celery-beat:
+    image: nelna-fg-foundation:local
+    build:
+      context: .
+      target: runtime
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: 
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: 
+      ENVIRONMENT_LABEL: local
+      POSTGRES_DB: 
+      POSTGRES_USER: 
+      POSTGRES_PASSWORD: 
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      WAIT_FOR_POSTGRES: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    # Infrastructure poll for Phase 07E — not a Nelna checklist frequency.
+    command: ["celery", "-A", "config", "beat", "--loglevel=INFO"]
+
+  # Dedicated validation service — enable with: docker compose --profile test ...
+  # Do not use `web` for pytest. Testing tools are intentionally absent from runtime.
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    image: nelna-fg-foundation:test
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: test-only-insecure-key-not-for-production-use
+      DJANGO_DEBUG: "False"
+      ENVIRONMENT_LABEL: test
+      APP_VERSION: ${APP_VERSION:-0.2.0}
+      # Shared local Postgres service; pytest-django creates/destroys test_<POSTGRES_DB>.
+      POSTGRES_DB: ${POSTGRES_DB:-nelna_fg}
+      POSTGRES_USER: ${POSTGRES_USER:-nelna_fg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelna_fg_local_only}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      WAIT_FOR_POSTGRES: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # No host ports. Override command as needed (pytest, manage.py, ruff, mypy, ...).
+    command: ["pytest"]
+
+volumes:
+  postgres_data:

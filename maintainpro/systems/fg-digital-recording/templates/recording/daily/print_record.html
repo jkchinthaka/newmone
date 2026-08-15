@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>
+      {% if spec %}
+        {{ spec.code }} {{ spec.title }}
+      {% else %}
+        Record print
+      {% endif %}
+    </title>
+    <link rel="stylesheet" href="/static/dist/css/app.css">
+  </head>
+  <body class="print-sheet{% if spec and spec.print_orientation == 'landscape' %} print-sheet--landscape{% endif %}">
+    <header class="print-sheet__header">
+      <p>Nelna FG Digital Recording System</p>
+      {% if spec %}
+        <h1>{{ spec.title }}</h1>
+        <p>
+          Form {{ spec.code }} · Issued {{ spec.issued }} · Rev {{ spec.revision }}
+          · Rev date {{ spec.revision_date }} · {{ spec.source_status }}
+        </p>
+      {% endif %}
+      <p>
+        Organization {{ task.organization.code }} · Record {{ record.id }} ·
+        Identity {{ task.batch_reference }} · Template
+        {{ task.checklist_template.code }} v{{ task.checklist_version.version_number }}
+      </p>
+      <p>Generated {{ generated_at }}</p>
+    </header>
+    {% if is_draft %}
+      <p>Draft — not submitted. Printed values are the current working answers.</p>
+    {% elif submission %}
+      <p>
+        Recorder {{ submission.submitted_by.employee_code }} at
+        {{ submission.submitted_at }} (authenticated action, not a wet signature).
+      </p>
+    {% endif %}
+    {% if supervisor %}
+      <p>
+        Checker / Supervisor {{ supervisor.reviewed_by.employee_code }} —
+        {{ supervisor.get_decision_display }} at {{ supervisor.reviewed_at }}
+      </p>
+    {% endif %}
+    {% if qa %}
+      <p>
+        Verifier / QA {{ qa.reviewed_by.employee_code }} —
+        {{ qa.get_decision_display }} at {{ qa.reviewed_at }}
+      </p>
+    {% endif %}
+    {% include "recording/_snapshot_sections.html" %}
+    <p class="print-sheet__note">
+      PASS/FAIL and Acceptable/Unacceptable are printed as text. Colour is not required.
+      Evaluation PASS/FAIL is measurement-only and is not QA RELEASE, HOLD, or REJECT.
+    </p>
+    <footer class="print-sheet__footer">
+      <span>Record {{ record.id }}</span>
+      <span>Printed {{ generated_at }}</span>
+    </footer>
+    <p class="print-sheet__actions no-print">
+      <button type="button" class="btn btn--primary" onclick="window.print()">Print A4</button>
+    </p>
+  </body>
+</html>

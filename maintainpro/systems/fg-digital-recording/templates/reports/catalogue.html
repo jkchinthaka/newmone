@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Quality reports — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="reports-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="reports-heading">Quality reports</h1>
+        <p class="mgmt-page__lead">
+          Organization-scoped catalogue. Historical rows use immutable snapshots only.
+          CSV export is formula-injection protected. Excel/PDF are not implemented.
+        </p>
+      </div>
+    </header>
+    {% if reporting_organizations %}
+      <form class="mgmt-filters"
+            method="get"
+            action="{% url 'reports:catalogue' %}">
+        <div class="mgmt-filters__grid">
+          <div class="form-field">
+            <label for="id_organization_id">Organization</label>
+            <select class="form-input" name="organization_id" id="id_organization_id">
+              <option value="">Select organization</option>
+              {% for org in reporting_organizations %}
+                <option value="{{ org.id }}"
+                        {% if organization and organization.id == org.id %}selected{% endif %}>
+                  {{ org.code }} — {{ org.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mgmt-filters__actions">
+          <button type="submit" class="btn btn--secondary btn--inline">Open catalogue</button>
+        </div>
+      </form>
+    {% endif %}
+    {% if organization %}
+      <p class="mgmt-page__lead">
+        Organization: <strong>{{ organization.code }}</strong>
+      </p>
+      {% if catalogue %}
+        <div class="table-wrap" role="region" aria-label="Report catalogue">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Title</th>
+                <th scope="col">Snapshots</th>
+                <th scope="col">Formats</th>
+                <th scope="col">Run</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in catalogue %}
+                <tr>
+                  <td>{{ item.code }}</td>
+                  <td>
+                    <strong>{{ item.title }}</strong>
+                    <p class="form-help">{{ item.description }}</p>
+                  </td>
+                  <td>
+                    {% if item.uses_immutable_snapshots %}
+                      Yes
+                    {% else %}
+                      No
+                    {% endif %}
+                  </td>
+                  <td>{{ item.export_formats|join:", " }}</td>
+                  <td>
+                    <form method="post" action="{% url 'reports:run_create' %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="organization_id" value="{{ organization.id }}">
+                      <input type="hidden" name="report_code" value="{{ item.code }}">
+                      <div class="form-field">
+                        <label for="id_batch_{{ item.code }}">Batch</label>
+                        <input class="form-input"
+                               name="batch_reference"
+                               id="id_batch_{{ item.code }}">
+                      </div>
+                      <div class="form-field">
+                        <label for="id_from_{{ item.code }}">From</label>
+                        <input class="form-input"
+                               type="date"
+                               name="date_from"
+                               id="id_from_{{ item.code }}">
+                      </div>
+                      <div class="form-field">
+                        <label for="id_to_{{ item.code }}">To</label>
+                        <input class="form-input"
+                               type="date"
+                               name="date_to"
+                               id="id_to_{{ item.code }}">
+                      </div>
+                      <div class="form-field">
+                        <label for="id_limit_{{ item.code }}">Limit</label>
+                        <input class="form-input"
+                               type="number"
+                               name="limit"
+                               id="id_limit_{{ item.code }}"
+                               value="200"
+                               min="1"
+                               max="5000">
+                      </div>
+                      <label>
+                        <input type="checkbox" name="export" value="1">
+                        Export audit
+                      </label>
+                      <label>
+                        <input type="checkbox" name="background" value="1">
+                        Background
+                      </label>
+                      <button type="submit" class="btn btn--primary btn--inline">Run</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {% include "components/empty_state.html" with title="No catalogue entries" message="No governed reports are available for this organization." %}
+      {% endif %}
+      <h2>Recent runs</h2>
+      {% if recent_runs %}
+        <ul class="mgmt-list">
+          {% for run in recent_runs %}
+            <li>
+              <a href="{% url 'reports:run_detail' report_run_id=run.id %}?organization_id={{ organization.id }}">
+                {{ run.report_code }} — {{ run.status }} — {{ run.created_at }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include "components/empty_state.html" with title="No runs yet" message="No report runs for this organization." %}
+      {% endif %}
+    {% elif reporting_organizations %}
+      {% include "components/empty_state.html" with title="Select an organization" message="Choose an authorized organization to open the report catalogue." %}
+    {% else %}
+      {% include "components/empty_state.html" with title="No organizations are currently available for reporting." message="Your account can open this page, but no organization-scoped report catalogue permission is assigned." %}
+    {% endif %}
+  </section>
+{% endblock %}

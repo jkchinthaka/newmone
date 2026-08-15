@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Notifications — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="notifications-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="notifications-heading">Notifications</h1>
+        <p class="mgmt-page__lead">
+          In-app workflow alerts only. Messages never include checklist answers or sensitive review notes.
+        </p>
+      </div>
+      <div>
+        {% if unread_only %}
+          <a class="btn btn--ghost btn--inline"
+             href="{% url 'notifications:list' %}">Show all</a>
+        {% else %}
+          <a class="btn btn--secondary btn--inline"
+             href="{% url 'notifications:list' %}?unread=1">Unread only</a>
+        {% endif %}
+      </div>
+    </header>
+    {% if notifications %}
+      <ul class="mgmt-list notification-list">
+        {% for n in notifications %}
+          <li class="notification-item{% if not n.read_at %} is-unread{% endif %}">
+            <div>
+              <p class="notification-item__title">{{ n.title }}</p>
+              <p>{{ n.safe_message }}</p>
+              <p class="form-help">{{ n.event_type }} · {{ n.created_at }}</p>
+            </div>
+            {% if not n.read_at %}
+              <form method="post" action="{% url 'notifications:mark_read' n.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn--ghost btn--inline">Mark read</button>
+              </form>
+            {% else %}
+              <span class="status-badge">Read</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      {% include "components/empty_state.html" with title="No notifications" message="You have no in-app notifications." %}
+    {% endif %}
+  </section>
+{% endblock %}

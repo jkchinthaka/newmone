@@ -1,0 +1,7 @@
+<option value="">Select published version</option>
+{% for version in versions %}
+  <option value="{{ version.id }}">
+    {{ version.template.code }} — Version {{ version.version_number }} (Published)
+  </option>
+{% endfor %}
+{% if not versions %}<option value="" disabled>No published versions available</option>{% endif %}

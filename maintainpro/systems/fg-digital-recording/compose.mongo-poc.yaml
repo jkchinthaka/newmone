@@ -1,0 +1,64 @@
+# Isolated MongoDB POC replica set — NOT the application default database.
+# Usage:
+#   docker compose -f compose.mongo-poc.yaml up -d
+#   docker compose -f compose.mongo-poc.yaml exec mongo-poc mongosh --eval "rs.status().ok"
+#
+# Do not point production/local Django settings at this service by default.
+
+services:
+  mongo-poc:
+    image: mongo:7.0
+    container_name: nelna-fg-mongo-poc
+    command: ["mongod", "--replSet", "nelnaPocRs", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27027:27017"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval \"try { quit(rs.status().ok ? 0 : 2) } catch (e) { quit(3) }\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  mongo-poc-init:
+    image: mongo:7.0
+    depends_on:
+      - mongo-poc
+    restart: "no"
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        set -e
+        for i in $(seq 1 30); do
+          if mongosh --host mongo-poc:27017 --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep -q 1; then
+            break
+          fi
+          sleep 1
+        done
+        mongosh --host mongo-poc:27017 --quiet --eval '
+          try {
+            const s = rs.status();
+            print("already initialized: " + s.set);
+          } catch (e) {
+            rs.initiate({
+              _id: "nelnaPocRs",
+              members: [{ _id: 0, host: "127.0.0.1:27017" }]
+            });
+            print("initiated nelnaPocRs");
+          }
+        '
+        # Reconfigure member host for host-machine clients via published port.
+        mongosh --host mongo-poc:27017 --quiet --eval '
+          try {
+            cfg = rs.conf();
+            cfg.members[0].host = "127.0.0.1:27027";
+            rs.reconfig(cfg, { force: true });
+            print("reconfigured host to 127.0.0.1:27027");
+          } catch (e) {
+            print("reconfig note: " + e);
+          }
+        '

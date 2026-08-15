@@ -1,0 +1,76 @@
+{# Shared immutable snapshot rendering — supports SIMPLE + REPEATING_GROUP + CALCULATED. #}
+{% load recording_extras %}
+{% for block in rendered_sections %}
+  <section class="recording-section"
+           aria-labelledby="section-{{ block.section.id }}">
+    <h2 id="section-{{ block.section.id }}">{{ block.section.title }}</h2>
+    {% if block.section.description %}
+      <p class="recording-section__description">{{ block.section.description }}</p>
+    {% endif %}
+    {% for row in block.items %}
+      {% if row.kind == "repeating_group" %}
+        <article class="recording-item recording-item--repeating">
+          <h3>{{ row.item.code }} — {{ row.item.label }}</h3>
+          {% if row.item.help_text %}<p class="form-help">{{ row.item.help_text }}</p>{% endif %}
+          <p class="form-help">{{ row.display_value }}</p>
+          {% for sample in row.sample_rows %}
+            <fieldset class="recording-sample">
+              <legend>Sample {{ sample.sample_index }}</legend>
+              {% for child in sample.children %}
+                <div class="recording-sample__cell">
+                  <strong>{{ child.item.code }} — {{ child.item.label }}</strong>
+                  {% if child.item.item_kind == "CALCULATED" %}<p class="form-help">Calculated (server-authoritative)</p>{% endif %}
+                  <p>{{ child.display_value }}</p>
+                  {% if child.evaluation_result %}
+                    {% with evaluation_result=child.evaluation_result evaluation_icon=child.evaluation_result|evaluation_icon_for evaluation_label=child.evaluation_result|evaluation_label_for %}
+                      {% include "recording/_evaluation_indicator.html" %}
+                    {% endwith %}
+                  {% endif %}
+                  {% with control_point_class=child.control_point_class criticality=child.criticality control_point_label=child.control_point_class|control_point_label_for criticality_label=child.criticality|criticality_label_for %}
+                    {% include "recording/_control_point_marker.html" %}
+                  {% endwith %}
+                </div>
+              {% endfor %}
+            </fieldset>
+          {% empty %}
+            <p class="form-help">No sample rows in this snapshot.</p>
+          {% endfor %}
+        </article>
+      {% else %}
+        <article class="recording-item{% if row.kind == 'calculated' %} recording-item--calculated{% endif %}">
+          <h3>
+            {{ row.item.code }} — {{ row.item.label }}
+            {% if row.item.is_required %}<span class="recording-item__required">Required</span>{% endif %}
+          </h3>
+          {% if row.item.help_text %}<p class="form-help">{{ row.item.help_text }}</p>{% endif %}
+          {% if row.kind == "calculated" %}
+            <p class="form-help">
+              Calculated with operator
+              {{ row.item.calculation_operator|default:"—" }}
+              (frozen at submission; not recomputed from later rules).
+            </p>
+          {% endif %}
+          <p>
+            <strong>
+              {% if row.kind == "calculated" %}
+                Calculated value:
+              {% else %}
+                Answer:
+              {% endif %}
+            </strong>
+            {{ row.display_value }}
+          </p>
+          {% if row.evaluation_result %}
+            {% with evaluation_result=row.evaluation_result evaluation_icon=row.evaluation_result|evaluation_icon_for evaluation_label=row.evaluation_result|evaluation_label_for %}
+              {% include "recording/_evaluation_indicator.html" %}
+            {% endwith %}
+          {% endif %}
+          {% with control_point_class=row.control_point_class criticality=row.criticality control_point_label=row.control_point_class|control_point_label_for criticality_label=row.criticality|criticality_label_for %}
+            {% include "recording/_control_point_marker.html" %}
+          {% endwith %}
+          {% if not row.answered %}<p class="form-help">Not answered in this snapshot.</p>{% endif %}
+        </article>
+      {% endif %}
+    {% endfor %}
+  </section>
+{% endfor %}

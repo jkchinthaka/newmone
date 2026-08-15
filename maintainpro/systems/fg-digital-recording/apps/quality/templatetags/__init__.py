@@ -1,0 +1,1 @@
+"""Quality templatetags package."""

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}RCA {{ rca.rca_code }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="rca-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="rca-detail-heading">{{ rca.rca_code }}</h1>
+        <p class="mgmt-page__lead">
+          Status: <strong>{{ rca.get_status_display }}</strong>.
+          Confirmation requires a human with confirm permission and evidence.
+          AI suggestions remain possible causes only.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'rca:list' %}">Back to list</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="RCA context">
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ rca.organization.code }} — {{ rca.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Source</dt>
+        <dd>
+          {{ rca.get_source_kind_display }}
+        </dd>
+      </div>
+      <div>
+        <dt>Source citation</dt>
+        <dd>
+          {{ rca.source_citation|default:"—" }}
+        </dd>
+      </div>
+      <div>
+        <dt>Started</dt>
+        <dd>
+          {{ rca.started_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Created by</dt>
+        <dd>
+          {{ rca.created_by.employee_code }}
+        </dd>
+      </div>
+    </dl>
+    <article class="review-workspace__panel">
+      <h2>Problem statement</h2>
+      <p>{{ rca.problem_statement }}</p>
+      <h2>Immediate containment reference</h2>
+      <p>{{ rca.containment_reference|default:"None recorded. Citation only — no automatic NCR/CAPA." }}</p>
+      {% if rca.confirmed_root_cause_text %}
+        <h2>Confirmed root cause</h2>
+        <p>{{ rca.confirmed_root_cause_text }}</p>
+      {% endif %}
+      {% if rca.verification_notes %}
+        <h2>Verification notes</h2>
+        <p>{{ rca.verification_notes }}</p>
+      {% endif %}
+    </article>
+    {% if can_manage and rca.status == "DRAFT" %}
+      <form method="post" action="{% url 'rca:start' rca_id=rca.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--primary">Start investigation</button>
+      </form>
+    {% endif %}
+    <h2>Participants</h2>
+    {% if participants %}
+      <ul class="mgmt-list">
+        {% for row in participants %}
+          <li>{{ row.name_reference|default:row.participant.employee_code }} — {{ row.role_note|default:"—" }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if can_manage and not rca.is_terminal %}
+      <form method="post"
+            action="{% url 'rca:add_participant' rca_id=rca.id %}"
+            class="mgmt-form">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_name_reference">Participant name reference</label>
+          <input class="form-input"
+                 name="name_reference"
+                 id="id_name_reference"
+                 required>
+        </div>
+        <div class="form-field">
+          <label for="id_role_note">Role note</label>
+          <input class="form-input" name="role_note" id="id_role_note">
+        </div>
+        <button type="submit" class="btn btn--secondary btn--inline">Add participant</button>
+      </form>
+    {% endif %}
+    <h2>Optional 5 Why</h2>
+    <p class="mgmt-page__lead">Five steps are not required. No method is mandatory.</p>
+    {% if five_why_steps %}
+      <ol>
+        {% for step in five_why_steps %}
+          <li>
+            <strong>{{ step.why_question }}</strong>
+            <p>{{ step.answer }}</p>
+          </li>
+        {% endfor %}
+      </ol>
+    {% endif %}
+    {% if can_manage and not rca.is_terminal %}
+      <form method="post"
+            action="{% url 'rca:add_five_why' rca_id=rca.id %}"
+            class="mgmt-form">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_sequence">Sequence</label>
+          <input class="form-input"
+                 type="number"
+                 min="1"
+                 name="sequence"
+                 id="id_sequence"
+                 required>
+        </div>
+        <div class="form-field">
+          <label for="id_why_question">Why question</label>
+          <input class="form-input" name="why_question" id="id_why_question" required>
+        </div>
+        <div class="form-field">
+          <label for="id_answer">Answer</label>
+          <textarea class="form-input" name="answer" id="id_answer" required></textarea>
+        </div>
+        <button type="submit" class="btn btn--secondary btn--inline">Record 5 Why step</button>
+      </form>
+    {% endif %}
+    <h2>Optional fishbone categories</h2>
+    <p class="mgmt-page__lead">6M labels are architectural, not a Nelna taxonomy.</p>
+    {% if fishbone_entries %}
+      <ul class="mgmt-list">
+        {% for entry in fishbone_entries %}
+          <li>
+            {{ entry.get_category_display }}
+            {% if entry.category_label %}— {{ entry.category_label }}{% endif %}
+            : {{ entry.description }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if can_manage and not rca.is_terminal %}
+      <form method="post"
+            action="{% url 'rca:add_fishbone' rca_id=rca.id %}"
+            class="mgmt-form">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_category">Category</label>
+          <select class="form-input" name="category" id="id_category">
+            <option value="PEOPLE">People</option>
+            <option value="METHOD">Method</option>
+            <option value="MACHINE">Machine</option>
+            <option value="MATERIAL">Material</option>
+            <option value="MEASUREMENT">Measurement</option>
+            <option value="ENVIRONMENT">Environment</option>
+            <option value="OTHER">Other owner-cited category</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_category_label">Owner category label</label>
+          <input class="form-input" name="category_label" id="id_category_label">
+        </div>
+        <div class="form-field">
+          <label for="id_description">Description</label>
+          <textarea class="form-input" name="description" id="id_description" required></textarea>
+        </div>
+        <button type="submit" class="btn btn--secondary btn--inline">Record fishbone entry</button>
+      </form>
+    {% endif %}
+    <h2>Causes</h2>
+    {% if causes %}
+      <ul class="mgmt-list">
+        {% for cause in causes %}
+          <li>
+            <strong>{{ cause.get_state_display }}</strong>
+            {% if cause.suggested_by_ai %}<span class="status-badge">AI hypothesis only</span>{% endif %}
+            <p>{{ cause.statement }}</p>
+            <p class="form-help">Evidence: {{ cause.evidence_citation|default:"—" }}</p>
+            {% if can_manage and not rca.is_terminal and cause.state == "POSSIBLE_CAUSE" %}
+              <form method="post"
+                    action="{% url 'rca:support_cause' cause_id=cause.id %}">
+                {% csrf_token %}
+                <div class="form-field">
+                  <label for="id_support_{{ cause.id }}">Evidence for supported state</label>
+                  <input class="form-input"
+                         name="evidence_citation"
+                         id="id_support_{{ cause.id }}">
+                </div>
+                <button type="submit" class="btn btn--secondary btn--inline">Mark supported</button>
+              </form>
+            {% endif %}
+            {% if can_confirm and not rca.is_terminal and cause.state == "SUPPORTED_CAUSE" %}
+              <form method="post"
+                    action="{% url 'rca:confirm_cause' cause_id=cause.id %}">
+                {% csrf_token %}
+                <div class="form-field">
+                  <label for="id_confirm_{{ cause.id }}">Confirmation note</label>
+                  <textarea class="form-input"
+                            name="confirmation_note"
+                            id="id_confirm_{{ cause.id }}"></textarea>
+                </div>
+                <button type="submit" class="btn btn--primary btn--inline">Confirm root cause</button>
+              </form>
+            {% endif %}
+            {% if can_link_capa and not rca.is_terminal and cause.state == "CONFIRMED_ROOT_CAUSE" %}
+              <form method="post" action="{% url 'rca:link_capa' cause_id=cause.id %}">
+                {% csrf_token %}
+                <label>
+                  <input type="checkbox" name="create_follow_up" value="1">
+                  Create follow-up CAPA (explicit)
+                </label>
+                <div class="form-field">
+                  <label for="id_capa_{{ cause.id }}">Owner-supplied CAPA code</label>
+                  <input class="form-input" name="capa_code" id="id_capa_{{ cause.id }}">
+                </div>
+                <button type="submit" class="btn btn--secondary btn--inline">Link CAPA</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if can_manage and not rca.is_terminal %}
+      <form method="post"
+            action="{% url 'rca:add_cause' rca_id=rca.id %}"
+            class="mgmt-form">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_statement">Possible cause</label>
+          <textarea class="form-input" name="statement" id="id_statement" required></textarea>
+        </div>
+        <div class="form-field">
+          <label for="id_evidence_citation">Evidence citation</label>
+          <input class="form-input" name="evidence_citation" id="id_evidence_citation">
+        </div>
+        <button type="submit" class="btn btn--secondary btn--inline">Add possible cause</button>
+      </form>
+    {% endif %}
+    {% if can_confirm and rca.status == "ROOT_CAUSE_CONFIRMED" %}
+      <form method="post"
+            action="{% url 'rca:verify' rca_id=rca.id %}"
+            class="mgmt-form">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_verification_notes">Verification notes</label>
+          <textarea class="form-input"
+                    name="verification_notes"
+                    id="id_verification_notes"
+                    required></textarea>
+        </div>
+        <button type="submit" class="btn btn--primary btn--inline">Record verification</button>
+      </form>
+    {% endif %}
+    {% if can_manage and rca.status == "VERIFIED" or can_manage and rca.status == "ROOT_CAUSE_CONFIRMED" %}
+      <form method="post" action="{% url 'rca:close' rca_id=rca.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--secondary btn--inline">Close RCA</button>
+      </form>
+    {% endif %}
+    {% if can_manage and not rca.is_terminal and rca.status == "DRAFT" or can_manage and rca.status == "IN_PROGRESS" %}
+      <form method="post" action="{% url 'rca:cancel' rca_id=rca.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--ghost btn--inline">Cancel RCA</button>
+      </form>
+    {% endif %}
+    <h2>History</h2>
+    <ol>
+      {% for event in events %}<li>{{ event.created_at }} — {{ event.event_type }} — {{ event.summary }}</li>{% endfor %}
+    </ol>
+  </section>
+{% endblock %}

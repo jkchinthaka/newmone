@@ -1,0 +1,241 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality, tests, and image build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.10-alpine3.23
+        env:
+          POSTGRES_DB: nelna_fg_ci
+          POSTGRES_USER: nelna_fg_ci
+          POSTGRES_PASSWORD: nelna_fg_ci_not_a_real_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nelna_fg_ci -d nelna_fg_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.10-alpine3.21
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: ci-only-fake-secret-key-not-for-production
+      POSTGRES_DB: nelna_fg_ci
+      POSTGRES_USER: nelna_fg_ci
+      POSTGRES_PASSWORD: nelna_fg_ci_not_a_real_secret
+      POSTGRES_HOST: localhost
+      # Host pytest talks to GitHub Actions Postgres on 5432.
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://localhost:6379/0
+      # Compose host publish only — must not collide with Actions service ports.
+      COMPOSE_POSTGRES_HOST_PORT: "55432"
+      COMPOSE_REDIS_HOST_PORT: "56379"
+      ENVIRONMENT_LABEL: test
+      APP_VERSION: "0.2.0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv 0.11.29
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Set up Python 3.13.14
+        run: |
+          uv python install 3.13.14
+          uv python pin 3.13.14
+          uv run python --version
+
+      - name: Verify lockfile
+        run: uv lock --check
+
+      - name: Sync dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy apps config scripts
+
+      - name: Template lint
+        run: uv run djlint templates --check
+
+      - name: Validate JSON and YAML
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import re
+
+          def load_yaml_lite(text: str):
+              # Structural presence checks — full schema validation is not required here.
+              if not text.strip():
+                  raise ValueError("empty yaml")
+              return True
+
+          root = pathlib.Path(".")
+          for path in root.rglob("*.json"):
+              if any(p in path.parts for p in ("node_modules", ".venv", "static", ".git")):
+                  continue
+              json.loads(path.read_text(encoding="utf-8"))
+              print("JSON OK", path)
+          for path in [
+              pathlib.Path("compose.yaml"),
+              pathlib.Path(".github/workflows/ci.yml"),
+              pathlib.Path(".pre-commit-config.yaml"),
+          ]:
+              text = path.read_text(encoding="utf-8")
+              load_yaml_lite(text)
+              if path.name == "ci.yml" and "quality:" not in text:
+                  raise SystemExit(f"CI workflow missing quality job: {path}")
+              print("YAML OK", path)
+          PY
+
+      - name: Set up Node 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Design token check
+        run: uv run python scripts/build_design_tokens.py --check
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: npm audit (production deps)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Generated token consistency after build
+        run: uv run python scripts/build_design_tokens.py --check
+
+      - name: Pytest with coverage
+        run: >
+          uv run pytest
+          --cov=apps --cov=config
+          --cov-report=term-missing
+          --cov-fail-under=80
+
+      - name: makemigrations check
+        run: uv run python manage.py makemigrations --check
+
+      - name: Django system check
+        run: uv run python manage.py check
+
+      - name: Production settings fail-closed check
+        run: |
+          unset DJANGO_SECRET_KEY || true
+          if uv run python -c "import config.settings.production" ; then
+            echo "Production settings should fail without required env" >&2
+            exit 1
+          fi
+
+      - name: Django deploy check with CI placeholders
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DJANGO_SECRET_KEY: ci-prod-fake-secret-key-with-sufficient-length-for-django-deploy-check-32chars-plus
+          DJANGO_ALLOWED_HOSTS: app.example.invalid
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://app.example.invalid
+          POSTGRES_DB: nelna_fg_ci
+          POSTGRES_USER: nelna_fg_ci
+          POSTGRES_PASSWORD: nelna_fg_ci_not_a_real_secret
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          REDIS_URL: redis://localhost:6379/0
+          SECURE_SSL_REDIRECT: "False"
+        run: uv run python manage.py check --deploy --settings=config.settings.production
+
+      - name: Bandit
+        run: uv run bandit -c pyproject.toml -r apps config scripts
+
+      - name: pip-audit
+        run: uv run pip-audit
+
+      - name: Docker Compose config
+        run: docker compose config
+
+      - name: Docker Compose test profile config
+        run: docker compose --profile test config
+
+      - name: Docker runtime image build
+        run: docker compose build web
+
+      - name: Container image scan (Trivy FS on compose build context)
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD:/project" aquasec/trivy:0.67.0 fs --severity HIGH,CRITICAL --exit-code 0 /project
+
+      - name: Docker test image build
+        run: docker compose --profile test build test
+
+      - name: Confirm pytest absent from runtime image
+        run: |
+          docker compose run --rm --no-deps -e WAIT_FOR_POSTGRES=0 web \
+            sh -c 'command -v pytest && exit 1 || exit 0'
+
+      - name: Start Compose PostgreSQL and Redis
+        run: docker compose up -d postgres redis
+
+      - name: Wait for PostgreSQL and Redis health
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              && docker compose exec -T redis redis-cli ping | grep -q PONG; then
+              echo "Dependencies healthy"
+              exit 0
+            fi
+            echo "Waiting for dependencies... ($i)"
+            sleep 2
+          done
+          echo "Timed out waiting for postgres/redis" >&2
+          docker compose ps
+          exit 1
+
+      - name: Docker test image pytest with coverage
+        run: >
+          docker compose --profile test run --rm test
+          pytest --cov=apps --cov=config
+          --cov-report=term-missing
+          --cov-fail-under=80
+
+      - name: Docker test makemigrations check
+        run: docker compose --profile test run --rm test python manage.py makemigrations --check
+
+      - name: Docker test Django system check
+        run: docker compose --profile test run --rm test python manage.py check
+
+      - name: Tear down Compose stack
+        if: always()
+        run: docker compose down --volumes

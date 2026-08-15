@@ -1,0 +1,107 @@
+{% if total_count == 0 and not filters_active %}
+  {% include "components/empty_state.html" with title="No checklist templates have been configured yet." message="Authorized users can create checklist definition templates. No operational forms are seeded." %}
+  {% if can_create %}
+    <p class="mgmt-empty-cta">
+      <a class="btn btn--primary btn--inline"
+         href="{% url 'checklists:template_create' %}">Create template</a>
+    </p>
+  {% endif %}
+{% elif total_count == 0 %}
+  {% include "components/empty_state.html" with title="No checklist templates match the current filters." message="Try clearing search or filters, or choose a different organization." %}
+{% else %}
+  <p class="mgmt-result-count" role="status">{{ total_count }} template{{ total_count|pluralize }}</p>
+  <div class="shift-table-wrap"
+       role="region"
+       aria-label="Checklist template list">
+    <table class="data-table shift-table">
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">Organization</th>
+          <th scope="col">Product</th>
+          <th scope="col">Latest version</th>
+          <th scope="col">Status</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for template in templates %}
+          <tr>
+            <td>
+              <a href="{% url 'checklists:template_detail' template.id %}">{{ template.code }}</a>
+            </td>
+            <td>{{ template.name }}</td>
+            <td>{{ template.organization.code }}</td>
+            <td>
+              {% if template.product %}
+                {{ template.product.code }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if template.latest_version_number %}
+                v{{ template.latest_version_number }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if template.is_active %}
+                <span class="status-pill status-pill--success">Active</span>
+              {% else %}
+                <span class="status-pill status-pill--muted">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="data-table__actions">
+              <a href="{% url 'checklists:template_detail' template.id %}">View</a>
+              {% if template.organization_id in manageable_organization_ids %}
+                <a href="{% url 'checklists:template_edit' template.id %}">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <ul class="shift-card-list"
+      aria-label="Checklist template list (compact)">
+    {% for template in templates %}
+      <li class="shift-card">
+        <div class="shift-card__header">
+          <a href="{% url 'checklists:template_detail' template.id %}">
+            <strong>{{ template.code }}</strong> — {{ template.name }}
+          </a>
+          {% if template.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+        </div>
+        <p class="shift-card__meta">
+          {{ template.organization.code }}
+          {% if template.product %}· {{ template.product.code }}{% endif %}
+          {% if template.latest_version_number %}· v{{ template.latest_version_number }}{% endif %}
+        </p>
+        <p class="shift-card__meta data-table__actions">
+          <a href="{% url 'checklists:template_detail' template.id %}">View</a>
+          {% if template.organization_id in manageable_organization_ids %}
+            <a href="{% url 'checklists:template_edit' template.id %}">Edit</a>
+          {% endif %}
+        </p>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="Checklist template pages">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;product={% if selected_product %}{{ selected_product.id }}{% endif %}">Previous</a>
+      {% endif %}
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;product={% if selected_product %}{{ selected_product.id }}{% endif %}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endif %}

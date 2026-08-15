@@ -1,0 +1,33 @@
+---
+description: Prohibit inventing Nelna business or operational data
+alwaysApply: true
+---
+
+# No Invented Business Data
+
+## Rule
+
+Do not invent Nelna operational values, including but not limited to:
+
+- Temperature limits or product temperature classes
+- CCP / OPRP classifications
+- Sites, departments, lines, rooms, or warehouses
+- Shifts, night-shift operational-day definitions
+- Products, SKUs, or packaging configurations
+- Checklist items, frequencies, or pass/fail criteria
+- Approval rules, hold rules, or release rules
+- User counts, device inventories, or retention periods presented as fact
+- Certification scheme claims not evidenced by owners
+
+## Required practice
+
+- Mark unconfirmed items as ASSUMPTION, DECISION REQUIRED, OWNER REQUIRED, or EVIDENCE REQUIRED.
+- Every implemented business rule must identify business owner and evidence source.
+- Stakeholder questionnaires and assumption registers are the capture mechanism for real values.
+- Proposed MVP scope and NFRs remain proposed until approved.
+
+## Documentation language
+
+- Prefer “proposed”, “to be confirmed”, “owner required”, and “evidence required”.
+- Do not present placeholders as approved Nelna facts.
+- Do not copy or reuse operational content from any previous repository.

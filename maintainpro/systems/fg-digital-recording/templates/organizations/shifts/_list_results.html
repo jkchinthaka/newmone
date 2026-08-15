@@ -1,0 +1,120 @@
+{% if total_count == 0 and not filters_active %}
+  {% include "components/empty_state.html" with title="No shifts have been configured yet." message="Authorized users can create Shift definitions for their organization scope. No default Day or Night shifts are seeded." %}
+  {% if can_manage %}
+    <p class="mgmt-empty-cta">
+      <a class="btn btn--primary btn--inline"
+         href="{% url 'organizations:shift_create' %}">Create Shift</a>
+    </p>
+  {% endif %}
+{% elif total_count == 0 %}
+  {% include "components/empty_state.html" with title="No shifts match the current filters." message="Try clearing search or status filters, or choose a different organization scope." %}
+{% else %}
+  <p class="mgmt-result-count" role="status">{{ total_count }} shift{{ total_count|pluralize }}</p>
+  <div class="shift-table-wrap" role="region" aria-label="Shift list">
+    <table class="data-table shift-table">
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">Scope</th>
+          <th scope="col">Start</th>
+          <th scope="col">End</th>
+          <th scope="col">Overnight</th>
+          <th scope="col">Effective</th>
+          <th scope="col">Status</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for shift in shifts %}
+          <tr>
+            <td>
+              <a href="{% url 'organizations:shift_detail' shift.id %}">{{ shift.code }}</a>
+            </td>
+            <td>{{ shift.name }}</td>
+            <td>
+              <span class="scope-label">{{ shift.scope_label }}</span>
+              <span class="scope-detail">
+                {{ shift.organization.code }}
+                {% if shift.site %}/ {{ shift.site.code }}{% endif %}
+                {% if shift.department %}/ {{ shift.department.code }}{% endif %}
+              </span>
+            </td>
+            <td>{{ shift.start_time|time:"H:i" }}</td>
+            <td>{{ shift.end_time|time:"H:i" }}</td>
+            <td>
+              {% if shift.is_overnight %}
+                <span class="status-pill status-pill--info">Overnight</span>
+              {% else %}
+                <span class="status-pill status-pill--neutral">Same-day</span>
+              {% endif %}
+            </td>
+            <td>
+              {{ shift.effective_from|date:"Y-m-d" }}
+              –
+              {% if shift.effective_to %}
+                {{ shift.effective_to|date:"Y-m-d" }}
+              {% else %}
+                No end date
+              {% endif %}
+            </td>
+            <td>
+              {% if shift.is_active %}
+                <span class="status-pill status-pill--success">Active</span>
+              {% else %}
+                <span class="status-pill status-pill--muted">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="data-table__actions">
+              <a href="{% url 'organizations:shift_detail' shift.id %}">View</a>
+              {% if can_manage %}
+                <a href="{% url 'organizations:shift_edit' shift.id %}">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <ul class="shift-card-list" aria-label="Shift list (compact)">
+    {% for shift in shifts %}
+      <li class="shift-card">
+        <div class="shift-card__header">
+          <a href="{% url 'organizations:shift_detail' shift.id %}">
+            <strong>{{ shift.code }}</strong> — {{ shift.name }}
+          </a>
+          {% if shift.is_active %}
+            <span class="status-pill status-pill--success">Active</span>
+          {% else %}
+            <span class="status-pill status-pill--muted">Inactive</span>
+          {% endif %}
+        </div>
+        <p class="shift-card__meta">
+          {{ shift.scope_label }} · {{ shift.start_time|time:"H:i" }}–{{ shift.end_time|time:"H:i" }}
+          ·
+          {% if shift.is_overnight %}
+            Overnight
+          {% else %}
+            Same-day
+          {% endif %}
+        </p>
+        <p class="shift-card__meta">
+          {{ shift.organization.code }}
+          {% if shift.site %}/ {{ shift.site.code }}{% endif %}
+          {% if shift.department %}/ {{ shift.department.code }}{% endif %}
+        </p>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="Shift list pages">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;site={% if selected_site %}{{ selected_site.id }}{% endif %}&amp;department={% if selected_department %}{{ selected_department.id }}{% endif %}">Previous</a>
+      {% endif %}
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&amp;q={{ search|urlencode }}&amp;status={{ status }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;site={% if selected_site %}{{ selected_site.id }}{% endif %}&amp;department={% if selected_department %}{{ selected_department.id }}{% endif %}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endif %}

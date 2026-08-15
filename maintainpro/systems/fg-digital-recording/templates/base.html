@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+      {% block title %}Nelna FG Digital Recording System{% endblock %}
+    </title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <script src="{% static 'js/app.js' %}" defer></script>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+  </head>
+  <body class="app-shell {% block body_class %}{% endblock %}"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% csrf_token %}
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="app-nav-backdrop" data-nav-backdrop hidden></div>
+    {% block site_header %}
+      {% include "components/sidebar.html" %}
+      {% include "components/top_header.html" %}
+    {% endblock %}
+    <main id="main-content" class="app-main" tabindex="-1">
+      {% if messages %}
+        {% for message in messages %}
+          {% include "components/alert.html" with message=message level=message.tags %}
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    {% block site_footer %}
+      <footer class="app-footer" role="contentinfo">
+        <p>Nelna FG Digital Recording · v{{ APP_VERSION }} · {{ ENVIRONMENT_BADGE }}</p>
+      </footer>
+    {% endblock %}
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

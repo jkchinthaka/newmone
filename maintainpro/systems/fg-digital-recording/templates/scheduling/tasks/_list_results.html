@@ -1,0 +1,79 @@
+{% load scheduling_extras workflow_extras %}
+{% if total_count == 0 %}
+  <p class="mgmt-page__lead" role="status">
+    {% if due_state == "OVERDUE" %}
+      No overdue checklist tasks in scope. Overdue is a derived timeliness label —
+      it does not create Non-Conformance.
+    {% else %}
+      No checklist tasks match these filters.
+      A published checklist definition is required before a batch task can be created.
+      FG-QA-001 is still a project-proposed DRAFT and cannot generate production tasks until
+      approved and published.
+    {% endif %}
+  </p>
+{% else %}
+  <p class="mgmt-page__lead">{{ total_count }} task{{ total_count|pluralize }}</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Batch / occurrence</th>
+          <th scope="col">Checklist</th>
+          <th scope="col">Version</th>
+          <th scope="col">Organization</th>
+          <th scope="col">Status</th>
+          <th scope="col">Workflow</th>
+          <th scope="col">Due</th>
+          <th scope="col">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in tasks %}
+          <tr>
+            <td>
+              <a href="{% url 'scheduling:task_detail' task.id %}">
+                {% if task.batch_reference %}
+                  {{ task.batch_reference }}
+                {% else %}
+                  {{ task.occurrence_key }}
+                {% endif %}
+              </a>
+            </td>
+            <td>{{ task.checklist_template.code }}</td>
+            <td>v{{ task.checklist_version.version_number }}</td>
+            <td>{{ task.organization.code }}</td>
+            <td>
+              <span class="status-pill status-pill--muted">{{ task.get_status_display }}</span>
+            </td>
+            <td>
+              {% if task.workflow_snapshot %}
+                {% workflow_badge task.workflow_snapshot %}
+              {% else %}
+                {% workflow_badge task=task %}
+              {% endif %}
+            </td>
+            <td>
+              {% if task.due_display_state %}
+                <span class="status-pill {% due_badge_class task.due_display_state %}">{{ task.due_display_label }}</span>
+              {% else %}
+                <span class="status-pill status-pill--neutral">No due window</span>
+              {% endif %}
+            </td>
+            <td>{{ task.created_at }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Task pages">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&amp;q={{ search }}&amp;status={{ status }}&amp;due={{ due_state }}&amp;workflow={{ workflow_state }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;template={% if selected_template %}{{ selected_template.id }}{% endif %}">Previous</a>
+      {% endif %}
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&amp;q={{ search }}&amp;status={{ status }}&amp;due={{ due_state }}&amp;workflow={{ workflow_state }}&amp;organization={% if selected_organization %}{{ selected_organization.id }}{% endif %}&amp;template={% if selected_template %}{{ selected_template.id }}{% endif %}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endif %}

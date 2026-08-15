@@ -1,0 +1,6 @@
+<article class="stat-card">
+  <p class="stat-card__label">{{ label }}</p>
+  <p class="stat-card__value">{{ value }}</p>
+  {% if hint %}<p class="stat-card__context">{{ hint }}</p>{% endif %}
+  {% if href %}<a class="stat-card__link" href="{{ href }}">Open</a>{% endif %}
+</article>

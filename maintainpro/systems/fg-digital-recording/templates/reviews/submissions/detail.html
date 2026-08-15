@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Review Submission — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="review-detail-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="review-detail-heading">Supervisor review — submission detail</h1>
+        <p class="mgmt-page__lead">
+          Answers below are from the immutable submission snapshot. Working draft
+          responses are not used as historical truth.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'reviews:queue' %}">Back to queue</a>
+    </header>
+    <aside class="alert alert-info"
+           role="status"
+           aria-label="Supervisor governance">
+      <p>
+        <strong>Self-review policy:</strong>
+        {{ governance.self_review.status_label }}
+        (enforcement: {{ governance.self_review.enforcement }}).
+      </p>
+      <p class="form-help">
+        SoD question remains explicit: {{ governance.sod_question }}.
+        Technical permission: {{ governance.uses_phase_03c_permission }}.
+        {% if governance.review_due.due_at %}
+          Configured review due: {{ governance.review_due.due_at }}
+          {% if governance.review_due.is_overdue %}(OVERDUE){% endif %}
+          .
+        {% else %}
+          Review SLA: not configured (no invented timing).
+        {% endif %}
+      </p>
+      {% if not is_latest_submission %}
+        <p class="alert alert-error" role="alert">
+          This is not the latest submission for the record. Prefer reviewing the latest
+          open submission.
+        </p>
+      {% endif %}
+    </aside>
+    <dl class="mgmt-meta" aria-label="Submission context">
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted by</dt>
+        <dd>
+          {{ submission.submitted_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted at</dt>
+        <dd>
+          {{ submission.submitted_at }}
+        </dd>
+      </div>
+      <div>
+        <dt>Template</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }} ({{ task.checklist_version.status }})
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Record status</dt>
+        <dd>
+          {{ record.status }}
+        </dd>
+      </div>
+    </dl>
+    <div class="review-workspace">
+      <div class="review-workspace__main">{% include "recording/_snapshot_sections.html" %}</div>
+      <aside class="review-workspace__panel"
+             aria-labelledby="review-actions-heading">
+        <h2 id="review-actions-heading">Supervisor decision</h2>
+        <p class="form-help">
+          Approve means Supervisor review complete / eligible for a future QA stage.
+          It does not mean product release, HOLD clearance, or QA approval.
+        </p>
+        <div class="review-actions">
+          <a class="btn btn--primary btn--approve"
+             href="{% url 'reviews:confirm_decision' submission_id=submission.id decision=SupervisorReviewDecision.APPROVED %}">
+            Approve
+          </a>
+          <a class="btn btn--secondary btn--return"
+             href="{% url 'reviews:confirm_decision' submission_id=submission.id decision=SupervisorReviewDecision.RETURNED_FOR_CORRECTION %}">
+            Return for correction
+          </a>
+        </div>
+      </aside>
+    </div>
+  </section>
+{% endblock %}

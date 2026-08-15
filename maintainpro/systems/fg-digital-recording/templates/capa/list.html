@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}CAPA — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="capa-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="capa-heading">Corrective and preventive actions</h1>
+        <p class="mgmt-page__lead">Human-owned CAPA workspace. Closure and effectiveness are never AI decisions.</p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline" href="{% url 'capa:create' %}">Open CAPA</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters" method="get">
+      <div class="form-field">
+        <label for="id_status">Status</label>
+        <select class="form-input" id="id_status" name="status">
+          <option value="">All</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Apply</button>
+    </form>
+    {% if page.object_list %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Title</th>
+              <th scope="col">Status</th>
+              <th scope="col">Due</th>
+              <th scope="col">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for capa in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'capa:detail' capa_id=capa.id %}">{{ capa.code }}</a>
+                </td>
+                <td>{{ capa.title }}</td>
+                <td>
+                  <span class="status-badge">{{ capa.get_status_display }}</span>
+                </td>
+                <td>{{ capa.due_date|default:"—" }}</td>
+                <td>{{ capa.organization.code }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No CAPA records" message="No corrective actions are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,41 @@
+---
+description: Security, RBAC, and audit requirements
+alwaysApply: false
+---
+
+# Security, RBAC, and Audit
+
+## Accounts
+
+- Individual named accounts only — no shared user accounts.
+- Passwords must be hashed with Django’s password hashers.
+- Prefer session authentication for the browser/PWA application unless an approved ADR changes that.
+
+## Authorization
+
+- Deny access by default.
+- Enforce authorization server-side in policies/services — never rely on UI hiding alone.
+- Roles must be scoped (site, department, or equivalent confirmed hierarchy).
+- Enforce separation of duties for create/check/verify and similar conflicting actions.
+
+## Sessions and browser security
+
+- Use secure cookie settings appropriate to each environment.
+- CSRF protection remains enabled for cookie-authenticated mutating requests.
+- Apply rate limiting for authentication and other abuse-sensitive endpoints when implemented.
+
+## Secrets and access
+
+- No secrets in source control.
+- Restrict production access; privileged access must be reviewable.
+- Do not write directly to ERP databases from this system.
+
+## Audit
+
+- Important operations must create audit events.
+- Evidence access must be controlled and auditable.
+- Prefer short-lived signed URLs for object-storage evidence delivery.
+
+## Testing
+
+- Every security and workflow authorization rule must have automated tests.

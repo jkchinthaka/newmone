@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Checklist Definitions — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="checklist-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="checklist-list-heading">Checklist Definitions</h1>
+        <p class="mgmt-page__lead">
+          Configure versioned checklist definitions. Official form content is not seeded —
+          TEMPLATE evidence remains required.
+        </p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'checklists:template_create' %}">Create template</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'checklists:template_list' %}"
+          hx-get="{% url 'checklists:template_list' %}"
+          hx-target="#checklist-list-results"
+          hx-push-url="true"
+          hx-trigger="change delay:200ms from:select, submit">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_q">Search</label>
+          <input class="form-input"
+                 type="search"
+                 name="q"
+                 id="id_q"
+                 value="{{ search }}"
+                 placeholder="Code or name"
+                 autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" name="status" id="id_status">
+            <option value="all" {% if status == "all" %}selected{% endif %}>All</option>
+            <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_organization">Organization</label>
+          <select class="form-input" name="organization" id="id_organization">
+            <option value="">All organizations</option>
+            {% for org in organizations %}
+              <option value="{{ org.id }}"
+                      {% if selected_organization and selected_organization.id == org.id %}selected{% endif %}>
+                {{ org.code }} — {{ org.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_product">FG Product</label>
+          <select class="form-input" name="product" id="id_product">
+            <option value="">All products</option>
+            {% for product in products %}
+              <option value="{{ product.id }}"
+                      {% if selected_product and selected_product.id == product.id %}selected{% endif %}>
+                {{ product.code }} — {{ product.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'checklists:template_list' %}">Clear</a>
+      </div>
+    </form>
+    <div id="checklist-list-results">{% include "checklists/templates/_list_results.html" %}</div>
+  </section>
+{% endblock %}
