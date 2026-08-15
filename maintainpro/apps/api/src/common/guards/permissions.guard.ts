@@ -46,34 +46,44 @@ export class PermissionsGuard implements CanActivate {
       throw new UnauthorizedException("Authentication is required");
     }
 
-    if (user.role === "SUPER_ADMIN") {
-      return true;
-    }
-
-    let userPermissions = this.toPermissionSet(user.permissions);
-
-    if (userPermissions.size === 0) {
-      const dbUser = await this.prisma.user.findUnique({
-        where: { id: user.sub },
-        include: {
-          role: {
-            include: {
-              permissions: {
-                select: {
-                  key: true
-                }
-              }
+    // Authoritative DB lookup every request. JWT permission lists are ignored
+    // (stale until token expiry). No in-process TTL cache — revocation and
+    // account disable take effect on the next guarded request on this process.
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: {
+        id: true,
+        isActive: true,
+        lockedUntil: true,
+        role: {
+          select: {
+            name: true,
+            permissions: {
+              select: { key: true }
             }
           }
         }
-      });
-
-      if (!dbUser) {
-        throw new UnauthorizedException("Authenticated user not found");
       }
+    });
 
-      userPermissions = this.toPermissionSet(dbUser.role.permissions.map((permission) => permission.key));
+    if (!dbUser) {
+      throw new UnauthorizedException("Authenticated user not found");
     }
+
+    if (!dbUser.isActive) {
+      throw new UnauthorizedException("User account is disabled");
+    }
+
+    if (dbUser.lockedUntil && dbUser.lockedUntil.getTime() > Date.now()) {
+      throw new UnauthorizedException("User account is temporarily locked");
+    }
+
+    // SUPER_ADMIN is determined from DB role only (not JWT claim alone).
+    if (dbUser.role.name === "SUPER_ADMIN") {
+      return true;
+    }
+
+    const userPermissions = this.toPermissionSet(dbUser.role.permissions.map((p) => p.key));
 
     const missingPermissions = requiredPermissions.filter(
       (permission) => !this.hasPermission(userPermissions, permission)
@@ -93,11 +103,7 @@ export class PermissionsGuard implements CanActivate {
       return new Set();
     }
 
-    return new Set(
-      permissions
-        .map((permission) => permission.trim())
-        .filter(Boolean)
-    );
+    return new Set(permissions.map((permission) => permission.trim()).filter(Boolean));
   }
 
   private hasPermission(userPermissions: Set<string>, requiredPermission: string): boolean {
