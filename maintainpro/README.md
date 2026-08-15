@@ -272,6 +272,7 @@ npm run test:e2e:staging:uat003
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
 | [docs/UAT_CHECKLIST.md](docs/UAT_CHECKLIST.md) | Acceptance testing |
 | [docs/ENTERPRISE_ROADMAP.md](docs/ENTERPRISE_ROADMAP.md) | Prioritized roadmap |
+| [docs/FACILITY_OPERATIONS_WORKFLOW_BLUEPRINT.md](docs/FACILITY_OPERATIONS_WORKFLOW_BLUEPRINT.md) | Facility ops vision + implemented vs future |
 | [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) | Security review |
 | [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) | Go-live gaps |
 
