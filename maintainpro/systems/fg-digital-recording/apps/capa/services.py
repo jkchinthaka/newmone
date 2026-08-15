@@ -511,7 +511,31 @@ def close_corrective_action(
         fresh = CorrectiveAction.objects.filter(pk=capa_id).first()
         if fresh is not None and fresh.status == CorrectiveActionStatus.CLOSED:
             return fresh
-        raise ValidationError({"status": "CAPA was updated concurrently."}) from exc
+        # Concurrent verification may move IN_PROGRESS → VERIFIED; close still wins.
+        if fresh is not None and CorrectiveActionStatus.CLOSED in CAPA_STATUS_TRANSITIONS.get(
+            fresh.status, frozenset()
+        ):
+            from_status = fresh.status
+            try:
+                cas_status_transition(
+                    CorrectiveAction,
+                    pk=action.pk,
+                    from_status=from_status,
+                    to_status=CorrectiveActionStatus.CLOSED,
+                    extra_updates={
+                        "closure_notes": notes,
+                        "closed_by_id": user.pk,
+                        "closed_at": now,
+                        "updated_at": now,
+                    },
+                )
+            except TransitionConflictError as retry_exc:
+                closed = CorrectiveAction.objects.filter(pk=capa_id).first()
+                if closed is not None and closed.status == CorrectiveActionStatus.CLOSED:
+                    return closed
+                raise ValidationError({"status": "CAPA was updated concurrently."}) from retry_exc
+        else:
+            raise ValidationError({"status": "CAPA was updated concurrently."}) from exc
     action.refresh_from_db()
     _append_history(
         capa=action,

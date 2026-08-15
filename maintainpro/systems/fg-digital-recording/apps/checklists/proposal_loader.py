@@ -13,7 +13,6 @@ from typing import Any
 
 from django.core.exceptions import ValidationError
 
-from apps.core.persistence.transactions import atomic_fn
 from apps.accounts.models import User
 from apps.checklists.compat_queries import load_sections_with_items_and_options
 from apps.checklists.measurement import assert_known_unit
@@ -32,6 +31,8 @@ from apps.checklists.services import (
     create_checklist_template,
     create_checklist_version,
 )
+from apps.core.persistence.backend import is_mongodb
+from apps.core.persistence.transactions import atomic_fn, run_mongo_multi_doc_atomic
 from apps.organizations.models import Organization
 from apps.organizations.services import normalize_code, normalize_name
 
@@ -509,6 +510,8 @@ def load_fg_qa_001_draft(
     Instantiate FG-QA-001 as a DRAFT checklist for one Organization.
 
     Never publishes. Never invents Product assignment. Idempotent for identical drafts.
+    On MongoDB, create + populate runs inside an explicit multi-document transaction
+    so forced failures leave zero partial template/version rows.
     """
     if actor is None or not getattr(actor, "is_authenticated", False) or not actor.is_active:
         raise ValidationError({"actor": "An active authenticated actor is required."})
@@ -563,41 +566,49 @@ def load_fg_qa_001_draft(
             details={"fingerprint": expected_fingerprint, "organization_id": str(organization.id)},
         )
 
-    if template is None:
-        template = create_checklist_template(
-            actor=actor,
-            organization=organization,
-            code=FG_QA_001_TEMPLATE_CODE,
-            name=FG_QA_001_TEMPLATE_NAME,
-            description=FG_QA_001_DESCRIPTION,
-            product=None,
-            is_active=True,
-        )
-    version = create_checklist_version(actor=actor, template_id=template.id)
-    if version.status != ChecklistVersionStatus.DRAFT:
-        raise ValidationError({"version": "Loader refused non-DRAFT version creation."})
-    _populate_version_from_proposal(actor=actor, version=version, definition=definition)
-    version.refresh_from_db()
-    if version.status != ChecklistVersionStatus.DRAFT:
-        raise ValidationError({"version": "Loader must not publish the proposal draft."})
+    def _mutate() -> LoadResult:
+        local_template = template
+        if local_template is None:
+            local_template = create_checklist_template(
+                actor=actor,
+                organization=organization,
+                code=FG_QA_001_TEMPLATE_CODE,
+                name=FG_QA_001_TEMPLATE_NAME,
+                description=FG_QA_001_DESCRIPTION,
+                product=None,
+                is_active=True,
+            )
+        version = create_checklist_version(actor=actor, template_id=local_template.id)
+        if version.status != ChecklistVersionStatus.DRAFT:
+            raise ValidationError({"version": "Loader refused non-DRAFT version creation."})
+        _populate_version_from_proposal(actor=actor, version=version, definition=definition)
+        version.refresh_from_db()
+        if version.status != ChecklistVersionStatus.DRAFT:
+            raise ValidationError({"version": "Loader must not publish the proposal draft."})
 
-    return LoadResult(
-        status="created",
-        message=(
-            "Created FG-QA-001 DRAFT proposal for review. "
-            "NOT APPROVED FOR PRODUCTION USE. Status remains DRAFT."
-        ),
-        template_id=template.id,
-        version_id=version.id,
-        section_count=7,
-        item_count=42,
-        dry_run=False,
-        details={
-            "fingerprint": expected_fingerprint,
-            "organization_id": str(organization.id),
-            "version_number": version.version_number,
-        },
-    )
+        return LoadResult(
+            status="created",
+            message=(
+                "Created FG-QA-001 DRAFT proposal for review. "
+                "NOT APPROVED FOR PRODUCTION USE. Status remains DRAFT."
+            ),
+            template_id=local_template.id,
+            version_id=version.id,
+            section_count=7,
+            item_count=42,
+            dry_run=False,
+            details={
+                "fingerprint": expected_fingerprint,
+                "organization_id": str(organization.id),
+                "version_number": version.version_number,
+            },
+        )
+
+    # PostgreSQL: @atomic_fn already wraps; Mongo atomic() is a no-op so use
+    # explicit multi-doc transactions for all-or-nothing populate.
+    if is_mongodb():
+        return run_mongo_multi_doc_atomic(_mutate)  # type: ignore[no-any-return]
+    return _mutate()
 
 
 def is_fg_qa_001_proposal_template(template: ChecklistTemplate) -> bool:

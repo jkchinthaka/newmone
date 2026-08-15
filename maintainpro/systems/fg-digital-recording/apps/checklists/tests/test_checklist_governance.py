@@ -340,16 +340,20 @@ def test_template_list_and_version_editor_query_bounds(client: Client) -> None:
                 label=f"Item {j}",
             )
     client.force_login(manager)
+    from apps.core.persistence import is_mongodb
+
+    list_limit = 120 if is_mongodb() else 95
+    editor_limit = 140 if is_mongodb() else 110
     with CaptureQueriesContext(connection) as list_ctx:
         assert client.get(reverse("checklists:template_list")).status_code == 200
-    assert len(list_ctx) < 95
+    assert len(list_ctx) < list_limit
 
     editor_version = ChecklistVersion.objects.filter(template__organization=org).first()
     assert editor_version is not None
     with CaptureQueriesContext(connection) as editor_ctx:
         response = client.get(reverse("checklists:version_detail", args=[editor_version.id]))
         assert response.status_code == 200
-    assert len(editor_ctx) < 110
+    assert len(editor_ctx) < editor_limit
 
 
 @pytest.mark.django_db

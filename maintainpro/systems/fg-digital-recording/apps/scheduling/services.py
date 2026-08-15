@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError
@@ -18,8 +18,8 @@ from apps.checklists.models import (
     ChecklistVersionStatus,
 )
 from apps.core.persistence import (
-    atomic,
     TransitionConflictError,
+    atomic,
     cas_status_transition,
     lock_queryset,
 )
@@ -192,37 +192,50 @@ def create_batch_checklist_task(
             )
         return existing
 
-    try:
-        with atomic():
-            task = ChecklistTask(
-                organization=organization,
-                checklist_template=template,
-                checklist_version=version,
-                batch_reference=batch_ref,
-                trigger_type=ChecklistTriggerType.BATCH,
-                occurrence_key=occ_key,
-                status=ChecklistTaskStatus.PENDING,
-            )
-            task.full_clean()
-            task.save()
-            record_event(
-                event_type="CHECKLIST_TASK_CREATED",
-                actor=user,
-                metadata=_task_metadata(task),
-            )
-    except IntegrityError:
-        raced = (
-            ChecklistTask.objects.select_related(
+    for _attempt in range(8):
+        try:
+            with atomic():
+                task = ChecklistTask(
+                    organization=organization,
+                    checklist_template=template,
+                    checklist_version=version,
+                    batch_reference=batch_ref,
+                    trigger_type=ChecklistTriggerType.BATCH,
+                    occurrence_key=occ_key,
+                    status=ChecklistTaskStatus.PENDING,
+                )
+                task.full_clean()
+                task.save()
+                record_event(
+                    event_type="CHECKLIST_TASK_CREATED",
+                    actor=user,
+                    metadata=_task_metadata(task),
+                )
+            return ChecklistTask.objects.select_related(
                 "organization", "checklist_template", "checklist_version"
+            ).get(pk=task.id)
+        except (IntegrityError, ValidationError) as exc:
+            # Mongo full_clean raises ValidationError for UniqueConstraint before save;
+            # concurrent insert may also surface IntegrityError / E11000.
+            text = str(exc).lower()
+            err_dict = getattr(exc, "message_dict", None) or getattr(exc, "error_dict", None) or {}
+            messages = " ".join(str(m) for m in getattr(exc, "messages", ()) or ()).lower()
+            blob = f"{text} {messages} {err_dict}".lower()
+            is_unique = isinstance(exc, IntegrityError) or any(
+                m in blob
+                for m in (
+                    "already exists",
+                    "unique",
+                    "occurrence_key",
+                    "batch_reference",
+                    "sched_task_org_tmpl",
+                    "duplicate",
+                    "e11000",
+                    "constraint",
+                )
             )
-            .filter(
-                organization_id=organization.id,
-                checklist_template_id=template.id,
-                occurrence_key=occ_key,
-            )
-            .first()
-        )
-        if raced is None:
+            if not is_unique:
+                raise
             raced = (
                 ChecklistTask.objects.select_related(
                     "organization", "checklist_template", "checklist_version"
@@ -230,27 +243,44 @@ def create_batch_checklist_task(
                 .filter(
                     organization_id=organization.id,
                     checklist_template_id=template.id,
-                    batch_reference=batch_ref,
+                    occurrence_key=occ_key,
                 )
                 .first()
             )
-        if raced is None:
-            raise
-        if raced.checklist_version_id != version.id:
-            raise ValidationError(
-                {
-                    "checklist_version": (
-                        "A checklist task already exists for this organization, "
-                        "template, and batch reference with a different published version. "
-                        "Historical task definition cannot be changed."
+            if raced is None:
+                raced = (
+                    ChecklistTask.objects.select_related(
+                        "organization", "checklist_template", "checklist_version"
                     )
-                }
-            ) from None
-        return raced
+                    .filter(
+                        organization_id=organization.id,
+                        checklist_template_id=template.id,
+                        batch_reference=batch_ref,
+                    )
+                    .first()
+                )
+            if raced is not None:
+                if raced.checklist_version_id != version.id:
+                    raise ValidationError(
+                        {
+                            "checklist_version": (
+                                "A checklist task already exists for this organization, "
+                                "template, and batch reference with a different published version. "
+                                "Historical task definition cannot be changed."
+                            )
+                        }
+                    ) from None
+                return raced
+            # Winner not visible yet — brief retry.
+            continue
 
-    return ChecklistTask.objects.select_related(
-        "organization", "checklist_template", "checklist_version"
-    ).get(pk=task.id)
+    raise ValidationError(
+        {
+            "batch_reference": (
+                "Unable to create checklist task due to a concurrent duplicate. Retry shortly."
+            )
+        }
+    )
 
 
 def create_batch_checklist_task_using_effective_version(
@@ -306,7 +336,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
         require_permission(user, MANAGE_CHECKLIST_TASK, scope=task_authorization_scope(task))
 
         if task.status == ChecklistTaskStatus.CANCELLED:
-            return task
+            return cast(ChecklistTask, task)
         # OVERDUE/MISSED remain cancellable orchestration states (no NCR implied).
         if task.status not in {
             ChecklistTaskStatus.PENDING,
@@ -330,7 +360,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
         except TransitionConflictError as exc:
             fresh = ChecklistTask.objects.filter(pk=task_id).first()
             if fresh is not None and fresh.status == ChecklistTaskStatus.CANCELLED:
-                return fresh
+                return fresh  # type: ignore[no-any-return]
             raise ValidationError({"status": "Checklist task was updated concurrently."}) from exc
         task.refresh_from_db()
         record_event(
@@ -338,7 +368,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
             actor=user,
             metadata=_task_metadata(task),
         )
-        return task
+        return cast(ChecklistTask, task)
 
 
 # --- Phase 07C checklist applicability (re-export engine API) ---
