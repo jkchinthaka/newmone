@@ -8,6 +8,7 @@ import {
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
+import { ErpExcelImportService } from "./erp-excel-import.service";
 import { InventoryController } from "./inventory.controller";
 import { InventoryService } from "./inventory.service";
 
@@ -20,13 +21,15 @@ import { InventoryService } from "./inventory.service";
     DisabledInventoryErpAdapter,
     InventoryErpAdapterService,
     BileetaInventoryErpAdapter,
-    ErpStockSyncService
+    ErpStockSyncService,
+    ErpExcelImportService
   ],
   exports: [
     InventoryService,
     ErpSyncProviderService,
     InventoryErpAdapterService,
-    ErpStockSyncService
+    ErpStockSyncService,
+    ErpExcelImportService
   ]
 })
 export class InventoryModule {}

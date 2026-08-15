@@ -22,6 +22,13 @@ export type ApplyStockSnapshotOptions = {
   erpBalances?: StockBalanceSnapshot[];
 };
 
+export type ApplyAbsoluteStockBalancesOptions = {
+  /** Movement reference, e.g. `erp-stock-sync:<iso>` or `ERP-EXCEL:<importRunId>`. */
+  movementReference: string;
+  /** Optional note prefix stored on StockMovement.notes. */
+  notesPrefix?: string;
+};
+
 @Injectable()
 export class ErpStockSyncService {
   /** In-process per-tenant apply mutex (same Node process only). */
@@ -140,6 +147,34 @@ export class ErpStockSyncService {
       erpBalances = fetchResult.balances;
     }
 
+    const checkedAt = new Date().toISOString();
+    const result = await this.runApplyAbsoluteStockBalances(actor, erpBalances, {
+      movementReference: `erp-stock-sync:${checkedAt}`,
+      notesPrefix: "ERP stock sync apply"
+    });
+    return { ...result, mode };
+  }
+
+  /**
+   * Shared absolute stock apply engine used by Bileeta API sync and ERP Excel import.
+   * Sets MaintainPro qty = snapshot qty (never +=). Concurrent applies serialize per tenant.
+   */
+  async applyAbsoluteStockBalances(
+    actor: Actor | undefined,
+    erpBalances: StockBalanceSnapshot[],
+    options: ApplyAbsoluteStockBalancesOptions
+  ): Promise<ErpStockSyncApplyResult> {
+    const lockKey = `tenant:${actor?.tenantId ?? "none"}`;
+    return this.withApplyLock(lockKey, () =>
+      this.runApplyAbsoluteStockBalances(actor, erpBalances, options)
+    );
+  }
+
+  private async runApplyAbsoluteStockBalances(
+    actor: Actor | undefined,
+    erpBalances: StockBalanceSnapshot[],
+    options: ApplyAbsoluteStockBalancesOptions
+  ): Promise<ErpStockSyncApplyResult> {
     const maintainProParts = await this.loadTenantParts(actor);
     const comparison = compareStockBalances({
       erpBalances,
@@ -149,7 +184,7 @@ export class ErpStockSyncService {
 
     if (comparison.summary.changedItems === 0) {
       return {
-        mode,
+        mode: "absolute-snapshot",
         status: "completed",
         appliedAt: checkedAt,
         updatedCount: 0,
@@ -163,7 +198,7 @@ export class ErpStockSyncService {
     }
 
     const tenantId = this.resolveTenantId(actor);
-    const syncRunId = `erp-stock-sync:${checkedAt}`;
+    const notesPrefix = options.notesPrefix ?? "ERP stock sync apply";
     let updatedCount = 0;
     let skippedCount = 0;
     const failedPartNumbers: string[] = [];
@@ -190,6 +225,7 @@ export class ErpStockSyncService {
         }
 
         const priorQuantity = part.quantityInStock;
+        const delta = row.erpQuantity - priorQuantity;
 
         await this.prisma.$transaction([
           this.prisma.sparePart.update({
@@ -200,9 +236,11 @@ export class ErpStockSyncService {
             data: {
               partId: part.id,
               type: "ADJUSTMENT",
-              quantity: Math.abs(row.erpQuantity - priorQuantity),
-              reference: syncRunId,
-              notes: `ERP stock sync apply (${row.partNumber}) target=${row.erpQuantity}`
+              quantity: Math.abs(delta),
+              reference: options.movementReference,
+              notes: `${notesPrefix} (${row.partNumber}) prior=${priorQuantity} target=${row.erpQuantity} delta=${delta}`,
+              tenantId: tenantId ?? undefined,
+              actorUserId: actor?.sub ?? undefined
             }
           })
         ]);
@@ -221,7 +259,7 @@ export class ErpStockSyncService {
         : `Applied ${updatedCount} local stock adjustment(s) from ERP stock snapshot.`;
 
     return {
-      mode,
+      mode: "absolute-snapshot",
       status,
       appliedAt: new Date().toISOString(),
       updatedCount,
