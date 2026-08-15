@@ -42,8 +42,8 @@ class Command(BaseCommand):
         )
         forbidden = {"maintainpro_prod", "admin", "config", "local"}
         settings_module = getattr(settings, "ENVIRONMENT_LABEL", "")
-        if db_name in {"admin", "config", "local"}:
-            raise CommandError(f"Refusing bootstrap against system database {db_name!r}.")
+        if db_name in forbidden:
+            raise CommandError(f"Refusing bootstrap against forbidden database {db_name!r}.")
         if options["dry_run"]:
             self.stdout.write(
                 self.style.WARNING(
@@ -67,4 +67,3 @@ class Command(BaseCommand):
                 )
             )
         self.stdout.write(self.style.SUCCESS(f"Mongo bootstrap complete for database={db_name}"))
-        _ = forbidden

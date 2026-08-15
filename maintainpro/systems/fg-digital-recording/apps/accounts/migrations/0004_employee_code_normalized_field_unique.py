@@ -3,6 +3,21 @@
 from django.db import migrations, models
 
 
+def normalize_existing_employee_codes(apps, schema_editor):
+    """Normalize existing employee codes to uppercase before applying unique constraint."""
+    User = apps.get_model('accounts', 'User')
+    for user in User.objects.exclude(employee_code__isnull=True):
+        normalized = user.employee_code.strip().upper()
+        if user.employee_code != normalized:
+            user.employee_code = normalized
+            user.save(update_fields=['employee_code'])
+
+
+def reverse_normalize(apps, schema_editor):
+    """No-op reverse migration."""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -19,6 +34,7 @@ class Migration(migrations.Migration):
             model_name='user',
             name='acct_user_emp_code_idx',
         ),
+        migrations.RunPython(normalize_existing_employee_codes, reverse_normalize),
         migrations.AddIndex(
             model_name='user',
             index=models.Index(fields=['employee_code'], name='acct_user_emp_code_idx'),

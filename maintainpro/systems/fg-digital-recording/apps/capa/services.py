@@ -204,6 +204,13 @@ def transition_capa_status(
             raise ValidationError({"capa": "Corrective action not found."})
         if current.status == to_status:
             return current
+        if current.status != from_status:
+            live_allowed = CAPA_STATUS_TRANSITIONS.get(current.status, frozenset())
+            if to_status not in live_allowed:
+                raise ValidationError(
+                    {"status": f"Transition from {current.status} to {to_status} is not allowed."}
+                )
+        actual_from_status = current.status
         now = timezone.now()
         try:
             cas_status_transition(
@@ -220,7 +227,7 @@ def transition_capa_status(
             capa=current,
             event_type="STATUS_CHANGED",
             actor=user,
-            from_status=from_status,
+            from_status=actual_from_status,
             to_status=to_status,
             note=note,
         )
@@ -231,13 +238,13 @@ def transition_capa_status(
                 "capa_id": str(current.id),
                 "organization_id": str(current.organization_id),
                 "code": current.code,
-                "from_status": from_status,
+                "from_status": actual_from_status,
                 "to_status": to_status,
             },
         )
         return current
 
-    key = (idempotency_key or "").strip() or f"capa:{capa_id}:{from_status}->{to_status}"
+    key = (idempotency_key or "").strip()
     return execute_idempotent(
         organization=action.organization,
         scope="capa.transition",
