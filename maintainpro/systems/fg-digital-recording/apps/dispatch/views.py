@@ -90,6 +90,9 @@ def dispatch_create(request: HttpRequest) -> HttpResponse:
                 delivery_loading_reference=request.POST.get("delivery_loading_reference") or "",
                 batch_reference=request.POST.get("batch_reference") or "",
                 notes=request.POST.get("notes") or "",
+                idempotency_key=request.POST.get("idempotency_key")
+                or request.headers.get("Idempotency-Key")
+                or "",
             )
             messages.success(request, "Dispatch quality record opened.")
             return redirect("dispatch:detail", record_id=record.id)

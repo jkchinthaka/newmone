@@ -232,6 +232,10 @@ def _matches(doc: dict[str, Any], filter_doc: dict[str, Any]) -> bool:
                 return False
             continue
         actual = doc.get(key)
+        if key == "_id":
+            if str(actual) != str(expected):
+                return False
+            continue
         if isinstance(expected, dict):
             if "$regex" in expected:
                 flags = re.IGNORECASE if expected.get("$options") == "i" else 0

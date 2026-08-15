@@ -11,6 +11,7 @@
     </header>
     <form method="post" class="mgmt-form" data-mp-dispatch-form>
       {% csrf_token %}
+      <input type="hidden" name="idempotency_key" id="id_idempotency_key" value="">
       <div class="form-field">
         <label for="id_code">Code</label>
         <input class="form-input" id="id_code" name="code" required value="{{ form_values.code|default:'' }}">
@@ -41,6 +42,12 @@
 {% block extra_js %}
   <script>
     document.querySelectorAll("form[data-mp-dispatch-form]").forEach((form) => {
+      const keyInput = form.querySelector("#id_idempotency_key");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
       form.addEventListener("submit", () => {
         const btn = form.querySelector("[data-mp-submit]");
         if (btn instanceof HTMLButtonElement) {

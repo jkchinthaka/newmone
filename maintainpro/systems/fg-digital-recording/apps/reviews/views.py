@@ -161,6 +161,7 @@ def confirm_decision(request: HttpRequest, submission_id: uuid.UUID, decision: s
                     submission_id=submission_id,
                     decision=decision,
                     review_note=form.cleaned_data["review_note"],
+                    idempotency_key=request.POST.get("idempotency_key") or "",
                 )
             except ValidationError as exc:
                 messages.error(request, _validation_message(exc))

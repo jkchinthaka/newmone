@@ -28,6 +28,7 @@ from apps.dispatch.models import (
     DispatchReleasePolicy,
 )
 from apps.integrations.maintainpro.validation import bind_vehicle_from_post
+from apps.core.idempotency import execute_idempotent
 from apps.organizations.models import Organization
 from apps.organizations.services import normalize_code
 from apps.quality.models import QAReview, QAReviewDecision
@@ -38,6 +39,7 @@ MANAGE_DISPATCH = "dispatch.manage_dispatchqualityrecord"
 COMPLETE_DISPATCH = "dispatch.complete_dispatchqualityrecord"
 MANAGE_RELEASE_POLICY = "dispatch.manage_dispatchreleasepolicy"
 VIEW_DISPATCH = "dispatch.view_dispatchqualityrecord"
+DISPATCH_CREATE_SCOPE = "dispatch.create"
 
 
 def _require_authenticated_actor(actor: User | None) -> User:
@@ -169,6 +171,7 @@ def create_dispatch_quality_record(
     vehicle_inspection_checklist_version_id: uuid.UUID | None = None,
     qa_review_id: uuid.UUID | None = None,
     allow_pending_vehicle_reference: bool = False,
+    idempotency_key: str = "",
 ) -> DispatchQualityRecord:
     user = _require_authenticated_actor(actor)
     org_scope = Scope(organization_id=organization.id)
@@ -188,66 +191,79 @@ def create_dispatch_quality_record(
         allow_empty=True,
         allow_pending_on_unavailable=allow_pending_vehicle_reference,
     )
-    record = DispatchQualityRecord(
+
+    def _create() -> DispatchQualityRecord:
+        record = DispatchQualityRecord(
+            organization=organization,
+            code=normalized_code,
+            delivery_loading_reference=(delivery_loading_reference or "").strip(),
+            vehicle_reference=(binding.vehicle_reference if binding else ""),
+            maintainpro_vehicle_id=(binding.maintainpro_vehicle_id if binding else ""),
+            vehicle_registration_snapshot=(
+                binding.vehicle_registration_snapshot if binding else ""
+            ),
+            vehicle_make_snapshot=(binding.vehicle_make_snapshot if binding else ""),
+            vehicle_model_snapshot=(binding.vehicle_model_snapshot if binding else ""),
+            reference_verification_status=(
+                binding.reference_verification_status if binding else ""
+            ),
+            driver_reference=(driver_reference or "").strip(),
+            loading_bay=(loading_bay or "").strip(),
+            started_at=started_at,
+            ended_at=ended_at,
+            seal_number=(seal_number or "").strip(),
+            quantity=qty,
+            quantity_uom=(quantity_uom or "").strip(),
+            batch_reference=(batch_reference or "").strip(),
+            sub_lot_reference=(sub_lot_reference or "").strip(),
+            status=DispatchRecordStatus.OPEN,
+            owner_id=owner_id,
+            notes=(notes or "").strip(),
+            vehicle_inspection_checklist_version_id=vehicle_inspection_checklist_version_id,
+            qa_review_id=qa_review_id,
+            created_by=user,
+        )
+        try:
+            record.full_clean()
+            record.save()
+        except (ValidationError, IntegrityError) as exc:
+            raise _code_conflict(exc) from exc
+        get_or_create_release_policy(organization=organization, actor=user)
+        _append_history(
+            record=record,
+            event_type=DispatchHistoryEventType.CREATED,
+            actor=user,
+            to_status=record.status,
+            note=record.code,
+            metadata={
+                "code": record.code,
+                "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
+                "reference_verification_status": record.reference_verification_status or None,
+            },
+        )
+        record_event(
+            event_type="DISPATCH_QUALITY_RECORD_CREATED",
+            actor=user,
+            metadata={
+                "dispatch_record_id": str(record.id),
+                "organization_id": str(organization.id),
+                "code": record.code,
+                "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
+            },
+        )
+        return record
+
+    key = (idempotency_key or "").strip()
+    if not key:
+        return _create()
+
+    return execute_idempotent(
         organization=organization,
-        code=normalized_code,
-        delivery_loading_reference=(delivery_loading_reference or "").strip(),
-        vehicle_reference=(binding.vehicle_reference if binding else ""),
-        maintainpro_vehicle_id=(binding.maintainpro_vehicle_id if binding else ""),
-        vehicle_registration_snapshot=(
-            binding.vehicle_registration_snapshot if binding else ""
-        ),
-        vehicle_make_snapshot=(binding.vehicle_make_snapshot if binding else ""),
-        vehicle_model_snapshot=(binding.vehicle_model_snapshot if binding else ""),
-        reference_verification_status=(
-            binding.reference_verification_status if binding else ""
-        ),
-        driver_reference=(driver_reference or "").strip(),
-        loading_bay=(loading_bay or "").strip(),
-        started_at=started_at,
-        ended_at=ended_at,
-        seal_number=(seal_number or "").strip(),
-        quantity=qty,
-        quantity_uom=(quantity_uom or "").strip(),
-        batch_reference=(batch_reference or "").strip(),
-        sub_lot_reference=(sub_lot_reference or "").strip(),
-        status=DispatchRecordStatus.OPEN,
-        owner_id=owner_id,
-        notes=(notes or "").strip(),
-        vehicle_inspection_checklist_version_id=vehicle_inspection_checklist_version_id,
-        qa_review_id=qa_review_id,
-        created_by=user,
+        scope=DISPATCH_CREATE_SCOPE,
+        key=key,
+        fn=_create,
+        reload=lambda ref: DispatchQualityRecord.objects.filter(pk=ref).first(),
     )
-    try:
-        record.full_clean()
-        record.save()
-    except (ValidationError, IntegrityError) as exc:
-        raise _code_conflict(exc) from exc
-    # Ensure disabled policy row exists for org (no auto-enable).
-    get_or_create_release_policy(organization=organization, actor=user)
-    _append_history(
-        record=record,
-        event_type=DispatchHistoryEventType.CREATED,
-        actor=user,
-        to_status=record.status,
-        note=record.code,
-        metadata={
-            "code": record.code,
-            "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
-            "reference_verification_status": record.reference_verification_status or None,
-        },
-    )
-    record_event(
-        event_type="DISPATCH_QUALITY_RECORD_CREATED",
-        actor=user,
-        metadata={
-            "dispatch_record_id": str(record.id),
-            "organization_id": str(organization.id),
-            "code": record.code,
-            "maintainpro_vehicle_id": record.maintainpro_vehicle_id or None,
-        },
-    )
-    return record
 
 
 @atomic_fn
@@ -257,6 +273,7 @@ def update_dispatch_quality_record(
     dispatch_record_id: uuid.UUID,
     delivery_loading_reference: str | None = None,
     vehicle_reference: str | None = None,
+    maintainpro_vehicle_id: str | None = None,
     driver_reference: str | None = None,
     loading_bay: str | None = None,
     started_at: datetime | None | object = ...,
@@ -280,9 +297,41 @@ def update_dispatch_quality_record(
     if delivery_loading_reference is not None:
         record.delivery_loading_reference = delivery_loading_reference.strip()
         changed.append("delivery_loading_reference")
-    if vehicle_reference is not None:
-        record.vehicle_reference = vehicle_reference.strip()
-        changed.append("vehicle_reference")
+    if maintainpro_vehicle_id is not None or vehicle_reference is not None:
+        binding = bind_vehicle_from_post(
+            organization=record.organization,
+            maintainpro_vehicle_id=(
+                maintainpro_vehicle_id
+                if maintainpro_vehicle_id is not None
+                else record.maintainpro_vehicle_id
+            ),
+            typed_vehicle_text=(
+                vehicle_reference if vehicle_reference is not None else ""
+            ),
+            allow_empty=True,
+        )
+        if binding is None:
+            record.maintainpro_vehicle_id = ""
+            record.vehicle_registration_snapshot = ""
+            record.vehicle_make_snapshot = ""
+            record.vehicle_model_snapshot = ""
+            record.reference_verification_status = ""
+            record.vehicle_reference = ""
+        else:
+            record.maintainpro_vehicle_id = binding.maintainpro_vehicle_id
+            record.vehicle_registration_snapshot = binding.vehicle_registration_snapshot
+            record.vehicle_make_snapshot = binding.vehicle_make_snapshot
+            record.vehicle_model_snapshot = binding.vehicle_model_snapshot
+            record.reference_verification_status = binding.reference_verification_status
+            record.vehicle_reference = binding.vehicle_reference
+        changed.extend(
+            [
+                "maintainpro_vehicle_id",
+                "vehicle_reference",
+                "vehicle_registration_snapshot",
+                "reference_verification_status",
+            ]
+        )
     if driver_reference is not None:
         record.driver_reference = driver_reference.strip()
         changed.append("driver_reference")
@@ -623,6 +672,7 @@ def complete_dispatch_quality_record(
     actor: User | None,
     dispatch_record_id: uuid.UUID,
     note: str = "",
+    idempotency_key: str = "",
 ) -> DispatchQualityRecord:
     """
     Complete loading/dispatch quality record.
@@ -631,91 +681,113 @@ def complete_dispatch_quality_record(
     Never writes to ERP.
     """
     user = _require_authenticated_actor(actor)
-    try:
-        with atomic():
-            record = lock_queryset(
-                DispatchQualityRecord.objects.filter(pk=dispatch_record_id)
-            ).first()
-            if record is None:
-                raise ValidationError({"dispatch_record": "Dispatch quality record not found."})
-            can_complete = user_has_permission(
-                user, COMPLETE_DISPATCH, scope=Scope(organization_id=record.organization_id)
-            ) or user_has_permission(
-                user, MANAGE_DISPATCH, scope=Scope(organization_id=record.organization_id)
-            )
-            if not can_complete:
-                raise PermissionDenied("Missing complete_dispatchqualityrecord permission.")
-            if record.status == DispatchRecordStatus.COMPLETED:
-                return record
-            if record.status != DispatchRecordStatus.OPEN:
-                raise ValidationError({"status": f"Cannot complete from status {record.status}."})
-            policy = get_or_create_release_policy(organization=record.organization, actor=user)
-            gate = evaluate_release_gate(record=record, policy=policy)
-            _append_history(
-                record=record,
-                event_type=DispatchHistoryEventType.RELEASE_GATE_EVALUATED,
-                actor=user,
-                from_status=record.status,
-                to_status=record.status,
-                note=gate["reason"],
-                metadata=gate,
-            )
-            record_event(
-                event_type="DISPATCH_RELEASE_GATE_EVALUATED",
-                actor=user,
-                metadata={
-                    "dispatch_record_id": str(record.id),
-                    "organization_id": str(record.organization_id),
-                    **gate,
-                },
-            )
-            if not gate["allowed"]:
-                raise ValidationError({"release_gate": gate["reason"]})
-            from_status = record.status
-            record.status = DispatchRecordStatus.COMPLETED
-            record.completed_by = user
-            record.completed_at = timezone.now()
-            if not record.ended_at:
-                record.ended_at = record.completed_at
-            record.full_clean()
-            record.save()
-            _append_history(
-                record=record,
-                event_type=DispatchHistoryEventType.COMPLETED,
-                actor=user,
-                from_status=from_status,
-                to_status=DispatchRecordStatus.COMPLETED,
-                note=note,
-            )
-            record_event(
-                event_type="DISPATCH_QUALITY_RECORD_COMPLETED",
-                actor=user,
-                metadata={
-                    "dispatch_record_id": str(record.id),
-                    "organization_id": str(record.organization_id),
-                    "code": record.code,
-                    "gate_enabled": gate["gate_enabled"],
-                },
-            )
-            return record
-    except ValidationError as exc:
-        if "release_gate" in getattr(exc, "message_dict", {}):
-            record = DispatchQualityRecord.objects.filter(pk=dispatch_record_id).first()
-            if record is not None:
-                release_policy: DispatchReleasePolicy | None = DispatchReleasePolicy.objects.filter(
-                    organization_id=record.organization_id
+    record = DispatchQualityRecord.objects.filter(pk=dispatch_record_id).first()
+    if record is None:
+        raise ValidationError({"dispatch_record": "Dispatch quality record not found."})
+    if record.status == DispatchRecordStatus.COMPLETED:
+        return record
+
+    def _complete() -> DispatchQualityRecord:
+        try:
+            with atomic():
+                locked = lock_queryset(
+                    DispatchQualityRecord.objects.filter(pk=dispatch_record_id)
                 ).first()
-                gate = evaluate_release_gate(record=record, policy=release_policy)
+                if locked is None:
+                    raise ValidationError(
+                        {"dispatch_record": "Dispatch quality record not found."}
+                    )
+                can_complete = user_has_permission(
+                    user, COMPLETE_DISPATCH, scope=Scope(organization_id=locked.organization_id)
+                ) or user_has_permission(
+                    user, MANAGE_DISPATCH, scope=Scope(organization_id=locked.organization_id)
+                )
+                if not can_complete:
+                    raise PermissionDenied("Missing complete_dispatchqualityrecord permission.")
+                if locked.status == DispatchRecordStatus.COMPLETED:
+                    return locked
+                if locked.status != DispatchRecordStatus.OPEN:
+                    raise ValidationError(
+                        {"status": f"Cannot complete from status {locked.status}."}
+                    )
+                policy = get_or_create_release_policy(organization=locked.organization, actor=user)
+                gate = evaluate_release_gate(record=locked, policy=policy)
+                _append_history(
+                    record=locked,
+                    event_type=DispatchHistoryEventType.RELEASE_GATE_EVALUATED,
+                    actor=user,
+                    from_status=locked.status,
+                    to_status=locked.status,
+                    note=gate["reason"],
+                    metadata=gate,
+                )
                 record_event(
-                    event_type="DISPATCH_RELEASE_GATE_BLOCKED",
+                    event_type="DISPATCH_RELEASE_GATE_EVALUATED",
                     actor=user,
                     metadata={
-                        "dispatch_record_id": str(record.id),
-                        "organization_id": str(record.organization_id),
+                        "dispatch_record_id": str(locked.id),
+                        "organization_id": str(locked.organization_id),
                         **gate,
                     },
                 )
-        raise
+                if not gate["allowed"]:
+                    raise ValidationError({"release_gate": gate["reason"]})
+                from_status = locked.status
+                locked.status = DispatchRecordStatus.COMPLETED
+                locked.completed_by = user
+                locked.completed_at = timezone.now()
+                if not locked.ended_at:
+                    locked.ended_at = locked.completed_at
+                locked.full_clean()
+                locked.save()
+                _append_history(
+                    record=locked,
+                    event_type=DispatchHistoryEventType.COMPLETED,
+                    actor=user,
+                    from_status=from_status,
+                    to_status=DispatchRecordStatus.COMPLETED,
+                    note=note,
+                )
+                record_event(
+                    event_type="DISPATCH_QUALITY_RECORD_COMPLETED",
+                    actor=user,
+                    metadata={
+                        "dispatch_record_id": str(locked.id),
+                        "organization_id": str(locked.organization_id),
+                        "code": locked.code,
+                        "gate_enabled": gate["gate_enabled"],
+                    },
+                )
+                return locked
+        except ValidationError as exc:
+            if "release_gate" in getattr(exc, "message_dict", {}):
+                blocked = DispatchQualityRecord.objects.filter(pk=dispatch_record_id).first()
+                if blocked is not None:
+                    release_policy: DispatchReleasePolicy | None = (
+                        DispatchReleasePolicy.objects.filter(
+                            organization_id=blocked.organization_id
+                        ).first()
+                    )
+                    gate = evaluate_release_gate(record=blocked, policy=release_policy)
+                    record_event(
+                        event_type="DISPATCH_RELEASE_GATE_BLOCKED",
+                        actor=user,
+                        metadata={
+                            "dispatch_record_id": str(blocked.id),
+                            "organization_id": str(blocked.organization_id),
+                            **gate,
+                        },
+                    )
+            raise
+
+    key = (idempotency_key or "").strip() or f"complete:{dispatch_record_id}"
+    return execute_idempotent(
+        organization=record.organization,
+        scope="dispatch.complete",
+        key=key,
+        fn=_complete,
+        reload=lambda ref: DispatchQualityRecord.objects.filter(pk=ref).first(),
+    )
 
 
 @atomic_fn

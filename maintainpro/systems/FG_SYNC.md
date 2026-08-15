@@ -118,7 +118,18 @@ Never commit:
 
 ## Status note
 
-Full Django Postgres → Mongo cutover of every FG model remains gated by the
-compatibility inventory (`docs/migration/MONGO_COMPATIBILITY_INVENTORY.md`).
-Platform integration (shared DB target name, reference layer, `/fg` routing,
-branding) proceeds ahead of claiming complete cutover readiness.
+Production FG runtime default is MongoDB (`FG_DATABASE_BACKEND=mongodb` in
+`config.settings.production`) targeting `maintainpro_prod` with `fg_` collections.
+
+Isolated release-gate tests use `config.settings.mongo_test` against
+`maintainpro_fg_test` (fail-closed against `maintainpro_prod` / system DBs).
+
+Bootstrap:
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.mongo_test \
+MONGODB_URI=... MONGODB_DATABASE=maintainpro_fg_test \
+uv run python manage.py bootstrap_mongo_indexes
+```
+
+Idempotency keys live in `fg_core_idempotencykey` via `apps.core.models.IdempotencyKey`.

@@ -45,6 +45,13 @@ class Organization(models.Model):
     def __str__(self) -> str:
         return f"{self.code} — {self.name}"
 
+    def save(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from apps.organizations.services import normalize_code
+
+        if self.code:
+            self.code = normalize_code(self.code)
+        super().save(*args, **kwargs)
+
 
 class Site(models.Model):
     """Site belonging to an organization. Code unique within organization (case-insensitive)."""
@@ -81,6 +88,13 @@ class Site(models.Model):
     def __str__(self) -> str:
         return f"{self.organization.code}/{self.code}"
 
+    def save(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from apps.organizations.services import normalize_code
+
+        if self.code:
+            self.code = normalize_code(self.code)
+        super().save(*args, **kwargs)
+
 
 class Department(models.Model):
     """
@@ -107,6 +121,8 @@ class Department(models.Model):
     code = models.CharField(max_length=64)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
+    # Mongo-safe uniqueness scope: "org:<uuid>" or "site:<uuid>" (populated on save).
+    code_scope_key = models.CharField(max_length=80, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -128,6 +144,10 @@ class Department(models.Model):
                 condition=models.Q(site__isnull=False),
                 name="org_dept_site_code_ci_uniq",
             ),
+            models.UniqueConstraint(
+                fields=["code_scope_key", "code"],
+                name="org_dept_scope_key_code_uniq",
+            ),
         ]
         indexes = [
             models.Index(fields=["organization", "is_active"], name="org_dept_org_act_idx"),
@@ -148,6 +168,17 @@ class Department(models.Model):
             raise ValidationError(
                 {"site": "Site must belong to the same organization as the department."}
             )
+
+    def save(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from apps.organizations.services import normalize_code
+
+        if self.code:
+            self.code = normalize_code(self.code)
+        if self.site_id:
+            self.code_scope_key = f"site:{self.site_id}"
+        elif self.organization_id:
+            self.code_scope_key = f"org:{self.organization_id}"
+        super().save(*args, **kwargs)
 
 
 class Shift(models.Model):
@@ -185,6 +216,8 @@ class Shift(models.Model):
     effective_from = models.DateField()
     effective_to = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    # Mongo-safe uniqueness when site/department are null (nulls_distinct=False parity).
+    code_scope_key = models.CharField(max_length=160, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -201,6 +234,10 @@ class Shift(models.Model):
                 "department",
                 nulls_distinct=False,
                 name="org_shift_scope_code_ci_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["code_scope_key", "code"],
+                name="org_shift_scope_key_code_uniq",
             ),
             models.CheckConstraint(
                 condition=models.Q(department__isnull=True) | models.Q(site__isnull=False),
@@ -273,3 +310,14 @@ class Shift(models.Model):
 
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from apps.organizations.services import normalize_code
+
+        if self.code:
+            self.code = normalize_code(self.code)
+        org = self.organization_id or ""
+        site = self.site_id or "-"
+        dept = self.department_id or "-"
+        self.code_scope_key = f"org:{org}|site:{site}|dept:{dept}"
+        super().save(*args, **kwargs)

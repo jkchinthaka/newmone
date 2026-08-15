@@ -9,6 +9,8 @@ from django.test import override_settings
 
 @pytest.mark.django_db
 def test_apply_fg_collection_namespace_prefixes_models() -> None:
+    from django.conf import settings
+
     from apps.core.db_namespace import (
         apply_fg_collection_namespace,
         restore_postgresql_table_names,
@@ -22,14 +24,19 @@ def test_apply_fg_collection_namespace_prefixes_models() -> None:
             FG_COLLECTION_PREFIX="fg_",
         ):
             count = apply_fg_collection_namespace()
-            assert count > 0
+            # When namespace was already applied at process start (mongo_test), count may be 0.
             assert user_model._meta.db_table.startswith("fg_")
             assert user_model._meta.db_table == "fg_accounts_user"
+            assert count >= 0
+            if not getattr(settings, "FG_COLLECTION_NAMESPACE_ENABLED", False):
+                assert count > 0
     finally:
         restore_postgresql_table_names()
-        assert user_model._meta.db_table == original or not user_model._meta.db_table.startswith(
-            "fg_"
-        )
+        # mongo_test keeps namespace enabled — restore is a no-op there.
+        if not getattr(settings, "FG_COLLECTION_NAMESPACE_ENABLED", False):
+            assert user_model._meta.db_table == original or not user_model._meta.db_table.startswith(
+                "fg_"
+            )
 
 
 def test_namespace_disabled_leaves_default_table_names() -> None:

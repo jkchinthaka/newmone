@@ -16,7 +16,6 @@ from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
 from apps.access_control.services import assign_role, create_role
 from apps.accounts.models import User
@@ -29,6 +28,7 @@ from apps.checklists.services import (
     create_checklist_version,
     publish_checklist_version,
 )
+from apps.core.persistence import atomic_fn
 from apps.master_data.models import FGProduct
 from apps.master_data.services import create_fg_product
 from apps.organizations.models import Department, Organization, Shift, Site
@@ -47,9 +47,10 @@ ALLOWED_DEMO_ENVIRONMENTS = frozenset(
         "test",
         "development",
         "ci",
-        # Isolated Mongo compatibility POC only — never production/UAT/staging.
+        # Isolated Mongo compatibility POC / release-gate only — never production/UAT/staging.
         "mongo_same_db_poc",
         "mongo_poc",
+        "mongo_test",
     }
 )
 
@@ -113,7 +114,7 @@ def _user(employee_code: str) -> User:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def load_synthetic_demo_data(*, force: bool = False) -> SyntheticDemoDataset:
     """Create or return the synthetic demonstration dataset."""
     if not demo_environment_allowed():
