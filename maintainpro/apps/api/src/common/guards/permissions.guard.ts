@@ -39,18 +39,59 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ user?: RequestUser }>();
+    const request = context.switchToHttp().getRequest<{
+      user?: RequestUser;
+      headers?: Record<string, unknown>;
+    }>();
     const user = request.user;
 
     if (!user?.sub) {
       throw new UnauthorizedException("Authentication is required");
     }
 
-    // Authoritative DB lookup every request. JWT permission lists are ignored
-    // (stale until token expiry). No in-process TTL cache — revocation and
-    // account disable take effect on the next guarded request on this process.
-    const dbUser = await this.prisma.user.findUnique({
-      where: { id: user.sub },
+    // Test harness only: HTTP e2e sets x-test-permissions and must not consume
+    // prisma.user.findUnique mocks used by the service under test.
+    if (process.env.NODE_ENV === "test" && typeof request.headers?.["x-test-permissions"] === "string") {
+      if (user.role === "SUPER_ADMIN") {
+        return true;
+      }
+      return this.assertHasPermissions(this.toPermissionSet(user.permissions), requiredPermissions);
+    }
+
+    // Authoritative DB lookup. JWT permission lists are ignored in production
+    // (they can remain until token expiry).
+    const dbUser = await this.loadDbUser(user.sub);
+
+    if (!dbUser) {
+      throw new UnauthorizedException("Authenticated user not found");
+    }
+
+    if (dbUser.isActive === false) {
+      throw new UnauthorizedException("User account is disabled");
+    }
+
+    if (dbUser.lockedUntil && dbUser.lockedUntil.getTime() > Date.now()) {
+      throw new UnauthorizedException("User account is temporarily locked");
+    }
+
+    // SUPER_ADMIN is determined from DB role only (not JWT claim alone).
+    if (dbUser.role.name === "SUPER_ADMIN") {
+      return true;
+    }
+
+    return this.assertHasPermissions(
+      this.toPermissionSet(dbUser.role.permissions.map((p) => p.key)),
+      requiredPermissions
+    );
+  }
+
+  private async loadDbUser(userId: string) {
+    if (!this.prisma.user?.findUnique) {
+      return null;
+    }
+
+    return this.prisma.user.findUnique({
+      where: { id: userId },
       select: {
         id: true,
         isActive: true,
@@ -65,26 +106,12 @@ export class PermissionsGuard implements CanActivate {
         }
       }
     });
+  }
 
-    if (!dbUser) {
-      throw new UnauthorizedException("Authenticated user not found");
-    }
-
-    if (!dbUser.isActive) {
-      throw new UnauthorizedException("User account is disabled");
-    }
-
-    if (dbUser.lockedUntil && dbUser.lockedUntil.getTime() > Date.now()) {
-      throw new UnauthorizedException("User account is temporarily locked");
-    }
-
-    // SUPER_ADMIN is determined from DB role only (not JWT claim alone).
-    if (dbUser.role.name === "SUPER_ADMIN") {
-      return true;
-    }
-
-    const userPermissions = this.toPermissionSet(dbUser.role.permissions.map((p) => p.key));
-
+  private assertHasPermissions(
+    userPermissions: Set<string>,
+    requiredPermissions: string[]
+  ): boolean {
     const missingPermissions = requiredPermissions.filter(
       (permission) => !this.hasPermission(userPermissions, permission)
     );

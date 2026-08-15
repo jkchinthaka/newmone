@@ -71,7 +71,8 @@ describe("ERP stock sync mapping", () => {
 
     expect(dryRun.summary.changedItems).toBe(8);
     expect(dryRun.sampleRows.length).toBeLessThanOrEqual(5);
-    expect(dryRun.changedRows.length).toBeLessThanOrEqual(5);
+    // Full changed set is returned for dry-run → apply snapshot handoff (MP-004).
+    expect(dryRun.changedRows.length).toBe(8);
   });
 
   it("parses flexible Bileeta stock payloads", () => {

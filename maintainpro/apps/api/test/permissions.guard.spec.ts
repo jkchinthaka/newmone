@@ -120,6 +120,56 @@ describe("PermissionsGuard", () => {
     expect(prisma.user.findUnique).toHaveBeenCalled();
   });
 
+  it("MP-006: in production, missing DB user is fail-closed even with JWT permissions", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
+      } as unknown as Reflector;
+      const prisma = {
+        user: { findUnique: jest.fn().mockResolvedValue(null) }
+      } as any;
+      const guard = new PermissionsGuard(reflector, prisma);
+      await expect(
+        guard.canActivate(
+          buildContext({ sub: "u-missing", role: "ADMIN", permissions: ["vehicles.view"] })
+        )
+      ).rejects.toThrow("Authenticated user not found");
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
+  it("MP-006: test harness allows x-test-permissions when DB user is absent", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+    try {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
+      } as unknown as Reflector;
+      const prisma = {
+        user: { findUnique: jest.fn().mockResolvedValue(null) }
+      } as any;
+      const guard = new PermissionsGuard(reflector, prisma);
+      const context = {
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+        switchToHttp: () => ({
+          getRequest: () => ({
+            headers: { "x-test-permissions": "vehicles.view" },
+            user: { sub: "u-harness", role: "ADMIN", permissions: ["vehicles.view"] }
+          })
+        })
+      } as unknown as ExecutionContext;
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
   it("MP-006: revoked DB permission denies on next request (no cache)", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(["vehicles.edit"])

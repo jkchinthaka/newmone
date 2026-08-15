@@ -159,6 +159,7 @@ describe("Go-Live Control (UAT-028)", () => {
 
   it("creates sign-off with accepted risk when reason provided", async () => {
     const prisma = buildPrisma();
+    prisma.goLiveSignOff.findMany.mockResolvedValue([]);
     prisma.goLiveSignOff.create.mockResolvedValue({
       id: "s1",
       signOffRole: "IT_MANAGER",
