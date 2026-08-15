@@ -423,6 +423,27 @@ def test_no_duplicated_workflow_status_column() -> None:
     """Guard: workflow lifecycle must not invent persisted columns on owners."""
     from django.db import connection
 
+    from apps.core.persistence.backend import is_mongodb
+
+    if is_mongodb():
+        # Mongo has no SQL table description; assert via model meta instead.
+        from django.apps import apps
+
+        owner_labels = (
+            "scheduling.ChecklistTask",
+            "recording.ChecklistRecord",
+            "recording.ChecklistSubmission",
+            "reviews.SupervisorReview",
+            "recording.ChecklistCorrection",
+            "quality.QAReview",
+        )
+        banned = {"workflow_state", "operational_workflow", "lifecycle_state"}
+        for label in owner_labels:
+            model = apps.get_model(label)
+            field_names = {f.name.lower() for f in model._meta.get_fields()}
+            assert banned.isdisjoint(field_names)
+        return
+
     owner_tables = {
         "scheduling_checklisttask",
         "recording_checklistrecord",

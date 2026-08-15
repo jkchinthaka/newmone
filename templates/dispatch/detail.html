@@ -17,7 +17,22 @@
       <div>
         <dt>Vehicle</dt>
         <dd>
-          {{ record.vehicle_reference|default:"—" }}
+          {% if record.maintainpro_vehicle_id %}
+            <strong>{{ record.vehicle_registration_snapshot|default:record.vehicle_reference }}</strong>
+            {% if record.vehicle_make_snapshot or record.vehicle_model_snapshot %}
+              <span class="text-muted">
+                {{ record.vehicle_make_snapshot }} {{ record.vehicle_model_snapshot }}
+              </span>
+            {% endif %}
+            <span class="badge">MaintainPro</span>
+            {% if record.reference_verification_status %}
+              <span class="badge badge--{{ record.reference_verification_status|lower }}">
+                {{ record.reference_verification_status }}
+              </span>
+            {% endif %}
+          {% else %}
+            {{ record.vehicle_reference|default:"—" }}
+          {% endif %}
         </dd>
       </div>
       <div>

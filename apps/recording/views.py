@@ -498,7 +498,11 @@ def submit_confirm(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
             )
             return redirect("recording:record_detail", record_id=record.id)
         try:
-            submission = submit_checklist_record(actor=_actor(request), record_id=record.id)
+            submission = submit_checklist_record(
+                actor=_actor(request),
+                record_id=record.id,
+                idempotency_key=request.POST.get("idempotency_key") or "",
+            )
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect("recording:record_detail", record_id=record.id)

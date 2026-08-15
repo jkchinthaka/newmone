@@ -1,0 +1,22 @@
+{% if error %}
+  <li class="mp-selector__empty" role="option" aria-disabled="true">{{ error }}</li>
+{% elif not results %}
+  <li class="mp-selector__empty" role="option" aria-disabled="true">
+    {% if query %}No matching vehicles{% else %}Start typing to search{% endif %}
+  </li>
+{% else %}
+  {% for row in results %}
+    <li class="mp-selector__option"
+        role="option"
+        tabindex="-1"
+        id="mp-opt-{{ forloop.counter }}"
+        data-id="{{ row.id }}"
+        data-label="{{ row.label }}"
+        data-status="{{ row.status }}">
+      <span class="mp-selector__primary">{{ row.registrationNo|default:row.label }}</span>
+      <span class="mp-selector__secondary">
+        {% if row.make or row.vehicleModel %}{{ row.make }} {{ row.vehicleModel }} · {% endif %}{{ row.status }}
+      </span>
+    </li>
+  {% endfor %}
+{% endif %}

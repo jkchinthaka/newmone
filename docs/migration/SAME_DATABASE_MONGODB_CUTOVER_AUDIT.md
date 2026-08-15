@@ -13,11 +13,11 @@ Do not merge to `main`. PostgreSQL remains the application default on `main`.
 | --- | --- |
 | Host (documented) | `127.0.0.1` |
 | Port (documented) | `27018` |
-| **Logical database** | **`mgintginpro_prod`** |
+| **Logical database** | **`maintainpro_prod`** |
 | FG collection namespace | **`fg_` prefix required** |
 | Credentials | **Never in Git** — `MONGODB_URI` from server env only |
 
-FG must store collections in **`mgintginpro_prod`**. Do **not** create a separate FG logical database at cutover.
+FG must store collections in **`maintainpro_prod`**. Do **not** create a separate FG logical database at cutover.
 
 ---
 
@@ -25,7 +25,7 @@ FG must store collections in **`mgintginpro_prod`**. Do **not** create a separat
 
 | Field | Value |
 | --- | --- |
-| EXISTING_DATABASE_NAME | **`mgintginpro_prod`** (confirmed) |
+| EXISTING_DATABASE_NAME | **`maintainpro_prod`** (confirmed) |
 | EXISTING_COLLECTION_COUNT | **114** MaintainPro Prisma models (static; live inventory still required) |
 | PLANNED_FG_COLLECTION_COUNT | **231** with `fg_` namespace (includes M2M through tables) |
 | COLLECTION_COLLISIONS (static) | **0 exact** — see [COLLECTION_COLLISION_AUDIT.md](COLLECTION_COLLISION_AUDIT.md) |
@@ -39,7 +39,7 @@ FG must store collections in **`mgintginpro_prod`**. Do **not** create a separat
 
 ## Development / POC rules (mandatory)
 
-1. **Do not write** to `mgintginpro_prod` during development or POC.  
+1. **Do not write** to `maintainpro_prod` during development or POC.  
 2. Use **`config.settings.mongo_same_db_poc`** with isolated database e.g. `fg_same_db_poc`.  
 3. Static collision audit: `uv run python scripts/migration/collection_collision_audit.py`  
 4. Production cutover settings: **`config.settings.mongo_same_db`** (fail-closed; requires exact DB name).
@@ -77,8 +77,8 @@ See [MONGODB_COMPATIBILITY_MATRIX.md](MONGODB_COMPATIBILITY_MATRIX.md).
 
 ```text
 MONGODB_URI=<from vault — never commit>
-MONGODB_DATABASE=mgintginpro_prod
-MONGODB_PRODUCTION_TARGET_DATABASE=mgintginpro_prod
+MONGODB_DATABASE=maintainpro_prod
+MONGODB_PRODUCTION_TARGET_DATABASE=maintainpro_prod
 ```
 
 Isolated POC (example — no production writes):
@@ -87,7 +87,7 @@ Isolated POC (example — no production writes):
 DJANGO_SETTINGS_MODULE=config.settings.mongo_same_db_poc
 MONGODB_URI=mongodb://127.0.0.1:27027/?replicaSet=nelnaPocRs&directConnection=true&retryWrites=true&w=majority
 MONGODB_DATABASE=fg_same_db_poc
-MONGODB_PRODUCTION_TARGET_DATABASE=mgintginpro_prod
+MONGODB_PRODUCTION_TARGET_DATABASE=maintainpro_prod
 ```
 
 ---

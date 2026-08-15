@@ -13,7 +13,7 @@ from apps.organizations.models import Organization
 from apps.organizations.services import create_organization
 
 assert settings.MONGODB_DATABASE == "fg_same_db_poc"
-assert settings.MONGODB_DATABASE != "mgintginpro_prod"
+assert settings.MONGODB_DATABASE != "maintainpro_prod"
 
 org = Organization.objects.filter(code="POCSEED1").first()
 if org is None:

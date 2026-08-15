@@ -33,7 +33,11 @@ security = [
     "bandit==1.9.2",
     "pip-audit==2.10.0",
 ]
-# Optional — never required for default PostgreSQL CI on main.
+# Optional — required for mongo_same_db / mongo_same_db_poc settings modules.
+mongo = [
+    "django-mongodb-backend==5.2.3",
+]
+# Back-compat alias
 mongo-poc = [
     "django-mongodb-backend==5.2.3",
 ]

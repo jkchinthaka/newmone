@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
+from apps.core.idempotency import execute_idempotent
 from apps.core.persistence import (
     TransitionConflictError,
     atomic_fn,
@@ -136,6 +137,7 @@ def create_nonconformance(
     owner_id: uuid.UUID | None = None,
     containment: str = "",
     investigation: str = "",
+    idempotency_key: str = "",
 ) -> NonConformanceRecord:
     """Open a formal NCR. Never auto-invoked from FAIL/CCP evaluation."""
     user = _require_authenticated_actor(actor)
@@ -152,51 +154,64 @@ def create_nonconformance(
     if not normalized_title:
         raise ValidationError({"title": "Title cannot be blank."})
     desc = (description or summary or "").strip()
-    record = NonConformanceRecord(
+
+    def _create() -> NonConformanceRecord:
+        record = NonConformanceRecord(
+            organization=organization,
+            code=normalized_code,
+            title=normalized_title,
+            source=source or NonConformanceSource.MANUAL,
+            status=NonConformanceStatus.OPEN,
+            description=desc,
+            summary=desc,
+            batch_reference=(batch_reference or "").strip(),
+            checklist_task_id=checklist_task_id,
+            checklist_submission_id=checklist_submission_id,
+            quantity_reference=(quantity_reference or "").strip(),
+            owner_id=owner_id,
+            containment=(containment or "").strip(),
+            investigation=(investigation or "").strip(),
+            created_by=user,
+        )
+        try:
+            record.full_clean()
+            record.save()
+        except (ValidationError, IntegrityError) as exc:
+            raise _code_conflict(
+                exc, "A nonconformance with this code already exists in the organization."
+            ) from exc
+        _append_history(
+            organization_id=organization.id,
+            case_kind=QualityCaseHistoryKind.NONCONFORMANCE,
+            case_id=record.id,
+            event_type="CREATED",
+            actor=user,
+            to_status=record.status,
+            note=record.title,
+            metadata={"code": record.code, "source": record.source},
+        )
+        record_event(
+            event_type="NONCONFORMANCE_CREATED",
+            actor=user,
+            metadata={
+                "nonconformance_id": str(record.id),
+                "organization_id": str(organization.id),
+                "code": record.code,
+                "source": record.source,
+            },
+        )
+        return record
+
+    key = (idempotency_key or "").strip()
+    if not key:
+        return _create()
+    return execute_idempotent(
         organization=organization,
-        code=normalized_code,
-        title=normalized_title,
-        source=source or NonConformanceSource.MANUAL,
-        status=NonConformanceStatus.OPEN,
-        description=desc,
-        summary=desc,
-        batch_reference=(batch_reference or "").strip(),
-        checklist_task_id=checklist_task_id,
-        checklist_submission_id=checklist_submission_id,
-        quantity_reference=(quantity_reference or "").strip(),
-        owner_id=owner_id,
-        containment=(containment or "").strip(),
-        investigation=(investigation or "").strip(),
-        created_by=user,
+        scope="ncr.create",
+        key=key,
+        fn=_create,
+        reload=lambda ref: NonConformanceRecord.objects.filter(pk=ref).first(),
     )
-    try:
-        record.full_clean()
-        record.save()
-    except (ValidationError, IntegrityError) as exc:
-        raise _code_conflict(
-            exc, "A nonconformance with this code already exists in the organization."
-        ) from exc
-    _append_history(
-        organization_id=organization.id,
-        case_kind=QualityCaseHistoryKind.NONCONFORMANCE,
-        case_id=record.id,
-        event_type="CREATED",
-        actor=user,
-        to_status=record.status,
-        note=record.title,
-        metadata={"code": record.code, "source": record.source},
-    )
-    record_event(
-        event_type="NONCONFORMANCE_CREATED",
-        actor=user,
-        metadata={
-            "nonconformance_id": str(record.id),
-            "organization_id": str(organization.id),
-            "code": record.code,
-            "source": record.source,
-        },
-    )
-    return record
 
 
 @atomic_fn
@@ -305,6 +320,7 @@ def transition_nonconformance_status(
     nonconformance_id: uuid.UUID,
     to_status: str,
     note: str = "",
+    idempotency_key: str = "",
 ) -> NonConformanceRecord:
     """Lifecycle transition. Closing must use close_nonconformance."""
     user = _require_authenticated_actor(actor)
@@ -317,45 +333,63 @@ def transition_nonconformance_status(
             {"status": "Use close_nonconformance to close a nonconformance case."}
         )
     from_status = record.status
+    if from_status == to_status:
+        return record
     allowed = NCR_STATUS_TRANSITIONS.get(from_status, frozenset())
     if to_status not in allowed:
         raise ValidationError(
             {"status": f"Transition from {from_status} to {to_status} is not allowed."}
         )
-    now = timezone.now()
-    try:
-        cas_status_transition(
-            NonConformanceRecord,
-            pk=record.pk,
+
+    def _transition() -> NonConformanceRecord:
+        current = locked_get(NonConformanceRecord, pk=nonconformance_id)
+        if current is None:
+            raise ValidationError({"nonconformance": "Nonconformance not found."})
+        if current.status == to_status:
+            return current
+        now = timezone.now()
+        try:
+            cas_status_transition(
+                NonConformanceRecord,
+                pk=current.pk,
+                from_status=current.status,
+                to_status=to_status,
+                extra_updates={"updated_at": now},
+            )
+        except TransitionConflictError as exc:
+            raise ValidationError({"status": "Nonconformance was updated concurrently."}) from exc
+        current.refresh_from_db()
+        _append_history(
+            organization_id=current.organization_id,
+            case_kind=QualityCaseHistoryKind.NONCONFORMANCE,
+            case_id=current.id,
+            event_type="STATUS_CHANGED",
+            actor=user,
             from_status=from_status,
             to_status=to_status,
-            extra_updates={"updated_at": now},
+            note=note,
         )
-    except TransitionConflictError as exc:
-        raise ValidationError({"status": "Nonconformance was updated concurrently."}) from exc
-    record.refresh_from_db()
-    _append_history(
-        organization_id=record.organization_id,
-        case_kind=QualityCaseHistoryKind.NONCONFORMANCE,
-        case_id=record.id,
-        event_type="STATUS_CHANGED",
-        actor=user,
-        from_status=from_status,
-        to_status=to_status,
-        note=note,
+        record_event(
+            event_type="NONCONFORMANCE_STATUS_CHANGED",
+            actor=user,
+            metadata={
+                "nonconformance_id": str(current.id),
+                "organization_id": str(current.organization_id),
+                "code": current.code,
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+        )
+        return current
+
+    key = (idempotency_key or "").strip() or f"ncr:{nonconformance_id}:{from_status}->{to_status}"
+    return execute_idempotent(
+        organization=record.organization,
+        scope="ncr.transition",
+        key=key,
+        fn=_transition,
+        reload=lambda ref: NonConformanceRecord.objects.filter(pk=ref).first(),
     )
-    record_event(
-        event_type="NONCONFORMANCE_STATUS_CHANGED",
-        actor=user,
-        metadata={
-            "nonconformance_id": str(record.id),
-            "organization_id": str(record.organization_id),
-            "code": record.code,
-            "from_status": from_status,
-            "to_status": to_status,
-        },
-    )
-    return record
 
 
 @atomic_fn

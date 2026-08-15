@@ -26,6 +26,7 @@ from apps.core.persistence import (
     lock_queryset,
     require_conditional_update,
 )
+from apps.core.idempotency import execute_idempotent
 from apps.recording.models import (
     ChecklistRecord,
     ChecklistRecordStatus,
@@ -937,6 +938,7 @@ def submit_checklist_record(
     *,
     actor: User | None,
     record_id: uuid.UUID,
+    idempotency_key: str = "",
 ) -> ChecklistSubmission:
     """
     Submit a complete DRAFT record and create immutable Submission #1 snapshot.
@@ -946,7 +948,47 @@ def submit_checklist_record(
     ChecklistTask status remains PENDING until a later lifecycle unit.
     """
     user = _require_authenticated_actor(actor)
+    preview = (
+        ChecklistRecord.objects.select_related("organization", "checklist_task")
+        .filter(pk=record_id)
+        .first()
+    )
+    if preview is None:
+        raise ValidationError({"record": "Checklist record not found."})
+    if preview.status == ChecklistRecordStatus.SUBMITTED:
+        existing = (
+            ChecklistSubmission.objects.select_related(
+                "checklist_record",
+                "submitted_by",
+            )
+            .filter(checklist_record_id=preview.id, submission_number=1)
+            .first()
+        )
+        if existing is not None:
+            return existing
 
+    key = (idempotency_key or "").strip() or f"submit:{record_id}:1"
+
+    def _submit() -> ChecklistSubmission:
+        return _submit_checklist_record_body(user=user, record_id=record_id)
+
+    return execute_idempotent(
+        organization=preview.organization,
+        scope="recording.submit",
+        key=key,
+        fn=_submit,
+        reload=lambda ref: ChecklistSubmission.objects.filter(pk=ref).first(),
+        pending_fallback=lambda: ChecklistSubmission.objects.filter(
+            checklist_record_id=record_id, submission_number=1
+        ).first(),
+    )
+
+
+def _submit_checklist_record_body(
+    *,
+    user: User,
+    record_id: uuid.UUID,
+) -> ChecklistSubmission:
     try:
         with atomic():
             record = (

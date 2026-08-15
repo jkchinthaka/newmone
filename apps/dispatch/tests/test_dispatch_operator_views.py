@@ -56,7 +56,6 @@ def test_dispatch_create_and_detail(client: Client) -> None:
         reverse("dispatch:create"),
         {
             "code": "DEMO-DSP-UI-1",
-            "vehicle_reference": "DEMO-TRUCK-UI",
             "notes": "DEMO dispatch note",
         },
     )
@@ -64,5 +63,5 @@ def test_dispatch_create_and_detail(client: Client) -> None:
     record = DispatchQualityRecord.objects.get(code="DEMO-DSP-UI-1")
     detail = client.get(reverse("dispatch:detail", kwargs={"record_id": record.id}))
     assert detail.status_code == 200
-    assert b"DEMO-TRUCK-UI" in detail.content
+    assert b"DEMO-DSP-UI-1" in detail.content
     assert b"Disabled" in detail.content

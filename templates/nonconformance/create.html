@@ -9,8 +9,9 @@
         <p class="mgmt-page__lead">Manual case only. Organization {{ organization.code }}.</p>
       </div>
     </header>
-    <form method="post" class="mgmt-form">
+    <form method="post" class="mgmt-form" data-mp-idempotent-form>
       {% csrf_token %}
+      <input type="hidden" name="idempotency_key" value="">
       <div class="form-field">
         <label for="id_code">Code</label>
         <input class="form-input" id="id_code" name="code" required>
@@ -31,7 +32,26 @@
         <label for="id_containment">Containment</label>
         <textarea class="form-input" id="id_containment" name="containment" rows="3"></textarea>
       </div>
-      <button type="submit" class="btn btn--primary">Open case</button>
+      <button type="submit" class="btn btn--primary" data-mp-submit>Open case</button>
     </form>
   </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
 {% endblock %}

@@ -5,11 +5,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>
-      {% block title %}Nelna FG Digital Recording System{% endblock %}
+      {% block title %}MaintainPro — FG Digital Recording{% endblock %}
     </title>
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
     <script src="{% static 'js/app.js' %}" defer></script>
+    <script src="{% static 'js/maintainpro-selector.js' %}" defer></script>
     <meta name="csrf-token" content="{{ csrf_token }}">
   </head>
   <body class="app-shell {% block body_class %}{% endblock %}"
@@ -31,7 +32,7 @@
     </main>
     {% block site_footer %}
       <footer class="app-footer" role="contentinfo">
-        <p>Nelna FG Digital Recording · v{{ APP_VERSION }} · {{ ENVIRONMENT_BADGE }}</p>
+        <p>MaintainPro · FG Digital Recording · v{{ APP_VERSION }} · {{ ENVIRONMENT_BADGE }}</p>
       </footer>
     {% endblock %}
     {% block extra_js %}{% endblock %}

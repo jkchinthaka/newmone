@@ -66,14 +66,35 @@
       </div>
     {% else %}
       <form method="post"
-            action="{% url 'recording:submit_confirm' record_id=record.id %}">
+            action="{% url 'recording:submit_confirm' record_id=record.id %}"
+            data-mp-idempotent-form>
         {% csrf_token %}
+        <input type="hidden" name="idempotency_key" value="">
         <div class="mgmt-actions">
-          <button type="submit" class="btn btn--primary">Confirm Submit</button>
+          <button type="submit" class="btn btn--primary" data-mp-submit>Confirm Submit</button>
           <a class="btn btn--ghost"
              href="{% url 'recording:record_detail' record_id=record.id %}">Cancel</a>
         </div>
       </form>
     {% endif %}
   </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
 {% endblock %}

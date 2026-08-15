@@ -48,7 +48,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--production-database",
-        default="mgintginpro_prod",
+        default="maintainpro_prod",
         help="Documented company logical database name (no connection)",
     )
     parser.add_argument(
@@ -122,7 +122,7 @@ def main() -> int:
         "",
         "- MaintainPro owns existing PascalCase Prisma collections — **do not touch**.",
         "- FG owns only `fg_*` collections in the same logical database.",
-        "- No development/POC writes to `mgintginpro_prod` until full gate passage.",
+        "- No development/POC writes to `maintainpro_prod` until full gate passage.",
         "",
     ]
 

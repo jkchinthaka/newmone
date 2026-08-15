@@ -1,8 +1,8 @@
 # Mongo-Specific Test Strategy
 
 **Status:** In progress on `feature/mongodb-same-maintainpro-db`  
-**Isolated POC DB only:** `fg_same_db_poc` (NOT `mgintginpro_prod`)  
-**Production target (later):** `127.0.0.1:27018` / `mgintginpro_prod`
+**Isolated POC DB only:** `fg_same_db_poc` (NOT `maintainpro_prod`)  
+**Production target (later):** `127.0.0.1:27018` / `maintainpro_prod`
 
 PostgreSQL pytest results are **not** Mongo evidence.
 
@@ -14,7 +14,7 @@ PostgreSQL pytest results are **not** Mongo evidence.
 | --- | --- | --- | --- |
 | Default CI | `config.settings.test` | PostgreSQL | Production-safe baseline |
 | Mongo same-DB POC | `config.settings.mongo_same_db_poc` | `fg_same_db_poc` | Compatibility engineering |
-| Mongo cutover (future) | `config.settings.mongo_same_db` | `mgintginpro_prod` | Authorized cutover only |
+| Mongo cutover (future) | `config.settings.mongo_same_db` | `maintainpro_prod` | Authorized cutover only |
 
 ---
 

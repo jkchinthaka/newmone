@@ -93,6 +93,7 @@ def ncr_create(request: HttpRequest) -> HttpResponse:
                 description=request.POST.get("description") or "",
                 batch_reference=request.POST.get("batch_reference") or "",
                 containment=request.POST.get("containment") or "",
+                idempotency_key=request.POST.get("idempotency_key") or "",
             )
             messages.success(request, "Nonconformance opened.")
             return redirect("nonconformance:detail", ncr_id=record.id)

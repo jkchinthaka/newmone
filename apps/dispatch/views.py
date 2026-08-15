@@ -83,19 +83,41 @@ def dispatch_create(request: HttpRequest) -> HttpResponse:
                 actor=_actor(request),
                 organization=org,
                 code=request.POST.get("code") or "",
-                vehicle_reference=request.POST.get("vehicle_reference") or "",
+                maintainpro_vehicle_id=request.POST.get("maintainpro_vehicle_id") or "",
+                vehicle_reference=request.POST.get("vehicle_query")
+                or request.POST.get("vehicle_reference")
+                or "",
                 delivery_loading_reference=request.POST.get("delivery_loading_reference") or "",
                 batch_reference=request.POST.get("batch_reference") or "",
                 notes=request.POST.get("notes") or "",
+                idempotency_key=request.POST.get("idempotency_key")
+                or request.headers.get("Idempotency-Key")
+                or "",
             )
             messages.success(request, "Dispatch quality record opened.")
             return redirect("dispatch:detail", record_id=record.id)
         except (ValidationError, PermissionDenied) as exc:
             messages.error(request, str(exc))
+    from django.urls import reverse
+
     return render(
         request,
         "dispatch/create.html",
-        {"page_title": "Open dispatch quality record", "organization": org},
+        {
+            "page_title": "Open dispatch quality record",
+            "organization": org,
+            "vehicle_search_url": reverse("maintainpro_refs:vehicle-search"),
+            "form_values": {
+                "code": request.POST.get("code", ""),
+                "maintainpro_vehicle_id": request.POST.get("maintainpro_vehicle_id", ""),
+                "vehicle_query": request.POST.get("vehicle_query", ""),
+                "delivery_loading_reference": request.POST.get(
+                    "delivery_loading_reference", ""
+                ),
+                "batch_reference": request.POST.get("batch_reference", ""),
+                "notes": request.POST.get("notes", ""),
+            },
+        },
     )
 
 

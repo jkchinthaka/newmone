@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
+from apps.core.idempotency import execute_idempotent
 from apps.core.persistence import TransitionConflictError, atomic, create_immutable_unique
 from apps.quality.models import QAReview, QAReviewDecision
 from apps.recording.models import ChecklistRecordStatus, ChecklistSubmission
@@ -76,6 +77,7 @@ def create_qa_review(
     submission_id: uuid.UUID,
     decision: str,
     review_note: str | None = None,
+    idempotency_key: str = "",
 ) -> QAReview:
     """
     Record an immutable QAReview for the latest Supervisor-APPROVED submission.
@@ -91,7 +93,42 @@ def create_qa_review(
         raise ValidationError({"decision": "Invalid QA review decision."})
 
     note = normalize_qa_review_note(review_note)
+    peek = (
+        ChecklistSubmission.objects.select_related("checklist_record__organization")
+        .filter(pk=submission_id)
+        .first()
+    )
+    if peek is None:
+        raise ValidationError({"submission": "Checklist submission not found."})
+    key = (idempotency_key or "").strip() or f"qa:{submission_id}:{decision}"
 
+    def _create() -> QAReview:
+        return _create_qa_review_body(
+            user=user,
+            submission_id=submission_id,
+            decision=decision,
+            note=note,
+        )
+
+    return execute_idempotent(
+        organization=peek.checklist_record.organization,
+        scope="quality.qa_review",
+        key=key,
+        fn=_create,
+        reload=lambda ref: QAReview.objects.filter(pk=ref).first(),
+        pending_fallback=lambda: QAReview.objects.filter(
+            checklist_submission_id=submission_id, decision=decision
+        ).first(),
+    )
+
+
+def _create_qa_review_body(
+    *,
+    user: User,
+    submission_id: uuid.UUID,
+    decision: str,
+    note: str,
+) -> QAReview:
     with atomic():
         submission = (
             ChecklistSubmission.objects.select_related(

@@ -22,7 +22,7 @@ PostgreSQL remains authoritative on `main`. Isolated Mongo POC proves runtime fo
 ## Production target (unchanged)
 
 ```text
-Logical database: mgintginpro_prod
+Logical database: maintainpro_prod
 FG namespace: fg_
 Isolated POC: fg_same_db_poc @ compose.mongo-poc.yaml (127.0.0.1:27027 / nelnaPocRs)
 ```
@@ -91,5 +91,5 @@ select_for_update production: facade only
 
 - Do not use the OneDrive clone
 - Do not merge `main` automatically
-- Do not write to `mgintginpro_prod` / MaintainPro
+- Do not write to `maintainpro_prod` / MaintainPro
 - Watch for accidental zero-byte truncation of source files (restore from HEAD only after proving)

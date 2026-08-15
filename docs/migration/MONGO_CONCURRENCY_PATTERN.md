@@ -1,7 +1,7 @@
 # Mongo Concurrency Pattern — Approved Design
 
 **Status:** Design approved for spikes; mass rewrite not authorized until spikes pass.  
-**Production target DB:** `mgintginpro_prod` (FG collections `fg_*` only)  
+**Production target DB:** `maintainpro_prod` (FG collections `fg_*` only)  
 **Classification:** CUTOVER still BLOCKED until proven on isolated Mongo POC
 
 ---

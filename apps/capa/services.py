@@ -23,6 +23,7 @@ from apps.capa.models import (
     CorrectiveAction,
     CorrectiveActionStatus,
 )
+from apps.core.idempotency import execute_idempotent
 from apps.core.persistence import (
     TransitionConflictError,
     atomic_fn,
@@ -179,6 +180,7 @@ def transition_capa_status(
     capa_id: uuid.UUID,
     to_status: str,
     note: str = "",
+    idempotency_key: str = "",
 ) -> CorrectiveAction:
     user = _require_authenticated_actor(actor)
     action = locked_get(CorrectiveAction, pk=capa_id)
@@ -188,43 +190,68 @@ def transition_capa_status(
     if to_status == CorrectiveActionStatus.CLOSED:
         raise ValidationError({"status": "Use close_corrective_action to close a CAPA."})
     from_status = action.status
+    if from_status == to_status:
+        return action
     allowed = CAPA_STATUS_TRANSITIONS.get(from_status, frozenset())
     if to_status not in allowed:
         raise ValidationError(
             {"status": f"Transition from {from_status} to {to_status} is not allowed."}
         )
-    now = timezone.now()
-    try:
-        cas_status_transition(
-            CorrectiveAction,
-            pk=action.pk,
-            from_status=from_status,
+
+    def _transition() -> CorrectiveAction:
+        current = locked_get(CorrectiveAction, pk=capa_id)
+        if current is None:
+            raise ValidationError({"capa": "Corrective action not found."})
+        if current.status == to_status:
+            return current
+        if current.status != from_status:
+            live_allowed = CAPA_STATUS_TRANSITIONS.get(current.status, frozenset())
+            if to_status not in live_allowed:
+                raise ValidationError(
+                    {"status": f"Transition from {current.status} to {to_status} is not allowed."}
+                )
+        actual_from_status = current.status
+        now = timezone.now()
+        try:
+            cas_status_transition(
+                CorrectiveAction,
+                pk=current.pk,
+                from_status=current.status,
+                to_status=to_status,
+                extra_updates={"updated_at": now},
+            )
+        except TransitionConflictError as exc:
+            raise ValidationError({"status": "CAPA was updated concurrently."}) from exc
+        current.refresh_from_db()
+        _append_history(
+            capa=current,
+            event_type="STATUS_CHANGED",
+            actor=user,
+            from_status=actual_from_status,
             to_status=to_status,
-            extra_updates={"updated_at": now},
+            note=note,
         )
-    except TransitionConflictError as exc:
-        raise ValidationError({"status": "CAPA was updated concurrently."}) from exc
-    action.refresh_from_db()
-    _append_history(
-        capa=action,
-        event_type="STATUS_CHANGED",
-        actor=user,
-        from_status=from_status,
-        to_status=to_status,
-        note=note,
+        record_event(
+            event_type="CAPA_STATUS_CHANGED",
+            actor=user,
+            metadata={
+                "capa_id": str(current.id),
+                "organization_id": str(current.organization_id),
+                "code": current.code,
+                "from_status": actual_from_status,
+                "to_status": to_status,
+            },
+        )
+        return current
+
+    key = (idempotency_key or "").strip()
+    return execute_idempotent(
+        organization=action.organization,
+        scope="capa.transition",
+        key=key,
+        fn=_transition,
+        reload=lambda ref: CorrectiveAction.objects.filter(pk=ref).first(),
     )
-    record_event(
-        event_type="CAPA_STATUS_CHANGED",
-        actor=user,
-        metadata={
-            "capa_id": str(action.id),
-            "organization_id": str(action.organization_id),
-            "code": action.code,
-            "from_status": from_status,
-            "to_status": to_status,
-        },
-    )
-    return action
 
 
 @atomic_fn
