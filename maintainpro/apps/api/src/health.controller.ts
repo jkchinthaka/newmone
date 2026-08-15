@@ -3,6 +3,7 @@ import {
   Get,
   Res
 } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import type { Response } from "express";
 
 import { Public } from "./common/decorators/public.decorator";
@@ -16,6 +17,7 @@ export class HealthController {
   /**
    * Legacy public health (includes DB ping in body). Prefer /live and /ready.
    * Remains HTTP 200 for backward compatibility with older clients.
+   * Subject to default throttling (not a container health probe target).
    */
   @Public()
   @Get()
@@ -26,8 +28,12 @@ export class HealthController {
     };
   }
 
-  /** Liveness: process alive; no dependency checks. Always HTTP 200 while process responds. */
+  /**
+   * Liveness: process alive; no dependency checks.
+   * Exempt: Docker/Nginx container healthchecks probe this frequently.
+   */
   @Public()
+  @SkipThrottle()
   @Get("live")
   live() {
     return {
