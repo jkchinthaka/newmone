@@ -2,7 +2,12 @@
 
 **Date:** 2026-08-16  
 **Prior application SHA:** `15564954a6e6d357017e9068a731342ae2016e59`  
-**Prior docs audit SHA:** `873a85069f3421518201623c0686910a8f51f158`
+**Prior docs audit SHA:** `873a85069f3421518201623c0686910a8f51f158`  
+**Runtime integration commit:** `e0257d6ba90a38620a00ca603fafec8e61237711`
+
+Deployable identity is the branch tip:
+
+`origin/release/fg-erp-combined-candidate` (`git rev-parse` / `git ls-remote`).
 
 ## Blockers closed
 
@@ -33,10 +38,4 @@
 - API/Web typecheck + build PASS
 - Prisma validate PASS
 
-**PRE_PRODUCTION_GATE:** READY after deployable SHA commit on this branch.
-
-**Deployable release SHA:** `49dd4da6bb8dc3af632adbc1daeb10e0c53e5482`
-
-
-Runtime integration commit: `e0257d6ba90a38620a00ca603fafec8e61237711`
-
+**PRE_PRODUCTION_GATE:** READY
