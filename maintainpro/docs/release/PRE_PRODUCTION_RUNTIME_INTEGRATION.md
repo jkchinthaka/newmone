@@ -35,5 +35,8 @@
 
 **PRE_PRODUCTION_GATE:** READY after deployable SHA commit on this branch.
 
-**Deployable release SHA:** `e0257d6ba90a38620a00ca603fafec8e61237711`
+**Deployable release SHA:** `63a729209cab09ff5ad3f08a8a371499115a4cc5`
+
+
+Runtime integration commit: `e0257d6ba90a38620a00ca603fafec8e61237711`
 
