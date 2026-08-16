@@ -4,7 +4,7 @@
 | --- | --- |
 | Repository | https://github.com/jkchinthaka/newmone.git |
 | Branch | `release/fg-erp-combined-candidate` |
-| **Deployable release SHA** | `63a729209cab09ff5ad3f08a8a371499115a4cc5` |
+| **Deployable release SHA** | `49dd4da6bb8dc3af632adbc1daeb10e0c53e5482` |
 | Previous combined application SHA | `15564954a6e6d357017e9068a731342ae2016e59` |
 | Docs-only audit SHA | `873a85069f3421518201623c0686910a8f51f158` |
 | Build / audit date | 2026-08-16 |
