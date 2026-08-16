@@ -63,6 +63,9 @@ CACHES = build_caches(env, REDIS_URL, CACHE_KEY_PREFIX, REDIS_CACHE_TIMEOUT)
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
+# Unified MaintainPro + FG production logical database (fail-closed).
+REQUIRED_PRODUCTION_MONGODB_DATABASE = "maintainpro_prod"
+
 if FG_DATABASE_BACKEND == "mongodb":
     from config.mongo_contrib import MongoAdminConfig, MongoAuthConfig, MongoContentTypesConfig
     from config.settings.base import INSTALLED_APPS as BASE_INSTALLED_APPS
@@ -71,14 +74,20 @@ if FG_DATABASE_BACKEND == "mongodb":
     MONGODB_DATABASE = env("MONGODB_DATABASE")
     MONGODB_PRODUCTION_TARGET_DATABASE = env.str(
         "MONGODB_PRODUCTION_TARGET_DATABASE",
-        default="maintainpro_prod",
+        default=REQUIRED_PRODUCTION_MONGODB_DATABASE,
     )
     if MONGODB_DATABASE in {"admin", "config", "local"}:
         raise ImproperlyConfigured("Production Mongo database must not be a system database.")
-    if MONGODB_DATABASE != MONGODB_PRODUCTION_TARGET_DATABASE:
+    if MONGODB_PRODUCTION_TARGET_DATABASE != REQUIRED_PRODUCTION_MONGODB_DATABASE:
         raise ImproperlyConfigured(
-            "Production Mongo MONGODB_DATABASE must equal "
-            f"MONGODB_PRODUCTION_TARGET_DATABASE ({MONGODB_PRODUCTION_TARGET_DATABASE!r})."
+            "MONGODB_PRODUCTION_TARGET_DATABASE must be "
+            f"{REQUIRED_PRODUCTION_MONGODB_DATABASE!r} (got "
+            f"{MONGODB_PRODUCTION_TARGET_DATABASE!r}). Arbitrary database names are not allowed."
+        )
+    if MONGODB_DATABASE != REQUIRED_PRODUCTION_MONGODB_DATABASE:
+        raise ImproperlyConfigured(
+            "Production Mongo MONGODB_DATABASE must be "
+            f"{REQUIRED_PRODUCTION_MONGODB_DATABASE!r} (got {MONGODB_DATABASE!r})."
         )
 
     FG_COLLECTION_NAMESPACE_ENABLED = True
@@ -112,9 +121,18 @@ else:
     DATABASES = build_databases(env)
     POSTGRES_REQUIRED = True
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+# Secure-by-default TLS cookie/redirect policy. Temporary HTTP deployments must
+# set ALLOW_INSECURE_HTTP=true explicitly (same convention as MaintainPro web).
+ALLOW_INSECURE_HTTP = env.bool("ALLOW_INSECURE_HTTP", default=False)
+if ALLOW_INSECURE_HTTP:
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
+else:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True)
 SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)

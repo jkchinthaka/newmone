@@ -34,7 +34,7 @@ COPY apps ./apps
 COPY config ./config
 COPY manage.py ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-group development --no-group testing --no-group security
+    uv sync --frozen --no-dev --no-group development --no-group testing --no-group security --group mongo
 
 ############################
 # Stage 3: Python deps (test + quality tools)
