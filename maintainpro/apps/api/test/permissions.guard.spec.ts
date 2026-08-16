@@ -17,93 +17,205 @@ describe("PermissionsGuard", () => {
     } as unknown as ExecutionContext;
   };
 
+  const activeUser = (overrides?: {
+    roleName?: string;
+    permissions?: string[];
+    isActive?: boolean;
+    lockedUntil?: Date | null;
+  }) => ({
+    id: "u-1",
+    isActive: overrides?.isActive ?? true,
+    lockedUntil: overrides?.lockedUntil ?? null,
+    role: {
+      name: overrides?.roleName ?? "ADMIN",
+      permissions: (overrides?.permissions ?? []).map((key) => ({ key }))
+    }
+  });
+
   it("allows access when no permissions metadata exists", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(undefined)
     } as unknown as Reflector;
 
-    const prisma = {
-      user: {
-        findUnique: jest.fn()
-      }
-    } as any;
-
+    const prisma = { user: { findUnique: jest.fn() } } as any;
     const guard = new PermissionsGuard(reflector, prisma);
-    const context = buildContext({ sub: "u-1", role: "ADMIN" });
-
-    await expect(guard.canActivate(context)).resolves.toBe(true);
+    await expect(guard.canActivate(buildContext({ sub: "u-1", role: "ADMIN" }))).resolves.toBe(true);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  it("allows super admin even without explicit permission list", async () => {
+  it("allows SUPER_ADMIN from DB role even without permission list", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
     } as unknown as Reflector;
 
     const prisma = {
-      user: {
-        findUnique: jest.fn()
-      }
+      user: { findUnique: jest.fn().mockResolvedValue(activeUser({ roleName: "SUPER_ADMIN" })) }
     } as any;
 
     const guard = new PermissionsGuard(reflector, prisma);
-    const context = buildContext({ sub: "u-1", role: "SUPER_ADMIN" });
-
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).resolves.toBe(true);
   });
 
-  it("blocks when required permission is missing", async () => {
-    const reflector = {
-      getAllAndOverride: jest.fn().mockReturnValue(["audit.view"])
-    } as unknown as Reflector;
-
-    const prisma = {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({
-          role: {
-            permissions: [{ key: "vehicles.view" }]
-          }
-        })
-      }
-    } as any;
-
-    const guard = new PermissionsGuard(reflector, prisma);
-    const context = buildContext({ sub: "u-1", role: "ADMIN" });
-
-    await expect(guard.canActivate(context)).rejects.toThrow("Missing required permission");
-  });
-
-  it("uses token permissions if present", async () => {
+  it("does not trust JWT SUPER_ADMIN when DB role is not SUPER_ADMIN", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(["vehicles.edit"])
     } as unknown as Reflector;
 
     const prisma = {
       user: {
-        findUnique: jest.fn()
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ roleName: "VIEWER", permissions: ["vehicles.view"] })
+        )
       }
     } as any;
 
     const guard = new PermissionsGuard(reflector, prisma);
-    const context = buildContext({
-      sub: "u-1",
-      role: "ADMIN",
-      permissions: ["vehicles.view", "vehicles.edit"]
-    });
+    await expect(
+      guard.canActivate(buildContext({ sub: "u-1", role: "SUPER_ADMIN", permissions: ["*"] }))
+    ).rejects.toThrow("Missing required permission");
+  });
 
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  it("blocks when required permission is missing in DB", async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(["audit.view"])
+    } as unknown as Reflector;
+
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ permissions: ["vehicles.view"] })
+        )
+      }
+    } as any;
+
+    const guard = new PermissionsGuard(reflector, prisma);
+    await expect(guard.canActivate(buildContext({ sub: "u-1", role: "ADMIN" }))).rejects.toThrow(
+      "Missing required permission"
+    );
+  });
+
+  it("MP-006: ignores stale JWT permissions and uses DB", async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(["vehicles.edit"])
+    } as unknown as Reflector;
+
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ permissions: ["vehicles.view", "vehicles.edit"] })
+        )
+      }
+    } as any;
+
+    const guard = new PermissionsGuard(reflector, prisma);
+    await expect(
+      guard.canActivate(
+        buildContext({
+          sub: "u-1",
+          role: "ADMIN",
+          permissions: ["vehicles.view", "vehicles.edit", "audit.view"]
+        })
+      )
+    ).resolves.toBe(true);
+    expect(prisma.user.findUnique).toHaveBeenCalled();
+  });
+
+  it("MP-006: in production, missing DB user is fail-closed even with JWT permissions", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
+      } as unknown as Reflector;
+      const prisma = {
+        user: { findUnique: jest.fn().mockResolvedValue(null) }
+      } as any;
+      const guard = new PermissionsGuard(reflector, prisma);
+      await expect(
+        guard.canActivate(
+          buildContext({ sub: "u-missing", role: "ADMIN", permissions: ["vehicles.view"] })
+        )
+      ).rejects.toThrow("Authenticated user not found");
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
+  it("MP-006: test harness allows x-test-permissions when DB user is absent", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+    try {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
+      } as unknown as Reflector;
+      const prisma = {
+        user: { findUnique: jest.fn().mockResolvedValue(null) }
+      } as any;
+      const guard = new PermissionsGuard(reflector, prisma);
+      const context = {
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+        switchToHttp: () => ({
+          getRequest: () => ({
+            headers: { "x-test-permissions": "vehicles.view" },
+            user: { sub: "u-harness", role: "ADMIN", permissions: ["vehicles.view"] }
+          })
+        })
+      } as unknown as ExecutionContext;
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
+  it("MP-006: revoked DB permission denies on next request (no cache)", async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(["vehicles.edit"])
+    } as unknown as Reflector;
+
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(activeUser({ permissions: ["vehicles.view"] }))
+      }
+    } as any;
+
+    const guard = new PermissionsGuard(reflector, prisma);
+    await expect(
+      guard.canActivate(
+        buildContext({
+          sub: "u-revoked",
+          role: "ADMIN",
+          permissions: ["vehicles.view", "vehicles.edit"]
+        })
+      )
+    ).rejects.toThrow("Missing required permission");
+  });
+
+  it("MP-006: disabled users cannot authorize from cache/JWT", async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(["vehicles.view"])
+    } as unknown as Reflector;
+
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ isActive: false, permissions: ["vehicles.view"] })
+        )
+      }
+    } as any;
+
+    const guard = new PermissionsGuard(reflector, prisma);
+    await expect(guard.canActivate(buildContext({ sub: "u-1", role: "ADMIN" }))).rejects.toThrow(
+      "disabled"
+    );
   });
 
   it("requires operations scan permission for the phase 6 scan endpoint", async () => {
     const guard = new PermissionsGuard(new Reflector(), {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
-          role: {
-            permissions: [{ key: "vehicles.view" }]
-          }
-        })
+        findUnique: jest.fn().mockResolvedValue(activeUser({ permissions: ["vehicles.view"] }))
       }
     } as any);
 
@@ -121,11 +233,9 @@ describe("PermissionsGuard", () => {
   it("requires predictive insights permission for the field insights endpoint", async () => {
     const guard = new PermissionsGuard(new Reflector(), {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
-          role: {
-            permissions: [{ key: "operations.scan_lookup" }]
-          }
-        })
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ permissions: ["operations.scan_lookup"] })
+        )
       }
     } as any);
 
@@ -142,7 +252,11 @@ describe("PermissionsGuard", () => {
 
   it("accepts the legacy vehicles.operate permission for gate-out compatibility", async () => {
     const guard = new PermissionsGuard(new Reflector(), {
-      user: { findUnique: jest.fn() }
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ roleName: "MANAGER", permissions: ["vehicles.operate"] })
+        )
+      }
     } as any);
 
     const context = {
@@ -150,11 +264,7 @@ describe("PermissionsGuard", () => {
       getClass: () => VehiclesController,
       switchToHttp: () => ({
         getRequest: () => ({
-          user: {
-            sub: "u-1",
-            role: "MANAGER",
-            permissions: ["vehicles.operate"]
-          }
+          user: { sub: "u-1", role: "MANAGER", permissions: ["vehicles.operate"] }
         })
       })
     } as unknown as ExecutionContext;
@@ -164,7 +274,11 @@ describe("PermissionsGuard", () => {
 
   it("allows security officers with fine-grained gate permission", async () => {
     const guard = new PermissionsGuard(new Reflector(), {
-      user: { findUnique: jest.fn() }
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({ roleName: "SECURITY_OFFICER", permissions: ["gate.out.create"] })
+        )
+      }
     } as any);
 
     const context = {
@@ -172,11 +286,7 @@ describe("PermissionsGuard", () => {
       getClass: () => VehiclesController,
       switchToHttp: () => ({
         getRequest: () => ({
-          user: {
-            sub: "u-1",
-            role: "SECURITY_OFFICER",
-            permissions: ["gate.out.create"]
-          }
+          user: { sub: "u-1", role: "SECURITY_OFFICER", permissions: ["gate.out.create"] }
         })
       })
     } as unknown as ExecutionContext;

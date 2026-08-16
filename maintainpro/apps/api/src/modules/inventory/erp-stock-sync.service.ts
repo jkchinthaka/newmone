@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
+import type { StockBalanceSnapshot } from "./inventory-erp-adapter.service";
 import {
   buildDryRunResult,
   compareStockBalances,
@@ -13,8 +14,26 @@ import {
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
 
+export type ApplyStockSnapshotOptions = {
+  /**
+   * Normalized ERP balances from a prior dry-run in the same request flow.
+   * When provided, apply does not refetch ERP (avoids snapshot drift).
+   */
+  erpBalances?: StockBalanceSnapshot[];
+};
+
+export type ApplyAbsoluteStockBalancesOptions = {
+  /** Movement reference, e.g. `erp-stock-sync:<iso>` or `ERP-EXCEL:<importRunId>`. */
+  movementReference: string;
+  /** Optional note prefix stored on StockMovement.notes. */
+  notesPrefix?: string;
+};
+
 @Injectable()
 export class ErpStockSyncService {
+  /** In-process per-tenant apply mutex (same Node process only). */
+  private readonly applyLocks = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly bileetaInventoryErpAdapter: BileetaInventoryErpAdapter
@@ -70,120 +89,207 @@ export class ErpStockSyncService {
       status: "completed",
       comparison,
       applyEnabled,
-      message: "Stock sync dry-run completed without modifying MaintainPro inventory."
+      message: "Stock sync dry-run completed without modifying MaintainPro inventory.",
+      erpBalances: fetchResult.balances
     });
   }
 
-  async applyStockSnapshot(actor?: Actor): Promise<ErpStockSyncApplyResult> {
+  async applyStockSnapshot(
+    actor?: Actor,
+    options?: ApplyStockSnapshotOptions
+  ): Promise<ErpStockSyncApplyResult> {
+    const lockKey = `tenant:${actor?.tenantId ?? "none"}`;
+    return this.withApplyLock(lockKey, () => this.runApplyStockSnapshot(actor, options));
+  }
+
+  private async runApplyStockSnapshot(
+    actor?: Actor,
+    options?: ApplyStockSnapshotOptions
+  ): Promise<ErpStockSyncApplyResult> {
     const readiness = this.getReadiness();
+    const emptyFailure = (mode: string, status: ErpStockSyncApplyResult["status"], message: string) => ({
+      mode,
+      status,
+      appliedAt: new Date().toISOString(),
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      failedPartNumbers: [] as string[],
+      warnings: [] as string[],
+      message,
+      snapshotBalanceCount: 0
+    });
 
     if (!readiness.applyEnabled) {
-      return {
-        mode: readiness.mode,
-        status: "blocked",
-        appliedAt: new Date().toISOString(),
-        updatedCount: 0,
-        skippedCount: 0,
-        warnings: [],
-        message: "Local stock apply is disabled. Set ERP_STOCK_SYNC_APPLY_ENABLED=true."
-      };
+      return emptyFailure(
+        readiness.mode,
+        "blocked",
+        "Local stock apply is disabled. Set ERP_STOCK_SYNC_APPLY_ENABLED=true."
+      );
     }
 
-    const dryRun = await this.dryRunStockSync(actor);
-    if (dryRun.status !== "completed") {
-      return {
-        mode: dryRun.mode,
-        status: "blocked",
-        appliedAt: new Date().toISOString(),
-        updatedCount: 0,
-        skippedCount: 0,
-        warnings: dryRun.warnings,
-        message: dryRun.message
-      };
+    if (readiness.state === "disabled" || readiness.state === "not_configured" || readiness.state === "misconfigured") {
+      return emptyFailure(readiness.mode, "blocked", readiness.message);
     }
 
-    if (dryRun.summary.changedItems === 0) {
+    let mode = readiness.mode;
+    let erpBalances: StockBalanceSnapshot[];
+
+    if (options?.erpBalances && options.erpBalances.length > 0) {
+      // Preserve caller-supplied snapshot (dry-run → apply) — no ERP refetch.
+      erpBalances = options.erpBalances;
+    } else {
+      const fetchResult = await this.bileetaInventoryErpAdapter.fetchStockBalances();
+      if (!fetchResult.ok) {
+        return emptyFailure(fetchResult.mode, "blocked", fetchResult.message);
+      }
+      mode = fetchResult.mode;
+      erpBalances = fetchResult.balances;
+    }
+
+    const checkedAt = new Date().toISOString();
+    const result = await this.runApplyAbsoluteStockBalances(actor, erpBalances, {
+      movementReference: `erp-stock-sync:${checkedAt}`,
+      notesPrefix: "ERP stock sync apply"
+    });
+    return { ...result, mode };
+  }
+
+  /**
+   * Shared absolute stock apply engine used by Bileeta API sync and ERP Excel import.
+   * Sets MaintainPro qty = snapshot qty (never +=). Concurrent applies serialize per tenant.
+   */
+  async applyAbsoluteStockBalances(
+    actor: Actor | undefined,
+    erpBalances: StockBalanceSnapshot[],
+    options: ApplyAbsoluteStockBalancesOptions
+  ): Promise<ErpStockSyncApplyResult> {
+    const lockKey = `tenant:${actor?.tenantId ?? "none"}`;
+    return this.withApplyLock(lockKey, () =>
+      this.runApplyAbsoluteStockBalances(actor, erpBalances, options)
+    );
+  }
+
+  private async runApplyAbsoluteStockBalances(
+    actor: Actor | undefined,
+    erpBalances: StockBalanceSnapshot[],
+    options: ApplyAbsoluteStockBalancesOptions
+  ): Promise<ErpStockSyncApplyResult> {
+    const maintainProParts = await this.loadTenantParts(actor);
+    const comparison = compareStockBalances({
+      erpBalances,
+      maintainProParts
+    });
+    const checkedAt = new Date().toISOString();
+
+    if (comparison.summary.changedItems === 0) {
       return {
-        mode: dryRun.mode,
+        mode: "absolute-snapshot",
         status: "completed",
-        appliedAt: new Date().toISOString(),
+        appliedAt: checkedAt,
         updatedCount: 0,
         skippedCount: 0,
-        warnings: dryRun.warnings,
-        message: "No quantity changes detected; local inventory was not modified."
-      };
-    }
-
-    const comparison = await this.buildStockComparison(actor);
-    if (!comparison) {
-      return {
-        mode: dryRun.mode,
-        status: "blocked",
-        appliedAt: new Date().toISOString(),
-        updatedCount: 0,
-        skippedCount: 0,
-        warnings: dryRun.warnings,
-        message: "Could not rebuild ERP stock comparison for apply."
+        failedCount: 0,
+        failedPartNumbers: [],
+        warnings: comparison.warnings,
+        message: "No quantity changes detected; local inventory was not modified.",
+        snapshotBalanceCount: erpBalances.length
       };
     }
 
     const tenantId = this.resolveTenantId(actor);
+    const notesPrefix = options.notesPrefix ?? "ERP stock sync apply";
     let updatedCount = 0;
+    let skippedCount = 0;
+    const failedPartNumbers: string[] = [];
 
     for (const row of comparison.changedRows) {
-      const part = await this.prisma.sparePart.findFirst({
-        where: {
-          id: row.partId,
-          ...(tenantId !== undefined ? { tenantId } : {})
-        },
-        select: { id: true, quantityInStock: true }
-      });
+      try {
+        const part = await this.prisma.sparePart.findFirst({
+          where: {
+            id: row.partId,
+            ...(tenantId !== undefined ? { tenantId } : {})
+          },
+          select: { id: true, quantityInStock: true }
+        });
 
-      if (!part) {
-        continue;
+        if (!part) {
+          skippedCount += 1;
+          continue;
+        }
+
+        // Absolute ERP balance target (never += erpQuantity).
+        if (part.quantityInStock === row.erpQuantity) {
+          skippedCount += 1;
+          continue;
+        }
+
+        const priorQuantity = part.quantityInStock;
+        const delta = row.erpQuantity - priorQuantity;
+
+        await this.prisma.$transaction([
+          this.prisma.sparePart.update({
+            where: { id: part.id },
+            data: { quantityInStock: row.erpQuantity }
+          }),
+          this.prisma.stockMovement.create({
+            data: {
+              partId: part.id,
+              type: "ADJUSTMENT",
+              quantity: Math.abs(delta),
+              reference: options.movementReference,
+              notes: `${notesPrefix} (${row.partNumber}) prior=${priorQuantity} target=${row.erpQuantity} delta=${delta}`,
+              tenantId: tenantId ?? undefined,
+              actorUserId: actor?.sub ?? undefined
+            }
+          })
+        ]);
+
+        updatedCount += 1;
+      } catch {
+        failedPartNumbers.push(row.partNumber);
       }
-
-      await this.prisma.$transaction([
-        this.prisma.sparePart.update({
-          where: { id: part.id },
-          data: { quantityInStock: row.erpQuantity }
-        }),
-        this.prisma.stockMovement.create({
-          data: {
-            partId: part.id,
-            type: "ADJUSTMENT",
-            quantity: Math.abs(row.delta),
-            reference: "erp-stock-sync",
-            notes: `ERP stock sync apply (${row.partNumber})`
-          }
-        })
-      ]);
-
-      updatedCount += 1;
     }
 
+    const failedCount = failedPartNumbers.length;
+    const status = failedCount > 0 ? "partial" : "completed";
+    const message =
+      failedCount > 0
+        ? `Partial ERP stock apply: updated=${updatedCount}, skipped=${skippedCount}, failed=${failedCount}.`
+        : `Applied ${updatedCount} local stock adjustment(s) from ERP stock snapshot.`;
+
     return {
-      mode: dryRun.mode,
-      status: "completed",
+      mode: "absolute-snapshot",
+      status,
       appliedAt: new Date().toISOString(),
       updatedCount,
-      skippedCount: dryRun.summary.changedItems - updatedCount,
-      warnings: dryRun.warnings,
-      message: `Applied ${updatedCount} local stock adjustment(s) from ERP dry-run snapshot.`
+      skippedCount,
+      failedCount,
+      failedPartNumbers,
+      warnings: comparison.warnings,
+      message,
+      snapshotBalanceCount: erpBalances.length
     };
   }
 
-  private async buildStockComparison(actor?: Actor) {
-    const fetchResult = await this.bileetaInventoryErpAdapter.fetchStockBalances();
-    if (!fetchResult.ok) {
-      return null;
-    }
-
-    const maintainProParts = await this.loadTenantParts(actor);
-    return compareStockBalances({
-      erpBalances: fetchResult.balances,
-      maintainProParts
+  private async withApplyLock<T>(lockKey: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.applyLocks.get(lockKey) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
+    const tail = previous.then(() => gate);
+    this.applyLocks.set(lockKey, tail);
+
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+      if (this.applyLocks.get(lockKey) === tail) {
+        this.applyLocks.delete(lockKey);
+      }
+    }
   }
 
   private async loadTenantParts(actor?: Actor) {

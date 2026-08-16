@@ -36,7 +36,12 @@ check("QUEUE-003", /notification:/.test(src) && /jobId/.test(src), "jobId notifi
 const notifPath = path.join(root, "apps/api/src/modules/notifications/notifications.service.ts");
 if (existsSync(notifPath)) {
   const n = readText(notifPath);
-  check("QUEUE-004", /jobId:[\s\S]{0,80}notification:/.test(n), "notifications.service uses notification: jobId");
+  // Per-channel durable identity: notification:{notificationId}:{channel}
+  check(
+    "QUEUE-004",
+    /notification:\$\{payload\.notificationId\}/.test(n) && /jobId/.test(n),
+    "notifications.service uses notification:{id}[:channel] jobId"
+  );
 } else {
   check("QUEUE-004", true, "notifications.service optional check skipped");
 }

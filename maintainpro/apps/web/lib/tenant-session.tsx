@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { clearAuthSession } from "@/lib/auth-storage";
+import { clearAuthSession, clearStoredTokens } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export type TenantSessionState =
@@ -89,6 +89,11 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<TenantMembershipSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Cookie-session apps must not keep transitional localStorage JWTs around.
+  useEffect(() => {
+    clearStoredTokens();
+  }, []);
 
   const refresh = useCallback(async () => {
     setError(null);

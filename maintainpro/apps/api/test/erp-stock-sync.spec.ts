@@ -151,4 +151,216 @@ describe("Bileeta read-only stock sync", () => {
     expect(result.updatedCount).toBe(0);
     expect(prisma.sparePart.update).not.toHaveBeenCalled();
   });
+
+  it("MP-004: apply uses absolute ERP quantity and skips already-applied on retry", async () => {
+    const adapter = {
+      checkReadiness: () => ({
+        adapterId: "bileeta",
+        mode: "mock",
+        state: "configured",
+        readOnlySyncEnabled: true,
+        applyEnabled: true,
+        stockEndpointPresent: true,
+        baseUrlPresent: true,
+        credentialPresent: true,
+        message: "ready",
+        missingKeys: []
+      }),
+      fetchStockBalances: jest.fn().mockResolvedValue({
+        ok: true,
+        mode: "mock",
+        balances: [{ partSku: "BRG-001", quantityOnHand: 10, warehouseCode: "MAIN" }],
+        message: "ok"
+      })
+    } as unknown as BileetaInventoryErpAdapter;
+
+    const partState = { id: "part-1", quantityInStock: 1 };
+    const prisma = {
+      sparePart: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "part-1", partNumber: "BRG-001", name: "Bearing", quantityInStock: 1 }
+        ]),
+        findFirst: jest.fn().mockImplementation(async () => ({ ...partState })),
+        update: jest.fn().mockImplementation(async ({ data }: { data: { quantityInStock: number } }) => {
+          partState.quantityInStock = data.quantityInStock;
+          return partState;
+        })
+      },
+      stockMovement: { create: jest.fn().mockResolvedValue({ id: "mov-1" }) },
+      $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
+    } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
+
+    const service = new ErpStockSyncService(prisma, adapter);
+    const first = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
+    expect(first.status).toBe("completed");
+    expect(first.updatedCount).toBe(1);
+    expect(partState.quantityInStock).toBe(10);
+    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+
+    const second = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
+    expect(second.status).toBe("completed");
+    expect(second.updatedCount).toBe(0);
+    expect(second.skippedCount).toBeGreaterThanOrEqual(1);
+    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("MP-004: apply with supplied erpBalances does not refetch ERP", async () => {
+    const adapter = {
+      checkReadiness: () => ({
+        adapterId: "bileeta",
+        mode: "mock",
+        state: "configured",
+        readOnlySyncEnabled: true,
+        applyEnabled: true,
+        stockEndpointPresent: true,
+        baseUrlPresent: true,
+        credentialPresent: true,
+        message: "ready",
+        missingKeys: []
+      }),
+      fetchStockBalances: jest.fn()
+    } as unknown as BileetaInventoryErpAdapter;
+
+    const prisma = {
+      sparePart: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "part-1", partNumber: "BRG-001", name: "Bearing", quantityInStock: 1 }
+        ]),
+        findFirst: jest.fn().mockResolvedValue({ id: "part-1", quantityInStock: 1 }),
+        update: jest.fn().mockResolvedValue({ id: "part-1", quantityInStock: 7 })
+      },
+      stockMovement: { create: jest.fn().mockResolvedValue({ id: "mov-1" }) },
+      $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
+    } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
+
+    const service = new ErpStockSyncService(prisma, adapter);
+    const result = await service.applyStockSnapshot(
+      { sub: "user-1", tenantId: "tenant-1" },
+      { erpBalances: [{ partSku: "BRG-001", quantityOnHand: 7, warehouseCode: "MAIN" }] }
+    );
+
+    expect(result.status).toBe("completed");
+    expect(result.updatedCount).toBe(1);
+    expect(adapter.fetchStockBalances).not.toHaveBeenCalled();
+  });
+
+  it("MP-004: partial row failure returns status=partial and never claims full success", async () => {
+    const adapter = {
+      checkReadiness: () => ({
+        adapterId: "bileeta",
+        mode: "mock",
+        state: "configured",
+        readOnlySyncEnabled: true,
+        applyEnabled: true,
+        stockEndpointPresent: true,
+        baseUrlPresent: true,
+        credentialPresent: true,
+        message: "ready",
+        missingKeys: []
+      }),
+      fetchStockBalances: jest.fn().mockResolvedValue({
+        ok: true,
+        mode: "mock",
+        balances: [
+          { partSku: "BRG-001", quantityOnHand: 10, warehouseCode: "MAIN" },
+          { partSku: "OIL-001", quantityOnHand: 5, warehouseCode: "MAIN" }
+        ],
+        message: "ok"
+      })
+    } as unknown as BileetaInventoryErpAdapter;
+
+    let oilCalls = 0;
+    const prisma = {
+      sparePart: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "part-1", partNumber: "BRG-001", name: "Bearing", quantityInStock: 1 },
+          { id: "part-2", partNumber: "OIL-001", name: "Oil", quantityInStock: 1 }
+        ]),
+        findFirst: jest.fn().mockImplementation(async ({ where }: { where: { id: string } }) => {
+          if (where.id === "part-1") return { id: "part-1", quantityInStock: 1 };
+          return { id: "part-2", quantityInStock: 1 };
+        }),
+        update: jest.fn()
+      },
+      stockMovement: { create: jest.fn() },
+      $transaction: jest.fn(async () => {
+        oilCalls += 1;
+        if (oilCalls === 2) {
+          throw new Error("write conflict");
+        }
+        return [];
+      })
+    } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
+
+    const service = new ErpStockSyncService(prisma, adapter);
+    const result = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
+
+    expect(result.status).toBe("partial");
+    expect(result.failedCount).toBe(1);
+    expect(result.updatedCount).toBe(1);
+    expect(result.message).toMatch(/Partial/i);
+  });
+
+  it("MP-004: concurrent identical applies are serialized per tenant", async () => {
+    const adapter = {
+      checkReadiness: () => ({
+        adapterId: "bileeta",
+        mode: "mock",
+        state: "configured",
+        readOnlySyncEnabled: true,
+        applyEnabled: true,
+        stockEndpointPresent: true,
+        baseUrlPresent: true,
+        credentialPresent: true,
+        message: "ready",
+        missingKeys: []
+      }),
+      fetchStockBalances: jest.fn().mockResolvedValue({
+        ok: true,
+        mode: "mock",
+        balances: [{ partSku: "BRG-001", quantityOnHand: 10, warehouseCode: "MAIN" }],
+        message: "ok"
+      })
+    } as unknown as BileetaInventoryErpAdapter;
+
+    const partState = { id: "part-1", quantityInStock: 1 };
+    let inFlight = 0;
+    let maxInFlight = 0;
+
+    const prisma = {
+      sparePart: {
+        findMany: jest.fn().mockImplementation(async () => {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((r) => setTimeout(r, 20));
+          inFlight -= 1;
+          return [
+            {
+              id: "part-1",
+              partNumber: "BRG-001",
+              name: "Bearing",
+              quantityInStock: partState.quantityInStock
+            }
+          ];
+        }),
+        findFirst: jest.fn().mockImplementation(async () => ({ ...partState })),
+        update: jest.fn().mockImplementation(async ({ data }: { data: { quantityInStock: number } }) => {
+          partState.quantityInStock = data.quantityInStock;
+          return partState;
+        })
+      },
+      stockMovement: { create: jest.fn().mockResolvedValue({ id: "mov-1" }) },
+      $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
+    } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
+
+    const service = new ErpStockSyncService(prisma, adapter);
+    const [a, b] = await Promise.all([
+      service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" }),
+      service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" })
+    ]);
+
+    expect(maxInFlight).toBe(1);
+    expect(a.status === "completed" || b.status === "completed").toBe(true);
+    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+  });
 });

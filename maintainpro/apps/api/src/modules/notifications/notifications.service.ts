@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bull";
 import {
   AppSettingScope,
@@ -211,11 +211,8 @@ export class NotificationsService {
     const enriched = await this.enrichNotification(notification);
     this.notificationsGateway.emitMarkRead(notification.userId, enriched);
 
-    await this.enqueueSend({
-      channel: "IN_APP",
-      userId: notification.userId,
-      message: `Notification ${notification.id} marked as read`
-    });
+    // Gateway already pushed the read state. Do not enqueue an ad-hoc IN_APP
+    // job without a durable notificationId (ambiguous queue.add could double-dispatch).
 
     return enriched;
   }
@@ -233,12 +230,6 @@ export class NotificationsService {
     });
 
     this.notificationsGateway.emitMarkRead(userId, { markAllRead: true, updated: updated.count });
-
-    await this.enqueueSend({
-      channel: "IN_APP",
-      userId,
-      message: "All notifications marked as read"
-    });
 
     return { updated: updated.count };
   }
@@ -673,13 +664,20 @@ export class NotificationsService {
     metadata?: Prisma.JsonValue | null;
   }) {
     if (!this.queueHealthService.isQueueOperational("notification")) {
+      // Queue known-down: direct path is intentional. Prefer missing delivery over
+      // silent drop when Redis is unavailable; callers with notificationId still
+      // share one logical notification record.
       await this.dispatchWithoutQueue(payload);
       return;
     }
 
+    const jobId = payload.notificationId
+      ? `notification:${payload.notificationId}:${payload.channel}`
+      : undefined;
+
     try {
       await this.notificationsQueue.add("send", payload, {
-        jobId: payload.notificationId ? `notification:${payload.notificationId}` : undefined,
+        jobId,
         attempts: payload.channel === "IN_APP" ? 1 : 3,
         backoff: {
           type: "exponential",
@@ -690,11 +688,45 @@ export class NotificationsService {
       });
     } catch (err) {
       this.queueHealthService.markQueueProcessorFailure("notification", err);
+
+      // Bull rejects duplicate jobId — treat as already enqueued (no second send).
+      if (jobId && this.isDuplicateJobIdError(err)) {
+        this.logger.warn(
+          `[notifications] queue job already present for ${jobId}; skipping direct fallback`
+        );
+        return;
+      }
+
+      // Ambiguous failures (timeout/network after possible accept) must not
+      // direct-dispatch — that would double-send if the job was accepted.
+      if (this.isAmbiguousQueueEnqueueFailure(err)) {
+        this.logger.error(
+          `[notifications] ambiguous queue.add failure jobId=${jobId ?? "none"} channel=${payload.channel}; not falling back to direct dispatch`
+        );
+        throw new ServiceUnavailableException(
+          "Notification queue enqueue timed out or failed ambiguously. Delivery was not confirmed; retry later."
+        );
+      }
+
+      // Definitive enqueue failure (e.g. clear reject before accept): direct fallback.
       this.logger.warn(
         `[notifications] queue.add failed for channel=${payload.channel} user=${payload.userId}; falling back to direct dispatch`
       );
       await this.dispatchWithoutQueue(payload);
     }
+  }
+
+  private isDuplicateJobIdError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err ?? "");
+    return /job.*(exist|duplicate)|duplicate.*job|JobId/i.test(message);
+  }
+
+  private isAmbiguousQueueEnqueueFailure(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err ?? "");
+    const name = err instanceof Error ? err.name : "";
+    return /timeout|timed out|ETIMEDOUT|ECONNRESET|EPIPE|socket hang up|AbortError|TimeoutError|Command timed out/i.test(
+      `${name} ${message}`
+    );
   }
 
   private async dispatchWithoutQueue(payload: {

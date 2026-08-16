@@ -14,9 +14,16 @@ const STATUS_ERROR_CODES: Record<number, string> = {
   [HttpStatus.SERVICE_UNAVAILABLE]: "DEPENDENCY_UNAVAILABLE"
 };
 
+const GENERIC_INTERNAL_MESSAGE = "An unexpected error occurred";
+const DEPENDENCY_FAILURE_MESSAGE = "Database unavailable. Please retry later.";
+
 function mapErrorCode(status: number, message: string, dependencyFailure: boolean): string {
   if (dependencyFailure) {
     return "DATABASE_UNAVAILABLE";
+  }
+
+  if (status >= 500) {
+    return status === HttpStatus.SERVICE_UNAVAILABLE ? "DEPENDENCY_UNAVAILABLE" : "INTERNAL_ERROR";
   }
 
   const lower = message.toLowerCase();
@@ -30,7 +37,7 @@ function mapErrorCode(status: number, message: string, dependencyFailure: boolea
   if (lower.includes("duplicate")) return "DUPLICATE_RECORD";
   if (lower.includes("invalid state") || lower.includes("transition")) return "INVALID_STATE_TRANSITION";
 
-  return STATUS_ERROR_CODES[status] ?? (status >= 500 ? "INTERNAL_ERROR" : "HTTP_ERROR");
+  return STATUS_ERROR_CODES[status] ?? "HTTP_ERROR";
 }
 
 @Catch()
@@ -58,18 +65,36 @@ export class HttpExceptionFilter implements ExceptionFilter {
           (exception instanceof Error ? exception.message : null) ??
           "Internal server error";
 
-    const errorMessage = dependencyFailure
-      ? "Database unavailable. Please retry later."
-      : Array.isArray(rawMessage)
-        ? rawMessage.join(", ")
-        : rawMessage;
+    const internalMessage = Array.isArray(rawMessage) ? rawMessage.join(", ") : String(rawMessage ?? "");
 
-    const details =
-      typeof exceptionResponse === "object" && exceptionResponse !== null
-        ? ((exceptionResponse as { message?: string[] }).message ?? [])
-        : [];
+    let errorMessage: string;
+    let clientDetails: unknown[];
+
+    if (dependencyFailure) {
+      errorMessage = DEPENDENCY_FAILURE_MESSAGE;
+      clientDetails = ["MongoDB or Prisma dependency is not reachable."];
+    } else if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      // Never expose raw Error.message, stacks, paths, or internal HttpException 5xx text.
+      errorMessage = GENERIC_INTERNAL_MESSAGE;
+      clientDetails = [];
+    } else if (Array.isArray(rawMessage)) {
+      errorMessage = rawMessage.join(", ");
+      const details =
+        typeof exceptionResponse === "object" && exceptionResponse !== null
+          ? ((exceptionResponse as { message?: string[] }).message ?? [])
+          : [];
+      clientDetails = Array.isArray(details) ? details : [details];
+    } else {
+      errorMessage = internalMessage;
+      const details =
+        typeof exceptionResponse === "object" && exceptionResponse !== null
+          ? ((exceptionResponse as { message?: string[] }).message ?? [])
+          : [];
+      clientDetails = Array.isArray(details) ? details : [details];
+    }
 
     const fieldErrors =
+      status < HttpStatus.INTERNAL_SERVER_ERROR &&
       typeof exceptionResponse === "object" &&
       exceptionResponse !== null &&
       typeof (exceptionResponse as { fieldErrors?: unknown }).fieldErrors === "object"
@@ -88,12 +113,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       response.setHeader("X-Request-Id", requestId);
     }
 
-    const code = mapErrorCode(status, errorMessage, dependencyFailure);
+    const code = mapErrorCode(status, internalMessage, dependencyFailure);
     const requestSummary = `${request.method} ${request.url} -> ${status} code=${code} requestId=${requestId ?? "none"}`;
     const isSessionProbe = request.method === "GET" && request.url.startsWith("/api/auth/me");
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(requestSummary, exception instanceof Error ? exception.stack : "");
+      this.logger.error(
+        `${requestSummary} internal=${internalMessage}`,
+        exception instanceof Error ? exception.stack : ""
+      );
     } else if (isSessionProbe && (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN)) {
       this.logger.debug(`${requestSummary} ${errorMessage}`);
     } else {
@@ -105,11 +133,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: {
         code,
         message: errorMessage,
-        details: dependencyFailure
-          ? ["MongoDB or Prisma dependency is not reachable."]
-          : Array.isArray(details)
-            ? details
-            : [details],
+        details: clientDetails,
         ...(fieldErrors ? { fieldErrors } : {}),
         requestId: requestId ?? undefined
       }
