@@ -4,7 +4,8 @@
 | --- | --- |
 | Repository | https://github.com/jkchinthaka/newmone.git |
 | Branch | `release/fg-erp-combined-candidate` |
-| **Deployable release SHA** | `49dd4da6bb8dc3af632adbc1daeb10e0c53e5482` |
+| Deployable release SHA | branch `HEAD` (frozen at push time; verify with `git rev-parse origin/release/fg-erp-combined-candidate`) |
+| Runtime integration commit | `e0257d6ba90a38620a00ca603fafec8e61237711` |
 | Previous combined application SHA | `15564954a6e6d357017e9068a731342ae2016e59` |
 | Docs-only audit SHA | `873a85069f3421518201623c0686910a8f51f158` |
 | Build / audit date | 2026-08-16 |
@@ -30,13 +31,16 @@ ERP: `InventoryImportRun` / `InventoryImportRow`
 
 ## Immutable image tags
 
-`maintainpro-api:<deployable-sha>` · `maintainpro-web:<deployable-sha>` · `maintainpro-fg:<deployable-sha>`
+Tag images with the verified branch HEAD SHA (not `latest`):
+
+`maintainpro-api:<HEAD>` · `maintainpro-web:<HEAD>` · `maintainpro-fg:<HEAD>`
 
 ## Redis
 
 - MaintainPro Nest/BullMQ: `REDIS_URL` → DB 0  
 - FG Django/Celery: `FG_REDIS_URL` → `redis://redis:6379/1`
 
-## Full audit
+## Related docs
 
-See `PRE_PRODUCTION_READINESS_15564954.md` (historical) and update notes in the runtime integration commit message / this file after SHA freeze.
+- `PRE_PRODUCTION_READINESS_15564954.md` (prior audit at `15564954`)
+- `PRE_PRODUCTION_RUNTIME_INTEGRATION.md` (runtime blockers closed)
