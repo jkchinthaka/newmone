@@ -34,3 +34,6 @@
 - Prisma validate PASS
 
 **PRE_PRODUCTION_GATE:** READY after deployable SHA commit on this branch.
+
+**Deployable release SHA:** `e0257d6ba90a38620a00ca603fafec8e61237711`
+
