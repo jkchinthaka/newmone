@@ -81,6 +81,34 @@ describe("ERP Excel stock parser", () => {
     expect(insight.rows.find((row) => row.itemCode === "C")?.quantity).toBe(0);
   });
 
+  it("rejects renamed non-xlsx payloads that are not ZIP/OOXML", () => {
+    expect(() =>
+      assertXlsxUpload({
+        originalname: "stock.xlsx",
+        buffer: Buffer.from("MZ-not-a-zip"),
+        size: 12
+      })
+    ).toThrow(/UNSUPPORTED_WORKBOOK|INVALID_FILE/i);
+  });
+
+  it("stages multiple worksheets so sheet selection can rematerialize", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const stock = workbook.addWorksheet("Stock");
+    stock.addRow(["Item Code", "Qty"]);
+    stock.addRow(["09CS41", 10]);
+    const alt = workbook.addWorksheet("Alt");
+    alt.addRow(["Part Number", "Current Stock"]);
+    alt.addRow(["BRG-001", 4]);
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const insight = await inspectErpExcelWorkbook(buffer, { sheetName: "Alt" });
+    expect(insight.sheetNames).toEqual(expect.arrayContaining(["Stock", "Alt"]));
+    expect(insight.selectedSheet).toBe("Alt");
+    expect(insight.sheetsByName.Stock).toBeTruthy();
+    expect(insight.sheetsByName.Alt).toBeTruthy();
+    expect(insight.rows[0].itemCode).toBe("BRG-001");
+    expect(insight.rows[0].quantity).toBe(4);
+  });
+
   it("detects multiple warehouses", async () => {
     const buffer = await buildWorkbook([
       { "Item Code": "A", Qty: 1, Warehouse: "WH1" },

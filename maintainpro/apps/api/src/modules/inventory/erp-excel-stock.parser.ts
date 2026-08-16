@@ -91,7 +91,64 @@ export type ErpExcelWorkbookInsight = {
   warehousesDetected: string[];
   rows: ErpExcelParsedRow[];
   stagingRecords: ErpExcelStagingRecord[];
+  /** Per-sheet staging so validate can switch sheets without re-uploading the file. */
+  sheetsByName: Record<string, ErpExcelSheetStaging>;
 };
+
+export type ErpExcelSheetStaging = {
+  headers: string[];
+  headerRowIndex: number;
+  suggestedMapping: Partial<ErpExcelColumnMapping>;
+  mappingConfidence: "high" | "low";
+  warehousesDetected: string[];
+  records: ErpExcelStagingRecord[];
+};
+
+export const ERP_EXCEL_MULTI_STAGING_FORMAT = "erp-excel-multi-v1" as const;
+
+export type ErpExcelMultiSheetStaging = {
+  format: typeof ERP_EXCEL_MULTI_STAGING_FORMAT;
+  activeSheet: string;
+  sheets: Record<string, ErpExcelSheetStaging>;
+};
+
+export function isMultiSheetStaging(value: unknown): value is ErpExcelMultiSheetStaging {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    (value as ErpExcelMultiSheetStaging).format === ERP_EXCEL_MULTI_STAGING_FORMAT &&
+    typeof (value as ErpExcelMultiSheetStaging).sheets === "object"
+  );
+}
+
+export function resolveSheetStaging(
+  staging: unknown,
+  sheetName?: string | null
+): { sheetName: string; staging: ErpExcelSheetStaging | { records: ErpExcelStagingRecord[]; headers?: string[] } } {
+  if (isMultiSheetStaging(staging)) {
+    const preferred =
+      sheetName && staging.sheets[sheetName]
+        ? sheetName
+        : staging.activeSheet in staging.sheets
+          ? staging.activeSheet
+          : Object.keys(staging.sheets)[0];
+    if (!preferred || !staging.sheets[preferred]) {
+      const err = new Error("IMPORT_NOT_READY");
+      (err as Error & { code: string }).code = "IMPORT_NOT_READY";
+      throw err;
+    }
+    return { sheetName: preferred, staging: staging.sheets[preferred] };
+  }
+  if (Array.isArray(staging)) {
+    return {
+      sheetName: sheetName ?? "",
+      staging: { records: staging as ErpExcelStagingRecord[] }
+    };
+  }
+  const err = new Error("IMPORT_NOT_READY");
+  (err as Error & { code: string }).code = "IMPORT_NOT_READY";
+  throw err;
+}
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
@@ -147,13 +204,12 @@ export function assertXlsxUpload(file: {
   buffer?: Buffer;
 }) {
   const name = String(file.originalname ?? "").toLowerCase();
-  if (!name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".xlsm") || name.endsWith(".csv")) {
-    // .xls endsWith .xlsx is false; .xlsx check first
-  }
   if (!name.endsWith(".xlsx")) {
-    const err = new Error(name.endsWith(".xls") || name.endsWith(".xlsm") || name.endsWith(".csv")
-      ? "UNSUPPORTED_WORKBOOK"
-      : "INVALID_FILE");
+    const err = new Error(
+      name.endsWith(".xls") || name.endsWith(".xlsm") || name.endsWith(".csv")
+        ? "UNSUPPORTED_WORKBOOK"
+        : "INVALID_FILE"
+    );
     (err as Error & { code: string }).code = (err as Error).message;
     throw err;
   }
@@ -165,6 +221,19 @@ export function assertXlsxUpload(file: {
   if (!file.buffer || file.buffer.length === 0) {
     const err = new Error("INVALID_FILE");
     (err as Error & { code: string }).code = "INVALID_FILE";
+    throw err;
+  }
+  // OOXML .xlsx is a ZIP package (PK\x03\x04). Reject renamed non-zip payloads early.
+  const magic = file.buffer.subarray(0, 4);
+  const isZip =
+    magic.length >= 4 &&
+    magic[0] === 0x50 &&
+    magic[1] === 0x4b &&
+    (magic[2] === 0x03 || magic[2] === 0x05 || magic[2] === 0x07) &&
+    (magic[3] === 0x04 || magic[3] === 0x06 || magic[3] === 0x08);
+  if (!isZip) {
+    const err = new Error("UNSUPPORTED_WORKBOOK");
+    (err as Error & { code: string }).code = "UNSUPPORTED_WORKBOOK";
     throw err;
   }
 }
@@ -241,9 +310,50 @@ export async function inspectErpExcelWorkbook(
     throw err;
   }
 
+  const sheetsByName: Record<string, ErpExcelSheetStaging> = {};
+  for (const name of sheetNames) {
+    try {
+      sheetsByName[name] = inspectWorksheet(workbook, name, options?.mapping);
+    } catch {
+      // Skip sheets that lack detectable headers; keep workbook usable if others succeed.
+    }
+  }
+  if (Object.keys(sheetsByName).length === 0) {
+    const err = new Error("INVALID_HEADERS");
+    (err as Error & { code: string }).code = "INVALID_HEADERS";
+    throw err;
+  }
+
+  const usableNames = Object.keys(sheetsByName);
   const selectedSheet =
-    options?.sheetName && sheetNames.includes(options.sheetName) ? options.sheetName : sheetNames[0];
-  const worksheet = workbook.getWorksheet(selectedSheet);
+    options?.sheetName && sheetsByName[options.sheetName]
+      ? options.sheetName
+      : usableNames.includes(sheetNames[0])
+        ? sheetNames[0]
+        : usableNames[0];
+  const selected = sheetsByName[selectedSheet];
+  const materialized = buildRowsFromRecords(selected.records, selected.suggestedMapping);
+
+  return {
+    sheetNames,
+    selectedSheet,
+    headerRowIndex: selected.headerRowIndex,
+    headers: selected.headers,
+    suggestedMapping: selected.suggestedMapping,
+    mappingConfidence: selected.mappingConfidence,
+    warehousesDetected: selected.warehousesDetected,
+    rows: materialized.rows,
+    stagingRecords: selected.records,
+    sheetsByName
+  };
+}
+
+function inspectWorksheet(
+  workbook: ExcelJS.Workbook,
+  sheetName: string,
+  mappingOverride?: Partial<ErpExcelColumnMapping>
+): ErpExcelSheetStaging {
+  const worksheet = workbook.getWorksheet(sheetName);
   if (!worksheet) {
     const err = new Error("UNSUPPORTED_WORKBOOK");
     (err as Error & { code: string }).code = "UNSUPPORTED_WORKBOOK";
@@ -286,18 +396,18 @@ export async function inspectErpExcelWorkbook(
   }
 
   const suggestedMapping: Partial<ErpExcelColumnMapping> = {
-    itemCode: options?.mapping?.itemCode ?? suggestField(headers, ITEM_CODE_ALIASES),
-    quantity: options?.mapping?.quantity ?? suggestField(headers, QUANTITY_ALIASES),
-    itemName: options?.mapping?.itemName ?? suggestField(headers, NAME_ALIASES) ?? null,
-    warehouse: options?.mapping?.warehouse ?? suggestField(headers, WAREHOUSE_ALIASES) ?? null,
-    uom: options?.mapping?.uom ?? suggestField(headers, UOM_ALIASES) ?? null,
-    businessDate: options?.mapping?.businessDate ?? suggestField(headers, BUSINESS_DATE_ALIASES) ?? null
+    itemCode: mappingOverride?.itemCode ?? suggestField(headers, ITEM_CODE_ALIASES),
+    quantity: mappingOverride?.quantity ?? suggestField(headers, QUANTITY_ALIASES),
+    itemName: mappingOverride?.itemName ?? suggestField(headers, NAME_ALIASES) ?? null,
+    warehouse: mappingOverride?.warehouse ?? suggestField(headers, WAREHOUSE_ALIASES) ?? null,
+    uom: mappingOverride?.uom ?? suggestField(headers, UOM_ALIASES) ?? null,
+    businessDate: mappingOverride?.businessDate ?? suggestField(headers, BUSINESS_DATE_ALIASES) ?? null
   };
 
   const mappingConfidence =
     suggestedMapping.itemCode && suggestedMapping.quantity ? "high" : "low";
 
-  const stagingRecords: ErpExcelStagingRecord[] = [];
+  const records: ErpExcelStagingRecord[] = [];
   for (let rowNumber = headerRowIndex + 1; rowNumber <= (worksheet.rowCount || headerRowIndex); rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     const values: Record<string, unknown> = {};
@@ -309,21 +419,17 @@ export async function inspectErpExcelWorkbook(
       anyValue = true;
     });
     if (!anyValue) continue;
-    stagingRecords.push({ rowNumber, values });
+    records.push({ rowNumber, values });
   }
 
-  const materialized = buildRowsFromRecords(stagingRecords, suggestedMapping);
-
+  const materialized = buildRowsFromRecords(records, suggestedMapping);
   return {
-    sheetNames,
-    selectedSheet,
-    headerRowIndex,
     headers,
+    headerRowIndex,
     suggestedMapping,
     mappingConfidence,
     warehousesDetected: materialized.warehousesDetected,
-    rows: materialized.rows,
-    stagingRecords
+    records
   };
 }
 
