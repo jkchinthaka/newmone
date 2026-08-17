@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Access denied — FG Digital Recording{% endblock %}
+{% block content %}
+<section class="stack" style="max-width:40rem;margin:3rem auto;padding:1.5rem;">
+  <h1>Access denied</h1>
+  <p>
+    Your MaintainPro account is signed in, but it does not have permission to open
+    FG Digital Recording (<code>fg.access</code>).
+  </p>
+  <p>
+    Ask a MaintainPro administrator to grant the appropriate FG permissions.
+    Do not create a separate FG password — MaintainPro remains the only login.
+  </p>
+  <p><a href="/">Return to MaintainPro</a></p>
+</section>
+{% endblock %}

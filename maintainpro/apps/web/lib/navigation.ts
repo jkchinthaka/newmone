@@ -458,7 +458,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
     category: "operations",
     activeMatch: "startsWith",
-    description: "Finished goods digital recording module (Django)"
+    description: "Finished goods digital recording (MaintainPro single sign-on)",
+    requiredPermissions: ["fg.access"]
   },
   {
     id: "procurement",
@@ -857,6 +858,14 @@ export function isNavigationItemVisible(
     const granted = new Set(permissions.map((p) => p.trim()));
     const hasPermission = item.requiredPermissions.some((permission) => granted.has(permission));
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
+      return false;
+    }
+    // FG access is never implied by role alone — require fg.access explicitly.
+    if (
+      item.requiredPermissions.includes("fg.access") &&
+      !granted.has("fg.access") &&
+      normalized !== "SUPER_ADMIN"
+    ) {
       return false;
     }
   }

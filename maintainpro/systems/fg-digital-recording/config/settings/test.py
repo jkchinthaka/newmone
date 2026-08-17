@@ -40,4 +40,21 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
 
+# Keep legacy FG password-login tests working; SSO suite enables the gate explicitly.
+MAINTAINPRO_SSO_GATE_ENABLED = False
+FG_PASSWORD_LOGIN_ENABLED = True
+FG_SSO_SIGNING_SECRET = env.str(
+    "FG_SSO_SIGNING_SECRET",
+    default="test-only-fg-sso-signing-secret-min-32-chars!!",
+)
+MAINTAINPRO_JWT_ACCESS_SECRET = env.str(
+    "MAINTAINPRO_JWT_ACCESS_SECRET",
+    default="test-only-maintainpro-jwt-access-secret!!",
+)
+MAINTAINPRO_API_INTERNAL_URL = ""
+MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION = False
+SESSION_COOKIE_NAME = "fg_sessionid"
+SESSION_COOKIE_PATH = "/"
+CSRF_COOKIE_PATH = "/"
+
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

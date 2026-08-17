@@ -27,6 +27,7 @@ _SENSITIVE_METADATA_KEYS = frozenset(
         "cookies",
         "session",
         "sessionid",
+        "fg_sessionid",
         "session_key",
         "body",
         "request_body",

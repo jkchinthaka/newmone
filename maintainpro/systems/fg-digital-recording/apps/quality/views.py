@@ -7,6 +7,7 @@ import uuid
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 from django.core.paginator import Paginator
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -33,6 +34,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_qa_module(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.qa.view")
     if not actor_can_access_qa_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 
@@ -99,6 +101,7 @@ def submission_detail(request: HttpRequest, submission_id: uuid.UUID) -> HttpRes
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@require_fg_permission("fg.qa.disposition")
 def confirm_decision(request: HttpRequest, submission_id: uuid.UUID, decision: str) -> HttpResponse:
     _require_qa_module(request)
     if decision not in QAReviewDecision.values:

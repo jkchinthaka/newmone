@@ -30,6 +30,7 @@ from apps.recording.daily_selectors import (
     print_record_context,
 )
 from apps.recording.selectors import actor_can_access_recording_module
+from apps.access_control.maintainpro_bridge import assert_fg_permission
 from apps.recording.services import start_checklist_recording
 from apps.reports.csv_safe import render_csv
 from apps.scheduling.selectors import organizations_for_task_record
@@ -43,6 +44,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_recording(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.recording.view")
     if not actor_can_access_recording_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 

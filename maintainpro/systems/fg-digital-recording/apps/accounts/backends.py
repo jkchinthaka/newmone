@@ -51,6 +51,11 @@ class EmployeeCodeBackend(ModelBackend):
             User().set_password(password)
             return None
 
+        # MaintainPro-projected principals cannot authenticate with a local password.
+        if str(getattr(user, "maintainpro_user_id", "") or "").strip():
+            User().set_password(password)
+            return None
+
         # Always verify the password hash before branch decisions so locked and
         # inactive accounts perform comparable work to the bad-password path.
         password_ok = user.check_password(password)
@@ -70,3 +75,22 @@ class EmployeeCodeBackend(ModelBackend):
 
     def user_can_authenticate(self, user: User | AnonymousUser | None) -> bool:
         return bool(getattr(user, "is_active", True))
+
+
+class MaintainProSsoBackend(ModelBackend):
+    """Session backend for MaintainPro-projected principals (no password path)."""
+
+    def authenticate(
+        self,
+        request: HttpRequest | None = None,
+        **kwargs: Any,
+    ) -> User | None:
+        # Password authentication is intentionally unsupported.
+        return None
+
+    def get_user(self, user_id: Any) -> User | None:  # type: ignore[override]
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+        return user if self.user_can_authenticate(user) else None

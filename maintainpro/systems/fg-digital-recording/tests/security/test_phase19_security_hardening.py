@@ -97,7 +97,7 @@ def test_session_cookie_flags(client: Client, settings) -> None:
         reverse("accounts:login"),
         {"employee_code": code, "password": "Complex-Test-Pass-123!"},
     )
-    cookie = client.cookies.get("sessionid")
+    cookie = client.cookies.get(settings.SESSION_COOKIE_NAME)
     assert cookie is not None
     assert cookie["httponly"] is True or str(cookie.get("httponly", "")).lower() in {
         "true",

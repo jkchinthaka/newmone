@@ -89,7 +89,10 @@ def test_no_future_business_apps() -> None:
 
 def test_no_sqlite_engine_configured_in_settings_modules() -> None:
     settings_dir = ROOT / "config" / "settings"
+    packaging_only = {"release_build.py"}
     for path in settings_dir.glob("*.py"):
+        if path.name in packaging_only:
+            continue
         text = path.read_text(encoding="utf-8")
         assert "django.db.backends.sqlite3" not in text
         assert "backends.sqlite" not in text

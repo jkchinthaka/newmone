@@ -8,6 +8,7 @@ from typing import cast
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 from django.core.paginator import Paginator
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -31,6 +32,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_dispatch(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.dispatch.view")
     if not actor_can_access_dispatch_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 
@@ -72,6 +74,7 @@ def dispatch_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@require_fg_permission("fg.dispatch.manage")
 def dispatch_create(request: HttpRequest) -> HttpResponse:
     _require_dispatch(request)
     org = organizations_for_dispatch_view(_actor(request)).first()

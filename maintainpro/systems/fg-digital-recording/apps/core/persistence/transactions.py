@@ -99,7 +99,8 @@ def run_mongo_multi_doc_atomic(
                 raise
             time.sleep(delay)
             delay = min(delay * 2, 0.1)
-    assert last is not None
+    if last is None:
+        raise RuntimeError("mongo multi-doc atomic exhausted retries without an error")
     raise last
 
 

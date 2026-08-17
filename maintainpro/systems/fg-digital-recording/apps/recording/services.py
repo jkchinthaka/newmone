@@ -965,6 +965,12 @@ def submit_checklist_record(
             .first()
         )
         if existing is not None:
+            # Idempotent return must still enforce authorization (fail closed).
+            require_permission(
+                user,
+                RECORD_CHECKLIST_TASK,
+                scope=task_authorization_scope(preview.checklist_task),
+            )
             return existing
 
     key = (idempotency_key or "").strip() or f"submit:{record_id}:1"

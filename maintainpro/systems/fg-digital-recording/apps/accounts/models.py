@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.accounts.managers import UserManager
@@ -32,6 +33,15 @@ class User(AbstractUser):
     locked_until = models.DateTimeField(null=True, blank=True)
     last_failed_login_at = models.DateTimeField(null=True, blank=True)
     last_successful_login_at = models.DateTimeField(null=True, blank=True)
+    # MaintainPro identity projection — when set, local password login is forbidden.
+    maintainpro_user_id = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Immutable MaintainPro User ObjectId. Empty for legacy local-only accounts.",
+    )
+    maintainpro_email = models.EmailField(blank=True, default="")
+    maintainpro_synced_at = models.DateTimeField(null=True, blank=True)
 
     objects = UserManager()  # type: ignore[misc]
 
@@ -44,16 +54,34 @@ class User(AbstractUser):
                 condition=models.Q(employee_code__isnull=False),
                 name="acct_user_emp_code_ci_uniq",
             ),
+            models.UniqueConstraint(
+                fields=["maintainpro_user_id"],
+                condition=~models.Q(maintainpro_user_id=""),
+                name="acct_user_mp_id_uniq",
+            ),
         ]
         indexes = [
             models.Index(fields=["employee_code"], name="acct_user_emp_code_idx"),
             models.Index(fields=["locked_until"], name="acct_user_locked_until_idx"),
+            models.Index(fields=["maintainpro_user_id"], name="acct_user_mp_id_idx"),
         ]
 
     def save(self, *args: object, **kwargs: object) -> None:
         if self.employee_code is not None:
             normalized = normalize_employee_code(str(self.employee_code))
             self.employee_code = normalized or None
+        mp_id = str(self.maintainpro_user_id or "").strip()
+        self.maintainpro_user_id = mp_id
+        if mp_id:
+            clash = (
+                User.objects.filter(maintainpro_user_id=mp_id)
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if clash:
+                raise ValidationError(
+                    {"maintainpro_user_id": "MaintainPro user id must be unique."}
+                )
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

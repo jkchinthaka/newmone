@@ -46,6 +46,10 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-maintainpro-files}
+      FG_SSO_SIGNING_SECRET: ${FG_SSO_SIGNING_SECRET:-local-dev-only-fg-sso-signing-secret-32c}
+      FG_SSO_ISSUER: ${FG_SSO_ISSUER:-maintainpro}
+      FG_SSO_AUDIENCE: ${FG_SSO_AUDIENCE:-fg-digital-recording}
+      FG_SSO_TTL_SECONDS: ${FG_SSO_TTL_SECONDS:-60}
     depends_on:
       mongo:
         condition: service_healthy
@@ -258,6 +262,15 @@ services:
       MAINTAINPRO_REFERENCE_DATABASE: ${MAINTAINPRO_REFERENCE_DATABASE:-${PRIMARY_DATABASE_NAME:-maintainpro_prod}}
       EVIDENCE_STORAGE_ROOT: /app/media/evidence_private
       APP_VERSION: ${APP_VERSION:-1.2.0}
+      FG_SSO_SIGNING_SECRET: ${FG_SSO_SIGNING_SECRET:-local-dev-only-fg-sso-signing-secret-32c}
+      FG_SSO_ISSUER: ${FG_SSO_ISSUER:-maintainpro}
+      FG_SSO_AUDIENCE: ${FG_SSO_AUDIENCE:-fg-digital-recording}
+      FG_PASSWORD_LOGIN_ENABLED: "false"
+      MAINTAINPRO_SSO_GATE_ENABLED: "true"
+      MAINTAINPRO_JWT_ACCESS_SECRET: ${MAINTAINPRO_JWT_ACCESS_SECRET:-${JWT_ACCESS_SECRET:-local-dev-only-jwt-access-secret-min}}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-dev-only-jwt-access-secret-min}
+      MAINTAINPRO_API_INTERNAL_URL: ${MAINTAINPRO_API_INTERNAL_URL:-http://api:3000/api}
+      MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION: ${MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION:-true}
     depends_on:
       mongo:
         condition: service_healthy

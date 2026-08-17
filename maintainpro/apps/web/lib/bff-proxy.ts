@@ -11,7 +11,7 @@ import {
   resolveBffUpstreamApiBase,
   sanitizeRequestId
 } from "./bff-upstream-url";
-import { assertProductionRuntimeSecurity } from "./runtime-security-config";
+import { assertProductionRuntimeSecurity, cookiesShouldBeSecure } from "./runtime-security-config";
 import {
   ACCESS_COOKIE,
   CSRF_COOKIE,
@@ -86,6 +86,21 @@ function applySessionCookies(
     response.cookies.set(ACCESS_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(REFRESH_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(CSRF_COOKIE, "", { ...csrfCookieOptions(0), maxAge: 0 });
+    // End FG Django session when MaintainPro logs out (same-site Path=/fg cookie).
+    response.cookies.set("fg_sessionid", "", {
+      httpOnly: true,
+      secure: cookiesShouldBeSecure(),
+      sameSite: "lax",
+      path: "/fg",
+      maxAge: 0
+    });
+    response.cookies.set("fg_sso_assertion", "", {
+      httpOnly: true,
+      secure: cookiesShouldBeSecure(),
+      sameSite: "lax",
+      path: "/fg",
+      maxAge: 0
+    });
     return;
   }
 

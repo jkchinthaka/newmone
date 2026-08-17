@@ -7,6 +7,7 @@ from typing import cast
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
@@ -36,6 +37,7 @@ def _resolve_organization(request: HttpRequest) -> Organization:
 @login_required
 @require_http_methods(["GET"])
 def report_catalogue(request: HttpRequest) -> HttpResponse:
+    assert_fg_permission(request, "fg.reports.view")
     from apps.reports.selectors import organizations_for_reporting
 
     actor = cast(User, request.user)
@@ -75,6 +77,7 @@ def report_catalogue(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def report_run_create(request: HttpRequest) -> HttpResponse:
+    assert_fg_permission(request, "fg.reports.view")
     try:
         organization = _resolve_organization(request)
         export_format = (request.POST.get("export_format") or "CSV").upper()
@@ -145,6 +148,7 @@ def report_run_detail(request: HttpRequest, report_run_id: uuid.UUID) -> HttpRes
 
 @login_required
 @require_http_methods(["GET"])
+@require_fg_permission("fg.reports.export")
 def report_run_export_csv(request: HttpRequest, report_run_id: uuid.UUID) -> HttpResponse:
     try:
         run, csv_text = get_report_run_csv(
@@ -165,6 +169,7 @@ def report_run_export_csv(request: HttpRequest, report_run_id: uuid.UUID) -> Htt
 @login_required
 @require_http_methods(["GET"])
 def quality_trends(request: HttpRequest) -> HttpResponse:
+    assert_fg_permission(request, "fg.reports.view")
     from datetime import date
 
     from apps.reports.trends import measurement_series_stats, quality_trend_counts

@@ -64,6 +64,7 @@ from apps.recording.services import (
 from apps.recording.snapshot_display import render_snapshot_sections
 from apps.reviews.models import SupervisorReviewDecision
 from apps.scheduling.models import ChecklistTask
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 
 PAGE_SIZE = 25
 
@@ -73,6 +74,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_recording_module(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.recording.view")
     if not actor_can_access_recording_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 
@@ -200,6 +202,7 @@ def recordable_task_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_POST
+@require_fg_permission("fg.recording.create")
 def start_recording(request: HttpRequest, task_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
     try:
@@ -281,6 +284,8 @@ def _section_progress(sections: list[Any], completeness: dict[str, Any]) -> list
 @require_http_methods(["GET", "POST"])
 def record_detail(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
+    if request.method == "POST":
+        assert_fg_permission(request, "fg.recording.edit")
     # Online session recovery: remember resume URL for post-login return.
     request.session["recording_resume_url"] = request.path
     requested_counts: dict[uuid.UUID, int] | None = None
@@ -397,6 +402,7 @@ def record_detail(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
 
 @login_required
 @require_POST
+@require_fg_permission("fg.recording.edit")
 def record_autosave(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
     """
     Safe autosave — server authoritative; optimistic concurrency required.
@@ -472,6 +478,7 @@ def record_autosave(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@require_fg_permission("fg.recording.submit")
 def submit_confirm(request: HttpRequest, record_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
     try:
@@ -618,6 +625,7 @@ def returned_submission_detail(request: HttpRequest, submission_id: uuid.UUID) -
 
 @login_required
 @require_POST
+@require_fg_permission("fg.recording.edit")
 def start_correction(request: HttpRequest, submission_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
     try:
@@ -643,6 +651,8 @@ def start_correction(request: HttpRequest, submission_id: uuid.UUID) -> HttpResp
 @require_http_methods(["GET", "POST"])
 def correction_detail(request: HttpRequest, correction_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
+    if request.method == "POST":
+        assert_fg_permission(request, "fg.recording.edit")
     requested_counts: dict[uuid.UUID, int] | None = None
     if request.method == "POST":
         try:
@@ -750,6 +760,7 @@ def correction_detail(request: HttpRequest, correction_id: uuid.UUID) -> HttpRes
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@require_fg_permission("fg.recording.submit")
 def correction_resubmit_confirm(request: HttpRequest, correction_id: uuid.UUID) -> HttpResponse:
     _require_recording_module(request)
     try:

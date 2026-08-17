@@ -68,7 +68,18 @@ def _require_haccp_permission(
     Food-safety HACCP authority requires an explicit scoped role grant.
 
     Django ``is_staff`` / ``is_superuser`` alone is not food-safety authority.
+    MaintainPro projected principals must also hold the matching fg.haccp.* key.
     """
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        assert_user_fg_permission,
+        is_maintainpro_projected_user,
+    )
+
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission) or "fg.haccp.manage"
+        assert_user_fg_permission(user, fg_key)
+
     scope = _org_scope(organization_id)
     for assignment in _active_assignments_qs(user):
         if not _assignment_covers_scope(assignment, scope):

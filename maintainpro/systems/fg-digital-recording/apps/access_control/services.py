@@ -104,6 +104,21 @@ def user_has_permission(
         return False
     if not user.is_active:
         return False
+
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        is_maintainpro_projected_user,
+        user_has_fg_permission,
+    )
+
+    # MaintainPro projected principals: fg.* is mandatory (AND with scope below).
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission)
+        if fg_key and not user_has_fg_permission(user, fg_key):
+            return False
+        if user_has_fg_permission(user, "fg.admin"):
+            return True
+
     if user.is_superuser:
         return True
 
@@ -134,6 +149,23 @@ def user_has_permission_any_scope(user: User | None, permission: str) -> bool:
     """
     if user is None or not getattr(user, "is_authenticated", False) or not user.is_active:
         return False
+
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        is_maintainpro_projected_user,
+        user_has_fg_permission,
+    )
+
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission)
+        if fg_key and not user_has_fg_permission(user, fg_key):
+            return False
+        if fg_key and user_has_fg_permission(user, fg_key):
+            # Module entry via MaintainPro catalogue; object-level ops still need scope.
+            return True
+        if user_has_fg_permission(user, "fg.admin"):
+            return True
+
     if user.is_superuser:
         return True
     for assignment in _active_assignments_qs(user):

@@ -36,12 +36,15 @@ class ForcedPasswordChangeMiddleware:
         user = request.user
         if not getattr(user, "is_authenticated", False):
             return False
+        # MaintainPro-projected principals never use local password change.
+        if str(getattr(user, "maintainpro_user_id", "") or "").strip():
+            return False
         if not getattr(user, "must_change_password", False):
             return False
 
         path = request.path
         for prefix in self.EXEMPT_PREFIXES:
-            if path.startswith(prefix):
+            if path.startswith(prefix) or path.startswith("/fg" + prefix):
                 return False
 
         exempt_names = {
@@ -49,6 +52,8 @@ class ForcedPasswordChangeMiddleware:
             "accounts:logout",
             "accounts:force_password_change",
             "accounts:account_locked",
+            "sso_consume",
+            "sso_denied",
             "core:health-live",
             "core:health-ready",
         }
@@ -61,13 +66,17 @@ class ForcedPasswordChangeMiddleware:
             pass
 
         # Fallback path matching if reverse fails or admin paths.
-        if path.startswith("/accounts/login"):
+        if path.startswith("/accounts/login") or path.startswith("/fg/accounts/login"):
             return False
-        if path.startswith("/accounts/logout"):
+        if path.startswith("/accounts/logout") or path.startswith("/fg/accounts/logout"):
             return False
-        if path.startswith("/accounts/force-change-password"):
+        if path.startswith("/accounts/force-change-password") or path.startswith(
+            "/fg/accounts/force-change-password"
+        ):
             return False
-        if path.startswith("/accounts/locked"):
+        if path.startswith("/accounts/locked") or path.startswith("/fg/accounts/locked"):
+            return False
+        if "/sso/" in path:
             return False
 
         return True

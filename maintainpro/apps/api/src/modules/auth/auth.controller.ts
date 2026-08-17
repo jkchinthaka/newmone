@@ -23,6 +23,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
 import { AUTH_LOGOUT_SUCCESS_HTTP_STATUS } from "./auth-logout-status.contract";
 import { AuthService } from "./auth.service";
+import { FgSsoService } from "./fg-sso.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -38,7 +39,10 @@ export class AuthController {
   private static readonly CSRF_COOKIE = "maintainpro_csrf";
   private static readonly CSRF_HEADER = "x-csrf-token";
 
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(FgSsoService) private readonly fgSsoService: FgSsoService
+  ) {}
 
   @Public()
   @Post("register")
@@ -150,6 +154,54 @@ export class AuthController {
   @Get("me")
   me(@Req() req: { user: { sub: string; tenantId?: string | null } }) {
     return this.authService.me(req.user.sub, req.user.tenantId ?? null);
+  }
+
+  /**
+   * Mint a short-lived signed FG SSO assertion for the authenticated MaintainPro user.
+   * Requires live fg.access (enforced in FgSsoService). Never returns passwords.
+   */
+  @ApiBearerAuth()
+  @SelfService()
+  @SkipTenantContext()
+  @UseGuards(JwtAuthGuard)
+  @Post("fg-sso/exchange")
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  async exchangeFgSso(@Req() req: { user: { sub: string } }) {
+    const result = await this.fgSsoService.exchangeForUser(req.user.sub);
+    return {
+      data: {
+        assertion: result.assertion,
+        expiresIn: result.expiresIn,
+        jti: result.jti,
+        fingerprint: this.fgSsoService.assertionFingerprint(result.assertion)
+      },
+      message: "FG SSO assertion issued"
+    };
+  }
+
+  /** Optional Nest-side verification (FG normally verifies locally with shared secret). */
+  @ApiBearerAuth()
+  @SelfService()
+  @SkipTenantContext()
+  @UseGuards(JwtAuthGuard)
+  @Post("fg-sso/verify")
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  async verifyFgSso(@Body() body: { assertion?: string }) {
+    const assertion = typeof body?.assertion === "string" ? body.assertion.trim() : "";
+    if (!assertion) {
+      throw new BadRequestException("assertion is required");
+    }
+    const claims = await this.fgSsoService.verifyAssertion(assertion);
+    return {
+      data: {
+        sub: claims.sub,
+        email: claims.email,
+        permissions: claims.permissions,
+        jti: claims.jti,
+        exp: claims.exp
+      },
+      message: "FG SSO assertion valid"
+    };
   }
 
   @Public()
