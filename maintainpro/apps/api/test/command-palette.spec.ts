@@ -97,4 +97,18 @@ describe("command palette helpers", () => {
       expect(commands.map((item) => item.id)).toEqual(navItems.map((item) => item.id));
     }
   });
+
+  it("includes FG Digital Records when fg.access is granted", () => {
+    const without = getCommandPaletteItems("ADMIN");
+    expect(without.some((item) => item.href === "/fg")).toBe(false);
+
+    const withFg = getCommandPaletteItems("ADMIN", { permissions: ["fg.access"] });
+    expect(withFg.some((item) => item.href === "/fg")).toBe(true);
+  });
+
+  it("adds a work-order search jump for typed queries", () => {
+    const commands = getCommandPaletteItems("TECHNICIAN");
+    const matches = filterCommandPaletteItems(commands, "WO-1042");
+    expect(matches.some((item) => item.href === "/work-orders?q=WO-1042")).toBe(true);
+  });
 });

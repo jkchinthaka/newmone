@@ -9,17 +9,19 @@ import { DashboardSection } from "./dashboard-section";
 
 type DashboardQuickLinksProps = {
   roleName: string | null;
+  permissions?: readonly string[];
   title?: string;
   description?: string;
 };
 
 export function DashboardQuickLinks({
   roleName,
+  permissions,
   title = "Quick links",
   description = "Open modules available to your role."
 }: DashboardQuickLinksProps) {
   const normalizedRole = normalizeDashboardRole(roleName);
-  const links = getVisibleNavigationItems(normalizedRole).filter(
+  const links = getVisibleNavigationItems(normalizedRole, { permissions }).filter(
     (item) => item.href !== "/dashboard" && !item.legacy
   );
 

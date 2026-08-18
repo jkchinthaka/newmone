@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { withTenantScope } from "@/lib/tenant-query";
 
 type VehicleRow = {
   id: string;
@@ -34,12 +35,15 @@ export function FleetGatePanel() {
   const [submitting, setSubmitting] = useState<"out" | "in" | null>(null);
 
   const vehiclesQuery = useQuery({
-    queryKey: ["fleet-gate", "vehicles"],
+    queryKey: withTenantScope(["fleet-gate", "vehicles"]),
     queryFn: async () => {
       const response = await apiClient.get<{ data: VehicleRow[] }>("/vehicles", { params: { limit: 100 } });
       const rows = response.data?.data;
       return Array.isArray(rows) ? rows : [];
-    }
+    },
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.error ? false : 15_000)
   });
 
   const filtered = useMemo(() => {

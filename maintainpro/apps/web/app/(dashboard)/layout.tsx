@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -22,6 +22,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
+  useEffect(() => {
+    if (state === "SESSION_EXPIRED") {
+      router.replace("/login?reason=session_expired");
+    }
+  }, [router, state]);
+
   if (state === "INITIALIZING" || state === "RECOVERING") {
     return (
       <div
@@ -35,8 +41,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   if (state === "SESSION_EXPIRED") {
-    router.replace("/login?reason=session_expired");
-    return null;
+    return (
+      <div
+        className="grid min-h-screen place-items-center bg-slate-100 text-sm text-slate-600"
+        role="status"
+        aria-live="polite"
+      >
+        Session expired. Redirecting to sign in...
+      </div>
+    );
   }
 
   if (state === "NO_MEMBERSHIP" || state === "ACCESS_DENIED" || state === "ERROR") {
@@ -86,7 +99,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-left text-sm hover:border-slate-400"
-                  onClick={() => void selectTenant(membership.tenantId)}
+                  onClick={() => void selectTenant(membership.tenantId).catch(() => undefined)}
                 >
                   <span className="font-medium text-slate-900">
                     {membership.tenantName ?? membership.tenantId}

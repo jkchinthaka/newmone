@@ -172,6 +172,26 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/farm/attendance",
   "/farm/finance",
   "/farm/traceability",
+  "/qa",
+  "/delivery-readiness",
+  "/go-live",
+  "/erp",
+  "/post-go-live",
+  "/operations/exceptions",
+  "/operations/sla",
+  "/operations/budget",
+  "/operations/mappings",
+  "/procurement/matching",
+  "/procurement/recommendations",
+  "/procurement/vendors",
+  "/assets/health",
+  "/maintenance/forecast",
+  "/vehicles/health",
+  "/vehicles/costs",
+  "/inventory/warranty",
+  "/reports/maintenance-exceptions",
+  "/reports/fraud-control",
+  "/reports/management-intelligence",
   LEGACY_FMS_HOME_PATH
 ]);
 
@@ -1072,9 +1092,13 @@ export type MobileBottomNavItem = {
   action?: "search";
 };
 
-export function getMobileBottomNavItems(roleName: string | null | undefined): MobileBottomNavItem[] {
-  const visible = getVisibleNavigationItems(roleName);
+export function getMobileBottomNavItems(
+  roleName: string | null | undefined,
+  options?: { permissions?: readonly string[] }
+): MobileBottomNavItem[] {
+  const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
   const hasWorkOrders = visible.some((item) => item.id === "work-orders" || item.id === "my-tasks");
+  const hasFg = visible.some((item) => item.id === "fg-digital-recording");
   const hasSettings = visible.some((item) => item.id === "settings");
 
   const homeHref = visible.find((item) => item.id === "action-center")?.href ?? "/action-center";
@@ -1087,6 +1111,8 @@ export function getMobileBottomNavItems(roleName: string | null | undefined): Mo
 
   if (hasWorkOrders) {
     items.push({ id: "create", label: "Jobs", href: tasksHref, icon: "ClipboardList" });
+  } else if (hasFg) {
+    items.push({ id: "fg-records", label: "Records", href: "/fg", icon: "FileCheck2" });
   }
 
   items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });

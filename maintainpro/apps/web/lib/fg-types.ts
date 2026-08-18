@@ -22,7 +22,7 @@ export type FgKpis = {
 export type FgFormCard = {
   code: string;
   title: string;
-  multiplicity: "one_per_day" | "one_per_day_per_room" | string;
+  multiplicity: "one_per_day" | "one_per_day_per_room" | "independent_occurrence" | string;
   requiresRoom?: boolean;
   vehicleLookup?: boolean;
   todayRecord: FgRecordSummary | null;

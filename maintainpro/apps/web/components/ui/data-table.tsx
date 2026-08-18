@@ -170,12 +170,20 @@ export function DataTable<T>({
                   </th>
                 ) : null}
                 {columns.map((column) => (
-                  <th key={column.id} scope="col" className={`px-3 py-3 ${column.headerClassName ?? ""}`.trim()}>
+                  <th
+                    key={column.id}
+                    aria-sort={
+                      column.sortable && onSortChange
+                        ? toSortAriaSort(sortKey === column.id, sortDirection)
+                        : undefined
+                    }
+                    scope="col"
+                    className={`px-3 py-3 ${column.headerClassName ?? ""}`.trim()}
+                  >
                     {column.sortable && onSortChange ? (
                       <button
                         type="button"
                         aria-label={`Sort by ${typeof column.header === "string" ? column.header : column.id}`}
-                        aria-sort={toSortAriaSort(sortKey === column.id, sortDirection)}
                         onClick={() => onSortChange(column.id)}
                         className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                       >
@@ -204,20 +212,21 @@ export function DataTable<T>({
               ) : (
                 rows.map((row) => {
                   const rowLabel = onRowClick && getRowLabel ? getRowLabel(row) : undefined;
+                  const rowIsKeyboardTarget = Boolean(onRowClick) && !hasActions;
 
                   return (
                   <tr
                     key={getRowId(row)}
                     aria-label={rowLabel}
-                    className={`align-top hover:bg-slate-50/70 ${rowClassName?.(row) ?? ""}`.trim()}
-                    tabIndex={onRowClick ? 0 : undefined}
+                    className={`align-top hover:bg-slate-50/70 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
+                    tabIndex={rowIsKeyboardTarget ? 0 : undefined}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     onKeyDown={
-                      onRowClick
+                      rowIsKeyboardTarget
                         ? (event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              onRowClick(row);
+                              onRowClick?.(row);
                             }
                           }
                         : undefined
@@ -262,18 +271,6 @@ export function DataTable<T>({
                   aria-label={rowLabel}
                   className={`space-y-3 overflow-visible p-4 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  onKeyDown={
-                    onRowClick
-                      ? (event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            onRowClick(row);
-                          }
-                        }
-                      : undefined
-                  }
-                  role={onRowClick ? "button" : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
                 >
                   {renderLeadingCell ? (
                     <div className="flex min-h-11 items-center" onClick={(event) => event.stopPropagation()}>

@@ -1,3 +1,4 @@
+import { controlledFormMultiplicity, formUsesIndependentOccurrences } from "./fg-occurrence";
 import type { FgApiError, FgEnvelope, FgFormCard, FgKpis } from "./fg-types";
 
 export const FG_KPI_CARDS: Array<{ key: keyof FgKpis; label: string }> = [
@@ -36,23 +37,22 @@ export function mapDashboardKpis(raw: Partial<FgKpis> | null | undefined): FgKpi
 }
 
 export function controlledFormOpenAction(form: Pick<FgFormCard, "code" | "multiplicity" | "statusLabel">): {
-  kind: "openToday";
+  kind: "openToday" | "newOccurrence";
   label: string;
   secondaryLabel: string;
 } {
-  const started = form.statusLabel !== "NOT STARTED";
-  if (form.code === "NMS/PPU/CL/24") {
+  if (formUsesIndependentOccurrences(form.code)) {
     return {
-      kind: "openToday",
-      label: started ? "Open today's record" : "Open today's record",
-      secondaryLabel: "One record/day"
+      kind: "newOccurrence",
+      label: form.code === "NMS/PPU/CL/30" ? "New inspection record" : "New dispatch record",
+      secondaryLabel: "Independent records / day — occurrence token"
     };
   }
-  if (form.code === "NMS/PPU/CL/18") {
+  if (form.code === "NMS/PPU/CL/24") {
     return { kind: "openToday", label: "Open today's record", secondaryLabel: "One record/day" };
   }
-  if (form.code === "NMS/PPU/CL/30") {
-    return { kind: "openToday", label: "Open today's inspection", secondaryLabel: "One record/day" };
+  if (controlledFormMultiplicity(form.code) === "one_per_day_per_room") {
+    return { kind: "openToday", label: "Open today's record", secondaryLabel: "One record/day per room" };
   }
   return { kind: "openToday", label: "Open today's record", secondaryLabel: "Controlled daily record" };
 }

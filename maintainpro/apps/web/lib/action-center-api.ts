@@ -42,16 +42,18 @@ export type FetchActionCenterOptions = {
   variant: ActionCenterVariant;
   roleName: string | null;
   userId: string | null;
+  permissions?: readonly string[];
 };
 
 export async function fetchActionCenterSnapshot(
   options: FetchActionCenterOptions
 ): Promise<ActionCenterSnapshot> {
-  const { variant, roleName, userId } = options;
+  const { variant, roleName, userId, permissions } = options;
 
   const snapshot: ActionCenterSnapshot = {
     variant,
     roleName,
+    permissions,
     connections: {
       workOrders: false,
       inventory: false,

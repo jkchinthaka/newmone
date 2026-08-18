@@ -11,6 +11,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
 import { fetchFgDashboard, openFgRecord } from "@/lib/fg-api";
 import { FG_KPI_CARDS, controlledFormOpenAction, mapDashboardKpis } from "@/lib/fg-mappers";
+import { consumeOccurrenceIntent, formUsesIndependentOccurrences, getOrCreateOccurrenceToken, controlledFormMultiplicity } from "@/lib/fg-occurrence";
 import type { FgDashboard, FgFormCard } from "@/lib/fg-types";
 
 export default function FgDashboardPage() {
@@ -19,6 +20,7 @@ export default function FgDashboardPage() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string>("");
+  const [roomByForm, setRoomByForm] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setLoading(true);
@@ -41,13 +43,32 @@ export default function FgDashboardPage() {
 
   async function openForm(form: FgFormCard) {
     if (opening) return;
-    setOpening(form.code);
-    const result = await openFgRecord(form.code, data?.date || new Date().toISOString().slice(0, 10));
-    setOpening("");
-    if (result.error || !result.data?.record.id) {
-      setError(result.error?.message || "Unable to open today's record.");
+    const needsRoom =
+      form.requiresRoom ||
+      form.multiplicity === "one_per_day_per_room" ||
+      controlledFormMultiplicity(form.code) === "one_per_day_per_room";
+    const room = needsRoom ? roomByForm[form.code] || "" : "";
+    if (needsRoom && !room) {
+      setError("Select a cold room before opening this record.");
       return;
     }
+    setOpening(form.code);
+    const recordDate = data?.date || new Date().toISOString().slice(0, 10);
+    const independent = formUsesIndependentOccurrences(form.code);
+    const occurrenceToken = independent ? getOrCreateOccurrenceToken(form.code, recordDate) : undefined;
+    const result = await openFgRecord(form.code, recordDate, {
+      occurrenceToken,
+      ...(room ? { room } : {})
+    });
+    if (result.error || !result.data?.record.id) {
+      setOpening("");
+      setError(result.error?.message || "Unable to open the controlled record.");
+      return;
+    }
+    if (independent) {
+      consumeOccurrenceIntent(form.code, recordDate);
+    }
+    setOpening("");
     router.push(`/fg/records/${result.data.record.id}` as Route);
   }
 
@@ -75,6 +96,12 @@ export default function FgDashboardPage() {
           <section className="grid gap-4 lg:grid-cols-2">
             {data.forms.map((form) => {
               const action = controlledFormOpenAction(form);
+              const needsRoom =
+                form.requiresRoom ||
+                form.multiplicity === "one_per_day_per_room" ||
+                controlledFormMultiplicity(form.code) === "one_per_day_per_room";
+              const rooms = data.coldRooms ?? [];
+              const roomReady = !needsRoom || Boolean(roomByForm[form.code]);
               return (
                 <article key={form.code} className="rounded-xl border border-slate-200 bg-white p-5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{form.code}</p>
@@ -83,16 +110,54 @@ export default function FgDashboardPage() {
                   <div className="mt-3">
                     <FgStatusBadge label={form.statusLabel} />
                   </div>
+                  {needsRoom ? (
+                    <div className="mt-4">
+                      <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor={`fg-room-${form.code}`}>
+                        Cold room
+                      </label>
+                      <select
+                        id={`fg-room-${form.code}`}
+                        className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                        value={roomByForm[form.code] ?? ""}
+                        onChange={(event) =>
+                          setRoomByForm((current) => ({ ...current, [form.code]: event.target.value }))
+                        }
+                      >
+                        <option value="">Select room</option>
+                        {rooms.map((room) => (
+                          <option key={room} value={room}>
+                            {room}
+                          </option>
+                        ))}
+                      </select>
+                      {rooms.length === 0 ? (
+                        <p className="mt-1 text-xs text-amber-700">No cold rooms are configured for this date.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
                       className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={Boolean(opening)}
+                      disabled={Boolean(opening) || (needsRoom && !roomReady)}
                       onClick={() => void openForm(form)}
                     >
                       {opening === form.code ? "Opening…" : action.label}
                     </button>
-                    {form.todayRecord ? (
+                    {formUsesIndependentOccurrences(form.code)
+                      ? data.todayRecords
+                          .filter((row) => row.formCode === form.code)
+                          .slice(0, 3)
+                          .map((row) => (
+                            <Link
+                              key={row.id}
+                              href={`/fg/records/${row.id}` as Route}
+                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700"
+                            >
+                              Open {row.statusLabel.toLowerCase()}
+                            </Link>
+                          ))
+                      : form.todayRecord ? (
                       <Link
                         href={`/fg/records/${form.todayRecord.id}` as Route}
                         className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700"

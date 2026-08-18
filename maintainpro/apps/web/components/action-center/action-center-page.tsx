@@ -24,12 +24,13 @@ export function ActionCenterPage() {
   const readOnly = actionCenterIsReadOnly(variant);
 
   const query = useQuery({
-    queryKey: ["action-center", user.id, roleName],
+    queryKey: ["action-center", user.id, roleName, user.tenantId],
     queryFn: () =>
       fetchActionCenterSnapshot({
         variant,
         roleName,
-        userId: user.id
+        userId: user.id,
+        permissions: user.permissions
       }),
     refetchInterval: 60_000
   });

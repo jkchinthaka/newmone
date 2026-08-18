@@ -23,8 +23,10 @@ export default function FgQueueWorkspace({ mode }: { mode: Mode }) {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState("");
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback((options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError("");
     const list = mode === "review" ? fetchFgReviews() : fetchFgQaQueue();
     void list
@@ -35,11 +37,35 @@ export default function FgQueueWorkspace({ mode }: { mode: Mode }) {
         }
         setRows(result.data?.submissions ?? []);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!options?.silent) {
+          setLoading(false);
+        }
+      });
   }, [mode]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        load({ silent: true });
+      }
+    };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        load({ silent: true });
+      }
+    }, 30_000);
+    return () => {
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(poll);
+    };
   }, [load]);
 
   useEffect(() => {

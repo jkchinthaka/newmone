@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { FG_SSO_ASSERTION_COOKIE } from "@/lib/fg-config";
+import { isFgBffSessionPath, normalizeFgBffPath } from "@/lib/fg-bff-path";
 import { resolveBffUpstreamApiBase } from "@/lib/bff-upstream-url";
 import { readSessionCookies } from "@/lib/session-cookies";
 
@@ -148,8 +149,8 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
     return jsonError("UNAUTHENTICATED", "Sign in to MaintainPro to use FG Digital Records.", 401, requestId);
   }
 
-  const { path = [] } = context.params;
-  const isSession = path[0] === "session" && path.length === 1;
+  const path = normalizeFgBffPath(context.params.path);
+  const isSession = isFgBffSessionPath(path);
 
   try {
     resolveFgUpstream();
@@ -175,7 +176,6 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
     }
   }
 
-  const djangoPath = isSession ? ["session"] : path;
   let upstream: Response;
   try {
     if (isSession) {
@@ -191,7 +191,7 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
         cache: "no-store"
       });
     } else {
-      upstream = await proxyDjango(request, djangoPath, extraCookie);
+      upstream = await proxyDjango(request, path, extraCookie);
       if (upstream.status === 401 && extraCookie) {
         const sessionUrl = `${resolveFgUpstream()}/api/v1/session`;
         const boot = await fetch(sessionUrl, {
@@ -205,7 +205,7 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
           cache: "no-store"
         });
         if (boot.ok) {
-          upstream = await proxyDjango(request, djangoPath, extraCookie);
+          upstream = await proxyDjango(request, path, extraCookie);
         }
       }
     }

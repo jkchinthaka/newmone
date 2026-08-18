@@ -73,11 +73,22 @@ export async function fetchFgDashboard(date?: string) {
   return fgRequest<import("./fg-types").FgDashboard>(`dashboard${query}`);
 }
 
-export async function openFgRecord(formCode: string, date: string, room?: string) {
+export async function openFgRecord(
+  formCode: string,
+  date: string,
+  options?: { room?: string; occurrenceToken?: string }
+) {
   await ensureFgSession();
+  const room = options?.room || "";
+  const occurrenceToken = options?.occurrenceToken || "";
   return fgRequest<{ record: import("./fg-types").FgRecordSummary }>("records/open", {
     method: "POST",
-    body: JSON.stringify({ formCode, date, room: room || "" })
+    body: JSON.stringify({
+      formCode,
+      date,
+      room,
+      ...(occurrenceToken ? { occurrenceToken, occurrence_token: occurrenceToken } : {})
+    })
   });
 }
 

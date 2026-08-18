@@ -61,8 +61,50 @@ export function navigationItemToCommand(item: NavigationItem): CommandPaletteIte
   };
 }
 
-export function getCommandPaletteItems(roleName: string | null | undefined): CommandPaletteItem[] {
-  return getVisibleNavigationItems(roleName).map(navigationItemToCommand);
+export function getCommandPaletteItems(
+  roleName: string | null | undefined,
+  options?: { permissions?: readonly string[] }
+): CommandPaletteItem[] {
+  return getVisibleNavigationItems(roleName, { permissions: options?.permissions }).map(
+    navigationItemToCommand
+  );
+}
+
+export function buildEntityJumpCommands(
+  query: string,
+  items: readonly CommandPaletteItem[]
+): CommandPaletteItem[] {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    return [];
+  }
+
+  const hrefs = new Set(items.map((item) => item.href.split("?")[0]));
+  const extras: CommandPaletteItem[] = [];
+
+  if (hrefs.has("/work-orders") && /^(wo[-/\s]?\d|\d{3,})/i.test(trimmed)) {
+    extras.push({
+      id: `entity-work-orders-${trimmed.toLowerCase()}`,
+      label: `Search work orders for “${trimmed}”`,
+      description: "Open the work order queue with this search",
+      href: `/work-orders?q=${encodeURIComponent(trimmed)}`,
+      category: "Search",
+      keywords: ["work order", "wo", "search"]
+    });
+  }
+
+  if (hrefs.has("/fg") && /fg|cl\s*\d|nms|digital record/i.test(trimmed)) {
+    extras.push({
+      id: `entity-fg-${trimmed.toLowerCase()}`,
+      label: "Open FG Digital Records",
+      description: "Controlled production records, review, and QA",
+      href: "/fg",
+      category: "Search",
+      keywords: ["fg", "checklist", "records"]
+    });
+  }
+
+  return extras;
 }
 
 export function filterCommandPaletteItems(
@@ -70,12 +112,13 @@ export function filterCommandPaletteItems(
   query: string
 ): CommandPaletteItem[] {
   const trimmed = query.trim().toLowerCase();
+  const jumps = buildEntityJumpCommands(query, items);
 
   if (!trimmed) {
     return [...items];
   }
 
-  return items.filter((item) => {
+  const matched = items.filter((item) => {
     if (item.label.toLowerCase().includes(trimmed)) {
       return true;
     }
@@ -90,6 +133,9 @@ export function filterCommandPaletteItems(
 
     return item.keywords.some((keyword) => keyword.includes(trimmed));
   });
+
+  const matchedIds = new Set(matched.map((item) => item.id));
+  return [...jumps.filter((item) => !matchedIds.has(item.id)), ...matched];
 }
 
 export function usesLegacyHomeAsDashboard(items: readonly CommandPaletteItem[]): boolean {

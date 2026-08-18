@@ -10,6 +10,7 @@ import {
   Bell,
   BellRing,
   Bot,
+  Bug,
   Building2,
   ChartColumnBig,
   ChevronDown,
@@ -26,12 +27,14 @@ import {
   Layers,
   LayoutDashboard,
   Leaf,
+  LifeBuoy,
   MapPin,
   Pin,
   PinOff,
   Plug,
   QrCode,
   Receipt,
+  Rocket,
   ServerCog,
   Settings,
   ShieldCheck,
@@ -86,6 +89,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ChartColumnBig,
   Droplets,
   Bot,
+  Bug,
   Database,
   Tag,
   Bell,
@@ -103,7 +107,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Wallet,
   Archive,
   Building2,
-  Plug
+  Plug,
+  Rocket,
+  LifeBuoy
 };
 
 const GROUP_SURFACE: Record<

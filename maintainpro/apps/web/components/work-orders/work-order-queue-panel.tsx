@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
+import { withTenantScope } from "@/lib/tenant-query";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   DEFAULT_QUEUE_FILTERS,
@@ -30,6 +32,16 @@ type Props = {
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
 };
+
+function isWorkOrderQueueKey(value: string): value is WorkOrderQueueKey {
+  return (
+    FALLBACK_QUEUE_SUMMARY.queues.some((queue) => queue.key === value) ||
+    value === "rework-required" ||
+    value === "finance-vendor-pending" ||
+    value === "technician-completed" ||
+    value === "approved-planned"
+  );
+}
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
   if (isDatabaseUnavailableError(error)) {
@@ -62,8 +74,11 @@ export function WorkOrderQueuePanel({
   onSelectedIdsChange
 }: Props) {
   const currentUser = useCurrentUser();
+  const searchParams = useSearchParams();
+  const urlQueue = searchParams.get("queue");
+  const urlQuery = searchParams.get("q") ?? searchParams.get("search");
   const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(urlQuery ?? "");
   const [initialized, setInitialized] = useState(false);
 
   const canBulkSelect = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR"].includes(
@@ -82,15 +97,16 @@ export function WorkOrderQueuePanel({
   }, [searchInput]);
 
   const smartViewsQuery = useQuery({
-    queryKey: ["work-orders", "smart-views"],
+    queryKey: withTenantScope(["work-orders", "smart-views"]),
     queryFn: fetchSmartViews,
     staleTime: 5 * 60_000
   });
 
   const summaryQuery = useQuery({
-    queryKey: ["work-orders", "queue-summary"],
+    queryKey: withTenantScope(["work-orders", "queue-summary"]),
     queryFn: fetchWorkOrderQueueSummary,
     retry: shouldRetryQueueRequest,
+    refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.error ? false : 30_000)
   });
 
@@ -100,18 +116,31 @@ export function WorkOrderQueuePanel({
   useEffect(() => {
     if ((summaryQuery.data || summaryUnavailable) && !initialized) {
       setInitialized(true);
+      const requested = urlQueue && isWorkOrderQueueKey(urlQueue) ? urlQueue : undefined;
       setFilters((current) => ({
         ...current,
-        queue: summaryQuery.data?.defaultQueue ?? FALLBACK_QUEUE_SUMMARY.defaultQueue
+        queue: requested ?? summaryQuery.data?.defaultQueue ?? FALLBACK_QUEUE_SUMMARY.defaultQueue,
+        query: urlQuery ?? current.query
       }));
+      if (urlQuery) {
+        setSearchInput(urlQuery);
+      }
     }
-  }, [summaryQuery.data, summaryUnavailable, initialized]);
+  }, [summaryQuery.data, summaryUnavailable, initialized, urlQueue, urlQuery]);
+
+  useEffect(() => {
+    if (!initialized || !urlQueue || !isWorkOrderQueueKey(urlQueue)) {
+      return;
+    }
+    setFilters((current) => (current.queue === urlQueue ? current : { ...current, queue: urlQueue, page: 1 }));
+  }, [initialized, urlQueue]);
 
   const queueQuery = useQuery({
-    queryKey: ["work-orders", "queue", filters],
+    queryKey: withTenantScope(["work-orders", "queue", filters]),
     queryFn: () => fetchWorkOrderQueue(filters),
     enabled: initialized,
     retry: shouldRetryQueueRequest,
+    refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.error ? false : 30_000)
   });
 

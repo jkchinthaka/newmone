@@ -42,4 +42,15 @@ describe("FG Next.js ↔ Django contract", () => {
     expect(["APPROVED", "RETURNED_FOR_CORRECTION"]).toContain("APPROVED");
     expect(["RELEASE", "HOLD", "REJECT"]).toEqual(["RELEASE", "HOLD", "REJECT"]);
   });
+
+  it("documents CL18/CL30 independent occurrence open payload vs CL24 one-per-day", () => {
+    const cl18Open = {
+      formCode: "NMS/PPU/CL/18",
+      date: "2026-08-18",
+      occurrenceToken: "stable-intent-token"
+    };
+    const cl24Open = { formCode: "NMS/PPU/CL/24", date: "2026-08-18" };
+    expect(cl18Open.occurrenceToken).toBeTruthy();
+    expect(cl24Open).not.toHaveProperty("occurrenceToken");
+  });
 });

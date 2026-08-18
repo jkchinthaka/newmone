@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -299,12 +299,14 @@ export default function WorkOrdersPage() {
   const content = useMemo(() => {
     if (view === "queues") {
       return (
-        <WorkOrderQueuePanel
-          onOpenWorkOrder={openEditModal}
-          onRefreshLegacy={() => void workOrdersQuery.refetch()}
-          selectedIds={selectedIds}
-          onSelectedIdsChange={setSelectedIds}
-        />
+        <Suspense fallback={<LoadingSkeleton />}>
+          <WorkOrderQueuePanel
+            onOpenWorkOrder={openEditModal}
+            onRefreshLegacy={() => void workOrdersQuery.refetch()}
+            selectedIds={selectedIds}
+            onSelectedIdsChange={setSelectedIds}
+          />
+        </Suspense>
       );
     }
 

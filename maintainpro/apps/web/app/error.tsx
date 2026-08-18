@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { ErrorState } from "@/components/ui/page-state";
+import { reportClientError } from "@/lib/client-error-report";
 
 type ErrorPageProps = {
   error: Error & { digest?: string };
@@ -11,8 +12,7 @@ type ErrorPageProps = {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error("[MaintainPro] route error boundary:", error);
+    reportClientError("route error boundary", error);
   }, [error]);
 
   return (

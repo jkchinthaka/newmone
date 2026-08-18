@@ -206,5 +206,11 @@ describe("navigation config", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
     expect(technicianMobile.some((item) => item.id === "home")).toBe(true);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
+    expect(technicianMobile.some((item) => item.id === "create")).toBe(true);
+  });
+
+  it("does not invent FG records in mobile nav without FG access", () => {
+    const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER", { permissions: [] });
+    expect(inventoryMobile.some((item) => item.href === "/fg")).toBe(false);
   });
 });

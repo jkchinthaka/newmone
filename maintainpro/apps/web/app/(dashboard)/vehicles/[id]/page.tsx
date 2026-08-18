@@ -17,6 +17,7 @@ import {
   CircleOff,
   CircleSlash,
   ClipboardList,
+  FileCheck2,
   Fuel,
   Loader2,
   Route,
@@ -25,12 +26,15 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
+import Link from "next/link";
+import type { Route as NextRoute } from "next";
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import { apiClient } from "@/lib/api-client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import {
   getStoredRole,
   VEHICLE_DELETE_ROLES,
@@ -193,7 +197,10 @@ const DEFAULT_FUEL_ANALYTICS: FuelAnalytics = {
 
 export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const currentUser = useCurrentUser();
   const vehicleId = params.id;
+  const canOpenFg =
+    currentUser.role === "SUPER_ADMIN" || currentUser.permissions.includes("fg.access");
 
   const [role, setRole] = useState<DashboardRole>("VIEWER");
   const canEdit = VEHICLE_WRITE_ROLES.includes(role);
@@ -662,6 +669,14 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                 <Trash2 size={14} /> Delete Vehicle
               </button>
             )}
+            {canOpenFg ? (
+              <Link
+                href={"/fg" as NextRoute}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FileCheck2 size={14} /> Open FG Digital Records
+              </Link>
+            ) : null}
           </div>
         </div>
       </section>
