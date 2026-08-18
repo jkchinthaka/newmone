@@ -23,6 +23,7 @@ import { ComplianceService } from "../compliance/compliance.service";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { FleetService } from "../fleet/fleet.service";
 import { canMeterReadingAdvance } from "../policies/maintenance-policies";
+import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
 import { canVehicleGateOut } from "../policies/vehicle-policies";
 import { assertPolicy } from "../policies/policy-decision";
 
@@ -1220,17 +1221,35 @@ export class VehiclesService {
 
   async fuelLog(
     id: string,
-    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }
+    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string; clientActionId?: string }
   ) {
     const vehicle = await this.findOne(id);
-
-    if (vehicle.status === VehicleStatus.OUT_OF_SERVICE) {
-      throw new BadRequestException("Cannot log fuel for a vehicle that is OUT_OF_SERVICE");
+    const tenantId = this.currentTenantId();
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const duplicate = data.clientActionId
+      ? await this.prisma.fuelLog.findFirst({ where: { vehicleId: id, clientActionId: data.clientActionId } })
+      : await this.prisma.fuelLog.findFirst({
+          where: {
+            vehicleId: id,
+            liters: data.liters,
+            mileageAtFuel: data.mileageAtFuel,
+            date: { gte: dayStart }
+          }
+        });
+    if (data.clientActionId && duplicate) {
+      return duplicate;
     }
-
-    if (data.mileageAtFuel < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    assertPolicy(
+      canRecordFuel({
+        tenantId,
+        liters: data.liters,
+        mileage: data.mileageAtFuel,
+        previousMileage: Number(vehicle.currentMileage),
+        vehicleStatus: vehicle.status,
+        duplicateReference: Boolean(duplicate) && !data.clientActionId
+      })
+    );
 
     const totalCost = data.liters * data.costPerLiter;
     const resolvedDriverId = await this.resolveFuelDriverId(data.driverId ?? vehicle.driverId ?? undefined);
@@ -1250,7 +1269,8 @@ export class VehiclesService {
         totalCost,
         mileageAtFuel: data.mileageAtFuel,
         fuelStation: data.fuelStation,
-        notes: data.notes
+        notes: data.notes,
+        clientActionId: data.clientActionId
       }
     });
   }
@@ -1397,16 +1417,33 @@ export class VehiclesService {
   }
 
   async tripStart(id: string, data: { driverId: string; startLocation: string; endLocation: string; startMileage: number; purpose?: string }) {
-    await this.resolveFuelDriverId(data.driverId);
+    const driver = await this.resolveFuelDriverId(data.driverId);
+    if (!driver) {
+      throw new NotFoundException("Driver not found");
+    }
     const vehicle = await this.findOne(id);
-
-    if (vehicle.status === VehicleStatus.UNDER_MAINTENANCE) {
-      throw new BadRequestException("Cannot start a trip if vehicle is UNDER_MAINTENANCE");
-    }
-
-    if (data.startMileage < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    const tenantId = this.currentTenantId();
+    const conflictingTrip = await this.prisma.tripLog.findFirst({
+      where: {
+        status: TripStatus.IN_PROGRESS,
+        OR: [{ vehicleId: id }, { driverId: data.driverId }]
+      },
+      select: { id: true }
+    });
+    const assignedDriver = await this.prisma.driver.findFirst({
+      where: tenantId ? { id: data.driverId, tenantId } : { id: data.driverId }
+    });
+    assertPolicy(
+      canStartTrip({
+        tenantId,
+        vehicleStatus: vehicle.status,
+        driverActive: Boolean(assignedDriver),
+        driverLicenseExpired: assignedDriver ? assignedDriver.licenseExpiry.getTime() < Date.now() : false,
+        conflictingTrip: Boolean(conflictingTrip),
+        mileage: data.startMileage,
+        previousMileage: Number(vehicle.currentMileage)
+      })
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await tx.vehicle.update({
@@ -1417,7 +1454,7 @@ export class VehiclesService {
       const trip = await tx.tripLog.create({
         data: {
           vehicleId: id,
-          driverId: data.driverId,
+          driverId: driver,
           startLocation: data.startLocation,
           endLocation: data.endLocation,
           startMileage: data.startMileage,

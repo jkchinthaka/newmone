@@ -1056,6 +1056,12 @@ export class WorkOrdersService {
       }
     });
 
+    try {
+      await this.enterpriseOps?.onWorkOrderTransition(updated);
+    } catch {
+      // Status change remains authoritative; SLA/event side effects are non-blocking.
+    }
+
     if (targetStatus === WorkOrderStatus.COMPLETED) {
       await this.notifyEnterpriseCompleted(updated, actor);
     }

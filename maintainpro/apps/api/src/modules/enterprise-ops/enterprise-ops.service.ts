@@ -10,6 +10,7 @@ import { DomainNotificationService } from "./domain-notification.service";
 import { PmForecastService } from "./pm-forecast.service";
 import { ProcurementRecommendationService } from "./procurement-recommendation.service";
 import { WarrantyHealthService } from "./warranty-health.service";
+import { GovernanceService } from "./governance.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -22,8 +23,22 @@ export class EnterpriseOpsService {
     private readonly pmForecast: PmForecastService,
     private readonly costs: CostAllocationService,
     private readonly warrantyHealth: WarrantyHealthService,
-    @Optional() private readonly procurement?: ProcurementRecommendationService
+    @Optional() private readonly procurement?: ProcurementRecommendationService,
+    @Optional() private readonly governance?: GovernanceService
   ) {}
+
+  async onWorkOrderTransition(workOrder: {
+    id: string;
+    tenantId?: string | null;
+    status: any;
+    priority: any;
+    createdAt: Date;
+    slaDeadline?: Date | null;
+    type?: any;
+    taxonomyIssueId?: string | null;
+  }) {
+    await this.governance?.onWorkOrderTransition(workOrder);
+  }
 
   async onWorkOrderCompleted(workOrder: {
     id: string;
@@ -120,7 +135,7 @@ export class EnterpriseOpsService {
     sinceMonth.setDate(1);
     sinceMonth.setHours(0, 0, 0, 0);
 
-    const [vehicles, criticalVehicles, dueSoon, overdue, criticalWos, stockParts, outOfStock, exceptions, warranty, recommendations, variances, monthCost] =
+    const [vehicles, criticalVehicles, dueSoon, overdue, criticalWos, stockParts, outOfStock, exceptions, warranty, recommendations, variances, slaBreaches, monthCost] =
       await Promise.all([
       this.prisma.vehicle.count({ where: { tenantId, status: { not: VehicleStatus.DISPOSED } } }),
       this.prisma.vehicle.count({
@@ -158,6 +173,13 @@ export class EnterpriseOpsService {
       }),
       this.prisma.procurementRecommendation.count({ where: { tenantId, status: "OPEN" } }),
       this.prisma.erpReconciliationMismatch.count({ where: { tenantId, status: "OPEN" } }),
+      this.prisma.workOrder.count({
+        where: {
+          tenantId,
+          slaBreached: true,
+          status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] }
+        }
+      }),
       this.costs.summarizeFleet(actor, { start: sinceMonth })
     ]);
     const lowStock = stockParts.filter(
@@ -187,6 +209,7 @@ export class EnterpriseOpsService {
       openExceptions: { value: exceptions, href: "/operations/exceptions" },
       warrantyOpportunities: { value: warranty, href: "/inventory/warranty" },
       procurementRecommendations: { value: recommendations, href: "/procurement/recommendations" },
+      slaBreaches: { value: slaBreaches, href: "/operations/sla" },
       monthlyFleetCost: { value: monthlyFleetCost, href: "/vehicles/costs", coverage: monthCost.some((row) => row.coverage === "COMPLETE") ? "COMPLETE" : "INSUFFICIENT_DATA" }
     };
   }

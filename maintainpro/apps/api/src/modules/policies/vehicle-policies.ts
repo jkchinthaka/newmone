@@ -27,6 +27,13 @@ export function canVehicleOperate(input: VehicleGateOutInput): PolicyDecision {
   return canVehicleGateOut(input);
 }
 
+export function canDriverOperateVehicle(input: VehicleGateOutInput & { conflictingTrip?: boolean }): PolicyDecision {
+  return firstDenial(
+    canVehicleGateOut({ ...input, overrideRequested: false }),
+    input.conflictingTrip ? deny("TRIP_CONFLICT") : allow()
+  );
+}
+
 export function canVehicleGateOut(input: VehicleGateOutInput): PolicyDecision {
   if (!input.tenantId) {
     return deny("TENANT_REQUIRED", undefined, "CRITICAL");

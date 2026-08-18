@@ -102,6 +102,8 @@ model Tenant {
   vehicleHealthSnapshots       VehicleHealthSnapshot[]
   procurementRecommendations   ProcurementRecommendation[]
   maintenanceForecasts         MaintenanceForecast[]
+  domainEventOutbox            DomainEventOutbox[]
+  budgetCommitments            BudgetCommitment[]
 }
 
 model AuditLog {
@@ -745,6 +747,8 @@ model Asset {
   lastServiceDate DateTime?
   nextServiceDate DateTime?
   warrantyExpiry  DateTime?
+  /// SAFETY | PRODUCTION | STANDARD | LOW — explainable criticality, not a legal gate.
+  criticality     String?
   disposalDate    DateTime?
   disposalReason  String?
   archivedAt      DateTime?
@@ -972,10 +976,12 @@ model FuelLog {
   fuelStation   String?
   receiptUrl    String?
   notes         String?
+  clientActionId String?
   createdAt     DateTime @default(now())
 
   @@index([vehicleId, date])
   @@index([driverId, date])
+  @@index([vehicleId, clientActionId])
 }
 
 model TripLog {
@@ -4861,4 +4867,49 @@ model MaintenanceForecast {
   @@unique([tenantId, scheduleId])
   @@index([tenantId, estimatedDueDate])
   @@index([tenantId, vehicleId])
+}
+
+/// Reliable domain-event outbox. Distinct from ReplicationOutbox (primary→backup Mongo).
+model DomainEventOutbox {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String    @db.ObjectId
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  eventId         String
+  eventType       String
+  aggregateType   String
+  aggregateId     String
+  payloadVersion  Int       @default(1)
+  payload         Json
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  processedAt     DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([tenantId, eventId])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, eventType, createdAt])
+  @@index([tenantId, aggregateType, aggregateId])
+}
+
+/// Budget commitment from an approved PR/PO/WO. Emergency spend may escalate rather than silent-block.
+model BudgetCommitment {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String   @db.ObjectId
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  period       String
+  departmentId String?  @db.ObjectId
+  costCenter   String?
+  category     String
+  sourceType   String
+  sourceId     String
+  amount       Float
+  status       String   @default("COMMITTED")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, sourceType, sourceId])
+  @@index([tenantId, period, status])
+  @@index([tenantId, departmentId, period])
 }

@@ -23,6 +23,10 @@ export type WorkOrderPolicyInput = {
   actualUpdatedAt?: string | Date | null;
 };
 
+export function canWorkOrderTransition(input: WorkOrderPolicyInput): PolicyDecision {
+  return firstDenial(requireTenant(input.tenantId), requireTransition(input.fromStatus, input.toStatus));
+}
+
 export function canWorkOrderStart(input: WorkOrderPolicyInput): PolicyDecision {
   return firstDenial(
     requireTenant(input.tenantId),

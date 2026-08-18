@@ -43,7 +43,27 @@ export const POLICY_MESSAGES: Record<string, string> = {
   PROCUREMENT_DUPLICATE: "An open purchase request already covers this demand",
   PROCUREMENT_NO_QUANTITY: "No purchase is required",
   USER_APPROVAL_UNAUTHORIZED: "User is not authorized to approve",
-  USER_REVIEW_UNAUTHORIZED: "User is not authorized to review"
+  USER_REVIEW_UNAUTHORIZED: "User is not authorized to review",
+  INVALID_TRANSITION: "Status transition is not allowed",
+  MAKER_CHECKER_VIOLATION: "Submitter cannot approve their own request",
+  APPROVAL_LIMIT_EXCEEDED: "Amount exceeds the approval limit for this role",
+  TECHNICIAN_INACTIVE: "Technician is inactive",
+  TECHNICIAN_NOT_DISPATCHABLE: "Technician cannot receive work orders",
+  TECHNICIAN_ON_LEAVE: "Technician is on approved leave",
+  TECHNICIAN_CERTIFICATION_REQUIRED: "This job requires a valid certification",
+  TECHNICIAN_SKILL_MISMATCH: "Technician skills do not match the job",
+  TECHNICIAN_OVER_CAPACITY: "Technician does not have remaining capacity",
+  BUSINESS_APPROVAL_REQUIRED: "Hazardous work requires an approved permit or authorized override",
+  BUDGET_EXCEEDED: "Requested amount exceeds available budget",
+  VENDOR_INACTIVE: "Vendor is not active",
+  VENDOR_BLOCKED: "Vendor is blocked",
+  VENDOR_CONTRACT_EXPIRED: "Vendor contract is expired",
+  VENDOR_INSURANCE_EXPIRED: "Vendor insurance is expired",
+  FUEL_QUANTITY_INVALID: "Fuel quantity must be greater than zero",
+  FUEL_DUPLICATE_REFERENCE: "A fuel entry with the same reference already exists",
+  TRIP_CONFLICT: "An active trip already exists for this vehicle or driver",
+  OFFLINE_CLIENT_ACTION_REQUIRED: "Offline mutations require a stable client action id",
+  MAPPING_REQUIRED: "Master-data mapping is required before apply"
 };
 
 export function policyMessage(code: string): string {

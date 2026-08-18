@@ -11,6 +11,9 @@ import { EnterpriseOpsService } from "./enterprise-ops.service";
 import { PmForecastService } from "./pm-forecast.service";
 import { ProcurementRecommendationService } from "./procurement-recommendation.service";
 import { WarrantyHealthService } from "./warranty-health.service";
+import { GovernanceService } from "./governance.service";
+import { OrganizationPolicyService } from "./organization-policy.service";
+import { DomainEventsService } from "./domain-events.service";
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -25,7 +28,10 @@ export class EnterpriseOpsController {
     private readonly forecasts: PmForecastService,
     private readonly costs: CostAllocationService,
     private readonly warrantyHealth: WarrantyHealthService,
-    private readonly procurement: ProcurementRecommendationService
+    private readonly procurement: ProcurementRecommendationService,
+    private readonly governance: GovernanceService,
+    private readonly orgPolicy: OrganizationPolicyService,
+    private readonly events: DomainEventsService
   ) {}
 
   @Get("dashboard")
@@ -194,5 +200,80 @@ export class EnterpriseOpsController {
   async createPo(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.procurement.convertToPurchaseOrder(id, req.user);
     return { data, message: "Purchase order created from recommendation" };
+  }
+
+  @Get("sla")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "VIEWER")
+  @Permissions("operations.view")
+  async sla(@Req() req: AuthedRequest) {
+    const data = await this.governance.listSlaQueue(req.user);
+    return { data, message: "Work order SLA clocks" };
+  }
+
+  @Get("dispatch")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("work_orders.manage")
+  async dispatch(@Req() req: AuthedRequest, @Query("workOrderId") workOrderId?: string) {
+    if (!workOrderId) return { data: [], message: "workOrderId required" };
+    const data = await this.governance.recommendTechnicians(req.user, workOrderId);
+    return { data, message: "Technician recommendations" };
+  }
+
+  @Get("matching")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE", "PROCUREMENT_OFFICER")
+  @Permissions("purchase_orders.view")
+  async matching(@Req() req: AuthedRequest) {
+    const data = await this.governance.matchPurchaseOrders(req.user);
+    return { data, message: "Procurement match results" };
+  }
+
+  @Get("budget")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
+  @Permissions("reports.vehicle_cost.view")
+  async budget(@Req() req: AuthedRequest, @Query("period") period?: string) {
+    const data = await this.governance.budgetSnapshot(req.user, period);
+    return { data, message: "Budget commitment snapshot" };
+  }
+
+  @Get("assets/health")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("assets.manage")
+  async assetHealth(@Req() req: AuthedRequest) {
+    const data = await this.governance.assetHealth(req.user);
+    return { data, message: "Asset health scores" };
+  }
+
+  @Get("vendors")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
+  @Permissions("purchase_orders.view")
+  async vendors(@Req() req: AuthedRequest) {
+    const data = await this.governance.vendorEligibility(req.user);
+    return { data, message: "Vendor eligibility" };
+  }
+
+  @Get("mappings")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("operations.view")
+  async mappings(@Req() req: AuthedRequest) {
+    const data = await this.governance.mappingQueue(req.user);
+    return { data, message: "Master data mapping queue" };
+  }
+
+  @Get("events")
+  @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
+  @Permissions("operations.view")
+  async eventsList(@Req() req: AuthedRequest, @Query("status") status?: string) {
+    if (!req.user.tenantId) return { data: [], message: "Tenant required" };
+    const data = await this.events.list(req.user.tenantId, status);
+    return { data, message: "Domain events" };
+  }
+
+  @Get("policy")
+  @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
+  @Permissions("operations.view")
+  async policy(@Req() req: AuthedRequest) {
+    if (!req.user.tenantId) return { data: null, message: "Tenant required" };
+    const data = await this.orgPolicy.getPolicy(req.user.tenantId);
+    return { data, message: "Organization policy" };
   }
 }
