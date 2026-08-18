@@ -90,7 +90,10 @@ describe("fraud control (UAT-020)", () => {
       $transaction: jest.fn()
     };
 
-    const service = new InventoryService(prisma as any, { createNotification: jest.fn() } as any, {} as any);
+    const stockEngine = {
+      issue: jest.fn().mockRejectedValue(new BadRequestException("Stock quantity cannot go below 0"))
+    };
+    const service = new InventoryService(prisma as any, { createNotification: jest.fn() } as any, {} as any, stockEngine as any);
 
     beforeEach(() => {
       jest.clearAllMocks();

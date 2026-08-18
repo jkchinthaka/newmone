@@ -16,8 +16,10 @@ import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
+import { InventoryModule } from "../inventory/inventory.module";
+
 @Module({
-  imports: [NotificationsModule, EvidenceModule, WorkforceModule, ReportsModule, WorkOrderTaxonomyModule],
+  imports: [NotificationsModule, EvidenceModule, WorkforceModule, ReportsModule, WorkOrderTaxonomyModule, InventoryModule],
   controllers: [WorkOrdersController],
   providers: [
     WorkOrdersService,

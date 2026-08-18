@@ -1,14 +1,15 @@
-import { AlertTriangle, Boxes, PackageSearch, ShoppingCart, Sparkles, TrendingDown } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Boxes, PackageSearch, RefreshCcw, ShieldAlert, Sparkles, Undo2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { formatCurrency } from "./helpers";
-import { InventoryInsights, InventorySummary } from "./types";
+import { InventoryDashboardKpis, InventoryInsights, InventorySummary } from "./types";
 
 type SummaryCardKey = "all" | "low" | "critical" | "out" | "pending";
 
 type InventorySummaryCardsProps = {
   summary: InventorySummary;
   insights: InventoryInsights;
+  dashboard?: InventoryDashboardKpis | null;
   activeCard: SummaryCardKey;
   onCardSelect: (key: SummaryCardKey) => void;
 };
@@ -19,31 +20,47 @@ const cards: Array<{
   accent: string;
   icon: typeof Boxes;
   renderValue: (summary: InventorySummary) => string;
-  subtitle: string;
+  subtitle: (summary: InventorySummary) => string;
 }> = [
   {
     key: "all",
-    title: "Total Inventory Value",
+    title: "Total Items",
     accent: "from-sky-500 to-blue-600",
     icon: Boxes,
-    renderValue: (summary) => formatCurrency(summary.totalValue),
-    subtitle: "Across all active spare parts"
+    renderValue: (summary) => String(summary.totalItems),
+    subtitle: () => "Active items in item master"
+  },
+  {
+    key: "all",
+    title: "On Hand",
+    accent: "from-emerald-500 to-teal-600",
+    icon: Sparkles,
+    renderValue: (summary) => String(summary.onHand),
+    subtitle: (summary) => `Available ${summary.available}`
+  },
+  {
+    key: "all",
+    title: "Available",
+    accent: "from-cyan-500 to-sky-700",
+    icon: ShieldAlert,
+    renderValue: (summary) => String(summary.available),
+    subtitle: (summary) => `Reserved ${summary.reserved}`
+  },
+  {
+    key: "all",
+    title: "Reserved",
+    accent: "from-indigo-500 to-violet-700",
+    icon: RefreshCcw,
+    renderValue: (summary) => String(summary.reserved),
+    subtitle: () => "Held for approved work orders"
   },
   {
     key: "low",
     title: "Low Stock",
     accent: "from-amber-500 to-orange-600",
-    icon: TrendingDown,
-    renderValue: (summary) => String(summary.lowStockCount),
-    subtitle: "Items below minimum stock"
-  },
-  {
-    key: "critical",
-    title: "Critical",
-    accent: "from-rose-500 to-red-600",
     icon: AlertTriangle,
-    renderValue: (summary) => String(summary.criticalCount),
-    subtitle: "Items below reorder point"
+    renderValue: (summary) => String(summary.lowStockCount),
+    subtitle: () => "Items below minimum stock"
   },
   {
     key: "out",
@@ -51,29 +68,30 @@ const cards: Array<{
     accent: "from-red-600 to-rose-700",
     icon: PackageSearch,
     renderValue: (summary) => String(summary.outOfStockCount),
-    subtitle: "Immediate replenishment needed"
-  },
-  {
-    key: "pending",
-    title: "Pending Purchase Orders",
-    accent: "from-indigo-500 to-blue-700",
-    icon: ShoppingCart,
-    renderValue: (summary) => String(summary.pendingPurchaseOrders),
-    subtitle: "Open procurement queue"
+    subtitle: () => "Immediate replenishment needed"
   }
 ];
 
-export function InventorySummaryCards({ summary, insights, activeCard, onCardSelect }: InventorySummaryCardsProps) {
+export function InventorySummaryCards({ summary, insights, dashboard, activeCard, onCardSelect }: InventorySummaryCardsProps) {
+  const operational = [
+    { label: "Today IN", value: dashboard?.todayIn ?? 0, icon: ArrowDownToLine },
+    { label: "Today OUT", value: dashboard?.todayOut ?? 0, icon: ArrowUpFromLine },
+    { label: "Today Returns", value: dashboard?.todayReturns ?? 0, icon: Undo2 },
+    { label: "Today Adjustments", value: dashboard?.todayAdjustments ?? 0, icon: RefreshCcw },
+    { label: "Pending Imports", value: dashboard?.pendingImports ?? 0, icon: AlertTriangle },
+    { label: "Import Errors", value: dashboard?.importErrors ?? 0, icon: ShieldAlert }
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-5 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-6 md:grid-cols-2">
         {cards.map((card, index) => {
           const Icon = card.icon;
-          const isActive = activeCard === card.key;
+          const isActive = activeCard === card.key && (card.title === "Total Items" || card.title === "Low Stock" || card.title === "Out of Stock");
 
           return (
             <motion.button
-              key={card.key}
+              key={`${card.title}-${index}`}
               type="button"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -93,18 +111,33 @@ export function InventorySummaryCards({ summary, insights, activeCard, onCardSel
                   </span>
                 </div>
                 <p className="mt-4 text-2xl font-semibold leading-none">{card.renderValue(summary)}</p>
-                <p className="mt-2 text-xs text-white/90">{card.subtitle}</p>
+                <p className="mt-2 text-xs text-white/90">{card.subtitle(summary)}</p>
               </div>
             </motion.button>
           );
         })}
       </div>
 
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {operational.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
+                <Icon size={14} className="text-slate-400" />
+              </div>
+              <p className="mt-2 text-xl font-semibold text-slate-900">{item.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 to-sky-50 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-brand-700">Most Used Part (30 days)</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-brand-700">Inventory Value</p>
           <p className="mt-2 text-lg font-semibold text-slate-900">
-            {insights.mostUsedPart ? `${insights.mostUsedPart.partName} (${insights.mostUsedPart.quantity})` : "No usage data yet"}
+            {summary.totalValue == null ? "Not shown — reliable cost data is incomplete" : formatCurrency(summary.totalValue)}
           </p>
         </div>
 

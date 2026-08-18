@@ -9,6 +9,22 @@ const configService = (values: Record<string, unknown>) =>
     )
   }) as never;
 
+const mockAdjustEngine = (partState?: { id: string; quantityInStock: number }, failPartIds: string[] = []) => ({
+  adjust: jest.fn().mockImplementation(async (input: { partId: string; quantity: number; direction: "IN" | "OUT" }) => {
+    if (failPartIds.includes(input.partId)) {
+      throw new Error("write conflict");
+    }
+    if (partState && input.partId === partState.id) {
+      partState.quantityInStock += input.direction === "IN" ? input.quantity : -input.quantity;
+    }
+    return {
+      part: { id: input.partId, quantityInStock: partState?.quantityInStock ?? 0 },
+      movement: { id: "mov-1", type: "ADJUSTMENT_IN", quantity: input.quantity },
+      replayed: false
+    };
+  })
+});
+
 describe("Bileeta read-only stock sync", () => {
   const originalFetch = global.fetch;
 
@@ -190,18 +206,19 @@ describe("Bileeta read-only stock sync", () => {
       $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
     } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
 
-    const service = new ErpStockSyncService(prisma, adapter);
+    const engine = mockAdjustEngine(partState);
+    const service = new ErpStockSyncService(prisma, adapter, engine as never);
     const first = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
     expect(first.status).toBe("completed");
     expect(first.updatedCount).toBe(1);
     expect(partState.quantityInStock).toBe(10);
-    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+    expect(engine.adjust).toHaveBeenCalledTimes(1);
 
     const second = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
     expect(second.status).toBe("completed");
     expect(second.updatedCount).toBe(0);
     expect(second.skippedCount).toBeGreaterThanOrEqual(1);
-    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+    expect(engine.adjust).toHaveBeenCalledTimes(1);
   });
 
   it("MP-004: apply with supplied erpBalances does not refetch ERP", async () => {
@@ -233,7 +250,7 @@ describe("Bileeta read-only stock sync", () => {
       $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
     } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
 
-    const service = new ErpStockSyncService(prisma, adapter);
+    const service = new ErpStockSyncService(prisma, adapter, mockAdjustEngine() as never);
     const result = await service.applyStockSnapshot(
       { sub: "user-1", tenantId: "tenant-1" },
       { erpBalances: [{ partSku: "BRG-001", quantityOnHand: 7, warehouseCode: "MAIN" }] }
@@ -292,7 +309,8 @@ describe("Bileeta read-only stock sync", () => {
       })
     } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
 
-    const service = new ErpStockSyncService(prisma, adapter);
+    const engine = mockAdjustEngine(undefined, ["part-2"]);
+    const service = new ErpStockSyncService(prisma, adapter, engine as never);
     const result = await service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" });
 
     expect(result.status).toBe("partial");
@@ -353,7 +371,8 @@ describe("Bileeta read-only stock sync", () => {
       $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]))
     } as unknown as ConstructorParameters<typeof ErpStockSyncService>[0];
 
-    const service = new ErpStockSyncService(prisma, adapter);
+    const engine = mockAdjustEngine(partState);
+    const service = new ErpStockSyncService(prisma, adapter, engine as never);
     const [a, b] = await Promise.all([
       service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" }),
       service.applyStockSnapshot({ sub: "user-1", tenantId: "tenant-1" })
@@ -361,6 +380,6 @@ describe("Bileeta read-only stock sync", () => {
 
     expect(maxInFlight).toBe(1);
     expect(a.status === "completed" || b.status === "completed").toBe(true);
-    expect(prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+    expect(engine.adjust).toHaveBeenCalledTimes(1);
   });
 });

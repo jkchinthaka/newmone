@@ -24,6 +24,18 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   "/work-orders": [{ label: "Work Orders" }],
   "/assets": [{ label: "Assets" }],
   "/inventory": [{ label: "Inventory" }],
+  "/inventory/movements": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Movements" }
+  ],
+  "/inventory/daily": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Daily Inventory" }
+  ],
+  "/inventory/import": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "ERP / Excel Import" }
+  ],
   "/procurement": [{ label: "Procurement" }],
   "/fleet": [{ label: "Fleet" }],
   "/vehicles": [{ label: "Vehicles" }],

@@ -33,6 +33,10 @@ model Tenant {
   employeeRosters              EmployeeRosterEntry[]
   employeeLeaveRequests        EmployeeLeaveRequest[]
   spareParts                   SparePart[]
+  warehouses                   Warehouse[]
+  warehouseItemBalances        WarehouseItemBalance[]
+  stockMovements               StockMovement[]
+  inventoryIdempotencies       InventoryIdempotency[]
   suppliers                    Supplier[]
   purchaseOrders               PurchaseOrder[]
   partRequests                 PartRequest[]
@@ -84,6 +88,7 @@ model Tenant {
   uatScenarioExecutions        UatScenarioExecution[]
   erpFieldMappings             ErpFieldMapping[]
   erpImportBatches             ErpImportBatch[]
+  erpImportRows                ErpImportRow[]
   erpReconciliationMismatches  ErpReconciliationMismatch[]
   erpAccessChecklistItems      ErpAccessChecklistItem[]
   erpMockSyncRuns              ErpMockSyncRun[]
@@ -1545,9 +1550,15 @@ model SparePart {
   description     String?
   category        String
   unit            String    @default("pcs")
+  /// ON_HAND (denormalized default-warehouse / company total for current single-warehouse tenants).
   quantityInStock Int       @default(0)
+  /// RESERVED units held for approved work-order demand.
+  reservedQuantity Int      @default(0)
+  /// AVAILABLE = ON_HAND - RESERVED. Maintained atomically by InventoryTransactionEngine.
+  availableQuantity Int     @default(0)
   minimumStock    Int       @default(0)
   reorderPoint    Int       @default(0)
+  maximumStock    Int       @default(0)
   unitCost        Float
   location        String?
   supplierId      String?   @db.ObjectId
@@ -1562,26 +1573,91 @@ model SparePart {
   partRequests       PartRequest[]
   partIssues         PartIssue[]
   purchaseOrderLines PurchaseOrderLine[]
+  warehouseBalances  WarehouseItemBalance[]
 
   @@index([tenantId])
   @@index([supplierId])
+  @@index([tenantId, isActive])
+}
+
+/// Tenant warehouse / store. Existing SparePart.location remains a display hint.
+model Warehouse {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @db.ObjectId
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  code      String
+  name      String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances   WarehouseItemBalance[]
+  movements  StockMovement[]
+  importRows ErpImportRow[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isDefault])
+  @@index([tenantId, isActive])
+}
+
+/// Authoritative per-warehouse stock. Unique identity: tenant + warehouse + item.
+model WarehouseItemBalance {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String    @db.ObjectId
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  warehouseId       String    @db.ObjectId
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id])
+  partId            String    @db.ObjectId
+  part              SparePart @relation(fields: [partId], references: [id])
+  onHand            Int       @default(0)
+  reserved          Int       @default(0)
+  available         Int       @default(0)
+  lastMovementAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([tenantId, warehouseId, partId])
+  @@index([tenantId, partId])
+  @@index([tenantId, warehouseId])
 }
 
 model StockMovement {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String?      @db.ObjectId
-  partId      String       @db.ObjectId
-  part        SparePart    @relation(fields: [partId], references: [id])
-  type        MovementType
-  quantity    Int
-  reference   String?
-  notes       String?
-  workOrderId String?      @db.ObjectId
-  actorUserId String?      @db.ObjectId
-  createdAt   DateTime     @default(now())
+  id                    String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?      @db.ObjectId
+  tenant                Tenant?      @relation(fields: [tenantId], references: [id])
+  partId                String       @db.ObjectId
+  part                  SparePart    @relation(fields: [partId], references: [id])
+  warehouseId           String?      @db.ObjectId
+  warehouse             Warehouse?   @relation(fields: [warehouseId], references: [id])
+  type                  MovementType
+  quantity              Int
+  reference             String?
+  notes                 String?
+  workOrderId           String?      @db.ObjectId
+  vehicleId             String?      @db.ObjectId
+  actorUserId           String?      @db.ObjectId
+  sourceType            String?
+  sourceDocument        String?
+  sourceLineKey         String?
+  importRunId           String?      @db.ObjectId
+  importRun             ErpImportBatch? @relation(fields: [importRunId], references: [id])
+  transferGroupId       String?
+  reversalOfMovementId  String?      @db.ObjectId
+  reversalOf            StockMovement?  @relation("StockMovementReversal", fields: [reversalOfMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversals             StockMovement[] @relation("StockMovementReversal")
+  quantityReversed      Int          @default(0)
+  createdAt             DateTime     @default(now())
 
   @@index([partId, createdAt])
   @@index([tenantId, workOrderId])
+  @@index([tenantId, warehouseId, partId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type, createdAt])
+  @@index([tenantId, sourceLineKey])
+  @@index([tenantId, importRunId])
+  @@index([tenantId, transferGroupId])
+  @@index([reversalOfMovementId])
 }
 
 /// Tenant-scoped idempotency for stock-out (only created when client supplies a key).
@@ -1599,11 +1675,37 @@ model InventoryStockIssueIdempotency {
   @@index([tenantId, partId])
 }
 
+/// General stock-engine idempotency (receive/issue/transfer/adjust/import/reverse).
+model InventoryIdempotency {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String   @db.ObjectId
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  key             String
+  operation       String
+  payloadHash     String
+  partId          String?  @db.ObjectId
+  warehouseId     String?  @db.ObjectId
+  quantity        Int
+  movementId      String?  @db.ObjectId
+  transferGroupId String?
+  resultJson      Json?
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, partId])
+  @@index([tenantId, operation, createdAt])
+}
+
 enum MovementType {
   IN
   OUT
   ADJUSTMENT
   RETURN
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  REVERSAL
 }
 
 model WorkOrderPart {
@@ -4435,28 +4537,78 @@ model ErpFieldMapping {
 }
 
 model ErpImportBatch {
-  id              String               @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?              @db.ObjectId
-  tenant          Tenant?              @relation(fields: [tenantId], references: [id])
-  batchNo         String
-  importType      ErpImportType
-  fileName        String?
-  status          ErpImportBatchStatus @default(UPLOADED)
-  totalRows       Int                  @default(0)
-  validRows       Int                  @default(0)
-  invalidRows     Int                  @default(0)
-  duplicateRows   Int                  @default(0)
-  dryRunSummary   Json?
-  applySummary    Json?
-  uploadedByUserId String?             @db.ObjectId
-  approvedByUserId String?             @db.ObjectId
-  errorMessage    String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id               String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?              @db.ObjectId
+  tenant           Tenant?              @relation(fields: [tenantId], references: [id])
+  batchNo          String
+  importType       ErpImportType
+  fileName         String?
+  status           ErpImportBatchStatus @default(UPLOADED)
+  totalRows        Int                  @default(0)
+  selectedRows     Int                  @default(0)
+  validRows        Int                  @default(0)
+  invalidRows      Int                  @default(0)
+  duplicateRows    Int                  @default(0)
+  appliedRows      Int                  @default(0)
+  failedRows       Int                  @default(0)
+  ignoredRows      Int                  @default(0)
+  dryRunSummary    Json?
+  applySummary     Json?
+  uploadedByUserId String?              @db.ObjectId
+  approvedByUserId String?              @db.ObjectId
+  errorMessage     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  rows      ErpImportRow[]
+  movements StockMovement[]
 
   @@unique([tenantId, batchNo])
   @@index([tenantId, status])
   @@index([tenantId, importType])
+}
+
+/// Stable source-row identity for inventory/ERP Excel imports.
+model ErpImportRow {
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String               @db.ObjectId
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  importRunId        String               @db.ObjectId
+  importRun          ErpImportBatch       @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  rowNumber          Int
+  selected           Boolean              @default(false)
+  sourceLineKey      String
+  documentStatus     String?
+  warehouseCode      String?
+  warehouseName      String?
+  productCode        String?
+  productDescription String?
+  uom                String?
+  quantity           Int?
+  requestedQuantity  Int?
+  requester          String?
+  cost               Float?
+  batch              String?
+  lot                String?
+  orderNo            String?
+  orderDate          String?
+  mappedPartId       String?              @db.ObjectId
+  mappedWarehouseId  String?              @db.ObjectId
+  mappedWarehouse    Warehouse?           @relation(fields: [mappedWarehouseId], references: [id])
+  appliedMovementId  String?              @db.ObjectId
+  status             String               @default("PENDING")
+  errorCode          String?
+  errorMessage       String?
+  sourceFingerprint  String?
+  sourceMetadata     Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([importRunId, sourceLineKey])
+  @@index([tenantId, importRunId])
+  @@index([tenantId, sourceLineKey])
+  @@index([tenantId, status])
+  @@index([tenantId, mappedPartId])
 }
 
 model ErpReconciliationMismatch {

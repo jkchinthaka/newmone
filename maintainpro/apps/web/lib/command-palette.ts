@@ -22,7 +22,7 @@ const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
   "facilities-reports": ["facility reports", "facility kpi", "facility dashboard", "issues summary"],
   "work-orders": ["wo", "maintenance jobs", "jobs"],
   assets: ["equipment", "registry"],
-  inventory: ["parts", "stock", "spares"],
+  inventory: ["parts", "stock", "spares", "warehouse", "import"],
   procurement: ["purchase", "po", "suppliers"],
   fleet: ["tracking", "gps"],
   vehicles: ["trucks", "cars"],

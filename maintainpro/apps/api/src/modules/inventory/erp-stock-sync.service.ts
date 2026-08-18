@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -11,6 +11,7 @@ import {
   ErpStockSyncDryRunResult,
   ErpStockSyncReadiness
 } from "./erp-stock-sync.mapper";
+import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
 
@@ -29,8 +30,13 @@ export class ErpStockSyncService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly bileetaInventoryErpAdapter: BileetaInventoryErpAdapter
-  ) {}
+    private readonly bileetaInventoryErpAdapter: BileetaInventoryErpAdapter,
+    @Optional() stockEngine?: InventoryTransactionEngine
+  ) {
+    this.stockEngine = stockEngine ?? new InventoryTransactionEngine(prisma);
+  }
+
+  private readonly stockEngine: InventoryTransactionEngine;
 
   getReadiness(): ErpStockSyncReadiness {
     return this.bileetaInventoryErpAdapter.checkReadiness();
@@ -175,7 +181,7 @@ export class ErpStockSyncService {
             id: row.partId,
             ...(tenantId !== undefined ? { tenantId } : {})
           },
-          select: { id: true, quantityInStock: true }
+          select: { id: true, quantityInStock: true, reservedQuantity: true, availableQuantity: true }
         });
 
         if (!part) {
@@ -183,29 +189,42 @@ export class ErpStockSyncService {
           continue;
         }
 
-        // Absolute ERP balance target (never += erpQuantity).
         if (part.quantityInStock === row.erpQuantity) {
           skippedCount += 1;
           continue;
         }
 
         const priorQuantity = part.quantityInStock;
+        const delta = row.erpQuantity - priorQuantity;
+        const reserved = part.reservedQuantity ?? 0;
+        if (row.erpQuantity < reserved) {
+          failedPartNumbers.push(row.partNumber);
+          continue;
+        }
 
-        await this.prisma.$transaction([
-          this.prisma.sparePart.update({
-            where: { id: part.id },
-            data: { quantityInStock: row.erpQuantity }
-          }),
-          this.prisma.stockMovement.create({
-            data: {
-              partId: part.id,
-              type: "ADJUSTMENT",
-              quantity: Math.abs(row.erpQuantity - priorQuantity),
-              reference: syncRunId,
-              notes: `ERP stock sync apply (${row.partNumber}) target=${row.erpQuantity}`
-            }
-          })
-        ]);
+        if (delta > 0) {
+          await this.stockEngine.adjust({
+            actor,
+            partId: part.id,
+            quantity: delta,
+            direction: "IN",
+            reason: `ERP stock sync apply (${row.partNumber}) target=${row.erpQuantity}`,
+            sourceType: "ERP_SYNC",
+            sourceDocument: syncRunId,
+            idempotencyKey: `${syncRunId}:${part.id}`
+          });
+        } else {
+          await this.stockEngine.adjust({
+            actor,
+            partId: part.id,
+            quantity: Math.abs(delta),
+            direction: "OUT",
+            reason: `ERP stock sync apply (${row.partNumber}) target=${row.erpQuantity}`,
+            sourceType: "ERP_SYNC",
+            sourceDocument: syncRunId,
+            idempotencyKey: `${syncRunId}:${part.id}`
+          });
+        }
 
         updatedCount += 1;
       } catch {

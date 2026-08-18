@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AuditAction,
   PartApprovalTier,
@@ -23,6 +23,7 @@ import {
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
+import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -38,7 +39,14 @@ const TECHNICIAN_ROLES = new Set<RoleName>([RoleName.TECHNICIAN, RoleName.MECHAN
 
 @Injectable()
 export class WorkOrderPartsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly stockEngine: InventoryTransactionEngine;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() stockEngine?: InventoryTransactionEngine
+  ) {
+    this.stockEngine = stockEngine ?? new InventoryTransactionEngine(prisma);
+  }
 
   private resolveTenantId(actor?: Actor) {
     return requireTenantId(actor?.tenantId);
@@ -484,19 +492,19 @@ export class WorkOrderPartsService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (shouldRestock) {
-        await tx.sparePart.update({
-          where: { id: line.partId },
-          data: { quantityInStock: { increment: data.confirmedQuantity } }
-        });
-        await tx.stockMovement.create({
-          data: {
+        await this.stockEngine.returnStock(
+          {
+            actor,
             partId: line.partId,
-            type: "RETURN",
             quantity: data.confirmedQuantity,
-            reference: `work-order-part:${line.id}`,
-            notes: data.note?.trim() || "Work order part return confirmed"
-          }
-        });
+            workOrderId,
+            notes: data.note?.trim() || "Work order part return confirmed",
+            sourceType: "WORK_ORDER_RETURN",
+            sourceDocument: `work-order-part:${line.id}`,
+            sourceLineKey: `wo-return:${line.id}:${line.returnedQuantity}`
+          },
+          tx
+        );
       }
 
       return tx.workOrderPart.update({

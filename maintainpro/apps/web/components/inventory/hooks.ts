@@ -6,6 +6,7 @@ import {
   bulkDeleteParts,
   bulkUpdateCategory,
   deletePart,
+  getInventoryDashboard,
   getInventoryParts,
   getLowStockParts,
   getPartMovements,
@@ -20,7 +21,7 @@ import {
   updatePart
 } from "./api";
 import { calculateInsights, calculateSummary, getErrorMessage } from "./helpers";
-import { StockAdjustmentPayload, UpdatePartPayload } from "./types";
+import { InventoryDashboardKpis, StockAdjustmentPayload, UpdatePartPayload } from "./types";
 
 export const inventoryQueryKeys = {
   parts: ["inventory", "parts"] as const,
@@ -31,7 +32,8 @@ export const inventoryQueryKeys = {
   topUsed: ["inventory", "top-used"] as const,
   partMovements: (partId: string) => ["inventory", "part", partId, "movements"] as const,
   partWorkOrders: (partId: string) => ["inventory", "part", partId, "work-orders"] as const,
-  partPurchaseHistory: (partId: string) => ["inventory", "part", partId, "purchase-history"] as const
+  partPurchaseHistory: (partId: string) => ["inventory", "part", partId, "purchase-history"] as const,
+  dashboard: ["inventory", "dashboard"] as const
 };
 
 export function useInventoryOverview() {
@@ -65,6 +67,11 @@ export function useInventoryOverview() {
     queryFn: () => getTopUsedParts(5, 30)
   });
 
+  const dashboardQuery = useQuery({
+    queryKey: inventoryQueryKeys.dashboard,
+    queryFn: getInventoryDashboard
+  });
+
   const summary = useMemo(() => {
     return calculateSummary(partsQuery.data ?? [], purchaseOrdersQuery.data ?? []);
   }, [partsQuery.data, purchaseOrdersQuery.data]);
@@ -80,6 +87,8 @@ export function useInventoryOverview() {
     purchaseOrdersQuery,
     usageTrendQuery,
     topUsedQuery,
+    dashboardQuery,
+    dashboard: (dashboardQuery.data ?? null) as InventoryDashboardKpis | null,
     summary,
     insights
   };
@@ -95,6 +104,7 @@ export function useInventoryMutations() {
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.purchaseOrders }),
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.usageTrend }),
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.topUsed }),
+      queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.dashboard }),
       queryClient.invalidateQueries({ queryKey: ["inventory", "part"] })
     ]);
   }

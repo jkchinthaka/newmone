@@ -12,6 +12,8 @@ import { PrismaService } from "../src/database/prisma.service";
 import { InventoryController } from "../src/modules/inventory/inventory.controller";
 import { InventoryService } from "../src/modules/inventory/inventory.service";
 import { ErpStockSyncService } from "../src/modules/inventory/erp-stock-sync.service";
+import { InventoryExcelImportService } from "../src/modules/inventory/inventory-excel-import.service";
+import { InventoryDailyService } from "../src/modules/inventory/inventory-daily.service";
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
 import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
@@ -87,6 +89,17 @@ const erpStockSyncService = {
   applyStockSnapshot: jest.fn()
 };
 
+const excelImportService = {
+  preview: jest.fn(),
+  apply: jest.fn(),
+  list: jest.fn(),
+  mapUnknown: jest.fn()
+};
+
+const dailyService = {
+  report: jest.fn()
+};
+
 const evidenceService = {
   listWorkOrderEvidence: jest.fn(),
   createWorkOrderUploadRequest: jest.fn(),
@@ -158,6 +171,8 @@ const prisma = {
     { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
     { provide: WorkOrderTaxonomyService, useValue: createWorkOrderTaxonomyServiceMock() },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
+    { provide: InventoryExcelImportService, useValue: excelImportService },
+    { provide: InventoryDailyService, useValue: dailyService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
     { provide: APP_GUARD, useClass: PermissionsGuard }

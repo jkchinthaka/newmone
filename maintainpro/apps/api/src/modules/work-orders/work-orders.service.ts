@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalStage,
@@ -65,6 +65,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -75,8 +76,13 @@ export class WorkOrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
-    private readonly workOrderAssigneesService: WorkOrderAssigneesService
-  ) {}
+    private readonly workOrderAssigneesService: WorkOrderAssigneesService,
+    @Optional() stockEngine?: InventoryTransactionEngine
+  ) {
+    this.stockEngine = stockEngine ?? new InventoryTransactionEngine(this.prisma);
+  }
+
+  private readonly stockEngine: InventoryTransactionEngine;
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
@@ -1281,15 +1287,29 @@ export class WorkOrdersService {
       throw new NotFoundException("Spare part not found");
     }
 
-    if (part.quantityInStock < data.quantity) {
+    if ((part.availableQuantity ?? Math.max(0, part.quantityInStock - (part.reservedQuantity ?? 0))) < data.quantity) {
       throw new BadRequestException("Parts used in a work order cannot exceed available stock");
     }
 
     const totalCost = data.quantity * data.unitCost;
     const issuer = this.assertActor(actor);
 
+    const issued = await this.stockEngine.issue({
+      actor,
+      partId: data.partId,
+      quantity: data.quantity,
+      workOrderId: workOrder.id,
+      vehicleId: workOrder.vehicleId ?? undefined,
+      notes: "Deducted via work order add-part",
+      reason: data.overrideReason?.trim() || data.reason?.trim(),
+      sourceType: "WORK_ORDER",
+      sourceDocument: workOrder.woNumber,
+      sourceLineKey: `wo-add-part:${workOrder.id}:${data.partId}`
+    });
+
     const createdPart = await this.prisma.workOrderPart.create({
       data: {
+        tenantId,
         workOrderId: id,
         partId: data.partId,
         quantity: data.quantity,
@@ -1308,25 +1328,6 @@ export class WorkOrdersService {
       }
     });
 
-    await this.prisma.sparePart.update({
-      where: { id: data.partId },
-      data: {
-        quantityInStock: {
-          decrement: data.quantity
-        }
-      }
-    });
-
-    await this.prisma.stockMovement.create({
-      data: {
-        partId: data.partId,
-        type: "OUT",
-        quantity: data.quantity,
-        reference: `work-order:${workOrder.id}`,
-        notes: "Deducted via work order add-part"
-      }
-    });
-
     await this.recordAudit({
       entity: "PART_STOCK_ISSUE",
       entityId: createdPart.id,
@@ -1341,7 +1342,8 @@ export class WorkOrdersService {
         totalCost,
         event: FRAUD_CONTROL_ENABLED ? FRAUD_AUDIT_EVENTS.PARTS_ISSUE_OVERRIDE : "parts_issued_against_work_order",
         overrideFlag: FRAUD_CONTROL_ENABLED,
-        source: "work_orders.addPart"
+        source: "work_orders.addPart",
+        movementId: issued.movement.id
       }
     });
 
@@ -1619,6 +1621,7 @@ export class WorkOrdersService {
 
     if (!request.requiresFinanceApproval) {
       await this.workOrderPartsService.syncApprovedLine(requestId, approvedQuantity, approver.sub, actor);
+      await this.reserveApprovedPartRequest(workOrderId, requestId, approvedQuantity, actor);
     }
 
     await this.recordAudit({
@@ -1721,6 +1724,7 @@ export class WorkOrdersService {
     });
 
     await this.workOrderPartsService.syncApprovedLine(requestId, approvedQuantity, approver.sub, actor);
+    await this.reserveApprovedPartRequest(workOrderId, requestId, approvedQuantity, actor);
 
     await this.recordAudit({
       entity: "PART_REQUEST_APPROVAL",
@@ -1800,6 +1804,7 @@ export class WorkOrdersService {
       });
     });
 
+    await this.releaseReservedPartRequest(requestId, actor);
     await this.workOrderPartsService.syncRejectedLine(requestId, data.reason.trim(), actor);
 
     await this.recordAudit({
@@ -1877,29 +1882,41 @@ export class WorkOrdersService {
       throw new BadRequestException("Issue quantity cannot exceed remaining approved quantity");
     }
 
-    if (request.part.quantityInStock < issueQuantity) {
-      throw new BadRequestException("Insufficient stock for this issue request");
+    const line = await this.prisma.workOrderPart.findFirst({
+      where: { partRequestId: request.id, tenantId: request.tenantId ?? this.resolveTenantId(actor) }
+    });
+    const consumeReservation = (line?.reservedQuantity ?? 0) >= issueQuantity;
+    const available = request.part.availableQuantity ?? Math.max(0, request.part.quantityInStock - (request.part.reservedQuantity ?? 0));
+    if (!consumeReservation && available < issueQuantity) {
+      throw new BadRequestException("Insufficient available stock for this issue request");
+    }
+    if (consumeReservation && (request.part.reservedQuantity ?? 0) < issueQuantity) {
+      throw new BadRequestException("Insufficient reserved stock for this issue request");
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await tx.sparePart.update({
-        where: { id: request.partId },
-        data: {
-          quantityInStock: {
-            decrement: issueQuantity
-          }
-        }
-      });
-
-      await tx.stockMovement.create({
-        data: {
+      await this.stockEngine.issue(
+        {
+          actor,
           partId: request.partId,
-          type: "OUT",
           quantity: issueQuantity,
-          reference: `part-request:${request.id}`,
-          notes: data.notes?.trim() || "Issued via approved part request"
-        }
-      });
+          workOrderId: request.workOrderId,
+          vehicleId: request.workOrder?.vehicleId ?? undefined,
+          notes: data.notes?.trim() || "Issued via approved part request",
+          consumeReservation,
+          sourceType: "WORK_ORDER",
+          sourceDocument: `part-request:${request.id}`,
+          sourceLineKey: `wo-issue:${request.id}:${issueQuantity}:${request.issuedQuantity}`
+        },
+        tx
+      );
+
+      if (consumeReservation && line) {
+        await tx.workOrderPart.update({
+          where: { id: line.id },
+          data: { reservedQuantity: { decrement: issueQuantity } }
+        });
+      }
 
       const issue = await tx.partIssue.create({
         data: {
@@ -2342,5 +2359,63 @@ export class WorkOrdersService {
     }
 
     return { success, failed };
+  }
+
+  private async reserveApprovedPartRequest(workOrderId: string, requestId: string, quantity: number, actor?: Actor) {
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+    try {
+      await this.stockEngine.reserve({
+        actor,
+        partId: request.partId,
+        quantity,
+        workOrderId,
+        vehicleId: request.workOrder?.vehicleId ?? undefined,
+        sourceType: "WO_RESERVATION",
+        sourceDocument: request.id,
+        sourceLineKey: `wo-res:${request.id}`,
+        idempotencyKey: `wo-res:${request.id}`
+      });
+      await this.prisma.workOrderPart.updateMany({
+        where: { partRequestId: requestId },
+        data: { reservedQuantity: quantity }
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        await this.prisma.workOrderPart.updateMany({
+          where: { partRequestId: requestId },
+          data: { procurementRequired: true, reservedQuantity: 0 }
+        });
+        await this.recordAudit({
+          entity: "PART_REQUEST",
+          entityId: requestId,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: "Reservation skipped — insufficient available stock",
+          metadata: { event: "reservation_failed_procurement_required", quantity }
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async releaseReservedPartRequest(requestId: string, actor?: Actor) {
+    const line = await this.prisma.workOrderPart.findFirst({ where: { partRequestId: requestId } });
+    if (!line || line.reservedQuantity <= 0) {
+      return;
+    }
+    await this.stockEngine.releaseReservation({
+      actor,
+      partId: line.partId,
+      quantity: line.reservedQuantity,
+      workOrderId: line.workOrderId,
+      sourceType: "WO_RESERVATION_RELEASE",
+      sourceLineKey: `wo-res-release:${requestId}`,
+      idempotencyKey: `wo-res-release:${requestId}`
+    });
+    await this.prisma.workOrderPart.update({
+      where: { id: line.id },
+      data: { reservedQuantity: 0 }
+    });
   }
 }

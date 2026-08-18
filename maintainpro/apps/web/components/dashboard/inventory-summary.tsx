@@ -91,7 +91,9 @@ export function InventorySummary() {
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <DashboardCard label="Total items" value={formatNumber(summary.totalItems, { fallback: "0" })} />
-        <DashboardCard label="Stock value" value={formatCurrency(summary.totalValue)} tone="info" />
+        <DashboardCard label="On hand" value={formatNumber(summary.onHand, { fallback: "0" })} />
+        <DashboardCard label="Available" value={formatNumber(summary.available, { fallback: "0" })} />
+        <DashboardCard label="Stock value" value={summary.totalValue == null ? "—" : formatCurrency(summary.totalValue)} tone="info" />
         <DashboardCard label="Low stock" value={formatNumber(summary.lowStockCount, { fallback: "0" })} tone="warning" />
         <DashboardCard label="Critical stock" value={formatNumber(summary.criticalCount, { fallback: "0" })} tone="danger" />
         <DashboardCard label="Out of stock" value={formatNumber(summary.outOfStockCount, { fallback: "0" })} tone="danger" />
