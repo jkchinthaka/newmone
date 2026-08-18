@@ -69,7 +69,25 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "FG Digital Records", href: "/fg" },
     { label: "Access denied" }
   ],
+  "/inventory/warranty": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Warranty" }
+  ],
+  "/operations/exceptions": [{ label: "Exceptions" }],
+  "/maintenance/forecast": [{ label: "Maintenance forecast" }],
+  "/vehicles/health": [
+    { label: "Vehicles", href: "/vehicles" },
+    { label: "Health" }
+  ],
+  "/vehicles/costs": [
+    { label: "Vehicles", href: "/vehicles" },
+    { label: "Costs" }
+  ],
   "/procurement": [{ label: "Procurement" }],
+  "/procurement/recommendations": [
+    { label: "Procurement", href: "/procurement" },
+    { label: "Recommendations" }
+  ],
   "/fleet": [{ label: "Fleet" }],
   "/vehicles": [{ label: "Vehicles" }],
   "/reports": [{ label: "Reports" }],

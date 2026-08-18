@@ -106,7 +106,7 @@ interface FuelLog {
 
 interface FuelAnalytics {
   averageConsumptionLPer100Km: number;
-  costPerKm: number;
+  costPerKm: number | null;
   monthlyFuelCostTrend: Array<{ month: string; totalCost: number }>;
 }
 
@@ -187,7 +187,7 @@ const DEFAULT_MAINTENANCE_PAGINATION: PaginationState = {
 
 const DEFAULT_FUEL_ANALYTICS: FuelAnalytics = {
   averageConsumptionLPer100Km: 0,
-  costPerKm: 0,
+  costPerKm: null,
   monthlyFuelCostTrend: []
 };
 
@@ -342,7 +342,8 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
         analyticsPayload && typeof analyticsPayload === "object"
           ? {
               averageConsumptionLPer100Km: Number(analyticsPayload.averageConsumptionLPer100Km ?? 0),
-              costPerKm: Number(analyticsPayload.costPerKm ?? 0),
+              costPerKm:
+                analyticsPayload.costPerKm == null ? null : Number(analyticsPayload.costPerKm),
               monthlyFuelCostTrend: Array.isArray(analyticsPayload.monthlyFuelCostTrend)
                 ? analyticsPayload.monthlyFuelCostTrend
                 : []
@@ -1005,7 +1006,11 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             />
             <MetricCard
               label="Cost Per Km"
-              value={`${fuelAnalytics.costPerKm.toFixed(2)} INR/km`}
+              value={
+                fuelAnalytics.costPerKm == null
+                  ? "Insufficient data"
+                  : `${fuelAnalytics.costPerKm.toFixed(2)} INR/km`
+              }
               tone="bg-sky-50 text-sky-800"
             />
             <MetricCard

@@ -16,6 +16,7 @@ import {
 import { useCurrentUser } from "@/lib/use-current-user";
 
 import { DashboardQuickLinks } from "./dashboard-quick-links";
+import { EnterpriseKpiBoard } from "./enterprise-kpi-board";
 import { MorningBriefing } from "./morning-briefing";
 import { DriverIntelligenceDashboard } from "./driver-intelligence-dashboard";
 import { InventorySummary } from "./inventory-summary";
@@ -40,6 +41,7 @@ export function RoleDashboard() {
       </header>
 
       <MorningBriefing />
+      <EnterpriseKpiBoard />
 
       {dashboardShowsSystemHealthSummary(variant) ? <SystemHealthSummary /> : null}
 

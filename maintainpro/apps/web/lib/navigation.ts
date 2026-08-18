@@ -442,6 +442,48 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     category: "operations"
   },
   {
+    id: "operations-exceptions",
+    label: "Exceptions",
+    href: "/operations/exceptions",
+    icon: "AlertTriangle",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["operations.view"]
+  },
+  {
+    id: "maintenance-forecast",
+    label: "Maintenance forecast",
+    href: "/maintenance/forecast",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
+    id: "vehicle-health",
+    label: "Vehicle health",
+    href: "/vehicles/health",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FLEET_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
+    id: "vehicle-costs",
+    label: "Vehicle costs",
+    href: "/vehicles/costs",
+    icon: "ChartColumnBig",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    requiredPermissions: ["reports.vehicle_cost.view"],
+    category: "operations"
+  },
+  {
+    id: "inventory-warranty",
+    label: "Warranty",
+    href: "/inventory/warranty",
+    icon: "ShieldAlert",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
     id: "fg-digital-recording",
     label: "FG Digital Recording",
     href: "/fg",
@@ -818,7 +860,9 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/reports/fraud-control/admin-overrides": ["/reports/fraud-control", "/reports"],
   "/reports/fraud-control/parts-misuse": ["/reports/fraud-control", "/reports"],
   "/reports/management-intelligence": ["/reports"],
-  "/master-data/employees": ["/master-data"]
+  "/master-data/employees": ["/master-data"],
+  "/procurement/recommendations": ["/procurement"],
+  "/inventory/warranty": ["/inventory"]
 };
 
 export function normalizeNavigationRole(roleName: string | null | undefined): string | null {
