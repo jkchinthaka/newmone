@@ -11,6 +11,7 @@ import {
   RoleName,
   WorkOrderApprovalStatus,
   WorkOrderStatus,
+  WorkOrderType,
   QrVerificationStatus,
   WorkOrderCompletionCondition,
   WorkOrderVerificationStatus
@@ -66,6 +67,7 @@ import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxo
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
+import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -77,7 +79,8 @@ export class WorkOrdersService {
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
-    @Optional() stockEngine?: InventoryTransactionEngine
+    @Optional() stockEngine?: InventoryTransactionEngine,
+    @Optional() private readonly enterpriseOps?: EnterpriseOpsService
   ) {
     this.stockEngine = stockEngine ?? new InventoryTransactionEngine(this.prisma);
   }
@@ -1053,6 +1056,10 @@ export class WorkOrdersService {
       }
     });
 
+    if (targetStatus === WorkOrderStatus.COMPLETED) {
+      await this.notifyEnterpriseCompleted(updated, actor);
+    }
+
     return this.findOneWithRelations(id, actor);
   }
 
@@ -1137,6 +1144,8 @@ export class WorkOrdersService {
       beforeData: { status: current.status, verificationStatus: current.verificationStatus },
       afterData: { status: updated.status, verificationStatus: updated.verificationStatus }
     });
+
+    await this.notifyEnterpriseCompleted(updated, actor);
 
     return this.findOneWithRelations(id, actor);
   }
@@ -2417,5 +2426,27 @@ export class WorkOrdersService {
       where: { id: line.id },
       data: { reservedQuantity: 0 }
     });
+  }
+
+  private async notifyEnterpriseCompleted(
+    workOrder: {
+      id: string;
+      tenantId?: string | null;
+      type: WorkOrderType;
+      scheduleId?: string | null;
+      vehicleId?: string | null;
+      completedDate?: Date | null;
+      actualHours?: number | null;
+      verificationStatus?: string | null;
+      taxonomyIssueId?: string | null;
+      issueNameSnapshot?: string | null;
+    },
+    actor?: Actor
+  ) {
+    try {
+      await this.enterpriseOps?.onWorkOrderCompleted(workOrder, actor);
+    } catch {
+      // Completion remains authoritative; downstream forecast/health failures are non-blocking.
+    }
   }
 }

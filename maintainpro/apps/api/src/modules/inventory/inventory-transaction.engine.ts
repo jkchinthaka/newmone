@@ -6,6 +6,8 @@ import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
+import { canPartReserve, canReverseMovement } from "../policies/inventory-policies";
+import { assertPolicy, PolicyDeniedException } from "../policies/policy-decision";
 import {
   applyAdjustOut,
   applyIssueFromAvailable,
@@ -141,7 +143,17 @@ export class InventoryTransactionEngine {
       try {
         applyIssueFromAvailable(sourceBefore, input.quantity);
       } catch (error) {
-        throw new BadRequestException(error instanceof Error ? error.message : "Insufficient available stock at source warehouse");
+        throw new PolicyDeniedException(
+          canPartReserve({
+            tenantId,
+            itemActive: true,
+            warehouseValid: true,
+            quantity: input.quantity,
+            available: sourceBefore.available,
+            onHand: sourceBefore.onHand,
+            reserved: sourceBefore.reserved
+          })
+        );
       }
 
       const sourceUpdated = await this.conditionalBalanceUpdate(tx, {
@@ -267,6 +279,13 @@ export class InventoryTransactionEngine {
       if (!original) {
         throw new NotFoundException("Original stock movement not found");
       }
+      assertPolicy(
+        canReverseMovement({
+          tenantId,
+          originalMovementId: original.id,
+          alreadyReversed: (original.quantityReversed ?? 0) >= original.quantity
+        })
+      );
       if (original.type === MovementType.REVERSAL) {
         throw new BadRequestException("Cannot reverse a reversal movement");
       }
@@ -407,6 +426,18 @@ export class InventoryTransactionEngine {
       try {
         preview(before, input.quantity);
       } catch (error) {
+        const decision = canPartReserve({
+          tenantId,
+          itemActive: true,
+          warehouseValid: true,
+          quantity: input.quantity,
+          available: before.available,
+          onHand: before.onHand,
+          reserved: before.reserved
+        });
+        if (!decision.allowed) {
+          throw new PolicyDeniedException(decision);
+        }
         throw new BadRequestException(error instanceof Error ? error.message : "Inventory mutation rejected");
       }
 

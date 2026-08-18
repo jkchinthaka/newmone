@@ -96,6 +96,12 @@ model Tenant {
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
   workOrderTaxonomies          WorkOrderTaxonomy[]
+  businessExceptions           BusinessException[]
+  partCompatibilities          PartCompatibility[]
+  installedParts               InstalledPart[]
+  vehicleHealthSnapshots       VehicleHealthSnapshot[]
+  procurementRecommendations   ProcurementRecommendation[]
+  maintenanceForecasts         MaintenanceForecast[]
 }
 
 model AuditLog {
@@ -858,6 +864,8 @@ model Vehicle {
   accidents            AccidentReport[]
   insuranceClaims      InsuranceClaim[]
   trafficFines         TrafficFine[]
+  installedParts       InstalledPart[]
+  healthSnapshots      VehicleHealthSnapshot[]
 
   @@index([tenantId])
   @@index([status])
@@ -1086,6 +1094,13 @@ model MaintenanceSchedule {
   vehicle         Vehicle?             @relation(fields: [vehicleId], references: [id])
   nextDueDate     DateTime?
   nextDueMileage  Float?
+  nextDueHours    Float?
+  intervalHours   Float?
+  lastCompletedAt DateTime?
+  lastCompletedMileage Float?
+  lastCompletedHours   Float?
+  /// ACTUAL_COMPLETION (default) or FIXED_SCHEDULE. Documented in BUSINESS_DECISIONS_REQUIRED.md.
+  advancePolicy   String?
   isActive        Boolean              @default(true)
   estimatedCost   Float?
   estimatedHours  Float?
@@ -1094,6 +1109,7 @@ model MaintenanceSchedule {
 
   maintenanceLogs MaintenanceLog[]
   workOrders      WorkOrder[]
+  forecasts       MaintenanceForecast[]
 
   @@index([assetId])
   @@index([vehicleId])
@@ -1253,6 +1269,7 @@ model WorkOrder {
   taxonomyType         WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   taxonomyIssueId      String?             @db.ObjectId
   taxonomyIssue          WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  installedParts       InstalledPart[]
   categoryNameSnapshot String?
   typeNameSnapshot     String?
   issueNameSnapshot    String?
@@ -1565,6 +1582,11 @@ model SparePart {
   supplier        Supplier? @relation(fields: [supplierId], references: [id])
   images          String[]
   isActive        Boolean   @default(true)
+  leadTimeDays    Int?
+  /// CRITICAL | NORMAL. Consumables may omit serial/warranty tracking.
+  criticality     String?
+  warrantyDays    Int?
+  warrantyMileage Float?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -1574,6 +1596,9 @@ model SparePart {
   partIssues         PartIssue[]
   purchaseOrderLines PurchaseOrderLine[]
   warehouseBalances  WarehouseItemBalance[]
+  compatibilities    PartCompatibility[]
+  installedParts     InstalledPart[]
+  procurementRecommendations ProcurementRecommendation[]
 
   @@index([tenantId])
   @@index([supplierId])
@@ -2349,6 +2374,18 @@ enum NotificationType {
   CROP_PEST_RISK
   WORKER_ATTENDANCE_MISSING
   LOW_FINANCE_BALANCE
+  MAINTENANCE_OVERDUE
+  CRITICAL_WORK_ORDER
+  FORECAST_SHORTAGE
+  OUT_OF_STOCK
+  COMPLIANCE_EXPIRED
+  RECONCILIATION_VARIANCE
+  GATE_BLOCKED
+  GATE_OVERRIDE_USED
+  WARRANTY_CLAIM_POSSIBLE
+  REPEAT_FAILURE
+  DATA_QUALITY_EXCEPTION
+  QA_PENDING
 }
 
 enum NotificationPriority {
@@ -4627,12 +4664,23 @@ model ErpReconciliationMismatch {
   suggestedAction      String?
   status               ErpReconciliationMismatchStatus @default(OPEN)
   reviewedByUserId     String?                         @db.ObjectId
+  warehouseId          String?                         @db.ObjectId
+  partId               String?                         @db.ObjectId
+  erpQuantity          Float?
+  maintainProQuantity  Float?
+  variance             Float?
+  resolution           String?
+  resolvedAt           DateTime?
+  resolvedByUserId     String?                         @db.ObjectId
+  adjustmentMovementId String?
+  sourceSnapshot       Json?
   createdAt            DateTime                        @default(now())
   updatedAt            DateTime                        @updatedAt
 
   @@index([tenantId, reportType])
   @@index([tenantId, status])
   @@index([tenantId, severity])
+  @@index([tenantId, partId, warehouseId])
 }
 
 model ErpAccessChecklistItem {
@@ -4665,4 +4713,152 @@ model ErpMockSyncRun {
   createdAt       DateTime @default(now())
 
   @@index([tenantId, createdAt])
+}
+
+/// Data-quality / business exception queue. Never delete; resolve or ignore-with-reason.
+model BusinessException {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String    @db.ObjectId
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  ruleCode     String
+  severity     String
+  entityType   String
+  entityId     String
+  module       String
+  fingerprint  String
+  messageCode  String
+  metadata     Json?
+  status       String    @default("OPEN")
+  assignedToId String?   @db.ObjectId
+  resolution   String?
+  resolvedById String?   @db.ObjectId
+  resolvedAt   DateTime?
+  detectedAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, status, severity])
+  @@index([tenantId, module, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+/// Vehicle make/model/type compatibility for a spare part. UNKNOWN is not treated as incompatible.
+model PartCompatibility {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  partId      String   @db.ObjectId
+  part        SparePart @relation(fields: [partId], references: [id])
+  vehicleType String?
+  make        String?
+  vehicleModel String?
+  engineCode  String?
+  assetId     String?  @db.ObjectId
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, partId])
+  @@index([tenantId, make, vehicleModel])
+}
+
+/// Installed part / warranty tracking. Serial optional — consumables may omit it.
+model InstalledPart {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String    @db.ObjectId
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  partId             String    @db.ObjectId
+  part               SparePart @relation(fields: [partId], references: [id])
+  vehicleId          String    @db.ObjectId
+  vehicle            Vehicle   @relation(fields: [vehicleId], references: [id])
+  workOrderId        String?   @db.ObjectId
+  workOrder          WorkOrder? @relation(fields: [workOrderId], references: [id])
+  supplierId         String?   @db.ObjectId
+  batch              String?
+  lot                String?
+  serialNumber       String?
+  receivedAt         DateTime?
+  installedAt        DateTime  @default(now())
+  installedMileage   Float?
+  warrantyExpiresAt  DateTime?
+  warrantyMileage    Float?
+  removedAt          DateTime?
+  removedMileage     Float?
+  failureReason      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, vehicleId, installedAt])
+  @@index([tenantId, partId, installedAt])
+  @@index([tenantId, serialNumber])
+}
+
+model VehicleHealthSnapshot {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  vehicleId   String   @db.ObjectId
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  score       Int
+  band        String
+  reasons     Json
+  factors     Json?
+  coverage    String   @default("COMPLETE")
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, vehicleId, createdAt])
+  @@index([tenantId, band, createdAt])
+}
+
+model ProcurementRecommendation {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String    @db.ObjectId
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  partId             String    @db.ObjectId
+  part               SparePart @relation(fields: [partId], references: [id])
+  warehouseId        String?   @db.ObjectId
+  fingerprint        String
+  onHand             Int
+  reserved           Int
+  available          Int
+  incoming           Int       @default(0)
+  forecastNeed       Int       @default(0)
+  reorderPoint       Int       @default(0)
+  targetStock        Int       @default(0)
+  suggestedQuantity  Int
+  priority           String
+  reasonCodes        String[]
+  status             String    @default("OPEN")
+  purchaseOrderId    String?   @db.ObjectId
+  reviewedById       String?   @db.ObjectId
+  reviewedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, status, priority])
+  @@index([tenantId, partId])
+}
+
+model MaintenanceForecast {
+  id               String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String               @db.ObjectId
+  tenant           Tenant               @relation(fields: [tenantId], references: [id])
+  scheduleId       String               @db.ObjectId
+  schedule         MaintenanceSchedule  @relation(fields: [scheduleId], references: [id])
+  vehicleId        String?              @db.ObjectId
+  estimatedDueDate DateTime?
+  remainingKm      Float?
+  remainingDays    Float?
+  avgKmPerDay      Float?
+  coverage         String
+  confidence       String?
+  shortageParts    Json?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([tenantId, scheduleId])
+  @@index([tenantId, estimatedDueDate])
+  @@index([tenantId, vehicleId])
 }

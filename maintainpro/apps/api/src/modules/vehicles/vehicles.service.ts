@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AuditAction,
   GateMovementStatus,
@@ -20,7 +20,11 @@ import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.s
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import { ComplianceService } from "../compliance/compliance.service";
+import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { FleetService } from "../fleet/fleet.service";
+import { canMeterReadingAdvance } from "../policies/maintenance-policies";
+import { canVehicleGateOut } from "../policies/vehicle-policies";
+import { assertPolicy } from "../policies/policy-decision";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
 
@@ -78,7 +82,8 @@ export class VehiclesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(FleetService) private readonly fleetService: FleetService,
-    @Inject(ComplianceService) private readonly complianceService: ComplianceService
+    @Inject(ComplianceService) private readonly complianceService: ComplianceService,
+    @Optional() private readonly enterpriseOps?: EnterpriseOpsService
   ) {}
 
   private currentTenantId(): string {
@@ -556,9 +561,12 @@ export class VehiclesService {
     const tenantId = this.currentTenantId();
     const vehicle = await this.findOne(id);
 
-    if (data.meterReading < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    assertPolicy(
+      canMeterReadingAdvance({
+        previous: Number(vehicle.currentMileage),
+        next: data.meterReading
+      })
+    );
 
     const gateTime = data.occurredAt
       ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
@@ -617,6 +625,18 @@ export class VehiclesService {
     }
 
     const blocked = blockReasons.length > 0;
+    const gatePolicy = canVehicleGateOut({
+      tenantId,
+      vehicleActive: vehicle.status !== VehicleStatus.DISPOSED,
+      status: vehicle.status,
+      maintenanceCriticallyOverdue: Boolean(serviceEvaluation.overdue),
+      criticalWorkOrderOpen: criticalWorkOrderReasons.length > 0,
+      complianceValid: complianceReasons.length === 0,
+      driverLicenseExpired: selectedDriver ? selectedDriver.licenseExpiry.getTime() < Date.now() : false,
+      overrideRequested: Boolean(data.allowOverride),
+      overrideAuthorized: Boolean(data.allowOverride),
+      overrideReason: data.overrideReason
+    });
     const blockReasonText = blocked ? blockReasons.join("; ") : null;
 
     if (blocked && !data.allowOverride) {
@@ -645,8 +665,17 @@ export class VehiclesService {
           event: FRAUD_AUDIT_EVENTS.GATE_OUT_BLOCKED,
           vehicleId: id,
           meterReading: data.meterReading,
-          blockedReason: blockReasonText
+          blockedReason: blockReasonText,
+          policyCode: gatePolicy.code
         }
+      });
+
+      await this.enterpriseOps?.onGateResult({
+        tenantId,
+        vehicleId: id,
+        movementId: movement.id,
+        blocked: true,
+        override: false
       });
 
       return {
@@ -661,9 +690,19 @@ export class VehiclesService {
     let movementStatus: GateMovementStatus = GateMovementStatus.ALLOWED;
     if (blocked && data.allowOverride) {
       approvedByUserId = await this.assertGateOverrideApprover(data.approvedByUserId);
-      if (!data.overrideReason?.trim()) {
-        throw new BadRequestException("Override reason is required when bypassing a blocked gate-out");
-      }
+      assertPolicy(
+        canVehicleGateOut({
+          tenantId,
+          vehicleActive: vehicle.status !== VehicleStatus.DISPOSED,
+          status: vehicle.status,
+          maintenanceCriticallyOverdue: Boolean(serviceEvaluation.overdue),
+          criticalWorkOrderOpen: criticalWorkOrderReasons.length > 0,
+          complianceValid: complianceReasons.length === 0,
+          overrideRequested: true,
+          overrideAuthorized: true,
+          overrideReason: data.overrideReason
+        })
+      );
       movementStatus = GateMovementStatus.OVERRIDE_APPROVED;
     }
 
@@ -740,6 +779,13 @@ export class VehiclesService {
           overrideReason: data.overrideReason?.trim() || null,
           approvedByUserId
         }
+      });
+      await this.enterpriseOps?.onGateResult({
+        tenantId,
+        vehicleId: id,
+        movementId: result.id,
+        blocked: true,
+        override: true
       });
     }
 
@@ -1257,7 +1303,7 @@ export class VehiclesService {
         avgConsumption: 0,
         averageConsumptionLPer100Km: 0,
         distance: 0,
-        costPerKm: 0,
+        costPerKm: null as number | null,
         abnormalUsageCount: 0,
         anomalies: [],
         monthlyFuelCostTrend: [...monthlyFuelCostTrend.entries()]
@@ -1295,7 +1341,7 @@ export class VehiclesService {
     const distance = intervals.reduce((sum, interval) => sum + interval.distance, 0);
 
     const averageConsumptionLPer100Km = distance > 0 ? (totalLiters / distance) * 100 : 0;
-    const costPerKm = distance > 0 ? totalCost / distance : 0;
+    const costPerKm = distance > 0 ? totalCost / distance : null;
     const anomalyBaseline =
       intervals.length > 0
         ? intervals.reduce((sum, interval) => sum + interval.litersPer100Km, 0) / intervals.length

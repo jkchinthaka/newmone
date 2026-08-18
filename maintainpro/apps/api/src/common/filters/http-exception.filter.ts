@@ -113,7 +113,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
       response.setHeader("X-Request-Id", requestId);
     }
 
-    const code = mapErrorCode(status, internalMessage, dependencyFailure);
+    const codeFromBody =
+      status < HttpStatus.INTERNAL_SERVER_ERROR &&
+      typeof exceptionResponse === "object" &&
+      exceptionResponse !== null &&
+      typeof (exceptionResponse as { code?: unknown }).code === "string"
+        ? String((exceptionResponse as { code: string }).code)
+        : null;
+    const code = codeFromBody ?? mapErrorCode(status, internalMessage, dependencyFailure);
+    const metadata =
+      status < HttpStatus.INTERNAL_SERVER_ERROR &&
+      typeof exceptionResponse === "object" &&
+      exceptionResponse !== null &&
+      (exceptionResponse as { metadata?: unknown }).metadata &&
+      typeof (exceptionResponse as { metadata?: unknown }).metadata === "object"
+        ? (exceptionResponse as { metadata: Record<string, unknown> }).metadata
+        : undefined;
     const requestSummary = `${request.method} ${request.url} -> ${status} code=${code} requestId=${requestId ?? "none"}`;
     const isSessionProbe = request.method === "GET" && request.url.startsWith("/api/auth/me");
 
@@ -135,6 +150,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message: errorMessage,
         details: clientDetails,
         ...(fieldErrors ? { fieldErrors } : {}),
+        ...(metadata ? { metadata } : {}),
         requestId: requestId ?? undefined
       }
     });

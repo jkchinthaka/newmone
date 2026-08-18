@@ -234,6 +234,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "fuel_analytics.view",
     "vehicle_cost_analytics.view",
     "operations.scan_lookup",
+    "operations.view",
+    "operations.manage",
     "predictive_insights.view"
   ],
   FLEET_MANAGER: [
@@ -335,6 +337,7 @@ const rolePermissions: Record<RoleName, string[]> = {
     "delivery.accept_risk",
     "delivery.sign_off",
     "operations.view",
+    "operations.manage",
     "change_request.approve",
     "change_request.create",
     "go_live.view",
