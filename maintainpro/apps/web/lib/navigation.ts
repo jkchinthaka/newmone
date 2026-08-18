@@ -451,6 +451,41 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     requiredPermissions: ["operations.view"]
   },
   {
+    id: "operations-sla",
+    label: "SLA risk",
+    href: "/operations/sla",
+    icon: "Clock3",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["operations.view"]
+  },
+  {
+    id: "procurement-matching",
+    label: "PO matching",
+    href: "/procurement/matching",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, PROCUREMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["purchase_orders.view"]
+  },
+  {
+    id: "operations-budget",
+    label: "Budget commitments",
+    href: "/operations/budget",
+    icon: "Wallet",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["reports.vehicle_cost.view"]
+  },
+  {
+    id: "asset-health",
+    label: "Asset health",
+    href: "/assets/health",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ASSET_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
     id: "maintenance-forecast",
     label: "Maintenance forecast",
     href: "/maintenance/forecast",
@@ -862,7 +897,11 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/reports/management-intelligence": ["/reports"],
   "/master-data/employees": ["/master-data"],
   "/procurement/recommendations": ["/procurement"],
-  "/inventory/warranty": ["/inventory"]
+  "/procurement/matching": ["/procurement"],
+  "/inventory/warranty": ["/inventory"],
+  "/operations/sla": ["/operations/exceptions"],
+  "/operations/budget": ["/operations/exceptions"],
+  "/assets/health": ["/assets"]
 };
 
 export function normalizeNavigationRole(roleName: string | null | undefined): string | null {

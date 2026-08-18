@@ -14,6 +14,11 @@ Safe reversible defaults are in code. Change these only with an explicit operati
 | Procurement | Recommendation only; convert to existing PO when supplier exists | Do not invent a second ERP |
 | Warranty hit | Exception + notification; do not auto-PO | Replacement may be a claim, not a purchase |
 | Meter impossible future | >1 day ahead rejected | Prevents obvious bad readings |
+| SLA calendar | Weekends excluded unless `enterprise.policy.weekendsCountAsBusiness` | No holiday calendar was supplied |
+| Permit-to-work | `ptwStrict=false` → warn/allow with `BUSINESS_APPROVAL_REQUIRED` | Do not invent Nelna isolation/PPE limits |
+| Budget control | No configured `enterprise.budget.YYYY-MM` → INSUFFICIENT_DATA, do not block | Emergency may bypass if policy allows |
+| PO invoice 3-way | Invoice side INSUFFICIENT_DATA | Vendor invoices are repair-case scoped, not PO-line scoped |
+| Vendor contracts | Eligibility uses active/blacklist only | Contract/insurance expiry fields are not on Supplier |
 
 ## Remaining human / external blockers
 

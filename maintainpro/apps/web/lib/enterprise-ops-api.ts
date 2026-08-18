@@ -19,6 +19,7 @@ export type EnterpriseDashboard = {
   openExceptions: EnterpriseKpi;
   warrantyOpportunities: EnterpriseKpi;
   procurementRecommendations: EnterpriseKpi;
+  slaBreaches?: EnterpriseKpi;
   monthlyFleetCost: EnterpriseKpi;
 };
 
@@ -83,4 +84,41 @@ export async function reviewProcurementRecommendation(id: string) {
 export async function convertProcurementRecommendation(id: string) {
   const response = await apiClient.post(`/enterprise-ops/procurement/${id}/create-po`);
   return response.data.data;
+}
+
+export async function fetchSlaQueue() {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/sla");
+  return response.data.data ?? [];
+}
+
+export async function fetchDispatchRecommendations(workOrderId: string) {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/dispatch", {
+    params: { workOrderId }
+  });
+  return response.data.data ?? [];
+}
+
+export async function fetchProcurementMatches() {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/matching");
+  return response.data.data ?? [];
+}
+
+export async function fetchBudgetSnapshot() {
+  const response = await apiClient.get<{ data: Record<string, unknown> }>("/enterprise-ops/budget");
+  return response.data.data ? [response.data.data] : [];
+}
+
+export async function fetchAssetHealth() {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/assets/health");
+  return response.data.data ?? [];
+}
+
+export async function fetchVendorEligibility() {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/vendors");
+  return response.data.data ?? [];
+}
+
+export async function fetchMasterDataMappings() {
+  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/mappings");
+  return response.data.data ?? [];
 }

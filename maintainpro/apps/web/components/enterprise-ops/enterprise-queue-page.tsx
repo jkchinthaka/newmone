@@ -19,10 +19,28 @@ import {
   fetchWarrantyOpportunities,
   refreshMaintenanceForecasts,
   resolveBusinessException,
+  fetchAssetHealth,
+  fetchBudgetSnapshot,
+  fetchMasterDataMappings,
+  fetchProcurementMatches,
+  fetchSlaQueue,
+  fetchVendorEligibility,
   reviewProcurementRecommendation
 } from "@/lib/enterprise-ops-api";
 
-type QueueKind = "exceptions" | "forecasts" | "health" | "costs" | "warranty" | "procurement";
+type QueueKind =
+  | "exceptions"
+  | "forecasts"
+  | "health"
+  | "costs"
+  | "warranty"
+  | "procurement"
+  | "sla"
+  | "matching"
+  | "budget"
+  | "assets"
+  | "vendors"
+  | "mappings";
 
 function asText(value: unknown): string {
   if (value == null) return "—";
@@ -52,6 +70,12 @@ export function EnterpriseQueuePage({
       if (kind === "health") return { items: await fetchVehicleHealth() };
       if (kind === "costs") return { items: await fetchVehicleCosts() };
       if (kind === "warranty") return { items: await fetchWarrantyOpportunities() };
+      if (kind === "sla") return { items: await fetchSlaQueue() };
+      if (kind === "matching") return { items: await fetchProcurementMatches() };
+      if (kind === "budget") return { items: await fetchBudgetSnapshot() };
+      if (kind === "assets") return { items: await fetchAssetHealth() };
+      if (kind === "vendors") return { items: await fetchVendorEligibility() };
+      if (kind === "mappings") return { items: await fetchMasterDataMappings() };
       return { items: await fetchProcurementRecommendations() };
     }
   });
@@ -101,6 +125,55 @@ export function EnterpriseQueuePage({
       return [
         { id: "ruleCode", header: "Rule", cell: (row) => asText(row.ruleCode) },
         { id: "entityId", header: "Installed part", cell: (row) => asText(row.entityId) },
+        { id: "status", header: "Status", cell: (row) => asText(row.status) }
+      ];
+    }
+    if (kind === "sla") {
+      return [
+        { id: "woNumber", header: "Work order", cell: (row) => asText(row.woNumber) },
+        { id: "stage", header: "SLA stage", cell: (row) => asText(row.stage) },
+        { id: "consumedPct", header: "Consumed %", cell: (row) => asText(row.consumedPct) },
+        { id: "slaBreached", header: "Breached", cell: (row) => asText(row.slaBreached) }
+      ];
+    }
+    if (kind === "matching") {
+      return [
+        { id: "poNumber", header: "PO", cell: (row) => asText(row.poNumber) },
+        { id: "result", header: "Match", cell: (row) => asText(row.result) },
+        { id: "orderedQty", header: "Ordered", cell: (row) => asText(row.orderedQty) },
+        { id: "receivedQty", header: "Received", cell: (row) => asText(row.receivedQty) },
+        { id: "invoiceCoverage", header: "Invoice", cell: (row) => asText(row.invoiceCoverage) }
+      ];
+    }
+    if (kind === "budget") {
+      return [
+        { id: "period", header: "Period", cell: (row) => asText(row.period) },
+        { id: "budgetAmount", header: "Budget", cell: (row) => (row.budgetAmount == null ? "Insufficient data" : asText(row.budgetAmount)) },
+        { id: "committed", header: "Committed", cell: (row) => asText(row.committed) },
+        { id: "coverage", header: "Coverage", cell: (row) => asText(row.coverage) }
+      ];
+    }
+    if (kind === "assets") {
+      return [
+        { id: "assetTag", header: "Asset", cell: (row) => asText(row.assetTag) },
+        { id: "score", header: "Score", cell: (row) => asText(row.score) },
+        { id: "band", header: "Band", cell: (row) => asText(row.band) },
+        { id: "criticality", header: "Criticality", cell: (row) => asText(row.criticality) },
+        { id: "reasons", header: "Reasons", cell: (row) => asText(row.reasons) }
+      ];
+    }
+    if (kind === "vendors") {
+      return [
+        { id: "name", header: "Vendor", cell: (row) => asText(row.name) },
+        { id: "allowed", header: "Eligible", cell: (row) => asText(row.allowed) },
+        { id: "code", header: "Code", cell: (row) => asText(row.code) },
+        { id: "contractCoverage", header: "Contract", cell: (row) => asText(row.contractCoverage) }
+      ];
+    }
+    if (kind === "mappings") {
+      return [
+        { id: "sourceRecordCode", header: "Source", cell: (row) => asText(row.sourceRecordCode) },
+        { id: "mismatchType", header: "Type", cell: (row) => asText(row.mismatchType) },
         { id: "status", header: "Status", cell: (row) => asText(row.status) }
       ];
     }

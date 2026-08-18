@@ -24,6 +24,7 @@ const KPI_ITEMS: Array<{ key: keyof EnterpriseDashboard; label: string }> = [
   { key: "openExceptions", label: "Open exceptions" },
   { key: "warrantyOpportunities", label: "Warranty opportunities" },
   { key: "procurementRecommendations", label: "Procurement recommendations" },
+  { key: "slaBreaches", label: "SLA breaches" },
   { key: "monthlyFleetCost", label: "Monthly fleet cost" }
 ];
 
@@ -68,6 +69,7 @@ export function EnterpriseKpiBoard() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {KPI_ITEMS.map((item) => {
             const kpi = query.data[item.key];
+            if (!kpi) return null;
             const href = (kpi.href ?? "/dashboard") as Route;
             return (
               <Link

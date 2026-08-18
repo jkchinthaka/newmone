@@ -74,6 +74,16 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Warranty" }
   ],
   "/operations/exceptions": [{ label: "Exceptions" }],
+  "/operations/sla": [{ label: "SLA risk" }],
+  "/operations/budget": [{ label: "Budget commitments" }],
+  "/procurement/matching": [
+    { label: "Procurement", href: "/procurement" },
+    { label: "Matching" }
+  ],
+  "/assets/health": [
+    { label: "Assets", href: "/assets" },
+    { label: "Health" }
+  ],
   "/maintenance/forecast": [{ label: "Maintenance forecast" }],
   "/vehicles/health": [
     { label: "Vehicles", href: "/vehicles" },
