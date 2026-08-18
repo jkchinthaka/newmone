@@ -22,6 +22,6 @@ Safe reversible defaults are in code. Change these only with an explicit operati
 
 ## Remaining human / external blockers
 
-- FG CL18/CL30 multi-record-per-day occurrence tokens still need a business policy (see FG_NEXTJS_MIGRATION.md).
-- Combined-Release Django JSON API is not on this branch; native FG UI stays flag-off.
-- Production Mongo `db push` for new enterprise collections is a release-engineer action on a disposable production-shaped DB first.
+- FG CL18/CL30 independent-occurrence tokens are now the intended domain (this gate). Next.js sends `occurrenceToken`. Combined-Release Django Daily Records / JSON API still date-keys CL18/CL30 to one record/day — Django must honour the token before the Next.js flag can turn on.
+- Combined-Release Django JSON API is not on this branch and its GitHub branch is diverged (`ahead 1 / behind 3`). Native FG UI stays flag-off.
+- Production Mongo `db push` for new inventory/enterprise collections is a release-engineer action on a disposable production-shaped DB first.

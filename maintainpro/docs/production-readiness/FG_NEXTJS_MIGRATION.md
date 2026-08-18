@@ -44,20 +44,34 @@ Rollback: disable the flag or restore the previous Web image. No database change
 
 CL39 (cold room) remains on the dashboard as a controlled form when the backend returns it. Reports page is a history shortcut, not a new reporting engine.
 
-## Controlled-form multiplicity (do not invent)
+## Controlled-form multiplicity (authoritative intent)
 
-Verified Django Daily Records path (`ensure_controlled_daily_task` + `create_batch_checklist_task`):
+Do **not** trust the earlier Next.js migration note that CL18/CL30 are one record per day. That matched a stale Combined-Release JSON API (`2291aa08`) wrapping `ensure_controlled_daily_task` (`batch_ref = {slug}-{YYYY-MM-DD}`).
 
-| Code | Title | Daily Records behaviour |
+Intended controlled-record semantics:
+
+| Code | Title | Intended Daily Records behaviour |
 |---|---|---|
-| `NMS/PPU/CL/24` | Daily Cleaning Verification | One record per day |
-| `NMS/PPU/CL/18` | Product Dispatch Record | **One record per day** (batch `{slug}-{YYYY-MM-DD}`) |
-| `NMS/PPU/CL/30` | Inspection Record for Freezer Truck | **One record per day** |
+| `NMS/PPU/CL/24` | Daily Cleaning Verification | **One** record per day |
+| `NMS/PPU/CL/18` | Product Dispatch Record | **Multiple** independent records per day (occurrence token) |
+| `NMS/PPU/CL/30` | Inspection Record for Freezer Truck | **Multiple** independent records per day (occurrence token) |
 | `NMS/PPU/CL/39` | Product Temperature Record – Inside Cold Room | One record per day **per room** (CR1/CR2) |
 
-Requested “multiple independent records per day + occurrence token” for CL18/CL30 is **not** implemented on the current Daily Records path. Manual occurrence keys exist only for scheduled MANUAL triggers, not this UI.
+Validated occurrence-token machinery (retry same token → same task; new token → new task) already exists for MANUAL schedules: `manual_occurrence_key` / `create_manual_schedule_occurrence` (FG subtree `b7887991` / inner `475a1020`, tests in `test_phase07e_recurring_schedules.py`). Daily Records open does **not** yet pass a client occurrence token into that path.
 
-Next.js **must not** mint occurrence tokens or create extra daily records. Open-today is idempotent. Changing multiplicity is a separate business-policy change.
+Next.js (flag still **off**):
+
+- CL24: open today's idempotent record. No occurrence token.
+- CL18/CL30: new logical record mints a stable in-flight occurrence token (sessionStorage). Retry / double-click / rerender / refresh / back-forward reuse it. After a successful open, the intent is consumed so the next create is a new token.
+- Frontend must not invent a second uniqueness rule; Django remains the authority once it consumes `occurrenceToken`.
+
+## Known blockers
+
+1. Django Daily Records / JSON API still one-per-day for CL18/CL30. Next.js contract updated; **parity not proven**. Flag stays off.
+2. Native UI requires Django JSON API from Combined-Release FG. That branch is diverged (`ahead 1 / behind 3`). Do not force-push.
+3. Print stays on Django until pixel/data parity is proven.
+4. Production controlled-record smoke: **MANUAL_VALIDATION_PENDING** (no fake production records).
+5. QA Phase 10A comments: SoD is not fully server-enforced for QA. Frontend still hides unauthorized actions; server remains the authority.
 
 ## API envelope
 
@@ -91,14 +105,6 @@ Mutating calls use Django CSRF (`X-CSRFToken` + csrf cookie). No `csrf_exempt`.
 - Mapper/contract: `apps/api/test/fg-nextjs-mappers.spec.ts`, `apps/api/test/fg-contract.spec.ts`
 - Django: `apps/recording/tests/test_nextjs_json_api.py` (Combined-Release FG tree)
 - Playwright: `apps/web/e2e/fg-dashboard.spec.ts` — full CL18/CL24/CL30 workflow requires a disposable FG backend. Without it: **MANUAL_VALIDATION_PENDING**.
-
-## Known blockers
-
-1. CL18/CL30 multi-record/day + occurrence tokens: backend Daily Records is one-per-day. Policy decision required before changing Django.
-2. Native UI requires Django JSON API deployed from Combined-Release FG. Flag stays **off** until that API is live.
-3. Print stays on Django until pixel/data parity is proven.
-4. Production controlled-record smoke: **MANUAL_VALIDATION_PENDING** (no fake production records).
-5. QA Phase 10A comments: SoD is not fully server-enforced for QA. Frontend still hides unauthorized actions; server remains the authority.
 
 ## Deployment / rollback
 
