@@ -2406,7 +2406,12 @@ export class WorkOrdersService {
           action: AuditAction.UPDATE,
           actor,
           reason: "Reservation skipped — insufficient available stock",
-          metadata: { event: "reservation_failed_procurement_required", quantity }
+          metadata: {
+            event: "reservation_failed_procurement_required",
+            quantity,
+            fulfillment:
+              "PART_REQUEST_APPROVED + STOCK_NOT_RESERVED + PROCUREMENT_REQUIRED — part is not physically available"
+          }
         });
         return;
       }

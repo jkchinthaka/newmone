@@ -6,6 +6,7 @@ import {
   assertQuantityBalance,
   assertWorkOrderAllowsParts,
   deriveLineStatus,
+  partIsPhysicallyAvailable,
   pendingQuantity,
   requiresFinanceApprovalForTier,
   requiresProcurement,
@@ -34,6 +35,51 @@ describe("work-order-parts-governance (UAT-010)", () => {
     it("flags procurement when stock is insufficient", () => {
       expect(requiresProcurement(2, 5)).toBe(true);
       expect(requiresProcurement(10, 5)).toBe(false);
+    });
+
+    it("does not treat approved-but-unreserved procurement as physically available", () => {
+      expect(
+        partIsPhysicallyAvailable({
+          approvalStatus: "APPROVED",
+          reservedQuantity: 0,
+          issuedQuantity: 0,
+          procurementRequired: true,
+          requiredQuantity: 4
+        })
+      ).toBe(false);
+    });
+
+    it("treats reserved or issued quantity as physical availability after approval", () => {
+      expect(
+        partIsPhysicallyAvailable({
+          approvalStatus: "APPROVED",
+          reservedQuantity: 4,
+          issuedQuantity: 0,
+          procurementRequired: false,
+          requiredQuantity: 4
+        })
+      ).toBe(true);
+      expect(
+        partIsPhysicallyAvailable({
+          approvalStatus: "APPROVED",
+          reservedQuantity: 0,
+          issuedQuantity: 4,
+          procurementRequired: true,
+          requiredQuantity: 4
+        })
+      ).toBe(true);
+    });
+
+    it("proves part-request approval is not the same as stock reservation", () => {
+      const approvedUnreserved = {
+        approvalStatus: "APPROVED" as const,
+        reservedQuantity: 0,
+        issuedQuantity: 0,
+        procurementRequired: true,
+        requiredQuantity: 2
+      };
+      expect(approvedUnreserved.approvalStatus).toBe("APPROVED");
+      expect(partIsPhysicallyAvailable(approvedUnreserved)).toBe(false);
     });
   });
 
