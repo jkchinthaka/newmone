@@ -22,6 +22,7 @@ import {
   sessionCookieOptions
 } from "./session-cookies";
 import { applyCanonicalClientIpHeader } from "./canonical-client-ip";
+import { cookiesShouldBeSecure } from "./runtime-security-config";
 
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
@@ -86,6 +87,20 @@ function applySessionCookies(
     response.cookies.set(ACCESS_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(REFRESH_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(CSRF_COOKIE, "", { ...csrfCookieOptions(0), maxAge: 0 });
+    response.cookies.set("fg_sessionid", "", {
+      httpOnly: true,
+      secure: cookiesShouldBeSecure(),
+      sameSite: "lax",
+      path: "/fg",
+      maxAge: 0
+    });
+    response.cookies.set("fg_sso_assertion", "", {
+      httpOnly: true,
+      secure: cookiesShouldBeSecure(),
+      sameSite: "lax",
+      path: "/fg",
+      maxAge: 0
+    });
     return;
   }
 

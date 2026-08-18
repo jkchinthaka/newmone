@@ -23,6 +23,7 @@ const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
   "work-orders": ["wo", "maintenance jobs", "jobs"],
   assets: ["equipment", "registry"],
   inventory: ["parts", "stock", "spares", "warehouse", "import"],
+  "fg-digital-recording": ["fg", "finished goods", "checklist", "cl18", "cl24", "cl30", "qa", "supervisor"],
   procurement: ["purchase", "po", "suppliers"],
   fleet: ["tracking", "gps"],
   vehicles: ["trucks", "cars"],

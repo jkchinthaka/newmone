@@ -5,13 +5,14 @@ import { NotificationsModule } from "../notifications/notifications.module";
 
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { FgSsoService } from "./fg-sso.service";
 import { GoogleStrategy } from "./google.strategy";
 import { JwtStrategy } from "./jwt.strategy";
 
 @Module({
   imports: [PassportModule.register({ defaultStrategy: "jwt" }), JwtModule.register({}), NotificationsModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
-  exports: [AuthService]
+  providers: [AuthService, FgSsoService, JwtStrategy, GoogleStrategy],
+  exports: [AuthService, FgSsoService]
 })
 export class AuthModule {}

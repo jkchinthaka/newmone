@@ -136,6 +136,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/inventory/movements",
   "/inventory/daily",
   "/inventory/import",
+  "/fg",
   "/procurement",
   "/compliance",
   "/reports",
@@ -439,6 +440,17 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Layers",
     allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, PROCUREMENT_ROLES),
     category: "operations"
+  },
+  {
+    id: "fg-digital-recording",
+    label: "FG Digital Recording",
+    href: "/fg",
+    icon: "FileCheck2",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
+    category: "operations",
+    activeMatch: "startsWith",
+    description: "Controlled production records, review workflow and QA verification",
+    requiredPermissions: ["fg.access"]
   },
   {
     id: "procurement",
@@ -839,6 +851,13 @@ export function isNavigationItemVisible(
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
       return false;
     }
+    if (
+      item.requiredPermissions.includes("fg.access") &&
+      !granted.has("fg.access") &&
+      normalized !== "SUPER_ADMIN"
+    ) {
+      return false;
+    }
   }
 
   return true;
@@ -949,6 +968,14 @@ export function canAccessNavigationPath(
 
   if (normalizedPath.startsWith("/cleaning") || normalizedPath.startsWith("/facilities")) {
     return visible.some((item) => item.category === "cleaning");
+  }
+
+  if (normalizedPath.startsWith("/fg/sso/denied")) {
+    return true;
+  }
+
+  if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
+    return visible.some((item) => item.id === "fg-digital-recording");
   }
 
   return FULL_NAVIGATION_ROLES.has(normalizeNavigationRole(roleName) ?? "");
