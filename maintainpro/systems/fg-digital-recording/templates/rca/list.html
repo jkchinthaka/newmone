@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Root Cause Analysis — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="rca-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="rca-list-heading">Root Cause Analysis</h1>
+        <p class="mgmt-page__lead">
+          Structured investigation toolkit. Methods are optional. Software and AI
+          cannot confirm a root cause. Linking CAPA is an explicit human action and
+          never closes NCR/CAPA automatically. Company RCA SOP remains EVIDENCE REQUIRED (APR-074).
+        </p>
+      </div>
+      {% if can_manage %}
+        <a class="btn btn--primary btn--inline" href="{% url 'rca:create' %}">Create RCA</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters" method="get" action="{% url 'rca:list' %}">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" id="id_status" name="status">
+            <option value="">All statuses</option>
+            {% for value, label in status_choices %}
+              <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+      </div>
+    </form>
+    {% if page.object_list %}
+      <div class="table-wrap" role="region" aria-label="RCA list">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Source</th>
+              <th scope="col">Status</th>
+              <th scope="col">Organization</th>
+              <th scope="col">Started</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rca in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'rca:detail' rca_id=rca.id %}">{{ rca.rca_code }}</a>
+                </td>
+                <td>{{ rca.get_source_kind_display }}</td>
+                <td>
+                  <span class="status-badge">{{ rca.get_status_display }}</span>
+                </td>
+                <td>{{ rca.organization.code }}</td>
+                <td>{{ rca.started_at }}</td>
+                <td>
+                  <a href="{% url 'rca:detail' rca_id=rca.id %}">Open</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page.has_other_pages %}
+        <nav aria-label="RCA pages">
+          {% if page.has_previous %}
+            <a href="?page={{ page.previous_page_number }}&amp;status={{ status }}">Previous</a>
+          {% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a href="?page={{ page.next_page_number }}&amp;status={{ status }}">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      {% include "components/empty_state.html" with title="No RCA records" message="No root-cause analyses are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

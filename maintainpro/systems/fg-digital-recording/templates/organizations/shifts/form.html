@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="shift-form-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="shift-form-heading">{{ page_title }}</h1>
+        <p class="mgmt-page__lead">Enter configurable Shift values. Do not invent unofficial Nelna production codes.</p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'organizations:shift_list' %}">Back to list</a>
+    </header>
+    {% if form.non_field_errors %}
+      {% include "components/auth_error.html" with errors=form.non_field_errors %}
+    {% endif %}
+    {% if form.errors and not form.non_field_errors %}
+      {% include "components/error_summary.html" with message="Please correct the highlighted fields." %}
+    {% endif %}
+    <form class="mgmt-form"
+          method="post"
+          novalidate
+          {% if is_create %}action="{% url 'organizations:shift_create' %}"{% else %}action="{% url 'organizations:shift_edit' shift.id %}"{% endif %}>
+      {% csrf_token %}
+      {% include "components/form_field.html" with field=form.organization %}
+      <div class="form-field{% if form.site.errors %} form-field--error{% endif %}">
+        <label for="{{ form.site.id_for_label }}">{{ form.site.label }}</label>
+        <select name="{{ form.site.name }}"
+                id="{{ form.site.id_for_label }}"
+                class="form-input"
+                hx-get="{% url 'organizations:shift_departments_options' %}"
+                hx-target="#id_department"
+                hx-include="[name='organization'],[name='site']"
+                hx-trigger="change">
+          <option value="">Organization-wide (no site)</option>
+          {% for site in form.site.field.queryset %}
+            <option value="{{ site.id }}"
+                    {% if form.site.value|stringformat:"s" == site.id|stringformat:"s" %}selected{% endif %}>
+              {{ site.code }} — {{ site.name }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if form.site.help_text %}<p class="field-help">{{ form.site.help_text }}</p>{% endif %}
+        {% if form.site.errors %}
+          <ul class="field-errors" role="alert">
+            {% for error in form.site.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="form-field{% if form.department.errors %} form-field--error{% endif %}">
+        <label for="{{ form.department.id_for_label }}">{{ form.department.label }}</label>
+        <select name="{{ form.department.name }}"
+                id="id_department"
+                class="form-input">
+          <option value="">Site-wide (no department)</option>
+          {% for dept in form.department.field.queryset %}
+            <option value="{{ dept.id }}"
+                    {% if form.department.value|stringformat:"s" == dept.id|stringformat:"s" %}selected{% endif %}>
+              {{ dept.code }} — {{ dept.name }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if form.department.help_text %}<p class="field-help">{{ form.department.help_text }}</p>{% endif %}
+        {% if form.department.errors %}
+          <ul class="field-errors" role="alert">
+            {% for error in form.department.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      {% include "components/form_field.html" with field=form.code %}
+      {% include "components/form_field.html" with field=form.name %}
+      {% include "components/form_field.html" with field=form.start_time %}
+      {% include "components/form_field.html" with field=form.end_time %}
+      <p class="field-help" id="overnight-hint" role="status">
+        Overnight is derived automatically when end time is earlier than or equal to start time.
+        Equal times are classified as overnight by the current technical rule — not an official 24-hour policy.
+      </p>
+      {% include "components/form_field.html" with field=form.effective_from %}
+      {% include "components/form_field.html" with field=form.effective_to %}
+      <div class="form-field form-field--checkbox">
+        <label for="{{ form.is_active.id_for_label }}">
+          {{ form.is_active }}
+          {{ form.is_active.label }}
+        </label>
+        {% if form.is_active.help_text %}<p class="field-help">{{ form.is_active.help_text }}</p>{% endif %}
+      </div>
+      <div class="mgmt-form__actions">
+        <button type="submit" class="btn btn--primary btn--inline">{{ submit_label }}</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'organizations:shift_list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+{% block site_footer %}
+  {{ block.super }}
+  <script>
+    (function () {
+      const org = document.getElementById("id_organization");
+      const site = document.getElementById("id_site");
+      if (!org || !site || !window.htmx) {
+        return;
+      }
+      org.addEventListener("change", function () {
+        const url = "{% url 'organizations:shift_sites_options' %}?organization=" + encodeURIComponent(org.value || "");
+        htmx.ajax("GET", url, {target: "#id_site", swap: "innerHTML"}).then(function () {
+          const deptUrl = "{% url 'organizations:shift_departments_options' %}?organization=" + encodeURIComponent(org.value || "") + "&site=";
+          htmx.ajax("GET", deptUrl, {target: "#id_department", swap: "innerHTML"});
+        });
+      });
+    })();
+  </script>
+{% endblock %}

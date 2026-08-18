@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Returned for Correction — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="returned-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="returned-heading">Supervisor returned for correction</h1>
+        <p class="mgmt-page__lead">
+          Answers below are from the immutable source submission snapshot.
+          Starting correction clones this snapshot into a mutable working copy
+          without changing Submission #{{ submission.submission_number }}.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:record_history' record_id=record.id %}">Submission history</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Returned submission context">
+      <div>
+        <dt>State</dt>
+        <dd>
+          SUPERVISOR RETURNED FOR CORRECTION
+        </dd>
+      </div>
+      <div>
+        <dt>Source submission</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted by</dt>
+        <dd>
+          {{ submission.submitted_by.employee_code }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submitted at</dt>
+        <dd>
+          {{ submission.submitted_at }}
+        </dd>
+      </div>
+      {% if review %}
+        <div>
+          <dt>Reviewed by</dt>
+          <dd>
+            {{ review.reviewed_by.employee_code }}
+          </dd>
+        </div>
+        <div>
+          <dt>Reviewed at</dt>
+          <dd>
+            {{ review.reviewed_at }}
+          </dd>
+        </div>
+        <div>
+          <dt>Decision</dt>
+          <dd>
+            {{ review.decision }}
+          </dd>
+        </div>
+        {% if review.review_note %}
+          <div>
+            <dt>Review note</dt>
+            <dd>
+              {{ review.review_note }}
+            </dd>
+          </div>
+        {% endif %}
+      {% endif %}
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+    </dl>
+    {% if can_start_or_continue %}
+      <div class="landing-actions">
+        {% if correction and correction.status == ChecklistCorrectionStatus.DRAFT %}
+          <a class="btn btn--primary"
+             href="{% url 'recording:correction_detail' correction_id=correction.id %}">Continue Correction</a>
+        {% else %}
+          <form method="post"
+                action="{% url 'recording:start_correction' submission_id=submission.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary">Start Correction</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% include "recording/_snapshot_sections.html" %}
+  </section>
+{% endblock %}

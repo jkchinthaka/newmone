@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Create batch checklist task — Nelna FG{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="task-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="task-create-heading">Create batch checklist task</h1>
+        <p class="mgmt-page__lead">
+          Orchestration only. Select an explicit PUBLISHED checklist version.
+          DRAFT and RETIRED definitions are not eligible. No recording or review happens here.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'scheduling:task_list' %}">Back to tasks</a>
+    </header>
+    {% if not published_available %}
+      <p class="mgmt-page__lead" role="status">
+        A published checklist definition is required before a batch task can be created.
+        FG-QA-001 remains DRAFT / not approved for production use.
+      </p>
+    {% endif %}
+    <form method="post"
+          action="{% url 'scheduling:task_create' %}"
+          novalidate
+          class="mgmt-editor">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+      <div class="form-field">
+        <label for="{{ form.organization.id_for_label }}">Organization</label>
+        {{ form.organization }}
+        {% for error in form.organization.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.checklist_template.id_for_label }}">Checklist template</label>
+        {{ form.checklist_template }}
+        {% for error in form.checklist_template.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.checklist_version.id_for_label }}">Published version</label>
+        {{ form.checklist_version }}
+        <p class="mgmt-page__lead">Selected definition is shown explicitly for auditability.</p>
+        {% for error in form.checklist_version.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.batch_reference.id_for_label }}">Batch reference</label>
+        {{ form.batch_reference }}
+        {% for error in form.batch_reference.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="mgmt-page__actions">
+        <button type="submit" class="btn btn--primary btn--inline">Create task</button>
+      </div>
+    </form>
+  </section>
+  <script>
+    (function () {
+      const org = document.getElementById("{{ form.organization.id_for_label }}");
+      const template = document.getElementById("{{ form.checklist_template.id_for_label }}");
+      const version = document.getElementById("{{ form.checklist_version.id_for_label }}");
+      if (!org || !template || !version || !window.htmx) return;
+      org.addEventListener("change", function () {
+        htmx.ajax("GET", "{% url 'scheduling:task_template_options' %}?organization=" + encodeURIComponent(org.value), {
+          target: "#" + template.id,
+          swap: "innerHTML"
+        }).then(function () {
+          version.innerHTML = '<option value="">Select published version</option>';
+        });
+      });
+      template.addEventListener("change", function () {
+        htmx.ajax("GET", "{% url 'scheduling:task_version_options' %}?checklist_template=" + encodeURIComponent(template.value), {
+          target: "#" + version.id,
+          swap: "innerHTML"
+        });
+      });
+    })();
+  </script>
+{% endblock %}

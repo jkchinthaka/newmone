@@ -1,0 +1,84 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+credentials/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Node
+node_modules/
+npm-debug.log*
+.npm
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Build / tooling
+/dist/
+*.egg-info/
+.eggs/
+/build/
+*.egg
+
+# Frontend build outputs are committed for foundation reproducibility.
+# Ignore only root/Python packaging dist, not static/dist.
+!static/dist/
+!static/dist/**
+
+# Test / local dumps
+*.sql.dump
+*.dump
+coverage.xml
+.tox/
+.nox/
+
+# Font binaries (never commit)
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.eot
+
+# Docker
+*.pid
+
+# Phase 11 private evidence blobs (never public MEDIA)
+media/evidence_private/
+
+
+.local-wip-preserve/
+

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Not found — Nelna FG Digital Recording System{% endblock %}
+{% block content %}
+  <section class="error-page-card" aria-labelledby="error-heading">
+    <h1 id="error-heading">404 — Not found</h1>
+    <p>The requested page could not be found.</p>
+    <p>
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:landing' %}">Return to dashboard</a>
+      {% else %}
+        <a href="{% url 'accounts:login' %}">Sign in</a>
+      {% endif %}
+    </p>
+  </section>
+{% endblock %}

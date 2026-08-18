@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>
+      {% if spec %}
+        {{ spec.code }} monthly pack {{ month_label }}
+      {% else %}
+        Monthly print pack
+      {% endif %}
+    </title>
+    <link rel="stylesheet" href="/static/dist/css/app.css">
+  </head>
+  <body class="print-sheet print-sheet--monthly{% if spec and spec.print_orientation == 'landscape' %} print-sheet--landscape{% endif %}">
+    <header class="print-sheet__header">
+      <p>Nelna FG Digital Recording System — monthly pack</p>
+      {% if spec %}
+        <h1>{{ spec.title }}</h1>
+        <p>
+          Form {{ spec.code }} · Issued {{ spec.issued }} · Rev {{ spec.revision }}
+          · Rev date {{ spec.revision_date }} · Month {{ month_label }}
+        </p>
+      {% endif %}
+      <p>Generated {{ generated_at }}</p>
+    </header>
+    {% if rows %}
+      <table class="print-table print-table--monthly">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            {% for day in days %}<th scope="col">{{ day|date:"d" }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <th scope="row">{{ row.code }} {{ row.label }}</th>
+              {% for value in row.values %}<td>{{ value }}</td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No submitted records in this month for the selected form.</p>
+    {% endif %}
+    {% if submissions %}
+      <h2>Recorder / checker / verifier</h2>
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th scope="col">Identity</th>
+            <th scope="col">Recorder</th>
+            <th scope="col">Submitted</th>
+            <th scope="col">Checker</th>
+            <th scope="col">Verifier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for submission in submissions %}
+            <tr>
+              <td>{{ submission.checklist_record.checklist_task.batch_reference }}</td>
+              <td>{{ submission.submitted_by.employee_code }}</td>
+              <td>{{ submission.submitted_at }}</td>
+              <td>
+                {% if submission.supervisor_review %}
+                  {{ submission.supervisor_review.reviewed_by.employee_code }}
+                  {{ submission.supervisor_review.get_decision_display }}
+                {% endif %}
+              </td>
+              <td>
+                {% if submission.qa_review %}
+                  {{ submission.qa_review.reviewed_by.employee_code }}
+                  {{ submission.qa_review.get_decision_display }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    <p class="print-sheet__note">
+      This pack reprints stored answers. It is not a paper-form replica for screen use.
+      Evaluation is measurement-only.
+    </p>
+    <footer class="print-sheet__footer">
+      <span>
+        {% if spec %}{{ spec.code }}{% endif %}
+      {{ month_label }}</span>
+      <span>Printed {{ generated_at }}</span>
+    </footer>
+    <p class="print-sheet__actions no-print">
+      <button type="button" class="btn btn--primary" onclick="window.print()">Print A4 pack</button>
+    </p>
+  </body>
+</html>

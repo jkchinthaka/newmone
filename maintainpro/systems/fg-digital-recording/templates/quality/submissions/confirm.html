@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Confirm QA Decision — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="confirm-qa-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="confirm-qa-heading">Confirm QA disposition</h1>
+        <p class="mgmt-page__lead">
+          This records an immutable QA decision. It cannot be edited later through
+          normal application flows.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'quality:submission_detail' submission_id=submission.id %}">Back to submission</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Decision context">
+      <div>
+        <dt>QA decision</dt>
+        <dd>
+          <span class="status-text">{{ decision_label }}</span>
+          <span class="form-help">({{ decision }})</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Supervisor decision</dt>
+        <dd>
+          APPROVED
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+    </dl>
+    <p class="form-help" role="note">
+      This records the QA decision in this application. It does not perform ERP,
+      inventory, warehouse or dispatch actions.
+    </p>
+    <form method="post"
+          action="{% url 'quality:confirm_decision' submission_id=submission.id decision=decision %}"
+          class="mgmt-form"
+          data-mp-idempotent-form>
+      {% csrf_token %}
+      <input type="hidden" name="idempotency_key" value="">
+      <div class="form-field">
+        <label for="{{ form.review_note.id_for_label }}">{{ form.review_note.label }}</label>
+        {{ form.review_note }}
+        <p id="qa-review-note-help" class="form-help">
+          Optional. Whether a note is required by disposition remains evidence-required
+          and is not enforced in this phase.
+        </p>
+        {% if form.review_note.errors %}
+          <ul class="form-errors">
+            {% for error in form.review_note.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="landing-actions">
+        <button type="submit" class="btn btn--primary" data-mp-submit>Confirm {{ decision_label }}</button>
+        <a class="btn btn--ghost"
+           href="{% url 'quality:submission_detail' submission_id=submission.id %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
+{% endblock %}

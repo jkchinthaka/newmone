@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="product-form-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="product-form-heading">{{ page_title }}</h1>
+        <p class="mgmt-page__lead">Enter configurable FG Product values. Do not invent unofficial Nelna production codes.</p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'master_data:product_list' %}">Back to list</a>
+    </header>
+    {% if form.non_field_errors %}
+      {% include "components/auth_error.html" with errors=form.non_field_errors %}
+    {% endif %}
+    {% if form.errors and not form.non_field_errors %}
+      {% include "components/error_summary.html" with message="Please correct the highlighted fields." %}
+    {% endif %}
+    <form class="mgmt-form"
+          method="post"
+          novalidate
+          {% if is_create %}action="{% url 'master_data:product_create' %}"{% else %}action="{% url 'master_data:product_edit' product.id %}"{% endif %}>
+      {% csrf_token %}
+      {% include "components/form_field.html" with field=form.organization %}
+      {% include "components/form_field.html" with field=form.code %}
+      {% include "components/form_field.html" with field=form.name %}
+      {% include "components/form_field.html" with field=form.description %}
+      {% include "components/form_field.html" with field=form.erp_item_code %}
+      {% include "components/form_field.html" with field=form.category %}
+      {% include "components/form_field.html" with field=form.brand %}
+      {% include "components/form_field.html" with field=form.pack_size %}
+      {% include "components/form_field.html" with field=form.uom %}
+      {% include "components/form_field.html" with field=form.barcode %}
+      {% include "components/form_field.html" with field=form.storage_category %}
+      {% include "components/form_field.html" with field=form.shelf_life_reference %}
+      {% include "components/form_field.html" with field=form.label_artwork_reference %}
+      {% include "components/form_field.html" with field=form.effective_from %}
+      {% include "components/form_field.html" with field=form.effective_to %}
+      <div class="form-field form-field--checkbox">
+        <label for="{{ form.is_active.id_for_label }}">
+          {{ form.is_active }}
+          {{ form.is_active.label }}
+        </label>
+        {% if form.is_active.help_text %}<p class="field-help">{{ form.is_active.help_text }}</p>{% endif %}
+      </div>
+      <div class="mgmt-form__actions">
+        <button type="submit" class="btn btn--primary btn--inline">{{ submit_label }}</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'master_data:product_list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

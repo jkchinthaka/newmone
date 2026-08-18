@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Upload evidence{% endblock %}
+{% block content %}
+<section class="nelna-page">
+  <h1>Upload evidence</h1>
+  <p class="nelna-lede">
+    Optional private attachment for <code>{{ linked_kind }}</code>
+    / <code>{{ linked_object_id }}</code>.
+    Evidence is not required unless a separate policy says so.
+  </p>
+  <p role="status">Malware scanning is not configured. Do not treat uploads as scanned.</p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload to private storage</button>
+  </form>
+  <p>
+    <a href="{% url 'evidence:list_for_link' linked_kind linked_object_id %}">Back to list</a>
+  </p>
+</section>
+{% endblock %}

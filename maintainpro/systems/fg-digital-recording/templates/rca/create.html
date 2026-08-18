@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Create RCA — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="rca-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="rca-create-heading">Create RCA</h1>
+        <p class="mgmt-page__lead">
+          Creating an RCA does not confirm a root cause and does not open or close
+          NCR or CAPA. Use an owner-supplied identifier. Do not invent company codes.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline" href="{% url 'rca:list' %}">Back to list</a>
+    </header>
+    <form method="post" action="{% url 'rca:create' %}" class="mgmt-form">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="id_organization_id">Organization</label>
+        <select class="form-input"
+                name="organization_id"
+                id="id_organization_id"
+                required>
+          {% for org in organizations %}<option value="{{ org.id }}">{{ org.code }} — {{ org.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="id_rca_code">RCA identifier</label>
+        <input class="form-input"
+               name="rca_code"
+               id="id_rca_code"
+               required
+               maxlength="64">
+      </div>
+      <div class="form-field">
+        <label for="id_source_kind">Source</label>
+        <select class="form-input" name="source_kind" id="id_source_kind" required>
+          {% for value, label in source_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="id_source_citation">Source citation</label>
+        <input class="form-input"
+               name="source_citation"
+               id="id_source_citation"
+               maxlength="512">
+      </div>
+      <div class="form-field">
+        <label for="id_problem_statement">Problem statement</label>
+        <textarea class="form-input"
+                  name="problem_statement"
+                  id="id_problem_statement"
+                  required></textarea>
+      </div>
+      <div class="form-field">
+        <label for="id_containment_reference">Immediate containment reference</label>
+        <textarea class="form-input"
+                  name="containment_reference"
+                  id="id_containment_reference"></textarea>
+        <p class="form-help">Optional citation only. Does not create NCR/HOLD/CAPA.</p>
+      </div>
+      <div class="form-field">
+        <label for="id_facilitator_reference">Facilitator reference</label>
+        <input class="form-input"
+               name="facilitator_reference"
+               id="id_facilitator_reference"
+               maxlength="128">
+      </div>
+      <button type="submit" class="btn btn--primary">Create RCA</button>
+    </form>
+  </section>
+{% endblock %}

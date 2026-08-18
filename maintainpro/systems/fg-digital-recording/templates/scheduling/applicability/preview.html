@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Checklist Applicability Preview — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="appl-preview-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="appl-preview-heading">Checklist applicability preview</h1>
+        <p class="mgmt-page__lead">
+          Given Product / Site / Department / Shift / process label / effective date,
+          preview which published checklist version would apply. Conflicts are reported
+          explicitly — the engine never silently picks the first match. Production Line
+          and Process masters are not modeled (EVIDENCE REQUIRED). APR-013 / APR-014 /
+          APR-015 remain open for production policy.
+        </p>
+      </div>
+      <a class="btn btn--secondary btn--inline"
+         href="{% url 'scheduling:task_list' %}">Back to tasks</a>
+    </header>
+    <form method="post"
+          class="mgmt-form"
+          action="{% url 'scheduling:applicability_preview' %}">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mgmt-filters__grid">
+        {% for field in form %}
+          <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn--primary btn--inline">Preview</button>
+    </form>
+    {% if resolution %}
+      <section class="mgmt-panel" aria-labelledby="appl-result-heading">
+        <h2 id="appl-result-heading">Result</h2>
+        <p>
+          <strong>Outcome:</strong> {{ resolution.outcome }}
+        </p>
+        {% if resolution.message %}<p>{{ resolution.message }}</p>{% endif %}
+        {% if resolution.outcome == "ONE_MATCH" and resolution.matched_rule %}
+          <ul>
+            <li>Rule: {{ resolution.matched_rule.code }} — {{ resolution.matched_rule.name }}</li>
+            <li>Template: {{ resolution.matched_rule.checklist_template.code }}</li>
+            <li>Version: {{ resolution.matched_rule.checklist_version.version_number }} (PUBLISHED pin)</li>
+          </ul>
+        {% elif resolution.matched_rules %}
+          <p>Candidates (not auto-selected):</p>
+          <ul>
+            {% for rule in resolution.matched_rules %}
+              <li>{{ rule.code }} → {{ rule.checklist_template.code }} v{{ rule.checklist_version.version_number }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if resolution.invalid_rules %}
+          <p>Invalid / inactive references:</p>
+          <ul>
+            {% for rule in resolution.invalid_rules %}
+              <li>{{ rule.code }} → {{ rule.checklist_template.code }} v{{ rule.checklist_version.version_number }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </section>
+    {% endif %}
+  </section>
+{% endblock %}

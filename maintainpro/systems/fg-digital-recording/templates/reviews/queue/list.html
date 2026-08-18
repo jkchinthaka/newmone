@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Supervisor Review Queue — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="review-queue-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="review-queue-heading">Supervisor Review Queue</h1>
+        <p class="mgmt-page__lead">
+          Submitted checklists awaiting an immutable Supervisor decision.
+          Approve means Supervisor review is complete and may later enter a future
+          QA stage — not product release or QA approval. Self-review prohibition
+          applies only when organization governance is owner-configured PROHIBIT
+          (APR-010 / SOD-01 otherwise remain PENDING). Review overdue uses
+          configured SLA minutes only — never invented timing.
+        </p>
+      </div>
+    </header>
+    <nav class="recording-section-progress" aria-label="Review queues">
+      <ul>
+        <li class="{% if queue == QUEUE_PENDING %}is-complete{% endif %}">
+          <a href="?queue={{ QUEUE_PENDING }}">Pending <span>{{ pending_count }}</span></a>
+        </li>
+        <li class="{% if queue == QUEUE_OVERDUE %}is-complete{% endif %}">
+          <a href="?queue={{ QUEUE_OVERDUE }}">Overdue <span>{{ overdue_count }}</span></a>
+        </li>
+        <li class="{% if queue == QUEUE_RESUBMISSION %}is-complete{% endif %}">
+          <a href="?queue={{ QUEUE_RESUBMISSION }}">Resubmission <span>{{ resubmission_count }}</span></a>
+        </li>
+      </ul>
+    </nav>
+    {% if queue == QUEUE_OVERDUE and overdue_count == 0 %}
+      <p class="mgmt-page__lead" role="status">
+        No overdue reviews in scope. Overdue appears only when an organization has
+        configured <code>review_sla_minutes</code> — no invented SLA defaults.
+      </p>
+    {% endif %}
+    {% if submissions %}
+      <div class="table-wrap" role="region" aria-label="Reviewable submissions">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Batch reference</th>
+              <th scope="col">Checklist</th>
+              <th scope="col">Version</th>
+              <th scope="col">Submission</th>
+              <th scope="col">Submitted by</th>
+              <th scope="col">Submitted at</th>
+              <th scope="col">Organization</th>
+              <th scope="col">Workflow</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for submission in submissions %}
+              <tr>
+                <td>{{ submission.checklist_record.checklist_task.batch_reference }}</td>
+                <td>
+                  {{ submission.checklist_record.checklist_task.checklist_template.code }}
+                  —
+                  {{ submission.checklist_record.checklist_task.checklist_template.name }}
+                </td>
+                <td>v{{ submission.checklist_record.checklist_task.checklist_version.version_number }}</td>
+                <td>
+                  #{{ submission.submission_number }}
+                  {% if submission.submission_number > 1 %}<span class="status-pill status-pill--warning">Resubmission</span>{% endif %}
+                </td>
+                <td>{{ submission.submitted_by.employee_code }}</td>
+                <td>{{ submission.submitted_at }}</td>
+                <td>
+                  {{ submission.checklist_record.organization.code }}
+                  —
+                  {{ submission.checklist_record.organization.name }}
+                </td>
+                <td>
+                  {% if submission.submission_number > 1 %}
+                    <span class="status-pill status-pill--warning">Awaiting Supervisor (resubmission)</span>
+                  {% else %}
+                    <span class="status-pill status-pill--warning">Awaiting Supervisor</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'reviews:submission_detail' submission_id=submission.id %}">Review submission</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page.has_other_pages %}
+        <nav class="pagination" aria-label="Supervisor review pages">
+          {% if page.has_previous %}
+            <a href="?queue={{ queue }}&amp;page={{ page.previous_page_number }}">Previous</a>
+          {% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a href="?queue={{ queue }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <p class="empty-state" role="status">
+        {% if queue == QUEUE_OVERDUE %}
+          No overdue Supervisor reviews in your Organization scope.
+        {% elif queue == QUEUE_RESUBMISSION %}
+          No resubmission reviews waiting in your Organization scope.
+        {% else %}
+          No submissions are waiting for Supervisor review in your Organization scope.
+        {% endif %}
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Confirm Supervisor Decision — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="confirm-review-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="confirm-review-heading">Confirm Supervisor decision</h1>
+        <p class="mgmt-page__lead">
+          This records an immutable Supervisor review. It cannot be edited later
+          through normal application flows.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'reviews:submission_detail' submission_id=submission.id %}">Back to submission</a>
+    </header>
+    <aside class="alert alert-info"
+           role="status"
+           aria-label="Supervisor governance">
+      <p>
+        <strong>Self-review policy:</strong>
+        {{ governance.self_review.status_label }}
+        (enforcement: {{ governance.self_review.enforcement }}).
+      </p>
+      <p class="form-help">
+        SoD question remains explicit: {{ governance.sod_question }}.
+        Technical permission: {{ governance.uses_phase_03c_permission }}.
+        {% if governance.review_due.due_at %}
+          Configured review due: {{ governance.review_due.due_at }}
+          {% if governance.review_due.is_overdue %}(OVERDUE){% endif %}
+          .
+        {% else %}
+          Review SLA: not configured (no invented timing).
+        {% endif %}
+      </p>
+      {% if not is_latest_submission %}
+        <p class="alert alert-error" role="alert">
+          This is not the latest submission for the record. Prefer reviewing the latest
+          open submission.
+        </p>
+      {% endif %}
+    </aside>
+    <dl class="mgmt-meta" aria-label="Decision context">
+      <div>
+        <dt>Decision</dt>
+        <dd>
+          <span class="status-text">{{ decision_label }}</span>
+          <span class="form-help">({{ decision }})</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Submission number</dt>
+        <dd>
+          #{{ submission.submission_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+    </dl>
+    {% if decision == SupervisorReviewDecision.APPROVED %}
+      <p class="form-help" role="note">Approving does not create QA review, RELEASE, HOLD, or REJECT actions.</p>
+    {% else %}
+      <p class="form-help" role="note">
+        Returning for correction does not reopen the submitted record or create
+        Submission #2 in this phase.
+      </p>
+    {% endif %}
+    <form method="post"
+          action="{% url 'reviews:confirm_decision' submission_id=submission.id decision=decision %}"
+          class="mgmt-form"
+          data-mp-idempotent-form>
+      {% csrf_token %}
+      <input type="hidden" name="idempotency_key" value="">
+      <div class="form-field">
+        <label for="{{ form.review_note.id_for_label }}">{{ form.review_note.label }}</label>
+        {{ form.review_note }}
+        <p id="review-note-help" class="form-help">
+          Optional. A mandatory correction reason is not enforced until business
+          evidence requires it.
+        </p>
+        {% if form.review_note.errors %}
+          <ul class="form-errors">
+            {% for error in form.review_note.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="landing-actions">
+        <button type="submit" class="btn btn--primary" data-mp-submit>Confirm {{ decision_label }}</button>
+        <a class="btn btn--ghost"
+           href="{% url 'reviews:submission_detail' submission_id=submission.id %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
+{% endblock %}

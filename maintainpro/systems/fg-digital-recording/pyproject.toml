@@ -1,0 +1,169 @@
+[project]
+name = "nelna-fg-digital-recording-system"
+version = "0.2.0"
+description = "Nelna FG Digital Recording System ΓÇö Django and PostgreSQL technical foundation"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django==5.2.16",
+    "psycopg[binary]==3.3.4",
+    "django-environ==0.14.0",
+    "django-htmx==1.27.0",
+    "redis==8.0.1",
+    "celery==5.6.3",
+    "gunicorn==26.0.0",
+    "structlog==26.1.0",
+    "PyJWT==2.10.1",
+]
+
+[dependency-groups]
+development = [
+    "django-stubs==5.2.9",
+    "djlint==1.36.4",
+    "mypy==1.19.1",
+    "pre-commit==4.5.1",
+    "ruff==0.15.0",
+    "types-redis==4.6.0.20241004",
+]
+testing = [
+    "pytest==9.0.3",
+    "pytest-cov==7.0.0",
+    "pytest-django==4.11.1",
+]
+security = [
+    "bandit==1.9.2",
+    "pip-audit==2.10.0",
+]
+# Optional — required for mongo_same_db / mongo_same_db_poc settings modules.
+mongo = [
+    "django-mongodb-backend==5.2.3",
+]
+# Back-compat alias
+mongo-poc = [
+    "django-mongodb-backend==5.2.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps", "config"]
+
+[tool.uv]
+package = true
+default-groups = ["development", "testing", "security"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["apps", "config", "scripts", "tests"]
+extend-exclude = ["**/migrations/**", "static/dist/**", "design/generated/**", "node_modules/**", ".local-wip-preserve/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "S", "DJ"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S107", "S603"]
+"**/tests/**" = ["S105", "S106", "S107", "S603"]
+"apps/accounts/models.py" = ["DJ001"]
+"apps/accounts/middleware.py" = ["S110"]
+"config/settings/**" = ["S105"]
+"scripts/build_design_tokens.py" = ["S105"]
+"scripts/_run_07h_tests.py" = ["E402", "E501"]
+"scripts/_run_09c_tests.py" = ["E402", "E501"]
+"apps/recording/concurrency.py" = ["N818"]
+"scripts/ops/restore_drill.py" = ["S603", "S608"]
+"apps/mongo_poc/models.py" = ["DJ008"]
+"apps/mongo_poc/admin.py" = ["DJ008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "."
+explicit_package_bases = true
+exclude = [
+    "migrations/",
+    "static/",
+    "node_modules/",
+    "design/generated/",
+    "apps/mongo_poc/",
+]
+
+[[tool.mypy.overrides]]
+module = ["config.secrets.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "django_htmx.*", "environ.*", "django_mongodb_backend.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+pythonpath = ["."]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+]
+testpaths = ["tests", "apps"]
+markers = [
+    "integration: tests requiring PostgreSQL and/or Redis",
+    "architecture: architecture boundary checks",
+    "mongo_poc: isolated MongoDB POC (requires config.settings.mongo_poc + replica set)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "config"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/apps.py",
+    "manage.py",
+    "apps/mongo_poc/*",
+    "config/settings/mongo_poc.py",
+    "config/asgi.py",
+    "config/wsgi.py",
+    "config/settings/production.py",
+    "config/secrets/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 80
+
+[tool.djlint]
+profile = "django"
+extension = "html"
+indent = 2
+max_line_length = 120
+ignore = "H006,H021,H030,H031"
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "apps/core/tests",
+    "apps/accounts/tests",
+    "apps/organizations/tests",
+    "apps/access_control/tests",
+    "apps/security_audit/tests",
+    ".venv",
+    "node_modules",
+]
+skips = ["B101", "B105"]

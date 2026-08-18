@@ -1,0 +1,34 @@
+---
+description: Modular monolith architecture rules
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Modular Monolith Rules
+
+## Architecture
+
+- Deliver as a modular monolith inside one Django project.
+- Do not introduce microservices, separate deployable domain services, or event-bus-first designs without an approved ADR.
+
+## Module boundaries
+
+Each domain module owns its models and public service API.
+
+Allowed patterns:
+
+- `services.py` — business operations and writes
+- `selectors.py` — complex reads and query composition
+- `policies.py` — authorization and separation-of-duty checks
+- `models.py` — persistence owned by the module
+
+## Dependency rules
+
+- Other modules must call public services/selectors, not reach into private model internals across boundaries when a public API exists.
+- Views and templates must not embed domain business logic.
+- Cross-module writes that touch multiple aggregates must run inside explicit database transactions.
+- Avoid circular module dependencies; extract shared primitives carefully and sparingly.
+
+## Future extraction
+
+Modules may be extracted only when scale, team, or deployment needs justify the cost, and only after an approved ADR.

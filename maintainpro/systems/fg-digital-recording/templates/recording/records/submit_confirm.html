@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Confirm Submission — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="submit-confirm-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="submit-confirm-heading">Confirm Checklist Submission</h1>
+        <p class="mgmt-page__lead">
+          Submission creates an immutable snapshot. Answers will no longer be editable.
+          Item PASS/FAIL/WARN evaluation (when configured) is measurement-only —
+          not QA RELEASE, HOLD, or REJECT. Supervisor and QA decisions remain separate.
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'recording:record_detail' record_id=record.id %}">Back to draft</a>
+    </header>
+    <dl class="mgmt-meta" aria-label="Submission summary">
+      <div>
+        <dt>Batch reference</dt>
+        <dd>
+          {{ task.batch_reference }}
+        </dd>
+      </div>
+      <div>
+        <dt>Checklist</dt>
+        <dd>
+          {{ task.checklist_template.code }} — {{ task.checklist_template.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Version</dt>
+        <dd>
+          v{{ task.checklist_version.version_number }}
+        </dd>
+      </div>
+      <div>
+        <dt>Organization</dt>
+        <dd>
+          {{ task.organization.code }} — {{ task.organization.name }}
+        </dd>
+      </div>
+      <div>
+        <dt>Answered items</dt>
+        <dd>
+          {{ completeness.answered_items }} / {{ completeness.total_items }}
+        </dd>
+      </div>
+      <div>
+        <dt>Required unanswered</dt>
+        <dd>
+          {{ completeness.missing_required_items|length }}
+        </dd>
+      </div>
+    </dl>
+    {% if not can_submit %}
+      <div class="alert alert-error" role="alert">
+        <p>Required items remain unanswered. Return to the draft and complete them first:</p>
+        <ul>
+          {% for item in completeness.missing_required_items %}<li>{{ item.code }} — {{ item.label }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="mgmt-actions">
+        <a class="btn btn--primary"
+           href="{% url 'recording:record_detail' record_id=record.id %}">Return to draft</a>
+      </div>
+    {% else %}
+      <form method="post"
+            action="{% url 'recording:submit_confirm' record_id=record.id %}"
+            data-mp-idempotent-form>
+        {% csrf_token %}
+        <input type="hidden" name="idempotency_key" value="">
+        <div class="mgmt-actions">
+          <button type="submit" class="btn btn--primary" data-mp-submit>Confirm Submit</button>
+          <a class="btn btn--ghost"
+             href="{% url 'recording:record_detail' record_id=record.id %}">Cancel</a>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
+{% endblock %}

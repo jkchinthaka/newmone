@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}QA Review Queue — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="qa-queue-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="qa-queue-heading">QA Review Queue</h1>
+        <p class="mgmt-page__lead">
+          Latest Supervisor-approved submissions awaiting a manual QA disposition.
+          RELEASE / HOLD / REJECT record a provisional decision in this application only —
+          they do not perform ERP, inventory, warehouse, or dispatch actions.
+        </p>
+      </div>
+    </header>
+    {% if submissions %}
+      <div class="table-wrap"
+           role="region"
+           aria-label="QA-reviewable submissions">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Batch reference</th>
+              <th scope="col">Checklist</th>
+              <th scope="col">Version</th>
+              <th scope="col">Submission</th>
+              <th scope="col">Submitted by</th>
+              <th scope="col">Submitted at</th>
+              <th scope="col">Supervisor reviewed by</th>
+              <th scope="col">Supervisor reviewed at</th>
+              <th scope="col">Organization</th>
+              <th scope="col">Workflow</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for submission in submissions %}
+              <tr>
+                <td>{{ submission.checklist_record.checklist_task.batch_reference }}</td>
+                <td>
+                  {{ submission.checklist_record.checklist_task.checklist_template.code }}
+                  —
+                  {{ submission.checklist_record.checklist_task.checklist_template.name }}
+                </td>
+                <td>v{{ submission.checklist_record.checklist_task.checklist_version.version_number }}</td>
+                <td>#{{ submission.submission_number }}</td>
+                <td>{{ submission.submitted_by.employee_code }}</td>
+                <td>{{ submission.submitted_at }}</td>
+                <td>{{ submission.supervisor_review.reviewed_by.employee_code }}</td>
+                <td>{{ submission.supervisor_review.reviewed_at }}</td>
+                <td>
+                  {{ submission.checklist_record.organization.code }}
+                  —
+                  {{ submission.checklist_record.organization.name }}
+                </td>
+                <td>
+                  <span class="status-pill status-pill--info">Awaiting QA</span>
+                </td>
+                <td>
+                  <a href="{% url 'quality:submission_detail' submission_id=submission.id %}">QA review submission</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page.has_other_pages %}
+        <nav class="pagination" aria-label="QA review pages">
+          {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <p class="empty-state" role="status">
+        No Supervisor-approved submissions are waiting for QA review in your Organization scope.
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

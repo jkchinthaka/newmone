@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Dispatch quality — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="dispatch-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="dispatch-heading">Dispatch quality</h1>
+        <p class="mgmt-page__lead">
+          Loading quality records only. No ERP stock movement. QA RELEASE gate is off unless
+          an owner enables it.
+        </p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'dispatch:create' %}">Open dispatch record</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters" method="get">
+      <div class="form-field">
+        <label for="id_status">Status</label>
+        <select class="form-input" id="id_status" name="status">
+          <option value="">All</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Apply</button>
+    </form>
+    {% if page.object_list %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Vehicle</th>
+              <th scope="col">Status</th>
+              <th scope="col">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in page.object_list %}
+              <tr>
+                <td>
+                  <a href="{% url 'dispatch:detail' record_id=record.id %}">{{ record.code }}</a>
+                </td>
+                <td>{{ record.vehicle_reference|default:"—" }}</td>
+                <td>
+                  <span class="status-badge">{{ record.get_status_display }}</span>
+                </td>
+                <td>{{ record.organization.code }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No dispatch quality records" message="No loading records are visible in your organization scope." %}
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}New version — {{ template.code }}{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="version-create-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="version-create-heading">Create draft version</h1>
+        <p class="mgmt-page__lead">Template {{ template.code }} — {{ template.name }}</p>
+      </div>
+      <a class="btn btn--ghost btn--inline"
+         href="{% url 'checklists:template_detail' template.id %}">Back</a>
+    </header>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% include "components/form_field.html" with field=form.source_version %}
+      <div class="mgmt-page__actions">
+        <button type="submit" class="btn btn--primary btn--inline">Create draft</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

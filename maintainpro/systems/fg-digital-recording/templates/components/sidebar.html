@@ -1,0 +1,127 @@
+{% load organizations_extras master_data_extras checklists_extras scheduling_extras recording_extras reviews_extras quality_extras reports_extras rca_extras ncr_extras capa_extras lab_extras haccp_extras dispatch_extras complaints_extras quarantine_extras %}
+<aside class="app-sidebar" id="app-sidebar" aria-label="Application">
+  <div class="app-sidebar__brand">
+    <a class="app-sidebar__logo" href="{% url 'accounts:landing' %}">
+      <span class="app-sidebar__mark" aria-hidden="true">MP</span>
+      <span class="app-sidebar__text">
+        <span class="app-sidebar__name">MaintainPro</span>
+        <span class="app-sidebar__product">Operations Platform</span>
+        <span class="app-sidebar__module">FG Digital Recording</span>
+      </span>
+    </a>
+    <span class="env-chip" title="Runtime environment">{{ ENVIRONMENT_BADGE }}</span>
+  </div>
+  {% if user.is_authenticated %}
+    <nav class="app-sidebar__nav" aria-label="Primary">
+      <p class="app-nav-group">FG Overview</p>
+      <a class="app-nav-link{% if current_path == '/accounts/landing/' or current_path == '/' %} is-active{% endif %}"
+         href="{% url 'accounts:landing' %}">Dashboard</a>
+      {% user_can_view_checklist_tasks as show_checklist_tasks %}
+      {% user_can_record_checklist_tasks as show_recording %}
+      {% user_can_review_checklist_submissions as show_reviews %}
+      {% user_can_qa_review_checklist_submissions as show_qa %}
+      {% if show_checklist_tasks or show_recording or show_reviews or show_qa %}
+        <p class="app-nav-group">Operations</p>
+        {% if show_checklist_tasks %}
+          <a class="app-nav-link{% if '/scheduling/' in current_path %} is-active{% endif %}"
+             href="{% url 'scheduling:task_list' %}">Checklist Tasks</a>
+        {% endif %}
+        {% if show_recording %}
+          <a class="app-nav-link{% if '/recording/' in current_path %} is-active{% endif %}"
+             href="{% url 'recording:task_list' %}">Checklist Recording</a>
+          <a class="app-nav-link{% if '/daily-records/' in current_path %} is-active{% endif %}"
+             href="{% url 'recording:daily_home' %}">Daily Records</a>
+        {% endif %}
+        {% if show_reviews %}
+          <a class="app-nav-link{% if '/reviews/' in current_path %} is-active{% endif %}"
+             href="{% url 'reviews:queue' %}">Supervisor Review</a>
+        {% endif %}
+        {% if show_qa %}
+          <a class="app-nav-link{% if '/quality/' in current_path %} is-active{% endif %}"
+             href="{% url 'quality:queue' %}">QA Review</a>
+        {% endif %}
+      {% endif %}
+      {% user_can_view_fg_products as show_products %}
+      {% user_can_view_checklists as show_checklists %}
+      {% user_can_view_shifts as show_shifts %}
+      {% if show_products or show_checklists or show_shifts %}
+        <p class="app-nav-group">Master Data</p>
+        {% if show_products %}
+          <a class="app-nav-link{% if '/products/' in current_path %} is-active{% endif %}"
+             href="{% url 'master_data:product_list' %}">FG Products</a>
+        {% endif %}
+        {% if show_checklists %}
+          <a class="app-nav-link{% if '/checklists/' in current_path %} is-active{% endif %}"
+             href="{% url 'checklists:template_list' %}">Checklist Definitions</a>
+        {% endif %}
+        {% if show_shifts %}
+          <a class="app-nav-link{% if '/shifts/' in current_path %} is-active{% endif %}"
+             href="{% url 'organizations:shift_list' %}">Shifts</a>
+        {% endif %}
+      {% endif %}
+      {% user_can_view_rca as show_rca %}
+      {% user_can_view_ncr as show_ncr %}
+      {% user_can_view_capa as show_capa %}
+      {% user_can_view_lab as show_lab %}
+      {% user_can_view_haccp as show_haccp %}
+      {% user_can_view_dispatch as show_dispatch %}
+      {% user_can_view_complaints as show_complaints %}
+      {% user_can_view_quarantine as show_quarantine %}
+      {% if show_rca or show_ncr or show_capa or show_lab or show_haccp or show_dispatch or show_complaints or show_quarantine %}
+        <p class="app-nav-group">Quality</p>
+        {% if show_ncr %}
+          <a class="app-nav-link{% if '/ncr/' in current_path %} is-active{% endif %}"
+             href="{% url 'nonconformance:list' %}">NCR / Holds</a>
+        {% endif %}
+        {% if show_capa %}
+          <a class="app-nav-link{% if '/capa/' in current_path %} is-active{% endif %}"
+             href="{% url 'capa:list' %}">CAPA</a>
+        {% endif %}
+        {% if show_rca %}
+          <a class="app-nav-link{% if '/rca/' in current_path %} is-active{% endif %}"
+             href="{% url 'rca:list' %}">Root Cause Analysis</a>
+        {% endif %}
+        {% if show_lab %}
+          <a class="app-nav-link{% if '/laboratory/' in current_path %} is-active{% endif %}"
+             href="{% url 'laboratory:list' %}">Laboratory</a>
+        {% endif %}
+        {% if show_haccp %}
+          <a class="app-nav-link{% if '/haccp/' in current_path %} is-active{% endif %}"
+             href="{% url 'haccp:list' %}">HACCP</a>
+        {% endif %}
+        {% if show_dispatch %}
+          <a class="app-nav-link{% if '/dispatch/' in current_path %} is-active{% endif %}"
+             href="{% url 'dispatch:list' %}">Dispatch Quality</a>
+        {% endif %}
+        {% if show_complaints %}
+          <a class="app-nav-link{% if '/complaints/' in current_path %} is-active{% endif %}"
+             href="{% url 'complaints:list' %}">Complaints</a>
+        {% endif %}
+        {% if show_quarantine %}
+          <a class="app-nav-link{% if '/quarantine/' in current_path %} is-active{% endif %}"
+             href="{% url 'quarantine:list' %}">Quarantine</a>
+        {% endif %}
+      {% endif %}
+      {% user_can_view_reports as show_reports %}
+      {% if show_reports %}
+        <p class="app-nav-group">Analytics</p>
+        <a class="app-nav-link{% if '/reports/trends/' in current_path %} is-active{% endif %}"
+           href="{% url 'reports:trends' %}">Quality Trends</a>
+        <a class="app-nav-link{% if '/reports/' in current_path and '/reports/trends/' not in current_path %} is-active{% endif %}"
+           href="{% url 'reports:catalogue' %}">Reports</a>
+      {% endif %}
+      <p class="app-nav-group">System</p>
+      <a class="app-nav-link{% if '/notifications/' in current_path %} is-active{% endif %}"
+         href="{% url 'notifications:list' %}">
+        Notifications
+        {% if unread_notification_count %}
+          <span class="nav-count" aria-label="{{ unread_notification_count }} unread">{{ unread_notification_count }}</span>
+        {% endif %}
+      </a>
+      {% if user.is_staff %}
+        <a class="app-nav-link" href="{% url 'admin:index' %}">Administration</a>
+        <a class="app-nav-link" href="{% url 'core:health-ready' %}">System health</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+</aside>

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Daily Records — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="daily-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="{% url 'accounts:landing' %}">Dashboard</a>
+          <span aria-hidden="true">/</span>
+          <span>Daily Records</span>
+        </nav>
+        <h1 id="daily-heading">Daily Records</h1>
+        <p class="mgmt-page__lead">
+          SOURCE RECEIVED company forms. Not business approved for digitalization.
+          Unacceptable / FAIL / out-of-range values do not auto-create NCR, CAPA,
+          or QA RELEASE/HOLD/REJECT. Offline recording is not supported.
+        </p>
+      </div>
+      <a class="btn btn--secondary btn--inline"
+         href="{% url 'recording:daily_history' %}">Record history</a>
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'recording:daily_home' %}">
+      <div class="form-field">
+        <label for="id_date">Date</label>
+        <input class="form-input"
+               type="date"
+               id="id_date"
+               name="date"
+               value="{{ record_date|date:'Y-m-d' }}">
+      </div>
+      <button type="submit" class="btn btn--secondary btn--inline">Show date</button>
+    </form>
+    <ul class="stat-grid" aria-label="Today’s stored record counts">
+      <li class="stat-card">
+        <p class="stat-card__label">Today</p>
+        <p class="stat-card__value">{{ counts.today }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Pending</p>
+        <p class="stat-card__value">{{ counts.pending }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Completed</p>
+        <p class="stat-card__value">{{ counts.completed }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Needs correction</p>
+        <p class="stat-card__value">{{ counts.needs_correction }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Awaiting check</p>
+        <p class="stat-card__value">{{ counts.awaiting_check }}</p>
+      </li>
+      <li class="stat-card">
+        <p class="stat-card__label">Awaiting verification</p>
+        <p class="stat-card__value">{{ counts.awaiting_verification }}</p>
+      </li>
+    </ul>
+    <h2>Open a form</h2>
+    <ul class="card-grid">
+      {% for form in forms %}
+        <li class="work-card">
+          <h3>{{ form.code }}</h3>
+          <p>{{ form.title }}</p>
+          <p class="form-help">Issued {{ form.issued }} · Rev {{ form.revision }} · {{ form.source_status }}</p>
+          {% if form.code == "NMS/PPU/CL/39" %}
+            {% for room in cold_rooms %}
+              <a class="btn btn--primary btn--inline"
+                 href="{% url 'recording:daily_open' form_code=form.code %}?date={{ record_date|date:'Y-m-d' }}&amp;room={{ room }}">Open {{ room }}</a>
+            {% endfor %}
+          {% else %}
+            <a class="btn btn--primary btn--inline"
+               href="{% url 'recording:daily_open' form_code=form.code %}?date={{ record_date|date:'Y-m-d' }}">Open today’s record</a>
+          {% endif %}
+          <a class="btn btn--ghost btn--inline"
+             href="{% url 'recording:daily_monthly_print' %}?form={{ form.code }}&amp;month={{ record_date|date:'Y-m' }}">Print monthly pack</a>
+        </li>
+      {% endfor %}
+    </ul>
+    <h2>Stored records for {{ record_date|date:"Y-m-d" }}</h2>
+    {% if today_rows %}
+      <div class="table-wrap" role="region" aria-label="Today’s daily records">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Form</th>
+              <th scope="col">Batch / identity</th>
+              <th scope="col">State</th>
+              <th scope="col">Recorder</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in today_rows %}
+              <tr>
+                <td>{{ row.task.checklist_template.code }}</td>
+                <td>{{ row.task.batch_reference }}</td>
+                <td>
+                  <span class="status-badge">{{ row.bucket }}</span>
+                </td>
+                <td>{{ row.record.started_by.employee_code }}</td>
+                <td>
+                  <a href="{% url 'recording:record_detail' record_id=row.record.id %}">Open</a>
+                  <a href="{% url 'recording:daily_print' record_id=row.record.id %}">Print</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% include "components/empty_state.html" with title="No stored records for this date" message="Open a form above to start recording. Counts use stored records only." %}
+    {% endif %}
+  </section>
+{% endblock %}

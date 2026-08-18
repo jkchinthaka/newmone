@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}FG Product Management — Nelna FG Digital Recording System{% endblock %}
+{% block body_class %}mgmt-shell{% endblock %}
+{% block content %}
+  <section class="mgmt-page" aria-labelledby="product-list-heading">
+    <header class="mgmt-page__header">
+      <div>
+        <h1 id="product-list-heading">FG Product Management</h1>
+        <p class="mgmt-page__lead">
+          Configure Finished Goods Product definitions for organizations you can access.
+          Official Product Master values are entered by authorized users — none are seeded.
+        </p>
+      </div>
+      {% if can_create %}
+        <a class="btn btn--primary btn--inline"
+           href="{% url 'master_data:product_create' %}">Create Product</a>
+      {% endif %}
+    </header>
+    <form class="mgmt-filters"
+          method="get"
+          action="{% url 'master_data:product_list' %}"
+          hx-get="{% url 'master_data:product_list' %}"
+          hx-target="#product-list-results"
+          hx-push-url="true"
+          hx-trigger="change delay:200ms from:select, submit">
+      <div class="mgmt-filters__grid">
+        <div class="form-field">
+          <label for="id_q">Search</label>
+          <input class="form-input"
+                 type="search"
+                 name="q"
+                 id="id_q"
+                 value="{{ search }}"
+                 placeholder="Code, name, ERP, barcode, category, brand"
+                 autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label for="id_status">Status</label>
+          <select class="form-input" name="status" id="id_status">
+            <option value="all" {% if status == "all" %}selected{% endif %}>All</option>
+            <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_organization">Organization</label>
+          <select class="form-input" name="organization" id="id_organization">
+            <option value="">All organizations</option>
+            {% for org in organizations %}
+              <option value="{{ org.id }}"
+                      {% if selected_organization and selected_organization.id == org.id %}selected{% endif %}>
+                {{ org.code }} — {{ org.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="id_category">Category</label>
+          <input class="form-input"
+                 type="text"
+                 name="category"
+                 id="id_category"
+                 value="{{ category }}"
+                 placeholder="Exact category (optional)"
+                 autocomplete="off">
+        </div>
+      </div>
+      <div class="mgmt-filters__actions">
+        <button type="submit" class="btn btn--secondary btn--inline">Apply filters</button>
+        <a class="btn btn--ghost btn--inline"
+           href="{% url 'master_data:product_list' %}">Clear</a>
+      </div>
+    </form>
+    <div id="product-list-results">{% include "master_data/products/_list_results.html" %}</div>
+  </section>
+{% endblock %}

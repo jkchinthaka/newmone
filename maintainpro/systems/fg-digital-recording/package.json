@@ -1,0 +1,21 @@
+{
+  "name": "nelna-fg-digital-recording-system",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Frontend build for Nelna FG Digital Recording System foundation",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "scripts": {
+    "build:tokens": "uv run python scripts/build_design_tokens.py",
+    "build:css": "npx @tailwindcss/cli -i ./static/src/css/app.css -o ./static/dist/css/app.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./static/src/css/app.css -o ./static/dist/css/app.css --watch",
+    "copy:vendor": "node scripts/copy_frontend_vendor_assets.js",
+    "build": "npm run build:tokens && npm run copy:vendor && npm run build:css"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "htmx.org": "2.0.10",
+    "tailwindcss": "4.3.3"
+  }
+}

@@ -1,0 +1,34 @@
+---
+description: PostgreSQL data integrity and storage rules
+globs: "**/*.{py,sql}"
+alwaysApply: false
+---
+
+# PostgreSQL Data Integrity
+
+## Database of record
+
+- PostgreSQL is the authoritative operational database.
+- Use foreign keys for relational integrity among users, roles, tasks, approvals, and related entities.
+- Multi-record business operations must use database transactions (`atomic`).
+
+## JSONB
+
+- PostgreSQL JSONB may store flexible checklist snapshots and answers where schema variability is justified.
+- JSONB must not replace relational modeling for identities, permissions, workflow status, or audit linkage.
+
+## History and amendments
+
+- Do not delete submitted or approved operational records in place.
+- Corrections use amendments with full before/after history.
+- Soft-delete or archival patterns for operational data require explicit design approval.
+
+## Files
+
+- Do not store photos or large binary files in PostgreSQL.
+- Store evidence in object storage (MinIO locally; S3-compatible in production) and persist metadata/references in PostgreSQL.
+
+## Migrations
+
+- All schema changes go through Django migrations.
+- Destructive migrations require explicit review and backup awareness.
