@@ -20,7 +20,15 @@ Branch: `fix/live-production-remediation`
 
 ## Gates (this slice)
 
-Run after `prisma generate`. Production schema is **not** pushed.
+Observed locally on 2026-08-18 after `prisma generate`:
+
+- TYPECHECK=PASS (prior to final commit; `npm run lint` aliases typecheck)
+- RBAC=PASS (`npm run audit:rbac`, 688 routes, 0 violations)
+- TENANT=PASS (`npm run audit:tenant`)
+- FULL_TESTS=PASS (162 suites / 1121 tests)
+- BUILD=PASS (`npm run build`, Next.js 137 pages)
+
+Production schema is **not** pushed. Disposable Mongo `db push` is required before live schema apply.
 
 Unrelated FG native UI remains flag-off until Combined-Release Django JSON API is merged.
 
