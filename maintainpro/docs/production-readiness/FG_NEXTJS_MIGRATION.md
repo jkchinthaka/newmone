@@ -2,7 +2,7 @@
 
 Presentation only. Django FG remains the business engine (validation, uniqueness, workflow, SoD, audit, immutability). Django templates stay until a later removal milestone.
 
-Source branch for MaintainPro UI/SSO: current worktree. Django JSON API lives in the Combined-Release FG subtree (`systems/fg-digital-recording/`) because this branch does not contain the Django app.
+Source branch for MaintainPro UI/SSO: current worktree. Django JSON API lives in `maintainpro/systems/fg-digital-recording/` on this branch (extracted from Combined-Release plus occurrence-token parity).
 
 ## Architecture
 
@@ -57,18 +57,18 @@ Intended controlled-record semantics:
 | `NMS/PPU/CL/30` | Inspection Record for Freezer Truck | **Multiple** independent records per day (occurrence token) |
 | `NMS/PPU/CL/39` | Product Temperature Record – Inside Cold Room | One record per day **per room** (CR1/CR2) |
 
-Validated occurrence-token machinery (retry same token → same task; new token → new task) already exists for MANUAL schedules: `manual_occurrence_key` / `create_manual_schedule_occurrence` (FG subtree `b7887991` / inner `475a1020`, tests in `test_phase07e_recurring_schedules.py`). Daily Records open does **not** yet pass a client occurrence token into that path.
+Validated occurrence-token machinery (retry same token → same task; new token → new task) exists for MANUAL schedules and now for Daily Records / JSON API: `ensure_controlled_daily_task(..., occurrence_token=)` keys CL18/CL30 as `{slug}-{date}-occ-{token}`. CL24 stays date-only. CL39 stays date+room.
 
-Next.js (flag still **off**):
+Next.js (flag still **off** until E2E/production smoke):
 
 - CL24: open today's idempotent record. No occurrence token.
 - CL18/CL30: new logical record mints a stable in-flight occurrence token (sessionStorage). Retry / double-click / rerender / refresh / back-forward reuse it. After a successful open, the intent is consumed so the next create is a new token.
-- Frontend must not invent a second uniqueness rule; Django remains the authority once it consumes `occurrenceToken`.
+- Django is authoritative uniqueness; Next.js only supplies the token.
 
 ## Known blockers
 
-1. Django Daily Records / JSON API still one-per-day for CL18/CL30. Next.js contract updated; **parity not proven**. Flag stays off.
-2. Native UI requires Django JSON API from Combined-Release FG. That branch is diverged (`ahead 1 / behind 3`). Do not force-push.
+1. Feature flag stays off until FG browser E2E and production smoke are signed.
+2. Combined-Release GitHub branch remains diverged (`ahead` JSON-API+token vs origin Mongo bootstrap). Do not force-push that branch.
 3. Print stays on Django until pixel/data parity is proven.
 4. Production controlled-record smoke: **MANUAL_VALIDATION_PENDING** (no fake production records).
 5. QA Phase 10A comments: SoD is not fully server-enforced for QA. Frontend still hides unauthorized actions; server remains the authority.

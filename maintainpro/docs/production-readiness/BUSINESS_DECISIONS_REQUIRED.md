@@ -22,6 +22,6 @@ Safe reversible defaults are in code. Change these only with an explicit operati
 
 ## Remaining human / external blockers
 
-- FG CL18/CL30 independent-occurrence tokens are now the intended domain (this gate). Next.js sends `occurrenceToken`. Combined-Release Django Daily Records / JSON API still date-keys CL18/CL30 to one record/day — Django must honour the token before the Next.js flag can turn on.
-- Combined-Release Django JSON API is not on this branch and its GitHub branch is diverged (`ahead 1 / behind 3`). Native FG UI stays flag-off.
-- Production Mongo `db push` for new inventory/enterprise collections is a release-engineer action on a disposable production-shaped DB first.
+- FG CL18/CL30 independent-occurrence tokens are implemented in Django Daily Records / JSON API on this branch (`ensure_controlled_daily_task` + `POST /api/v1/records/open`). Next.js sends `occurrenceToken`. `FG_NEXTJS_UI_ENABLED` stays off until FG E2E and production smoke are signed.
+- Combined-Release branch `release/fg-erp-combined-candidate` remains diverged from its origin (Mongo bootstrap commits). That branch was not force-pushed. Occurrence-token Django changes were extracted onto `fix/live-production-remediation`.
+- Production Mongo `db push` for new inventory/enterprise collections is a release-engineer action on a disposable production-shaped DB first. Prior disposable Mongo evidence predates later Prisma schema commits (`51bba3fc`, `20d7061f`).
