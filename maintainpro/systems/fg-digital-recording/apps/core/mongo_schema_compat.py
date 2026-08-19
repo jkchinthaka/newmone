@@ -241,7 +241,23 @@ def apply_mongo_schema_compat() -> None:
         try:
             return _orig_create_model(self, model, *args, **kwargs)
         except (CollectionInvalid, DatabaseError) as exc:
-            if "already exists" not in str(exc).lower():
+            current: BaseException | None = exc
+            seen: set[int] = set()
+            collection_exists = False
+
+            while current is not None and id(current) not in seen:
+                seen.add(id(current))
+
+                if (
+                    isinstance(current, CollectionInvalid)
+                    or "already exists" in str(current).lower()
+                ):
+                    collection_exists = True
+                    break
+
+                current = current.__cause__ or current.__context__
+
+            if not collection_exists:
                 raise
             # Idempotent create for namespaced collections (re-migrate / leftover POC).
             logger.warning(
