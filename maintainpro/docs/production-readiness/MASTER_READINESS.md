@@ -2,7 +2,7 @@
 
 Date: 2026-08-19  
 Branch: `fix/live-production-remediation`  
-Release commit: `c5007b759b3096d72090bfdb804a5e1758b45e4a`
+Release commit: `6ded16999f4014d3f407a3debd72e36be8e7368b`
 
 ## Git / remote sync
 
@@ -14,9 +14,9 @@ Release commit: `c5007b759b3096d72090bfdb804a5e1758b45e4a`
 | WO approval vs reservation | `d74789a1` | YES |
 | Django FG subtree + occurrence tokens | `0eab98fa` | YES |
 | FG Mongo bootstrap guards | `89c7d3ca` | YES |
-| Vehicle master import + FG live lookup | `e6a0ce51` / `c83d743a` / `1dd30111` | YES |
+| Vehicle master import + FG live lookup + tenant closure | `6ded1699` | YES |
 
-`REMOTE_HEAD == LOCAL_HEAD` at `1dd30111` before tenant-audit closure commit.
+`REMOTE_HEAD == LOCAL_HEAD` at `6ded1699`. No stranded valid commits on target worktree.
 
 ## FG Digital Records — business rules
 
