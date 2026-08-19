@@ -10,10 +10,10 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
 from apps.capa.services import create_corrective_action
@@ -177,7 +177,7 @@ def _resolve_link_object(
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_process_fmea(
     *,
     actor: User,
@@ -232,7 +232,7 @@ def create_process_fmea(
     return fmea
 
 
-@transaction.atomic
+@atomic_fn
 def add_process_step(
     *,
     actor: User,
@@ -272,7 +272,7 @@ def add_process_step(
     return step
 
 
-@transaction.atomic
+@atomic_fn
 def add_failure_mode(
     *, actor: User, step_id: uuid.UUID, mode_code: str, description: str
 ) -> FailureMode:
@@ -306,7 +306,7 @@ def add_failure_mode(
     return mode
 
 
-@transaction.atomic
+@atomic_fn
 def add_failure_effect(
     *, actor: User, failure_mode_id: uuid.UUID, description: str
 ) -> FailureEffect:
@@ -319,7 +319,7 @@ def add_failure_effect(
     return effect
 
 
-@transaction.atomic
+@atomic_fn
 def add_potential_cause(
     *, actor: User, failure_mode_id: uuid.UUID, description: str
 ) -> PotentialCause:
@@ -332,7 +332,7 @@ def add_potential_cause(
     return cause
 
 
-@transaction.atomic
+@atomic_fn
 def add_current_control(
     *,
     actor: User,
@@ -354,7 +354,7 @@ def add_current_control(
     return control
 
 
-@transaction.atomic
+@atomic_fn
 def record_failure_mode_assessment(
     *,
     actor: User,
@@ -453,7 +453,7 @@ def record_failure_mode_assessment(
     return assessment
 
 
-@transaction.atomic
+@atomic_fn
 def add_recommended_action(
     *,
     actor: User,
@@ -568,7 +568,7 @@ def add_recommended_action(
     return action
 
 
-@transaction.atomic
+@atomic_fn
 def link_process_fmea(
     *,
     actor: User,
@@ -617,7 +617,7 @@ def link_process_fmea(
     return link
 
 
-@transaction.atomic
+@atomic_fn
 def configure_fmea_scoring_policy(
     *,
     actor: User,
@@ -671,7 +671,7 @@ def configure_fmea_scoring_policy(
     return policy
 
 
-@transaction.atomic
+@atomic_fn
 def apply_scoring_policy_to_version(*, actor: User, version_id: uuid.UUID) -> ProcessFmeaVersion:
     version = ProcessFmeaVersion.objects.select_related("fmea").get(pk=version_id)
     _require(actor, PERM_MANAGE, version.fmea.organization_id)
@@ -684,7 +684,7 @@ def apply_scoring_policy_to_version(*, actor: User, version_id: uuid.UUID) -> Pr
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def approve_process_fmea_version(*, actor: User, version_id: uuid.UUID) -> ProcessFmeaVersion:
     version = ProcessFmeaVersion.objects.select_related("fmea").get(pk=version_id)
     _require(actor, PERM_APPROVE, version.fmea.organization_id)
@@ -716,7 +716,7 @@ def approve_process_fmea_version(*, actor: User, version_id: uuid.UUID) -> Proce
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def withdraw_process_fmea_version(*, actor: User, version_id: uuid.UUID) -> ProcessFmeaVersion:
     version = ProcessFmeaVersion.objects.select_related("fmea").get(pk=version_id)
     _require(actor, PERM_MANAGE, version.fmea.organization_id)
@@ -788,7 +788,7 @@ def _clone_failure_mode(*, source: FailureMode, step: ProcessStep, actor: User) 
     return mode
 
 
-@transaction.atomic
+@atomic_fn
 def revise_process_fmea(
     *, actor: User, fmea_id: uuid.UUID, revision_note: str = ""
 ) -> ProcessFmeaVersion:

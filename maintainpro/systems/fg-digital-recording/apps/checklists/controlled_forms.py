@@ -6,9 +6,12 @@ forms. They are versioned digital draft mappings, not owner-approved SOP.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final
+
+from django.core.exceptions import ValidationError
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +88,9 @@ CONTROLLED_FORMS: Final[tuple[ControlledFormSpec, ...]] = (
 )
 
 CONTROLLED_FORM_CODES: Final[frozenset[str]] = frozenset(item.code for item in CONTROLLED_FORMS)
+ONE_PER_DAY_FORM_CODES: Final[frozenset[str]] = frozenset({"NMS/PPU/CL/24"})
+INDEPENDENT_OCCURRENCE_FORM_CODES: Final[frozenset[str]] = frozenset({"NMS/PPU/CL/18", "NMS/PPU/CL/30"})
+ONE_PER_DAY_PER_ROOM_FORM_CODES: Final[frozenset[str]] = frozenset({"NMS/PPU/CL/39"})
 
 DISPATCH_TEMP_MIN: Final[Decimal] = Decimal("-20")
 DISPATCH_TEMP_MAX: Final[Decimal] = Decimal("-15")
@@ -109,3 +115,27 @@ def get_controlled_form(code: str) -> ControlledFormSpec | None:
 
 def is_controlled_form_code(code: str) -> bool:
     return code in CONTROLLED_FORM_CODES
+
+
+def form_uses_independent_occurrences(form_code: str) -> bool:
+    return form_code in INDEPENDENT_OCCURRENCE_FORM_CODES
+
+
+def controlled_form_multiplicity(form_code: str) -> str:
+    if form_code in ONE_PER_DAY_PER_ROOM_FORM_CODES:
+        return "one_per_day_per_room"
+    if form_uses_independent_occurrences(form_code):
+        return "independent_occurrence"
+    return "one_per_day"
+
+
+_OCCURRENCE_TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]{8,80}$")
+
+
+def normalize_occurrence_token(token: str) -> str:
+    safe = (token or "").strip()
+    if not safe:
+        raise ValidationError({"occurrence_token": "Occurrence token is required for this form."})
+    if not _OCCURRENCE_TOKEN_RE.fullmatch(safe):
+        raise ValidationError({"occurrence_token": "Occurrence token is invalid."})
+    return safe

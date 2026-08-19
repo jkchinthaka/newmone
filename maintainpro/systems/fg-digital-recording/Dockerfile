@@ -34,7 +34,7 @@ COPY apps ./apps
 COPY config ./config
 COPY manage.py ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-group development --no-group testing --no-group security
+    uv sync --frozen --no-dev --no-group development --no-group testing --no-group security --group mongo
 
 ############################
 # Stage 3: Python deps (test + quality tools)
@@ -76,6 +76,7 @@ RUN apt-get update \
 COPY --from=python-deps /app/.venv /app/.venv
 COPY --chown=nelna:nelna apps ./apps
 COPY --chown=nelna:nelna config ./config
+COPY --chown=nelna:nelna mongo_migrations ./mongo_migrations
 COPY --chown=nelna:nelna manage.py pyproject.toml uv.lock ./
 COPY --chown=nelna:nelna templates ./templates
 COPY --chown=nelna:nelna scripts ./scripts
@@ -116,6 +117,7 @@ RUN apt-get update \
 COPY --from=python-deps-test /app/.venv /app/.venv
 COPY --chown=nelna:nelna apps ./apps
 COPY --chown=nelna:nelna config ./config
+COPY --chown=nelna:nelna mongo_migrations ./mongo_migrations
 COPY --chown=nelna:nelna manage.py pyproject.toml uv.lock ./
 COPY --chown=nelna:nelna templates ./templates
 COPY --chown=nelna:nelna scripts ./scripts

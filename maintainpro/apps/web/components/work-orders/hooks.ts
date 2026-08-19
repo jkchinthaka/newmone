@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isDatabaseUnavailableError } from "@/lib/api-client";
+import { withTenantScope } from "@/lib/tenant-query";
 
 import {
   assignWorkOrder,
@@ -152,7 +153,7 @@ function groupByStatus(rows: WorkOrder[]): StatusGroups {
 
 export function useWorkOrders(filters: WorkOrderFilters) {
   const query = useQuery({
-    queryKey: [...WORK_ORDERS_QUERY_KEY, "paginated", filters],
+    queryKey: withTenantScope([...WORK_ORDERS_QUERY_KEY, "paginated", filters]),
     queryFn: () =>
       fetchWorkOrdersPaginated({
         page: filters.page,
@@ -173,6 +174,7 @@ export function useWorkOrders(filters: WorkOrderFilters) {
       return failureCount < 1;
     },
     placeholderData: (previous) => previous,
+    refetchOnWindowFocus: true,
     refetchInterval: (q) => (q.state.error ? false : 60_000)
   });
 
@@ -222,7 +224,7 @@ export function useWorkOrders(filters: WorkOrderFilters) {
 
 export function useTechnicians(rows: WorkOrder[]) {
   return useQuery({
-    queryKey: WORK_ORDER_TECHNICIANS_QUERY_KEY,
+    queryKey: withTenantScope(WORK_ORDER_TECHNICIANS_QUERY_KEY),
     queryFn: fetchTechnicians,
     staleTime: 5 * 60 * 1000,
     select: (apiRows): TechnicianOption[] => {

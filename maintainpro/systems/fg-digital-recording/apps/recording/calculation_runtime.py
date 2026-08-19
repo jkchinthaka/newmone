@@ -19,10 +19,20 @@ from apps.recording.repeating import ResponseKey, present_sample_indexes, respon
 
 
 def ordered_operands(item: ChecklistItem) -> list[ChecklistItem]:
+    related = item.calculation_operand_links
+    # Prefetch / some DB backends may yield a plain list instead of a RelatedManager.
+    try:
+        qs = related.all() if hasattr(related, "all") else related
+    except Exception:  # noqa: BLE001
+        qs = related
+    if isinstance(qs, list) or not hasattr(qs, "select_related"):
+        links = sorted(
+            list(qs),
+            key=lambda link: (getattr(link, "position", 0), str(getattr(link, "pk", ""))),
+        )
+        return [link.source_item for link in links]
     links = list(
-        item.calculation_operand_links.select_related(
-            "source_item", "source_item__section"
-        ).order_by("position", "pk")
+        qs.select_related("source_item", "source_item__section").order_by("position", "pk")
     )
     return [link.source_item for link in links]
 

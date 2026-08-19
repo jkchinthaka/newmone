@@ -7,12 +7,11 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
 from apps.access_control.services import Scope, user_has_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.document_control.models import (
     IMMUTABLE_VERSION_STATUSES,
     VERSION_TRANSITIONS,
@@ -80,7 +79,7 @@ def _transition(version: QualityDocumentVersion, target: str) -> None:
         raise ValidationError({"status": f"Cannot transition from {version.status} to {target}."})
 
 
-@transaction.atomic
+@atomic_fn
 def create_quality_document(
     *,
     actor: User,
@@ -147,7 +146,7 @@ def create_quality_document(
     return document, version
 
 
-@transaction.atomic
+@atomic_fn
 def create_document_version(
     *,
     actor: User,
@@ -193,7 +192,7 @@ def create_document_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def update_draft_version(
     *,
     actor: User,
@@ -242,7 +241,7 @@ def update_draft_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def submit_version_for_review(*, actor: User, version_id: uuid.UUID) -> QualityDocumentVersion:
     version = QualityDocumentVersion.objects.select_related("document").get(pk=version_id)
     _require(actor, PERM_EDIT, version.document.organization_id)
@@ -268,7 +267,7 @@ def submit_version_for_review(*, actor: User, version_id: uuid.UUID) -> QualityD
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def return_version_to_draft(*, actor: User, version_id: uuid.UUID) -> QualityDocumentVersion:
     version = QualityDocumentVersion.objects.select_related("document").get(pk=version_id)
     _require(actor, PERM_APPROVE, version.document.organization_id)
@@ -294,7 +293,7 @@ def return_version_to_draft(*, actor: User, version_id: uuid.UUID) -> QualityDoc
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def approve_document_version(
     *,
     actor: User,
@@ -343,7 +342,7 @@ def approve_document_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def make_version_effective(
     *,
     actor: User,
@@ -424,7 +423,7 @@ def make_version_effective(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_document_version(*, actor: User, version_id: uuid.UUID) -> QualityDocumentVersion:
     version = QualityDocumentVersion.objects.select_related("document").get(pk=version_id)
     _require(actor, PERM_PUBLISH, version.document.organization_id)
@@ -481,7 +480,7 @@ def assert_can_access_document_file(*, actor: User, version: QualityDocumentVers
         raise PermissionDenied("Operators may access only effective document files.")
 
 
-@transaction.atomic
+@atomic_fn
 def acknowledge_document_version(
     *,
     actor: User,
@@ -524,7 +523,7 @@ def acknowledge_document_version(
     return ack
 
 
-@transaction.atomic
+@atomic_fn
 def link_quality_record_to_document_version(
     *,
     actor: User,

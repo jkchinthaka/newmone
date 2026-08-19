@@ -186,15 +186,18 @@ def test_daily_home_shows_queue_counts(client: Client) -> None:
 
 
 def _submit_controlled(
-    demo: SyntheticDemoDataset, form_code: str, record_date: date, *, room_key: str = ""
+    demo: SyntheticDemoDataset, form_code: str, record_date: date, *, room_key: str = "", occurrence_token: str = ""
 ) -> ChecklistSubmission:
     seed_controlled_form_templates(actor=demo.admin, organization=demo.organization)
+    if form_code in {"NMS/PPU/CL/18", "NMS/PPU/CL/30"} and not occurrence_token:
+        occurrence_token = f"test-{form_code.replace('/', '-')}-{record_date.isoformat()}"
     task = ensure_controlled_daily_task(
         actor=demo.recorder,
         organization_id=demo.organization.id,
         form_code=form_code,
         record_date=record_date,
         room_key=room_key,
+        occurrence_token=occurrence_token,
     )
     from apps.recording.services import start_checklist_recording
 

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 import type { CommandPaletteItem } from "@/lib/command-palette";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export type CommandPaletteProps = {
   open: boolean;
@@ -26,7 +27,13 @@ export function CommandPalette({
   const descriptionId = useId();
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useFocusTrap(open, panelRef, {
+    initialFocusRef: inputRef,
+    onEscape: onClose
+  });
 
   useEffect(() => {
     if (!open) {
@@ -34,17 +41,6 @@ export function CommandPalette({
     }
 
     setActiveIndex(0);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
-    };
   }, [open]);
 
   useEffect(() => {
@@ -58,8 +54,6 @@ export function CommandPalette({
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
         return;
       }
 
@@ -111,6 +105,7 @@ export function CommandPalette({
         aria-labelledby={titleId}
         aria-modal="true"
         className="relative flex max-h-[min(80vh,32rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        ref={panelRef}
         role="dialog"
       >
         <div className="border-b border-slate-200 px-4 py-3">
@@ -130,7 +125,7 @@ export function CommandPalette({
               aria-controls={listboxId}
               aria-label="Search modules and pages"
               autoComplete="off"
-              placeholder="Search modules, pages, or keywords..."
+              placeholder="Search modules, work orders, or FG records..."
               onChange={(event) => onQueryChange(event.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 focus-visible:outline-none"
             />

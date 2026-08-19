@@ -1,0 +1,40 @@
+{# Reusable MaintainPro entity selector (Vehicle / Asset / Department / Facility). #}
+{% with field_id=field_id|default:"mp-entity" entity=entity|default:"vehicle" %}
+<div class="mp-selector"
+     data-mp-selector
+     data-entity="{{ entity }}"
+     data-search-url="{{ search_url }}"
+     data-organization-id="{{ organization_id|default:'' }}"
+     data-debounce-ms="{{ debounce_ms|default:250 }}">
+  <label class="form-label" for="{{ field_id }}-input">{{ label|default:"Vehicle" }}</label>
+  <input type="hidden"
+         name="{{ hidden_name|default:'maintainpro_vehicle_id' }}"
+         id="{{ field_id }}-id"
+         value="{{ selected_id|default:'' }}"
+         data-mp-id>
+  <div class="mp-selector__control">
+    <input class="form-input"
+           type="search"
+           id="{{ field_id }}-input"
+           name="{{ display_name|default:'vehicle_query' }}"
+           value="{{ selected_label|default:'' }}"
+           autocomplete="off"
+           aria-autocomplete="list"
+           aria-controls="{{ field_id }}-listbox"
+           aria-expanded="false"
+           aria-haspopup="listbox"
+           placeholder="{{ placeholder|default:'Type registration number…' }}"
+           data-mp-input>
+    <span class="mp-selector__spinner" data-mp-loading hidden aria-hidden="true"></span>
+  </div>
+  <ul class="mp-selector__list"
+      id="{{ field_id }}-listbox"
+      role="listbox"
+      hidden
+      data-mp-listbox></ul>
+  <p class="mp-selector__hint" data-mp-status role="status" aria-live="polite"></p>
+  {% if help_text %}
+    <p class="form-hint">{{ help_text }}</p>
+  {% endif %}
+</div>
+{% endwith %}

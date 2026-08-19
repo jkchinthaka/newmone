@@ -8,8 +8,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -72,7 +72,7 @@ def _assert_draft(version: SamplingPlanVersion) -> None:
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_sampling_plan(
     *,
     actor: User | None,
@@ -112,7 +112,7 @@ def create_sampling_plan(
     return plan
 
 
-@transaction.atomic
+@atomic_fn
 def create_draft_plan_version(
     *,
     actor: User | None,
@@ -165,7 +165,7 @@ def create_draft_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def add_sampling_rule(
     *,
     actor: User | None,
@@ -227,7 +227,7 @@ def add_sampling_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def set_sample_requirement(
     *,
     actor: User | None,
@@ -276,7 +276,7 @@ def set_sample_requirement(
     return req
 
 
-@transaction.atomic
+@atomic_fn
 def approve_plan_version(
     *,
     actor: User | None,
@@ -337,7 +337,7 @@ def approve_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> SamplingPlanVersion:
     user = _require_actor(actor)
     version = (
@@ -370,7 +370,7 @@ def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> Sa
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def bind_checklist_item_to_sampling_plan(
     *,
     actor: User | None,

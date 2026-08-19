@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 
 import { validatePromptInput } from "@/lib/prompt-validation";
 import { joinAriaDescribedBy } from "@/lib/accessibility";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export { validatePromptInput } from "@/lib/prompt-validation";
 
@@ -45,39 +46,22 @@ export function PromptDialog({
   const descriptionId = useId();
   const errorId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState(defaultValue);
   const [error, setError] = useState<string | null>(null);
+
+  useFocusTrap(open, panelRef, {
+    initialFocusRef: inputRef,
+    onEscape: isSubmitting ? undefined : onCancel
+  });
 
   useEffect(() => {
     if (!open) {
       return;
     }
-
     setValue(defaultValue);
     setError(null);
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) {
-        onCancel();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, defaultValue, isSubmitting, onCancel]);
+  }, [open, defaultValue]);
 
   if (!open) {
     return null;
@@ -107,6 +91,7 @@ export function PromptDialog({
         aria-labelledby={titleId}
         aria-modal="true"
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-h-none"
+        ref={panelRef}
         role="dialog"
       >
         <h2 className="text-lg font-semibold text-slate-900" id={titleId}>

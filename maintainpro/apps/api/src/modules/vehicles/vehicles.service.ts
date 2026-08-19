@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AuditAction,
   GateMovementStatus,
@@ -16,11 +16,18 @@ import {
 
 import { requestContext } from "../../common/context/request-context";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { normalizeRegistrationNo, registrationSearchPattern } from "../../common/utils/vehicle-registration";
 import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import { ComplianceService } from "../compliance/compliance.service";
+import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { FleetService } from "../fleet/fleet.service";
+import { canMeterReadingAdvance } from "../policies/maintenance-policies";
+import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
+import { canVehicleGateOut } from "../policies/vehicle-policies";
+import { assertPolicy } from "../policies/policy-decision";
+import { evaluateVehicleEligibilityForNewFgRecord, fgFormAllowedVehicleTypes } from "./vehicle-eligibility";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
 
@@ -78,7 +85,8 @@ export class VehiclesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(FleetService) private readonly fleetService: FleetService,
-    @Inject(ComplianceService) private readonly complianceService: ComplianceService
+    @Inject(ComplianceService) private readonly complianceService: ComplianceService,
+    @Optional() private readonly enterpriseOps?: EnterpriseOpsService
   ) {}
 
   private currentTenantId(): string {
@@ -96,11 +104,16 @@ export class VehiclesService {
     const where: Prisma.VehicleWhereInput = tenantId ? { tenantId } : {};
 
     if (q) {
+      const flex = registrationSearchPattern(q);
+      const normalized = normalizeRegistrationNo(q);
       where.OR = [
         { registrationNo: { contains: q, mode: "insensitive" } },
         { vehicleModel: { contains: q, mode: "insensitive" } },
         { make: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } }
+        { assetTag: { contains: q, mode: "insensitive" } },
+        ...(flex
+          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          : [])
       ];
     }
 
@@ -134,6 +147,68 @@ export class VehiclesService {
         sortBy,
         sortDir
       }
+    };
+  }
+
+  async lookupForFg(input: { q: string; formCode?: string; limit?: number }) {
+    const tenantId = this.currentTenantId();
+    const q = input.q.trim();
+    const limit = Math.min(15, Math.max(1, input.limit ?? 15));
+    if (q.length < 1) {
+      return { results: [] as Array<Record<string, unknown>> };
+    }
+
+    const normalized = normalizeRegistrationNo(q);
+    const allowedTypes = fgFormAllowedVehicleTypes(input.formCode);
+    const where: Prisma.VehicleWhereInput = {
+      tenantId,
+      ...(allowedTypes ? { type: { in: allowedTypes as never } } : {}),
+      OR: [
+        { registrationNo: { contains: q, mode: "insensitive" } },
+        { make: { contains: q, mode: "insensitive" } },
+        { vehicleModel: { contains: q, mode: "insensitive" } },
+        { assetTag: { contains: q, mode: "insensitive" } },
+        ...(normalized
+          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          : [])
+      ]
+    };
+
+    const items = await this.prisma.vehicle.findMany({
+      where,
+      take: limit,
+      orderBy: { registrationNo: "asc" },
+      select: {
+        id: true,
+        registrationNo: true,
+        make: true,
+        vehicleModel: true,
+        assetTag: true,
+        status: true,
+        type: true,
+        decommissionedAt: true
+      }
+    });
+
+    return {
+      results: items.map((vehicle) => {
+        const eligibility = evaluateVehicleEligibilityForNewFgRecord(vehicle, {
+          allowedTypes
+        });
+        return {
+          id: vehicle.id,
+          registrationNo: vehicle.registrationNo,
+          make: vehicle.make,
+          vehicleModel: vehicle.vehicleModel,
+          assetTag: vehicle.assetTag,
+          status: vehicle.status,
+          type: vehicle.type,
+          label: `${vehicle.registrationNo} — ${vehicle.make} ${vehicle.vehicleModel}`.trim(),
+          selectable: eligibility.selectable,
+          unavailable: !eligibility.selectable,
+          unavailableReason: eligibility.unavailableReason
+        };
+      })
     };
   }
 
@@ -378,7 +453,7 @@ export class VehiclesService {
     year: number;
     type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
     ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
     serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
     fuelCapacity?: number;
     currentMileage?: number;
@@ -443,7 +518,13 @@ export class VehiclesService {
           : undefined,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: data.customFields as Prisma.InputJsonValue | undefined,
+        customFields: {
+          ...(data.customFields ?? {}),
+          search: {
+            ...((data.customFields?.search as object) || {}),
+            normalizedRegistration: normalizeRegistrationNo(data.registrationNo)
+          }
+        },
         images: []
       }
     });
@@ -556,9 +637,12 @@ export class VehiclesService {
     const tenantId = this.currentTenantId();
     const vehicle = await this.findOne(id);
 
-    if (data.meterReading < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    assertPolicy(
+      canMeterReadingAdvance({
+        previous: Number(vehicle.currentMileage),
+        next: data.meterReading
+      })
+    );
 
     const gateTime = data.occurredAt
       ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
@@ -617,6 +701,18 @@ export class VehiclesService {
     }
 
     const blocked = blockReasons.length > 0;
+    const gatePolicy = canVehicleGateOut({
+      tenantId,
+      vehicleActive: vehicle.status !== VehicleStatus.DISPOSED,
+      status: vehicle.status,
+      maintenanceCriticallyOverdue: Boolean(serviceEvaluation.overdue),
+      criticalWorkOrderOpen: criticalWorkOrderReasons.length > 0,
+      complianceValid: complianceReasons.length === 0,
+      driverLicenseExpired: selectedDriver ? selectedDriver.licenseExpiry.getTime() < Date.now() : false,
+      overrideRequested: Boolean(data.allowOverride),
+      overrideAuthorized: Boolean(data.allowOverride),
+      overrideReason: data.overrideReason
+    });
     const blockReasonText = blocked ? blockReasons.join("; ") : null;
 
     if (blocked && !data.allowOverride) {
@@ -645,8 +741,17 @@ export class VehiclesService {
           event: FRAUD_AUDIT_EVENTS.GATE_OUT_BLOCKED,
           vehicleId: id,
           meterReading: data.meterReading,
-          blockedReason: blockReasonText
+          blockedReason: blockReasonText,
+          policyCode: gatePolicy.code
         }
+      });
+
+      await this.enterpriseOps?.onGateResult({
+        tenantId,
+        vehicleId: id,
+        movementId: movement.id,
+        blocked: true,
+        override: false
       });
 
       return {
@@ -661,9 +766,19 @@ export class VehiclesService {
     let movementStatus: GateMovementStatus = GateMovementStatus.ALLOWED;
     if (blocked && data.allowOverride) {
       approvedByUserId = await this.assertGateOverrideApprover(data.approvedByUserId);
-      if (!data.overrideReason?.trim()) {
-        throw new BadRequestException("Override reason is required when bypassing a blocked gate-out");
-      }
+      assertPolicy(
+        canVehicleGateOut({
+          tenantId,
+          vehicleActive: vehicle.status !== VehicleStatus.DISPOSED,
+          status: vehicle.status,
+          maintenanceCriticallyOverdue: Boolean(serviceEvaluation.overdue),
+          criticalWorkOrderOpen: criticalWorkOrderReasons.length > 0,
+          complianceValid: complianceReasons.length === 0,
+          overrideRequested: true,
+          overrideAuthorized: true,
+          overrideReason: data.overrideReason
+        })
+      );
       movementStatus = GateMovementStatus.OVERRIDE_APPROVED;
     }
 
@@ -740,6 +855,13 @@ export class VehiclesService {
           overrideReason: data.overrideReason?.trim() || null,
           approvedByUserId
         }
+      });
+      await this.enterpriseOps?.onGateResult({
+        tenantId,
+        vehicleId: id,
+        movementId: result.id,
+        blocked: true,
+        override: true
       });
     }
 
@@ -1174,17 +1296,35 @@ export class VehiclesService {
 
   async fuelLog(
     id: string,
-    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string }
+    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string; clientActionId?: string }
   ) {
     const vehicle = await this.findOne(id);
-
-    if (vehicle.status === VehicleStatus.OUT_OF_SERVICE) {
-      throw new BadRequestException("Cannot log fuel for a vehicle that is OUT_OF_SERVICE");
+    const tenantId = this.currentTenantId();
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const duplicate = data.clientActionId
+      ? await this.prisma.fuelLog.findFirst({ where: { vehicleId: id, clientActionId: data.clientActionId } })
+      : await this.prisma.fuelLog.findFirst({
+          where: {
+            vehicleId: id,
+            liters: data.liters,
+            mileageAtFuel: data.mileageAtFuel,
+            date: { gte: dayStart }
+          }
+        });
+    if (data.clientActionId && duplicate) {
+      return duplicate;
     }
-
-    if (data.mileageAtFuel < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    assertPolicy(
+      canRecordFuel({
+        tenantId,
+        liters: data.liters,
+        mileage: data.mileageAtFuel,
+        previousMileage: Number(vehicle.currentMileage),
+        vehicleStatus: vehicle.status,
+        duplicateReference: Boolean(duplicate) && !data.clientActionId
+      })
+    );
 
     const totalCost = data.liters * data.costPerLiter;
     const resolvedDriverId = await this.resolveFuelDriverId(data.driverId ?? vehicle.driverId ?? undefined);
@@ -1204,7 +1344,8 @@ export class VehiclesService {
         totalCost,
         mileageAtFuel: data.mileageAtFuel,
         fuelStation: data.fuelStation,
-        notes: data.notes
+        notes: data.notes,
+        clientActionId: data.clientActionId
       }
     });
   }
@@ -1257,7 +1398,7 @@ export class VehiclesService {
         avgConsumption: 0,
         averageConsumptionLPer100Km: 0,
         distance: 0,
-        costPerKm: 0,
+        costPerKm: null as number | null,
         abnormalUsageCount: 0,
         anomalies: [],
         monthlyFuelCostTrend: [...monthlyFuelCostTrend.entries()]
@@ -1295,7 +1436,7 @@ export class VehiclesService {
     const distance = intervals.reduce((sum, interval) => sum + interval.distance, 0);
 
     const averageConsumptionLPer100Km = distance > 0 ? (totalLiters / distance) * 100 : 0;
-    const costPerKm = distance > 0 ? totalCost / distance : 0;
+    const costPerKm = distance > 0 ? totalCost / distance : null;
     const anomalyBaseline =
       intervals.length > 0
         ? intervals.reduce((sum, interval) => sum + interval.litersPer100Km, 0) / intervals.length
@@ -1351,16 +1492,33 @@ export class VehiclesService {
   }
 
   async tripStart(id: string, data: { driverId: string; startLocation: string; endLocation: string; startMileage: number; purpose?: string }) {
-    await this.resolveFuelDriverId(data.driverId);
+    const driver = await this.resolveFuelDriverId(data.driverId);
+    if (!driver) {
+      throw new NotFoundException("Driver not found");
+    }
     const vehicle = await this.findOne(id);
-
-    if (vehicle.status === VehicleStatus.UNDER_MAINTENANCE) {
-      throw new BadRequestException("Cannot start a trip if vehicle is UNDER_MAINTENANCE");
-    }
-
-    if (data.startMileage < Number(vehicle.currentMileage)) {
-      throw new BadRequestException("Mileage entries must be monotonically increasing");
-    }
+    const tenantId = this.currentTenantId();
+    const conflictingTrip = await this.prisma.tripLog.findFirst({
+      where: {
+        status: TripStatus.IN_PROGRESS,
+        OR: [{ vehicleId: id }, { driverId: data.driverId }]
+      },
+      select: { id: true }
+    });
+    const assignedDriver = await this.prisma.driver.findFirst({
+      where: tenantId ? { id: data.driverId, tenantId } : { id: data.driverId }
+    });
+    assertPolicy(
+      canStartTrip({
+        tenantId,
+        vehicleStatus: vehicle.status,
+        driverActive: Boolean(assignedDriver),
+        driverLicenseExpired: assignedDriver ? assignedDriver.licenseExpiry.getTime() < Date.now() : false,
+        conflictingTrip: Boolean(conflictingTrip),
+        mileage: data.startMileage,
+        previousMileage: Number(vehicle.currentMileage)
+      })
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await tx.vehicle.update({
@@ -1371,7 +1529,7 @@ export class VehiclesService {
       const trip = await tx.tripLog.create({
         data: {
           vehicleId: id,
-          driverId: data.driverId,
+          driverId: driver,
           startLocation: data.startLocation,
           endLocation: data.endLocation,
           startMileage: data.startMileage,

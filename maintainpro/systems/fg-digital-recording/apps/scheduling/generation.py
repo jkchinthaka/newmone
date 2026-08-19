@@ -14,7 +14,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -553,7 +553,7 @@ def run_active_schedule_generation(
     return payload
 
 
-@transaction.atomic
+@atomic_fn
 def create_checklist_schedule(
     *,
     actor: User | None,
@@ -629,7 +629,7 @@ def create_checklist_schedule(
     return schedule
 
 
-@transaction.atomic
+@atomic_fn
 def deactivate_checklist_schedule(
     *, actor: User | None, schedule_id: uuid.UUID
 ) -> ChecklistSchedule:
@@ -660,7 +660,7 @@ def deactivate_checklist_schedule(
     return schedule
 
 
-@transaction.atomic
+@atomic_fn
 def create_manual_schedule_occurrence(
     *,
     actor: User | None,

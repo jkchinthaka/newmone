@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -24,7 +24,7 @@ from apps.checklists.effective_version import (
     EffectiveVersionOutcome,
     resolve_effective_checklist_version,
 )
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic, lock_queryset
 from apps.scheduling.applicability import resolve_checklist_applicability
 from apps.scheduling.models import (
     ApplicabilityMatchOutcome,
@@ -268,7 +268,7 @@ def _get_or_create_receipt(
         "status": ExternalBatchEventStatus.RECEIVED,
     }
     try:
-        with transaction.atomic():
+        with atomic():
             event = ExternalBatchEvent(
                 source_system=payload.source_system,
                 source_event_id=payload.source_event_id,
@@ -333,7 +333,7 @@ def process_external_batch_event(
 
     receipt, created = _get_or_create_receipt(payload=payload)
 
-    with transaction.atomic():
+    with atomic():
         locked = lock_queryset(
             ExternalBatchEvent.objects.select_related("checklist_task", "organization").filter(
                 pk=receipt.id

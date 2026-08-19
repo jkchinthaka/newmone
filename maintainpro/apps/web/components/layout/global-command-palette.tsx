@@ -26,7 +26,10 @@ export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPalett
   const roleName = extractRoleName(user);
   const [query, setQuery] = useState("");
 
-  const allItems = useMemo(() => getCommandPaletteItems(roleName), [roleName]);
+  const allItems = useMemo(
+    () => getCommandPaletteItems(roleName, { permissions: user.permissions }),
+    [roleName, user.permissions]
+  );
   const filteredItems = useMemo(
     () => filterCommandPaletteItems(allItems, query),
     [allItems, query]

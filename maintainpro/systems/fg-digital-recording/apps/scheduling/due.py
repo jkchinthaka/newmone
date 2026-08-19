@@ -19,13 +19,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.db.models import TextChoices
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.scheduling.models import ChecklistTask, ChecklistTaskStatus
 from apps.scheduling.services import MANAGE_CHECKLIST_TASK, _require_authenticated_actor
 from apps.security_audit.services import record_event
@@ -212,7 +211,7 @@ def attach_due_display(
     return materialised
 
 
-@transaction.atomic
+@atomic_fn
 def set_checklist_task_due_window(
     *,
     actor: User | None,

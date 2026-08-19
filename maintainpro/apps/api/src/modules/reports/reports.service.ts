@@ -894,7 +894,9 @@ export class ReportsService {
       totalCost: Math.round(Number(analytics.totalCost ?? 0) * 100) / 100,
       avgCostPerLiter: Math.round(Number(analytics.avgCostPerLiter ?? 0) * 100) / 100,
       avgConsumption: Math.round(Number(analytics.averageConsumptionLPer100Km ?? analytics.avgConsumption ?? 0) * 100) / 100,
-      costPerKm: Math.round(Number(analytics.costPerKm ?? 0) * 100) / 100,
+      costPerKm:
+        analytics.costPerKm == null ? null : Math.round(Number(analytics.costPerKm) * 100) / 100,
+      costPerKmCoverage: analytics.costPerKm == null ? "INSUFFICIENT_DATA" : "COMPLETE",
       abnormalUsageCount: Number(analytics.abnormalUsageCount ?? 0),
       monthlyFuelCostTrend: analytics.monthlyFuelCostTrend as Array<{ month: string; totalCost: number; liters?: number }>
     }));

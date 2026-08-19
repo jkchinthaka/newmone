@@ -16,7 +16,7 @@ function check(id, ok, d) {
 const svc = readFileSync(path.join(root, "apps/api/src/modules/inventory/inventory.service.ts"), "utf8");
 const ctrl = readFileSync(path.join(root, "apps/api/src/modules/inventory/inventory.controller.ts"), "utf8");
 check("PO-RCV-001", /Over-receipt blocked/.test(svc), "over-receipt guard");
-check("PO-RCV-002", /MovementType\.IN/.test(svc), "stock IN on accept");
+check("PO-RCV-002", /stockEngine\.receive\(/.test(svc), "stock IN on accept");
 check("PO-RCV-003", /Cannot set PARTIALLY_RECEIVED or RECEIVED via PATCH/.test(svc), "PATCH RECEIVED blocked");
 check("PO-RCV-004", /purchase_orders\.receive/.test(ctrl) && /purchase-orders\/:id\/receipts/.test(ctrl), "receive route+perm");
 check("PO-RCV-005", /purchaseReceiptIdempotency/.test(svc), "receipt idempotency");

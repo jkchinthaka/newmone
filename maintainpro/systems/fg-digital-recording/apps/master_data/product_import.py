@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import TextIO
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
+from apps.core.persistence.transactions import atomic
 from apps.access_control.services import Scope, require_permission, user_has_permission_any_scope
 from apps.accounts.models import User
 from apps.master_data.models import FGProduct
@@ -320,7 +320,7 @@ def import_fg_products(
 
     created: list[str] = []
     try:
-        with transaction.atomic():
+        with atomic():
             org_by_code = {normalize_code(o.code): o for o in Organization.objects.all()}
             for row in rows:
                 org = org_by_code[normalize_code(row.organization_code)]

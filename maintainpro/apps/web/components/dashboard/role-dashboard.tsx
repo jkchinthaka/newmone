@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
+
 import { EmptyState } from "@/components/ui/page-state";
 import { extractRoleName } from "@/lib/role-redirect";
 import {
@@ -16,6 +19,8 @@ import {
 import { useCurrentUser } from "@/lib/use-current-user";
 
 import { DashboardQuickLinks } from "./dashboard-quick-links";
+import { DashboardSection } from "./dashboard-section";
+import { EnterpriseKpiBoard } from "./enterprise-kpi-board";
 import { MorningBriefing } from "./morning-briefing";
 import { DriverIntelligenceDashboard } from "./driver-intelligence-dashboard";
 import { InventorySummary } from "./inventory-summary";
@@ -40,6 +45,8 @@ export function RoleDashboard() {
       </header>
 
       <MorningBriefing />
+      <FgRoleActions permissions={user.permissions} />
+      <EnterpriseKpiBoard />
 
       {dashboardShowsSystemHealthSummary(variant) ? <SystemHealthSummary /> : null}
 
@@ -66,6 +73,7 @@ export function RoleDashboard() {
       {variant === "cleaner" || variant === "driver" || variant === "minimal" ? (
         <DashboardQuickLinks
           roleName={roleName}
+          permissions={user.permissions}
           title={variant === "minimal" ? "Available modules" : "Quick links"}
           description={
             variant === "cleaner"
@@ -92,8 +100,40 @@ export function RoleDashboard() {
       ) : null}
 
       {variant === "admin" || variant === "management" || variant === "finance" || variant === "procurement" || variant === "inventory" || variant === "viewer" ? (
-        <DashboardQuickLinks roleName={roleName} />
+        <DashboardQuickLinks roleName={roleName} permissions={user.permissions} />
       ) : null}
     </div>
+  );
+}
+
+function FgRoleActions({ permissions }: { permissions?: readonly string[] }) {
+  if (!permissions?.includes("fg.access")) {
+    return null;
+  }
+
+  const links: Array<{ href: Route; title: string; description: string }> = [
+    { href: "/fg", title: "Today's records", description: "Start or continue controlled production records." },
+    { href: "/fg/review", title: "Supervisor review", description: "Open the live FG supervisor queue." },
+    { href: "/fg/qa", title: "QA verification", description: "Open the live FG QA queue." }
+  ];
+
+  return (
+    <DashboardSection
+      title="FG Digital Records"
+      description="MaintainPro production records. Open the live FG queues; this board does not invent counts."
+    >
+      <div className="grid gap-2 sm:grid-cols-3">
+        {links.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
+          >
+            <span className="font-semibold text-slate-900">{item.title}</span>
+            <span className="mt-1 block text-xs text-slate-500">{item.description}</span>
+          </Link>
+        ))}
+      </div>
+    </DashboardSection>
   );
 }

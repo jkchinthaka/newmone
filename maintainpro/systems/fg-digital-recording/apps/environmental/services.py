@@ -8,8 +8,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -94,7 +94,7 @@ def _device_trace_snapshot(equipment: Equipment | None) -> dict[str, Any]:
     }
 
 
-@transaction.atomic
+@atomic_fn
 def create_monitoring_point(
     *,
     actor: User | None,
@@ -145,7 +145,7 @@ def create_monitoring_point(
     return point
 
 
-@transaction.atomic
+@atomic_fn
 def create_monitoring_parameter(
     *,
     actor: User | None,
@@ -181,7 +181,7 @@ def create_monitoring_parameter(
     return param
 
 
-@transaction.atomic
+@atomic_fn
 def create_monitoring_spec(
     *,
     actor: User | None,
@@ -219,7 +219,7 @@ def create_monitoring_spec(
     return spec
 
 
-@transaction.atomic
+@atomic_fn
 def create_draft_spec_version(
     *,
     actor: User | None,
@@ -252,7 +252,7 @@ def create_draft_spec_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def add_limit_rule(
     *,
     actor: User | None,
@@ -295,7 +295,7 @@ def add_limit_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def approve_spec_version(
     *,
     actor: User | None,
@@ -324,7 +324,7 @@ def approve_spec_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_spec_version(
     *,
     actor: User | None,
@@ -351,7 +351,7 @@ def retire_spec_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def link_monitoring_schedule(
     *,
     actor: User | None,
@@ -427,7 +427,7 @@ def _resolve_approved_limit_rule(
     return rule, (rule.spec_version if rule else None)
 
 
-@transaction.atomic
+@atomic_fn
 def record_monitoring_reading(
     *,
     actor: User | None,
@@ -569,7 +569,7 @@ def record_monitoring_reading(
     return reading, excursion
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_environmental_excursion_policy(
     *,
     actor: User | None,

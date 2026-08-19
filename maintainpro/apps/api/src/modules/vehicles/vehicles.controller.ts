@@ -34,6 +34,17 @@ export class VehiclesController {
     return { data, message: "Vehicles fetched" };
   }
 
+  @Get("lookup")
+  @Permissions("vehicles.view")
+  async lookup(@Query("q") q?: string, @Query("formCode") formCode?: string, @Query("limit") limitRaw?: string) {
+    const data = await this.vehiclesService.lookupForFg({
+      q: q ?? "",
+      formCode,
+      limit: this.toPositiveInt(limitRaw, 15)
+    });
+    return { data, message: "Vehicle lookup fetched" };
+  }
+
   @Get("summary")
   @Permissions("vehicles.view")
   async summary(@Query("upcomingDays") upcomingDaysRaw?: string) {
@@ -65,7 +76,7 @@ export class VehiclesController {
       year: number;
       type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
       ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-      fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+      fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
       serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
       fuelCapacity?: number;
       currentMileage?: number;

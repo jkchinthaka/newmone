@@ -5,13 +5,19 @@ from __future__ import annotations
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.accounts import sso_views
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.accounts.urls")),
+    path("sso/consume/", sso_views.sso_consume_view, name="sso_consume"),
+    path("sso/denied/", sso_views.sso_denied_view, name="sso_denied"),
+    path("integrations/maintainpro/", include("apps.integrations.maintainpro.urls")),
     path("", include("apps.organizations.urls")),
     path("", include("apps.master_data.urls")),
     path("", include("apps.checklists.urls")),
     path("", include("apps.scheduling.urls")),
+    path("api/v1/", include("apps.recording.api_urls")),
     path("", include("apps.recording.urls")),
     path("", include("apps.reviews.urls")),
     path("", include("apps.quality.urls")),

@@ -24,6 +24,7 @@ import {
 } from "../src/common/security/client-ip.util";
 import { AuthController } from "../src/modules/auth/auth.controller";
 import { AuthService } from "../src/modules/auth/auth.service";
+import { FgSsoService } from "../src/modules/auth/fg-sso.service";
 import {
   applyCanonicalClientIpHeader,
   sanitizeCanonicalClientIp as sanitizeBffCanonicalClientIp
@@ -56,6 +57,7 @@ const authServiceMock = {
   controllers: [AuthController],
   providers: [
     { provide: AuthService, useValue: authServiceMock },
+    { provide: FgSsoService, useValue: { createAssertion: jest.fn() } },
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard }
   ]

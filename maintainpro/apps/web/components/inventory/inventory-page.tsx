@@ -17,7 +17,8 @@ import {
   loadSavedFilters,
   printInventoryReport,
   saveFilters,
-  toExportRows
+  toExportRows,
+  availableOf
 } from "./helpers";
 import { useInventoryMutations, useInventoryOverview, usePartDetailData } from "./hooks";
 import { InventoryAlerts } from "./inventory-alerts";
@@ -25,6 +26,7 @@ import { InventoryCharts } from "./inventory-charts";
 import { InventoryDetailsDrawer } from "./inventory-details-drawer";
 import { InventoryFiltersBar } from "./inventory-filters-bar";
 import { InventorySummaryCards, SummaryCardKey } from "./inventory-summary-cards";
+import { InventorySectionNav } from "./inventory-section-nav";
 import { InventoryTable } from "./inventory-table";
 import { InventoryFilters, InventoryPart } from "./types";
 
@@ -59,7 +61,8 @@ export default function InventoryManagementPage() {
     usageTrendQuery,
     topUsedQuery,
     summary,
-    insights
+    insights,
+    dashboard
   } = useInventoryOverview();
 
   const { stockInMutation, stockOutMutation, updatePartMutation, deletePartMutation, bulkDeleteMutation, bulkCategoryMutation, refreshInventoryData } =
@@ -249,7 +252,7 @@ export default function InventoryManagementPage() {
       return;
     }
 
-    if (stockDialog.mode === "out" && quantity > stockDialog.part.quantityInStock) {
+    if (stockDialog.mode === "out" && quantity > availableOf(stockDialog.part)) {
       toast.error("Deducted quantity cannot exceed available stock.");
       return;
     }
@@ -463,9 +466,9 @@ export default function InventoryManagementPage() {
       <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-sky-800 p-6 text-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-sky-200">Inventory Intelligence</p>
-            <h1 className="mt-2 text-3xl font-semibold">Spare Parts Command Center</h1>
-            <p className="mt-2 text-sm text-sky-100">Real-time stock control, analytics, and procurement visibility in one premium workspace.</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-sky-200">Inventory Control</p>
+            <h1 className="mt-2 text-3xl font-semibold">Inventory Control Center</h1>
+            <p className="mt-2 text-sm text-sky-100">Authoritative stock control for receipts, issues, reservations, transfers, and ERP import.</p>
           </div>
 
           {mutationBusy ? (
@@ -477,7 +480,9 @@ export default function InventoryManagementPage() {
         </div>
       </div>
 
-      <InventorySummaryCards summary={summary} insights={insights} activeCard={activeCard} onCardSelect={handleCardSelection} />
+      <InventorySectionNav />
+
+      <InventorySummaryCards summary={summary} insights={insights} dashboard={dashboard} activeCard={activeCard} onCardSelect={handleCardSelection} />
 
       <InventoryAlerts
         lowStockParts={lowStockParts}

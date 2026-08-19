@@ -10,6 +10,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
 from apps.core.persistence import TransitionConflictError, atomic, create_immutable_unique
+from apps.core.idempotency import execute_idempotent
 from apps.recording.models import ChecklistRecordStatus, ChecklistSubmission
 from apps.reviews.governance import assert_self_review_allowed
 from apps.reviews.models import SupervisorReview, SupervisorReviewDecision
@@ -66,6 +67,7 @@ def create_supervisor_review(
     submission_id: uuid.UUID,
     decision: str,
     review_note: str | None = None,
+    idempotency_key: str = "",
 ) -> SupervisorReview:
     """
     Record an immutable SupervisorReview for a SUBMITTED ChecklistSubmission.
@@ -80,7 +82,42 @@ def create_supervisor_review(
         raise ValidationError({"decision": "Invalid supervisor review decision."})
 
     note = normalize_review_note(review_note)
+    peek = (
+        ChecklistSubmission.objects.select_related("checklist_record__organization")
+        .filter(pk=submission_id)
+        .first()
+    )
+    if peek is None:
+        raise ValidationError({"submission": "Checklist submission not found."})
+    key = (idempotency_key or "").strip() or f"supervisor:{submission_id}:{decision}"
 
+    def _create() -> SupervisorReview:
+        return _create_supervisor_review_body(
+            user=user,
+            submission_id=submission_id,
+            decision=decision,
+            note=note,
+        )
+
+    return execute_idempotent(
+        organization=peek.checklist_record.organization,
+        scope="reviews.supervisor",
+        key=key,
+        fn=_create,
+        reload=lambda ref: SupervisorReview.objects.filter(pk=ref).first(),
+        pending_fallback=lambda: SupervisorReview.objects.filter(
+            checklist_submission_id=submission_id, decision=decision
+        ).first(),
+    )
+
+
+def _create_supervisor_review_body(
+    *,
+    user: User,
+    submission_id: uuid.UUID,
+    decision: str,
+    note: str,
+) -> SupervisorReview:
     with atomic():
         submission = (
             ChecklistSubmission.objects.select_related(

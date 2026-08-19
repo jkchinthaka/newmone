@@ -169,4 +169,16 @@ describe("action center section builders", () => {
     expect(getActionCenterTitle("technician")).toBe("My Action Center");
     expect(getActionCenterTitle("inventory")).toBe("Inventory Action Center");
   });
+
+  it("adds FG workflow links when fg.access is granted and does not invent metrics", () => {
+    const sections = buildActionCenterSections(baseSnapshot({ permissions: ["fg.access"] }));
+    const fg = sections.find((section) => section.id === "fg-digital-records");
+    expect(fg?.items.map((item) => item.href)).toEqual(["/fg", "/fg/review", "/fg/qa"]);
+    expect(fg?.items.every((item) => item.metricValue == null)).toBe(true);
+  });
+
+  it("hides FG links when fg.access is missing", () => {
+    const sections = buildActionCenterSections(baseSnapshot());
+    expect(sections.some((section) => section.id === "fg-digital-records")).toBe(false);
+  });
 });

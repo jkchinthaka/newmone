@@ -35,6 +35,36 @@ export function requiresProcurement(stockAvailable: number, requestedQuantity: n
   return stockAvailable < requestedQuantity;
 }
 
+/**
+ * Approval of a part request is not physical availability.
+ *
+ * PART_REQUEST_APPROVED + STOCK_NOT_RESERVED + PROCUREMENT_REQUIRED must not be
+ * treated as the part being on hand. Dependent operations (issue, install, close
+ * that requires the part) must check reservedQuantity / issuedQuantity.
+ *
+ * Approval may still succeed when reservation fails — that is existing domain
+ * behaviour and is not silently changed here.
+ */
+export type PartFulfillmentState = {
+  approvalStatus: "APPROVED" | "PENDING" | "REJECTED" | string;
+  reservedQuantity: number;
+  issuedQuantity: number;
+  procurementRequired: boolean;
+  requiredQuantity: number;
+};
+
+export function partIsPhysicallyAvailable(state: PartFulfillmentState): boolean {
+  if (state.approvalStatus !== "APPROVED") {
+    return false;
+  }
+  const reserved = Math.max(0, state.reservedQuantity || 0);
+  const issued = Math.max(0, state.issuedQuantity || 0);
+  if (state.procurementRequired && reserved <= 0 && issued <= 0) {
+    return false;
+  }
+  return reserved + issued >= state.requiredQuantity;
+}
+
 export function pendingQuantity(line: PartQuantitySnapshot): number {
   const issued = line.issuedQuantity ?? 0;
   const used = line.usedQuantity ?? 0;

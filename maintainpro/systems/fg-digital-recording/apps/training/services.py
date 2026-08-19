@@ -7,13 +7,12 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
 from apps.access_control.models import Role
 from apps.access_control.services import Scope, require_permission
 from apps.accounts.models import User
 from apps.checklists.models import ChecklistTemplate
-from apps.core.persistence import lock_queryset, locked_get
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from apps.instruments.models import Equipment
 from apps.organizations.models import Organization
 from apps.organizations.services import normalize_code, normalize_name
@@ -174,7 +173,7 @@ def _validate_scope_associations(
         )
 
 
-@transaction.atomic
+@atomic_fn
 def create_training_record(
     *,
     actor: User | None,
@@ -245,7 +244,7 @@ def create_training_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def update_training_record(
     *,
     actor: User | None,
@@ -321,7 +320,7 @@ def update_training_record(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def set_training_record_status(
     *,
     actor: User | None,
@@ -356,7 +355,7 @@ def set_training_record_status(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def set_training_enforcement_policy(
     *,
     actor: User | None,

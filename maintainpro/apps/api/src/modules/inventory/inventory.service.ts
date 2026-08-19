@@ -5,7 +5,6 @@ import {
   ApprovalStage,
   AuditAction,
   ErpSyncStatus,
-  MovementType,
   NotificationPriority,
   NotificationType,
   PartRequestStatus,
@@ -37,17 +36,24 @@ import {
   clientTotalMismatch,
   roundMoney
 } from "./procurement-money.util";
+import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
+import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
 @Injectable()
 export class InventoryService {
+  private readonly stockEngine: InventoryTransactionEngine;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly erpSyncProviderService: ErpSyncProviderService
-  ) {}
+    private readonly erpSyncProviderService: ErpSyncProviderService,
+    @Optional() stockEngine?: InventoryTransactionEngine
+  ) {
+    this.stockEngine = stockEngine ?? new InventoryTransactionEngine(prisma);
+  }
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
@@ -195,7 +201,7 @@ export class InventoryService {
       });
     }
 
-    return this.prisma.sparePart.create({
+    const created = await this.prisma.sparePart.create({
       data: {
         tenantId,
         partNumber: data.partNumber,
@@ -205,12 +211,29 @@ export class InventoryService {
         unit: data.unit ?? "pcs",
         minimumStock: data.minimumStock ?? 0,
         reorderPoint: data.reorderPoint ?? 0,
-        quantityInStock: data.quantityInStock ?? 0,
+        quantityInStock: 0,
+        reservedQuantity: 0,
+        availableQuantity: 0,
         location: data.location,
         supplierId: data.supplierId,
         images: []
       }
     });
+
+    const openingQty = data.quantityInStock ?? 0;
+    if (openingQty > 0 && actor) {
+      const received = await this.stockEngine.receive({
+        actor,
+        partId: created.id,
+        quantity: openingQty,
+        notes: "Opening balance",
+        sourceType: "OPENING_BALANCE",
+        sourceDocument: `part:${created.id}`
+      });
+      return this.prisma.sparePart.findFirstOrThrow({ where: { id: received.part.id, tenantId } });
+    }
+
+    return created;
   }
 
   async updatePart(
@@ -294,32 +317,25 @@ export class InventoryService {
     return { count: result.count };
   }
 
-  async stockIn(id: string, quantity: number, notes?: string, actor?: Actor) {
+  async stockIn(
+    id: string,
+    quantity: number,
+    notes?: string,
+    actor?: Actor,
+    options?: { idempotencyKey?: string; warehouseId?: string }
+  ) {
     await this.part(id, actor);
-
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      throw new BadRequestException("Stock-in quantity must be greater than 0");
-    }
-
-    const part = await this.prisma.sparePart.update({
-      where: { id },
-      data: {
-        quantityInStock: {
-          increment: quantity
-        }
-      }
+    const result = await this.stockEngine.receive({
+      actor,
+      partId: id,
+      quantity,
+      notes,
+      warehouseId: options?.warehouseId,
+      idempotencyKey: options?.idempotencyKey,
+      sourceType: "MANUAL_RECEIPT",
+      sourceDocument: notes
     });
-
-    await this.prisma.stockMovement.create({
-      data: {
-        partId: id,
-        type: "IN",
-        quantity,
-        notes
-      }
-    });
-
-    return part;
+    return this.part(result.part.id, actor);
   }
 
   async stockOut(
@@ -381,7 +397,7 @@ export class InventoryService {
         id: options.workOrderId,
         tenantId
       },
-      select: { id: true, status: true, woNumber: true }
+      select: { id: true, status: true, woNumber: true, vehicleId: true }
     });
 
     if (!workOrder) {
@@ -399,54 +415,50 @@ export class InventoryService {
     }
 
     try {
-      const updated = await this.prisma.$transaction(async (tx) => {
-        // Atomic conditional decrement — concurrent issues cannot both consume the same units.
-        const decremented = await tx.sparePart.updateMany({
-          where: {
-            id,
-            tenantId,
-            isActive: true,
-            quantityInStock: { gte: quantity }
-          },
-          data: {
-            quantityInStock: { decrement: quantity }
-          }
-        });
+      const issued = await this.stockEngine.issue({
+        actor,
+        partId: id,
+        quantity,
+        workOrderId: workOrder.id,
+        vehicleId: workOrder.vehicleId ?? undefined,
+        notes: options.notes,
+        reason: options.overrideReason,
+        idempotencyKey,
+        sourceType: "WORK_ORDER",
+        sourceDocument: workOrder.woNumber,
+        sourceLineKey: `wo-issue:${workOrder.id}:${id}:${idempotencyKey ?? ""}`
+      });
 
-        if (decremented.count !== 1) {
-          throw new BadRequestException("Stock quantity cannot go below 0");
-        }
-
-        const movement = await tx.stockMovement.create({
-          data: {
-            tenantId,
-            partId: id,
-            type: "OUT",
-            quantity,
-            workOrderId: workOrder.id,
-            actorUserId: actor?.sub,
-            reference: `work-order:${workOrder.id}`,
-            notes: options.notes
-          }
-        });
-
-        if (idempotencyKey) {
-          await tx.inventoryStockIssueIdempotency.create({
+      if (idempotencyKey && !issued.replayed) {
+        try {
+          await this.prisma.inventoryStockIssueIdempotency.create({
             data: {
               tenantId,
               key: idempotencyKey,
               partId: id,
-              movementId: movement.id,
+              movementId: issued.movement.id,
               workOrderId: workOrder.id,
               quantity
             }
           });
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
+              where: { tenantId_key: { tenantId, key: idempotencyKey } }
+            });
+            if (
+              raced &&
+              (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id)
+            ) {
+              throw new BadRequestException(
+                "Idempotency key was already used with a different stock-out payload for this tenant."
+              );
+            }
+          } else {
+            throw error;
+          }
         }
-
-        return tx.sparePart.findFirstOrThrow({
-          where: { id, tenantId }
-        });
-      });
+      }
 
       await this.recordAudit({
         entity: "PART_STOCK_ISSUE",
@@ -461,11 +473,13 @@ export class InventoryService {
           source: "inventory.stockOut",
           event: options.overrideReason ? "parts_issue_override" : "parts_issued_against_work_order",
           overrideFlag: Boolean(options.overrideReason?.trim()),
-          idempotencyKey: idempotencyKey ?? null
+          idempotencyKey: idempotencyKey ?? null,
+          movementId: issued.movement.id,
+          replayed: issued.replayed
         }
       });
 
-      return updated;
+      return this.part(id, actor);
     } catch (error) {
       if (error instanceof BadRequestException && error.message.includes("cannot go below 0")) {
         await this.recordAudit({
@@ -474,10 +488,9 @@ export class InventoryService {
           action: AuditAction.UPDATE,
           actor,
           reason: "negative_stock_blocked",
-          metadata: { event: "negative_stock_blocked", quantity, available: part.quantityInStock }
+          metadata: { event: "negative_stock_blocked", quantity, available: part.availableQuantity ?? part.quantityInStock }
         });
       }
-      // Concurrent first-writer wins on idempotency unique key — treat as replay.
       if (
         idempotencyKey &&
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -487,6 +500,11 @@ export class InventoryService {
           where: { tenantId_key: { tenantId, key: idempotencyKey } }
         });
         if (raced) {
+          if (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id) {
+            throw new BadRequestException(
+              "Idempotency key was already used with a different stock-out payload for this tenant."
+            );
+          }
           return this.part(id, actor);
         }
       }
@@ -1385,21 +1403,18 @@ export class InventoryService {
           if (!poLine.partId) {
             throw new BadRequestException("Cannot receive stock for a line without partId");
           }
-          await tx.sparePart.update({
-            where: { id: poLine.partId },
-            data: { quantityInStock: { increment: accepted } }
-          });
-          await tx.stockMovement.create({
-            data: {
-              tenantId,
+          await this.stockEngine.receive(
+            {
+              actor: receiver,
               partId: poLine.partId,
-              type: MovementType.IN,
               quantity: accepted,
-              reference: `PO:${order.poNumber}/GRN:${data.receiptNumber}`,
               notes: data.notes ?? "Purchase receipt",
-              actorUserId: receiver.sub
-            }
-          });
+              sourceType: "PURCHASE_RECEIPT",
+              sourceDocument: `PO:${order.poNumber}/GRN:${data.receiptNumber}`,
+              sourceLineKey: `po-receipt:${createdReceipt.id}:${poLine.id}`
+            },
+            tx
+          );
         }
       }
 
@@ -1833,5 +1848,202 @@ export class InventoryService {
     });
 
     return retried;
+  }
+
+  async dashboard(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [parts, todayMovements, pendingImports, importErrors] = await Promise.all([
+      this.prisma.sparePart.findMany({
+        where: { tenantId, isActive: true },
+        select: {
+          quantityInStock: true,
+          reservedQuantity: true,
+          availableQuantity: true,
+          minimumStock: true,
+          reorderPoint: true,
+          unitCost: true
+        }
+      }),
+      this.prisma.stockMovement.findMany({
+        where: { tenantId, createdAt: { gte: startOfToday } },
+        select: { type: true, quantity: true }
+      }),
+      this.prisma.erpImportBatch.count({
+        where: {
+          tenantId,
+          importType: "STOCK_BALANCES",
+          status: { in: ["UPLOADED", "VALIDATING", "READY_FOR_REVIEW", "APPROVED"] }
+        }
+      }),
+      this.prisma.erpImportBatch.count({
+        where: { tenantId, importType: "STOCK_BALANCES", status: "FAILED" }
+      })
+    ]);
+
+    const totals = parts.reduce(
+      (acc, part) => {
+        const onHand = part.quantityInStock ?? 0;
+        const reserved = part.reservedQuantity ?? 0;
+        const available = part.availableQuantity ?? Math.max(0, onHand - reserved);
+        acc.onHand += onHand;
+        acc.reserved += reserved;
+        acc.available += available;
+        if (onHand <= 0) acc.outOfStock += 1;
+        else if (onHand <= Math.max(part.minimumStock, part.reorderPoint)) acc.lowStock += 1;
+        const cost = Number(part.unitCost);
+        if (Number.isFinite(cost) && cost > 0) {
+          acc.reliableValue += onHand * cost;
+          acc.valuedItems += 1;
+        }
+        return acc;
+      },
+      { onHand: 0, reserved: 0, available: 0, lowStock: 0, outOfStock: 0, reliableValue: 0, valuedItems: 0 }
+    );
+
+    const today = todayMovements.reduce(
+      (acc, row) => {
+        if (row.type === "IN") acc.in += row.quantity;
+        if (row.type === "OUT") acc.out += row.quantity;
+        if (row.type === "RETURN") acc.returns += row.quantity;
+        if (row.type === "ADJUSTMENT" || row.type === "ADJUSTMENT_IN" || row.type === "ADJUSTMENT_OUT") {
+          acc.adjustments += row.quantity;
+        }
+        return acc;
+      },
+      { in: 0, out: 0, returns: 0, adjustments: 0 }
+    );
+
+    return {
+      totalItems: parts.length,
+      onHand: totals.onHand,
+      available: totals.available,
+      reserved: totals.reserved,
+      lowStock: totals.lowStock,
+      outOfStock: totals.outOfStock,
+      inventoryValue: totals.valuedItems > 0 && totals.valuedItems === parts.length ? totals.reliableValue : null,
+      todayIn: today.in,
+      todayOut: today.out,
+      todayReturns: today.returns,
+      todayAdjustments: today.adjustments,
+      pendingImports,
+      importErrors
+    };
+  }
+
+  async listAllMovements(
+    actor?: Actor,
+    query?: { type?: string; warehouseId?: string; partId?: string; from?: string; to?: string; take?: number }
+  ) {
+    const tenantId = this.resolveTenantId(actor);
+    const take = Math.min(500, Math.max(1, Number(query?.take) || 100));
+    return this.prisma.stockMovement.findMany({
+      where: {
+        tenantId,
+        ...(query?.type ? { type: query.type as never } : {}),
+        ...(query?.warehouseId ? { warehouseId: query.warehouseId } : {}),
+        ...(query?.partId ? { partId: query.partId } : {}),
+        ...(query?.from || query?.to
+          ? {
+              createdAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {})
+              }
+            }
+          : {})
+      },
+      include: {
+        part: { select: { id: true, partNumber: true, name: true, category: true, unit: true } },
+        warehouse: { select: { id: true, code: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take
+    });
+  }
+
+  async listWarehouses(actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    await this.stockEngine.resolveWarehouse(this.prisma, tenantId);
+    return this.prisma.warehouse.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: [{ isDefault: "desc" }, { code: "asc" }]
+    });
+  }
+
+  async transferStock(
+    data: {
+      partId: string;
+      quantity: number;
+      sourceWarehouseId?: string;
+      destWarehouseId?: string;
+      notes?: string;
+      idempotencyKey?: string;
+    },
+    actor?: Actor
+  ) {
+    const result = await this.stockEngine.transfer({
+      actor,
+      partId: data.partId,
+      quantity: data.quantity,
+      warehouseId: data.sourceWarehouseId,
+      destWarehouseId: data.destWarehouseId,
+      notes: data.notes,
+      reason: data.notes,
+      idempotencyKey: data.idempotencyKey,
+      sourceType: "TRANSFER"
+    });
+    return result;
+  }
+
+  async adjustStock(
+    data: {
+      partId: string;
+      quantity: number;
+      direction: "IN" | "OUT";
+      reason: string;
+      warehouseId?: string;
+      idempotencyKey?: string;
+    },
+    actor?: Actor
+  ) {
+    if (!data.reason?.trim()) {
+      throw new BadRequestException("Adjustment reason is required");
+    }
+    return this.stockEngine.adjust({
+      actor,
+      partId: data.partId,
+      quantity: data.quantity,
+      direction: data.direction,
+      warehouseId: data.warehouseId,
+      reason: data.reason.trim(),
+      notes: data.reason.trim(),
+      idempotencyKey: data.idempotencyKey,
+      sourceType: "ADJUSTMENT"
+    });
+  }
+
+  async reverseMovement(
+    data: { movementId: string; quantity?: number; reason: string; idempotencyKey?: string },
+    actor?: Actor
+  ) {
+    const tenantId = this.resolveTenantId(actor);
+    const original = await this.prisma.stockMovement.findFirst({
+      where: { id: data.movementId, tenantId }
+    });
+    if (!original) {
+      throw new NotFoundException("Stock movement not found");
+    }
+    return this.stockEngine.reverse({
+      actor,
+      partId: original.partId,
+      quantity: data.quantity || original.quantity - (original.quantityReversed ?? 0),
+      warehouseId: original.warehouseId ?? undefined,
+      reason: data.reason,
+      reversalOfMovementId: original.id,
+      idempotencyKey: data.idempotencyKey,
+      sourceType: "REVERSAL"
+    });
   }
 }

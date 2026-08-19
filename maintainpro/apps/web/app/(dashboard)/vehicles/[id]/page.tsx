@@ -17,6 +17,7 @@ import {
   CircleOff,
   CircleSlash,
   ClipboardList,
+  FileCheck2,
   Fuel,
   Loader2,
   Route,
@@ -25,12 +26,15 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
+import Link from "next/link";
+import type { Route as NextRoute } from "next";
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
 import { apiClient } from "@/lib/api-client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import {
   getStoredRole,
   VEHICLE_DELETE_ROLES,
@@ -39,7 +43,7 @@ import {
 } from "@/lib/user-role";
 
 type VehicleType = "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
-type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
 type VehicleStatus = "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
 type DetailTab = "overview" | "maintenance" | "fuel" | "trips";
 
@@ -106,7 +110,7 @@ interface FuelLog {
 
 interface FuelAnalytics {
   averageConsumptionLPer100Km: number;
-  costPerKm: number;
+  costPerKm: number | null;
   monthlyFuelCostTrend: Array<{ month: string; totalCost: number }>;
 }
 
@@ -187,13 +191,16 @@ const DEFAULT_MAINTENANCE_PAGINATION: PaginationState = {
 
 const DEFAULT_FUEL_ANALYTICS: FuelAnalytics = {
   averageConsumptionLPer100Km: 0,
-  costPerKm: 0,
+  costPerKm: null,
   monthlyFuelCostTrend: []
 };
 
 export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const currentUser = useCurrentUser();
   const vehicleId = params.id;
+  const canOpenFg =
+    currentUser.role === "SUPER_ADMIN" || currentUser.permissions.includes("fg.access");
 
   const [role, setRole] = useState<DashboardRole>("VIEWER");
   const canEdit = VEHICLE_WRITE_ROLES.includes(role);
@@ -342,7 +349,8 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
         analyticsPayload && typeof analyticsPayload === "object"
           ? {
               averageConsumptionLPer100Km: Number(analyticsPayload.averageConsumptionLPer100Km ?? 0),
-              costPerKm: Number(analyticsPayload.costPerKm ?? 0),
+              costPerKm:
+                analyticsPayload.costPerKm == null ? null : Number(analyticsPayload.costPerKm),
               monthlyFuelCostTrend: Array.isArray(analyticsPayload.monthlyFuelCostTrend)
                 ? analyticsPayload.monthlyFuelCostTrend
                 : []
@@ -661,6 +669,14 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                 <Trash2 size={14} /> Delete Vehicle
               </button>
             )}
+            {canOpenFg ? (
+              <Link
+                href={"/fg" as NextRoute}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FileCheck2 size={14} /> Open FG Digital Records
+              </Link>
+            ) : null}
           </div>
         </div>
       </section>
@@ -1005,7 +1021,11 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             />
             <MetricCard
               label="Cost Per Km"
-              value={`${fuelAnalytics.costPerKm.toFixed(2)} INR/km`}
+              value={
+                fuelAnalytics.costPerKm == null
+                  ? "Insufficient data"
+                  : `${fuelAnalytics.costPerKm.toFixed(2)} INR/km`
+              }
               tone="bg-sky-50 text-sky-800"
             />
             <MetricCard

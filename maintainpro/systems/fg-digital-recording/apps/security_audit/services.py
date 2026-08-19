@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from django.db import transaction
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.accounts.models import User
 from apps.security_audit.models import SecurityAuditEvent
 
@@ -27,6 +27,7 @@ _SENSITIVE_METADATA_KEYS = frozenset(
         "cookies",
         "session",
         "sessionid",
+        "fg_sessionid",
         "session_key",
         "body",
         "request_body",
@@ -57,7 +58,7 @@ def sanitize_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return cleaned
 
 
-@transaction.atomic
+@atomic_fn
 def record_event(
     *,
     event_type: str,

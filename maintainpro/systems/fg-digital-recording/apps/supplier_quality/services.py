@@ -7,8 +7,8 @@ from datetime import date, datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission, user_has_permission
@@ -64,7 +64,7 @@ def certificate_is_expired(cert: SupplierCertificate, *, as_of: date | None = No
     return cert.expires_on < day
 
 
-@transaction.atomic
+@atomic_fn
 def create_supplier_quality_profile(
     *,
     actor: User | None,
@@ -114,7 +114,7 @@ def create_supplier_quality_profile(
     return profile
 
 
-@transaction.atomic
+@atomic_fn
 def update_supplier_quality_profile(
     *,
     actor: User | None,
@@ -156,7 +156,7 @@ def update_supplier_quality_profile(
     return profile
 
 
-@transaction.atomic
+@atomic_fn
 def add_supplier_certificate(
     *,
     actor: User | None,
@@ -197,7 +197,7 @@ def add_supplier_certificate(
     return cert
 
 
-@transaction.atomic
+@atomic_fn
 def verify_supplier_certificate(
     *,
     actor: User | None,
@@ -230,7 +230,7 @@ def verify_supplier_certificate(
     return cert
 
 
-@transaction.atomic
+@atomic_fn
 def record_supplier_quality_event(
     *,
     actor: User | None,

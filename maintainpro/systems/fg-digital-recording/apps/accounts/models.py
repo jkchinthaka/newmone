@@ -5,10 +5,11 @@ from __future__ import annotations
 import uuid
 
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.functions import Lower
 
 from apps.accounts.managers import UserManager
+from apps.accounts.validators import normalize_employee_code
 
 
 class User(AbstractUser):
@@ -19,6 +20,9 @@ class User(AbstractUser):
     via direct ORM construction. UserManager.create_user / create_superuser and
     Django admin creation require a non-empty employee_code. Authentication via
     EmployeeCodeBackend rejects accounts without a code.
+
+    Codes are stored normalized (strip + uppercase). Uniqueness is therefore a
+    plain unique constraint — Mongo-compatible (no expression index / Lower()).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -29,6 +33,15 @@ class User(AbstractUser):
     locked_until = models.DateTimeField(null=True, blank=True)
     last_failed_login_at = models.DateTimeField(null=True, blank=True)
     last_successful_login_at = models.DateTimeField(null=True, blank=True)
+    # MaintainPro identity projection — when set, local password login is forbidden.
+    maintainpro_user_id = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Immutable MaintainPro User ObjectId. Empty for legacy local-only accounts.",
+    )
+    maintainpro_email = models.EmailField(blank=True, default="")
+    maintainpro_synced_at = models.DateTimeField(null=True, blank=True)
 
     objects = UserManager()  # type: ignore[misc]
 
@@ -37,15 +50,39 @@ class User(AbstractUser):
         verbose_name_plural = "users"
         constraints = [
             models.UniqueConstraint(
-                Lower("employee_code"),
+                fields=["employee_code"],
                 condition=models.Q(employee_code__isnull=False),
                 name="acct_user_emp_code_ci_uniq",
             ),
+            models.UniqueConstraint(
+                fields=["maintainpro_user_id"],
+                condition=~models.Q(maintainpro_user_id=""),
+                name="acct_user_mp_id_uniq",
+            ),
         ]
         indexes = [
-            models.Index(Lower("employee_code"), name="acct_user_emp_code_idx"),
+            models.Index(fields=["employee_code"], name="acct_user_emp_code_idx"),
             models.Index(fields=["locked_until"], name="acct_user_locked_until_idx"),
+            models.Index(fields=["maintainpro_user_id"], name="acct_user_mp_id_idx"),
         ]
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        if self.employee_code is not None:
+            normalized = normalize_employee_code(str(self.employee_code))
+            self.employee_code = normalized or None
+        mp_id = str(self.maintainpro_user_id or "").strip()
+        self.maintainpro_user_id = mp_id
+        if mp_id:
+            clash = (
+                User.objects.filter(maintainpro_user_id=mp_id)
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if clash:
+                raise ValidationError(
+                    {"maintainpro_user_id": "MaintainPro user id must be unique."}
+                )
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         if self.employee_code:

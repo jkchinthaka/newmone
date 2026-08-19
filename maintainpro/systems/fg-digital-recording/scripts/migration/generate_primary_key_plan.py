@@ -41,7 +41,7 @@ def main() -> int:
         "# MongoDB Primary Key Plan",
         "",
         f"**Generated (UTC):** {stamp}  ",
-        "**Production database:** `mgintginpro_prod`  ",
+        "**Production database:** `maintainpro_prod`  ",
         "**Rule:** Do not silently regenerate IDs. Historical relationships must stay stable.",
         "",
         "## Classification summary",

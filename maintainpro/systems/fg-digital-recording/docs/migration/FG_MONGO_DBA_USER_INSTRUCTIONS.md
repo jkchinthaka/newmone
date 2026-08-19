@@ -1,14 +1,14 @@
 # FG MongoDB Database User — DBA Instructions (placeholders only)
 
 **Status:** Prepared for later DBA execution — **do not create now**.  
-**Database:** `mgintginpro_prod` (same logical DB as MaintainPro)  
+**Database:** `maintainpro_prod` (same logical DB as MaintainPro)  
 **Do not** rotate or reuse MaintainPro root/admin credentials for the FG app.
 
 ---
 
 ## Principle
 
-FG and MaintainPro may share the logical database `mgintginpro_prod`, but must use
+FG and MaintainPro may share the logical database `maintainpro_prod`, but must use
 **separate application database users**.
 
 | Concern | Guidance |
@@ -25,8 +25,8 @@ FG and MaintainPro may share the logical database `mgintginpro_prod`, but must u
 Username: <FG_MONGO_APP_USER>          # OWNER REQUIRED
 Password: <FROM_VAULT_ONLY>            # NEVER commit
 Authentication DB: admin               # or company standard — OWNER REQUIRED
-Target database: mgintginpro_prod
-Role: readWrite on mgintginpro_prod
+Target database: maintainpro_prod
+Role: readWrite on maintainpro_prod
 ```
 
 Optional tighter scope (if company policy allows collection-prefix grants later):
@@ -42,12 +42,12 @@ Optional tighter scope (if company policy allows collection-prefix grants later)
 
 ```javascript
 // AUTHORIZATION REQUIRED — example only
-use mgintginpro_prod
+use maintainpro_prod
 db.createUser({
   user: "<FG_MONGO_APP_USER>",
   pwd: passwordPrompt(),  // do not paste passwords into scripts committed to git
   roles: [
-    { role: "readWrite", db: "mgintginpro_prod" }
+    { role: "readWrite", db: "maintainpro_prod" }
   ]
 })
 ```
@@ -57,8 +57,8 @@ db.createUser({
 ## Application configuration (env only)
 
 ```text
-MONGODB_URI=mongodb://<FG_MONGO_APP_USER>:<FROM_VAULT>@127.0.0.1:27018/mgintginpro_prod?authSource=admin
-MONGODB_DATABASE=mgintginpro_prod
+MONGODB_URI=mongodb://<FG_MONGO_APP_USER>:<FROM_VAULT>@127.0.0.1:27018/maintainpro_prod?authSource=admin
+MONGODB_DATABASE=maintainpro_prod
 ```
 
 Never commit real URI/password values.
@@ -70,4 +70,4 @@ Never commit real URI/password values.
 - Do not create the user now
 - Do not connect FG app to company Mongo with root credentials
 - Do not modify MaintainPro users/roles
-- Do not grant FG user rights outside `mgintginpro_prod`
+- Do not grant FG user rights outside `maintainpro_prod`

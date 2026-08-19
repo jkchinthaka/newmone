@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access_control.services import Scope, require_permission
@@ -19,6 +19,7 @@ from apps.checklists.models import (
 )
 from apps.core.persistence import (
     TransitionConflictError,
+    atomic,
     cas_status_transition,
     lock_queryset,
 )
@@ -191,37 +192,50 @@ def create_batch_checklist_task(
             )
         return existing
 
-    try:
-        with transaction.atomic():
-            task = ChecklistTask(
-                organization=organization,
-                checklist_template=template,
-                checklist_version=version,
-                batch_reference=batch_ref,
-                trigger_type=ChecklistTriggerType.BATCH,
-                occurrence_key=occ_key,
-                status=ChecklistTaskStatus.PENDING,
-            )
-            task.full_clean()
-            task.save()
-            record_event(
-                event_type="CHECKLIST_TASK_CREATED",
-                actor=user,
-                metadata=_task_metadata(task),
-            )
-    except IntegrityError:
-        raced = (
-            ChecklistTask.objects.select_related(
+    for _attempt in range(8):
+        try:
+            with atomic():
+                task = ChecklistTask(
+                    organization=organization,
+                    checklist_template=template,
+                    checklist_version=version,
+                    batch_reference=batch_ref,
+                    trigger_type=ChecklistTriggerType.BATCH,
+                    occurrence_key=occ_key,
+                    status=ChecklistTaskStatus.PENDING,
+                )
+                task.full_clean()
+                task.save()
+                record_event(
+                    event_type="CHECKLIST_TASK_CREATED",
+                    actor=user,
+                    metadata=_task_metadata(task),
+                )
+            return ChecklistTask.objects.select_related(
                 "organization", "checklist_template", "checklist_version"
+            ).get(pk=task.id)
+        except (IntegrityError, ValidationError) as exc:
+            # Mongo full_clean raises ValidationError for UniqueConstraint before save;
+            # concurrent insert may also surface IntegrityError / E11000.
+            text = str(exc).lower()
+            err_dict = getattr(exc, "message_dict", None) or getattr(exc, "error_dict", None) or {}
+            messages = " ".join(str(m) for m in getattr(exc, "messages", ()) or ()).lower()
+            blob = f"{text} {messages} {err_dict}".lower()
+            is_unique = isinstance(exc, IntegrityError) or any(
+                m in blob
+                for m in (
+                    "already exists",
+                    "unique",
+                    "occurrence_key",
+                    "batch_reference",
+                    "sched_task_org_tmpl",
+                    "duplicate",
+                    "e11000",
+                    "constraint",
+                )
             )
-            .filter(
-                organization_id=organization.id,
-                checklist_template_id=template.id,
-                occurrence_key=occ_key,
-            )
-            .first()
-        )
-        if raced is None:
+            if not is_unique:
+                raise
             raced = (
                 ChecklistTask.objects.select_related(
                     "organization", "checklist_template", "checklist_version"
@@ -229,27 +243,44 @@ def create_batch_checklist_task(
                 .filter(
                     organization_id=organization.id,
                     checklist_template_id=template.id,
-                    batch_reference=batch_ref,
+                    occurrence_key=occ_key,
                 )
                 .first()
             )
-        if raced is None:
-            raise
-        if raced.checklist_version_id != version.id:
-            raise ValidationError(
-                {
-                    "checklist_version": (
-                        "A checklist task already exists for this organization, "
-                        "template, and batch reference with a different published version. "
-                        "Historical task definition cannot be changed."
+            if raced is None:
+                raced = (
+                    ChecklistTask.objects.select_related(
+                        "organization", "checklist_template", "checklist_version"
                     )
-                }
-            ) from None
-        return raced
+                    .filter(
+                        organization_id=organization.id,
+                        checklist_template_id=template.id,
+                        batch_reference=batch_ref,
+                    )
+                    .first()
+                )
+            if raced is not None:
+                if raced.checklist_version_id != version.id:
+                    raise ValidationError(
+                        {
+                            "checklist_version": (
+                                "A checklist task already exists for this organization, "
+                                "template, and batch reference with a different published version. "
+                                "Historical task definition cannot be changed."
+                            )
+                        }
+                    ) from None
+                return raced
+            # Winner not visible yet — brief retry.
+            continue
 
-    return ChecklistTask.objects.select_related(
-        "organization", "checklist_template", "checklist_version"
-    ).get(pk=task.id)
+    raise ValidationError(
+        {
+            "batch_reference": (
+                "Unable to create checklist task due to a concurrent duplicate. Retry shortly."
+            )
+        }
+    )
 
 
 def create_batch_checklist_task_using_effective_version(
@@ -293,7 +324,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
     """Cancel a PENDING task. Soft cancel only — never hard-delete."""
     user = _require_authenticated_actor(actor)
 
-    with transaction.atomic():
+    with atomic():
         task = lock_queryset(
             ChecklistTask.objects.select_related(
                 "organization", "checklist_template", "checklist_version"
@@ -305,7 +336,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
         require_permission(user, MANAGE_CHECKLIST_TASK, scope=task_authorization_scope(task))
 
         if task.status == ChecklistTaskStatus.CANCELLED:
-            return task
+            return cast(ChecklistTask, task)
         # OVERDUE/MISSED remain cancellable orchestration states (no NCR implied).
         if task.status not in {
             ChecklistTaskStatus.PENDING,
@@ -329,7 +360,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
         except TransitionConflictError as exc:
             fresh = ChecklistTask.objects.filter(pk=task_id).first()
             if fresh is not None and fresh.status == ChecklistTaskStatus.CANCELLED:
-                return fresh
+                return fresh  # type: ignore[no-any-return]
             raise ValidationError({"status": "Checklist task was updated concurrently."}) from exc
         task.refresh_from_db()
         record_event(
@@ -337,7 +368,7 @@ def cancel_checklist_task(*, actor: User | None, task_id: uuid.UUID) -> Checklis
             actor=user,
             metadata=_task_metadata(task),
         )
-        return task
+        return cast(ChecklistTask, task)
 
 
 # --- Phase 07C checklist applicability (re-export engine API) ---
@@ -350,13 +381,25 @@ def ensure_controlled_daily_task(
     form_code: str,
     record_date: date,
     room_key: str = "",
+    occurrence_token: str = "",
 ) -> ChecklistTask:
     """Idempotent daily task for a SOURCE RECEIVED controlled form.
 
     Recorders may open today's form without manage_checklisttask. Only registered
     controlled-form codes are eligible.
+
+    Uniqueness:
+    - CL24: one task per calendar day
+    - CL39: one task per calendar day per room
+    - CL18/CL30: one task per (date, occurrence_token); same token retries the
+      same record, a new token creates an independent same-day record
     """
-    from apps.checklists.controlled_forms import is_controlled_form_code
+    from apps.checklists.controlled_forms import (
+        controlled_form_multiplicity,
+        form_uses_independent_occurrences,
+        is_controlled_form_code,
+        normalize_occurrence_token,
+    )
 
     user = _require_authenticated_actor(actor)
     if not is_controlled_form_code(form_code):
@@ -379,8 +422,15 @@ def ensure_controlled_daily_task(
     if version is None:
         raise ValidationError({"form_code": "No published version exists for this form."})
     slug = form_code.replace("/", "-")
-    suffix = f"-{room_key}" if room_key else ""
-    batch_ref = f"{slug}-{record_date.isoformat()}{suffix}"
+    multiplicity = controlled_form_multiplicity(form_code)
+    if multiplicity == "one_per_day_per_room":
+        suffix = f"-{room_key}" if room_key else ""
+        batch_ref = f"{slug}-{record_date.isoformat()}{suffix}"
+    elif form_uses_independent_occurrences(form_code):
+        token = normalize_occurrence_token(occurrence_token)
+        batch_ref = f"{slug}-{record_date.isoformat()}-occ-{token}"
+    else:
+        batch_ref = f"{slug}-{record_date.isoformat()}"
     return create_batch_checklist_task(
         actor=user,
         organization_id=organization_id,

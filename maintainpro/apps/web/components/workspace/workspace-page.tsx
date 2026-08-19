@@ -40,12 +40,13 @@ export default function WorkspacePage() {
   const quickLinks = workspaceItems.filter((item) => favoriteIds.includes(item.id));
 
   const actionQuery = useQuery({
-    queryKey: ["workspace", "action-center", roleName],
+    queryKey: ["workspace", "action-center", roleName, user.tenantId],
     queryFn: () =>
       fetchActionCenterSnapshot({
         variant: resolveActionCenterVariant(roleName),
         roleName,
-        userId: user.id
+        userId: user.id,
+        permissions: user.permissions
       }),
     staleTime: 60_000,
     retry: 1

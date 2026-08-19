@@ -1,11 +1,13 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useRef } from "react";
 import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NavLinks } from "@/components/layout/nav-links";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 type MobileNavProps = {
   open: boolean;
@@ -14,27 +16,8 @@ type MobileNavProps = {
 };
 
 export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNavProps) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(open, panelRef, { onEscape: onClose });
 
   if (!open) {
     return null;
@@ -49,6 +32,7 @@ export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNa
         onClick={onClose}
       />
       <aside
+        ref={panelRef}
         id={id}
         aria-label="Mobile navigation"
         aria-modal="true"
@@ -65,6 +49,9 @@ export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNa
           >
             <X aria-hidden size={18} />
           </button>
+        </div>
+        <div className="border-b border-slate-200 px-3 py-3">
+          <TenantSwitcher className="w-full rounded-xl" id="mobile-tenant-switcher" />
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4">
           <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>

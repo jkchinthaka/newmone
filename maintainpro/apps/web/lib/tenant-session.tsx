@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { clearAuthSession, clearStoredTokens } from "@/lib/auth-storage";
@@ -85,6 +86,7 @@ function normalizeMemberships(payload: unknown): TenantMembershipSummary[] {
 }
 
 export function TenantSessionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<TenantSessionState>("INITIALIZING");
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<TenantMembershipSummary[]>([]);
@@ -172,12 +174,14 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
       await apiClient.post(`/tenants/${nextTenantId}/switch`);
       setActiveTenantId(nextTenantId);
       setTenantId(nextTenantId);
+      queryClient.clear();
       setState("READY");
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to switch tenant"));
       setState("ACCESS_DENIED");
+      throw err;
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     void refresh();

@@ -29,14 +29,19 @@ import {
   Trash2,
   Upload,
   Wrench,
-  X
+  X,
+  FileCheck2
 } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
+import { useCurrentUser } from "@/lib/use-current-user";
+import { withTenantScope } from "@/lib/tenant-query";
 import { AssetsTable } from "./assets-table";
 import {
   hasActiveFilters,
@@ -790,6 +795,9 @@ function collectActivityChanges(event: AssetActivityEvent) {
 
 export default function AssetsManagementPage() {
   const queryClient = useQueryClient();
+  const currentUser = useCurrentUser();
+  const canOpenFg =
+    currentUser.role === "SUPER_ADMIN" || currentUser.permissions.includes("fg.access");
   const {
     filters,
     setFilters,
@@ -862,7 +870,7 @@ export default function AssetsManagementPage() {
   }, []);
 
   const listQuery = useQuery<AssetListResponse>({
-    queryKey: ["assets-list", filters],
+    queryKey: withTenantScope(["assets-list", filters]),
     queryFn: async () => {
       const response = await apiClient.get("/assets", {
         params: toQueryParams(filters)
@@ -878,11 +886,12 @@ export default function AssetsManagementPage() {
         }
       };
     },
-    placeholderData: (previous) => previous
+    placeholderData: (previous) => previous,
+    refetchOnWindowFocus: true
   });
 
   const optionsQuery = useQuery<{ locations: string[] }>({
-    queryKey: ["assets-filter-options"],
+    queryKey: withTenantScope(["assets-filter-options"]),
     queryFn: async () => {
       const response = await apiClient.get("/assets/filter-options");
       return response.data?.data ?? { locations: [] };
@@ -1259,6 +1268,14 @@ export default function AssetsManagementPage() {
               <p className="mt-1 text-sm text-slate-500">Centralized asset lifecycle and maintenance tracking.</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              {canOpenFg ? (
+                <Link
+                  href={"/fg" as Route}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <FileCheck2 size={16} /> Open FG Digital Records
+                </Link>
+              ) : null}
               <button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ["assets-list"] });

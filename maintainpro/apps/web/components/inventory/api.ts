@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 
-import { InventoryPart, LinkedWorkOrder, PurchaseOrder, StockAdjustmentPayload, StockMovement, SupplierRecord, TopUsedPartPoint, UpdatePartPayload, UsageTrendPoint } from "./types";
+import { InventoryDashboardKpis, InventoryPart, LinkedWorkOrder, PurchaseOrder, StockAdjustmentPayload, StockMovement, SupplierRecord, TopUsedPartPoint, UpdatePartPayload, UsageTrendPoint } from "./types";
 
 type Envelope<T> = {
   data?: T;
@@ -112,4 +112,38 @@ export async function bulkDeleteParts(ids: string[]): Promise<{ count: number }>
 export async function bulkUpdateCategory(ids: string[], category: string): Promise<{ count: number }> {
   const response = await apiClient.patch("/inventory/parts/bulk-category", { ids, category });
   return unwrap(response.data, { count: 0 });
+}
+
+export async function getInventoryDashboard(): Promise<InventoryDashboardKpis | null> {
+  const response = await apiClient.get("/inventory/dashboard");
+  return unwrap(response.data, null as InventoryDashboardKpis | null);
+}
+
+export async function getInventoryMovements(params?: { type?: string; take?: number }) {
+  const response = await apiClient.get("/inventory/movements", { params });
+  return unwrap(response.data, [] as StockMovement[]);
+}
+
+export async function getDailyInventory(params?: { preset?: string; warehouseId?: string; category?: string }) {
+  const response = await apiClient.get("/inventory/daily", { params });
+  return unwrap(response.data, { rows: [], totals: {} });
+}
+
+export async function previewInventoryImport(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await apiClient.post("/inventory/imports/preview", form, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  return unwrap(response.data, null);
+}
+
+export async function applyInventoryImport(importRunId: string) {
+  const response = await apiClient.post(`/inventory/imports/${importRunId}/apply`);
+  return unwrap(response.data, null);
+}
+
+export async function listInventoryImports() {
+  const response = await apiClient.get("/inventory/imports");
+  return unwrap(response.data, []);
 }

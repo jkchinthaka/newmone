@@ -18,13 +18,19 @@ def test_liveness_independent_of_dependencies(client: Client) -> None:
 
 @pytest.mark.django_db
 def test_readiness_reports_required_and_optional_checks(client: Client) -> None:
+    from apps.core.persistence.backend import is_mongodb
+
     response = client.get(reverse("core:health-ready"))
     assert response.status_code in {200, 503}
     payload = response.json()
     names = {c["name"] for c in payload["checks"]}
-    assert {"postgresql", "redis", "celery_broker", "evidence_storage"}.issubset(names)
+    assert {"redis", "celery_broker", "evidence_storage"}.issubset(names)
     assert "mongodb" in names
     assert "bileeta_integration" in names
+    if is_mongodb():
+        assert "postgresql" not in names
+    else:
+        assert "postgresql" in names
 
 
 @override_settings(

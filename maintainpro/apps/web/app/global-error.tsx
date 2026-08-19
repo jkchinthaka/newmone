@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { reportClientError } from "@/lib/client-error-report";
+
 type GlobalErrorProps = {
   error: Error & { digest?: string };
   reset: () => void;
@@ -9,8 +11,7 @@ type GlobalErrorProps = {
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error("[MaintainPro] global error boundary:", error);
+    reportClientError("global error boundary", error);
   }, [error]);
 
   return (

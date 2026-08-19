@@ -2,17 +2,19 @@
 <aside class="app-sidebar" id="app-sidebar" aria-label="Application">
   <div class="app-sidebar__brand">
     <a class="app-sidebar__logo" href="{% url 'accounts:landing' %}">
-      <span class="app-sidebar__mark" aria-hidden="true">FG</span>
+      <span class="app-sidebar__mark" aria-hidden="true">MP</span>
       <span class="app-sidebar__text">
-        <span class="app-sidebar__name">Nelna FG</span>
-        <span class="app-sidebar__product">Digital Recording</span>
+        <span class="app-sidebar__name">MaintainPro</span>
+        <span class="app-sidebar__product">Operations Platform</span>
+        <span class="app-sidebar__module">FG Digital Recording</span>
       </span>
     </a>
     <span class="env-chip" title="Runtime environment">{{ ENVIRONMENT_BADGE }}</span>
   </div>
   {% if user.is_authenticated %}
     <nav class="app-sidebar__nav" aria-label="Primary">
-      <a class="app-nav-link{% if current_path == '/accounts/landing/' %} is-active{% endif %}"
+      <p class="app-nav-group">FG Overview</p>
+      <a class="app-nav-link{% if current_path == '/accounts/landing/' or current_path == '/' %} is-active{% endif %}"
          href="{% url 'accounts:landing' %}">Dashboard</a>
       {% user_can_view_checklist_tasks as show_checklist_tasks %}
       {% user_can_record_checklist_tasks as show_recording %}
@@ -66,7 +68,7 @@
       {% user_can_view_complaints as show_complaints %}
       {% user_can_view_quarantine as show_quarantine %}
       {% if show_rca or show_ncr or show_capa or show_lab or show_haccp or show_dispatch or show_complaints or show_quarantine %}
-        <p class="app-nav-group">Quality cases</p>
+        <p class="app-nav-group">Quality</p>
         {% if show_ncr %}
           <a class="app-nav-link{% if '/ncr/' in current_path %} is-active{% endif %}"
              href="{% url 'nonconformance:list' %}">NCR / Holds</a>
@@ -89,7 +91,7 @@
         {% endif %}
         {% if show_dispatch %}
           <a class="app-nav-link{% if '/dispatch/' in current_path %} is-active{% endif %}"
-             href="{% url 'dispatch:list' %}">Dispatch quality</a>
+             href="{% url 'dispatch:list' %}">Dispatch Quality</a>
         {% endif %}
         {% if show_complaints %}
           <a class="app-nav-link{% if '/complaints/' in current_path %} is-active{% endif %}"
@@ -104,7 +106,7 @@
       {% if show_reports %}
         <p class="app-nav-group">Analytics</p>
         <a class="app-nav-link{% if '/reports/trends/' in current_path %} is-active{% endif %}"
-           href="{% url 'reports:trends' %}">Quality trends</a>
+           href="{% url 'reports:trends' %}">Quality Trends</a>
         <a class="app-nav-link{% if '/reports/' in current_path and '/reports/trends/' not in current_path %} is-active{% endif %}"
            href="{% url 'reports:catalogue' %}">Reports</a>
       {% endif %}

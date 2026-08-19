@@ -19,6 +19,7 @@ from apps.accounts.models import User
 from apps.checklists.controlled_forms import (
     COLD_ROOM_KEYS,
     CONTROLLED_FORMS,
+    form_uses_independent_occurrences,
     get_controlled_form,
 )
 from apps.recording.daily_selectors import (
@@ -30,6 +31,7 @@ from apps.recording.daily_selectors import (
     print_record_context,
 )
 from apps.recording.selectors import actor_can_access_recording_module
+from apps.access_control.maintainpro_bridge import assert_fg_permission
 from apps.recording.services import start_checklist_recording
 from apps.reports.csv_safe import render_csv
 from apps.scheduling.selectors import organizations_for_task_record
@@ -43,6 +45,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_recording(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.recording.view")
     if not actor_can_access_recording_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 
@@ -127,6 +130,13 @@ def daily_record_open(request: HttpRequest, form_code: str) -> HttpResponse:
     room_key = (request.GET.get("room") or request.POST.get("room") or "").strip()
     if spec.code == "NMS/PPU/CL/39" and room_key not in COLD_ROOM_KEYS:
         room_key = "CR1"
+    occurrence_token = (
+        request.GET.get("occurrenceToken") or request.GET.get("occurrence_token") or ""
+    ).strip()
+    if form_uses_independent_occurrences(spec.code) and not occurrence_token:
+        params = request.GET.copy()
+        params["occurrenceToken"] = str(uuid.uuid4())
+        return redirect(f"{request.path}?{params.urlencode()}")
     orgs = organizations_for_task_record(_actor(request))
     org = orgs.first()
     if org is None:
@@ -138,6 +148,7 @@ def daily_record_open(request: HttpRequest, form_code: str) -> HttpResponse:
             form_code=spec.code,
             record_date=record_date,
             room_key=room_key if spec.code == "NMS/PPU/CL/39" else "",
+            occurrence_token=occurrence_token,
         )
         record = start_checklist_recording(actor=_actor(request), task_id=task.id)
     except ValidationError as exc:

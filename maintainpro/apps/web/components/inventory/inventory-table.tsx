@@ -2,7 +2,7 @@ import { Eye, PackageMinus, PackagePlus, Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 
-import { formatCurrency, formatDate, getLastMovementDate, getStockStatus, getStockStatusMeta, stockProgress } from "./helpers";
+import { formatCurrency, formatDate, getLastMovementDate, getStockStatus, getStockStatusMeta, stockProgress, availableOf } from "./helpers";
 import { InventoryPart } from "./types";
 
 type InventoryTableProps = {
@@ -93,8 +93,8 @@ export function InventoryTable({
     },
     {
       id: "currentStock",
-      header: "Current Stock",
-      mobileLabel: "Current Stock",
+      header: "On Hand",
+      mobileLabel: "On Hand",
       cell: (part) => (
         <div>
           <p className="font-semibold text-slate-900">{part.quantityInStock}</p>
@@ -103,6 +103,46 @@ export function InventoryTable({
           </p>
         </div>
       )
+    },
+    {
+      id: "reserved",
+      header: "Reserved",
+      mobileLabel: "Reserved",
+      cell: (part) => part.reservedQuantity ?? 0
+    },
+    {
+      id: "available",
+      header: "Available",
+      mobileLabel: "Available",
+      cell: (part) => availableOf(part)
+    },
+    {
+      id: "uom",
+      header: "UOM",
+      mobileLabel: "UOM",
+      hideOnMobile: true,
+      cell: (part) => part.unit ?? "pcs"
+    },
+    {
+      id: "reorder",
+      header: "Reorder",
+      mobileLabel: "Reorder",
+      hideOnMobile: true,
+      cell: (part) => part.reorderPoint
+    },
+    {
+      id: "minmax",
+      header: "Min / Max",
+      mobileLabel: "Min / Max",
+      hideOnMobile: true,
+      cell: (part) => `${part.minimumStock} / ${part.maximumStock ?? 0}`
+    },
+    {
+      id: "location",
+      header: "Warehouse / Bin",
+      mobileLabel: "Location",
+      hideOnMobile: true,
+      cell: (part) => part.location ?? "DEFAULT"
     },
     {
       id: "supplier",
@@ -121,7 +161,8 @@ export function InventoryTable({
       id: "totalValue",
       header: "Total Value",
       mobileLabel: "Total Value",
-      cell: (part) => formatCurrency(part.quantityInStock * part.unitCost)
+      cell: (part) =>
+        Number.isFinite(part.unitCost) && part.unitCost > 0 ? formatCurrency(part.quantityInStock * part.unitCost) : "—"
     },
     {
       id: "lastMovement",

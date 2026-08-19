@@ -120,6 +120,12 @@ export class ErpIntegrationController {
     return this.imports.cancel(id, body).then((data) => ({ data, message: "Import batch cancelled" }));
   }
 
+  @Post("reconciliation/detect")
+  @Permissions("erp.reconcile")
+  detectStock() {
+    return this.reconciliation.detectStockVariances().then((data) => ({ data, message: "Stock variances detected without stock mutation" }));
+  }
+
   @Get("reconciliation")
   @Permissions("erp.view")
   listReconciliation(@Query() query: ErpListQueryDto) {

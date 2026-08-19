@@ -12,8 +12,8 @@ from datetime import date
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
-from apps.core.persistence import lock_queryset, locked_get
+from django.db import IntegrityError
+from apps.core.persistence import atomic_fn, lock_queryset, locked_get
 from django.utils import timezone
 
 from apps.access_control.services import (
@@ -68,7 +68,18 @@ def _require_haccp_permission(
     Food-safety HACCP authority requires an explicit scoped role grant.
 
     Django ``is_staff`` / ``is_superuser`` alone is not food-safety authority.
+    MaintainPro projected principals must also hold the matching fg.haccp.* key.
     """
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        assert_user_fg_permission,
+        is_maintainpro_projected_user,
+    )
+
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission) or "fg.haccp.manage"
+        assert_user_fg_permission(user, fg_key)
+
     scope = _org_scope(organization_id)
     for assignment in _active_assignments_qs(user):
         if not _assignment_covers_scope(assignment, scope):
@@ -125,7 +136,7 @@ def _freeze_binding_context(
     }
 
 
-@transaction.atomic
+@atomic_fn
 def create_haccp_plan(
     *,
     actor: User | None,
@@ -163,7 +174,7 @@ def create_haccp_plan(
     return plan
 
 
-@transaction.atomic
+@atomic_fn
 def create_draft_plan_version(
     *,
     actor: User | None,
@@ -216,7 +227,7 @@ def create_draft_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def add_process_step(
     *,
     actor: User | None,
@@ -258,7 +269,7 @@ def add_process_step(
     return step
 
 
-@transaction.atomic
+@atomic_fn
 def add_hazard(
     *,
     actor: User | None,
@@ -297,7 +308,7 @@ def add_hazard(
     return hazard
 
 
-@transaction.atomic
+@atomic_fn
 def add_control_measure(
     *,
     actor: User | None,
@@ -335,7 +346,7 @@ def add_control_measure(
         raise ValidationError({"code": "Control measure code already exists."}) from exc
 
 
-@transaction.atomic
+@atomic_fn
 def add_control_point(
     *,
     actor: User | None,
@@ -401,7 +412,7 @@ def add_control_point(
     return cp
 
 
-@transaction.atomic
+@atomic_fn
 def set_critical_limit_reference(
     *,
     actor: User | None,
@@ -448,7 +459,7 @@ def set_critical_limit_reference(
     return ref
 
 
-@transaction.atomic
+@atomic_fn
 def set_monitoring_rule(
     *,
     actor: User | None,
@@ -484,7 +495,7 @@ def set_monitoring_rule(
     return rule
 
 
-@transaction.atomic
+@atomic_fn
 def set_corrective_action_reference(
     *,
     actor: User | None,
@@ -523,7 +534,7 @@ def set_corrective_action_reference(
     return ref
 
 
-@transaction.atomic
+@atomic_fn
 def approve_plan_version(
     *,
     actor: User | None,
@@ -588,7 +599,7 @@ def approve_plan_version(
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> HaccpPlanVersion:
     user = _require_actor(actor)
     version = (
@@ -622,7 +633,7 @@ def retire_plan_version(*, actor: User | None, plan_version_id: uuid.UUID) -> Ha
     return version
 
 
-@transaction.atomic
+@atomic_fn
 def bind_checklist_item_to_control_point(
     *,
     actor: User | None,

@@ -110,6 +110,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.sso_middleware.MaintainProSessionGateMiddleware",
     "apps.accounts.middleware.ForcedPasswordChangeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -120,6 +121,7 @@ MIDDLEWARE = [
 ]
 
 AUTHENTICATION_BACKENDS = [
+    "apps.accounts.backends.MaintainProSsoBackend",
     "apps.accounts.backends.EmployeeCodeBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
@@ -136,6 +138,49 @@ AUTH_PASSWORD_CHANGE_REQUIRED_ON_ADMIN_RESET = env.bool(
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "accounts:landing"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+# MaintainPro is the sole password authority when mounted under /fg/.
+# Local employee_code+password login remains available only when explicitly enabled
+# (legacy standalone / unit tests). Production Compose sets FORCE_SCRIPT_NAME=/fg.
+_force_script_for_sso = env.str("FORCE_SCRIPT_NAME", default="").strip()
+MAINTAINPRO_SSO_GATE_ENABLED = env.bool(
+    "MAINTAINPRO_SSO_GATE_ENABLED",
+    default=bool(_force_script_for_sso),
+)
+FG_PASSWORD_LOGIN_ENABLED = env.bool("FG_PASSWORD_LOGIN_ENABLED", default=False)
+MAINTAINPRO_LOGIN_URL = env.str("MAINTAINPRO_LOGIN_URL", default="/login")
+FG_SSO_SIGNING_SECRET = env.str("FG_SSO_SIGNING_SECRET", default="")
+FG_SSO_ISSUER = env.str("FG_SSO_ISSUER", default="maintainpro")
+FG_SSO_AUDIENCE = env.str("FG_SSO_AUDIENCE", default="fg-digital-recording")
+FG_SSO_JTI_TTL_PAD_SECONDS = env.int("FG_SSO_JTI_TTL_PAD_SECONDS", default=300)
+# Shared with Nest JWT_ACCESS_SECRET so FG can validate maintainpro_access locally.
+MAINTAINPRO_JWT_ACCESS_SECRET = env.str(
+    "MAINTAINPRO_JWT_ACCESS_SECRET",
+    default=env.str("JWT_ACCESS_SECRET", default=""),
+)
+MAINTAINPRO_API_INTERNAL_URL = env.str("MAINTAINPRO_API_INTERNAL_URL", default="")
+MAINTAINPRO_SSO_REVALIDATE_INTERVAL_SECONDS = env.int(
+    "MAINTAINPRO_SSO_REVALIDATE_INTERVAL_SECONDS",
+    default=60,
+)
+MAINTAINPRO_SSO_REVALIDATE_TIMEOUT_SECONDS = env.float(
+    "MAINTAINPRO_SSO_REVALIDATE_TIMEOUT_SECONDS",
+    default=3.0,
+)
+MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION = env.bool(
+    "MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION",
+    default=False,
+)
+# Path-scoped session cookie under MaintainPro nginx /fg/ mount.
+SESSION_COOKIE_NAME = env.str("SESSION_COOKIE_NAME", default="fg_sessionid")
+SESSION_COOKIE_PATH = env.str(
+    "SESSION_COOKIE_PATH",
+    default=(_force_script_for_sso.rstrip("/") + "/" if _force_script_for_sso else "/"),
+)
+CSRF_COOKIE_PATH = env.str(
+    "CSRF_COOKIE_PATH",
+    default=SESSION_COOKIE_PATH,
+)
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -177,6 +222,18 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static" / "dist"]
+
+# Same-domain mount under MaintainPro: set FORCE_SCRIPT_NAME=/fg (no trailing slash).
+# Nginx should proxy /fg/ → Django with X-Script-Name or use this setting.
+_force_script = env.str("FORCE_SCRIPT_NAME", default="").strip()
+FORCE_SCRIPT_NAME = _force_script or None
+if FORCE_SCRIPT_NAME:
+    STATIC_URL = f"{FORCE_SCRIPT_NAME.rstrip('/')}/static/"
+
+# MaintainPro shared Mongo reference lookups (env placeholders only — never commit URIs).
+MAINTAINPRO_TENANT_ID = env.str("MAINTAINPRO_TENANT_ID", default="")
+MAINTAINPRO_REFERENCE_DATABASE = env.str("MAINTAINPRO_REFERENCE_DATABASE", default="")
+# Optional MONGODB_URI / MONGODB_DATABASE also used by mongo_same_db settings.
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

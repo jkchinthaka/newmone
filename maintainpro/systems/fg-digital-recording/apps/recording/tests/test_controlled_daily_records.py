@@ -45,6 +45,35 @@ def test_daily_home_and_open_cleaning(client: Client) -> None:
 
 
 @pytest.mark.django_db
+def test_cl18_occurrence_token_retry_and_new_create() -> None:
+    demo = load_synthetic_demo_data()
+    seed_controlled_form_templates(actor=demo.admin, organization=demo.organization)
+    first = ensure_controlled_daily_task(
+        actor=demo.recorder,
+        organization_id=demo.organization.id,
+        form_code="NMS/PPU/CL/18",
+        record_date=date(2026, 8, 11),
+        occurrence_token="stable-intent-token",
+    )
+    retry = ensure_controlled_daily_task(
+        actor=demo.recorder,
+        organization_id=demo.organization.id,
+        form_code="NMS/PPU/CL/18",
+        record_date=date(2026, 8, 11),
+        occurrence_token="stable-intent-token",
+    )
+    other = ensure_controlled_daily_task(
+        actor=demo.recorder,
+        organization_id=demo.organization.id,
+        form_code="NMS/PPU/CL/18",
+        record_date=date(2026, 8, 11),
+        occurrence_token="second-intent-token",
+    )
+    assert first.id == retry.id
+    assert first.id != other.id
+
+
+@pytest.mark.django_db
 def test_dispatch_template_has_ten_samples() -> None:
     demo = load_synthetic_demo_data()
     seed_controlled_form_templates(actor=demo.admin, organization=demo.organization)

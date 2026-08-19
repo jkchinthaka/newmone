@@ -1,6 +1,7 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 
 import { EvidenceModule } from "../evidence/evidence.module";
+import { EnterpriseOpsModule } from "../enterprise-ops/enterprise-ops.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ReportsModule } from "../reports/reports.module";
 import { WorkOrderTaxonomyModule } from "../work-order-taxonomy/work-order-taxonomy.module";
@@ -16,8 +17,18 @@ import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
+import { InventoryModule } from "../inventory/inventory.module";
+
 @Module({
-  imports: [NotificationsModule, EvidenceModule, WorkforceModule, ReportsModule, WorkOrderTaxonomyModule],
+  imports: [
+    NotificationsModule,
+    EvidenceModule,
+    WorkforceModule,
+    ReportsModule,
+    WorkOrderTaxonomyModule,
+    InventoryModule,
+    forwardRef(() => EnterpriseOpsModule)
+  ],
   controllers: [WorkOrdersController],
   providers: [
     WorkOrdersService,

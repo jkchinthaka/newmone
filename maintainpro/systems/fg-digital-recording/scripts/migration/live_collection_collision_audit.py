@@ -11,7 +11,7 @@ SAFETY:
 Authorized later run (example — credentials from vault/env only):
 
   $env:MONGODB_URI = "<from vault>"
-  $env:MONGODB_DATABASE = "mgintginpro_prod"
+  $env:MONGODB_DATABASE = "maintainpro_prod"
   uv run python scripts/migration/live_collection_collision_audit.py --read-only
 
 Default planned FG names are loaded from Django with fg_ prefix (no writes).
@@ -40,7 +40,7 @@ def main() -> int:
     parser.add_argument(
         "--allow-production-database",
         action="store_true",
-        help="Required confirmation when database name is mgintginpro_prod",
+        help="Required confirmation when database name is maintainpro_prod",
     )
     args = parser.parse_args()
 
@@ -57,9 +57,9 @@ def main() -> int:
         )
         return 2
 
-    if db_name == "mgintginpro_prod" and not args.allow_production_database:
+    if db_name == "maintainpro_prod" and not args.allow_production_database:
         print(
-            "Refusing mgintginpro_prod without --allow-production-database "
+            "Refusing maintainpro_prod without --allow-production-database "
             "(read-only still; explicit operator confirmation required).",
             file=sys.stderr,
         )

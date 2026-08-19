@@ -1,20 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Building2, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
+import { Bell, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { NelnaLogo } from "@/components/brand/nelna-logo";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { PRODUCT_NAME } from "@/lib/branding";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
-import {
-  clearAuthSession,
-  updateStoredUserTenant
-} from "@/lib/auth-storage";
+import { clearAuthSession } from "@/lib/auth-storage";
 import { apiClient } from "@/lib/api-client";
-import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -33,38 +30,7 @@ type NotificationsEnvelope = {
   };
 };
 
-type TenantContextEnvelope = {
-  data?: {
-    activeTenant?: {
-      id: string;
-      name: string;
-      slug: string;
-      isActive: boolean;
-    } | null;
-    memberships?: Array<{
-      tenantId: string;
-      tenantName: string;
-      tenantSlug: string;
-      membershipRole: string;
-      isActive: boolean;
-    }>;
-  };
-};
-
-type TenantSwitchEnvelope = {
-  data?: {
-    accessToken?: string;
-    tenant?: {
-      id: string;
-      name: string;
-      slug: string;
-      isActive: boolean;
-    };
-  };
-};
-
 export const TOPBAR_UNREAD_QUERY_KEY = ["notifications", "unread-count"] as const;
-export const TOPBAR_TENANT_QUERY_KEY = ["tenants", "context"] as const;
 
 type TopbarProps = {
   onOpenMobileNav?: () => void;
@@ -120,38 +86,6 @@ export function Topbar({
     staleTime: 10_000
   });
 
-  const tenantContextQuery = useQuery({
-    queryKey: TOPBAR_TENANT_QUERY_KEY,
-    queryFn: async () => {
-      const response = await apiClient.get<TenantContextEnvelope>("/tenants/me");
-      return response.data.data;
-    },
-    staleTime: 15_000
-  });
-
-  const switchTenantMutation = useMutation({
-    mutationFn: async (tenantId: string) => {
-      const response = await apiClient.post<TenantSwitchEnvelope>(
-        `/tenants/${tenantId}/switch`
-      );
-      return response.data.data;
-    },
-    onSuccess: (_payload, tenantId) => {
-      setActiveTenantId(tenantId);
-      updateStoredUserTenant(tenantId);
-
-      queryClient.invalidateQueries();
-      toast.success("Tenant switched successfully");
-    },
-    onError: (error: unknown) => {
-      if (error && typeof error === "object" && "message" in error) {
-        toast.error(String((error as { message: string }).message));
-        return;
-      }
-      toast.error("Failed to switch tenant");
-    }
-  });
-
   useNotificationsSocket((payload) => {
     queryClient.invalidateQueries({ queryKey: TOPBAR_UNREAD_QUERY_KEY });
 
@@ -174,9 +108,6 @@ export function Topbar({
       router.replace("/login");
     }
   }
-
-  const selectedTenantId =
-    tenantContextQuery.data?.activeTenant?.id ?? getActiveTenantId() ?? "";
 
   const userLabel = formatUserLabel(currentUser.email, currentUser.role);
 
@@ -218,7 +149,7 @@ export function Topbar({
             onClick={onOpenCommandPalette}
           >
             <Search aria-hidden size={16} />
-            <span className="truncate">Search modules...</span>
+            <span className="truncate">Search modules or records...</span>
             <kbd className="ml-auto hidden shrink-0 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 xl:inline">
               Ctrl K
             </kbd>
@@ -231,29 +162,7 @@ export function Topbar({
           >
             {userLabel}
           </p>
-          <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 sm:flex">
-            <Building2 size={16} className="shrink-0 text-slate-500" />
-            <select
-              value={selectedTenantId}
-              onChange={(event) => {
-                const nextTenantId = event.target.value;
-                if (!nextTenantId || nextTenantId === selectedTenantId) {
-                  return;
-                }
-                switchTenantMutation.mutate(nextTenantId);
-              }}
-              className="max-w-40 bg-transparent text-sm text-slate-700 outline-none lg:max-w-48"
-              aria-label="Switch organization"
-              disabled={switchTenantMutation.isPending}
-            >
-              <option value="">Select organization</option>
-              {(tenantContextQuery.data?.memberships ?? []).map((membership) => (
-                <option key={membership.tenantId} value={membership.tenantId}>
-                  {membership.tenantName}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TenantSwitcher className="hidden sm:flex" />
           {canViewBilling ? (
             <Link
               href="/billing"

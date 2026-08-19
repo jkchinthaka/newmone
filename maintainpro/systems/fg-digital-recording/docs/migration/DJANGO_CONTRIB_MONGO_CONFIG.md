@@ -2,7 +2,7 @@
 
 **Status:** Design for migration branch — not activated on `main`  
 **Backend:** `django-mongodb-backend==5.2.3`  
-**Production database:** `mgintginpro_prod` with FG `fg_` collections only
+**Production database:** `maintainpro_prod` with FG `fg_` collections only
 
 ---
 
@@ -53,5 +53,5 @@ Exact AppConfig class names must match **5.2.3** documentation — verify before
 ## Explicit non-goals this checkpoint
 
 - Do not switch `main` INSTALLED_APPS
-- Do not write to `mgintginpro_prod`
+- Do not write to `maintainpro_prod`
 - Do not invent a second FG production database

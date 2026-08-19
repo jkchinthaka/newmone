@@ -187,7 +187,8 @@ def test_migration_compatible_null_employee_code_orm_path() -> None:
 
 class ConcurrentLockoutTests(TransactionTestCase):
     def test_concurrent_failed_logins_respect_threshold(self) -> None:
-        assert connection.vendor == "postgresql"
+        if connection.vendor != "postgresql":
+            self.skipTest("Concurrent lockout threshold race test requires PostgreSQL")
         from django.conf import settings
 
         settings.AUTH_MAX_FAILED_ATTEMPTS = 5

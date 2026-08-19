@@ -1,4 +1,13 @@
-export type MovementType = "IN" | "OUT" | "ADJUSTMENT";
+export type MovementType =
+  | "IN"
+  | "OUT"
+  | "ADJUSTMENT"
+  | "RETURN"
+  | "TRANSFER_IN"
+  | "TRANSFER_OUT"
+  | "ADJUSTMENT_IN"
+  | "ADJUSTMENT_OUT"
+  | "REVERSAL";
 
 export type StockStatus = "IN_STOCK" | "LOW" | "CRITICAL" | "OUT_OF_STOCK";
 
@@ -41,6 +50,9 @@ export interface InventoryPart {
   minimumStock: number;
   reorderPoint: number;
   quantityInStock: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
+  maximumStock?: number;
   location?: string | null;
   images: string[];
   isActive?: boolean;
@@ -118,7 +130,10 @@ export interface TopUsedPartPoint {
 
 export interface InventorySummary {
   totalItems: number;
-  totalValue: number;
+  onHand: number;
+  available: number;
+  reserved: number;
+  totalValue: number | null;
   lowStockCount: number;
   criticalCount: number;
   outOfStockCount: number;
@@ -141,6 +156,22 @@ export interface InventoryInsights {
   mostUsedPart: TopUsedPartPoint | null;
   stalePartCount: number;
   avgDailyConsumption: number;
+}
+
+export interface InventoryDashboardKpis {
+  totalItems: number;
+  onHand: number;
+  available: number;
+  reserved: number;
+  lowStock: number;
+  outOfStock: number;
+  inventoryValue: number | null;
+  todayIn: number;
+  todayOut: number;
+  todayReturns: number;
+  todayAdjustments: number;
+  pendingImports: number;
+  importErrors: number;
 }
 
 export interface StockAdjustmentPayload {

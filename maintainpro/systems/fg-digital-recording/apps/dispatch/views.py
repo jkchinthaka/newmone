@@ -8,6 +8,7 @@ from typing import cast
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 from django.core.paginator import Paginator
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -31,6 +32,7 @@ def _actor(request: HttpRequest) -> User:
 
 
 def _require_dispatch(request: HttpRequest) -> None:
+    assert_fg_permission(request, "fg.dispatch.view")
     if not actor_can_access_dispatch_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
 
@@ -72,6 +74,7 @@ def dispatch_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@require_fg_permission("fg.dispatch.manage")
 def dispatch_create(request: HttpRequest) -> HttpResponse:
     _require_dispatch(request)
     org = organizations_for_dispatch_view(_actor(request)).first()
@@ -83,19 +86,41 @@ def dispatch_create(request: HttpRequest) -> HttpResponse:
                 actor=_actor(request),
                 organization=org,
                 code=request.POST.get("code") or "",
-                vehicle_reference=request.POST.get("vehicle_reference") or "",
+                maintainpro_vehicle_id=request.POST.get("maintainpro_vehicle_id") or "",
+                vehicle_reference=request.POST.get("vehicle_query")
+                or request.POST.get("vehicle_reference")
+                or "",
                 delivery_loading_reference=request.POST.get("delivery_loading_reference") or "",
                 batch_reference=request.POST.get("batch_reference") or "",
                 notes=request.POST.get("notes") or "",
+                idempotency_key=request.POST.get("idempotency_key")
+                or request.headers.get("Idempotency-Key")
+                or "",
             )
             messages.success(request, "Dispatch quality record opened.")
             return redirect("dispatch:detail", record_id=record.id)
         except (ValidationError, PermissionDenied) as exc:
             messages.error(request, str(exc))
+    from django.urls import reverse
+
     return render(
         request,
         "dispatch/create.html",
-        {"page_title": "Open dispatch quality record", "organization": org},
+        {
+            "page_title": "Open dispatch quality record",
+            "organization": org,
+            "vehicle_search_url": reverse("maintainpro_refs:vehicle-search"),
+            "form_values": {
+                "code": request.POST.get("code", ""),
+                "maintainpro_vehicle_id": request.POST.get("maintainpro_vehicle_id", ""),
+                "vehicle_query": request.POST.get("vehicle_query", ""),
+                "delivery_loading_reference": request.POST.get(
+                    "delivery_loading_reference", ""
+                ),
+                "batch_reference": request.POST.get("batch_reference", ""),
+                "notes": request.POST.get("notes", ""),
+            },
+        },
     )
 
 

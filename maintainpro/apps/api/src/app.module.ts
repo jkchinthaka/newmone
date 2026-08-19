@@ -78,6 +78,7 @@ import { DeliveryReadinessModule } from "./modules/delivery-readiness/delivery-r
 import { PostGoLiveModule } from "./modules/post-go-live/post-go-live.module";
 import { GoLiveModule } from "./modules/go-live/go-live.module";
 import { ErpIntegrationModule } from "./modules/erp-integration/erp-integration.module";
+import { EnterpriseOpsModule } from "./modules/enterprise-ops/enterprise-ops.module";
 import { normalizeDatabaseEnvironment } from "./config/database-url-options";
 
 // Normalize equivalent deployment variables before ConfigModule validation runs.
@@ -147,6 +148,7 @@ normalizeDatabaseEnvironment();
     PostGoLiveModule,
     GoLiveModule,
     ErpIntegrationModule,
+    EnterpriseOpsModule,
     EvidenceModule,
     InventoryModule,
     DepartmentsModule,

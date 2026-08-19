@@ -89,8 +89,10 @@
     {% endif %}
     <form method="post"
           action="{% url 'reviews:confirm_decision' submission_id=submission.id decision=decision %}"
-          class="mgmt-form">
+          class="mgmt-form"
+          data-mp-idempotent-form>
       {% csrf_token %}
+      <input type="hidden" name="idempotency_key" value="">
       <div class="form-field">
         <label for="{{ form.review_note.id_for_label }}">{{ form.review_note.label }}</label>
         {{ form.review_note }}
@@ -105,10 +107,29 @@
         {% endif %}
       </div>
       <div class="landing-actions">
-        <button type="submit" class="btn btn--primary">Confirm {{ decision_label }}</button>
+        <button type="submit" class="btn btn--primary" data-mp-submit>Confirm {{ decision_label }}</button>
         <a class="btn btn--ghost"
            href="{% url 'reviews:submission_detail' submission_id=submission.id %}">Cancel</a>
       </div>
     </form>
   </section>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    document.querySelectorAll("form[data-mp-idempotent-form]").forEach((form) => {
+      const keyInput = form.querySelector("input[name='idempotency_key']");
+      if (keyInput instanceof HTMLInputElement && !keyInput.value) {
+        keyInput.value =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+      }
+      form.addEventListener("submit", () => {
+        const btn = form.querySelector("[data-mp-submit]");
+        if (btn instanceof HTMLButtonElement) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+      });
+    });
+  </script>
 {% endblock %}

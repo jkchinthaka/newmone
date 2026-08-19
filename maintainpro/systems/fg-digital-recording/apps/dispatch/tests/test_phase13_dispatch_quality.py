@@ -80,7 +80,6 @@ def test_dispatch_vehicle_record_and_authorization() -> None:
         organization=org,
         code=f"LD-{uuid.uuid4().hex[:6].upper()}",
         delivery_loading_reference="DEL-100",
-        vehicle_reference="VH-22",
         driver_reference="DRV-9",
         loading_bay="BAY-1",
         seal_number="SEAL-1",
@@ -90,7 +89,8 @@ def test_dispatch_vehicle_record_and_authorization() -> None:
         quantity_uom="kg",
     )
     assert record.status == DispatchRecordStatus.OPEN
-    assert record.vehicle_reference == "VH-22"
+    assert record.vehicle_reference == ""
+    assert record.maintainpro_vehicle_id == ""
     assert DispatchReleasePolicy.objects.filter(
         organization=org, require_qa_release_before_loading=False
     ).exists()
@@ -98,9 +98,9 @@ def test_dispatch_vehicle_record_and_authorization() -> None:
     updated = update_dispatch_quality_record(
         actor=actor,
         dispatch_record_id=record.id,
-        vehicle_reference="VH-99",
+        delivery_loading_reference="DEL-200",
     )
-    assert updated.vehicle_reference == "VH-99"
+    assert updated.delivery_loading_reference == "DEL-200"
 
     linked = link_vehicle_inspection(
         actor=actor,
@@ -136,7 +136,7 @@ def test_temperature_decimal_and_no_invented_limits() -> None:
         "manage_dispatchqualityrecord",
     )
     record = create_dispatch_quality_record(
-        actor=actor, organization=org, code="LD-TEMP", vehicle_reference="VH-1"
+        actor=actor, organization=org, code="LD-TEMP"
     )
     reading = record_cold_chain_temperature(
         actor=actor,
@@ -216,7 +216,7 @@ def test_release_policy_disabled_and_enabled_block() -> None:
         "manage_dispatchreleasepolicy",
     )
     record = create_dispatch_quality_record(
-        actor=actor, organization=org, code="LD-GATE", vehicle_reference="VH"
+        actor=actor, organization=org, code="LD-GATE"
     )
     # Default disabled — complete allowed without QA RELEASE
     policy = DispatchReleasePolicy.objects.get(organization=org)
@@ -283,13 +283,13 @@ def test_cross_org_denied_and_cancel() -> None:
         "manage_dispatchqualityrecord",
     )
     record = create_dispatch_quality_record(
-        actor=actor_a, organization=org_a, code="LD-XO", vehicle_reference="VH"
+        actor=actor_a, organization=org_a, code="LD-XO"
     )
     with pytest.raises(PermissionDenied):
         update_dispatch_quality_record(
             actor=actor_b,
             dispatch_record_id=record.id,
-            vehicle_reference="stolen",
+            notes="stolen",
         )
     cancelled = cancel_dispatch_quality_record(
         actor=actor_a, dispatch_record_id=record.id, note="abort"

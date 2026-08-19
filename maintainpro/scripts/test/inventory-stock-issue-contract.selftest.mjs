@@ -14,10 +14,22 @@ function check(id, ok, d) {
 }
 
 const svc = readFileSync(path.join(root, "apps/api/src/modules/inventory/inventory.service.ts"), "utf8");
+const engine = readFileSync(
+  path.join(root, "apps/api/src/modules/inventory/inventory-transaction.engine.ts"),
+  "utf8"
+);
 check("INV-STOCK-001", /Parts cannot be issued without a valid work order/.test(svc), "workOrderId required");
-check("INV-STOCK-002", /quantityInStock:\s*\{\s*gte:\s*quantity/.test(svc), "atomic conditional decrement");
+check(
+  "INV-STOCK-002",
+  /whereOnHandGte:\s*input\.quantity/.test(engine) && /onHand:\s*\{\s*gte:\s*args\.whereOnHandGte/.test(engine),
+  "atomic conditional decrement"
+);
 check("INV-STOCK-003", /inventoryStockIssueIdempotency/.test(svc), "idempotency record used");
-check("INV-STOCK-004", /Stock quantity cannot go below 0/.test(svc), "negative stock blocked");
+check(
+  "INV-STOCK-004",
+  /Stock quantity cannot go below 0/.test(engine) || /Stock quantity cannot go below 0/.test(svc),
+  "negative stock blocked"
+);
 const schema = readFileSync(path.join(root, "prisma/schema.prisma"), "utf8");
 check("INV-STOCK-005", /model InventoryStockIssueIdempotency/.test(schema), "idempotency model present");
 check("INV-STOCK-006", /@@unique\(\[tenantId, key\]\)/.test(schema), "tenant-scoped unique key");

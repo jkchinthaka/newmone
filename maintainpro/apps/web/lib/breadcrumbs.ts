@@ -24,7 +24,80 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   "/work-orders": [{ label: "Work Orders" }],
   "/assets": [{ label: "Assets" }],
   "/inventory": [{ label: "Inventory" }],
+  "/inventory/movements": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Movements" }
+  ],
+  "/inventory/daily": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Daily Inventory" }
+  ],
+  "/inventory/import": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "ERP / Excel Import" }
+  ],
+  "/fg": [{ label: "FG Digital Records" }],
+  "/fg/dashboard": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Dashboard" }
+  ],
+  "/fg/records": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Today's Records" }
+  ],
+  "/fg/records/new": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Open Record" }
+  ],
+  "/fg/review": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Supervisor Review" }
+  ],
+  "/fg/qa": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "QA Review" }
+  ],
+  "/fg/history": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "History" }
+  ],
+  "/fg/reports": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Reports" }
+  ],
+  "/fg/sso/denied": [
+    { label: "FG Digital Records", href: "/fg" },
+    { label: "Access denied" }
+  ],
+  "/inventory/warranty": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Warranty" }
+  ],
+  "/operations/exceptions": [{ label: "Exceptions" }],
+  "/operations/sla": [{ label: "SLA risk" }],
+  "/operations/budget": [{ label: "Budget commitments" }],
+  "/procurement/matching": [
+    { label: "Procurement", href: "/procurement" },
+    { label: "Matching" }
+  ],
+  "/assets/health": [
+    { label: "Assets", href: "/assets" },
+    { label: "Health" }
+  ],
+  "/maintenance/forecast": [{ label: "Maintenance forecast" }],
+  "/vehicles/health": [
+    { label: "Vehicles", href: "/vehicles" },
+    { label: "Health" }
+  ],
+  "/vehicles/costs": [
+    { label: "Vehicles", href: "/vehicles" },
+    { label: "Costs" }
+  ],
   "/procurement": [{ label: "Procurement" }],
+  "/procurement/recommendations": [
+    { label: "Procurement", href: "/procurement" },
+    { label: "Recommendations" }
+  ],
   "/fleet": [{ label: "Fleet" }],
   "/vehicles": [{ label: "Vehicles" }],
   "/reports": [{ label: "Reports" }],
@@ -58,6 +131,30 @@ type RoutePattern = {
 };
 
 const DYNAMIC_ROUTE_PATTERNS: RoutePattern[] = [
+  {
+    pattern: /^\/fg\/records\/([^/]+)\/?$/,
+    build: ([, id]) => [
+      { label: "FG Digital Records", href: "/fg" },
+      { label: "Records", href: "/fg/records" },
+      { label: id === "new" ? "Open Record" : "Record" }
+    ]
+  },
+  {
+    pattern: /^\/fg\/review\/([^/]+)\/?$/,
+    build: () => [
+      { label: "FG Digital Records", href: "/fg" },
+      { label: "Supervisor Review", href: "/fg/review" },
+      { label: "Decision" }
+    ]
+  },
+  {
+    pattern: /^\/fg\/qa\/([^/]+)\/?$/,
+    build: () => [
+      { label: "FG Digital Records", href: "/fg" },
+      { label: "QA Review", href: "/fg/qa" },
+      { label: "Disposition" }
+    ]
+  },
   {
     pattern: /^\/vehicles\/([^/]+)\/documents\/?$/,
     build: ([, id]) => [

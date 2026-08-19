@@ -78,7 +78,9 @@ export class ErpReconciliationService {
   async findAll(query: ErpListQueryDto) {
     if (!this.canView()) throw new ForbiddenException("You do not have permission to view reconciliation");
     const tenantId = this.tenantId();
-    await this.ensureSampleMismatches(tenantId);
+    if (process.env.ERP_SEED_SAMPLE_MISMATCHES === "1") {
+      await this.ensureSampleMismatches(tenantId);
+    }
     const where: Prisma.ErpReconciliationMismatchWhereInput = { tenantId };
     if (query.reportType) where.reportType = query.reportType;
     if (query.status) where.status = query.status as ErpReconciliationMismatchStatus;
@@ -103,7 +105,16 @@ export class ErpReconciliationService {
       data: {
         status,
         reviewedByUserId: this.ctx().actorId ?? undefined,
-        maintainProValue: dto.correctedValue ?? existing.maintainProValue
+        maintainProValue: dto.correctedValue ?? existing.maintainProValue,
+        resolution: dto.reason ?? existing.resolution,
+        resolvedAt:
+          status === ErpReconciliationMismatchStatus.ACCEPTED || status === ErpReconciliationMismatchStatus.CORRECTED
+            ? new Date()
+            : existing.resolvedAt,
+        resolvedByUserId:
+          status === ErpReconciliationMismatchStatus.ACCEPTED || status === ErpReconciliationMismatchStatus.CORRECTED
+            ? this.ctx().actorId ?? undefined
+            : existing.resolvedByUserId
       }
     });
     await writeAuditTrail(this.prisma, {
@@ -128,9 +139,75 @@ export class ErpReconciliationService {
   markCorrected = (id: string, dto: ReconciliationActionDto) =>
     this.transition(id, ErpReconciliationMismatchStatus.CORRECTED, "erp_mismatch_corrected", dto);
 
+  async detectStockVariances() {
+    if (!this.canReconcile()) throw new ForbiddenException("You do not have permission to reconcile ERP data");
+    const tenantId = this.tenantId();
+    const rows = await this.prisma.erpImportRow.findMany({
+      where: { tenantId, mappedPartId: { not: null }, quantity: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: 500
+    });
+    const seen = new Set<string>();
+    const created = [];
+    for (const row of rows) {
+      if (!row.mappedPartId) continue;
+      const key = `${row.mappedWarehouseId ?? "default"}:${row.mappedPartId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const balance = row.mappedWarehouseId
+        ? await this.prisma.warehouseItemBalance.findUnique({
+            where: {
+              tenantId_warehouseId_partId: {
+                tenantId,
+                warehouseId: row.mappedWarehouseId,
+                partId: row.mappedPartId
+              }
+            }
+          })
+        : await this.prisma.sparePart.findFirst({
+            where: { id: row.mappedPartId, tenantId },
+            select: { quantityInStock: true, id: true }
+          });
+      const maintainProQuantity =
+        balance && "onHand" in balance ? Number(balance.onHand) : Number((balance as { quantityInStock?: number } | null)?.quantityInStock ?? NaN);
+      const erpQuantity = Number(row.quantity);
+      if (!Number.isFinite(maintainProQuantity) || !Number.isFinite(erpQuantity)) {
+        continue;
+      }
+      const variance = erpQuantity - maintainProQuantity;
+      if (variance === 0) {
+        continue;
+      }
+      const mismatch = await this.prisma.erpReconciliationMismatch.create({
+        data: {
+          tenantId,
+          reportType: "stock_balances",
+          sourceRecordCode: row.sourceLineKey,
+          maintainProRecordId: row.mappedPartId,
+          fieldName: "quantity",
+          erpValue: String(erpQuantity),
+          maintainProValue: String(maintainProQuantity),
+          mismatchType: "QUANTITY_DIFF",
+          severity: Math.abs(variance) >= 10 ? "HIGH" : "MEDIUM",
+          suggestedAction: "Do not auto-adjust. Investigate before any approved adjustment.",
+          warehouseId: row.mappedWarehouseId ?? undefined,
+          partId: row.mappedPartId,
+          erpQuantity,
+          maintainProQuantity,
+          variance,
+          sourceSnapshot: { importRowId: row.id, sourceLineKey: row.sourceLineKey } as Prisma.InputJsonValue
+        }
+      });
+      created.push(mismatch);
+    }
+    return { detected: created.length, items: created };
+  }
+
   async countOpen() {
     const tenantId = this.tenantId();
-    await this.ensureSampleMismatches(tenantId);
+    if (process.env.ERP_SEED_SAMPLE_MISMATCHES === "1") {
+      await this.ensureSampleMismatches(tenantId);
+    }
     return this.prisma.erpReconciliationMismatch.count({
       where: { tenantId, status: ErpReconciliationMismatchStatus.OPEN }
     });

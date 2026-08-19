@@ -10,13 +10,12 @@ import uuid
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 from django.utils import timezone
 
 from apps.access_control.models import Role
 from apps.access_control.services import require_permission, user_has_permission
 from apps.accounts.models import User
-from apps.core.persistence import lock_queryset
+from apps.core.persistence import atomic_fn, lock_queryset
 from apps.organizations.models import Department, Shift
 from apps.scheduling.models import (
     ChecklistTask,
@@ -254,7 +253,7 @@ def _write_history(
     return event
 
 
-@transaction.atomic
+@atomic_fn
 def assign_checklist_task(
     *,
     actor: User | None,
@@ -337,7 +336,7 @@ def assign_checklist_task(
     ).get(pk=task.id)
 
 
-@transaction.atomic
+@atomic_fn
 def unassign_checklist_task(
     *,
     actor: User | None,

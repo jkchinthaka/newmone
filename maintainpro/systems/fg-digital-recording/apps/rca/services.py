@@ -537,21 +537,45 @@ def confirm_root_cause(
         raise ValidationError(
             {"evidence_citation": "Root-cause confirmation requires evidence or a reference."}
         )
+    # CAS the parent RCA before mutating the cause so a concurrent close/cancel
+    # cannot leave a confirmed cause on a terminal RCA (Mongo has no row lock).
+    rca = _locked_rca(cause.rca_id)
+    _assert_mutable(rca)
+    note = (confirmation_note or "").strip()
+    confirmed_text = cause.statement if not note else f"{cause.statement}\n{note}"
+    expected_status = rca.status
+    target_status = expected_status
+    if expected_status == RcaStatus.DRAFT:
+        _transition(rca, RcaStatus.IN_PROGRESS)
+        rca.status = RcaStatus.IN_PROGRESS
+        _transition(rca, RcaStatus.ROOT_CAUSE_CONFIRMED)
+        target_status = RcaStatus.ROOT_CAUSE_CONFIRMED
+    elif expected_status == RcaStatus.IN_PROGRESS:
+        _transition(rca, RcaStatus.ROOT_CAUSE_CONFIRMED)
+        target_status = RcaStatus.ROOT_CAUSE_CONFIRMED
+    elif expected_status != RcaStatus.ROOT_CAUSE_CONFIRMED:
+        raise ValidationError(
+            {"status": f"Cannot confirm root cause while RCA is {expected_status}."}
+        )
+    try:
+        require_conditional_update(
+            RootCauseAnalysis.objects.all(),
+            expected={"pk": rca.id, "status": expected_status},
+            updates={
+                "status": target_status,
+                "confirmed_root_cause_text": confirmed_text,
+            },
+        )
+    except TransitionConflictError as exc:
+        raise ValidationError(
+            {"status": "Closed or cancelled RCA records are historically immutable."}
+        ) from exc
     now = timezone.now()
     cause.state = RcaCauseState.CONFIRMED_ROOT_CAUSE
     cause.confirmed_by = actor
     cause.confirmed_at = now
     cause.save(update_fields=["state", "confirmed_by", "confirmed_at", "updated_at"])
-    rca = cause.rca
-    note = (confirmation_note or "").strip()
-    rca.confirmed_root_cause_text = cause.statement if not note else f"{cause.statement}\n{note}"
-    if rca.status == RcaStatus.DRAFT:
-        _transition(rca, RcaStatus.IN_PROGRESS)
-        rca.status = RcaStatus.IN_PROGRESS
-    if rca.status == RcaStatus.IN_PROGRESS:
-        _transition(rca, RcaStatus.ROOT_CAUSE_CONFIRMED)
-        rca.status = RcaStatus.ROOT_CAUSE_CONFIRMED
-    rca.save(update_fields=["confirmed_root_cause_text", "status", "updated_at"])
+    rca.refresh_from_db()
     _append_event(
         rca=rca,
         event_type="RCA_ROOT_CAUSE_CONFIRMED",

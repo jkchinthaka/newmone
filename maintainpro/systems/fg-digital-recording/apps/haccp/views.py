@@ -7,6 +7,7 @@ from typing import cast
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from apps.access_control.maintainpro_bridge import assert_fg_permission, require_fg_permission
 from django.core.paginator import Paginator
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -33,6 +34,7 @@ def _actor(request: HttpRequest) -> User:
 @login_required
 @require_GET
 def haccp_plan_list(request: HttpRequest) -> HttpResponse:
+    assert_fg_permission(request, "fg.haccp.view")
     if not actor_can_access_haccp_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
     page = Paginator(plans_for_actor(actor=_actor(request)), PAGE_SIZE).get_page(
@@ -44,6 +46,7 @@ def haccp_plan_list(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_GET
 def haccp_plan_detail(request: HttpRequest, plan_id: uuid.UUID) -> HttpResponse:
+    assert_fg_permission(request, "fg.haccp.view")
     if not actor_can_access_haccp_module(_actor(request)):
         raise PermissionDenied("Permission denied.")
     plan = HaccpPlan.objects.select_related("organization").filter(pk=plan_id).first()

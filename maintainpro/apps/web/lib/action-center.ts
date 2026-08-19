@@ -62,6 +62,7 @@ export type ActionCenterFacilityIssueStats = {
 export type ActionCenterSnapshot = {
   variant: ActionCenterVariant;
   roleName: string | null;
+  permissions?: readonly string[];
   workOrders?: ActionCenterWorkOrderStats | null;
   inventory?: ActionCenterInventoryStats | null;
   systemHealth?: ActionCenterSystemHealthStats | null;
@@ -110,6 +111,13 @@ export function actionCenterShowsFacilityIssues(variant: ActionCenterVariant, ro
 
 export function actionCenterShowsDriverLinks(variant: ActionCenterVariant): boolean {
   return variant === "driver";
+}
+
+export function actionCenterShowsFg(permissions: readonly string[] | undefined, roleName: string | null): boolean {
+  if (extractRoleName(roleName) === "SUPER_ADMIN") {
+    return true;
+  }
+  return Boolean(permissions?.includes("fg.access"));
 }
 
 export function actionCenterIsReadOnly(variant: ActionCenterVariant): boolean {
@@ -192,6 +200,10 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
 
   if (actionCenterShowsFacilityIssues(snapshot.variant, snapshot.roleName)) {
     sections.push(buildFacilitySection(snapshot));
+  }
+
+  if (actionCenterShowsFg(snapshot.permissions, snapshot.roleName)) {
+    sections.push(buildFgSection());
   }
 
   if (actionCenterShowsDriverLinks(snapshot.variant)) {
@@ -586,6 +598,37 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
     title: "Cleaning & facility issues",
     description: "Issue reporting workflows available today via Cleaning Management.",
     items
+  };
+}
+
+function buildFgSection(): ActionCenterSection {
+  return {
+    id: "fg-digital-records",
+    title: "FG Digital Records",
+    description: "Controlled production records and verification. Counts come from the FG module, not this board.",
+    items: [
+      {
+        id: "fg-dashboard",
+        title: "Open FG Digital Records",
+        description: "Start or continue today's controlled production records.",
+        href: "/fg",
+        tone: "info"
+      },
+      {
+        id: "fg-review",
+        title: "Supervisor review",
+        description: "Open the FG review queue.",
+        href: "/fg/review",
+        tone: "warning"
+      },
+      {
+        id: "fg-qa",
+        title: "QA verification",
+        description: "Open the FG QA verification queue.",
+        href: "/fg/qa",
+        tone: "warning"
+      }
+    ]
   };
 }
 

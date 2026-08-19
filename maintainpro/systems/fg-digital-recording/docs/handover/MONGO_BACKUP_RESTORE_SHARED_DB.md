@@ -5,7 +5,7 @@
 The production logical database is shared:
 
 ```text
-Logical database: mgintginpro_prod
+Logical database: maintainpro_prod
 FG namespace: fg_
 ```
 
@@ -30,7 +30,26 @@ Authoritative inventory generators (static, no company writes):
 
 ## Isolated POC only
 
-Use the isolated replica-set POC (`compose.mongo-poc.yaml`, database `fg_same_db_poc`). Never point dump/restore at `mgintginpro_prod`.
+Use the isolated replica-set POC (`compose.mongo-poc.yaml`, database `fg_same_db_poc`). Never point dump/restore at `maintainpro_prod`.
+
+## Tooling (implemented)
+
+```bash
+# Inventory + dry-run (isolated)
+uv run python scripts/migration/fg_mongo_backup.py \
+  --uri "$MONGODB_URI" --database fg_same_db_poc \
+  --out .mongo_fg_backup_poc --dry-run
+
+# Restore refuses company DB
+uv run python scripts/migration/fg_mongo_restore.py \
+  --uri "$MONGODB_URI" --target-database maintainpro_prod \
+  --dump-dir .mongo_fg_backup_poc/fg_same_db_poc
+# → REFUSED WRITE (exit 2)
+
+# Dump of company DB name also refuses unless --allow-production-read
+```
+
+POC dry-run (2026-08-13): **232** `fg_*` collections; **0** non-fg ignored leftovers in `fg_same_db_poc`.
 
 ## Dump plan (FG collections only)
 
@@ -48,7 +67,7 @@ Do not use `--db` restore of the entire database as an FG operation.
 
 ## Restore plan (isolated new test database)
 
-1. Create a new empty isolated database (never `mgintginpro_prod`).
+1. Create a new empty isolated database (never `maintainpro_prod`).
 2. `mongorestore` only `fg_*` BSON files into that new database.
 3. Verify counts for users, records, submissions, reviews, RCA/CAPA/NCR, print snapshots.
 4. Verify auth login against the restored isolated DB.

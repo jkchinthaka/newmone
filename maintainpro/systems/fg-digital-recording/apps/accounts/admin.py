@@ -58,6 +58,7 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
         "employee_code",
         "username",
         "email",
+        "maintainpro_user_id",
         "is_staff",
         "is_active",
         "must_change_password",
@@ -66,7 +67,15 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
         "date_joined",
     )
     list_filter = ("is_staff", "is_active", "must_change_password", "is_superuser")
-    search_fields = ("employee_code", "username", "email", "first_name", "last_name")
+    search_fields = (
+        "employee_code",
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "maintainpro_user_id",
+        "maintainpro_email",
+    )
     readonly_fields = (
         "id",
         "last_login",
@@ -76,12 +85,25 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
         "locked_until",
         "last_failed_login_at",
         "last_successful_login_at",
+        "maintainpro_user_id",
+        "maintainpro_email",
+        "maintainpro_synced_at",
     )
     actions = ("unlock_selected_accounts",)
 
     fieldsets = (
         (None, {"fields": ("id", "username", "employee_code", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email")}),
+        (
+            "MaintainPro identity (projection — do not set local passwords)",
+            {
+                "fields": (
+                    "maintainpro_user_id",
+                    "maintainpro_email",
+                    "maintainpro_synced_at",
+                )
+            },
+        ),
         (
             "Password and lockout",
             {
@@ -152,6 +174,12 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
             previous = User.objects.filter(pk=obj.pk).values_list("is_active", flat=True).first()
             previous_active = previous
 
+        # Projected MaintainPro principals must never receive a usable local password.
+        if str(getattr(obj, "maintainpro_user_id", "") or "").strip():
+            obj.set_unusable_password()
+            obj.must_change_password = False
+            obj.employee_code = None
+
         super().save_model(request, obj, form, change)
 
         changed_data = list(getattr(form, "changed_data", []))
@@ -170,6 +198,16 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
             )
 
         if change and "password" in changed_data:
+            if str(getattr(obj, "maintainpro_user_id", "") or "").strip():
+                obj.set_unusable_password()
+                obj.must_change_password = False
+                obj.save(update_fields=["password", "must_change_password"])
+                self.message_user(
+                    request,
+                    "MaintainPro-projected users cannot have local passwords.",
+                    messages.WARNING,
+                )
+                return
             obj.password_changed_at = timezone.now()
             if settings.AUTH_PASSWORD_CHANGE_REQUIRED_ON_ADMIN_RESET:
                 obj.must_change_password = True

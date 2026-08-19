@@ -6,6 +6,7 @@ import {
   bulkDeleteParts,
   bulkUpdateCategory,
   deletePart,
+  getInventoryDashboard,
   getInventoryParts,
   getLowStockParts,
   getPartMovements,
@@ -20,7 +21,8 @@ import {
   updatePart
 } from "./api";
 import { calculateInsights, calculateSummary, getErrorMessage } from "./helpers";
-import { StockAdjustmentPayload, UpdatePartPayload } from "./types";
+import { InventoryDashboardKpis, StockAdjustmentPayload, UpdatePartPayload } from "./types";
+import { withTenantScope } from "@/lib/tenant-query";
 
 export const inventoryQueryKeys = {
   parts: ["inventory", "parts"] as const,
@@ -31,38 +33,48 @@ export const inventoryQueryKeys = {
   topUsed: ["inventory", "top-used"] as const,
   partMovements: (partId: string) => ["inventory", "part", partId, "movements"] as const,
   partWorkOrders: (partId: string) => ["inventory", "part", partId, "work-orders"] as const,
-  partPurchaseHistory: (partId: string) => ["inventory", "part", partId, "purchase-history"] as const
+  partPurchaseHistory: (partId: string) => ["inventory", "part", partId, "purchase-history"] as const,
+  dashboard: ["inventory", "dashboard"] as const
 };
 
 export function useInventoryOverview() {
   const partsQuery = useQuery({
-    queryKey: inventoryQueryKeys.parts,
-    queryFn: getInventoryParts
+    queryKey: withTenantScope(inventoryQueryKeys.parts),
+    queryFn: getInventoryParts,
+    refetchOnWindowFocus: true
   });
 
   const suppliersQuery = useQuery({
-    queryKey: inventoryQueryKeys.suppliers,
+    queryKey: withTenantScope(inventoryQueryKeys.suppliers),
     queryFn: getSuppliers
   });
 
   const lowStockQuery = useQuery({
-    queryKey: inventoryQueryKeys.lowStock,
-    queryFn: getLowStockParts
+    queryKey: withTenantScope(inventoryQueryKeys.lowStock),
+    queryFn: getLowStockParts,
+    refetchOnWindowFocus: true
   });
 
   const purchaseOrdersQuery = useQuery({
-    queryKey: inventoryQueryKeys.purchaseOrders,
-    queryFn: getPurchaseOrders
+    queryKey: withTenantScope(inventoryQueryKeys.purchaseOrders),
+    queryFn: getPurchaseOrders,
+    refetchOnWindowFocus: true
   });
 
   const usageTrendQuery = useQuery({
-    queryKey: inventoryQueryKeys.usageTrend,
+    queryKey: withTenantScope(inventoryQueryKeys.usageTrend),
     queryFn: () => getUsageTrend(30)
   });
 
   const topUsedQuery = useQuery({
-    queryKey: inventoryQueryKeys.topUsed,
+    queryKey: withTenantScope(inventoryQueryKeys.topUsed),
     queryFn: () => getTopUsedParts(5, 30)
+  });
+
+  const dashboardQuery = useQuery({
+    queryKey: withTenantScope(inventoryQueryKeys.dashboard),
+    queryFn: getInventoryDashboard,
+    refetchOnWindowFocus: true
   });
 
   const summary = useMemo(() => {
@@ -80,6 +92,8 @@ export function useInventoryOverview() {
     purchaseOrdersQuery,
     usageTrendQuery,
     topUsedQuery,
+    dashboardQuery,
+    dashboard: (dashboardQuery.data ?? null) as InventoryDashboardKpis | null,
     summary,
     insights
   };
@@ -95,6 +109,7 @@ export function useInventoryMutations() {
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.purchaseOrders }),
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.usageTrend }),
       queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.topUsed }),
+      queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.dashboard }),
       queryClient.invalidateQueries({ queryKey: ["inventory", "part"] })
     ]);
   }

@@ -37,6 +37,16 @@ def _safe_post_login_redirect(request: HttpRequest) -> str | None:
 
 @require_http_methods(["GET", "POST"])
 def login_view(request: HttpRequest) -> HttpResponse:
+    from django.conf import settings
+
+    # Unified platform: MaintainPro is the only login page.
+    if not getattr(settings, "FG_PASSWORD_LOGIN_ENABLED", False):
+        next_url = request.GET.get("next") or request.POST.get("next") or "/fg/"
+        if not str(next_url).startswith("/"):
+            next_url = "/fg/"
+        login_base = str(getattr(settings, "MAINTAINPRO_LOGIN_URL", "/login") or "/login")
+        return redirect(f"{login_base}?next={next_url}")
+
     if request.user.is_authenticated:
         return redirect("accounts:landing")
 
@@ -64,8 +74,13 @@ def login_view(request: HttpRequest) -> HttpResponse:
 @require_POST
 @login_required
 def logout_view(request: HttpRequest) -> HttpResponse:
+    from django.conf import settings
+
     account_services.logout_user(request)
     messages.info(request, "You have been signed out.")
+    if not getattr(settings, "FG_PASSWORD_LOGIN_ENABLED", False):
+        # End at MaintainPro logout so access/refresh cookies clear too.
+        return redirect("/api/auth/logout")
     return redirect("accounts:login")
 
 

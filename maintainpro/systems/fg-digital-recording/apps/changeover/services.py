@@ -11,9 +11,10 @@ from datetime import datetime
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.persistence.transactions import atomic_fn
 from apps.access_control.services import Scope, require_permission, user_has_permission
 from apps.accounts.models import User
 from apps.changeover.models import (
@@ -78,7 +79,7 @@ def _history(
     )
 
 
-@transaction.atomic
+@atomic_fn
 def create_allergen_reference(
     *,
     actor: User | None,
@@ -114,7 +115,7 @@ def create_allergen_reference(
     return ref
 
 
-@transaction.atomic
+@atomic_fn
 def create_product_allergen_declaration(
     *,
     actor: User | None,
@@ -161,7 +162,7 @@ def create_product_allergen_declaration(
     return declaration
 
 
-@transaction.atomic
+@atomic_fn
 def approve_product_allergen_declaration(
     *,
     actor: User | None,
@@ -184,7 +185,7 @@ def approve_product_allergen_declaration(
     return declaration
 
 
-@transaction.atomic
+@atomic_fn
 def record_changeover(
     *,
     actor: User | None,
@@ -305,7 +306,7 @@ def record_changeover(
     return record, decision.as_dict()
 
 
-@transaction.atomic
+@atomic_fn
 def verify_changeover(
     *,
     actor: User | None,
@@ -344,7 +345,7 @@ def verify_changeover(
     return changeover
 
 
-@transaction.atomic
+@atomic_fn
 def record_line_clearance(
     *,
     actor: User | None,
@@ -426,7 +427,7 @@ def record_line_clearance(
     return record
 
 
-@transaction.atomic
+@atomic_fn
 def upsert_allergen_risk_policy(
     *,
     actor: User | None,

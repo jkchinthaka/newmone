@@ -133,7 +133,11 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/fleet",
   "/fleet/gate",
   "/inventory",
+  "/inventory/movements",
+  "/inventory/daily",
+  "/inventory/import",
   "/inventory/erp-import",
+  "/fg",
   "/procurement",
   "/compliance",
   "/reports",
@@ -169,6 +173,26 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/farm/attendance",
   "/farm/finance",
   "/farm/traceability",
+  "/qa",
+  "/delivery-readiness",
+  "/go-live",
+  "/erp",
+  "/post-go-live",
+  "/operations/exceptions",
+  "/operations/sla",
+  "/operations/budget",
+  "/operations/mappings",
+  "/procurement/matching",
+  "/procurement/recommendations",
+  "/procurement/vendors",
+  "/assets/health",
+  "/maintenance/forecast",
+  "/vehicles/health",
+  "/vehicles/costs",
+  "/inventory/warranty",
+  "/reports/maintenance-exceptions",
+  "/reports/fraud-control",
+  "/reports/management-intelligence",
   LEGACY_FMS_HOME_PATH
 ]);
 
@@ -439,12 +463,100 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     category: "operations"
   },
   {
+    id: "operations-exceptions",
+    label: "Exceptions",
+    href: "/operations/exceptions",
+    icon: "AlertTriangle",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["operations.view"]
+  },
+  {
+    id: "operations-sla",
+    label: "SLA risk",
+    href: "/operations/sla",
+    icon: "Clock3",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["operations.view"]
+  },
+  {
+    id: "procurement-matching",
+    label: "PO matching",
+    href: "/procurement/matching",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, PROCUREMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["purchase_orders.view"]
+  },
+  {
+    id: "operations-budget",
+    label: "Budget commitments",
+    href: "/operations/budget",
+    icon: "Wallet",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    category: "operations",
+    requiredPermissions: ["reports.vehicle_cost.view"]
+  },
+  {
+    id: "asset-health",
+    label: "Asset health",
+    href: "/assets/health",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ASSET_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
+    id: "maintenance-forecast",
+    label: "Maintenance forecast",
+    href: "/maintenance/forecast",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
+    id: "vehicle-health",
+    label: "Vehicle health",
+    href: "/vehicles/health",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FLEET_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
+    id: "vehicle-costs",
+    label: "Vehicle costs",
+    href: "/vehicles/costs",
+    icon: "ChartColumnBig",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
+    requiredPermissions: ["reports.vehicle_cost.view"],
+    category: "operations"
+  },
+  {
+    id: "inventory-warranty",
+    label: "Warranty",
+    href: "/inventory/warranty",
+    icon: "ShieldAlert",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, ADMIN_ROLES),
+    category: "operations"
+  },
+  {
     id: "inventory-erp-import",
     label: "ERP Stock Import",
     href: "/inventory/erp-import",
     icon: "ClipboardList",
     allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES),
     category: "operations"
+  },
+  {
+    id: "fg-digital-recording",
+    label: "FG Digital Recording",
+    href: "/fg",
+    icon: "FileCheck2",
+    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
+    category: "operations",
+    activeMatch: "startsWith",
+    description: "Controlled production records, review workflow and QA verification",
+    requiredPermissions: ["fg.access"]
   },
   {
     id: "procurement",
@@ -812,7 +924,13 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/reports/fraud-control/admin-overrides": ["/reports/fraud-control", "/reports"],
   "/reports/fraud-control/parts-misuse": ["/reports/fraud-control", "/reports"],
   "/reports/management-intelligence": ["/reports"],
-  "/master-data/employees": ["/master-data"]
+  "/master-data/employees": ["/master-data"],
+  "/procurement/recommendations": ["/procurement"],
+  "/procurement/matching": ["/procurement"],
+  "/inventory/warranty": ["/inventory"],
+  "/operations/sla": ["/operations/exceptions"],
+  "/operations/budget": ["/operations/exceptions"],
+  "/assets/health": ["/assets"]
 };
 
 export function normalizeNavigationRole(roleName: string | null | undefined): string | null {
@@ -843,6 +961,13 @@ export function isNavigationItemVisible(
     const granted = new Set(permissions.map((p) => p.trim()));
     const hasPermission = item.requiredPermissions.some((permission) => granted.has(permission));
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
+      return false;
+    }
+    if (
+      item.requiredPermissions.includes("fg.access") &&
+      !granted.has("fg.access") &&
+      normalized !== "SUPER_ADMIN"
+    ) {
       return false;
     }
   }
@@ -957,6 +1082,14 @@ export function canAccessNavigationPath(
     return visible.some((item) => item.category === "cleaning");
   }
 
+  if (normalizedPath.startsWith("/fg/sso/denied")) {
+    return true;
+  }
+
+  if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
+    return visible.some((item) => item.id === "fg-digital-recording");
+  }
+
   return FULL_NAVIGATION_ROLES.has(normalizeNavigationRole(roleName) ?? "");
 }
 
@@ -968,9 +1101,13 @@ export type MobileBottomNavItem = {
   action?: "search";
 };
 
-export function getMobileBottomNavItems(roleName: string | null | undefined): MobileBottomNavItem[] {
-  const visible = getVisibleNavigationItems(roleName);
+export function getMobileBottomNavItems(
+  roleName: string | null | undefined,
+  options?: { permissions?: readonly string[] }
+): MobileBottomNavItem[] {
+  const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
   const hasWorkOrders = visible.some((item) => item.id === "work-orders" || item.id === "my-tasks");
+  const hasFg = visible.some((item) => item.id === "fg-digital-recording");
   const hasSettings = visible.some((item) => item.id === "settings");
 
   const homeHref = visible.find((item) => item.id === "action-center")?.href ?? "/action-center";
@@ -983,6 +1120,8 @@ export function getMobileBottomNavItems(roleName: string | null | undefined): Mo
 
   if (hasWorkOrders) {
     items.push({ id: "create", label: "Jobs", href: tasksHref, icon: "ClipboardList" });
+  } else if (hasFg) {
+    items.push({ id: "fg-records", label: "Records", href: "/fg", icon: "FileCheck2" });
   }
 
   items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });

@@ -8,13 +8,13 @@ from datetime import datetime
 
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from apps.access_control.models import Role, ScopedRoleAssignment
 from apps.accounts.models import User
-from apps.core.persistence import prefetch_related_compat
+from apps.core.persistence import atomic_fn, prefetch_related_compat
 from apps.organizations.models import Department, Organization, Site
 
 
@@ -104,6 +104,21 @@ def user_has_permission(
         return False
     if not user.is_active:
         return False
+
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        is_maintainpro_projected_user,
+        user_has_fg_permission,
+    )
+
+    # MaintainPro projected principals: fg.* is mandatory (AND with scope below).
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission)
+        if fg_key and not user_has_fg_permission(user, fg_key):
+            return False
+        if user_has_fg_permission(user, "fg.admin"):
+            return True
+
     if user.is_superuser:
         return True
 
@@ -134,6 +149,23 @@ def user_has_permission_any_scope(user: User | None, permission: str) -> bool:
     """
     if user is None or not getattr(user, "is_authenticated", False) or not user.is_active:
         return False
+
+    from apps.access_control.fg_permission_map import fg_permission_for_django
+    from apps.access_control.maintainpro_bridge import (
+        is_maintainpro_projected_user,
+        user_has_fg_permission,
+    )
+
+    if is_maintainpro_projected_user(user):
+        fg_key = fg_permission_for_django(permission)
+        if fg_key and not user_has_fg_permission(user, fg_key):
+            return False
+        if fg_key and user_has_fg_permission(user, fg_key):
+            # Module entry via MaintainPro catalogue; object-level ops still need scope.
+            return True
+        if user_has_fg_permission(user, "fg.admin"):
+            return True
+
     if user.is_superuser:
         return True
     for assignment in _active_assignments_qs(user):
@@ -306,7 +338,7 @@ def get_accessible_departments(
     return qs.distinct()
 
 
-@transaction.atomic
+@atomic_fn
 def create_role(
     *,
     code: str,
@@ -324,7 +356,7 @@ def create_role(
     return role
 
 
-@transaction.atomic
+@atomic_fn
 def assign_role(
     *,
     user: User,
@@ -402,7 +434,7 @@ def assign_role(
     return assignment
 
 
-@transaction.atomic
+@atomic_fn
 def revoke_role_assignment(
     assignment: ScopedRoleAssignment,
     *,

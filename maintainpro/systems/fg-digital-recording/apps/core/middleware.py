@@ -27,6 +27,7 @@ _SENSITIVE_KEYS = frozenset(
         "authorization",
         "cookie",
         "sessionid",
+        "fg_sessionid",
         "api_key",
         "apikey",
         "redis_url",

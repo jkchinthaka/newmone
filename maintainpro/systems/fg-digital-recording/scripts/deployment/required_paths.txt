@@ -1,0 +1,15 @@
+# Required paths relative to the release root (after packaging).
+# Used by verify_release_package.ps1 — keep in sync with build_release.ps1.
+
+manage.py
+pyproject.toml
+uv.lock
+README.md
+.env.example
+apps
+config
+templates
+static/dist
+staticfiles
+scripts/wait_for_postgres.py
+infra/docker/entrypoint.sh

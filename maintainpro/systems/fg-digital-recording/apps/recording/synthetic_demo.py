@@ -16,7 +16,6 @@ from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
 
 from apps.access_control.services import assign_role, create_role
 from apps.accounts.models import User
@@ -29,6 +28,7 @@ from apps.checklists.services import (
     create_checklist_version,
     publish_checklist_version,
 )
+from apps.core.persistence import atomic_fn
 from apps.master_data.models import FGProduct
 from apps.master_data.services import create_fg_product
 from apps.organizations.models import Department, Organization, Shift, Site
@@ -41,7 +41,18 @@ from apps.scheduling.services import create_batch_checklist_task
 DEMO_BANNER = "DEMO / TEST DATA — NOT COMPANY MASTER DATA"
 DEMO_ORG_CODE = "DEMOORG1"
 DEMO_PASSWORD = "Demo-Only-Pass-123!"  # noqa: S105 — local synthetic only
-ALLOWED_DEMO_ENVIRONMENTS = frozenset({"local", "test", "development", "ci"})
+ALLOWED_DEMO_ENVIRONMENTS = frozenset(
+    {
+        "local",
+        "test",
+        "development",
+        "ci",
+        # Isolated Mongo compatibility POC / release-gate only — never production/UAT/staging.
+        "mongo_same_db_poc",
+        "mongo_poc",
+        "mongo_test",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,7 +114,7 @@ def _user(employee_code: str) -> User:
     )
 
 
-@transaction.atomic
+@atomic_fn
 def load_synthetic_demo_data(*, force: bool = False) -> SyntheticDemoDataset:
     """Create or return the synthetic demonstration dataset."""
     if not demo_environment_allowed():
@@ -321,12 +332,16 @@ def seed_demo_daily_workflow(dataset: SyntheticDemoDataset) -> None:
     )
     for form_code, room_key in specs:
         try:
+            occurrence_token = ""
+            if form_code in {"NMS/PPU/CL/18", "NMS/PPU/CL/30"}:
+                occurrence_token = f"demo-{form_code.replace('/', '-')}-{record_date.isoformat()}"
             task = ensure_controlled_daily_task(
                 actor=dataset.recorder,
                 organization_id=dataset.organization.id,
                 form_code=form_code,
                 record_date=record_date,
                 room_key=room_key,
+                occurrence_token=occurrence_token,
             )
         except ValidationError:
             continue

@@ -29,7 +29,14 @@ from apps.core.persistence.queries import (
     locked_get,
     prefetch_related_compat,
 )
-from apps.core.persistence.transactions import atomic, atomic_fn, on_commit
+from apps.core.persistence.transactions import (
+    atomic,
+    atomic_fn,
+    is_transient_transaction_error,
+    mongo_multi_doc_atomic,
+    on_commit,
+    run_mongo_multi_doc_atomic,
+)
 
 __all__ = [
     "DatabaseVendor",
@@ -46,10 +53,13 @@ __all__ = [
     "create_immutable_unique",
     "detect_database_vendor",
     "is_mongodb",
+    "is_transient_transaction_error",
     "latest_ids_by_parent",
     "lock_queryset",
     "locked_get",
+    "mongo_multi_doc_atomic",
     "on_commit",
     "prefetch_related_compat",
     "require_conditional_update",
+    "run_mongo_multi_doc_atomic",
 ]

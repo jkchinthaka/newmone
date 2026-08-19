@@ -13,6 +13,7 @@ dependencies = [
     "celery==5.6.3",
     "gunicorn==26.0.0",
     "structlog==26.1.0",
+    "PyJWT==2.10.1",
 ]
 
 [dependency-groups]
@@ -33,7 +34,11 @@ security = [
     "bandit==1.9.2",
     "pip-audit==2.10.0",
 ]
-# Optional — never required for default PostgreSQL CI on main.
+# Optional — required for mongo_same_db / mongo_same_db_poc settings modules.
+mongo = [
+    "django-mongodb-backend==5.2.3",
+]
+# Back-compat alias
 mongo-poc = [
     "django-mongodb-backend==5.2.3",
 ]

@@ -79,16 +79,33 @@ export function stockProgress(part: InventoryPart): number {
   return Math.max(0, Math.min(100, (part.quantityInStock / threshold) * 100));
 }
 
+export function availableOf(part: InventoryPart): number {
+  if (typeof part.availableQuantity === "number") {
+    return part.availableQuantity;
+  }
+  return Math.max(0, part.quantityInStock - (part.reservedQuantity ?? 0));
+}
+
 export function calculateSummary(parts: InventoryPart[], purchaseOrders: PurchaseOrder[]): InventorySummary {
   const totalItems = parts.length;
-  const totalValue = parts.reduce((sum, part) => sum + part.quantityInStock * part.unitCost, 0);
+  const valuedParts = parts.filter((part) => Number.isFinite(part.unitCost) && part.unitCost > 0);
+  const totalValue =
+    valuedParts.length === parts.length && parts.length > 0
+      ? valuedParts.reduce((sum, part) => sum + part.quantityInStock * part.unitCost, 0)
+      : null;
 
   let lowStockCount = 0;
   let criticalCount = 0;
   let outOfStockCount = 0;
+  let onHand = 0;
+  let reserved = 0;
+  let available = 0;
 
   for (const part of parts) {
     const status = getStockStatus(part);
+    onHand += part.quantityInStock;
+    reserved += part.reservedQuantity ?? 0;
+    available += availableOf(part);
 
     if (status === "LOW") {
       lowStockCount += 1;
@@ -107,6 +124,9 @@ export function calculateSummary(parts: InventoryPart[], purchaseOrders: Purchas
 
   return {
     totalItems,
+    onHand,
+    available,
+    reserved,
     totalValue,
     lowStockCount,
     criticalCount,

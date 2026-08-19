@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import { Loader2 } from "lucide-react";
+
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export type ConfirmDialogVariant = "default" | "destructive";
 
@@ -31,29 +33,12 @@ export function ConfirmDialog({
   const titleId = useId();
   const descriptionId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    cancelRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) {
-        onCancel();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, isSubmitting, onCancel]);
+  useFocusTrap(open, panelRef, {
+    initialFocusRef: cancelRef,
+    onEscape: isSubmitting ? undefined : onCancel
+  });
 
   if (!open) {
     return null;
@@ -79,6 +64,7 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         aria-modal="true"
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-h-none"
+        ref={panelRef}
         role="alertdialog"
       >
         <h2 className="text-lg font-semibold text-slate-900" id={titleId}>

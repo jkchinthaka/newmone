@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BellRing,
   ClipboardList,
+  FileCheck2,
   Home,
   Search,
   UserCircle2,
@@ -20,6 +21,7 @@ const MOBILE_ICON_MAP: Record<string, LucideIcon> = {
   Home,
   BellRing,
   ClipboardList,
+  FileCheck2,
   Search,
   UserCircle2
 };
@@ -32,7 +34,7 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
   const pathname = usePathname();
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
-  const items = getMobileBottomNavItems(roleName);
+  const items = getMobileBottomNavItems(roleName, { permissions: user.permissions });
 
   return (
     <nav
