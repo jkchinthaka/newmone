@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 import ExcelJS from "exceljs";
 
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { normalizeRegistrationNo } from "../../common/utils/vehicle-registration";
 
 export const VEHICLE_MASTER_SHEET = "Vehicle_Master_Import";
@@ -674,7 +675,7 @@ export async function previewVehicleMasterImport(
 
   const existing = prisma
     ? await prisma.vehicle.findMany({
-        where: options.tenantId ? { tenantId: options.tenantId } : undefined,
+        where: { tenantId: requireTenantId(options.tenantId) },
         select: { id: true, registrationNo: true, vin: true }
       })
     : [];
@@ -841,6 +842,8 @@ export async function applyVehicleMasterImport(
     };
   }
 
+  const tenantId = requireTenantId(options.tenantId);
+
   let created = 0;
   let updated = 0;
   const rejected = preview.rejectedRows;
@@ -848,21 +851,20 @@ export async function applyVehicleMasterImport(
   for (const row of preview.rows) {
     if (row.action === "REJECT") continue;
 
-    const departments =
-      row.departmentCode && options.tenantId
-        ? await prisma.department.findFirst({
-            where: {
-              tenantId: options.tenantId,
-              OR: [{ code: row.departmentCode }, { name: row.departmentCode }]
-            },
-            select: { id: true }
-          })
-        : null;
+    const departments = row.departmentCode
+      ? await prisma.department.findFirst({
+          where: {
+            tenantId,
+            OR: [{ code: row.departmentCode }, { name: row.departmentCode }]
+          },
+          select: { id: true }
+        })
+      : null;
 
     if (row.action === "CREATE") {
       await prisma.vehicle.create({
         data: {
-          tenantId: options.tenantId ?? undefined,
+          tenantId,
           registrationNo: row.registrationNo,
           assetTag: row.assetTag ?? undefined,
           make: row.make,

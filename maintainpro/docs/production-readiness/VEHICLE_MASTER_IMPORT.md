@@ -52,5 +52,6 @@ npx tsx apps/api/scripts/import-vehicle-master.ts --apply
 - Jest `vehicle-master-import.spec.ts`: PASS (9)
 - FG Django `test_vehicle_reference.py`: PASS (10)
 - Typecheck api+web: PASS
+- Tenant audit: PASS (fail-closed `requireTenantId` on import apply + FG lookup)
 - Disposable Mongo apply: **BLOCKED** (Docker Desktop API unavailable this session)
 - Production import: **NOT APPLIED**

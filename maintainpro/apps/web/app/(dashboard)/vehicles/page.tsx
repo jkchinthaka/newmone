@@ -44,7 +44,7 @@ import {
 } from "@/lib/user-role";
 
 type VehicleType = "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
-type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
 type VehicleStatus = "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
 type VehicleOwnershipType = "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
 type VehicleServiceStatus = "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
@@ -119,7 +119,7 @@ const VEHICLE_TYPES: VehicleType[] = [
   "OTHER"
 ];
 
-const FUEL_TYPES: FuelType[] = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "LPG"];
+const FUEL_TYPES: FuelType[] = ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG", "LPG", "UNKNOWN"];
 
 const OWNERSHIP_TYPES: VehicleOwnershipType[] = ["OWNED", "LEASED", "RENTED", "THIRD_PARTY"];
 

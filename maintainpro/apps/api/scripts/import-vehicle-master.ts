@@ -43,6 +43,9 @@ async function main(): Promise<void> {
     if (apply && !prisma) {
       throw new Error("DATABASE_URL required for --apply");
     }
+    if (prisma && !tenantId) {
+      throw new Error("--tenant or VEHICLE_IMPORT_TENANT_ID required when DATABASE_URL is set");
+    }
     const preview = await previewVehicleMasterImport(prisma, workbook, { tenantId });
 
     const summary = {

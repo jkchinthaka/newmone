@@ -161,7 +161,7 @@ export class VehiclesService {
     const normalized = normalizeRegistrationNo(q);
     const allowedTypes = fgFormAllowedVehicleTypes(input.formCode);
     const where: Prisma.VehicleWhereInput = {
-      ...(tenantId ? { tenantId } : {}),
+      tenantId,
       ...(allowedTypes ? { type: { in: allowedTypes as never } } : {}),
       OR: [
         { registrationNo: { contains: q, mode: "insensitive" } },

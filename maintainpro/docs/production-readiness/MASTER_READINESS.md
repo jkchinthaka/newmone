@@ -2,7 +2,7 @@
 
 Date: 2026-08-19  
 Branch: `fix/live-production-remediation`  
-Release commit: `89c7d3ca4cb875bd93f9d3f3d4475cae08c7f9b3`
+Release commit: `1dd30111f04433dda439a0146e0c5df6adc63c21` (vehicle master import + FG eligibility; tenant audit closure pending next commit)
 
 ## Git / remote sync
 
@@ -14,8 +14,9 @@ Release commit: `89c7d3ca4cb875bd93f9d3f3d4475cae08c7f9b3`
 | WO approval vs reservation | `d74789a1` | YES |
 | Django FG subtree + occurrence tokens | `0eab98fa` | YES |
 | FG Mongo bootstrap guards | `89c7d3ca` | YES |
+| Vehicle master import + FG live lookup | `e6a0ce51` / `c83d743a` / `1dd30111` | YES |
 
-`REMOTE_HEAD == LOCAL_HEAD` at `89c7d3ca`. No stranded valid commits on target worktree.
+`REMOTE_HEAD == LOCAL_HEAD` at `1dd30111` before tenant-audit closure commit.
 
 ## FG Digital Records — business rules
 
@@ -53,9 +54,22 @@ Interrupted Windows run (exit 4294967295) treated as **INFRA_INTERRUPTED**, not 
 
 MaintainPro SSO handoff path remains: `/api/fg-sso/handoff` → Nest `/auth/fg-sso/exchange` → Django consume.
 
-## MaintainPro regression (2026-08-19)
+## MaintainPro regression (2026-08-19, post-vehicle commits)
 
-See session terminal output for full suite. Prior gate: typecheck PASS, RBAC 697/0, tenant unapproved=0, secret scan 12/12, backend 1147 passed / 10 skipped, build PASS.
+| Gate | Result |
+|---|---|
+| typecheck api+web | **PASS** |
+| RBAC audit | **698 routes, 0 violations** |
+| tenant audit | **0 unapproved** (after fail-closed vehicle import/lookup fix) |
+| secret scan | **12/12 PASS** |
+| backend Jest | **1156 passed**, 10 skipped (166 suites, 1 skipped) |
+| vehicle-master-import Jest | **9 passed** |
+| FG Next.js Jest (mappers/BFF/contract/SSO) | **26 passed** |
+| FG Django vehicle reference | **10 passed** |
+| build | **PASS** |
+| npm audit prod critical | **0** (HIGH=22 — see security section) |
+
+Prior full FG pytest (282 passed, 6 skipped) valid when disposable Postgres `127.0.0.1:5433` is up. This session: FG Postgres unavailable → broader Django suite **BLOCKED_INFRA**.
 
 ## Inventory / disposable Mongo
 
