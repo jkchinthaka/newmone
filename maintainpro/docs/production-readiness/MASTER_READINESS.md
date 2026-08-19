@@ -2,7 +2,7 @@
 
 Date: 2026-08-19  
 Branch: `fix/live-production-remediation`  
-Release commit: `1dd30111f04433dda439a0146e0c5df6adc63c21` (vehicle master import + FG eligibility; tenant audit closure pending next commit)
+Release commit: `c5007b759b3096d72090bfdb804a5e1758b45e4a`
 
 ## Git / remote sync
 
