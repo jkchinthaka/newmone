@@ -3,7 +3,7 @@
 **Date:** 2026-08-18  
 **Scope:** Current `maintainpro/` worktree after preceding inventory and FG Next.js work. MaintainPro Maintenance / Fleet / Inventory / Facility and FG Digital Records are one product.  
 **Method:** Source inspection of App Router pages, layout shells, FG UI, navigation, Action Center, tables/forms, React Query, tenant session, and E2E files. Prior audit notes were not reused as truth.  
-**Production:** Not deployed. `PRODUCTION_CHANGED=NO`. FG Next.js remains behind `FG_NEXTJS_UI_ENABLED` / `NEXT_PUBLIC_FG_NEXTJS_UI_ENABLED` until Django contract parity exists.
+**Production:** Not deployed. `PRODUCTION_CHANGED=NO`. FG Next.js remains behind `FG_NEXTJS_UI_ENABLED` / `NEXT_PUBLIC_FG_NEXTJS_UI_ENABLED` until E2E, CSRF/SSO, and business UAT pass. Django JSON API on this branch now consumes CL18/CL30 `occurrenceToken`.
 
 ## Inventory
 
@@ -69,7 +69,7 @@ Each finding has a priority and a class. Status reflects this remediation pass.
 | F-28 | BLOCKED_BACKEND | Global entity search API (assets, vehicles, WO numbers, FG records). | Palette jumps to existing list search only. |
 | F-29 | UX_GAP | PWA: `public/sw.js` + `/offline.html`; WO evidence localStorage queue only. No general offline mutation queue. | Unchanged. |
 | F-30 | UX_GAP | FG E2E is skipped unless `FG_E2E=1`, then `test.fail`. Skip is not PASS. | Unchanged. Tenant-switch Playwright spec added and passed locally against the Next.js webServer (not a full 72-test suite). |
-| F-31 | BLOCKED_BUSINESS_DECISION | FG Next.js flag stays off until Combined-Release Django multiplicity parity (CL18/CL30). | Unchanged. |
+| F-31 | BLOCKED_BUSINESS_DECISION | FG Next.js flag stays off until E2E + UAT. Django JSON API now honours CL18/CL30 occurrence tokens; CL24 remains one/day. | Source parity landed; flag still off. |
 | F-32 | ACCESSIBILITY_GAP | Field-user mobile is still largely desktop-shrunk except work-order queue cards. | Partial via loading/error/tenant/focus-trap; no visual redesign. |
 
 ## Domain notes
@@ -98,4 +98,4 @@ Not redesigned. Existing print paths (FG `printPath`) and asset/inventory export
 
 - **P0 remaining:** none in frontend code that this audit could fix without Django/production changes. FG BFF still depends on `FG_API_INTERNAL_URL` being set when the Next.js UI is enabled.
 - **P1 remaining:** no global entity search API; no vehicle/asset FG record lists; FG E2E not executable here unless `FG_E2E=1` plus a disposable FG stack; field-user mobile task-first layout not redesigned (bottom nav still 5 slots; FG Records appears only when work orders are hidden).
-- **Do not enable FG Next.js in production until Django contract parity.**
+- **Do not enable FG Next.js in production until FG_E2E, AUTH/SSO/CSRF, and business UAT pass.** Django JSON occurrence-token parity is in source on this branch.
