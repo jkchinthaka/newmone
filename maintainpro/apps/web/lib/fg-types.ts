@@ -130,6 +130,9 @@ export type FgVehicleResult = {
   vehicleModel?: string;
   status?: string;
   assetTag?: string;
+  type?: string;
   label: string;
+  selectable?: boolean;
   unavailable?: boolean;
+  unavailableReason?: string | null;
 };

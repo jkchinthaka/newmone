@@ -188,6 +188,7 @@ export function FgRecordForm({ detail, onRefresh }: Props) {
                           <FieldControl
                             key={`${child.fieldName}-${child.sampleIndex}`}
                             field={child}
+                            formCode={detail.record.formCode}
                             value={fields[child.fieldName] ?? ""}
                             error={fieldErrorsFor(apiError, child.fieldName)[0]}
                             disabled={pending !== null}
@@ -202,6 +203,7 @@ export function FgRecordForm({ detail, onRefresh }: Props) {
                   <FieldControl
                     key={field.fieldName}
                     field={field}
+                    formCode={detail.record.formCode}
                     value={fields[field.fieldName] ?? ""}
                     error={fieldErrorsFor(apiError, field.fieldName)[0]}
                     disabled={pending !== null}
@@ -264,13 +266,15 @@ function FieldControl({
   value,
   onChange,
   disabled,
-  error
+  error,
+  formCode
 }: {
   field: FgField;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
   error?: string;
+  formCode?: string;
 }) {
   const describedBy = error ? `${field.fieldName}-error` : field.helpText ? `${field.fieldName}-help` : undefined;
   const isChoice = field.responseType === "YES_NO" || field.responseType === "YES_NO_NA";
@@ -280,6 +284,7 @@ function FieldControl({
         value={value}
         disabled={disabled}
         error={error}
+        formCode={formCode}
         onChange={(registration) => onChange(registration)}
       />
     );

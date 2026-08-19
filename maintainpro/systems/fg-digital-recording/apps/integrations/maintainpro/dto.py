@@ -14,6 +14,7 @@ class VehicleRef:
     vehicle_model: str
     status: str
     asset_tag: str = ""
+    vehicle_type: str = ""
     decommissioned_at: str | None = None
 
     @property
@@ -26,9 +27,31 @@ class VehicleRef:
 
     @property
     def is_active_for_dispatch(self) -> bool:
+        """Selectable for NEW FG records — MaintainPro VehicleStatus, not a fake ACTIVE."""
+        selectable, _reason = self.eligibility_for_new_record()
+        return selectable
+
+    def eligibility_for_new_record(
+        self,
+        *,
+        allowed_types: frozenset[str] | None = None,
+    ) -> tuple[bool, str | None]:
         if self.decommissioned_at:
-            return False
-        return self.status not in {"DECOMMISSIONED", "DISPOSED", "RETIRED"}
+            return False, "DECOMMISSIONED"
+        status = (self.status or "").upper()
+        if status in {"DISPOSED", "RETIRED", "DECOMMISSIONED"}:
+            return False, "DISPOSED"
+        if status == "OUT_OF_SERVICE":
+            return False, "OUT_OF_SERVICE"
+        if status == "UNDER_MAINTENANCE":
+            return False, "UNDER_MAINTENANCE"
+        if status and status not in {"AVAILABLE", "IN_USE"}:
+            return False, status
+        if allowed_types:
+            vtype = (self.vehicle_type or "").upper()
+            if vtype not in {t.upper() for t in allowed_types}:
+                return False, "TYPE_NOT_ALLOWED_FOR_FORM"
+        return True, None
 
 
 @dataclass(frozen=True, slots=True)

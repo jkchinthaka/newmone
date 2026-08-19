@@ -163,9 +163,11 @@ export async function decideFgQa(
   return fgRequest(`qa/${id}/decision`, { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function searchFgVehicles(query: string) {
+export async function searchFgVehicles(query: string, options?: { formCode?: string }) {
   await ensureFgSession();
-  return fgRequest<{ results: import("./fg-types").FgVehicleResult[] }>(
-    `vehicles?q=${encodeURIComponent(query)}`
-  );
+  const params = new URLSearchParams({ q: query });
+  if (options?.formCode) {
+    params.set("formCode", options.formCode);
+  }
+  return fgRequest<{ results: import("./fg-types").FgVehicleResult[] }>(`vehicles?${params.toString()}`);
 }

@@ -123,6 +123,63 @@ def test_empty_query_requires_tenant() -> None:
         svc.search_vehicles(tenant_id="", query="CAB")
 
 
+def test_vehicle_eligibility_uses_maintainpro_statuses_not_active() -> None:
+    svc = MaintainProReferenceService(_client())
+    available = svc.get_vehicle(tenant_id=TENANT_A, vehicle_id=VEHICLE_A)
+    assert available.is_active_for_dispatch is True
+    selectable, reason = available.eligibility_for_new_record()
+    assert selectable is True
+    assert reason is None
+
+    in_use = svc._vehicle_from_doc(
+        {
+            "_id": VEHICLE_A,
+            "tenantId": TENANT_A,
+            "registrationNo": "CAB-1234",
+            "make": "Toyota",
+            "vehicleModel": "Hiace",
+            "status": "IN_USE",
+            "type": "VAN",
+        },
+        expected_tenant=TENANT_A,
+    )
+    assert in_use.is_active_for_dispatch is True
+
+    oos = svc._vehicle_from_doc(
+        {
+            "_id": VEHICLE_A,
+            "tenantId": TENANT_A,
+            "registrationNo": "CAB-1234",
+            "make": "Toyota",
+            "vehicleModel": "Hiace",
+            "status": "OUT_OF_SERVICE",
+            "type": "VAN",
+        },
+        expected_tenant=TENANT_A,
+    )
+    assert oos.is_active_for_dispatch is False
+    assert oos.eligibility_for_new_record()[1] == "OUT_OF_SERVICE"
+
+
+def test_cl30_type_filter_rejects_motorcycle() -> None:
+    bike = {
+        "_id": VEHICLE_A,
+        "tenantId": TENANT_A,
+        "registrationNo": "WP-BFJ-9183",
+        "make": "Suzuki",
+        "vehicleModel": "GN-125H",
+        "status": "AVAILABLE",
+        "type": "MOTORCYCLE",
+    }
+    svc = MaintainProReferenceService(InMemoryReferenceClient({"Vehicle": [bike]}))
+    rows = svc.search_vehicles(
+        tenant_id=TENANT_A,
+        query="WP",
+        allowed_types=frozenset({"TRUCK"}),
+    )
+    assert rows == []
+
+
 def test_allowlisted_collections_only() -> None:
     client = _client()
     with pytest.raises(Exception):

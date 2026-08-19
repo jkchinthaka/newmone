@@ -941,29 +941,39 @@ def api_vehicles(request: HttpRequest) -> HttpResponse:
         return json_error("UNAUTHENTICATED", "Authentication required.", status=401)
     org = organizations_for_task_record(_actor(request)).first()
     query = (request.GET.get("q") or "").strip()
+    form_code = (request.GET.get("formCode") or request.GET.get("form_code") or "").strip()
+    allowed_types: frozenset[str] | None = None
+    if form_code.upper() == "NMS/PPU/CL/30":
+        allowed_types = frozenset({"TRUCK"})
+    type_param = (request.GET.get("type") or "").strip().upper()
+    if type_param:
+        allowed_types = frozenset({type_param})
     try:
         tenant_id = resolve_maintainpro_tenant_id(organization=org)
         results = MaintainProReferenceService().search_vehicles(
             tenant_id=tenant_id,
             query=query,
             limit=15,
+            allowed_types=allowed_types,
         )
     except MaintainProReferenceError:
         return json_error("UPSTREAM_UNAVAILABLE", "Vehicle lookup is temporarily unavailable.", status=503)
-    return json_ok(
-        {
-            "results": [
-                {
-                    "id": row.id,
-                    "registrationNo": row.registration_no,
-                    "make": row.make,
-                    "vehicleModel": row.vehicle_model,
-                    "status": row.status,
-                    "assetTag": row.asset_tag,
-                    "label": row.label,
-                    "unavailable": str(row.status or "").upper() not in {"ACTIVE", "AVAILABLE", ""},
-                }
-                for row in results
-            ]
-        }
-    )
+    payload = []
+    for row in results:
+        selectable, reason = row.eligibility_for_new_record(allowed_types=allowed_types)
+        payload.append(
+            {
+                "id": row.id,
+                "registrationNo": row.registration_no,
+                "make": row.make,
+                "vehicleModel": row.vehicle_model,
+                "status": row.status,
+                "assetTag": row.asset_tag,
+                "type": row.vehicle_type,
+                "label": row.label,
+                "selectable": selectable,
+                "unavailable": not selectable,
+                "unavailableReason": reason,
+            }
+        )
+    return json_ok({"results": payload})

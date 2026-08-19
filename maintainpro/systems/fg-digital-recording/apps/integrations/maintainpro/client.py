@@ -27,7 +27,9 @@ VEHICLE_PROJECTION = {
     "vehicleModel": 1,
     "status": 1,
     "assetTag": 1,
+    "type": 1,
     "decommissionedAt": 1,
+    "customFields": 1,
 }
 ASSET_PROJECTION = {
     "_id": 1,
@@ -240,6 +242,11 @@ def _matches(doc: dict[str, Any], filter_doc: dict[str, Any]) -> bool:
             if "$regex" in expected:
                 flags = re.IGNORECASE if expected.get("$options") == "i" else 0
                 if not re.search(str(expected["$regex"]), str(actual or ""), flags):
+                    return False
+                continue
+            if "$in" in expected:
+                allowed = expected["$in"]
+                if actual not in allowed and str(actual) not in {str(x) for x in allowed}:
                     return False
                 continue
             if "$ne" in expected and actual == expected["$ne"]:

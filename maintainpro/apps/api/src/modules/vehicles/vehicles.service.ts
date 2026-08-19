@@ -16,6 +16,7 @@ import {
 
 import { requestContext } from "../../common/context/request-context";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { normalizeRegistrationNo, registrationSearchPattern } from "../../common/utils/vehicle-registration";
 import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
@@ -26,6 +27,7 @@ import { canMeterReadingAdvance } from "../policies/maintenance-policies";
 import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
 import { canVehicleGateOut } from "../policies/vehicle-policies";
 import { assertPolicy } from "../policies/policy-decision";
+import { evaluateVehicleEligibilityForNewFgRecord, fgFormAllowedVehicleTypes } from "./vehicle-eligibility";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
 
@@ -102,11 +104,16 @@ export class VehiclesService {
     const where: Prisma.VehicleWhereInput = tenantId ? { tenantId } : {};
 
     if (q) {
+      const flex = registrationSearchPattern(q);
+      const normalized = normalizeRegistrationNo(q);
       where.OR = [
         { registrationNo: { contains: q, mode: "insensitive" } },
         { vehicleModel: { contains: q, mode: "insensitive" } },
         { make: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } }
+        { assetTag: { contains: q, mode: "insensitive" } },
+        ...(flex
+          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          : [])
       ];
     }
 
@@ -140,6 +147,68 @@ export class VehiclesService {
         sortBy,
         sortDir
       }
+    };
+  }
+
+  async lookupForFg(input: { q: string; formCode?: string; limit?: number }) {
+    const tenantId = this.currentTenantId();
+    const q = input.q.trim();
+    const limit = Math.min(15, Math.max(1, input.limit ?? 15));
+    if (q.length < 1) {
+      return { results: [] as Array<Record<string, unknown>> };
+    }
+
+    const normalized = normalizeRegistrationNo(q);
+    const allowedTypes = fgFormAllowedVehicleTypes(input.formCode);
+    const where: Prisma.VehicleWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(allowedTypes ? { type: { in: allowedTypes as never } } : {}),
+      OR: [
+        { registrationNo: { contains: q, mode: "insensitive" } },
+        { make: { contains: q, mode: "insensitive" } },
+        { vehicleModel: { contains: q, mode: "insensitive" } },
+        { assetTag: { contains: q, mode: "insensitive" } },
+        ...(normalized
+          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          : [])
+      ]
+    };
+
+    const items = await this.prisma.vehicle.findMany({
+      where,
+      take: limit,
+      orderBy: { registrationNo: "asc" },
+      select: {
+        id: true,
+        registrationNo: true,
+        make: true,
+        vehicleModel: true,
+        assetTag: true,
+        status: true,
+        type: true,
+        decommissionedAt: true
+      }
+    });
+
+    return {
+      results: items.map((vehicle) => {
+        const eligibility = evaluateVehicleEligibilityForNewFgRecord(vehicle, {
+          allowedTypes
+        });
+        return {
+          id: vehicle.id,
+          registrationNo: vehicle.registrationNo,
+          make: vehicle.make,
+          vehicleModel: vehicle.vehicleModel,
+          assetTag: vehicle.assetTag,
+          status: vehicle.status,
+          type: vehicle.type,
+          label: `${vehicle.registrationNo} — ${vehicle.make} ${vehicle.vehicleModel}`.trim(),
+          selectable: eligibility.selectable,
+          unavailable: !eligibility.selectable,
+          unavailableReason: eligibility.unavailableReason
+        };
+      })
     };
   }
 
@@ -384,7 +453,7 @@ export class VehiclesService {
     year: number;
     type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
     ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG";
+    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
     serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
     fuelCapacity?: number;
     currentMileage?: number;
@@ -449,7 +518,13 @@ export class VehiclesService {
           : undefined,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: data.customFields as Prisma.InputJsonValue | undefined,
+        customFields: {
+          ...(data.customFields ?? {}),
+          search: {
+            ...((data.customFields?.search as object) || {}),
+            normalizedRegistration: normalizeRegistrationNo(data.registrationNo)
+          }
+        },
         images: []
       }
     });

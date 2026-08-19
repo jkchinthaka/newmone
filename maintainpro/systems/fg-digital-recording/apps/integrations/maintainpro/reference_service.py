@@ -34,6 +34,17 @@ from apps.integrations.maintainpro.exceptions import (
 _OBJECT_ID_RE = re.compile(r"^[a-fA-F0-9]{24}$")
 
 
+def _normalize_registration(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", (value or "")).upper()
+
+
+def _registration_search_regex(query: str) -> str | None:
+    chars = list(_normalize_registration(query))
+    if not chars:
+        return None
+    return "".join(re.escape(c) + r"[\s\-]*" for c in chars)[:-len(r"[\s\-]*")]
+
+
 def resolve_maintainpro_tenant_id(*, organization: Any | None = None, explicit: str = "") -> str:
     """Derive tenant scope from server state — never trust browser tenantId alone."""
     candidate = (explicit or "").strip()
@@ -63,6 +74,7 @@ class MaintainProReferenceService:
         tenant_id: str,
         query: str,
         limit: int = 15,
+        allowed_types: frozenset[str] | None = None,
     ) -> list[VehicleRef]:
         tenant = (tenant_id or "").strip()
         if not tenant:
@@ -71,22 +83,39 @@ class MaintainProReferenceService:
         if len(q) < 1:
             return []
         pattern = {"$regex": re.escape(q), "$options": "i"}
+        or_clauses: list[dict[str, Any]] = [
+            {"registrationNo": pattern},
+            {"make": pattern},
+            {"vehicleModel": pattern},
+            {"assetTag": pattern},
+            {"customFields.search.normalizedRegistration": {
+                "$regex": re.escape(_normalize_registration(q)),
+                "$options": "i",
+            }},
+        ]
+        flex = _registration_search_regex(q)
+        if flex:
+            or_clauses.append({"registrationNo": {"$regex": flex, "$options": "i"}})
         filter_doc: dict[str, Any] = {
             "tenantId": tenant,
-            "$or": [
-                {"registrationNo": pattern},
-                {"make": pattern},
-                {"vehicleModel": pattern},
-                {"assetTag": pattern},
-            ],
+            "$or": or_clauses,
         }
+        if allowed_types:
+            filter_doc["type"] = {"$in": sorted(allowed_types)}
+        # Over-fetch slightly so eligibility filtering still returns up to limit.
         rows = self._client.find(
             "Vehicle",
             filter_doc,
             projection=VEHICLE_PROJECTION,
-            limit=limit,
+            limit=max(limit * 2, limit),
         )
-        return [self._vehicle_from_doc(row, expected_tenant=tenant) for row in rows]
+        out: list[VehicleRef] = []
+        for row in rows:
+            ref = self._vehicle_from_doc(row, expected_tenant=tenant)
+            out.append(ref)
+            if len(out) >= limit:
+                break
+        return out
 
     def get_vehicle(
         self,
@@ -287,6 +316,7 @@ class MaintainProReferenceService:
             vehicle_model=str(doc.get("vehicleModel") or ""),
             status=str(doc.get("status") or ""),
             asset_tag=str(doc.get("assetTag") or ""),
+            vehicle_type=str(doc.get("type") or ""),
             decommissioned_at=str(decommissioned) if decommissioned else None,
         )
 
