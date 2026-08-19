@@ -17,8 +17,8 @@ import {
   BadRequestException
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiBearerAuth, ApiConsumes, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { memoryStorage } from "multer";
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -28,6 +28,8 @@ import { InventoryService } from "./inventory.service";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
 import { InventoryDailyService } from "./inventory-daily.service";
+import { ErpExcelImportService } from "./erp-excel-import.service";
+import { ERP_EXCEL_MAX_BYTES } from "./erp-excel-stock.parser";
 import {
   ApprovePurchaseOrderDto,
   CreatePurchaseOrderDto,
@@ -61,7 +63,8 @@ export class InventoryController {
     private readonly inventoryService: InventoryService,
     private readonly erpStockSyncService: ErpStockSyncService,
     private readonly excelImportService: InventoryExcelImportService,
-    private readonly dailyService: InventoryDailyService
+    private readonly dailyService: InventoryDailyService,
+    private readonly erpExcelImportService: ErpExcelImportService
   ) {}
 
   @Get("parts")
@@ -576,5 +579,78 @@ export class InventoryController {
   ) {
     const data = await this.excelImportService.mapRow(id, rowId, body, req.user);
     return { data, message: "Import row mapping saved" };
+  }
+
+  @Post("erp-import/upload")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.erp_import.upload")
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: ERP_EXCEL_MAX_BYTES }
+    })
+  )
+  async uploadErpExcelImport(@Req() req: AuthedRequest, @UploadedFile() file: Express.Multer.File) {
+    const data = await this.erpExcelImportService.upload(file, req.user);
+    return { data, message: data.reused ? "Existing ERP Excel import recovered" : "ERP Excel uploaded" };
+  }
+
+  @Get("erp-import/history")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.erp_import.history")
+  async erpExcelImportHistory(@Req() req: AuthedRequest, @Query("take") take?: string) {
+    const data = await this.erpExcelImportService.history(req.user, take ? Number(take) : 50);
+    return { data, message: "ERP Excel import history" };
+  }
+
+  @Get("erp-import/:id")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.erp_import.view")
+  async getErpExcelImport(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.erpExcelImportService.getRun(id, req.user);
+    return { data, message: "ERP Excel import run" };
+  }
+
+  @Post("erp-import/:id/validate")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.erp_import.upload")
+  async validateErpExcelImport(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      sheetName?: string;
+      mapping: {
+        itemCode: string;
+        quantity: string;
+        itemName?: string | null;
+        warehouse?: string | null;
+        uom?: string | null;
+        businessDate?: string | null;
+      };
+      warehouseScope?: string | null;
+      businessDate?: string | null;
+      confirmMultiWarehouseAggregate?: boolean;
+    }
+  ) {
+    const data = await this.erpExcelImportService.validate(id, body, req.user);
+    return { data, message: "ERP Excel import validated" };
+  }
+
+  @Post("erp-import/:id/apply")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.erp_import.apply")
+  async applyErpExcelImport(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { confirmed?: boolean }
+  ) {
+    const data = await this.erpExcelImportService.apply(
+      id,
+      { confirmed: Boolean(body?.confirmed) },
+      req.user
+    );
+    return { data, message: data.message };
   }
 }

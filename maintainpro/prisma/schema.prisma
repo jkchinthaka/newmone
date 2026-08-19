@@ -37,6 +37,7 @@ model Tenant {
   warehouseItemBalances        WarehouseItemBalance[]
   stockMovements               StockMovement[]
   inventoryIdempotencies       InventoryIdempotency[]
+  inventoryImportRuns          InventoryImportRun[]
   suppliers                    Supplier[]
   purchaseOrders               PurchaseOrder[]
   partRequests                 PartRequest[]
@@ -321,6 +322,7 @@ model User {
   sentInvitations             TenantInvitation[]      @relation("TenantInvitedBy")
   notifications               Notification[]
   auditEvents                 AuditLog[]
+  inventoryImportRuns         InventoryImportRun[]
   driverProfile               Driver?
   cleaningVisits              CleaningVisit[]         @relation("CleanerVisits")
   signedOffVisits             CleaningVisit[]         @relation("SupervisorSignOffs")
@@ -1727,6 +1729,92 @@ model InventoryIdempotency {
   @@unique([tenantId, key])
   @@index([tenantId, partId])
   @@index([tenantId, operation, createdAt])
+}
+
+/// Durable ERP Excel (or future file) stock import run — tenant-scoped idempotency by file SHA-256.
+model InventoryImportRun {
+  id                 String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String                @db.ObjectId
+  tenant             Tenant                @relation(fields: [tenantId], references: [id])
+  source             String                @default("ERP_EXCEL")
+  originalFilename   String
+  fileSha256         String
+  sheetName          String?
+  businessDate       DateTime?
+  warehouseScope     String?
+  status             InventoryImportStatus @default(UPLOADED)
+  uploadedById       String?               @db.ObjectId
+  uploadedBy         User?                 @relation(fields: [uploadedById], references: [id])
+  uploadedAt         DateTime              @default(now())
+  validatedAt        DateTime?
+  appliedAt          DateTime?
+  totalRows          Int                   @default(0)
+  matchedRows        Int                   @default(0)
+  changedRows        Int                   @default(0)
+  unchangedRows      Int                   @default(0)
+  unmappedRows       Int                   @default(0)
+  duplicateRows      Int                   @default(0)
+  invalidRows        Int                   @default(0)
+  updatedRows        Int                   @default(0)
+  failedRows         Int                   @default(0)
+  mappingSnapshot    Json?
+  stagingRecords     Json?
+  sheetsDetected     Json?
+  warehousesDetected Json?
+  headerRowIndex     Int?
+  errorSummary       String?
+  applyMessage       String?
+  rows               InventoryImportRow[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([tenantId, source, fileSha256])
+  @@index([tenantId, uploadedAt])
+  @@index([tenantId, status, uploadedAt])
+}
+
+model InventoryImportRow {
+  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String                    @db.ObjectId
+  importRunId          String                    @db.ObjectId
+  importRun            InventoryImportRun        @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  rowNumber            Int
+  erpItemCode          String?
+  itemName             String?
+  erpQuantity          Int?
+  warehouseCode        String?
+  uom                  String?
+  partId               String?                   @db.ObjectId
+  partNumber           String?
+  maintainProQuantity  Int?
+  difference           Int?
+  status               InventoryImportRowStatus
+  message              String?
+  createdAt            DateTime                  @default(now())
+
+  @@index([importRunId, status])
+  @@index([tenantId, importRunId])
+  @@index([tenantId, erpItemCode])
+}
+
+enum InventoryImportStatus {
+  UPLOADED
+  MAPPED
+  VALIDATED
+  APPLYING
+  COMPLETED
+  PARTIAL
+  FAILED
+  BLOCKED
+}
+
+enum InventoryImportRowStatus {
+  MATCHED
+  UNCHANGED
+  CHANGE
+  UNMAPPED
+  DUPLICATE
+  INVALID
 }
 
 enum MovementType {
