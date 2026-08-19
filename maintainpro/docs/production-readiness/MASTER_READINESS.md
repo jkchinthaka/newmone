@@ -1,57 +1,87 @@
-# Master readiness — 2026-08-18 closure
+# Master readiness — 2026-08-19 FG go-live gate
 
-Date: 2026-08-18
-Branch: `fix/live-production-remediation`
+Date: 2026-08-19  
+Branch: `fix/live-production-remediation`  
+Release commit: `89c7d3ca4cb875bd93f9d3f3d4475cae08c7f9b3`
 
-## Git truth
+## Git / remote sync
 
-| Checkpoint | SHA | On current branch? |
+| Checkpoint | SHA | Remote? |
 |---|---|---|
-| Inventory engine | `bc5c82a00a8fa61ba70f399ca1204357cde194c3` | YES |
-| FG Next.js UI | `2213a2f32649afdfd8299a6e51f4d08b9f1b6dbf` | YES |
-| Frontend unification | `795b13b3c3f7c5f8d4c6ec93b8747eb499ffa387` | YES |
-| WO approval vs reservation | `d74789a195377bc190583dc3d16f1471ada46a7b` | YES |
-| Django FG subtree + occurrence tokens + security pins | `0eab98fa` | YES |
+| Inventory engine | `bc5c82a0` | YES |
+| FG Next.js UI | `2213a2f3` | YES |
+| Frontend unification | `795b13b3` | YES |
+| WO approval vs reservation | `d74789a1` | YES |
+| Django FG subtree + occurrence tokens | `0eab98fa` | YES |
+| FG Mongo bootstrap guards | `89c7d3ca` | YES |
 
-`d74789a1` / `795b13b3` / `da98a337` are ancestors of current HEAD. Not stranded.
+`REMOTE_HEAD == LOCAL_HEAD` at `89c7d3ca`. No stranded valid commits on target worktree.
 
-## Inventory
+## FG Digital Records — business rules
 
-Engine: `apps/api/src/modules/inventory/inventory-transaction.engine.ts`
-
-Available stock remains on-hand − reserved. Approval of a work-order part request is **not** physical reservation. When reservation fails, approval may still succeed with `procurementRequired=true` and `reservedQuantity=0`. `partIsPhysicallyAvailable()` encodes that rule.
-
-### Disposable Mongo
-
-Prior PASS (2026-08-18) used schema at inventory-engine time. Later Prisma commits `51bba3fc` and `20d7061f` changed schema. That prior disposable validation is **stale**. Not re-run in this gate (`DISPOSABLE_MONGO_URL` unset; production Atlas / `nelna-mongodb-dev:27017` not used).
-
-## FG Digital Records
-
-`FG_NEXTJS_UI_ENABLED` / `NEXT_PUBLIC_FG_NEXTJS_UI_ENABLED` remain **false**.
-
-Django lives at `maintainpro/systems/fg-digital-recording/` on this branch.
-
-| Form | Intended | Django Daily Records / JSON API |
+| Form | Rule | Django JSON API |
 |---|---|---|
-| CL18 | MULTIPLE independent records/day + occurrence token | date + occurrence token |
+| CL18 | MULTIPLE independent records/day + occurrence token | date + occurrenceToken |
 | CL24 | ONE record/day | date only |
-| CL30 | MULTIPLE independent records/day + occurrence token | date + occurrence token |
+| CL30 | MULTIPLE independent records/day + occurrence token | date + occurrenceToken |
 
-Targeted Django pytest (Python 3.13, local FG postgres `127.0.0.1:5433` / redis `127.0.0.1:6380`): **19 passed** (`test_nextjs_json_api`, `test_controlled_daily_records`, `test_daily_records_completion`).
+Django source: `maintainpro/systems/fg-digital-recording/`
 
-`release/fg-erp-combined-candidate` was not force-pushed. Origin still has three Mongo bootstrap commits that branch does not. Occurrence-token Django changes were extracted onto this branch instead of merging the full diverged branch.
+Key modules: `controlled_forms.py`, `scheduling/services.py` (`ensure_controlled_daily_task`), `recording/api_views.py`, `recording/daily_views.py`.
+
+Next.js client sends stable in-flight tokens via `apps/web/lib/fg-occurrence.ts` (sessionStorage intent key; consumed after successful open).
+
+## FG test evidence (2026-08-19)
+
+Environment: Python 3.13 (`uv`), local disposable FG Postgres `127.0.0.1:5433`, Redis `127.0.0.1:6380`. Not production.
+
+| Suite | Result |
+|---|---|
+| Targeted controlled-record JSON API (prior run) | **19 passed** |
+| Recording + Supervisor + QA workflows | **144 passed** (~5m) |
+| Security + unit + accounts (+ CSRF/auth) | **138 passed**, 6 skipped (Mongo-only) |
+| MaintainPro FG Jest (mappers, BFF, contract, SSO) | **26 passed** |
+| Full FG pytest collect | **999 collected** — full suite not executed end-to-end in this gate |
+
+Interrupted Windows run (exit 4294967295) treated as **INFRA_INTERRUPTED**, not TEST_FAILED.
+
+## FG operational UI decision
+
+`FG_OPERATIONAL_UI=DJANGO_VALIDATED`
+
+`FG_NEXTJS_UI_ENABLED` / `NEXT_PUBLIC_FG_NEXTJS_UI_ENABLED` remain **false** until FG Playwright E2E + production browser smoke complete.
+
+MaintainPro SSO handoff path remains: `/api/fg-sso/handoff` → Nest `/auth/fg-sso/exchange` → Django consume.
+
+## MaintainPro regression (2026-08-19)
+
+See session terminal output for full suite. Prior gate: typecheck PASS, RBAC 697/0, tenant unapproved=0, secret scan 12/12, backend 1147 passed / 10 skipped, build PASS.
+
+## Inventory / disposable Mongo
+
+Prior disposable Mongo PASS is **stale** after Prisma commits `51bba3fc` and `20d7061f`. Not re-run (`DISPOSABLE_MONGO_URL` unset).
 
 ## Security
 
-Production `npm audit --omit=dev`: **critical=0**. Direct pins: `websocket-driver@0.7.5`, `fast-xml-parser@5.11.0` with npm overrides. Dev-only `concurrently` / `shell-quote` criticals remain outside the production tree.
+Production `npm audit --omit=dev`: **critical=0**. Historical Git credential: **PENDING_EXTERNAL_ACTION** (no history rewrite).
 
-Historical Git credential exposure: **PENDING_EXTERNAL_ACTION**. History was not rewritten.
+## Production blockers (FG hard requirement)
 
-## Production
+| Blocker | Status |
+|---|---|
+| FG production host DNS (`fg.nelna.lk`) | **NOT RESOLVED** — NXDOMAIN at gate time |
+| FG Django service deployed alongside MaintainPro | **NOT VERIFIED** — not in `maintainpro/docker-compose*.yml` |
+| FG production browser smoke (CL18/24/30) | **MANUAL_AUTHORIZED_VALIDATION_REQUIRED** |
+| FG Playwright E2E | **NOT RUN** — suite requires disposable FG stack + `FG_E2E=1` |
+| Render API commit pin | **unknown** — `/health` reports `commit=unknown` |
+| Business UAT signoff | **PENDING** |
 
-PRODUCTION_CHANGED=NO
-Schema not pushed to production.
-`FG_NEXTJS_UI_ENABLED` not toggled in production.
-No fake production smoke data.
-FG_LIVE_BROWSER_SMOKE=MANUAL_VALIDATION_PENDING
-BUSINESS_UAT_SIGNOFF=PENDING
+## Live URLs (configured, not necessarily at release SHA)
+
+| Service | URL |
+|---|---|
+| Web | https://newmone.chinthakajayaweera1.workers.dev |
+| API | https://newmone.onrender.com |
+| FG (documented target) | https://fg.nelna.lk — DNS not live |
+
+`PRODUCTION_CHANGED=NO` for this documentation-only update unless operator deploys from `89c7d3ca`.
