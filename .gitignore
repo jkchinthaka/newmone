@@ -49,3 +49,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+# Private vehicle master imports (real operational data — never commit)
+PrivateImports/
+**/MaintainPro_Vehicle_Master_Import.xlsx
+

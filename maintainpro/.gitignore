@@ -80,3 +80,11 @@ artifacts/deployment-evidence*.json
 
 artifacts/recovery-tmp/
 *.archive.gz
+
+# Private vehicle master imports (real operational data — never commit)
+PrivateImports/
+**/PrivateImports/
+MaintainPro_Vehicle_Master_Import.xlsx
+**/MaintainPro_Vehicle_Master_Import.xlsx
+apps/api/scripts/data/*.xlsx
+apps/api/scripts/private-imports/

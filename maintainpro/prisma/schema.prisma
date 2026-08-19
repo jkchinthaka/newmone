@@ -921,6 +921,8 @@ enum FuelType {
   HYBRID
   CNG
   LPG
+  /// Import/UI when source fuel is blank or not stated — never invent DIESEL.
+  UNKNOWN
 }
 
 enum DriverTrainingStatus {
