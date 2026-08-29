@@ -166,3 +166,62 @@ export function assertProductionRuntimeSecurity(
     throw new Error(consistency.errors.join(" "));
   }
 }
+
+/**
+ * Resolve the externally-reachable web origin for constructing absolute
+ * redirect URLs server-side (e.g. the FG SSO handoff).
+ *
+ * This MUST come from the operator-configured FRONTEND_URL — never from
+ * `request.nextUrl.origin` or an inbound `Host`/`X-Forwarded-Host` header.
+ * Those reflect what the Next.js process itself sees (which, behind a
+ * reverse proxy, can be its own internal bind address, e.g.
+ * `http://localhost:3001`) rather than the address a real browser can
+ * actually reach, and trusting a client-supplied Host header for redirect
+ * construction is also an open-redirect / host-header-injection risk.
+ *
+ * Fails closed: throws rather than silently falling back to localhost or
+ * an unvalidated value. Callers must not catch this and substitute
+ * request-derived origin data.
+ */
+export function resolvePublicWebOrigin(
+  env: RuntimeSecurityEnv = process.env as RuntimeSecurityEnv
+): string {
+  const raw = String(env.FRONTEND_URL || "").trim();
+  if (!raw) {
+    throw new Error(
+      "FRONTEND_URL is required to construct public redirect URLs. " +
+        "Remediation: set FRONTEND_URL to the externally reachable origin (e.g. http://135.171.163.249)."
+    );
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(
+      "FRONTEND_URL must be an absolute http or https URL. Remediation: set FRONTEND_URL " +
+        "to a full origin such as http://135.171.163.249 (no relative path, no protocol-relative form)."
+    );
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `FRONTEND_URL must use http or https (got "${parsed.protocol}"). ` +
+        "Remediation: use an http:// or https:// origin."
+    );
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error(
+      "FRONTEND_URL must not embed a username or password. Remediation: use a plain host[:port] origin."
+    );
+  }
+  if (!parsed.hostname) {
+    throw new Error("FRONTEND_URL must include a valid host.");
+  }
+
+  // Reconstruct from protocol+host only, discarding any path/query/hash the
+  // operator may have accidentally included — this both normalizes a
+  // trailing slash and guarantees the result is a bare origin safe to pass
+  // as the base argument to `new URL(path, origin)`.
+  return `${parsed.protocol}//${parsed.host}`;
+}

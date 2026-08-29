@@ -1,29 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveBffUpstreamApiBase } from "@/lib/bff-upstream-url";
-import { cookiesShouldBeSecure } from "@/lib/runtime-security-config";
+import { safeFgNext } from "@/lib/fg-sso-safe-next";
+import { cookiesShouldBeSecure, resolvePublicWebOrigin } from "@/lib/runtime-security-config";
 import { readSessionCookies } from "@/lib/session-cookies";
 
 const FG_SSO_ASSERTION_COOKIE = "fg_sso_assertion";
-
-function safeFgNext(raw: string | null): string {
-  const fallback = "/fg/";
-  if (!raw) return fallback;
-  const value = raw.trim();
-  if (!value.startsWith("/fg")) return fallback;
-  if (value.startsWith("//") || value.includes("://")) return fallback;
-  return value;
-}
 
 /**
  * MaintainPro → FG SSO handoff.
  * Requires MaintainPro access cookie; mints short-lived assertion via Nest;
  * stores assertion in Path=/fg HttpOnly cookie; redirects to FG consume or native UI.
+ *
+ * All redirect targets are built from the externally-configured FRONTEND_URL
+ * (via resolvePublicWebOrigin), never from `request.nextUrl.origin`. Behind a
+ * reverse proxy, `request.nextUrl.origin` reflects the Next.js process's own
+ * internal bind address (e.g. http://localhost:3001), not the address a real
+ * browser can reach — using it here previously sent every handoff redirect
+ * to an address unreachable outside the container network.
  */
 export async function GET(request: NextRequest) {
+  let publicOrigin: string;
+  try {
+    publicOrigin = resolvePublicWebOrigin();
+  } catch (error) {
+    // Fail closed: never fall back to request.nextUrl.origin, an inbound
+    // Host/X-Forwarded-Host header, or localhost. A misconfigured
+    // FRONTEND_URL must surface as a loud server error, not a redirect to
+    // an unreachable or attacker-influenced address.
+    return NextResponse.json(
+      {
+        error: "fg_sso_misconfigured",
+        message: error instanceof Error ? error.message : "FRONTEND_URL is misconfigured."
+      },
+      { status: 500 }
+    );
+  }
+
   const nextPath = safeFgNext(request.nextUrl.searchParams.get("next"));
   const session = await readSessionCookies();
-  const loginUrl = new URL("/login", request.nextUrl.origin);
+  const loginUrl = new URL("/login", publicOrigin);
   loginUrl.searchParams.set("next", nextPath);
 
   if (!session.accessToken) {
@@ -58,7 +74,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
   if (exchange.status === 403) {
-    return NextResponse.redirect(new URL("/fg/sso/denied", request.nextUrl.origin));
+    return NextResponse.redirect(new URL("/fg/sso/denied", publicOrigin));
   }
   if (!exchange.ok) {
     return NextResponse.redirect(loginUrl);
@@ -73,7 +89,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const consume = new URL("/fg/sso/consume/", request.nextUrl.origin);
+  const consume = new URL("/fg/sso/consume/", publicOrigin);
   consume.searchParams.set("next", nextPath);
   const response = NextResponse.redirect(consume);
   response.cookies.set(FG_SSO_ASSERTION_COOKIE, assertion, {
