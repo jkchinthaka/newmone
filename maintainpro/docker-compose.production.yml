@@ -121,6 +121,94 @@ services:
       mc mb -p local/$$MINIO_BUCKET || true;
       exit 0;"
 
+  fg-collectstatic:
+    image: ${MAINTAINPRO_FG_IMAGE:-maintainpro-fg:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    environment:
+      WAIT_FOR_POSTGRES: "0"
+      FORCE_SCRIPT_NAME: /fg
+      DJANGO_SETTINGS_MODULE: config.settings.release_build
+
+  fg:
+    image: ${MAINTAINPRO_FG_IMAGE:-maintainpro-fg:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    env_file:
+      - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
+        required: true
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?DJANGO_ALLOWED_HOSTS is required}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?DJANGO_CSRF_TRUSTED_ORIGINS is required}
+      ENVIRONMENT_LABEL: production
+      FG_DATABASE_BACKEND: mongodb
+      MONGODB_URI: ${FG_MONGODB_URI:-${MONGODB_URI:?MONGODB_URI is required}}
+      MONGODB_DATABASE: maintainpro_prod
+      MONGODB_PRODUCTION_TARGET_DATABASE: maintainpro_prod
+      PRIMARY_DATABASE_NAME: maintainpro_prod
+      FG_REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      FORCE_SCRIPT_NAME: /fg
+      WAIT_FOR_POSTGRES: "0"
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
+      MAINTAINPRO_TENANT_ID: ${MAINTAINPRO_TENANT_ID:-}
+      MAINTAINPRO_REFERENCE_DATABASE: ${MAINTAINPRO_REFERENCE_DATABASE:-maintainpro_prod}
+      EVIDENCE_STORAGE_ROOT: /app/media/evidence_private
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}
+      FG_SSO_SIGNING_SECRET: ${FG_SSO_SIGNING_SECRET:?FG_SSO_SIGNING_SECRET is required}
+      FG_SSO_ISSUER: ${FG_SSO_ISSUER:-maintainpro}
+      FG_SSO_AUDIENCE: ${FG_SSO_AUDIENCE:-fg-digital-recording}
+      FG_PASSWORD_LOGIN_ENABLED: "false"
+      MAINTAINPRO_SSO_GATE_ENABLED: "true"
+      MAINTAINPRO_JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      MAINTAINPRO_API_INTERNAL_URL: ${MAINTAINPRO_API_INTERNAL_URL:-http://api:3000/api}
+      MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION: "true"
+
+  fg-celery-worker:
+    image: ${MAINTAINPRO_FG_IMAGE:-maintainpro-fg:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    env_file:
+      - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
+        required: true
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?DJANGO_ALLOWED_HOSTS is required}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?DJANGO_CSRF_TRUSTED_ORIGINS is required}
+      ENVIRONMENT_LABEL: production
+      FG_DATABASE_BACKEND: mongodb
+      MONGODB_URI: ${FG_MONGODB_URI:-${MONGODB_URI:?MONGODB_URI is required}}
+      MONGODB_DATABASE: maintainpro_prod
+      MONGODB_PRODUCTION_TARGET_DATABASE: maintainpro_prod
+      FG_REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      FORCE_SCRIPT_NAME: /fg
+      WAIT_FOR_POSTGRES: "0"
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
+      EVIDENCE_STORAGE_ROOT: /app/media/evidence_private
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+
+  fg-celery-beat:
+    image: ${MAINTAINPRO_FG_IMAGE:-maintainpro-fg:${APP_COMMIT_SHA:?APP_COMMIT_SHA is required}}
+    env_file:
+      - path: ${MAINTAINPRO_COMPOSE_ENV_FILE:-.env}
+        required: true
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?DJANGO_ALLOWED_HOSTS is required}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?DJANGO_CSRF_TRUSTED_ORIGINS is required}
+      ENVIRONMENT_LABEL: production
+      FG_DATABASE_BACKEND: mongodb
+      MONGODB_URI: ${FG_MONGODB_URI:-${MONGODB_URI:?MONGODB_URI is required}}
+      MONGODB_DATABASE: maintainpro_prod
+      MONGODB_PRODUCTION_TARGET_DATABASE: maintainpro_prod
+      FG_REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      REDIS_URL: ${FG_REDIS_URL:-redis://redis:6379/1}
+      FORCE_SCRIPT_NAME: /fg
+      WAIT_FOR_POSTGRES: "0"
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
+      APP_VERSION: ${APP_VERSION:-1.2.0}
+
   nginx:
     # Public :80 left unchanged pending IIS-versus-Nginx ownership decision.
     ports:
