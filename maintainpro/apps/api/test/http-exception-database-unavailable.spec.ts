@@ -1,6 +1,14 @@
 import { ArgumentsHost, HttpException, HttpStatus } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { HttpExceptionFilter } from "../src/common/filters/http-exception.filter";
+
+function uniqueConstraintError(target: string[]) {
+  return new Prisma.PrismaClientKnownRequestError(
+    `Unique constraint failed on the fields: (\`${target.join(", ")}\`)`,
+    { code: "P2002", clientVersion: "5.22.0", meta: { target } }
+  );
+}
 
 describe("HttpExceptionFilter (MP-008 + DATABASE_UNAVAILABLE)", () => {
   const filter = new HttpExceptionFilter();
@@ -104,6 +112,33 @@ describe("HttpExceptionFilter (MP-008 + DATABASE_UNAVAILABLE)", () => {
         error: expect.objectContaining({
           message: "Asset tag must be unique"
         })
+      })
+    );
+  });
+
+  it("maps a Prisma unique-constraint violation (P2002) to a stable 409, not 500", () => {
+    const { status, json } = runFilter(uniqueConstraintError(["registrationNo"]));
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({
+          code: "CONFLICT",
+          message: "A record with this registrationNo already exists.",
+          details: ["registrationNo"]
+        })
+      })
+    );
+  });
+
+  it("does not misclassify P2002 as a DATABASE_UNAVAILABLE dependency failure", () => {
+    const { status, json } = runFilter(uniqueConstraintError(["vin"]));
+
+    expect(status).not.toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: "CONFLICT" })
       })
     );
   });

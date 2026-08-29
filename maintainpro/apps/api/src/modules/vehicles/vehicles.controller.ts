@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { CreateVehicleDto } from "./dto/create-vehicle.dto";
 import { VehiclesService } from "./vehicles.service";
 
 @ApiTags("Vehicles")
@@ -64,35 +65,7 @@ export class VehiclesController {
 
   @Post()
   @Permissions("vehicles.create")
-  async create(
-    @Body()
-    body: {
-      registrationNo: string;
-      assetTag?: string;
-      make: string;
-      vehicleModel: string;
-      description?: string;
-      location?: string;
-      year: number;
-      type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
-      ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-      fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
-      serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
-      fuelCapacity?: number;
-      currentMileage?: number;
-      serviceIntervalDays?: number;
-      serviceIntervalMileage?: number;
-      nextServiceDate?: string;
-      nextServiceMileage?: number;
-      acquisitionDate?: string;
-      purchasePrice?: number;
-      currentValue?: number;
-      warrantyExpiry?: string;
-      costCenter?: string;
-      vendorName?: string;
-      customFields?: Record<string, unknown>;
-    }
-  ) {
+  async create(@Body() body: CreateVehicleDto) {
     const data = await this.vehiclesService.create(body);
     return { data, message: "Vehicle created" };
   }

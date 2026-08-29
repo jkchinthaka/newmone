@@ -1,7 +1,32 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 
 import { requestContext } from "../context/request-context";
+
+/**
+ * Prisma unique-constraint violations (e.g. Vehicle.registrationNo,
+ * Vehicle.vin) must not fall through to a generic 500 — they are a normal,
+ * expected client-input conflict, not a server failure.
+ */
+function isUniqueConstraintViolation(
+  exception: unknown
+): exception is Prisma.PrismaClientKnownRequestError {
+  return (
+    exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === "P2002"
+  );
+}
+
+function uniqueConstraintFields(exception: Prisma.PrismaClientKnownRequestError): string[] {
+  const target = exception.meta?.target;
+  if (Array.isArray(target)) {
+    return target.filter((field): field is string => typeof field === "string");
+  }
+  if (typeof target === "string") {
+    return [target];
+  }
+  return [];
+}
 
 const STATUS_ERROR_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: "VALIDATION_ERROR",
@@ -49,12 +74,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request & { requestId?: string }>();
 
-    const dependencyFailure = this.isDependencyFailure(exception);
-    const status = dependencyFailure
-      ? HttpStatus.SERVICE_UNAVAILABLE
-      : exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const uniqueViolation = isUniqueConstraintViolation(exception);
+    const dependencyFailure = !uniqueViolation && this.isDependencyFailure(exception);
+    const status = uniqueViolation
+      ? HttpStatus.CONFLICT
+      : dependencyFailure
+        ? HttpStatus.SERVICE_UNAVAILABLE
+        : exception instanceof HttpException
+          ? exception.getStatus()
+          : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
@@ -70,7 +98,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let errorMessage: string;
     let clientDetails: unknown[];
 
-    if (dependencyFailure) {
+    if (uniqueViolation) {
+      const fields = uniqueConstraintFields(exception as Prisma.PrismaClientKnownRequestError);
+      errorMessage =
+        fields.length > 0
+          ? `A record with this ${fields.join(", ")} already exists.`
+          : "A record with this value already exists.";
+      clientDetails = fields;
+    } else if (dependencyFailure) {
       errorMessage = DEPENDENCY_FAILURE_MESSAGE;
       clientDetails = ["MongoDB or Prisma dependency is not reachable."];
     } else if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
