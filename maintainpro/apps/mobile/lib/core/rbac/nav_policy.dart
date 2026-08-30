@@ -186,7 +186,7 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'fg-digital-recording',
           label: 'FG Digital Recording',
-          route: '/more',
+          route: '/fg',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.supervisor,

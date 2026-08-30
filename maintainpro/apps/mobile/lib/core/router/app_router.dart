@@ -16,6 +16,7 @@ import '../../features/shell/adaptive_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/sync/sync_center_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
+import '../../features/fg/fg_hub_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_list_screen.dart';
 import '../auth/auth_controller.dart';
@@ -139,6 +140,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/fg',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FgHubScreen(),
       ),
     ],
   );
