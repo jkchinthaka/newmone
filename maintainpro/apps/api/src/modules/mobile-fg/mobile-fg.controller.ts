@@ -140,7 +140,7 @@ export class MobileFgController {
   async qaDecision(
     @Req() req: AuthedRequest,
     @Param("submissionId") submissionId: string,
-    @Body() body: { decision?: string; note?: string; idempotencyKey?: string }
+    @Body() body: { decision?: string; note?: string; reviewNote?: string; idempotencyKey?: string }
   ) {
     return this.service.qaDecision(req, submissionId, body ?? {});
   }

@@ -371,7 +371,7 @@ export class MobileFgService {
   async qaDecision(
     req: FgAuthedRequest,
     submissionId: string,
-    body: { decision?: string; note?: string; idempotencyKey?: string }
+    body: { decision?: string; note?: string; reviewNote?: string; idempotencyKey?: string }
   ) {
     const decision = String(body?.decision ?? "").trim().toUpperCase();
     if (!QA_DECISIONS.has(decision)) {
@@ -379,7 +379,9 @@ export class MobileFgService {
     }
     const id = encodeURIComponent(String(submissionId));
     const payload: Record<string, unknown> = { decision };
-    if (body?.note !== undefined) payload.note = body.note;
+    // Django accepts reviewNote / review_note (not bare "note").
+    const reviewNote = body?.reviewNote ?? body?.note;
+    if (reviewNote !== undefined) payload.reviewNote = reviewNote;
     if (body?.idempotencyKey) payload.idempotencyKey = body.idempotencyKey;
 
     return this.withSession(req, async (session) => {
