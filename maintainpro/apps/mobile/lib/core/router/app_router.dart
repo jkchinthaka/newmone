@@ -16,6 +16,13 @@ import '../../features/shell/adaptive_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/sync/sync_center_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
+import '../../features/fg/cl30_drafts_screen.dart';
+import '../../features/fg/cl30_history_screen.dart';
+import '../../features/fg/cl30_qa_detail_screen.dart';
+import '../../features/fg/cl30_qa_queue_screen.dart';
+import '../../features/fg/cl30_recorder_screen.dart';
+import '../../features/fg/cl30_supervisor_detail_screen.dart';
+import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_list_screen.dart';
@@ -145,6 +152,73 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/fg',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const FgHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'cl30/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final extra = state.extra;
+              String? draftId;
+              if (extra is Map && extra['draftId'] != null) {
+                draftId = extra['draftId'].toString();
+              }
+              return Cl30RecorderScreen(resumeDraftId: draftId);
+            },
+          ),
+          GoRoute(
+            path: 'cl30/drafts',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30DraftsScreen(),
+          ),
+          GoRoute(
+            path: 'cl30/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final extra = state.extra;
+              String? draftId;
+              if (extra is Map && extra['draftId'] != null) {
+                draftId = extra['draftId'].toString();
+              }
+              return Cl30RecorderScreen(
+                recordId: state.pathParameters['id'],
+                resumeDraftId: draftId,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'reviews',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30SupervisorQueueScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => Cl30SupervisorDetailScreen(
+                  submissionId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'qa',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30QaQueueScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => Cl30QaDetailScreen(
+                  submissionId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'history',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30HistoryScreen(),
+          ),
+        ],
       ),
     ],
   );

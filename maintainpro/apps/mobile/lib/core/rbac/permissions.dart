@@ -14,6 +14,14 @@ abstract final class MpPermissions {
   static const farmView = 'farm.view';
   static const cleaningView = 'cleaning.view';
   static const fgAccess = 'fg.access';
+  static const fgRecordingView = 'fg.recording.view';
+  static const fgRecordingCreate = 'fg.recording.create';
+  static const fgRecordingEdit = 'fg.recording.edit';
+  static const fgRecordingSubmit = 'fg.recording.submit';
+  static const fgReviewView = 'fg.review.view';
+  static const fgReviewPerform = 'fg.review.perform';
+  static const fgQaView = 'fg.qa.view';
+  static const fgQaDisposition = 'fg.qa.disposition';
   static const adminAccess = 'admin.access';
   static const settingsManage = 'settings.manage';
 
