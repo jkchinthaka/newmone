@@ -1,4 +1,11 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import {
   AuditAction,
   GateMovementStatus,
@@ -619,6 +626,28 @@ export class VehiclesService {
     return { deleted: true };
   }
 
+  async getGateEligibility(id: string) {
+    const evaluation = await this.evaluateGateOutEligibility(id);
+    const { actorCanOverride } = await this.resolveGateOverrideCapability({ requireActor: false });
+
+    return {
+      allowed: !evaluation.blocked,
+      blocked: evaluation.blocked,
+      blockReasons: evaluation.blockReasons,
+      canOverride: actorCanOverride,
+      vehicle: {
+        id: evaluation.vehicle.id,
+        registrationNo: evaluation.vehicle.registrationNo,
+        status: evaluation.vehicle.status,
+        currentMileage: evaluation.vehicle.currentMileage,
+        serviceStatus: evaluation.vehicle.serviceStatus,
+        nextServiceDate: evaluation.vehicle.nextServiceDate,
+        nextServiceMileage: evaluation.vehicle.nextServiceMileage,
+        driverId: evaluation.vehicle.driverId ?? null
+      }
+    };
+  }
+
   async gateOut(
     id: string,
     data: {
@@ -632,10 +661,36 @@ export class VehiclesService {
       approvedByUserId?: string;
       occurredAt?: string;
       metadata?: Record<string, unknown>;
+      idempotencyKey?: string;
     }
   ) {
-    const tenantId = this.currentTenantId();
-    const vehicle = await this.findOne(id);
+    const idempotencyKey = data.idempotencyKey?.trim() || undefined;
+    if (idempotencyKey) {
+      const existing = await this.findIdempotentGateMovement(id, GateMovementType.OUT, idempotencyKey);
+      if (existing) {
+        const allowed = existing.status !== GateMovementStatus.BLOCKED;
+        return {
+          allowed,
+          blocked: existing.status === GateMovementStatus.BLOCKED || Boolean(existing.blockedReason),
+          blockedReason: existing.blockedReason ?? null,
+          overrideUsed: existing.status === GateMovementStatus.OVERRIDE_APPROVED,
+          movement: existing,
+          idempotentReplay: true
+        };
+      }
+    }
+
+    const evaluation = await this.evaluateGateOutEligibility(id, { driverId: data.driverId });
+    const {
+      tenantId,
+      vehicle,
+      selectedDriver,
+      blockReasons,
+      blocked,
+      serviceEvaluation,
+      complianceReasons,
+      criticalWorkOrderReasons
+    } = evaluation;
 
     assertPolicy(
       canMeterReadingAdvance({
@@ -644,63 +699,23 @@ export class VehiclesService {
       })
     );
 
-    const gateTime = data.occurredAt
-      ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
-      : new Date();
-
-    let selectedDriver = vehicle.driver;
-    if (data.driverId) {
-      const resolvedDriver = tenantId
-        ? await this.prisma.driver.findFirst({
-            where: {
-              id: data.driverId,
-              tenantId
-            },
-            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
-          })
-        : await this.prisma.driver.findUnique({
-            where: { id: data.driverId },
-            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
-          });
-
-      if (!resolvedDriver) {
-        throw new NotFoundException("Driver not found");
-      }
-
-      if (resolvedDriver.licenseExpiry.getTime() < Date.now()) {
-        throw new BadRequestException("Cannot gate-out with an expired driver license");
-      }
-
-      selectedDriver = resolvedDriver;
+    const needsActorResolution =
+      Boolean(data.occurredAt) || (blocked && Boolean(data.allowOverride));
+    let actorId: string | null = null;
+    let actorCanOverride = false;
+    let canHonorClientOccurredAt = false;
+    if (needsActorResolution) {
+      const capability = await this.resolveGateOverrideCapability({
+        requireActor: blocked && Boolean(data.allowOverride)
+      });
+      actorId = capability.actorId;
+      actorCanOverride = capability.actorCanOverride;
+      canHonorClientOccurredAt = capability.canHonorClientOccurredAt;
     }
 
-    const blockReasons: string[] = [];
-    const blockedStatuses: VehicleStatus[] = [
-      VehicleStatus.IN_USE,
-      VehicleStatus.UNDER_MAINTENANCE,
-      VehicleStatus.OUT_OF_SERVICE,
-      VehicleStatus.DISPOSED
-    ];
-    if (blockedStatuses.includes(vehicle.status)) {
-      blockReasons.push(`Vehicle status is ${vehicle.status.replaceAll("_", " ")}`);
-    }
+    const gateTime = this.resolveGateOccurredAt(data.occurredAt, canHonorClientOccurredAt);
+    const overrideAuthorized = actorCanOverride && Boolean(data.allowOverride);
 
-    const serviceEvaluation = this.evaluateServiceWindow(vehicle);
-    if (serviceEvaluation.overdue) {
-      blockReasons.push("Vehicle service is overdue");
-    }
-
-    const complianceReasons = await this.complianceService.evaluateForGateOut(id);
-    if (complianceReasons.length > 0) {
-      blockReasons.push(...complianceReasons);
-    }
-
-    const criticalWorkOrderReasons = await this.evaluateCriticalOpenWorkOrders(id, tenantId);
-    if (criticalWorkOrderReasons.length > 0) {
-      blockReasons.push(...criticalWorkOrderReasons);
-    }
-
-    const blocked = blockReasons.length > 0;
     const gatePolicy = canVehicleGateOut({
       tenantId,
       vehicleActive: vehicle.status !== VehicleStatus.DISPOSED,
@@ -710,10 +725,11 @@ export class VehiclesService {
       complianceValid: complianceReasons.length === 0,
       driverLicenseExpired: selectedDriver ? selectedDriver.licenseExpiry.getTime() < Date.now() : false,
       overrideRequested: Boolean(data.allowOverride),
-      overrideAuthorized: Boolean(data.allowOverride),
+      overrideAuthorized,
       overrideReason: data.overrideReason
     });
     const blockReasonText = blocked ? blockReasons.join("; ") : null;
+    const movementMetadata = this.mergeGateMovementMetadata(data.metadata, idempotencyKey);
 
     if (blocked && !data.allowOverride) {
       const movement = await this.prisma.vehicleGateMovement.create({
@@ -728,7 +744,7 @@ export class VehiclesService {
           checkpoint: data.checkpoint,
           gatePassNo: data.gatePassNo,
           occurredAt: gateTime,
-          metadata: data.metadata as Prisma.InputJsonValue | undefined
+          metadata: movementMetadata
         }
       });
 
@@ -764,8 +780,19 @@ export class VehiclesService {
 
     let approvedByUserId: string | undefined;
     let movementStatus: GateMovementStatus = GateMovementStatus.ALLOWED;
+    let clientAttemptedApproverId: string | undefined;
     if (blocked && data.allowOverride) {
-      approvedByUserId = await this.assertGateOverrideApprover(data.approvedByUserId);
+      if (!actorCanOverride || !actorId) {
+        throw new ForbiddenException("Gate override is not authorized for this actor");
+      }
+      const reason = data.overrideReason?.trim();
+      if (!reason) {
+        throw new BadRequestException("overrideReason is required for gate override");
+      }
+      if (data.approvedByUserId && data.approvedByUserId !== actorId) {
+        clientAttemptedApproverId = data.approvedByUserId;
+      }
+      approvedByUserId = actorId;
       assertPolicy(
         canVehicleGateOut({
           tenantId,
@@ -776,7 +803,7 @@ export class VehiclesService {
           complianceValid: complianceReasons.length === 0,
           overrideRequested: true,
           overrideAuthorized: true,
-          overrideReason: data.overrideReason
+          overrideReason: reason
         })
       );
       movementStatus = GateMovementStatus.OVERRIDE_APPROVED;
@@ -788,6 +815,11 @@ export class VehiclesService {
       nextServiceMileage: vehicle.nextServiceMileage ?? undefined,
       serviceStatus: vehicle.serviceStatus
     });
+
+    const overrideAuditMetadata =
+      clientAttemptedApproverId !== undefined
+        ? { clientAttemptedApproverId }
+        : undefined;
 
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.vehicle.update({
@@ -814,7 +846,13 @@ export class VehiclesService {
           checkpoint: data.checkpoint,
           gatePassNo: data.gatePassNo,
           occurredAt: gateTime,
-          metadata: data.metadata as Prisma.InputJsonValue | undefined
+          metadata: this.mergeGateMovementMetadata(
+            {
+              ...(data.metadata ?? {}),
+              ...(overrideAuditMetadata ?? {})
+            },
+            idempotencyKey
+          )
         }
       });
 
@@ -844,7 +882,8 @@ export class VehiclesService {
           meterReading: data.meterReading,
           previousMileage: Number(vehicle.currentMileage),
           blockedReason: blockReasonText,
-          approvedByUserId
+          approvedByUserId,
+          ...(clientAttemptedApproverId ? { clientAttemptedApproverId } : {})
         },
         beforeData: {
           status: GateMovementStatus.BLOCKED,
@@ -882,17 +921,34 @@ export class VehiclesService {
       notes?: string;
       occurredAt?: string;
       metadata?: Record<string, unknown>;
+      idempotencyKey?: string;
     }
   ) {
+    const idempotencyKey = data.idempotencyKey?.trim() || undefined;
+    if (idempotencyKey) {
+      const existing = await this.findIdempotentGateMovement(id, GateMovementType.IN, idempotencyKey);
+      if (existing) {
+        return {
+          allowed: true,
+          movement: existing,
+          idempotentReplay: true
+        };
+      }
+    }
+
     const vehicle = await this.findOne(id);
 
     if (data.meterReading < Number(vehicle.currentMileage)) {
       throw new BadRequestException("Mileage entries must be monotonically increasing");
     }
 
-    const gateTime = data.occurredAt
-      ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
-      : new Date();
+    let canHonorClientOccurredAt = false;
+    if (data.occurredAt) {
+      const capability = await this.resolveGateOverrideCapability({ requireActor: false });
+      canHonorClientOccurredAt = capability.canHonorClientOccurredAt;
+    }
+    const gateTime = this.resolveGateOccurredAt(data.occurredAt, canHonorClientOccurredAt);
+    const movementMetadata = this.mergeGateMovementMetadata(data.metadata, idempotencyKey);
 
     const serviceStatus = this.resolveServiceStatus({
       currentMileage: data.meterReading,
@@ -944,7 +1000,7 @@ export class VehiclesService {
           previousMileage: Number(vehicle.currentMileage),
           checkpoint: data.checkpoint,
           occurredAt: gateTime,
-          metadata: data.metadata as Prisma.InputJsonValue | undefined
+          metadata: movementMetadata
         }
       });
 
@@ -1836,41 +1892,193 @@ export class VehiclesService {
     );
   }
 
-  private async assertGateOverrideApprover(userId?: string): Promise<string> {
-    if (!userId) {
-      throw new BadRequestException("An approver is required for gate override");
+  private async evaluateGateOutEligibility(
+    id: string,
+    options: { driverId?: string } = {}
+  ) {
+    const tenantId = this.currentTenantId();
+    const vehicle = await this.findOne(id);
+
+    let selectedDriver = vehicle.driver;
+    if (options.driverId) {
+      const resolvedDriver = tenantId
+        ? await this.prisma.driver.findFirst({
+            where: {
+              id: options.driverId,
+              tenantId
+            },
+            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
+          })
+        : await this.prisma.driver.findUnique({
+            where: { id: options.driverId },
+            include: { user: { select: PUBLIC_USER_WITH_ROLE_SELECT } }
+          });
+
+      if (!resolvedDriver) {
+        throw new NotFoundException("Driver not found");
+      }
+
+      if (resolvedDriver.licenseExpiry.getTime() < Date.now()) {
+        throw new BadRequestException("Cannot gate-out with an expired driver license");
+      }
+
+      selectedDriver = resolvedDriver;
     }
 
-    const approver = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
+    const blockReasons: string[] = [];
+    const blockedStatuses: VehicleStatus[] = [
+      VehicleStatus.IN_USE,
+      VehicleStatus.UNDER_MAINTENANCE,
+      VehicleStatus.OUT_OF_SERVICE,
+      VehicleStatus.DISPOSED
+    ];
+    if (blockedStatuses.includes(vehicle.status)) {
+      blockReasons.push(`Vehicle status is ${vehicle.status.replaceAll("_", " ")}`);
+    }
+
+    const serviceEvaluation = this.evaluateServiceWindow(vehicle);
+    if (serviceEvaluation.overdue) {
+      blockReasons.push("Vehicle service is overdue");
+    }
+
+    const complianceReasons = await this.complianceService.evaluateForGateOut(id);
+    if (complianceReasons.length > 0) {
+      blockReasons.push(...complianceReasons);
+    }
+
+    const criticalWorkOrderReasons = await this.evaluateCriticalOpenWorkOrders(id, tenantId);
+    if (criticalWorkOrderReasons.length > 0) {
+      blockReasons.push(...criticalWorkOrderReasons);
+    }
+
+    return {
+      tenantId,
+      vehicle,
+      selectedDriver,
+      blockReasons,
+      blocked: blockReasons.length > 0,
+      serviceEvaluation,
+      complianceReasons,
+      criticalWorkOrderReasons
+    };
+  }
+
+  private async resolveGateOverrideCapability(options: { requireActor: boolean }) {
+    const actorId = requestContext.get()?.actorId ?? null;
+    if (!actorId) {
+      if (options.requireActor) {
+        throw new ForbiddenException("Authenticated actor is required");
+      }
+      return {
+        actorId: null as string | null,
+        actorCanOverride: false,
+        canHonorClientOccurredAt: false,
+        roleName: null as RoleName | null
+      };
+    }
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: {
+        id: true,
         role: {
           select: {
-            name: true
+            name: true,
+            permissions: {
+              select: { key: true }
+            }
           }
         }
       }
     });
 
-    if (!approver) {
-      throw new NotFoundException("Override approver not found");
+    if (!actor) {
+      if (options.requireActor) {
+        throw new ForbiddenException("Authenticated actor not found");
+      }
+      return {
+        actorId: null as string | null,
+        actorCanOverride: false,
+        canHonorClientOccurredAt: false,
+        roleName: null as RoleName | null
+      };
     }
 
-    const allowedRoles = new Set<RoleName>([
-      RoleName.SUPER_ADMIN,
-      RoleName.ADMIN,
-      RoleName.MANAGER,
-      RoleName.OPERATIONS_MANAGER,
-      RoleName.FLEET_MANAGER,
-      RoleName.FARM_OWNER,
-      RoleName.FARM_MANAGER
-    ]);
+    const permissionKeys = new Set(
+      (actor.role.permissions ?? []).map((permission) => permission.key)
+    );
+    const isSuperAdmin = actor.role.name === RoleName.SUPER_ADMIN;
+    const isAdmin = actor.role.name === RoleName.ADMIN;
+    const actorCanOverride = isSuperAdmin || permissionKeys.has("gate.override.approve");
+    const canHonorClientOccurredAt = actorCanOverride || isSuperAdmin || isAdmin;
 
-    if (!allowedRoles.has(approver.role.name)) {
-      throw new BadRequestException("Override approver does not have authority for gate release");
+    return {
+      actorId: actor.id,
+      actorCanOverride,
+      canHonorClientOccurredAt,
+      roleName: actor.role.name
+    };
+  }
+
+  private resolveGateOccurredAt(occurredAt: string | undefined, canHonorClientTime: boolean): Date {
+    if (!occurredAt || !canHonorClientTime) {
+      return new Date();
     }
 
-    return approver.id;
+    const parsed = this.parseDateOrThrow(occurredAt, "occurredAt");
+    const now = Date.now();
+    const maxFutureMs = 24 * 60 * 60 * 1000;
+    const maxPastMs = 30 * 24 * 60 * 60 * 1000;
+
+    if (parsed.getTime() > now + maxFutureMs) {
+      throw new BadRequestException("occurredAt cannot be more than 24 hours in the future");
+    }
+    if (parsed.getTime() < now - maxPastMs) {
+      throw new BadRequestException("occurredAt cannot be more than 30 days in the past");
+    }
+
+    return parsed;
+  }
+
+  private mergeGateMovementMetadata(
+    metadata: Record<string, unknown> | undefined,
+    idempotencyKey: string | undefined
+  ): Prisma.InputJsonValue | undefined {
+    if (!metadata && !idempotencyKey) {
+      return undefined;
+    }
+    return {
+      ...(metadata ?? {}),
+      ...(idempotencyKey ? { idempotencyKey } : {})
+    } as Prisma.InputJsonValue;
+  }
+
+  private async findIdempotentGateMovement(
+    vehicleId: string,
+    movementType: GateMovementType,
+    idempotencyKey: string
+  ) {
+    const recentCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Prisma MongoDB does not support JSON path filters; scan recent rows and match key.
+    const recent = await this.prisma.vehicleGateMovement.findMany({
+      where: {
+        vehicleId,
+        movementType,
+        createdAt: { gte: recentCutoff }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+
+    return (
+      recent.find((row) => {
+        const meta = row.metadata;
+        if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+          return false;
+        }
+        return (meta as Record<string, unknown>).idempotencyKey === idempotencyKey;
+      }) ?? null
+    );
   }
 
   private async recordAudit(payload: {

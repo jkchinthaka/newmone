@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
@@ -119,10 +131,18 @@ export class VehiclesController {
     return { data, message: "Vehicle deleted" };
   }
 
+  @Get(":id/gate-eligibility")
+  @Permissions("vehicles.view")
+  async gateEligibility(@Param("id") id: string) {
+    const data = await this.vehiclesService.getGateEligibility(id);
+    return { data, message: "Gate eligibility evaluated" };
+  }
+
   @Post(":id/gate-out")
   @Permissions("gate.out.create")
   async gateOut(
     @Param("id") id: string,
+    @Headers("idempotency-key") idempotencyHeader: string | undefined,
     @Body()
     body: {
       meterReading: number;
@@ -137,7 +157,8 @@ export class VehiclesController {
       metadata?: Record<string, unknown>;
     }
   ) {
-    const data = await this.vehiclesService.gateOut(id, body);
+    const idempotencyKey = (idempotencyHeader ?? "").trim() || undefined;
+    const data = await this.vehiclesService.gateOut(id, { ...body, idempotencyKey });
     return { data, message: data.allowed ? "Gate-out recorded" : "Gate-out blocked" };
   }
 
@@ -145,6 +166,7 @@ export class VehiclesController {
   @Permissions("gate.in.create")
   async gateIn(
     @Param("id") id: string,
+    @Headers("idempotency-key") idempotencyHeader: string | undefined,
     @Body()
     body: {
       meterReading: number;
@@ -154,7 +176,8 @@ export class VehiclesController {
       metadata?: Record<string, unknown>;
     }
   ) {
-    const data = await this.vehiclesService.gateIn(id, body);
+    const idempotencyKey = (idempotencyHeader ?? "").trim() || undefined;
+    const data = await this.vehiclesService.gateIn(id, { ...body, idempotencyKey });
     return { data, message: "Gate-in recorded" };
   }
 
