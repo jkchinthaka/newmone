@@ -9,17 +9,21 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | # | Web route | Web action | Backend endpoint | Method | Permission | Expected role | Mobile screen | Mobile action | Offline policy | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | /workspace | Open My Workspace | N/A (web composition) | - | - | ACTION_CENTER_ROLES | Home / Module shortcuts | View role shortcuts | cache | foundation |
-| 2 | /action-center | View Action Center | GET /api/work-orders/action-required (+ domain) | GET | role-filtered | ACTION_CENTER_ROLES | Tasks | View priorities | cache | ui |
-| 3 | /work-orders?queue=my-tasks | My Tasks queue | GET /api/work-orders/queues/my-tasks | GET | work_orders.view_own|manage | TECHNICIAN,SUPERVISOR | Tasks / WO list | Open queue | cache | partial |
-| 4 | /work-orders?queue=waiting-parts | Waiting Parts | GET /api/work-orders/queues/waiting-parts | GET | work_orders.* | TECH/SUP/INV/MGR | Tasks | Open queue | cache | ui |
-| 5 | /work-orders?queue=waiting-evidence | Evidence Needed | GET /api/work-orders/queues/waiting-evidence | GET | work_orders.* | TECH/SUP/MGR | Tasks | Open queue | cache | ui |
-| 6 | /work-orders?queue=supervisor-verification | Pending Verification | GET /api/work-orders/queues/supervisor-verification | GET | work_orders.* | SUP/MGR/ADMIN | Tasks | Open queue | online | ui |
-| 7 | /work-orders?queue=high-risk | High Risk | GET /api/work-orders/queues/high-risk | GET | work_orders.* | MGR/SUP/ADMIN | Tasks | Open queue | cache | ui |
-| 8 | /work-orders?queue=triage | Triage Queue | GET /api/work-orders/queues/triage | GET | work_orders.* | MGR/SUP/ADMIN | Tasks | Open queue | cache | ui |
+| 2 | /action-center | View Action Center | GET /api/work-orders/action-required (+ domain) | GET | role-filtered | ACTION_CENTER_ROLES | Tasks | View priorities | cache | done |
+| 3 | /work-orders?queue=my-tasks | My Tasks queue | GET /api/work-orders/queues/my-tasks | GET | work_orders.view_own|manage | TECHNICIAN,SUPERVISOR | Tasks / WO list | Open queue | cache | done |
+| 4 | /work-orders?queue=waiting-parts | Waiting Parts | GET /api/work-orders/queues/waiting-parts | GET | work_orders.* | TECH/SUP/INV/MGR | Tasks | Open queue | cache | done |
+| 5 | /work-orders?queue=waiting-evidence | Evidence Needed | GET /api/work-orders/queues/waiting-evidence | GET | work_orders.* | TECH/SUP/MGR | Tasks | Open queue | cache | done |
+| 6 | /work-orders?queue=supervisor-verification | Pending Verification | GET /api/work-orders/queues/supervisor-verification | GET | work_orders.* | SUP/MGR/ADMIN | Tasks | Open queue | online | done |
+| 7 | /work-orders?queue=high-risk | High Risk | GET /api/work-orders/queues/high-risk | GET | work_orders.* | MGR/SUP/ADMIN | Tasks | Open queue | cache | done |
+| 8 | /work-orders?queue=triage | Triage Queue | GET /api/work-orders/queues/triage | GET | work_orders.* | MGR/SUP/ADMIN | Tasks | Open queue | cache | done |
 | 9 | /dashboard | Dashboard | multiple domain aggregates | GET | dashboard.view | DASHBOARD_ROLES | Home | KPIs (role) | cache | ui |
-| 10 | /work-orders | List/Create/Update WO | /api/work-orders | GET/POST/PATCH | work_orders.manage | TECH+ | WorkOrders | List/Detail/Start/Complete | draft notes; status online | partial |
-| 11 | /work-orders (detail) | Evidence upload | POST /api/work-orders/:id/evidence* | POST | work_orders.* | TECH+ | WO Detail | Queue evidence | queue upload | planned |
-| 12 | /work-orders (detail) | Status transition | PATCH /api/work-orders/:id/status | PATCH | work_orders.update_status | TECH+ | WO Detail | Start/Complete | online required | partial |
+| 10 | /work-orders | List/Create/Update WO | /api/work-orders | GET/POST/PATCH | work_orders.manage | TECH+ | WorkOrders | List/Detail/Create(createdById)/Start/Complete | draft notes; status online | done |
+| 11 | /work-orders (detail) | Evidence upload | POST evidence/upload-request + confirm | POST | TECH+ roles | TECH+ | WO Detail | Capture/queue/upload/retry | pending local + online confirm | done |
+| 12 | /work-orders (detail) | Status transition | PATCH /api/work-orders/:id/status | PATCH | work_orders.update_status | TECH+ | WO Detail | Start/Complete | online required | done |
+| 12a | /work-orders (detail) | Parts list | GET /api/work-orders/:id/parts | GET | work_orders.* | TECH+ | WO Detail | Read-only parts | online/cache | done |
+| 12b | /work-orders (detail) | Parts issue/return | PATCH/POST parts/:lineId/* | PATCH/POST | inventory.stock_issue | INV/TECH | — | Not on mobile (stock authoritative) | online | blocked |
+| 12c | /work-orders (detail) | Activity timeline | GET /api/work-orders/:id/activity | GET | work_orders.* | TECH+ | WO Detail | Timeline | cache | done |
+| 12d | /work-orders (detail) | Asset/vehicle history context | GET /api/work-orders/:id/history | GET | work_orders.* | TECH+ | — | Context API unused in UI yet | cache | partial |
 | 13 | /assets | Assets CRUD | /api/assets | GET/POST/PATCH | assets.manage | TECH+ | Module Hub | Navigate | cache | hub |
 | 14 | /assets/health | Asset health | domain health endpoints | GET | assets.manage | MGR/ASSET/ADMIN | Module Hub | Navigate | online | hub |
 | 15 | /fleet/gate | Gate In/Out | POST /api/vehicles/:id/gate-in|gate-out | POST | gate.in.create|gate.out.create | SECURITY+ | Module Hub / Gate | Gate ops | online required | planned |
