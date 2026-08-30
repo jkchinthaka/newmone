@@ -7,8 +7,8 @@
 | AUTHORITATIVE_MAIN_SHA | `2fd697e004da8524b6348c1ad2d33411a873a2a8` |
 | BRANCH | `feature/mobile-v2` |
 | CURRENT_PHASE | Phase 1 foundation + WO vertical slice (started) |
-| LATEST_COMMIT_SHA | _(updated after each push)_ |
-| DRAFT_PR | _(pending first docs+code push)_ |
+| LATEST_COMMIT_SHA | `37776c6` (pre-push; update after push) |
+| DRAFT_PR | pending create after push |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
 
