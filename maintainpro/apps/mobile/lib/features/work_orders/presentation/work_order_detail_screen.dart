@@ -1,669 +1,162 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/offline/offline_sync.dart';
-import '../../../core/utils/date_formatter.dart';
-import '../../../core/widgets/bottom_sheet_widget.dart';
-import '../../../core/widgets/error_widget.dart';
-import '../../../core/widgets/loading_shimmer.dart';
-import '../../../core/widgets/priority_badge.dart';
-import '../../../core/widgets/status_badge.dart';
-import '../data/models/work_order.dart';
-import 'providers/work_orders_provider.dart';
+import '../../../core/i18n/app_strings.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../design_system/design_system.dart';
+import '../data/work_orders_repository.dart';
 
-const _statusFlow = [
-  'OPEN',
-  'IN_PROGRESS',
-  'ON_HOLD',
-  'COMPLETED',
-  'CANCELLED'
-];
+class WorkOrderDetailScreen extends ConsumerStatefulWidget {
+  const WorkOrderDetailScreen({super.key, required this.workOrderId});
 
-class WorkOrderDetailScreen extends ConsumerWidget {
-  const WorkOrderDetailScreen({super.key, required this.id});
-  final String id;
+  final String workOrderId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(workOrderDetailProvider(id));
+  ConsumerState<WorkOrderDetailScreen> createState() =>
+      _WorkOrderDetailScreenState();
+}
+
+class _WorkOrderDetailScreenState
+    extends ConsumerState<WorkOrderDetailScreen> {
+  bool _acting = false;
+
+  Future<bool> _isOnline() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
+  }
+
+  Future<void> _updateStatus(String status) async {
+    if (!await _isOnline()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.offlineBanner)),
+      );
+      return;
+    }
+
+    setState(() => _acting = true);
+    try {
+      await ref.read(workOrdersRepositoryProvider).updateStatus(
+            id: widget.workOrderId,
+            status: status,
+          );
+      ref.invalidate(workOrderDetailProvider(widget.workOrderId));
+      ref.invalidate(workOrdersListProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.statusUpdated)),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.actionFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(workOrderDetailProvider(widget.workOrderId));
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Work Order'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-        child: SafeArea(
-          bottom: false,
-          child: async.when(
-            loading: () => ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: const [
-                CardShimmer(height: 160),
-                SizedBox(height: AppSpacing.sm),
-                CardShimmer(height: 120),
-                SizedBox(height: AppSpacing.sm),
-                CardShimmer(height: 200),
-              ],
-            ),
-            error: (e, _) => AppErrorWidget(
-              message: e.toString(),
-              onRetry: () => ref.invalidate(workOrderDetailProvider(id)),
-            ),
-            data: (wo) => _DetailBody(workOrder: wo),
-          ),
+      appBar: AppBar(title: const Text(AppStrings.workOrderDetailTitle)),
+      body: async.when(
+        loading: () => const MpLoading(),
+        error: (e, _) => MpErrorState(
+          title: 'Could not load work order',
+          message: e is ApiException ? e.message : e.toString(),
+          onRetry: () =>
+              ref.invalidate(workOrderDetailProvider(widget.workOrderId)),
         ),
-      ),
-    );
-  }
-}
+        data: (wo) {
+          final canStart = !_statusIs(wo.status, const [
+            'IN_PROGRESS',
+            'COMPLETED',
+            'CLOSED',
+            'CANCELLED',
+          ]);
+          final canComplete = _statusIs(wo.status, const [
+            'IN_PROGRESS',
+            'OPEN',
+            'ASSIGNED',
+          ]);
 
-class _DetailBody extends ConsumerWidget {
-  const _DetailBody({required this.workOrder});
-  final WorkOrder workOrder;
-
-  Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(workOrderDetailProvider(workOrder.id));
-    await ref.read(workOrdersListProvider.notifier).refresh();
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final wo = workOrder;
-    final overdue = wo.isOverdue;
-
-    return RefreshIndicator(
-      onRefresh: () => _refresh(ref),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.huge),
-        children: [
-          // Header card
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.card.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(
-                color: overdue ? AppColors.error : AppColors.border,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  wo.woNumber,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.primaryLight,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
+          return ListView(
+            padding: const EdgeInsets.all(MpSpacing.screenPadding),
+            children: [
+              Text(wo.title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: MpSpacing.sm),
+              Wrap(
+                spacing: MpSpacing.sm,
+                runSpacing: MpSpacing.sm,
+                children: [
+                  MpStatusChip(
+                    label: wo.status.replaceAll('_', ' '),
+                    tone: MpStatusTone.primary,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(wo.title, style: AppTextStyles.title),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    StatusBadge(status: overdue ? 'OVERDUE' : wo.status),
-                    PriorityBadge(priority: wo.priority),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm, vertical: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Text(
-                        wo.type,
-                        style: AppTextStyles.label,
-                      ),
+                  if (wo.priority != null)
+                    MpStatusChip(
+                      label: wo.priority!,
+                      tone: MpStatusTone.warning,
                     ),
-                  ],
-                ),
-                if (wo.description.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(wo.description, style: AppTextStyles.body),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Timing card
-          _Section(
-            title: 'Schedule',
-            children: [
-              _KvRow(
-                icon: Icons.event_available_outlined,
-                label: 'Created',
-                value: DateFormatter.dateTime(wo.createdAt),
               ),
-              _KvRow(
-                icon: Icons.schedule_rounded,
-                label: 'Due',
-                value: wo.dueDate == null
-                    ? '—'
-                    : '${DateFormatter.shortDate(wo.dueDate)} · ${DateFormatter.countdown(wo.dueDate)}',
-                valueColor: overdue ? AppColors.error : AppColors.textPrimary,
-              ),
-              if (wo.slaDeadline != null)
-                _KvRow(
-                  icon: Icons.timer_outlined,
-                  label: 'SLA',
-                  value: DateFormatter.countdown(wo.slaDeadline),
-                ),
-              if (wo.startDate != null)
-                _KvRow(
-                  icon: Icons.play_circle_outline,
-                  label: 'Started',
-                  value: DateFormatter.dateTime(wo.startDate),
-                ),
-              if (wo.completedDate != null)
-                _KvRow(
-                  icon: Icons.check_circle_outline,
-                  label: 'Completed',
-                  value: DateFormatter.dateTime(wo.completedDate),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Assignment card
-          _Section(
-            title: 'Assignment',
-            children: [
-              _KvRow(
-                icon: Icons.engineering_outlined,
-                label: 'Technician',
-                value: wo.technicianName ?? 'Unassigned',
-              ),
-              _KvRow(
-                icon: Icons.person_outline,
-                label: 'Created by',
-                value: wo.createdByName ?? '—',
-              ),
+              const SizedBox(height: MpSpacing.lg),
               if (wo.assetName != null)
-                _KvRow(
-                  icon: Icons.precision_manufacturing_outlined,
-                  label: 'Asset',
-                  value: wo.assetName!,
+                MpListTile(
+                  title: 'Asset',
+                  subtitle: wo.assetName,
+                  leading: const Icon(Icons.precision_manufacturing_outlined),
                 ),
-              if (wo.vehiclePlate != null)
-                _KvRow(
-                  icon: Icons.directions_car_outlined,
-                  label: 'Vehicle',
-                  value: wo.vehiclePlate!,
+              if (wo.assignedToName != null)
+                MpListTile(
+                  title: 'Assignee',
+                  subtitle: wo.assignedToName,
+                  leading: const Icon(Icons.person_outline),
                 ),
-            ],
-          ),
-
-          // Costs
-          if (wo.estimatedCost != null ||
-              wo.actualCost != null ||
-              wo.estimatedHours != null ||
-              wo.actualHours != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _Section(
-              title: 'Cost & Effort',
-              children: [
-                if (wo.estimatedCost != null)
-                  _KvRow(
-                    icon: Icons.payments_outlined,
-                    label: 'Est. cost',
-                    value: wo.estimatedCost!.toStringAsFixed(2),
-                  ),
-                if (wo.actualCost != null)
-                  _KvRow(
-                    icon: Icons.payments_outlined,
-                    label: 'Actual cost',
-                    value: wo.actualCost!.toStringAsFixed(2),
-                  ),
-                if (wo.estimatedHours != null)
-                  _KvRow(
-                    icon: Icons.access_time_outlined,
-                    label: 'Est. hours',
-                    value: wo.estimatedHours!.toStringAsFixed(1),
-                  ),
-                if (wo.actualHours != null)
-                  _KvRow(
-                    icon: Icons.access_time_outlined,
-                    label: 'Actual hours',
-                    value: wo.actualHours!.toStringAsFixed(1),
-                  ),
+              if (wo.description != null && wo.description!.isNotEmpty) ...[
+                const MpSectionHeader(title: 'Description'),
+                Text(wo.description!),
               ],
-            ),
-          ],
-
-          // Parts
-          const SizedBox(height: AppSpacing.sm),
-          _Section(
-            title: 'Parts (${wo.parts.length})',
-            trailing: TextButton.icon(
-              onPressed: () => _showAddPart(context, ref, wo.id),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add'),
-            ),
-            children: wo.parts.isEmpty
-                ? [
-                    const Text(
-                      'No parts logged.',
-                      style: AppTextStyles.bodySecondary,
-                    ),
-                  ]
-                : [
-                    for (final p in wo.parts) _PartRow(part: p),
-                  ],
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // Action buttons
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _showStatusSheet(context, ref, wo),
-                icon: const Icon(Icons.published_with_changes_rounded),
-                label: const Text('Update status'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _showAddNote(context, ref, wo.id),
-                icon: const Icon(Icons.note_add_outlined),
-                label: const Text('Add note'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _showAddAttachment(context, ref, wo.id),
-                icon: const Icon(Icons.attach_file_rounded),
-                label: const Text('Attachment'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────── Action handlers ─────────────────
-
-  Future<void> _showStatusSheet(
-      BuildContext context, WidgetRef ref, WorkOrder wo) async {
-    String selected = wo.status;
-    final actualCostCtrl = TextEditingController();
-    final actualHoursCtrl = TextEditingController();
-
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Update Status',
-      child: StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                for (final s in _statusFlow)
-                  ChoiceChip(
-                    label: Text(s.replaceAll('_', ' ')),
-                    selected: selected == s,
-                    onSelected: (_) => setState(() => selected = s),
-                  ),
-              ],
-            ),
-            if (selected == 'COMPLETED') ...[
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: actualCostCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Actual cost',
-                  prefixIcon: Icon(Icons.payments_outlined),
+              const SizedBox(height: MpSpacing.xxl),
+              if (canStart)
+                MpButton(
+                  label: AppStrings.startWork,
+                  icon: Icons.play_arrow,
+                  isLoading: _acting,
+                  onPressed: _acting
+                      ? null
+                      : () => _updateStatus('IN_PROGRESS'),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: actualHoursCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Actual hours',
-                  prefixIcon: Icon(Icons.access_time_outlined),
+              if (canStart && canComplete)
+                const SizedBox(height: MpSpacing.md),
+              if (canComplete)
+                MpButton(
+                  label: AppStrings.completeWork,
+                  icon: Icons.check,
+                  variant: MpButtonVariant.tonal,
+                  isLoading: _acting,
+                  onPressed: _acting
+                      ? null
+                      : () => _updateStatus('COMPLETED'),
                 ),
-              ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () async {
-                  HapticFeedback.mediumImpact();
-                  final nav = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-                  try {
-                    final result = await ref
-                        .read(offlineSyncControllerProvider)
-                        .submitWorkOrderStatus(
-                          wo.id,
-                          status: selected,
-                          actualCost: num.tryParse(actualCostCtrl.text),
-                          actualHours: num.tryParse(actualHoursCtrl.text),
-                        );
-                    nav.pop();
-                    if (result.isSynced) {
-                      await _refresh(ref);
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Status updated')),
-                      );
-                    } else {
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.isDuplicate
-                                ? 'This status update is already queued for sync.'
-                                : 'Saved offline. This status update will sync when you are back online.',
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(e.toString())),
-                    );
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Future<void> _showAddNote(
-      BuildContext context, WidgetRef ref, String id) async {
-    final ctrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Note',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: ctrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'Type your note…',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final note = ctrl.text.trim();
-                if (note.isEmpty) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(workOrdersRemoteProvider).addNote(id, note);
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Note added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAddAttachment(
-      BuildContext context, WidgetRef ref, String id) async {
-    final ctrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Attachment',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'Attachment URL',
-              prefixIcon: Icon(Icons.link_rounded),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final url = ctrl.text.trim();
-                if (url.isEmpty) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref
-                      .read(workOrdersRemoteProvider)
-                      .addAttachment(id, url);
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Attachment added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAddPart(
-      BuildContext context, WidgetRef ref, String id) async {
-    final partIdCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController();
-    final costCtrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Part',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: partIdCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Part ID',
-              prefixIcon: Icon(Icons.qr_code_2_rounded),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: qtyCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Quantity',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: costCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Unit cost',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final partId = partIdCtrl.text.trim();
-                final qty = num.tryParse(qtyCtrl.text);
-                final cost = num.tryParse(costCtrl.text);
-                if (partId.isEmpty || qty == null || cost == null) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(workOrdersRemoteProvider).addPart(
-                        id,
-                        partId: partId,
-                        quantity: qty,
-                        unitCost: cost,
-                      );
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Part added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.children,
-    this.trailing,
-  });
-
-  final String title;
-  final List<Widget> children;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(title, style: AppTextStyles.subtitle)),
-              if (trailing != null) trailing!,
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _KvRow extends StatelessWidget {
-  const _KvRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
-          Text(
-            value,
-            style: AppTextStyles.body.copyWith(
-              color: valueColor,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PartRow extends StatelessWidget {
-  const _PartRow({required this.part});
-  final WorkOrderPart part;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          const Icon(Icons.build_outlined,
-              size: 16, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  part.partName ?? part.partId,
-                  style: AppTextStyles.body,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (part.sku != null)
-                  Text(part.sku!, style: AppTextStyles.caption),
-              ],
-            ),
-          ),
-          Text('${part.quantity} × ${part.unitCost.toStringAsFixed(2)}',
-              style: AppTextStyles.label),
-        ],
-      ),
-    );
+  bool _statusIs(String status, List<String> candidates) {
+    final s = status.toUpperCase();
+    return candidates.any((c) => s == c || s.contains(c));
   }
 }
