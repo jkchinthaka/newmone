@@ -76,6 +76,16 @@ class WorkOrderDetail extends WorkOrderSummary {
   }
 }
 
+/// Known Nest work-order queue keys (see work-order-queues.service).
+abstract final class WorkOrderQueueKeys {
+  static const myTasks = 'my-tasks';
+  static const waitingParts = 'waiting-parts';
+  static const waitingEvidence = 'waiting-evidence';
+  static const supervisorVerification = 'supervisor-verification';
+  static const highRisk = 'high-risk';
+  static const triage = 'triage';
+}
+
 class WorkOrdersRepository {
   WorkOrdersRepository(this._dio);
 
@@ -84,18 +94,61 @@ class WorkOrdersRepository {
   Future<List<WorkOrderSummary>> list({
     String? status,
     String? queue,
+    String? search,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      // Prefer dedicated queue endpoint when a queue key is provided.
+      if (queue != null && queue.isNotEmpty) {
+        return listQueue(queue, page: page, limit: limit, search: search);
+      }
+      final response = await _dio.get<dynamic>(
+        '/work-orders',
+        queryParameters: {
+          if (status != null) 'status': status,
+          if (search != null && search.isNotEmpty) 'search': search,
+          'page': page,
+          'limit': limit,
+        },
+      );
+      final items = _extractList(response.data);
+      return items.map(WorkOrderSummary.fromJson).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  Future<List<WorkOrderSummary>> listQueue(
+    String queueKey, {
+    String? search,
     int page = 1,
     int limit = 50,
   }) async {
     try {
       final response = await _dio.get<dynamic>(
-        '/work-orders',
+        '/work-orders/queues/$queueKey',
         queryParameters: {
-          if (status != null) 'status': status,
-          if (queue != null) 'queue': queue,
+          if (search != null && search.isNotEmpty) 'search': search,
           'page': page,
           'limit': limit,
         },
+      );
+      final items = _extractList(response.data);
+      return items.map(WorkOrderSummary.fromJson).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  Future<List<WorkOrderSummary>> actionRequired({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        '/work-orders/action-required',
+        queryParameters: {'page': page, 'limit': limit},
       );
       final items = _extractList(response.data);
       return items.map(WorkOrderSummary.fromJson).toList();
@@ -137,6 +190,20 @@ class WorkOrdersRepository {
     }
   }
 
+  Future<void> addNote({
+    required String id,
+    required String note,
+  }) async {
+    try {
+      await _dio.post<dynamic>(
+        '/work-orders/$id/notes',
+        data: {'note': note, 'body': note, 'text': note},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   List<Map<String, dynamic>> _extractList(dynamic body) {
     if (body is List) {
       return body
@@ -153,11 +220,18 @@ class WorkOrdersRepository {
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
       }
-      if (data is Map && data['items'] is List) {
-        return (data['items'] as List)
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
+      // Nested queue payload: { data: { data: [...], total, ... } }
+      if (data is Map) {
+        final nested = Map<String, dynamic>.from(data);
+        for (final key in ['data', 'items', 'results', 'workOrders']) {
+          final list = nested[key];
+          if (list is List) {
+            return list
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          }
+        }
       }
       if (map['items'] is List) {
         return (map['items'] as List)
@@ -183,9 +257,35 @@ final workOrdersRepositoryProvider = Provider<WorkOrdersRepository>((ref) {
   return WorkOrdersRepository(ref.watch(dioProvider));
 });
 
-final workOrdersListProvider =
-    FutureProvider.autoDispose<List<WorkOrderSummary>>((ref) async {
-  return ref.watch(workOrdersRepositoryProvider).list();
+class WorkOrdersListQuery {
+  const WorkOrdersListQuery({this.queue, this.search, this.status});
+
+  final String? queue;
+  final String? search;
+  final String? status;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkOrdersListQuery &&
+      other.queue == queue &&
+      other.search == search &&
+      other.status == status;
+
+  @override
+  int get hashCode => Object.hash(queue, search, status);
+}
+
+final workOrdersListProvider = FutureProvider.autoDispose
+    .family<List<WorkOrderSummary>, WorkOrdersListQuery>((ref, query) async {
+  final repo = ref.watch(workOrdersRepositoryProvider);
+  if (query.queue == 'action-required') {
+    return repo.actionRequired();
+  }
+  return repo.list(
+    queue: query.queue,
+    search: query.search,
+    status: query.status,
+  );
 });
 
 final workOrderDetailProvider =

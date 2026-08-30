@@ -6,11 +6,12 @@
 |---|---|
 | AUTHORITATIVE_MAIN_SHA | `2fd697e004da8524b6348c1ad2d33411a873a2a8` |
 | BRANCH | `feature/mobile-v2` |
-| CURRENT_PHASE | Phase 1 foundation + WO vertical slice (started) |
-| LATEST_COMMIT_SHA | `37776c6` (pre-push; update after push) |
-| DRAFT_PR | pending create after push |
+| CURRENT_PHASE | Phase 1 foundation + WO vertical slice (in progress) |
+| LATEST_COMMIT_SHA | _(set after push)_ |
+| DRAFT_PR | https://github.com/jkchinthaka/newmone/pull/28 |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
+| REMOTE_HEAD_SHA | _(set after push)_ |
 
 ## Completed
 
@@ -26,13 +27,16 @@
 - [x] Dio client + secure tokens + tenant header + refresh single-flight
 - [x] RBAC nav policy mirrored from web roles
 - [x] Drift outbox foundation + sync controller
-- [x] Work Orders list/detail + start/complete (online) via real API paths
-- [x] `flutter analyze` clean; `flutter test` 12/12
+- [x] Work Orders list/detail + start/`TECHNICIAN_COMPLETED` via real API
+- [x] WO queues via `/api/work-orders/queues/:queueKey` + action-required
+- [x] WO search/filter chips + field note with offline draft fallback
+- [x] Draft PR #28 opened
+- [x] `flutter analyze` clean; `flutter test` 14/14
 
 ## Incomplete / next
 
-- [ ] Wire Action Center queues to `GET /api/work-orders/queues*`
 - [ ] Evidence upload pipeline end-to-end
+- [ ] Parts lines / history on WO detail
 - [ ] Additive `/api/mobile/bootstrap` + action-center (Nest, non-breaking)
 - [ ] FG CL30 recorder/supervisor/QA vertical
 - [ ] Gate In/Out vertical
@@ -46,10 +50,10 @@
 | Metric | Count |
 |---|---|
 | Rows total | 86 |
-| Completed (`done`) | 5 |
-| Partial | ~6 |
+| Completed (`done`) | ~8 (auth/session/drafts/sync/diagnostics + WO partial→stronger) |
+| Partial | WO queues/list/detail/notes |
 | Hub/UI/foundation | majority |
-| Planned / API gaps | remaining |
+| Planned / API gaps | FG, Gate, BFF, evidence |
 
 See `MOBILE_PARITY_MATRIX.md`.
 
@@ -78,12 +82,11 @@ See `MOBILE_PARITY_MATRIX.md`.
 
 ```
 flutter analyze → No issues found
-flutter test → 12/12 passed
+flutter test → 14/14 passed
 ```
 
 ## Next exact action
 
-1. Commit docs baseline + Flutter V2 foundation (split commits)
-2. Push `feature/mobile-v2`
-3. Open DRAFT PR → `main`
-4. Continue WO queues + evidence + deepen vertical slice
+1. Evidence upload + WO parts/history surfaces
+2. Then FG CL30 vertical slice against FG SSO + recording APIs
+3. Then Gate In/Out via `/api/vehicles/:id/gate-*`

@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/app_strings.dart';
+import '../../core/network/api_exception.dart';
 import '../../design_system/design_system.dart';
 import '../shell/adaptive_shell.dart';
 import '../work_orders/data/work_orders_repository.dart';
 
-/// Action center / queue placeholder wired for real work-order lists.
+/// Action Center queues backed by Nest `/work-orders/queues/:queueKey`.
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key, this.queue});
 
@@ -15,50 +16,78 @@ class TasksScreen extends ConsumerWidget {
 
   String get _title {
     switch (queue) {
-      case 'waiting-evidence':
+      case WorkOrderQueueKeys.waitingEvidence:
         return 'Evidence needed';
-      case 'waiting-parts':
+      case WorkOrderQueueKeys.waitingParts:
         return 'Waiting parts';
-      case 'supervisor-verification':
+      case WorkOrderQueueKeys.supervisorVerification:
         return 'Pending verification';
-      case 'high-risk':
+      case WorkOrderQueueKeys.highRisk:
         return 'High risk';
-      case 'triage':
+      case WorkOrderQueueKeys.triage:
         return 'Triage';
-      case 'my-tasks':
+      case WorkOrderQueueKeys.myTasks:
         return 'My tasks';
+      case 'action-required':
+        return 'Action required';
       default:
         return AppStrings.navTasks;
     }
   }
 
+  WorkOrdersListQuery get _query => WorkOrdersListQuery(
+        queue: queue ?? 'action-required',
+      );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(workOrdersListProvider);
+    final async = ref.watch(workOrdersListProvider(_query));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_title),
-        actions: shellActions(context),
+        actions: [
+          ...shellActions(context),
+          PopupMenuButton<String>(
+            tooltip: 'Queues',
+            onSelected: (value) => context.go('/tasks?queue=$value'),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'action-required', child: Text('Action required')),
+              PopupMenuItem(value: WorkOrderQueueKeys.myTasks, child: Text('My tasks')),
+              PopupMenuItem(value: WorkOrderQueueKeys.waitingParts, child: Text('Waiting parts')),
+              PopupMenuItem(
+                value: WorkOrderQueueKeys.waitingEvidence,
+                child: Text('Evidence needed'),
+              ),
+              PopupMenuItem(
+                value: WorkOrderQueueKeys.supervisorVerification,
+                child: Text('Pending verification'),
+              ),
+              PopupMenuItem(value: WorkOrderQueueKeys.highRisk, child: Text('High risk')),
+              PopupMenuItem(value: WorkOrderQueueKeys.triage, child: Text('Triage')),
+            ],
+          ),
+        ],
       ),
       body: async.when(
         loading: () => const MpSkeletonList(),
         error: (e, _) => MpErrorState(
           title: 'Could not load tasks',
-          message: e.toString(),
-          onRetry: () => ref.invalidate(workOrdersListProvider),
+          message: e is ApiException ? e.message : e.toString(),
+          onRetry: () => ref.invalidate(workOrdersListProvider(_query)),
         ),
         data: (items) {
           if (items.isEmpty) {
             return MpEmptyState(
               title: AppStrings.emptyTasks,
-              message: 'Queues will show assigned work orders here.',
+              message: 'No items in this queue right now.',
               actionLabel: 'Open work orders',
               onAction: () => context.push('/work-orders'),
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(workOrdersListProvider),
+            onRefresh: () async =>
+                ref.invalidate(workOrdersListProvider(_query)),
             child: ListView.separated(
               padding: const EdgeInsets.all(MpSpacing.screenPadding),
               itemCount: items.length,
@@ -108,10 +137,10 @@ class TasksScreen extends ConsumerWidget {
     if (s.contains('PROGRESS') || s.contains('OPEN')) {
       return MpStatusTone.primary;
     }
-    if (s.contains('HOLD') || s.contains('WAIT')) {
+    if (s.contains('HOLD') || s.contains('WAIT') || s.contains('REWORK')) {
       return MpStatusTone.warning;
     }
-    if (s.contains('CANCEL') || s.contains('FAIL')) {
+    if (s.contains('CANCEL') || s.contains('FAIL') || s.contains('OVERDUE')) {
       return MpStatusTone.error;
     }
     return MpStatusTone.neutral;

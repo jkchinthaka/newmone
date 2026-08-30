@@ -2,8 +2,11 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/app_strings.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/offline/outbox_service.dart';
+import '../../../core/tenant/tenant_context.dart';
 import '../../../design_system/design_system.dart';
 import '../data/work_orders_repository.dart';
 
@@ -17,9 +20,15 @@ class WorkOrderDetailScreen extends ConsumerStatefulWidget {
       _WorkOrderDetailScreenState();
 }
 
-class _WorkOrderDetailScreenState
-    extends ConsumerState<WorkOrderDetailScreen> {
+class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   bool _acting = false;
+  final _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
 
   Future<bool> _isOnline() async {
     final results = await Connectivity().checkConnectivity();
@@ -42,7 +51,6 @@ class _WorkOrderDetailScreenState
             status: status,
           );
       ref.invalidate(workOrderDetailProvider(widget.workOrderId));
-      ref.invalidate(workOrdersListProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.statusUpdated)),
@@ -56,6 +64,72 @@ class _WorkOrderDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.actionFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  Future<void> _saveNote() async {
+    final text = _noteController.text.trim();
+    if (text.isEmpty) return;
+
+    final auth = ref.read(authControllerProvider);
+    final tenantId = ref.read(tenantContextProvider).tenantId ??
+        auth.user?.tenantId ??
+        '';
+    final userId = auth.user?.id ?? '';
+
+    final online = await _isOnline();
+    setState(() => _acting = true);
+    try {
+      if (online && tenantId.isNotEmpty) {
+        await ref.read(workOrdersRepositoryProvider).addNote(
+              id: widget.workOrderId,
+              note: text,
+            );
+      } else {
+        await ref.read(outboxServiceProvider).saveDraft(
+              tenantId: tenantId.isEmpty ? 'unknown' : tenantId,
+              userId: userId.isEmpty ? 'unknown' : userId,
+              entityType: 'WorkOrderNote',
+              entityId: widget.workOrderId,
+              title: 'WO note draft',
+              payload: {
+                'workOrderId': widget.workOrderId,
+                'note': text,
+              },
+            );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Note saved to Draft Center')),
+        );
+        _noteController.clear();
+        return;
+      }
+      if (!mounted) return;
+      _noteController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Note saved')),
+      );
+    } on ApiException catch (e) {
+      // Fall back to local draft on failure.
+      if (tenantId.isNotEmpty && userId.isNotEmpty) {
+        await ref.read(outboxServiceProvider).saveDraft(
+              tenantId: tenantId,
+              userId: userId,
+              entityType: 'WorkOrderNote',
+              entityId: widget.workOrderId,
+              title: 'WO note draft',
+              payload: {
+                'workOrderId': widget.workOrderId,
+                'note': text,
+              },
+            );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${e.message} — saved as draft')),
       );
     } finally {
       if (mounted) setState(() => _acting = false);
@@ -77,17 +151,9 @@ class _WorkOrderDetailScreenState
               ref.invalidate(workOrderDetailProvider(widget.workOrderId)),
         ),
         data: (wo) {
-          final canStart = !_statusIs(wo.status, const [
-            'IN_PROGRESS',
-            'COMPLETED',
-            'CLOSED',
-            'CANCELLED',
-          ]);
-          final canComplete = _statusIs(wo.status, const [
-            'IN_PROGRESS',
-            'OPEN',
-            'ASSIGNED',
-          ]);
+          final status = wo.status.toUpperCase();
+          final canStart = status == 'OPEN' || status == 'REWORK_REQUIRED';
+          final canComplete = status == 'IN_PROGRESS' || status == 'ON_HOLD';
 
           return ListView(
             padding: const EdgeInsets.all(MpSpacing.screenPadding),
@@ -112,13 +178,13 @@ class _WorkOrderDetailScreenState
               const SizedBox(height: MpSpacing.lg),
               if (wo.assetName != null)
                 MpListTile(
-                  title: 'Asset',
+                  title: 'Asset / Vehicle',
                   subtitle: wo.assetName,
                   leading: const Icon(Icons.precision_manufacturing_outlined),
                 ),
               if (wo.assignedToName != null)
                 MpListTile(
-                  title: 'Assignee',
+                  title: 'Assigned technician',
                   subtitle: wo.assignedToName,
                   leading: const Icon(Icons.person_outline),
                 ),
@@ -126,15 +192,29 @@ class _WorkOrderDetailScreenState
                 const MpSectionHeader(title: 'Description'),
                 Text(wo.description!),
               ],
+              const MpSectionHeader(title: 'Field note'),
+              MpTextField(
+                controller: _noteController,
+                label: 'Note',
+                hint: 'Capture observations…',
+                maxLines: 3,
+              ),
+              const SizedBox(height: MpSpacing.sm),
+              MpButton(
+                label: 'Save note',
+                icon: Icons.note_alt_outlined,
+                variant: MpButtonVariant.outlined,
+                isLoading: _acting,
+                onPressed: _acting ? null : _saveNote,
+              ),
               const SizedBox(height: MpSpacing.xxl),
               if (canStart)
                 MpButton(
                   label: AppStrings.startWork,
                   icon: Icons.play_arrow,
                   isLoading: _acting,
-                  onPressed: _acting
-                      ? null
-                      : () => _updateStatus('IN_PROGRESS'),
+                  onPressed:
+                      _acting ? null : () => _updateStatus('IN_PROGRESS'),
                 ),
               if (canStart && canComplete)
                 const SizedBox(height: MpSpacing.md),
@@ -146,17 +226,12 @@ class _WorkOrderDetailScreenState
                   isLoading: _acting,
                   onPressed: _acting
                       ? null
-                      : () => _updateStatus('COMPLETED'),
+                      : () => _updateStatus('TECHNICIAN_COMPLETED'),
                 ),
             ],
           );
         },
       ),
     );
-  }
-
-  bool _statusIs(String status, List<String> candidates) {
-    final s = status.toUpperCase();
-    return candidates.any((c) => s == c || s.contains(c));
   }
 }
