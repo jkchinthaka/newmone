@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { AuthModule } from "../auth/auth.module";
@@ -7,6 +7,7 @@ import { FgDjangoClient } from "./fg-django-client";
 import {
   createFgSessionStore,
   FG_MOBILE_SESSION_TTL_DEFAULT,
+  FG_SESSION_REDIS_REQUIRED_MSG,
   FG_SESSION_STORE
 } from "./fg-session-store";
 import { MobileFgController } from "./mobile-fg.controller";
@@ -30,11 +31,26 @@ import { MobileFgService } from "./mobile-fg.service";
           Number.isFinite(ttlRaw) && ttlRaw >= 60 && ttlRaw <= 86_400
             ? Math.floor(ttlRaw)
             : FG_MOBILE_SESSION_TTL_DEFAULT;
-        return createFgSessionStore({
-          redisUrl: config.get<string>("REDIS_URL", ""),
-          ttlSeconds,
-          isProduction: config.get<string>("NODE_ENV", "development") === "production"
-        });
+        const redisUrl = (config.get<string>("REDIS_URL", "") ?? "").trim();
+        const isProduction = config.get<string>("NODE_ENV", "development") === "production";
+
+        if (isProduction && !redisUrl) {
+          throw new ServiceUnavailableException(FG_SESSION_REDIS_REQUIRED_MSG);
+        }
+
+        try {
+          return createFgSessionStore({
+            redisUrl,
+            ttlSeconds,
+            isProduction
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : FG_SESSION_REDIS_REQUIRED_MSG;
+          if (message.includes("FG session Redis")) {
+            throw new ServiceUnavailableException(message);
+          }
+          throw err;
+        }
       }
     }
   ]

@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common";
+import { Logger, ServiceUnavailableException } from "@nestjs/common";
 import Redis from "ioredis";
 
 import type { FgBrokerSession } from "./fg-session.types";
@@ -6,6 +6,7 @@ import type { FgBrokerSession } from "./fg-session.types";
 export const FG_SESSION_STORE = "FG_SESSION_STORE";
 export const FG_SESSION_KEY_PREFIX = "mp:fg:broker:";
 export const FG_MOBILE_SESSION_TTL_DEFAULT = 1800;
+export const FG_SESSION_REDIS_REQUIRED_MSG = "FG session Redis required in production";
 
 export interface FgSessionStore {
   get(key: string): Promise<FgBrokerSession | null>;
@@ -45,7 +46,7 @@ export class MemoryFgSessionStore implements FgSessionStore {
  * Redis-backed FG broker session store.
  * Lazy-connects via ioredis. If Redis is unreachable in non-production,
  * operations fall back to an in-memory store with a warning log.
- * In production, Redis failures propagate (fail closed).
+ * In production, Redis failures propagate (fail closed) — never use memory.
  */
 export class RedisFgSessionStore implements FgSessionStore {
   private readonly logger = new Logger(RedisFgSessionStore.name);
@@ -76,8 +77,17 @@ export class RedisFgSessionStore implements FgSessionStore {
     return `${FG_SESSION_KEY_PREFIX}${key}`;
   }
 
+  private productionUnavailable(reason: string): never {
+    throw new ServiceUnavailableException(`FG session Redis unavailable in production: ${reason}`);
+  }
+
   private async ensureConnected(): Promise<boolean> {
-    if (this.fallbackActive) return false;
+    if (this.fallbackActive) {
+      if (this.isProduction) {
+        this.productionUnavailable("fallback active");
+      }
+      return false;
+    }
     if (this.redis.status === "ready") return true;
     if (this.connectAttempted && this.redis.status !== "wait" && this.redis.status !== "connecting") {
       return this.activateFallbackOrThrow("Redis not ready");
@@ -96,7 +106,7 @@ export class RedisFgSessionStore implements FgSessionStore {
 
   private activateFallbackOrThrow(reason: string): boolean {
     if (this.isProduction) {
-      throw new Error(`FG session Redis unavailable in production: ${reason}`);
+      this.productionUnavailable(reason);
     }
     if (!this.fallbackActive) {
       this.logger.warn(
@@ -114,6 +124,9 @@ export class RedisFgSessionStore implements FgSessionStore {
   async get(key: string): Promise<FgBrokerSession | null> {
     const ok = await this.ensureConnected();
     if (!ok || !this.useRedis()) {
+      if (this.isProduction) {
+        this.productionUnavailable("memory fallback denied");
+      }
       return this.fallback.get(key);
     }
     try {
@@ -122,6 +135,9 @@ export class RedisFgSessionStore implements FgSessionStore {
       return JSON.parse(raw) as FgBrokerSession;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "get failed";
+      if (this.isProduction) {
+        this.productionUnavailable(msg);
+      }
       this.activateFallbackOrThrow(msg);
       return this.fallback.get(key);
     }
@@ -131,6 +147,9 @@ export class RedisFgSessionStore implements FgSessionStore {
     const ttl = ttlSeconds ?? this.defaultTtlSeconds;
     const ok = await this.ensureConnected();
     if (!ok || !this.useRedis()) {
+      if (this.isProduction) {
+        this.productionUnavailable("memory fallback denied");
+      }
       await this.fallback.set(key, session, ttl);
       return;
     }
@@ -138,6 +157,9 @@ export class RedisFgSessionStore implements FgSessionStore {
       await this.redis.set(this.prefixed(key), JSON.stringify(session), "EX", Math.max(1, ttl));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "set failed";
+      if (this.isProduction) {
+        this.productionUnavailable(msg);
+      }
       this.activateFallbackOrThrow(msg);
       await this.fallback.set(key, session, ttl);
     }
@@ -146,6 +168,9 @@ export class RedisFgSessionStore implements FgSessionStore {
   async delete(key: string): Promise<void> {
     const ok = await this.ensureConnected();
     if (!ok || !this.useRedis()) {
+      if (this.isProduction) {
+        this.productionUnavailable("memory fallback denied");
+      }
       await this.fallback.delete(key);
       return;
     }
@@ -153,6 +178,9 @@ export class RedisFgSessionStore implements FgSessionStore {
       await this.redis.del(this.prefixed(key));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "delete failed";
+      if (this.isProduction) {
+        this.productionUnavailable(msg);
+      }
       this.activateFallbackOrThrow(msg);
       await this.fallback.delete(key);
     }
@@ -166,8 +194,14 @@ export function createFgSessionStore(options: {
 }): FgSessionStore {
   const ttl = options.ttlSeconds ?? FG_MOBILE_SESSION_TTL_DEFAULT;
   const redisUrl = (options.redisUrl ?? "").trim();
+  const isProduction = options.isProduction === true;
+
   if (!redisUrl) {
+    if (isProduction) {
+      throw new Error(FG_SESSION_REDIS_REQUIRED_MSG);
+    }
     return new MemoryFgSessionStore(ttl);
   }
-  return new RedisFgSessionStore(redisUrl, ttl, options.isProduction === true);
+
+  return new RedisFgSessionStore(redisUrl, ttl, isProduction);
 }
