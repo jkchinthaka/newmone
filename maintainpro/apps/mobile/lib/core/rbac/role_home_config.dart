@@ -41,6 +41,13 @@ abstract final class RoleHomeConfig {
       iconName: 'build',
     ),
     HomeCard(
+      id: 'vehicles',
+      title: 'Vehicles',
+      subtitle: 'Fleet vehicle context',
+      route: '/fleet/vehicles',
+      iconName: 'directions_car',
+    ),
+    HomeCard(
       id: 'scan',
       title: 'Scan',
       subtitle: 'Asset, QR, or barcode lookup',
@@ -96,6 +103,13 @@ abstract final class RoleHomeConfig {
       iconName: 'notifications_active',
     ),
     HomeCard(
+      id: 'fleet',
+      title: 'Fleet',
+      subtitle: 'Vehicles, trips, fuel',
+      route: '/fleet',
+      iconName: 'directions_car',
+    ),
+    HomeCard(
       id: 'work-orders',
       title: 'Work Orders',
       subtitle: 'Operations overview',
@@ -137,11 +151,18 @@ abstract final class RoleHomeConfig {
 
   static const _driverCards = [
     HomeCard(
+      id: 'my-vehicle',
+      title: 'My Vehicle',
+      subtitle: 'Fleet vehicles and trips',
+      route: '/fleet/vehicles',
+      iconName: 'directions_car',
+    ),
+    HomeCard(
       id: 'tasks',
       title: 'My Trips / Tasks',
       subtitle: 'Assigned driving work',
-      route: '/tasks',
-      iconName: 'directions_car',
+      route: '/fleet',
+      iconName: 'local_shipping',
     ),
     HomeCard(
       id: 'scan',

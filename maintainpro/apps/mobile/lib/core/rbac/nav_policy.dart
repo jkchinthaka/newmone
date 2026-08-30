@@ -120,13 +120,15 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'fleet',
           label: 'Fleet',
-          route: '/more',
+          route: '/fleet',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.security,
             NavRoles.driver,
             NavRoles.fleet,
+            NavRoles.technician,
           ]),
+          requiredPermissions: const ['vehicles.view'],
         ),
         ModuleNavItem(
           id: 'fleet-gate',
@@ -147,7 +149,7 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'vehicles',
           label: 'Vehicles',
-          route: '/more',
+          route: '/fleet/vehicles',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.driver,
@@ -155,6 +157,7 @@ abstract final class NavPolicy {
             NavRoles.fleet,
             NavRoles.technician,
           ]),
+          requiredPermissions: const ['vehicles.view'],
         ),
       ],
     ),

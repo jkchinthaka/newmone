@@ -121,6 +121,7 @@ class HomeScreen extends ConsumerWidget {
                       route.startsWith('/drafts') ||
                       route.startsWith('/search') ||
                       route.startsWith('/gate') ||
+                      route.startsWith('/fleet') ||
                       route.startsWith('/fg')) {
                     context.push(route);
                   } else {

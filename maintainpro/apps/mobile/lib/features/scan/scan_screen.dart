@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_controller.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/offline/sync_controller.dart';
@@ -31,16 +32,25 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   bool get _isOffline =>
       ref.read(syncControllerProvider).phase == SyncPhase.offline;
 
+  bool get _isSecurity {
+    final role =
+        (ref.read(authControllerProvider).user?.role ?? '').toUpperCase();
+    return role == 'SECURITY_OFFICER';
+  }
+
+  String _vehicleRoute(String id) =>
+      _isSecurity ? '/gate/vehicle/$id' : '/fleet/vehicles/$id';
+
   Future<void> _onManualSubmit() async {
     final code = _manual.text.trim();
     if (code.isEmpty) return;
 
     if (looksLikeVehicleId(code)) {
-      context.push('/gate/vehicle/$code');
+      context.push(_vehicleRoute(code));
       return;
     }
 
-    // Registration / opaque tag — try gate vehicle search then open.
+    // Registration / opaque tag — try vehicle search then open.
     if (_isOffline) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Scanned code: $code')),
@@ -54,13 +64,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           await ref.read(gateApiClientProvider).searchVehicles(code);
       if (!mounted) return;
       if (matches.length == 1) {
-        context.push('/gate/vehicle/${matches.first.id}');
+        context.push(_vehicleRoute(matches.first.id));
       } else if (matches.isNotEmpty) {
-        context.push('/gate');
+        context.push(_isSecurity ? '/gate' : '/fleet/vehicles');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Found ${matches.length} vehicles for "$code" — search on Gate',
+              'Found ${matches.length} vehicles for "$code"',
             ),
           ),
         );
@@ -147,10 +157,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           ),
           const SizedBox(height: MpSpacing.md),
           MpButton(
-            label: 'Open Gate',
+            label: _isSecurity ? 'Open Gate' : 'Open Fleet',
             variant: MpButtonVariant.tonal,
-            icon: Icons.local_shipping_outlined,
-            onPressed: () => context.push('/gate'),
+            icon: _isSecurity
+                ? Icons.local_shipping_outlined
+                : Icons.directions_car_outlined,
+            onPressed: () => context.push(_isSecurity ? '/gate' : '/fleet'),
           ),
           const SizedBox(height: MpSpacing.md),
           MpButton(

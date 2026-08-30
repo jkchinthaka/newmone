@@ -24,6 +24,15 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/fleet/driver_detail_screen.dart';
+import '../../features/fleet/drivers_list_screen.dart';
+import '../../features/fleet/fleet_hub_screen.dart';
+import '../../features/fleet/fuel_log_form_screen.dart';
+import '../../features/fleet/meter_reading_form_screen.dart';
+import '../../features/fleet/trip_end_screen.dart';
+import '../../features/fleet/trip_start_screen.dart';
+import '../../features/fleet/vehicle_detail_screen.dart';
+import '../../features/fleet/vehicles_list_screen.dart';
 import '../../features/gate/gate_home_screen.dart';
 import '../../features/gate/gate_in_screen.dart';
 import '../../features/gate/gate_out_screen.dart';
@@ -48,7 +57,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loggingIn = loc == '/login';
       final splashing = loc == '/splash';
 
-      if (auth.status == AuthStatus.unknown || splashing) {
+      // Stay on splash only while auth status is still resolving.
+      if (auth.status == AuthStatus.unknown) {
         return splashing ? null : '/splash';
       }
 
@@ -149,6 +159,71 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => WorkOrderDetailScreen(
               workOrderId: state.pathParameters['id']!,
             ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/fleet',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FleetHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'vehicles',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const VehiclesListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => VehicleDetailScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'trip-start',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => TripStartScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'trip-end',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => TripEndScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'fuel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => FuelLogFormScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'meter',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => MeterReadingFormScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'drivers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const DriversListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => DriverDetailScreen(
+                  driverId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),
