@@ -70,8 +70,8 @@ Mobile-first, no horizontal overflow, text scaling, empty/loading/error, validat
 ## Latest automated run (this session)
 
 - `flutter analyze`: clean
-- `flutter test`: 62/62 passed (includes 16 gate tests)
-- Nest: `mobile-fg-broker-invariants`, `gate-override-authorization`, `vehicles-phase2.service` — passed
+- `flutter test`: **81/81** passed (includes gate + **fleet** models/api/rbac/list tests)
+- Nest: `vehicles-phase2.service` tripEnd IN_PROGRESS rejection + prior gate/FG suites — passed where run
 
 ## Gate failure scenarios (automated / expected)
 
@@ -86,3 +86,19 @@ Mobile-first, no horizontal overflow, text scaling, empty/loading/error, validat
 | Device clock / occurredAt | Ordinary users: server time only |
 | Timeout after commit | Recheck eligibility/movements — do not claim failure blindly |
 | Stale two-device Gate Out | Second blocked by vehicle status policy |
+
+## Fleet failure scenarios (automated / expected)
+
+| Scenario | Expected |
+|---|---|
+| Offline trip start/end | Blocked — connection required; no outbox |
+| Offline fuel / meter | Blocked — connection required; no outbox |
+| Double-tap trip / meter | InFlightGuard only — **no** server Idempotency-Key |
+| Double-tap / retry fuel | Same `clientActionId` → Nest returns existing fuel log |
+| Trip end non-IN_PROGRESS | Nest 400; mobile End disabled without active trip |
+| Trip body with occurredAt | Client strips; Nest owns timestamps |
+| Drivers list as DRIVER/MANAGER | 403 / hub hides Drivers (SUPER_ADMIN/ADMIN/ASSET_MANAGER only) |
+| Driver unassign | Blocked — no API; do not fake client-side |
+| Meter below authoritative | 400 from Nest |
+| Timeout after trip/fuel commit | Re-fetch trips/fuel-logs before claiming failure |
+| Health chip | Maps `serviceStatus` + alerts only — not a new scoring model |

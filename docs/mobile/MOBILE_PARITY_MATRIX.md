@@ -30,10 +30,17 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 15a | /fleet/gate | Gate eligibility | GET /api/vehicles/:id/gate-eligibility | GET | vehicles.view | SECURITY+ | Gate Vehicle | Server block reasons | online | done |
 | 15b | /fleet/gate | Gate override | POST gate-out + allowOverride | POST | gate.override.approve | ADMIN/MGR+ | Gate Out | Override iff server canOverride | online | done |
 | 15c | /fleet/gate | Camera scan vehicle | Universal Scan | GET | vehicles.view | SECURITY+ | Scan → Gate | Manual resolve; camera WIP | online | partial |
-| 16 | /fleet | Fleet hub | /api/fleet + sockets /fleet | GET | fleet.manage | FLEET+ | Module Hub | Navigate | cache | hub |
-| 17 | /vehicles | Vehicles list/detail | /api/vehicles | GET/POST/PATCH | vehicles.view | FLEET/DRIVER/TECH | Module Hub | Navigate | cache | hub |
-| 18 | /vehicles/health | Vehicle health | analytics | GET | vehicles.view | MGR/FLEET/ADMIN | Module Hub | Navigate | online | hub |
-| 19 | /vehicles/costs | Vehicle costs | cost analytics | GET | reports.vehicle_cost.view | MGR/FIN/ADMIN | Module Hub | Navigate | online | hub |
+| 16 | /fleet | Fleet hub | GET /api/vehicles/summary + alerts | GET | vehicles.view | FLEET+/DRIVER/TECH | Fleet Hub | Summary, alerts, module links | online/cache | done |
+| 16a | /fleet (map) | Live fleet map | sockets /fleet GPS | GET/WS | fleet.manage | FLEET+ | — | Not on mobile V2 | online | hub |
+| 17 | /vehicles | Vehicles list/detail | GET /api/vehicles, /:id | GET | vehicles.view | FLEET/DRIVER/TECH | Vehicles list/detail | List, search, detail, history | cache reads | done |
+| 17a | /drivers | Drivers directory | GET /api/drivers | GET | Roles only | SUPER_ADMIN,ADMIN,ASSET_MANAGER | Drivers list/detail | List/detail; 403 otherwise | online | partial |
+| 17b | /vehicles (assign) | Assign driver | POST /:id/assign-driver | POST | vehicles.edit | ADMIN/ASSET+ | API client | Online assign | online | partial |
+| 17c | /vehicles (unassign) | Unassign driver | — | — | — | — | — | No Nest unassign API | — | blocked |
+| 17d | /vehicles trips | Trip start/end | POST /:id/trip-start\|trip-end | POST | vehicles.operate | FLEET/DRIVER+ | Trip start/end | Online; InFlightGuard; no occurredAt | online required | done |
+| 17e | /vehicles fuel | Fuel log + analytics | POST fuel-log; GET fuel-analytics | POST/GET | vehicles.operate\|view | FLEET/DRIVER+ | Fuel form + detail analytics | Online; clientActionId UUID | online required | done |
+| 17f | /vehicles meter | Meter reading | POST /:id/meter-reading | POST | vehicles.operate | FLEET/DRIVER+ | Meter form | Online; InFlightGuard only | online required | done |
+| 18 | /vehicles/health | Vehicle health | serviceStatus + alerts | GET | vehicles.view | MGR/FLEET/ADMIN | Vehicle detail chips | serviceStatus/alerts map only — no new algorithm | online | partial |
+| 19 | /vehicles/costs | Vehicle costs | fuel-analytics (not full cost report) | GET | vehicles.view | MGR/FIN/ADMIN | Vehicle detail | Fuel cost KPIs only | online | partial |
 | 20 | /inventory | Inventory | /api/inventory | GET/POST | inventory.* | INV/PROC/MGR | Module Hub | Navigate | stock ops online | hub |
 | 21 | /inventory/erp-import | ERP Stock Import | /api/inventory/erp-import* | POST | erp.import|inventory | ADMIN/MGR/INV | Module Hub | Navigate | online | hub |
 | 22 | /inventory/warranty | Warranty | inventory warranty | GET | inventory.* | MGR/INV/ADMIN | Module Hub | Navigate | cache | hub |
@@ -104,11 +111,9 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 86 | mobile-only | Bootstrap BFF | GET /api/mobile/bootstrap | GET | auth | * | Startup | Aggregate | online | api-gap |
 
 ## Totals
-- Rows: 86
-- Completed (done): 5
-- Partial: 5
-- Hub/UI placeholders: 68
-- Planned / API gaps: 8
+- Rows: ~93 (fleet sub-rows 16a–17f added)
+- Fleet vertical this pass: hub/list/detail/trips/fuel/meter **done**; drivers/health/costs/assign **partial**; live map **hub**; unassign **blocked**
+- Remaining domains still largely hub/ui/planned outside WO, FG, Gate, Fleet
 
 ## Hidden / reachable web routes (not all in sidebar)
 Also discovered under App Router: `/accept-invite`, `/register`, `/forgot-password`, `/splash`, `/qr/report-issue`, `/support/*`, `/change-requests`, `/releases`, `/admin/users|people|roles|tenants|invitations`, `/fg/*` subroutes, `/go-live/*`, `/erp/*`, `/post-go-live/*`, `/delivery-readiness/*`, `/qa/*`, legacy `(fms)`: `/machinery`, `/service`, `/vehicle`, `/pending-requests`, `/reports/job-costing`.
