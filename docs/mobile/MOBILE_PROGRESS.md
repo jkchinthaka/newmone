@@ -8,7 +8,7 @@
 | BRANCH | `feature/mobile-v2` |
 | DRAFT_PR | https://github.com/jkchinthaka/newmone/pull/28 |
 | CURRENT_PHASE | FG CL30 secure integration — Nest broker + Flutter CL30 flows |
-| LAST_VERIFIED_IMPLEMENTATION_SHA | `ffad659` (Nest broker) / `1495bd9` (API tests) — Flutter CL30 pending commit |
+| LAST_VERIFIED_IMPLEMENTATION_SHA | `ffad659` Nest broker / `c8458c5` Flutter CL30 / `ade76de` QA note fix |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
 
