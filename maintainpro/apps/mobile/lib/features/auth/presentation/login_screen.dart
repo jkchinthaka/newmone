@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/utils/validators.dart';
-import 'providers/auth_provider.dart';
+import '../../../core/auth/auth_controller.dart';
+import '../../../core/i18n/app_strings.dart';
+import '../../../design_system/design_system.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,144 +15,123 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _obscure = true;
+  bool _submitting = false;
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    HapticFeedback.mediumImpact();
-    await ref.read(authStateProvider.notifier).login(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
+    setState(() => _submitting = true);
+    final ok = await ref.read(authControllerProvider.notifier).login(
+          email: _email.text,
+          password: _password.text,
         );
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (ok) {
+      context.go('/home');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AuthState>(authStateProvider, (prev, next) {
-      if (!mounted) return;
-      if (next is AuthAuthenticated) {
-        context.go('/dashboard');
-      } else if (next is AuthError) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(
-            content: Text(next.message),
-            backgroundColor: AppColors.error,
-          ));
-      }
-    });
-
-    final loading = ref.watch(authStateProvider) is AuthLoading;
+    final auth = ref.watch(authControllerProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-        child: SafeArea(
-          child: Center(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.brandGradient,
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                        ),
-                        child: const Icon(Icons.precision_manufacturing_rounded,
-                            color: Colors.white, size: 36),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text('Welcome back',
-                          style: AppTextStyles.display.copyWith(fontSize: 28)),
-                      const SizedBox(height: AppSpacing.xs),
-                      const Text('Sign in to continue to MaintainPro',
-                          style: AppTextStyles.bodySecondary),
-                      const SizedBox(height: AppSpacing.xxl),
-                      TextFormField(
-                        controller: _emailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.username],
-                        validator: Validators.email,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: _passwordCtrl,
-                        obscureText: _obscure,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.password],
-                        validator: Validators.required,
-                        onFieldSubmitted: (_) => _submit(),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined),
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
+              padding: const EdgeInsets.all(MpSpacing.xl),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: MpSpacing.xl),
+                    Icon(Icons.precision_manufacturing,
+                        size: 48, color: scheme.primary),
+                    const SizedBox(height: MpSpacing.md),
+                    Text(
+                      AppStrings.appName,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w700,
                           ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: loading
-                              ? null
-                              : () => context.push('/forgot-password'),
-                          child: const Text('Forgot password?'),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      FilledButton(
-                        onPressed: loading ? null : _submit,
-                        child: loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : const Text('Sign In'),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("Don't have an account? ",
-                              style: AppTextStyles.bodySecondary),
-                          GestureDetector(
-                            onTap: () => context.push('/register'),
-                            child: Text('Sign up',
-                                style: AppTextStyles.body.copyWith(
-                                    color: AppColors.primaryLight,
-                                    fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(height: MpSpacing.xs),
+                    Text(
+                      AppStrings.loginSubtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
                           ),
-                        ],
+                    ),
+                    const SizedBox(height: MpSpacing.xxl),
+                    MpTextField(
+                      controller: _email,
+                      label: AppStrings.emailLabel,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      prefixIcon: Icons.email_outlined,
+                      autofillHints: const [AutofillHints.email],
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return AppStrings.fieldRequired;
+                        }
+                        if (!v.contains('@')) return AppStrings.invalidEmail;
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: MpSpacing.lg),
+                    MpTextField(
+                      controller: _password,
+                      label: AppStrings.passwordLabel,
+                      obscureText: _obscure,
+                      textInputAction: TextInputAction.done,
+                      prefixIcon: Icons.lock_outline,
+                      autofillHints: const [AutofillHints.password],
+                      onSubmitted: (_) => _submit(),
+                      suffixIcon: IconButton(
+                        onPressed: () =>
+                            setState(() => _obscure = !_obscure),
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return AppStrings.fieldRequired;
+                        }
+                        return null;
+                      },
+                    ),
+                    if (auth.errorMessage != null) ...[
+                      const SizedBox(height: MpSpacing.md),
+                      Text(
+                        auth.errorMessage!,
+                        style: TextStyle(color: scheme.error),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: MpSpacing.xl),
+                    MpButton(
+                      label: AppStrings.signIn,
+                      onPressed: _submitting ? null : _submit,
+                      isLoading: _submitting,
+                      icon: Icons.login,
+                    ),
+                  ],
                 ),
               ),
             ),
