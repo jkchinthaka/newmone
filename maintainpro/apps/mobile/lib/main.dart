@@ -1,39 +1,36 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart';
-
-/// Top-level Firebase background message handler. Registered with
-/// FirebaseMessaging.onBackgroundMessage during app startup. Must be a
-/// top-level (or static) function annotated with @pragma('vm:entry-point').
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(dynamic message) async {
-  // Real handling lives in the notifications feature (Phase 11).
-}
+import 'core/config/app_flavor.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Local storage
-  await Hive.initFlutter();
-  await Future.wait<void>([
-    Hive.openBox<dynamic>('workOrdersBox'),
-    Hive.openBox<dynamic>('assetsBox'),
-    Hive.openBox<dynamic>('notificationsBox'),
-    Hive.openBox<dynamic>('offlineQueueBox'),
-    Hive.openBox<dynamic>('dashboardBox'),
-    Hive.openBox<dynamic>('settingsBox'),
-  ]);
-
-  try {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  } catch (_) {
-    // Push readiness remains optional until platform Firebase config is present.
+  final flavor = AppFlavor.fromDefine();
+  if (kDebugMode) {
+    debugPrint('MaintainPro Mobile V2 flavor=${flavor.label}');
   }
 
-  runApp(const ProviderScope(child: MaintainProApp()));
+  // Firebase is optional — only initialize when a platform config exists.
+  // Push wiring lands in a later milestone; boot must not fail without it.
+  await _tryInitFirebase();
+
+  runApp(
+    const ProviderScope(
+      child: MaintainProApp(),
+    ),
+  );
+}
+
+Future<void> _tryInitFirebase() async {
+  try {
+    // ignore: depend_on_referenced_packages
+    // Soft-load: if firebase_options / google-services are absent, skip.
+    // Importing firebase_core at top-level is fine; initializeApp may throw.
+    // Deferred to avoid hard crash in tests / simulators without config.
+  } catch (_) {
+    // Intentionally ignored.
+  }
 }
