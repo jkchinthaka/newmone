@@ -101,8 +101,7 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
               error: (e, _) => MpErrorState(
                 title: 'Could not load work orders',
                 message: e is ApiException ? e.message : e.toString(),
-                onRetry: () =>
-                    ref.invalidate(workOrdersListProvider(_query)),
+                onRetry: () => ref.invalidate(workOrdersListProvider(_query)),
               ),
               data: (items) {
                 if (items.isEmpty) {
