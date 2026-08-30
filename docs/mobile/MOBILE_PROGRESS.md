@@ -7,11 +7,11 @@
 | AUTHORITATIVE_MAIN_SHA | `2fd697e004da8524b6348c1ad2d33411a873a2a8` |
 | BRANCH | `feature/mobile-v2` |
 | CURRENT_PHASE | Phase 1 foundation + WO vertical slice (in progress) |
-| LATEST_COMMIT_SHA | `da505d9fd17edf57115c3440e666b8c71dadc2d8` |
+| LATEST_COMMIT_SHA | `629e337ff7ef00d099149744593ec9d59127a45c` |
 | DRAFT_PR | https://github.com/jkchinthaka/newmone/pull/28 |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
-| REMOTE_HEAD_SHA | `da505d9fd17edf57115c3440e666b8c71dadc2d8` |
+| REMOTE_HEAD_SHA | `629e337ff7ef00d099149744593ec9d59127a45c` |
 
 ## Completed
 
