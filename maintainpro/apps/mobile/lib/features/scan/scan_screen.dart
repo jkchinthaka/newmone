@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/app_strings.dart';
+import '../../core/network/api_exception.dart';
+import '../../core/offline/sync_controller.dart';
 import '../../design_system/design_system.dart';
+import '../gate/data/gate_api_client.dart';
+import '../gate/data/gate_models.dart';
 import '../shell/adaptive_shell.dart';
 
 /// Universal scan UI foundation (camera wiring in a later milestone).
-class ScanScreen extends StatefulWidget {
+class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
 
   @override
-  State<ScanScreen> createState() => _ScanScreenState();
+  ConsumerState<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> {
+class _ScanScreenState extends ConsumerState<ScanScreen> {
   final _manual = TextEditingController();
+  bool _resolving = false;
 
   @override
   void dispose() {
@@ -22,12 +28,60 @@ class _ScanScreenState extends State<ScanScreen> {
     super.dispose();
   }
 
-  void _onManualSubmit() {
+  bool get _isOffline =>
+      ref.read(syncControllerProvider).phase == SyncPhase.offline;
+
+  Future<void> _onManualSubmit() async {
     final code = _manual.text.trim();
     if (code.isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Scanned code: $code')),
-    );
+
+    if (looksLikeVehicleId(code)) {
+      context.push('/gate/vehicle/$code');
+      return;
+    }
+
+    // Registration / opaque tag — try gate vehicle search then open.
+    if (_isOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scanned code: $code')),
+      );
+      return;
+    }
+
+    setState(() => _resolving = true);
+    try {
+      final matches =
+          await ref.read(gateApiClientProvider).searchVehicles(code);
+      if (!mounted) return;
+      if (matches.length == 1) {
+        context.push('/gate/vehicle/${matches.first.id}');
+      } else if (matches.isNotEmpty) {
+        context.push('/gate');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Found ${matches.length} vehicles for "$code" — search on Gate',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No vehicle match for: $code')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scanned code: $code')),
+      );
+    } finally {
+      if (mounted) setState(() => _resolving = false);
+    }
   }
 
   @override
@@ -47,7 +101,8 @@ class _ScanScreenState extends State<ScanScreen> {
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
                 borderRadius: MpRadius.lgAll,
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.4)),
+                border:
+                    Border.all(color: scheme.outline.withValues(alpha: 0.4)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -87,12 +142,20 @@ class _ScanScreenState extends State<ScanScreen> {
           MpButton(
             label: 'Look up',
             icon: Icons.search,
-            onPressed: _onManualSubmit,
+            isLoading: _resolving,
+            onPressed: _resolving ? null : _onManualSubmit,
+          ),
+          const SizedBox(height: MpSpacing.md),
+          MpButton(
+            label: 'Open Gate',
+            variant: MpButtonVariant.tonal,
+            icon: Icons.local_shipping_outlined,
+            onPressed: () => context.push('/gate'),
           ),
           const SizedBox(height: MpSpacing.md),
           MpButton(
             label: 'Open work orders',
-            variant: MpButtonVariant.tonal,
+            variant: MpButtonVariant.outlined,
             onPressed: () => context.push('/work-orders'),
           ),
         ],

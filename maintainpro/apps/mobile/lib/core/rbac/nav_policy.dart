@@ -131,13 +131,18 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'fleet-gate',
           label: 'Gate',
-          route: '/more',
+          route: '/gate',
           allowedRoles: NavRoles.merge([
             NavRoles.security,
             NavRoles.admin,
             NavRoles.management,
             NavRoles.fleet,
           ]),
+          requiredPermissions: const [
+            'gate.in.create',
+            'gate.out.create',
+            'vehicles.view',
+          ],
         ),
         ModuleNavItem(
           id: 'vehicles',

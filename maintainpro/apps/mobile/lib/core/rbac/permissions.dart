@@ -8,6 +8,10 @@ abstract final class MpPermissions {
   static const inventoryAdjust = 'inventory.adjust';
   static const fleetView = 'fleet.view';
   static const fleetGate = 'fleet.gate';
+  static const gateInCreate = 'gate.in.create';
+  static const gateOutCreate = 'gate.out.create';
+  static const gateOverrideApprove = 'gate.override.approve';
+  static const vehiclesView = 'vehicles.view';
   static const assetsView = 'assets.view';
   static const reportsView = 'reports.view';
   static const complianceView = 'compliance.view';

@@ -77,7 +77,9 @@ class ModuleHubScreen extends ConsumerWidget {
                           );
                         } else if (route.startsWith('/work-orders') ||
                             route.startsWith('/diagnostics') ||
-                            route.startsWith('/settings')) {
+                            route.startsWith('/settings') ||
+                            route.startsWith('/gate') ||
+                            route.startsWith('/fg')) {
                           context.push(route);
                         } else {
                           context.go(route);

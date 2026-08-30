@@ -119,7 +119,9 @@ class HomeScreen extends ConsumerWidget {
                       route.startsWith('/profile') ||
                       route.startsWith('/sync') ||
                       route.startsWith('/drafts') ||
-                      route.startsWith('/search')) {
+                      route.startsWith('/search') ||
+                      route.startsWith('/gate') ||
+                      route.startsWith('/fg')) {
                     context.push(route);
                   } else {
                     context.go(route);

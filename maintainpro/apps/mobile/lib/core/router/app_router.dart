@@ -24,6 +24,10 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/gate/gate_home_screen.dart';
+import '../../features/gate/gate_in_screen.dart';
+import '../../features/gate/gate_out_screen.dart';
+import '../../features/gate/gate_vehicle_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_list_screen.dart';
 import '../auth/auth_controller.dart';
@@ -145,6 +149,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => WorkOrderDetailScreen(
               workOrderId: state.pathParameters['id']!,
             ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/gate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const GateHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'vehicle/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => GateVehicleScreen(
+              vehicleId: state.pathParameters['id']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'out',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => GateOutScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+              ),
+              GoRoute(
+                path: 'in',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => GateInScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),

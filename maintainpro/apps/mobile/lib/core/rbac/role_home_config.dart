@@ -116,7 +116,7 @@ abstract final class RoleHomeConfig {
       id: 'fleet-gate',
       title: 'Gate',
       subtitle: 'Vehicle check-in / check-out',
-      route: '/more',
+      route: '/gate',
       iconName: 'local_shipping',
     ),
     HomeCard(

@@ -16,6 +16,11 @@ void main() {
       final allIds = groups.expand((g) => g.items).map((e) => e.id).toSet();
       expect(allIds, contains('fleet-gate'));
       expect(allIds, isNot(contains('admin-console')));
+      final gate = groups
+          .expand((g) => g.items)
+          .where((i) => i.id == 'fleet-gate')
+          .single;
+      expect(gate.route, '/gate');
     });
 
     test('admin sees administration group', () {
