@@ -29,6 +29,11 @@ Django /api/v1/*  (CSRF enforced; business rules authoritative)
 | Django CSRF | **ENFORCED** (Nest sends cookie + X-CSRFToken) |
 | Session isolation | tenant + user + access-token fingerprint |
 | Upstream host from client | **NO** (`FG_API_INTERNAL_URL` only) |
+| Production Redis | **FAIL-CLOSED** — no memory fallback when `NODE_ENV=production` |
+| Missing Redis in production | `ServiceUnavailableException` |
+| Token refresh | New access token → new fingerprint → re-bootstrap; old key TTL expiry |
+| Logout | `DELETE /api/mobile/fg/session` clears broker entry; JWT required on every call |
+| Stale Redis alone | Never grants auth — Nest JWT + fingerprint lookup first |
 
 ## Allowlisted Nest routes
 
@@ -59,8 +64,15 @@ Django /api/v1/*  (CSRF enforced; business rules authoritative)
 - `FG_MOBILE_SESSION_TTL_SECONDS` — default 1800
 - Existing `FG_SSO_*` for assertion minting
 
+## UAT status
+
+`FG_UAT_STATUS=BLOCKED_BY_NON_PROD_CONFIG`
+
+Missing: approved non-prod `FG_API_INTERNAL_URL` (and local API `.env`).  
+Do not point tests at production.
+
 ## Remaining gaps
 
-- Live E2E against real Django FG not run in this session (unit/mocks only)
+- Live Nest↔Django UAT checklist (login through SoD / revocation) blocked on config
 - Device-clock businessDate: server authoritative; client stores displayDate only
 - Parts of editor UI depend on Django `editor.sections` shape — fallback key-value if absent

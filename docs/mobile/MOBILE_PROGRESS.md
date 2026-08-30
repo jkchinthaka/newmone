@@ -7,8 +7,9 @@
 | AUTHORITATIVE_MAIN_SHA | `2fd697e004da8524b6348c1ad2d33411a873a2a8` |
 | BRANCH | `feature/mobile-v2` |
 | DRAFT_PR | https://github.com/jkchinthaka/newmone/pull/28 |
-| CURRENT_PHASE | FG CL30 secure integration — Nest broker + Flutter CL30 flows |
-| LAST_VERIFIED_IMPLEMENTATION_SHA | `ffad659` Nest broker / `c8458c5` Flutter CL30 / `ade76de` QA note fix |
+| CURRENT_PHASE | Gate In/Out vertical + FG broker hardening |
+| LAST_VERIFIED_IMPLEMENTATION_SHA | 30f4298 FG Redis / c91765c gate override / c95d987 Flutter Gate |
+| FG_UAT_STATUS | `BLOCKED_BY_NON_PROD_CONFIG` |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
 
@@ -17,25 +18,33 @@ Do not create commits solely to refresh HEAD pointers.
 ## Completed
 
 - [x] WO vertical slice quality gate
-- [x] Nest `/api/mobile/fg/*` session broker (allowlisted, Redis/memory, token-fingerprint isolation)
-- [x] Nest mobile-fg unit + contract tests (30 with fg-sso)
-- [x] Flutter CL30 recorder / drafts / supervisor / QA / history via Nest only
-- [x] Flutter tests 46/46; analyze clean
+- [x] Nest `/api/mobile/fg/*` session broker (allowlisted)
+- [x] FG broker production Redis fail-closed (no silent memory fallback)
+- [x] Gate override authorization hardened (`gate.override.approve` + actor as approver)
+- [x] Gate eligibility endpoint + Idempotency-Key for gate-in/out
+- [x] Flutter Gate home / vehicle / in / out (online-only)
+- [x] Flutter tests 62/62; analyze clean (this run)
 
 ## Incomplete / next
 
-- [ ] Live UAT against configured FG_API_INTERNAL_URL (non-prod)
-- [ ] Gate In/Out vertical
+- [ ] Live FG UAT — needs non-prod `FG_API_INTERNAL_URL` (+ Redis in prod-like)
+- [ ] Live Gate multi-device / device-clock UAT on non-prod
+- [ ] Camera Universal Scan wiring
+- [ ] Remaining FG CL18 / CL24 after FG UAT
 - [ ] `/api/mobile/bootstrap` aggregation
-- [ ] Optional CL18/CL24 after CL30 UAT
 
 ## API gaps
 
-1. Live FG E2E not automated in CI without FG service
+1. Live FG E2E not runnable without approved non-prod FG config
 2. WO Idempotency-Key still not server-enforced for WO mutations
 3. OpenAPI static export still runtime-only
-4. Baseline Docker compose fixture DJANGO_ALLOWED_HOSTS still failing on main (unrelated)
+4. Baseline Docker compose fixture `DJANGO_*` missing vars still failing on main (unrelated)
+
+## FG UAT blocker (exact)
+
+No local `maintainpro/.env` or `apps/api/.env` with `FG_API_INTERNAL_URL`.  
+Do not guess production URL. Continue Gate independently.
 
 ## Next exact action
 
-Push Flutter CL30 commits; UAT Nest↔Django FG on non-prod; then Gate vertical.
+Push this run’s commits; keep PR #28 draft; when non-prod FG URL is provided, run FG UAT checklist; then FG CL18 or Fleet/Drivers as next vertical.

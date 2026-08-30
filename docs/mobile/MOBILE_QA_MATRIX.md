@@ -69,5 +69,20 @@ Mobile-first, no horizontal overflow, text scaling, empty/loading/error, validat
 
 ## Latest automated run (this session)
 
-- `flutter analyze`: No issues found
-- `flutter test`: 12/12 passed
+- `flutter analyze`: clean
+- `flutter test`: 62/62 passed (includes 16 gate tests)
+- Nest: `mobile-fg-broker-invariants`, `gate-override-authorization`, `vehicles-phase2.service` — passed
+
+## Gate failure scenarios (automated / expected)
+
+| Scenario | Expected |
+|---|---|
+| Offline Gate Out/In | Blocked — "Gate authorization requires connection" |
+| Double-tap Gate Out | InFlightGuard + Idempotency-Key → single movement |
+| Forged approvedByUserId | Server ignores; approver = actor with `gate.override.approve` |
+| Unauthorized override | 403 Forbidden |
+| Missing override reason | 400 |
+| Meter lower than authoritative | 400 from Nest |
+| Device clock / occurredAt | Ordinary users: server time only |
+| Timeout after commit | Recheck eligibility/movements — do not claim failure blindly |
+| Stale two-device Gate Out | Second blocked by vehicle status policy |

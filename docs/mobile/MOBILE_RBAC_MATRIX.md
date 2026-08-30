@@ -34,7 +34,14 @@ Aliases: `gate.in.create` / `gate.out.create` ↔ `vehicles.operate`.
 | Domain | Permissions |
 |---|---|
 | Work orders | `work_orders.manage`, `work_orders.update_status`, `work_orders.view_own` |
-| Gate | `gate.in.create`, `gate.out.create`, `gate.override.approve` |
+| Gate | `gate.in.create`, `gate.out.create`, `gate.override.approve`, `vehicles.view` |
+
+### Gate notes (Mobile V2)
+
+- Security home routes to `/gate`.
+- Override UI requires JWT `gate.override.approve` **and** server `canOverride`.
+- Mobile never treats client-supplied `approvedByUserId` as authority (server ignores it for auth).
+- Drivers do not gain Gate from vehicle visibility alone.
 | Vehicles | `vehicles.view`, `vehicles.operate`, `vehicles.create`, `vehicles.edit` |
 | Inventory | `inventory.*`, `inventory.stock_issue` |
 | Part requests | `part_requests.*` |

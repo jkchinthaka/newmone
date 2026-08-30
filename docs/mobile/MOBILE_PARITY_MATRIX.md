@@ -26,7 +26,10 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 12d | /work-orders (detail) | Asset/vehicle history context | GET /api/work-orders/:id/history | GET | work_orders.* | TECH+ | — | Context API unused in UI yet | cache | partial |
 | 13 | /assets | Assets CRUD | /api/assets | GET/POST/PATCH | assets.manage | TECH+ | Module Hub | Navigate | cache | hub |
 | 14 | /assets/health | Asset health | domain health endpoints | GET | assets.manage | MGR/ASSET/ADMIN | Module Hub | Navigate | online | hub |
-| 15 | /fleet/gate | Gate In/Out | POST /api/vehicles/:id/gate-in|gate-out | POST | gate.in.create|gate.out.create | SECURITY+ | Module Hub / Gate | Gate ops | online required | planned |
+| 15 | /fleet/gate | Gate In/Out | POST /api/vehicles/:id/gate-in|gate-out | POST | gate.in.create|gate.out.create | SECURITY+ | Gate Home / Vehicle | In/Out + history | online required | done |
+| 15a | /fleet/gate | Gate eligibility | GET /api/vehicles/:id/gate-eligibility | GET | vehicles.view | SECURITY+ | Gate Vehicle | Server block reasons | online | done |
+| 15b | /fleet/gate | Gate override | POST gate-out + allowOverride | POST | gate.override.approve | ADMIN/MGR+ | Gate Out | Override iff server canOverride | online | done |
+| 15c | /fleet/gate | Camera scan vehicle | Universal Scan | GET | vehicles.view | SECURITY+ | Scan → Gate | Manual resolve; camera WIP | online | partial |
 | 16 | /fleet | Fleet hub | /api/fleet + sockets /fleet | GET | fleet.manage | FLEET+ | Module Hub | Navigate | cache | hub |
 | 17 | /vehicles | Vehicles list/detail | /api/vehicles | GET/POST/PATCH | vehicles.view | FLEET/DRIVER/TECH | Module Hub | Navigate | cache | hub |
 | 18 | /vehicles/health | Vehicle health | analytics | GET | vehicles.view | MGR/FLEET/ADMIN | Module Hub | Navigate | online | hub |
