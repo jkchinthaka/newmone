@@ -18,8 +18,9 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: config.apiRoot,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      // Keep connect short so splash/login fail fast when local API is down.
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 20),
       headers: const {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

@@ -15,7 +15,9 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> bootstrap() async {
     state = AuthState.unknown;
     try {
-      final session = await _repo.restoreSession();
+      final session = await _repo.restoreSession().timeout(
+            const Duration(seconds: 6),
+          );
       if (session == null) {
         state = AuthState.loggedOut;
         return;
@@ -26,10 +28,8 @@ class AuthController extends StateNotifier<AuthState> {
         session: session,
       );
     } catch (e) {
-      state = AuthState(
-        status: AuthStatus.unauthenticated,
-        errorMessage: e.toString(),
-      );
+      // Timeout / storage / network: treat as logged out so splash can exit.
+      state = AuthState.loggedOut;
     }
   }
 

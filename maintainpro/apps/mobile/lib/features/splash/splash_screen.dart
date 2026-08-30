@@ -22,7 +22,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    await ref.read(authControllerProvider.notifier).bootstrap();
+    // Bound bootstrap so a dead API / secure-storage blip cannot pin splash forever.
+    try {
+      await ref
+          .read(authControllerProvider.notifier)
+          .bootstrap()
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Fall through to login when restore times out or fails.
+    }
     if (!mounted) return;
     final auth = ref.read(authControllerProvider);
     if (auth.status == AuthStatus.authenticated) {
