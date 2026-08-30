@@ -19,8 +19,17 @@ sealed class ApiException implements Exception {
     String? code;
     if (data is Map) {
       final map = Map<String, dynamic>.from(data);
-      message = (map['message'] ?? map['error'] ?? message).toString();
-      code = map['code']?.toString();
+      final err = map['error'];
+      if (err is Map) {
+        message = (err['message'] ?? err['code'] ?? message).toString();
+        code = err['code']?.toString() ?? map['code']?.toString();
+      } else if (err is String && err.isNotEmpty) {
+        message = err;
+        code = map['code']?.toString();
+      } else {
+        message = (map['message'] ?? message).toString();
+        code = map['code']?.toString();
+      }
       if (map['data'] is Map && (map['data'] as Map)['message'] != null) {
         message = (map['data'] as Map)['message'].toString();
       }

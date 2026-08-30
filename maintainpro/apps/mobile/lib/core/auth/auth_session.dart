@@ -28,11 +28,19 @@ class AuthUser {
     final combined = '$first $last'.trim();
     final name = (json['name'] ?? json['fullName'] ?? combined).toString();
 
+    final roleRaw = json['role'];
+    String role;
+    if (roleRaw is Map) {
+      role = (roleRaw['name'] ?? roleRaw['role'] ?? 'VIEWER').toString();
+    } else {
+      role = (roleRaw ?? 'VIEWER').toString();
+    }
+
     return AuthUser(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       name: name.isEmpty ? (json['email'] ?? 'User').toString() : name,
-      role: (json['role'] ?? 'VIEWER').toString().toUpperCase(),
+      role: role.toUpperCase(),
       tenantId: json['tenantId']?.toString(),
       permissions: permissions,
     );
