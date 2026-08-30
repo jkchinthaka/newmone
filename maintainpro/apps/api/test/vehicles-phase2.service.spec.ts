@@ -438,7 +438,8 @@ describe("VehiclesService Phase 2 critical flows", () => {
       id: "trip-1",
       vehicleId: "veh-1",
       driverId: "drv-1",
-      startMileage: 1000
+      startMileage: 1000,
+      status: TripStatus.IN_PROGRESS
     });
 
     tx.tripLog.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -478,6 +479,26 @@ describe("VehiclesService Phase 2 critical flows", () => {
       })
     });
     expect(result.distance).toBe(485);
+  });
+
+  itT("rejects trip end when trip is not IN_PROGRESS", async () => {
+    prisma.vehicle.findUnique.mockResolvedValueOnce({ id: "veh-1" });
+    prisma.tripLog.findUnique.mockResolvedValue({
+      id: "trip-1",
+      vehicleId: "veh-1",
+      driverId: "drv-1",
+      startMileage: 1000,
+      status: TripStatus.COMPLETED
+    });
+
+    await expect(
+      service.tripEnd("veh-1", {
+        tripId: "trip-1",
+        endMileage: 1100
+      })
+    ).rejects.toThrow(BadRequestException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   itT("recalculates service rule remaining KM and service status", async () => {

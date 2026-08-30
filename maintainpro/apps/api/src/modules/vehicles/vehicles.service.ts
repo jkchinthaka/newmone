@@ -1629,6 +1629,10 @@ export class VehiclesService {
       throw new NotFoundException("Trip not found");
     }
 
+    if (trip.status !== TripStatus.IN_PROGRESS) {
+      throw new BadRequestException("Only IN_PROGRESS trips can be ended");
+    }
+
     if (data.endMileage < Number(trip.startMileage)) {
       throw new BadRequestException("Mileage entries must be monotonically increasing");
     }

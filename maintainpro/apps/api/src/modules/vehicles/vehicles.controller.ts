@@ -258,6 +258,8 @@ export class VehiclesController {
       mileageAtFuel: number;
       fuelStation?: string;
       notes?: string;
+      /** Optional client idempotency token; service dedupes when present. */
+      clientActionId?: string;
     }
   ) {
     const data = await this.vehiclesService.fuelLog(id, body);
