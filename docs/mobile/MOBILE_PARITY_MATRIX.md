@@ -39,9 +39,10 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 25 | /operations/budget | Budget commitments | /api/operations/* | GET | reports.vehicle_cost.view | MGR/FIN/ADMIN | Module Hub | Navigate | online | hub |
 | 26 | /procurement | Procurement | /api/suppliers + PO | GET/POST | purchase_orders.* | PROC/INV/MGR | Module Hub | Navigate | online | hub |
 | 27 | /procurement/matching | PO matching | procurement matching | GET | purchase_orders.view | PROC/FIN/MGR | Module Hub | Navigate | online | hub |
-| 28 | /fg | FG Digital Recording hub | FG SSO + Next/Django proxy | POST auth/fg-sso/* | fg.access | FG roles | FG Hub | Probe SSO; CL30 blocked pending BFF | — | blocked |
-| 29 | /fg/records/new | CL18/CL24/CL30 create | Django /api/v1/records/* | POST | fg.recording.* | RECORDER+ | — | Needs /api/mobile/fg proxy | draft offline; submit online | blocked |
-| 30 | /fg/review | Supervisor review | Django /api/v1/reviews/* | POST | fg.review.* | SUPERVISOR | — | Needs /api/mobile/fg proxy | online | blocked |
+| 28 | /fg | FG Digital Recording hub | Nest /api/mobile/fg/session* | POST/GET | fg.access | FG roles | FG Hub | Bootstrap + navigate | — | done |
+| 29 | /fg/records/new | CL30 create/open/save/submit | /api/mobile/fg/cl30/records* | POST/GET | fg.recording.* | RECORDER+ | CL30 Recorder | Draft/save/submit | draft offline; submit online | done |
+| 30 | /fg/review | Supervisor review | /api/mobile/fg/reviews* | GET/POST | fg.review.* | SUPERVISOR | FG Reviews | Approve/Return | online | done |
+| 31 | /fg/qa | QA verification | /api/mobile/fg/qa* | GET/POST | fg.qa.* | QA | FG QA | Release/Hold/Reject | online | done |
 | 31 | /fg/qa | QA verification | FG QA | POST | fg.qa* | QA | FG QA | Verify | online | planned |
 | 32 | /maintenance/forecast | Maintenance forecast | maintenance/predictive | GET | - | MGR/TECH/ADMIN | Module Hub | Navigate | online | hub |
 | 33 | /maintenance/job-codes | Job Codes | /api/job-codes | GET | - | MGR/SUP/ADMIN | Module Hub | Navigate | cache | hub |

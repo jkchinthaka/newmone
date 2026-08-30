@@ -7,62 +7,35 @@
 | AUTHORITATIVE_MAIN_SHA | `2fd697e004da8524b6348c1ad2d33411a873a2a8` |
 | BRANCH | `feature/mobile-v2` |
 | DRAFT_PR | https://github.com/jkchinthaka/newmone/pull/28 |
-| CURRENT_PHASE | WO vertical slice quality gate met; FG CL30 blocked at SSO/session boundary |
-| LAST_VERIFIED_IMPLEMENTATION_SHA | `da96125` (evidence) / `252b51f` (parts+activity) / `b3946b0` (tests) |
+| CURRENT_PHASE | FG CL30 secure integration — Nest broker + Flutter CL30 flows |
+| LAST_VERIFIED_IMPLEMENTATION_SHA | `ffad659` (Nest broker) / `1495bd9` (API tests) — Flutter CL30 pending commit |
 | PRODUCTION_MUTATION | NO |
 | PRODUCTION_DEPLOYMENT | NO |
 
-Progress SHA rule: do **not** create commits solely to refresh HEAD pointers in this file.
-
-## CI triage (Priority 0)
-
-### Docker Build Check — production structure fixture
-
-- **Error:** `DJANGO_ALLOWED_HOSTS is required`
-- **Reproduced locally:** yes
-- **Diff vs origin/main (compose/fixture):** none
-- **main also failing** since PR #25 FG compose restore
-- **Verdict:** pre-existing / unrelated to Mobile V2 — documented, not bypassed
-
-### Release Validation — WO-CONTRACT-004
-
-- **Verdict:** Mobile V2 regression — **fixed** (`createdById` datasource restored)
+Do not create commits solely to refresh HEAD pointers.
 
 ## Completed
 
-- [x] WO queues, list, search/filter, detail, notes, start/`TECHNICIAN_COMPLETED`
-- [x] Evidence upload pipeline + pending local retention
-- [x] Parts read-only + activity timeline
-- [x] Role-aware actions + in-flight guards
-- [x] 31 flutter tests + WO create contract selftest
-- [x] FG integration boundary documented (`MOBILE_FG_INTEGRATION.md`)
-- [x] FG Hub screen (SSO probe only; CL30 mutations blocked)
+- [x] WO vertical slice quality gate
+- [x] Nest `/api/mobile/fg/*` session broker (allowlisted, Redis/memory, token-fingerprint isolation)
+- [x] Nest mobile-fg unit + contract tests (30 with fg-sso)
+- [x] Flutter CL30 recorder / drafts / supervisor / QA / history via Nest only
+- [x] Flutter tests 46/46; analyze clean
 
 ## Incomplete / next
 
-- [ ] Additive Nest `/api/mobile/fg/*` session proxy (required for CL30 mutations)
-- [ ] Then FG CL30 Recorder → Supervisor → QA on mobile
-- [ ] Gate In/Out
-- [ ] Parts issue/return (intentionally blocked on mobile)
-- [ ] `/api/mobile/bootstrap` etc.
+- [ ] Live UAT against configured FG_API_INTERNAL_URL (non-prod)
+- [ ] Gate In/Out vertical
+- [ ] `/api/mobile/bootstrap` aggregation
+- [ ] Optional CL18/CL24 after CL30 UAT
 
 ## API gaps
 
-1. No `/api/mobile/fg/*` — **blocks native CL30**
-2. No `/api/mobile/bootstrap`
-3. No static OpenAPI without Nest boot
-4. WO HTTP Idempotency-Key not server-enforced
-5. Evidence `uploadUrl` often null in mock mode (matches web)
-6. Parts stock mutations not on mobile (intentional)
-
-## Test results
-
-```
-flutter analyze → No issues found
-flutter test → 31/31 passed
-work-order-create-contract.selftest → PASS
-```
+1. Live FG E2E not automated in CI without FG service
+2. WO Idempotency-Key still not server-enforced for WO mutations
+3. OpenAPI static export still runtime-only
+4. Baseline Docker compose fixture DJANGO_ALLOWED_HOSTS still failing on main (unrelated)
 
 ## Next exact action
 
-Implement additive Nest `/api/mobile/fg/*` proxy (session jar server-side) then resume CL30 UI.
+Push Flutter CL30 commits; UAT Nest↔Django FG on non-prod; then Gate vertical.

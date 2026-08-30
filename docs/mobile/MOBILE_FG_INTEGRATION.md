@@ -1,41 +1,66 @@
-# MaintainPro Mobile V2 — FG Integration Boundary
+# MaintainPro Mobile V2 — FG Integration
 
 **Form:** `NMS/PPU/CL/30` — Inspection Record for Freezer Truck  
-**Authoritative systems:** Nest FG SSO + Next handoff/BFF + Django FG recording (no Nest FG CRUD)
+**Authoritative systems:** Nest FG SSO + Nest `/api/mobile/fg/*` broker + Django FG JSON APIs
 
-## Verified mobile capability today
+## Architecture (implemented)
 
-| Step | Status |
+```
+Flutter (Bearer MaintainPro JWT only)
+        │
+        ▼
+Nest /api/mobile/fg/*  (allowlisted)
+  • FgSsoService.exchangeForUser()
+  • Server-side GET Django /api/v1/session (Bearer assertion)
+  • Holds fg_sessionid + csrftoken + csrfToken in Redis/memory
+  • Session key: tenantId|userId|sha256(accessToken)[0:32]
+        │
+        ▼
+Django /api/v1/*  (CSRF enforced; business rules authoritative)
+```
+
+## Security properties
+
+| Property | Status |
 |---|---|
-| Nest `POST /api/auth/fg-sso/exchange` with MaintainPro Bearer JWT | Possible |
-| Nest `POST /api/auth/fg-sso/verify` | Possible |
-| Django `GET /api/v1/session` (assertion → `fg_sessionid`) | Needs assertion + cookie jar |
-| Django CL30 open/save/submit/review/QA JSON APIs | Need Django session + CSRF |
-| Flutter completing CL30 with Bearer-only client | **Blocked** |
+| Generic proxy | **NO** |
+| FG cookies exposed to Flutter | **NO** |
+| Long-lived assertion to Flutter | **NO** |
+| Django CSRF | **ENFORCED** (Nest sends cookie + X-CSRFToken) |
+| Session isolation | tenant + user + access-token fingerprint |
+| Upstream host from client | **NO** (`FG_API_INTERNAL_URL` only) |
 
-## Exact blocker
+## Allowlisted Nest routes
 
-MaintainPro access JWT is **not** a Django FG credential. Web binds FG to HttpOnly `Path=/fg` cookies via Next handoff (`/api/fg-sso/handoff`) and `/fg/api/*` BFF. Flutter has no cookie jar for that path and must not invent a parallel FG backend or weaken Django CSRF.
+| Method | Path | Permission |
+|---|---|---|
+| POST | `/api/mobile/fg/session/bootstrap` | `fg.access` |
+| GET | `/api/mobile/fg/session` | `fg.access` |
+| DELETE | `/api/mobile/fg/session` | `fg.access` |
+| GET | `/api/mobile/fg/cl30/vehicles` | `fg.recording.view` |
+| POST | `/api/mobile/fg/cl30/records/open` | `fg.recording.create` |
+| GET | `/api/mobile/fg/cl30/records/:id` | `fg.recording.view` |
+| POST | `/api/mobile/fg/cl30/records/:id/save` | `fg.recording.edit` |
+| POST | `/api/mobile/fg/cl30/records/:id/submit` | `fg.recording.submit` |
+| GET | `/api/mobile/fg/history` | `fg.recording.view` |
+| GET/POST | `/api/mobile/fg/reviews...` | `fg.review.*` |
+| GET/POST | `/api/mobile/fg/qa...` | `fg.qa.*` |
 
-## Smallest additive secure proposal (not implemented yet)
+## Flutter CL30
 
-Add Nest **`/api/mobile/fg/*`** that:
+- Recorder: vehicle lookup (TRUCK via formCode), open+occurrenceToken, dynamic editor fields, local draft, online save/submit
+- Supervisor / QA queues + decisions (online-authoritative)
+- History via Nest → Django
+- Offline: local drafts only; submit/review/QA blocked offline
 
-1. Requires `JwtAuthGuard` + live `fg.access`
-2. Reuses `FgSsoService.exchangeForUser`
-3. Server-side boots Django session (assertion → `/api/v1/session`) and holds session/CSRF in Nest (memory/redis keyed by user), never long-lived assertion to the client
-4. Proxies existing Django JSON: records open/save/submit, vehicles `?formCode=NMS/PPU/CL/30`, reviews/QA decisions
-5. Does **not** accept MP JWT inside Django; does **not** csrf_exempt Django
+## Config
 
-Flutter then calls Nest with Bearer only.
+- `FG_API_INTERNAL_URL` — Django origin (required for broker)
+- `FG_MOBILE_SESSION_TTL_SECONDS` — default 1800
+- Existing `FG_SSO_*` for assertion minting
 
-## CL30 product rules (source)
+## Remaining gaps
 
-- Independent occurrence (`INDEPENDENT_OCCURRENCE_FORM_CODES`)
-- Vehicle types: TRUCK only (`vehicle-eligibility.ts` + Django `api_vehicles`)
-- Permissions: `fg.recording.*`, `fg.review.*`, `fg.qa.*`
-- Supervisor/QA online-authoritative; SoD policy-gated in Django reviews governance
-
-## Mobile UI stance until BFF exists
-
-FG Module Hub may show CL30 entry points as **blocked** with this gap message. No draft/submit mutations against invented endpoints.
+- Live E2E against real Django FG not run in this session (unit/mocks only)
+- Device-clock businessDate: server authoritative; client stores displayDate only
+- Parts of editor UI depend on Django `editor.sections` shape — fallback key-value if absent
