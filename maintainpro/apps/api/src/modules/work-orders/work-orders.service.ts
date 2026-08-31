@@ -24,6 +24,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { createPaginationMeta } from "../../common/utils/pagination-meta";
 import {
   assertAllowedStatusTransition,
   assertReasonProvided,
@@ -1409,6 +1410,83 @@ export class WorkOrdersService {
         createdAt: "desc"
       }
     });
+  }
+
+  async listAllPartRequests(
+    actor?: Actor,
+    query?: {
+      status?: string;
+      workOrderId?: string;
+      partId?: string;
+      page?: string;
+      limit?: string;
+    }
+  ) {
+    const tenantId = this.resolveTenantId(actor);
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PartRequestWhereInput = {
+      tenantId,
+      ...(query?.workOrderId ? { workOrderId: query.workOrderId } : {}),
+      ...(query?.partId ? { partId: query.partId } : {}),
+      ...(query?.status && Object.values(PartRequestStatus).includes(query.status as PartRequestStatus)
+        ? { status: query.status as PartRequestStatus }
+        : {})
+    };
+
+    const include = {
+      part: true,
+      workOrder: {
+        select: {
+          id: true,
+          woNumber: true,
+          title: true,
+          status: true
+        }
+      },
+      requestedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      },
+      approvals: {
+        include: {
+          actor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { sequence: "asc" as const }
+      },
+      issues: {
+        orderBy: { createdAt: "desc" as const }
+      }
+    };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.partRequest.count({ where }),
+      this.prisma.partRequest.findMany({
+        where,
+        include,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      })
+    ]);
+
+    return {
+      items,
+      meta: createPaginationMeta(page, limit, total)
+    };
   }
 
   async createPartRequest(

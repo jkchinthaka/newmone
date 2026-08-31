@@ -1443,6 +1443,7 @@ async function main() {
         location: fixture.location,
         nextServiceDate,
         lastServiceDate,
+        archivedAt: null,
         description: "Synthetic local/dev seed asset — not production data"
       },
       create: {
@@ -1456,6 +1457,7 @@ async function main() {
         location: fixture.location,
         nextServiceDate,
         lastServiceDate,
+        archivedAt: null,
         description: "Synthetic local/dev seed asset — not production data"
       }
     });
