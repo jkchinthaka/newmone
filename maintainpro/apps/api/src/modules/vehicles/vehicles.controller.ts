@@ -246,6 +246,13 @@ export class VehiclesController {
     return { data, message: "Driver assigned" };
   }
 
+  @Post(":id/unassign-driver")
+  @Permissions("vehicles.edit")
+  async unassignDriver(@Param("id") id: string) {
+    const data = await this.vehiclesService.unassignDriver(id);
+    return { data, message: "Driver unassigned" };
+  }
+
   @Post(":id/fuel-log")
   @Permissions("vehicles.operate")
   async fuelLog(

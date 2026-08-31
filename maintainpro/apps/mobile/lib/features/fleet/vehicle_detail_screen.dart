@@ -32,6 +32,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
   List<MeterLog> _meterLogs = const [];
   List<GateMovement> _gateMovements = const [];
   List<VehicleAlert> _alerts = const [];
+  double? _enterpriseHealthScore;
   int _historyTab = 0;
 
   @override
@@ -90,6 +91,11 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
         final all = await client.getAlerts(limit: 50);
         alerts = all.where((a) => a.vehicleId == widget.vehicleId).toList();
       } catch (_) {}
+      double? healthScore;
+      try {
+        final health = await client.getVehicleHealth(widget.vehicleId);
+        healthScore = (health['score'] as num?)?.toDouble();
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _vehicle = vehicle;
@@ -99,6 +105,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
         _meterLogs = meters;
         _gateMovements = gates;
         _alerts = alerts;
+        _enterpriseHealthScore = healthScore;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -133,6 +140,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
         ref.watch(syncControllerProvider).phase == SyncPhase.offline;
     final canOperate = _can(perms, role, MpPermissions.vehiclesOperate);
     final canView = _can(perms, role, MpPermissions.vehiclesView);
+    final canEdit = _can(perms, role, MpPermissions.vehiclesEdit);
     final canGate = _can(perms, role, MpPermissions.gateInCreate) ||
         _can(perms, role, MpPermissions.gateOutCreate);
     final scheme = Theme.of(context).colorScheme;
@@ -223,6 +231,11 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
                               v?.currentMileage?.toStringAsFixed(0) ?? '—'),
                           _kv('Driver',
                               v?.driverName ?? v?.driverId ?? 'Unassigned'),
+                          if (_enterpriseHealthScore != null)
+                            _kv(
+                              'Enterprise health score',
+                              _enterpriseHealthScore!.toStringAsFixed(0),
+                            ),
                           _kv('Asset tag', v?.assetTag ?? '—'),
                           _kv('Location', v?.location ?? '—'),
                           _kv('Type', v?.type ?? '—'),
@@ -275,6 +288,38 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                    if (canEdit &&
+                        v?.driverId != null &&
+                        v!.driverId!.isNotEmpty) ...[
+                      const SizedBox(height: MpSpacing.sm),
+                      MpButton(
+                        label: 'Unassign driver',
+                        variant: MpButtonVariant.outlined,
+                        expand: false,
+                        icon: Icons.person_remove_outlined,
+                        onPressed: offline
+                            ? null
+                            : () async {
+                                try {
+                                  await ref
+                                      .read(fleetApiClientProvider)
+                                      .unassignDriver(widget.vehicleId);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Driver unassigned'),
+                                    ),
+                                  );
+                                  await _load();
+                                } on ApiException catch (e) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.message)),
+                                  );
+                                }
+                              },
                       ),
                     ],
                     if (canOperate) ...[

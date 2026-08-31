@@ -117,6 +117,7 @@ void main() {
                   'fg.access',
                   'fg.recording.view',
                   'fg.recording.create',
+                  'fg.recording.edit',
                   'fg.review.view',
                   'fg.qa.view',
                 ],
@@ -131,16 +132,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Session ready'), findsOneWidget);
-    expect(find.text('New CL30'), findsOneWidget);
-    expect(find.text('My drafts'), findsOneWidget);
-    expect(find.text('Supervisor reviews'), findsOneWidget);
-
-    // ListView may not build below-the-fold tiles until scrolled.
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-
-    expect(find.text('QA'), findsOneWidget);
-    expect(find.text('History'), findsOneWidget);
+    expect(find.text('New CL18'), findsOneWidget);
+    expect(find.text('Controlled production records'), findsOneWidget);
   });
 }

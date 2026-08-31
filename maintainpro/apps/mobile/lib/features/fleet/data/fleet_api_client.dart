@@ -92,7 +92,7 @@ class FleetApiClient {
         return DriverSummary.fromJson(data);
       });
 
-  /// Online-only. Requires vehicles.edit. No unassign API on Nest.
+  /// Online-only. Requires vehicles.edit.
   Future<Vehicle> assignDriver(String vehicleId, String driverId) =>
       _guarded(() async {
         final res = await _dio.post<dynamic>(
@@ -101,6 +101,25 @@ class FleetApiClient {
         );
         final data = unwrapFleetDataMap(res.data) ?? {};
         return Vehicle.fromJson(data);
+      });
+
+  /// Online-only. Requires vehicles.edit. Clears active driver assignment.
+  Future<Vehicle> unassignDriver(String vehicleId) => _guarded(() async {
+        final res = await _dio.post<dynamic>(
+          '$_vehicles/$vehicleId/unassign-driver',
+        );
+        final payload = unwrapFleetDataMap(res.data) ?? {};
+        final vehicleMap = payload['vehicle'] is Map
+            ? Map<String, dynamic>.from(payload['vehicle'] as Map)
+            : payload;
+        return Vehicle.fromJson(vehicleMap);
+      });
+
+  Future<Map<String, dynamic>> getVehicleHealth(String vehicleId) =>
+      _guarded(() async {
+        final res =
+            await _dio.get<dynamic>('/enterprise-ops/health/$vehicleId');
+        return unwrapFleetDataMap(res.data) ?? {};
       });
 
   /// Online-only. No server Idempotency-Key — use InFlightGuard.

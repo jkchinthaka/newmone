@@ -5,6 +5,8 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
 import 'fg_models.dart';
 
+export 'fg_form_config.dart';
+
 /// Nest BFF client for `/mobile/fg/*`.
 ///
 /// Uses MaintainPro Bearer only (via [dioProvider]). Never stores or reads
@@ -87,31 +89,40 @@ class FgApiClient {
       });
 
   Future<List<VehicleResult>> searchCl30Vehicles(String q) =>
+      searchFormVehicles('cl30', q);
+
+  Future<List<VehicleResult>> searchFormVehicles(String slug, String q) =>
       withBootstrap(() async {
         final res = await _dio.get<dynamic>(
-          '$_base/cl30/vehicles',
+          '$_base/$slug/vehicles',
           queryParameters: {if (q.isNotEmpty) 'q': q},
         );
         final data = unwrapFgData(res.data);
         return extractResultsList(data).map(VehicleResult.fromJson).toList();
       });
 
-  /// Opens a CL30 record. [occurrenceToken] is required by the Nest BFF.
-  Future<FgOpenRecordResult> openCl30Record({
-    required String occurrenceToken,
+  Future<FgOpenRecordResult> openFormRecord({
+    required String slug,
+    String? occurrenceToken,
     String? date,
+    String? room,
   }) async {
-    if (!isValidCl30OccurrenceToken(occurrenceToken)) {
+    if ((slug == 'cl18' || slug == 'cl30') &&
+        (occurrenceToken == null ||
+            occurrenceToken.isEmpty ||
+            !isValidCl30OccurrenceToken(occurrenceToken))) {
       throw const BadRequestException(
         'occurrenceToken must match [A-Za-z0-9._-]{8,80}',
       );
     }
     return withBootstrap(() async {
       final res = await _dio.post<dynamic>(
-        '$_base/cl30/records/open',
+        '$_base/$slug/records/open',
         data: {
-          'occurrenceToken': occurrenceToken,
+          if (occurrenceToken != null && occurrenceToken.isNotEmpty)
+            'occurrenceToken': occurrenceToken,
           if (date != null && date.isNotEmpty) 'date': date,
+          if (room != null && room.isNotEmpty) 'room': room,
         },
       );
       final data = unwrapFgDataMap(res.data) ?? {};
@@ -119,21 +130,23 @@ class FgApiClient {
     });
   }
 
-  Future<FgRecordDetail> getCl30Record(String recordId) =>
+  Future<FgRecordDetail> getFormRecord(String slug, String recordId) =>
       withBootstrap(() async {
-        final res = await _dio.get<dynamic>('$_base/cl30/records/$recordId');
+        final res =
+            await _dio.get<dynamic>('$_base/$slug/records/$recordId');
         final data = unwrapFgDataMap(res.data) ?? {};
         return FgRecordDetail.fromJson(data);
       });
 
-  Future<FgSaveResult> saveCl30Record({
+  Future<FgSaveResult> saveFormRecord({
+    required String slug,
     required String recordId,
     required Map<String, dynamic> fields,
     required int expectedDraftVersion,
   }) =>
       withBootstrap(() async {
         final res = await _dio.post<dynamic>(
-          '$_base/cl30/records/$recordId/save',
+          '$_base/$slug/records/$recordId/save',
           data: {
             'fields': fields,
             'expectedDraftVersion': expectedDraftVersion,
@@ -143,14 +156,14 @@ class FgApiClient {
         return FgSaveResult.fromJson(data);
       });
 
-  /// Online submit. Pass a stable [idempotencyKey] (UUID) for server idempotency.
-  Future<Map<String, dynamic>> submitCl30Record({
+  Future<Map<String, dynamic>> submitFormRecord({
+    required String slug,
     required String recordId,
     String? idempotencyKey,
   }) =>
       withBootstrap(() async {
         final res = await _dio.post<dynamic>(
-          '$_base/cl30/records/$recordId/submit',
+          '$_base/$slug/records/$recordId/submit',
           data: {
             if (idempotencyKey != null && idempotencyKey.isNotEmpty)
               'idempotencyKey': idempotencyKey,
@@ -158,6 +171,41 @@ class FgApiClient {
         );
         return unwrapFgDataMap(res.data) ?? {};
       });
+
+  Future<FgOpenRecordResult> openCl30Record({
+    required String occurrenceToken,
+    String? date,
+  }) =>
+      openFormRecord(
+        slug: 'cl30',
+        occurrenceToken: occurrenceToken,
+        date: date,
+      );
+
+  Future<FgRecordDetail> getCl30Record(String recordId) =>
+      getFormRecord('cl30', recordId);
+
+  Future<FgSaveResult> saveCl30Record({
+    required String recordId,
+    required Map<String, dynamic> fields,
+    required int expectedDraftVersion,
+  }) =>
+      saveFormRecord(
+        slug: 'cl30',
+        recordId: recordId,
+        fields: fields,
+        expectedDraftVersion: expectedDraftVersion,
+      );
+
+  Future<Map<String, dynamic>> submitCl30Record({
+    required String recordId,
+    String? idempotencyKey,
+  }) =>
+      submitFormRecord(
+        slug: 'cl30',
+        recordId: recordId,
+        idempotencyKey: idempotencyKey,
+      );
 
   Future<List<FgRecordSummary>> history({
     String? dateFrom,

@@ -19,7 +19,19 @@ import {
 } from "./fg-session-store";
 import type { FgBrokerSession, FgSessionActor } from "./fg-session.types";
 
+export const CL18_FORM_CODE = "NMS/PPU/CL/18";
+export const CL24_FORM_CODE = "NMS/PPU/CL/24";
 export const CL30_FORM_CODE = "NMS/PPU/CL/30";
+export const CL39_FORM_CODE = "NMS/PPU/CL/39";
+
+export const MOBILE_FG_FORM_CODES = new Set([
+  CL18_FORM_CODE,
+  CL24_FORM_CODE,
+  CL30_FORM_CODE,
+  CL39_FORM_CODE
+]);
+
+const OCCURRENCE_REQUIRED = new Set([CL18_FORM_CODE, CL30_FORM_CODE]);
 
 const REVIEW_DECISIONS = new Set(["APPROVED", "RETURNED_FOR_CORRECTION"]);
 const QA_DECISIONS = new Set(["RELEASE", "HOLD", "REJECT"]);
@@ -192,39 +204,78 @@ export class MobileFgService {
   }
 
   async listCl30Vehicles(req: FgAuthedRequest, q?: string) {
+    return this.listFormVehicles(req, CL30_FORM_CODE, q);
+  }
+
+  private assertAllowlistedFormCode(formCode: string): string {
+    const code = String(formCode ?? "").trim();
+    if (!MOBILE_FG_FORM_CODES.has(code)) {
+      throw new BadRequestException("formCode is not allowlisted for mobile FG");
+    }
+    return code;
+  }
+
+  async listFormVehicles(req: FgAuthedRequest, formCode: string, q?: string) {
+    const code = this.assertAllowlistedFormCode(formCode);
     const query = new URLSearchParams();
     if (q) query.set("q", q);
-    query.set("formCode", CL30_FORM_CODE);
+    query.set("formCode", code);
     const path = `/api/v1/vehicles?${query.toString()}`;
     return this.withSession(req, async (session) => {
       const result = await this.django.request(session, "GET", path);
-      return { data: result.data, message: "CL30 vehicles fetched" };
+      return { data: result.data, message: "FG vehicles fetched" };
     });
   }
 
-  async openCl30Record(req: FgAuthedRequest, body: { date?: string; occurrenceToken?: string }) {
+  async openFormRecord(
+    req: FgAuthedRequest,
+    formCode: string,
+    body: { date?: string; occurrenceToken?: string; room?: string }
+  ) {
+    const code = this.assertAllowlistedFormCode(formCode);
     const occurrenceToken = String(body?.occurrenceToken ?? "").trim();
-    if (!occurrenceToken) {
+    if (OCCURRENCE_REQUIRED.has(code) && !occurrenceToken) {
       throw new BadRequestException("occurrenceToken is required");
     }
-    const payload: Record<string, unknown> = {
-      formCode: CL30_FORM_CODE,
-      occurrenceToken
-    };
+    const payload: Record<string, unknown> = { formCode: code };
     if (body?.date) payload.date = body.date;
+    if (body?.room) payload.room = body.room;
+    if (occurrenceToken) payload.occurrenceToken = occurrenceToken;
 
     return this.withSession(req, async (session) => {
       const result = await this.django.request(session, "POST", "/api/v1/records/open", payload);
       const recordId =
-        typeof result.data === "object" && result.data && "id" in (result.data as object)
-          ? String((result.data as { id: unknown }).id)
-          : "open";
+        typeof result.data === "object" && result.data && "record" in (result.data as object)
+          ? String((result.data as { record: { id: unknown } }).record.id)
+          : typeof result.data === "object" && result.data && "id" in (result.data as object)
+            ? String((result.data as { id: unknown }).id)
+            : "open";
       await this.auditMutation(req.user, "FgRecord", recordId, "CREATE", {
-        op: "cl30.open",
-        formCode: CL30_FORM_CODE
+        op: "form.open",
+        formCode: code
       });
-      return { data: result.data, message: "CL30 record opened" };
+      return { data: result.data, message: "FG record opened" };
     });
+  }
+
+  async openCl30Record(req: FgAuthedRequest, body: { date?: string; occurrenceToken?: string }) {
+    return this.openFormRecord(req, CL30_FORM_CODE, body ?? {});
+  }
+
+  async openCl18Record(req: FgAuthedRequest, body: { date?: string; occurrenceToken?: string }) {
+    return this.openFormRecord(req, CL18_FORM_CODE, body ?? {});
+  }
+
+  async openCl24Record(req: FgAuthedRequest, body: { date?: string }) {
+    return this.openFormRecord(req, CL24_FORM_CODE, body ?? {});
+  }
+
+  async openCl39Record(req: FgAuthedRequest, body: { date?: string; room?: string }) {
+    return this.openFormRecord(req, CL39_FORM_CODE, body ?? {});
+  }
+
+  async listCl18Vehicles(req: FgAuthedRequest, q?: string) {
+    return this.listFormVehicles(req, CL18_FORM_CODE, q);
   }
 
   async getCl30Record(req: FgAuthedRequest, recordId: string) {
@@ -283,12 +334,9 @@ export class MobileFgService {
       page?: string;
     }
   ) {
-    const formCode = String(query.formCode ?? CL30_FORM_CODE).trim() || CL30_FORM_CODE;
-    if (formCode !== CL30_FORM_CODE) {
-      throw new BadRequestException("formCode is not allowlisted for mobile FG");
-    }
+    const formCode = this.assertAllowlistedFormCode(String(query.formCode ?? CL30_FORM_CODE));
     const params = new URLSearchParams();
-    params.set("formCode", CL30_FORM_CODE);
+    params.set("formCode", formCode);
     if (query.dateFrom) params.set("dateFrom", query.dateFrom);
     if (query.dateTo) params.set("dateTo", query.dateTo);
     if (query.vehicle) params.set("vehicle", query.vehicle);

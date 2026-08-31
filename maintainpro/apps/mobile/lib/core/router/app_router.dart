@@ -21,6 +21,8 @@ import '../../features/fg/cl30_history_screen.dart';
 import '../../features/fg/cl30_qa_detail_screen.dart';
 import '../../features/fg/cl30_qa_queue_screen.dart';
 import '../../features/fg/cl30_recorder_screen.dart';
+import '../../features/fg/data/fg_form_config.dart';
+import '../../features/fg/fg_form_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
@@ -596,6 +598,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 resumeDraftId: draftId,
               );
             },
+          ),
+          GoRoute(
+            path: 'cl18/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl18,
+            ),
+          ),
+          GoRoute(
+            path: 'cl18/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl18,
+              recordId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: 'cl24/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl24,
+            ),
+          ),
+          GoRoute(
+            path: 'cl24/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl24,
+              recordId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: 'cl39/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl39,
+            ),
+          ),
+          GoRoute(
+            path: 'cl39/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl39,
+              recordId: state.pathParameters['id'],
+            ),
           ),
           GoRoute(
             path: 'reviews',

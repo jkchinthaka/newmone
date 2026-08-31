@@ -1350,6 +1350,19 @@ export class VehiclesService {
     });
   }
 
+  async unassignDriver(id: string) {
+    const vehicle = await this.findOne(id);
+    if (!vehicle.driverId) {
+      throw new BadRequestException("No driver is currently assigned to this vehicle");
+    }
+    const previousDriverId = vehicle.driverId;
+    const updated = await this.prisma.vehicle.update({
+      where: { id },
+      data: { driverId: null }
+    });
+    return { vehicle: updated, previousDriverId };
+  }
+
   async fuelLog(
     id: string,
     data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string; clientActionId?: string }

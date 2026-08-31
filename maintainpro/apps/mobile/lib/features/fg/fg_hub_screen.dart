@@ -86,8 +86,7 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
           ),
           const SizedBox(height: MpSpacing.sm),
           Text(
-            'CL30 freezer-truck inspections via Nest mobile FG BFF '
-            '(Bearer only — no Django cookies on device).',
+            'Controlled production records (CL18, CL24, CL30, CL39) via Nest FG BFF.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: MpSpacing.lg),
@@ -106,58 +105,54 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
               onRetry: _bootstrap,
             ),
           ] else if (_session?.authenticated == true) ...[
-            MpCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    kCl30FormCode,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: MpSpacing.xs),
-                  const Text('Inspection Record for Freezer Truck'),
-                  const SizedBox(height: MpSpacing.sm),
-                  const MpStatusChip(
-                    label: 'Session ready',
-                    tone: MpStatusTone.success,
-                  ),
-                  if (_session?.expiresAt != null) ...[
-                    const SizedBox(height: MpSpacing.sm),
-                    Text(
-                      'Expires ${_session!.expiresAt}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: MpSpacing.md),
-            const MpSectionHeader(title: 'Actions'),
-            if (_can(perms, role, MpPermissions.fgRecordingCreate))
+            for (final form in FgFormConfig.all) ...[
               MpCard(
-                onTap: () => context.push('/fg/cl30/new'),
-                child: const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.local_shipping_outlined),
-                  title: Text('New CL30'),
-                  subtitle: Text('Open a freezer-truck inspection'),
-                  trailing: Icon(Icons.chevron_right),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      form.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: MpSpacing.xs),
+                    Text(form.subtitle),
+                    if (form.slug == 'cl30' && _session?.expiresAt != null) ...[
+                      const SizedBox(height: MpSpacing.sm),
+                      Text(
+                        'Session expires ${_session!.expiresAt}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            if (_can(perms, role, MpPermissions.fgRecordingView) ||
-                _can(perms, role, MpPermissions.fgRecordingEdit)) ...[
               const SizedBox(height: MpSpacing.sm),
+              if (_can(perms, role, MpPermissions.fgRecordingCreate))
+                MpCard(
+                  onTap: () => context.push('${form.routePrefix}/new'),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.note_add_outlined),
+                    title: Text('New ${form.title}'),
+                    subtitle: Text(form.subtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                ),
+              const SizedBox(height: MpSpacing.sm),
+            ],
+            const MpSectionHeader(title: 'Workflow'),
+            if (_can(perms, role, MpPermissions.fgRecordingView) ||
+                _can(perms, role, MpPermissions.fgRecordingEdit))
               MpCard(
                 onTap: () => context.push('/fg/cl30/drafts'),
                 child: const ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.drafts_outlined),
-                  title: Text('My drafts'),
-                  subtitle: Text('Resume local CL30 drafts'),
+                  title: Text('My CL30 drafts'),
+                  subtitle: Text('Resume local freezer-truck drafts'),
                   trailing: Icon(Icons.chevron_right),
                 ),
               ),
-            ],
             if (_can(perms, role, MpPermissions.fgReviewView)) ...[
               const SizedBox(height: MpSpacing.sm),
               MpCard(

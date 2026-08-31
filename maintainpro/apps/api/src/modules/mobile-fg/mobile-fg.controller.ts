@@ -46,6 +46,114 @@ export class MobileFgController {
     return this.service.deleteSession(req);
   }
 
+  @Get("cl18/vehicles")
+  @Permissions("fg.recording.view")
+  async cl18Vehicles(@Req() req: AuthedRequest, @Query("q") q?: string) {
+    return this.service.listCl18Vehicles(req, q);
+  }
+
+  @Post("cl18/records/open")
+  @Permissions("fg.recording.create")
+  async openCl18(
+    @Req() req: AuthedRequest,
+    @Body() body: { date?: string; occurrenceToken?: string }
+  ) {
+    return this.service.openCl18Record(req, body ?? {});
+  }
+
+  @Get("cl18/records/:recordId")
+  @Permissions("fg.recording.view")
+  async getCl18(@Req() req: AuthedRequest, @Param("recordId") recordId: string) {
+    return this.service.getCl30Record(req, recordId);
+  }
+
+  @Post("cl18/records/:recordId/save")
+  @Permissions("fg.recording.edit")
+  async saveCl18(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { fields?: unknown; expectedDraftVersion?: unknown }
+  ) {
+    return this.service.saveCl30Record(req, recordId, body ?? {});
+  }
+
+  @Post("cl18/records/:recordId/submit")
+  @Permissions("fg.recording.submit")
+  async submitCl18(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { idempotencyKey?: string }
+  ) {
+    return this.service.submitCl30Record(req, recordId, body ?? {});
+  }
+
+  @Post("cl24/records/open")
+  @Permissions("fg.recording.create")
+  async openCl24(@Req() req: AuthedRequest, @Body() body: { date?: string }) {
+    return this.service.openCl24Record(req, body ?? {});
+  }
+
+  @Get("cl24/records/:recordId")
+  @Permissions("fg.recording.view")
+  async getCl24(@Req() req: AuthedRequest, @Param("recordId") recordId: string) {
+    return this.service.getCl30Record(req, recordId);
+  }
+
+  @Post("cl24/records/:recordId/save")
+  @Permissions("fg.recording.edit")
+  async saveCl24(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { fields?: unknown; expectedDraftVersion?: unknown }
+  ) {
+    return this.service.saveCl30Record(req, recordId, body ?? {});
+  }
+
+  @Post("cl24/records/:recordId/submit")
+  @Permissions("fg.recording.submit")
+  async submitCl24(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { idempotencyKey?: string }
+  ) {
+    return this.service.submitCl30Record(req, recordId, body ?? {});
+  }
+
+  @Post("cl39/records/open")
+  @Permissions("fg.recording.create")
+  async openCl39(
+    @Req() req: AuthedRequest,
+    @Body() body: { date?: string; room?: string }
+  ) {
+    return this.service.openCl39Record(req, body ?? {});
+  }
+
+  @Get("cl39/records/:recordId")
+  @Permissions("fg.recording.view")
+  async getCl39(@Req() req: AuthedRequest, @Param("recordId") recordId: string) {
+    return this.service.getCl30Record(req, recordId);
+  }
+
+  @Post("cl39/records/:recordId/save")
+  @Permissions("fg.recording.edit")
+  async saveCl39(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { fields?: unknown; expectedDraftVersion?: unknown }
+  ) {
+    return this.service.saveCl30Record(req, recordId, body ?? {});
+  }
+
+  @Post("cl39/records/:recordId/submit")
+  @Permissions("fg.recording.submit")
+  async submitCl39(
+    @Req() req: AuthedRequest,
+    @Param("recordId") recordId: string,
+    @Body() body: { idempotencyKey?: string }
+  ) {
+    return this.service.submitCl30Record(req, recordId, body ?? {});
+  }
+
   @Get("cl30/vehicles")
   @Permissions("fg.recording.view")
   async cl30Vehicles(@Req() req: AuthedRequest, @Query("q") q?: string) {
