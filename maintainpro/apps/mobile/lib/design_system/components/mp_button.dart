@@ -40,7 +40,9 @@ class MpButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: MpSpacing.sm),
               ],
-              Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+              // Avoid Flexible here — non-expanded buttons often sit in
+              // Rows with unbounded max width (Row main-axis).
+              Text(label, overflow: TextOverflow.ellipsis),
             ],
           );
 
