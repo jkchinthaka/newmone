@@ -80,9 +80,9 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 55 | /facilities | Facilities | /api/facilities/rooms + hierarchy | GET | facilities.view | FAC+ | Facilities hub / rooms | Browse rooms, search | cache | partial |
 | 56 | /facilities/reports | Facility Reports | facilities reports | GET | facilities.* | FAC+ | Module Hub | Navigate | online | hub |
 | 57 | /cleaning | Cleaning Overview | /api/cleaning/locations | GET | cleaning.view | CLEANER+ | Facilities / cleaning | Location list | cache | partial |
-| 58 | /cleaning/issues | Facility Issues | GET /api/cleaning/issues/:id | GET | facility_issues.view | CLEANER+ | Facilities / issues | List/detail + WO link | cache reads | partial |
+| 58 | /cleaning/issues | Facility Issues | GET/POST /api/cleaning/issues | GET/POST | facility_issues.view / create roles | CLEANER+ | Facilities / issues | List/detail/report (online) + WO link | draft local; submit online | partial |
 | 59 | /cleaning/scan | Scan QR | operations/scan-lookup | POST | operations.scan_lookup|cleaning | CLEANER+ | Scan | Resolve QR | online resolve | ui |
-| 60 | /cleaning/visits | Visits | cleaning visits | GET/POST | cleaning.* | CLEANER+ | Module Hub | Navigate | draft offline | hub |
+| 60 | /cleaning/visits | Visits | GET /api/cleaning/visits | GET | cleaning roles | CLEANER+ | Facilities / cleaning visits | Visit history read | cache | partial |
 | 61 | /cleaning/sign-off | Sign-off Queue | cleaning sign-off | GET/POST | cleaning.* | CLEANER+ | Module Hub | Navigate | online | hub |
 | 62 | /cleaning/analytics | Analytics | cleaning analytics | GET | cleaning.* | FAC/MGR | Module Hub | Navigate | online | hub |
 | 63 | /cleaning/locations | Locations | GET /api/cleaning/locations | GET | cleaning.view | FAC/MGR | Facilities / cleaning | Location cards | cache | partial |
