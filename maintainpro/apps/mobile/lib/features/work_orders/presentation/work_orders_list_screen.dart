@@ -8,9 +8,16 @@ import '../../../design_system/design_system.dart';
 import '../data/work_orders_repository.dart';
 
 class WorkOrdersListScreen extends ConsumerStatefulWidget {
-  const WorkOrdersListScreen({super.key, this.initialQueue});
+  const WorkOrdersListScreen({
+    super.key,
+    this.initialQueue,
+    this.initialAssetId,
+    this.assetFilterLabel,
+  });
 
   final String? initialQueue;
+  final String? initialAssetId;
+  final String? assetFilterLabel;
 
   @override
   ConsumerState<WorkOrdersListScreen> createState() =>
@@ -21,6 +28,8 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
   final _searchController = TextEditingController();
   String? _queue;
   String? _status;
+  String? _assetId;
+  String? _assetFilterLabel;
   String _search = '';
 
   static const _queues = <(String?, String)>[
@@ -36,6 +45,8 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
   void initState() {
     super.initState();
     _queue = widget.initialQueue;
+    _assetId = widget.initialAssetId;
+    _assetFilterLabel = widget.assetFilterLabel;
   }
 
   @override
@@ -45,10 +56,16 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
   }
 
   WorkOrdersListQuery get _query => WorkOrdersListQuery(
-        queue: _queue,
+        queue: _assetId != null ? null : _queue,
         search: _search.isEmpty ? null : _search,
         status: _status,
+        assetId: _assetId,
       );
+
+  void _clearAssetFilter() => setState(() {
+        _assetId = null;
+        _assetFilterLabel = null;
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +75,32 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
       appBar: AppBar(title: const Text(AppStrings.workOrdersTitle)),
       body: Column(
         children: [
+          if (_assetId != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                MpSpacing.screenPadding,
+                MpSpacing.md,
+                MpSpacing.screenPadding,
+                0,
+              ),
+              child: MpCard(
+                child: Row(
+                  children: [
+                    const Icon(Icons.precision_manufacturing_outlined),
+                    const SizedBox(width: MpSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Asset filter: ${_assetFilterLabel ?? _assetId!}',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _clearAssetFilter,
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               MpSpacing.screenPadding,
@@ -74,7 +117,8 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
               onSubmitted: (value) => setState(() => _search = value.trim()),
             ),
           ),
-          SizedBox(
+          if (_assetId == null)
+            SizedBox(
             height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -94,7 +138,7 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
               },
             ),
           ),
-          const SizedBox(height: MpSpacing.sm),
+          if (_assetId == null) const SizedBox(height: MpSpacing.sm),
           Expanded(
             child: async.when(
               loading: () => const MpSkeletonList(),

@@ -186,7 +186,8 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                             label: 'Open work orders',
                             icon: Icons.handyman_outlined,
                             onPressed: () => context.push(
-                              '/work-orders',
+                              '/work-orders?assetId=${Uri.encodeComponent(asset.id)}'
+                              '&assetTag=${Uri.encodeComponent(asset.assetTag)}',
                             ),
                           ),
                           const SizedBox(height: MpSpacing.lg),

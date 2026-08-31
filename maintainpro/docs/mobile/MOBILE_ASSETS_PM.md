@@ -40,7 +40,7 @@
 | Service due focus | DONE (client filter on page) |
 | PM schedules read | DONE |
 | Job codes browse | DONE |
-| WO integration | PARTIAL (deep-link to WO list; no assetId query yet) |
+| WO integration | DONE (assetId query on GET /work-orders) |
 | Scan → asset | DONE (validate-tag) |
 | RBAC UX aligned to Nest roles | DONE |
 | Tenant isolation | Nest JWT + X-Tenant-Id (existing) |

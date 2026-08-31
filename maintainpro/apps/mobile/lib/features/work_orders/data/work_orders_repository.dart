@@ -372,6 +372,7 @@ class WorkOrdersRepository {
     String? status,
     String? queue,
     String? search,
+    String? assetId,
     int page = 1,
     int limit = 50,
   }) async {
@@ -384,6 +385,7 @@ class WorkOrdersRepository {
         queryParameters: {
           if (status != null) 'status': status,
           if (search != null && search.isNotEmpty) 'search': search,
+          if (assetId != null && assetId.isNotEmpty) 'assetId': assetId,
           'page': page,
           'limit': limit,
         },
@@ -655,21 +657,28 @@ final workOrdersRepositoryProvider = Provider<WorkOrdersRepository>((ref) {
 });
 
 class WorkOrdersListQuery {
-  const WorkOrdersListQuery({this.queue, this.search, this.status});
+  const WorkOrdersListQuery({
+    this.queue,
+    this.search,
+    this.status,
+    this.assetId,
+  });
 
   final String? queue;
   final String? search;
   final String? status;
+  final String? assetId;
 
   @override
   bool operator ==(Object other) =>
       other is WorkOrdersListQuery &&
       other.queue == queue &&
       other.search == search &&
-      other.status == status;
+      other.status == status &&
+      other.assetId == assetId;
 
   @override
-  int get hashCode => Object.hash(queue, search, status);
+  int get hashCode => Object.hash(queue, search, status, assetId);
 }
 
 final workOrdersListProvider = FutureProvider.autoDispose
@@ -682,6 +691,7 @@ final workOrdersListProvider = FutureProvider.autoDispose
     queue: query.queue,
     search: query.search,
     status: query.status,
+    assetId: query.assetId,
   );
 });
 
