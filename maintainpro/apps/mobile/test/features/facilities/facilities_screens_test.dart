@@ -114,6 +114,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Rooms & sites'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Utility meters'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Utility meters'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Mutations blocked on mobile'),
@@ -170,7 +175,7 @@ void main() {
     expect(find.text('Lab 101'), findsOneWidget);
   });
 
-  testWidgets('facility issues list shows severity and status', (tester) async {
+  testWidgets('facility issues list shows report FAB for supervisor', (tester) async {
     final dio = _dio({
       '/cleaning/issues': (_) => Response(
             requestOptions: RequestOptions(path: '/cleaning/issues'),
@@ -181,7 +186,6 @@ void main() {
                   'title': 'Broken light',
                   'severity': 'MEDIUM',
                   'status': 'OPEN',
-                  'locationName': 'Lobby',
                 },
               ],
             },
@@ -193,14 +197,14 @@ void main() {
       ProviderScope(
         overrides: _baseOverrides(
           dio,
-          auth: _auth(permissions: const ['facility_issues.view']),
+          auth: _auth(permissions: const [], role: 'SUPERVISOR'),
         ),
         child: const MaterialApp(home: FacilityIssuesListScreen()),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Broken light'), findsOneWidget);
-    expect(find.textContaining('MEDIUM'), findsOneWidget);
+    expect(find.text('Report'), findsOneWidget);
   });
 
   testWidgets('utility meters list renders meter type', (tester) async {

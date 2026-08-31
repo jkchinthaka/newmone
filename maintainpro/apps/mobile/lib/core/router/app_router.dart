@@ -25,8 +25,10 @@ import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
 import '../../features/facilities/cleaning_locations_screen.dart';
+import '../../features/facilities/cleaning_visits_list_screen.dart';
 import '../../features/facilities/facilities_hub_screen.dart';
 import '../../features/facilities/facility_issue_detail_screen.dart';
+import '../../features/facilities/facility_issue_report_screen.dart';
 import '../../features/facilities/facility_issues_list_screen.dart';
 import '../../features/facilities/facility_room_detail_screen.dart';
 import '../../features/facilities/facility_rooms_list_screen.dart';
@@ -422,6 +424,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const FacilityIssuesListScreen(),
             routes: [
               GoRoute(
+                path: 'report',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final q = state.uri.queryParameters;
+                  return FacilityIssueReportScreen(
+                    draftId: q['draftId'],
+                    roomId: q['roomId'],
+                    roomLabel: q['roomLabel'],
+                  );
+                },
+              ),
+              GoRoute(
                 path: ':id',
                 parentNavigatorKey: _rootNavigatorKey,
                 builder: (context, state) => FacilityIssueDetailScreen(
@@ -434,6 +448,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'cleaning',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) => const CleaningLocationsScreen(),
+            routes: [
+              GoRoute(
+                path: 'visits',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => const CleaningVisitsListScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: 'utilities',

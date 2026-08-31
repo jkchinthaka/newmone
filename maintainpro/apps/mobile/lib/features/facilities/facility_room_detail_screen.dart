@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_controller.dart';
 import '../../core/network/api_exception.dart';
 import '../../design_system/design_system.dart';
 import 'data/facilities_api_client.dart';
 import 'data/facilities_models.dart';
+import 'facilities_permissions.dart';
 
 class FacilityRoomDetailScreen extends ConsumerStatefulWidget {
   const FacilityRoomDetailScreen({super.key, required this.roomId});
@@ -76,6 +78,16 @@ class _FacilityRoomDetailScreenState extends ConsumerState<FacilityRoomDetailScr
                           ),
                         ),
                         const SizedBox(height: MpSpacing.md),
+                        if (FacilitiesPermissions.canReportIssue(
+                            ref.watch(authControllerProvider).user?.role))
+                          MpButton(
+                            label: 'Report issue',
+                            icon: Icons.report_outlined,
+                            onPressed: () => context.push(
+                              '/facilities/issues/report?roomId=${room.id}&roomLabel=${Uri.encodeComponent(room.name)}',
+                            ),
+                          ),
+                        const SizedBox(height: MpSpacing.sm),
                         MpButton(
                           label: 'View facility issues',
                           icon: Icons.report_problem_outlined,

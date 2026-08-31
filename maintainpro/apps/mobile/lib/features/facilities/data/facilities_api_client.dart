@@ -54,6 +54,49 @@ class FacilitiesApiClient {
         return FacilityIssueSummary.fromJson(_unwrapMap(res.data));
       });
 
+  Future<FacilityIssueSummary> createIssue(Map<String, dynamic> body) =>
+      _guarded(() async {
+        final res = await _dio.post<dynamic>('/cleaning/issues', data: body);
+        return FacilityIssueSummary.fromJson(_unwrapMap(res.data));
+      });
+
+  Future<DuplicateIssueCheckResult> checkDuplicateIssues(
+    Map<String, dynamic> body,
+  ) =>
+      _guarded(() async {
+        final res = await _dio.post<dynamic>(
+          '/cleaning/issues/duplicate-check',
+          data: body,
+        );
+        return DuplicateIssueCheckResult.fromJson(_unwrapMap(res.data));
+      });
+
+  Future<List<CleaningVisitSummary>> listCleaningVisits({
+    int page = 1,
+    int pageSize = 20,
+    String? status,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/cleaning/visits',
+          queryParameters: {
+            'page': page,
+            'pageSize': pageSize,
+            if (status != null && status.isNotEmpty) 'status': status,
+          },
+        );
+        final data = _unwrap(res.data);
+        if (data is Map && data['items'] is List) {
+          return (data['items'] as List)
+              .whereType<Map>()
+              .map((e) => CleaningVisitSummary.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ))
+              .toList();
+        }
+        return _list(res.data, CleaningVisitSummary.fromJson);
+      });
+
   Future<List<CleaningLocationSummary>> listCleaningLocations() =>
       _guarded(() async {
         final res = await _dio.get<dynamic>('/cleaning/locations');

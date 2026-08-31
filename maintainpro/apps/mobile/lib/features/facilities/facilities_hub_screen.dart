@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/rbac/permissions.dart';
+import 'facilities_permissions.dart';
 import '../../design_system/design_system.dart';
 
 class FacilitiesHubScreen extends ConsumerWidget {
@@ -47,6 +48,8 @@ class FacilitiesHubScreen extends ConsumerWidget {
             _link(context, 'Rooms & sites', 'Search facility rooms', '/facilities/rooms', Icons.apartment_outlined),
             _link(context, 'Facility issues', 'Open defects and requests', '/facilities/issues', Icons.report_problem_outlined),
             _link(context, 'Cleaning locations', 'Scheduled cleaning sites', '/facilities/cleaning', Icons.cleaning_services_outlined),
+            if (FacilitiesPermissions.canViewCleaningVisits(role))
+              _link(context, 'Cleaning visits', 'Visit history and status', '/facilities/cleaning/visits', Icons.history),
             _link(context, 'Utility meters', 'Electricity, water, gas', '/facilities/utilities', Icons.speed_outlined),
             const SizedBox(height: MpSpacing.lg),
             const MpCard(

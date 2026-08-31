@@ -173,3 +173,86 @@ class MeterReadingSummary {
   }
 }
 
+class CleaningVisitSummary {
+  const CleaningVisitSummary({
+    required this.id,
+    required this.status,
+    this.locationName,
+    this.cleanerName,
+    this.scannedAt,
+    this.dueAt,
+  });
+
+  final String id;
+  final String status;
+  final String? locationName;
+  final String? cleanerName;
+  final DateTime? scannedAt;
+  final DateTime? dueAt;
+
+  factory CleaningVisitSummary.fromJson(Map<String, dynamic> json) {
+    final location = json['location'];
+    final cleaner = json['cleaner'];
+    String? cleanerName;
+    if (cleaner is Map) {
+      final first = cleaner['firstName']?.toString() ?? '';
+      final last = cleaner['lastName']?.toString() ?? '';
+      cleanerName = '$first $last'.trim();
+    }
+    return CleaningVisitSummary(
+      id: (json['id'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      locationName: location is Map ? location['name']?.toString() : null,
+      cleanerName: cleanerName,
+      scannedAt: DateTime.tryParse('${json['scannedAt'] ?? ''}'),
+      dueAt: DateTime.tryParse('${json['dueAt'] ?? json['scheduledAt'] ?? ''}'),
+    );
+  }
+}
+
+class DuplicateIssueCandidate {
+  const DuplicateIssueCandidate({
+    required this.id,
+    required this.title,
+    required this.confidence,
+  });
+
+  final String id;
+  final String title;
+  final String confidence;
+
+  factory DuplicateIssueCandidate.fromJson(Map<String, dynamic> json) {
+    return DuplicateIssueCandidate(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      confidence: (json['confidence'] ?? '').toString(),
+    );
+  }
+}
+
+class DuplicateIssueCheckResult {
+  const DuplicateIssueCheckResult({
+    required this.hasDuplicates,
+    required this.candidates,
+  });
+
+  final bool hasDuplicates;
+  final List<DuplicateIssueCandidate> candidates;
+
+  factory DuplicateIssueCheckResult.fromJson(Map<String, dynamic> json) {
+    final raw = json['candidates'];
+    final list = raw is List
+        ? raw
+            .whereType<Map>()
+            .map((e) => DuplicateIssueCandidate.fromJson(
+                  Map<String, dynamic>.from(e),
+                ))
+            .toList()
+        : const <DuplicateIssueCandidate>[];
+    return DuplicateIssueCheckResult(
+      hasDuplicates: json['hasDuplicates'] == true,
+      candidates: list,
+    );
+  }
+}
+

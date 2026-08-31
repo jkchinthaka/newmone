@@ -130,7 +130,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 - **INVENTORY_READ_SLICE_STATUS:** COMPLETE_FOR_SAFE_READ (global part-request list + warehouse balance list closed; stock/PO/receiving mutations remain blocked)
 
 ## Facilities read slice (subset)
-- **FACILITIES_READ_SLICE_STATUS:** PARTIAL (read hub + list/detail surfaces; mutations and scan not proven)
+- **FACILITIES_READ_SLICE_STATUS:** PARTIAL (read hub + issue report PARTIAL_ONLINE_ONLY + cleaning visits read; sign-off/meter entry blocked)
 
 ## Hidden / reachable web routes (not all in sidebar)
 Also discovered under App Router: `/accept-invite`, `/register`, `/forgot-password`, `/splash`, `/qr/report-issue`, `/support/*`, `/change-requests`, `/releases`, `/admin/users|people|roles|tenants|invitations`, `/fg/*` subroutes, `/go-live/*`, `/erp/*`, `/post-go-live/*`, `/delivery-readiness/*`, `/qa/*`, legacy `(fms)`: `/machinery`, `/service`, `/vehicle`, `/pending-requests`, `/reports/job-costing`.

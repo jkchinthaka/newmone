@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_controller.dart';
 import '../../core/network/api_exception.dart';
 import '../../design_system/design_system.dart';
 import 'data/facilities_api_client.dart';
 import 'data/facilities_models.dart';
+import 'facilities_permissions.dart';
 
 class FacilityIssuesListScreen extends ConsumerStatefulWidget {
   const FacilityIssuesListScreen({super.key});
@@ -49,8 +51,18 @@ class _FacilityIssuesListScreenState extends ConsumerState<FacilityIssuesListScr
 
   @override
   Widget build(BuildContext context) {
+    final role = ref.watch(authControllerProvider).user?.role;
+    final canReport = FacilitiesPermissions.canReportIssue(role);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Facility issues')),
+      floatingActionButton: canReport
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/facilities/issues/report'),
+              icon: const Icon(Icons.add),
+              label: const Text('Report'),
+            )
+          : null,
       body: _loading
           ? const MpLoading(message: 'Loading issues…')
           : _error != null

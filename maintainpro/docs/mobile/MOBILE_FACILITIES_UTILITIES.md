@@ -20,7 +20,8 @@
 - `/facilities/rooms`, `/facilities/rooms/:id`
 - `/facilities/issues`, `/facilities/issues/:id`
 - `/facilities/cleaning`
-- `/facilities/utilities`, `/facilities/utilities/:id`
+- `/facilities/issues/report`
+- `/facilities/cleaning/visits`
 
 Nav policy maps legacy module keys `cleaning` and `utilities` to the facilities hub subtree.
 
@@ -32,7 +33,8 @@ Nav policy maps legacy module keys `cleaning` and `utilities` to the facilities 
 | Issues list/detail + WO deep link | READ |
 | Cleaning locations browse | READ |
 | Meters + reading history | READ |
-| Issue create/report | **PARTIAL** — POST exists on server; mobile submit not wired (no offline draft yet) |
+| Issue create/report | **PARTIAL_ONLINE_ONLY** — local draft + online submit; duplicate-check UX; no outbox auto-replay (no server idempotency) |
+| Cleaning visits | READ (`GET /cleaning/visits`) |
 | Cleaning visit sign-off / completion | **BLOCKED** (no proven idempotency/retry) |
 | Meter reading entry | **BLOCKED** (monotonic validation + retry semantics unproven for mobile queue) |
 | Issue status transitions | **BLOCKED** |
