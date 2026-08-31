@@ -7,6 +7,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/offline/sync_controller.dart';
 import '../../design_system/design_system.dart';
+import '../assets/data/assets_api_client.dart';
 import '../gate/data/gate_api_client.dart';
 import '../gate/data/gate_models.dart';
 import '../shell/adaptive_shell.dart';
@@ -75,8 +76,23 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           ),
         );
       } else {
+        // Fall back to asset tag validation (Nest /assets/validate-tag).
+        try {
+          final lookup =
+              await ref.read(assetsApiClientProvider).validateTag(code);
+          if (!mounted) return;
+          if (lookup.exists &&
+              lookup.assetId != null &&
+              lookup.assetId!.isNotEmpty) {
+            context.push('/assets/${lookup.assetId}');
+            return;
+          }
+        } catch (_) {
+          // Ignore and show vehicle miss message.
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No vehicle match for: $code')),
+          SnackBar(content: Text('No vehicle or asset match for: $code')),
         );
       }
     } on ApiException catch (e) {

@@ -24,6 +24,11 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/assets/asset_detail_screen.dart';
+import '../../features/assets/assets_hub_screen.dart';
+import '../../features/assets/assets_list_screen.dart';
+import '../../features/assets/job_codes_list_screen.dart';
+import '../../features/assets/pm_schedules_screen.dart';
 import '../../features/fleet/driver_detail_screen.dart';
 import '../../features/fleet/drivers_list_screen.dart';
 import '../../features/fleet/fleet_hub_screen.dart';
@@ -254,6 +259,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/assets',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AssetsHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'list',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final cat = state.uri.queryParameters['category'];
+              final serviceFocus =
+                  state.uri.queryParameters['serviceFocus'] == '1';
+              return AssetsListScreen(
+                initialCategory: cat,
+                serviceFocus: serviceFocus,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'pm',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PmSchedulesScreen(),
+          ),
+          GoRoute(
+            path: 'job-codes',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const JobCodesListScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => AssetDetailScreen(
+              assetId: state.pathParameters['id']!,
+            ),
           ),
         ],
       ),

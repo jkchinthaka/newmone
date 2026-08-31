@@ -81,7 +81,9 @@ class ModuleHubScreen extends ConsumerWidget {
                             route.startsWith('/diagnostics') ||
                             route.startsWith('/settings') ||
                             route.startsWith('/gate') ||
-                            route.startsWith('/fg')) {
+                            route.startsWith('/fg') ||
+                            route.startsWith('/assets') ||
+                            route.startsWith('/fleet')) {
                           context.push(route);
                         } else {
                           context.go(route);
