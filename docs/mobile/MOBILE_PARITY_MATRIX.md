@@ -41,7 +41,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 17f | /vehicles meter | Meter reading | POST /:id/meter-reading | POST | vehicles.operate | FLEET/DRIVER+ | Meter form | Online; InFlightGuard only | online required | done |
 | 18 | /vehicles/health | Vehicle health | serviceStatus + alerts | GET | vehicles.view | MGR/FLEET/ADMIN | Vehicle detail chips | serviceStatus/alerts map only — no new algorithm | online | partial |
 | 19 | /vehicles/costs | Vehicle costs | fuel-analytics (not full cost report) | GET | vehicles.view | MGR/FIN/ADMIN | Vehicle detail | Fuel cost KPIs only | online | partial |
-| 20 | /inventory | Inventory | /api/inventory | GET/POST | inventory.manage | INV/PROC/MGR | Inventory hub | Parts/warehouses/low stock | cache reads | partial |
+| 20 | /inventory | Inventory | /api/inventory + part-requests + warehouse-balances | GET | inventory.manage / part_requests.view | INV/PROC/MGR | Inventory hub | Parts/warehouses/low stock/PO/ERP/part-requests/balances | cache reads | partial |
 | 21 | /inventory/erp-import | ERP Stock Import | /api/inventory/erp-import* | POST | erp.import|inventory | ADMIN/MGR/INV | Inventory ERP status | Read-only status | online | partial |
 | 22 | /inventory/warranty | Warranty | inventory warranty | GET | inventory.* | MGR/INV/ADMIN | Module Hub | Navigate | cache | hub |
 | 23 | /operations/exceptions | Exceptions | /api/operations/* | GET | operations.view | MGR/ADMIN | Module Hub | Navigate | online | hub |
@@ -56,7 +56,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 31 | /fg/qa | QA verification | FG QA | POST | fg.qa* | QA | FG QA | Verify | online | planned |
 | 32 | /maintenance/forecast | Maintenance forecast | maintenance/predictive | GET | - | MGR/TECH/ADMIN | Module Hub | Navigate | online | hub |
 | 33 | /maintenance/job-codes | Job Codes | /api/job-codes | GET | - | MGR/SUP/ADMIN | Assets job codes | Browse | cache | done |
-| 34 | /utilities | Utilities | /api/utilities | GET | utilities.manage | MGR/FAC/ADMIN | Module Hub | Navigate | cache | hub |
+| 34 | /utilities | Utilities | /api/utilities/meters + readings | GET | utilities.manage | MGR/FAC/ADMIN | Facilities / utilities | Meters + reading history | cache | partial |
 | 35 | /compliance | Compliance | /api/compliance | GET | compliance.view | COMP/MGR/ADMIN | Module Hub | Navigate | cache | hub |
 | 36 | /accidents | Accidents | /api/accidents | GET/POST | accidents.* | COMP/MGR/ADMIN | Module Hub | Draft/Submit | draft offline | hub |
 | 37 | /insurance-claims | Insurance Claims | /api/insurance-claims | GET/POST | insurance_claims.* | COMP/MGR/ADMIN | Module Hub | Navigate | draft offline | hub |
@@ -77,15 +77,15 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 52 | /notifications | Notifications | /api/notifications + WS /notifications | GET/PATCH | - | auth | Alerts | List/Read | cache | ui |
 | 53 | /billing | Billing | /api/billing | GET | - | ADMIN/FIN | Module Hub | Navigate | online | hub |
 | 54 | /settings | Settings | /api/settings | GET/PATCH | settings.* | ADMIN/MGR | Settings | View/Edit prefs | local prefs | ui |
-| 55 | /facilities | Facilities | /api/facilities | GET | facilities.* | FAC+ | Module Hub | Navigate | cache | hub |
+| 55 | /facilities | Facilities | /api/facilities/rooms + hierarchy | GET | facilities.view | FAC+ | Facilities hub / rooms | Browse rooms, search | cache | partial |
 | 56 | /facilities/reports | Facility Reports | facilities reports | GET | facilities.* | FAC+ | Module Hub | Navigate | online | hub |
-| 57 | /cleaning | Cleaning Overview | /api/cleaning | GET | cleaning.* | CLEANER+ | Module Hub | Navigate | cache | hub |
-| 58 | /cleaning/issues | Facility Issues | facility_issues | GET/POST | facility_issues.* | CLEANER+ | Module Hub | Draft issue | draft offline | hub |
+| 57 | /cleaning | Cleaning Overview | /api/cleaning/locations | GET | cleaning.view | CLEANER+ | Facilities / cleaning | Location list | cache | partial |
+| 58 | /cleaning/issues | Facility Issues | GET /api/cleaning/issues/:id | GET | facility_issues.view | CLEANER+ | Facilities / issues | List/detail + WO link | cache reads | partial |
 | 59 | /cleaning/scan | Scan QR | operations/scan-lookup | POST | operations.scan_lookup|cleaning | CLEANER+ | Scan | Resolve QR | online resolve | ui |
 | 60 | /cleaning/visits | Visits | cleaning visits | GET/POST | cleaning.* | CLEANER+ | Module Hub | Navigate | draft offline | hub |
 | 61 | /cleaning/sign-off | Sign-off Queue | cleaning sign-off | GET/POST | cleaning.* | CLEANER+ | Module Hub | Navigate | online | hub |
 | 62 | /cleaning/analytics | Analytics | cleaning analytics | GET | cleaning.* | FAC/MGR | Module Hub | Navigate | online | hub |
-| 63 | /cleaning/locations | Locations | cleaning locations | GET | cleaning.* | FAC/MGR | Module Hub | Navigate | cache | hub |
+| 63 | /cleaning/locations | Locations | GET /api/cleaning/locations | GET | cleaning.view | FAC/MGR | Facilities / cleaning | Location cards | cache | partial |
 | 64 | /farm | Farm Dashboard | /api/farm | GET | - | FARM+ | Module Hub | Navigate | cache | hub |
 | 65 | /farm/fields | Fields & Map | /api/farm | GET | - | FARM+ | Module Hub | Navigate | cache | hub |
 | 66 | /farm/crops | Crops | /api/farm | GET | - | FARM+ | Module Hub | Navigate | cache | hub |
@@ -113,7 +113,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 ## Totals
 - **GLOBAL_PARITY_ROWS_TOTAL:** 100 (rows 1–86 plus sub-rows 12a–12d, 15a–15c, 16a, 17a–17f; duplicate FG QA row 31 counted once)
 - **GLOBAL_PARITY_ROWS_DONE:** 32 (WO, FG CL30, Gate, Fleet core, Auth, Assets/PM read slice, mobile-only drafts/sync/diagnostics, etc.)
-- **GLOBAL_PARITY_ROWS_PARTIAL:** 18 (Fleet drivers/health/costs, inventory/procurement read, WO history context, scan, notifications, …)
+- **GLOBAL_PARITY_ROWS_PARTIAL:** 24 (Fleet drivers/health/costs, inventory/procurement read-complete, facilities/cleaning/utilities read, WO history context, scan, notifications, …)
 - **GLOBAL_PARITY_ROWS_BLOCKED:** 3 (WO parts issue/return, vehicle unassign, stock mutations on mobile)
 
 ## Assets/PM slice (subset — do not replace global totals)
@@ -123,7 +123,14 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 - **ASSETS_PM_PARITY_ROWS_BLOCKED:** 0 (PM/status mutations intentionally read-only)
 
 - Fleet vertical: hub/list/detail/trips/fuel/meter **done**; drivers/health/costs/assign **partial**; live map **hub**; unassign **blocked**
-- Inventory vertical this pass: parts/warehouses/low-stock/suppliers/PO read **partial**; mutations/receiving/PO approval **blocked**
+- Inventory vertical this pass: parts/warehouses/low-stock/suppliers/PO/ERP/part-requests/warehouse-balances read **partial** (safe read slice complete; mutations/receiving/PO approval **blocked**)
+- Facilities vertical this pass: hub/rooms/issues/cleaning locations/utilities meters **partial**; issue create, cleaning sign-off, meter entry **blocked**
+
+## Inventory read slice (subset)
+- **INVENTORY_READ_SLICE_STATUS:** COMPLETE_FOR_SAFE_READ (global part-request list + warehouse balance list closed; stock/PO/receiving mutations remain blocked)
+
+## Facilities read slice (subset)
+- **FACILITIES_READ_SLICE_STATUS:** PARTIAL (read hub + list/detail surfaces; mutations and scan not proven)
 
 ## Hidden / reachable web routes (not all in sidebar)
 Also discovered under App Router: `/accept-invite`, `/register`, `/forgot-password`, `/splash`, `/qr/report-issue`, `/support/*`, `/change-requests`, `/releases`, `/admin/users|people|roles|tenants|invitations`, `/fg/*` subroutes, `/go-live/*`, `/erp/*`, `/post-go-live/*`, `/delivery-readiness/*`, `/qa/*`, legacy `(fms)`: `/machinery`, `/service`, `/vehicle`, `/pending-requests`, `/reports/job-costing`.

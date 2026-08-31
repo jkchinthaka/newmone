@@ -14,7 +14,11 @@
 | ERP platform | `GET /api/erp/status` | `erp.view` |
 | Inventory ERP readiness | `GET /api/inventory/erp/readiness` | `inventory.manage` |
 
-**No global part-request list** — requests remain WO-scoped (`GET /work-orders/:id/part-requests`).
+**Global part requests:** `GET /api/work-orders/part-requests` (`part_requests.view`, tenant-scoped, paginated).
+
+**Warehouse item balances:** `GET /api/inventory/warehouse-balances` (`inventory.manage`, tenant-scoped, paginated; part + warehouse projection).
+
+Per-WO requests remain at `GET /work-orders/:id/part-requests`.
 
 ## Mobile routes
 
@@ -24,6 +28,8 @@
 - `/inventory/warehouses`
 - `/inventory/suppliers`, `/inventory/suppliers/:id`
 - `/inventory/purchase-orders`, `/inventory/purchase-orders/:id`
+- `/inventory/part-requests`
+- `/inventory/warehouse-balances`
 - `/inventory/erp`
 
 ## Read vs blocked mutations
