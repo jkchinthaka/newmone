@@ -57,10 +57,10 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 32 | /maintenance/forecast | Maintenance forecast | maintenance/predictive | GET | - | MGR/TECH/ADMIN | Module Hub | Navigate | online | hub |
 | 33 | /maintenance/job-codes | Job Codes | /api/job-codes | GET | - | MGR/SUP/ADMIN | Assets job codes | Browse | cache | done |
 | 34 | /utilities | Utilities | /api/utilities/meters + readings | GET | utilities.manage | MGR/FAC/ADMIN | Facilities / utilities | Meters + reading history | cache | partial |
-| 35 | /compliance | Compliance | /api/compliance | GET | compliance.view | COMP/MGR/ADMIN | Module Hub | Navigate | cache | hub |
-| 36 | /accidents | Accidents | /api/accidents | GET/POST | accidents.* | COMP/MGR/ADMIN | Module Hub | Draft/Submit | draft offline | hub |
-| 37 | /insurance-claims | Insurance Claims | /api/insurance-claims | GET/POST | insurance_claims.* | COMP/MGR/ADMIN | Module Hub | Navigate | draft offline | hub |
-| 38 | /traffic-fines | Traffic Fines | /api/traffic-fines | GET/POST | traffic_fines.* | COMP/FLEET/MGR | Module Hub | Navigate | draft offline | hub |
+| 35 | /compliance | Compliance | GET /api/compliance/summary + expiring-docs | GET | compliance.view | COMP/MGR/ADMIN | Compliance hub | Summary + expiring docs | cache | partial |
+| 36 | /accidents | Accidents | GET/POST /api/accidents | GET/POST | accidents.view/report | COMP/MGR/ADMIN | Compliance / accidents | List/detail/report (online) | draft local | partial |
+| 37 | /insurance-claims | Insurance Claims | GET /api/insurance-claims | GET | insurance_claims.view | COMP/MGR/ADMIN | Compliance / claims | List/detail read | online | partial |
+| 38 | /traffic-fines | Traffic Fines | GET /api/traffic-fines | GET | traffic_fines.view | COMP/FLEET/MGR | Compliance / fines | List/detail read | online | partial |
 | 39 | /reports | Reports | /api/reports | GET | reports.* | MGR+ | Module Hub | Navigate | online | hub |
 | 40 | /reports/maintenance-exceptions | Maintenance Exceptions | fraud/exceptions | GET | reports.* | MGR+ | Module Hub | Navigate | online | hub |
 | 41 | /reports/fraud-control | Fraud & Control | /api/fraud-control | GET | reports.* | MGR+ | Module Hub | Navigate | online | hub |
@@ -113,7 +113,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 ## Totals
 - **GLOBAL_PARITY_ROWS_TOTAL:** 100 (rows 1–86 plus sub-rows 12a–12d, 15a–15c, 16a, 17a–17f; duplicate FG QA row 31 counted once)
 - **GLOBAL_PARITY_ROWS_DONE:** 32 (WO, FG CL30, Gate, Fleet core, Auth, Assets/PM read slice, mobile-only drafts/sync/diagnostics, etc.)
-- **GLOBAL_PARITY_ROWS_PARTIAL:** 24 (Fleet drivers/health/costs, inventory/procurement read-complete, facilities/cleaning/utilities read, WO history context, scan, notifications, …)
+- **GLOBAL_PARITY_ROWS_PARTIAL:** 28 (+3 compliance rows hub→partial)
 - **GLOBAL_PARITY_ROWS_BLOCKED:** 3 (WO parts issue/return, vehicle unassign, stock mutations on mobile)
 
 ## Assets/PM slice (subset — do not replace global totals)

@@ -24,6 +24,16 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/compliance/accident_detail_screen.dart';
+import '../../features/compliance/accident_report_screen.dart';
+import '../../features/compliance/accidents_list_screen.dart';
+import '../../features/compliance/compliance_hub_screen.dart';
+import '../../features/compliance/expiring_documents_screen.dart';
+import '../../features/compliance/insurance_claim_detail_screen.dart';
+import '../../features/compliance/insurance_claims_list_screen.dart';
+import '../../features/compliance/traffic_fine_detail_screen.dart';
+import '../../features/compliance/traffic_fines_list_screen.dart';
+import '../../features/compliance/vehicle_document_detail_screen.dart';
 import '../../features/facilities/cleaning_locations_screen.dart';
 import '../../features/facilities/cleaning_visits_list_screen.dart';
 import '../../features/facilities/facilities_hub_screen.dart';
@@ -466,6 +476,84 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 parentNavigatorKey: _rootNavigatorKey,
                 builder: (context, state) => UtilityMeterDetailScreen(
                   meterId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/compliance',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ComplianceHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'documents/expiring',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ExpiringDocumentsScreen(),
+          ),
+          GoRoute(
+            path: 'documents/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => VehicleDocumentDetailScreen(
+              documentId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: 'accidents',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final vehicleId = state.uri.queryParameters['vehicleId'];
+              return AccidentsListScreen(vehicleId: vehicleId);
+            },
+            routes: [
+              GoRoute(
+                path: 'report',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final q = state.uri.queryParameters;
+                  return AccidentReportScreen(
+                    vehicleId: q['vehicleId'],
+                    draftId: q['draftId'],
+                  );
+                },
+              ),
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => AccidentDetailScreen(
+                  accidentId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'insurance-claims',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const InsuranceClaimsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => InsuranceClaimDetailScreen(
+                  claimId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'traffic-fines',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final vehicleId = state.uri.queryParameters['vehicleId'];
+              return TrafficFinesListScreen(vehicleId: vehicleId);
+            },
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => TrafficFineDetailScreen(
+                  fineId: state.pathParameters['id']!,
                 ),
               ),
             ],

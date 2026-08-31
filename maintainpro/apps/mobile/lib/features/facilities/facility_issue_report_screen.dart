@@ -239,22 +239,41 @@ class _FacilityIssueReportScreenState
             maxLines: 5,
           ),
           const SizedBox(height: MpSpacing.md),
-          DropdownButtonFormField<String>(
-            value: _severity,
-            decoration: const InputDecoration(labelText: 'Severity'),
-            items: _severities
-                .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+          Text('Severity', style: Theme.of(context).textTheme.labelLarge),
+          Wrap(
+            spacing: MpSpacing.xs,
+            children: _severities
+                .map(
+                  (s) => ChoiceChip(
+                    label: Text(s),
+                    selected: _severity == s,
+                    onSelected: _submitting
+                        ? null
+                        : (selected) {
+                            if (selected) setState(() => _severity = s);
+                          },
+                  ),
+                )
                 .toList(),
-            onChanged: _submitting ? null : (v) => setState(() => _severity = v!),
           ),
           const SizedBox(height: MpSpacing.md),
-          DropdownButtonFormField<String>(
-            value: _category,
-            decoration: const InputDecoration(labelText: 'Category'),
-            items: _categories
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+          Text('Category', style: Theme.of(context).textTheme.labelLarge),
+          Wrap(
+            spacing: MpSpacing.xs,
+            runSpacing: MpSpacing.xs,
+            children: _categories
+                .map(
+                  (c) => ChoiceChip(
+                    label: Text(c),
+                    selected: _category == c,
+                    onSelected: _submitting
+                        ? null
+                        : (selected) {
+                            if (selected) setState(() => _category = c);
+                          },
+                  ),
+                )
                 .toList(),
-            onChanged: _submitting ? null : (v) => setState(() => _category = v),
           ),
           if (_error != null) ...[
             const SizedBox(height: MpSpacing.md),
