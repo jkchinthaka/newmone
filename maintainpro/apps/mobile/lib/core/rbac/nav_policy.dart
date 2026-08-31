@@ -184,22 +184,26 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'inventory',
           label: 'Inventory',
-          route: '/more',
+          route: '/inventory',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.inventory,
             NavRoles.procurement,
+            NavRoles.technician,
           ]),
+          requiredPermissions: const ['inventory.manage'],
         ),
         ModuleNavItem(
           id: 'procurement',
           label: 'Procurement',
-          route: '/more',
+          route: '/inventory/purchase-orders',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.inventory,
             NavRoles.procurement,
+            NavRoles.finance,
           ]),
+          requiredPermissions: const ['purchase_orders.view'],
         ),
       ],
     ),

@@ -5,7 +5,10 @@ abstract final class MpPermissions {
   static const workOrdersView = 'work_orders.view';
   static const workOrdersUpdate = 'work_orders.update';
   static const inventoryView = 'inventory.view';
+  static const inventoryManage = 'inventory.manage';
   static const inventoryAdjust = 'inventory.adjust';
+  static const purchaseOrdersView = 'purchase_orders.view';
+  static const erpView = 'erp.view';
   static const fleetView = 'fleet.view';
   static const fleetGate = 'fleet.gate';
   static const gateInCreate = 'gate.in.create';

@@ -24,6 +24,16 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/inventory/erp_status_screen.dart';
+import '../../features/inventory/inventory_hub_screen.dart';
+import '../../features/inventory/low_stock_screen.dart';
+import '../../features/inventory/part_detail_screen.dart';
+import '../../features/inventory/parts_list_screen.dart';
+import '../../features/inventory/purchase_order_detail_screen.dart';
+import '../../features/inventory/purchase_orders_list_screen.dart';
+import '../../features/inventory/supplier_detail_screen.dart';
+import '../../features/inventory/suppliers_list_screen.dart';
+import '../../features/inventory/warehouses_screen.dart';
 import '../../features/assets/asset_detail_screen.dart';
 import '../../features/assets/assets_hub_screen.dart';
 import '../../features/assets/assets_list_screen.dart';
@@ -156,7 +166,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/work-orders',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const WorkOrdersListScreen(),
+        builder: (context, state) => WorkOrdersListScreen(
+          initialQueue: state.uri.queryParameters['queue'],
+          initialAssetId: state.uri.queryParameters['assetId'],
+          assetFilterLabel: state.uri.queryParameters['assetTag'],
+        ),
         routes: [
           GoRoute(
             path: ':id',
@@ -296,6 +310,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => AssetDetailScreen(
               assetId: state.pathParameters['id']!,
             ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/inventory',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const InventoryHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'parts',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PartsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => PartDetailScreen(
+                  partId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'low-stock',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const LowStockScreen(),
+          ),
+          GoRoute(
+            path: 'warehouses',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const WarehousesScreen(),
+          ),
+          GoRoute(
+            path: 'suppliers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const SuppliersListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => SupplierDetailScreen(
+                  supplierId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'purchase-orders',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PurchaseOrdersListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => PurchaseOrderDetailScreen(
+                  purchaseOrderId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'erp',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ErpStatusScreen(),
           ),
         ],
       ),
