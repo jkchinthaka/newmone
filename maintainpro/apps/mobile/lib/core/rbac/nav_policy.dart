@@ -232,7 +232,7 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'facilities',
           label: 'Facilities',
-          route: '/more',
+          route: '/facilities',
           allowedRoles: NavRoles.merge([
             NavRoles.admin,
             NavRoles.management,
@@ -240,11 +240,12 @@ abstract final class NavPolicy {
             NavRoles.supervisor,
             NavRoles.readOnly,
           ]),
+          requiredPermissions: const ['facilities.view'],
         ),
         ModuleNavItem(
           id: 'cleaning',
           label: 'Cleaning',
-          route: '/more',
+          route: '/facilities/cleaning',
           allowedRoles: NavRoles.merge([
             NavRoles.admin,
             NavRoles.management,
@@ -256,12 +257,13 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'utilities',
           label: 'Utilities',
-          route: '/more',
+          route: '/facilities/utilities',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.admin,
             NavRoles.facility,
           ]),
+          requiredPermissions: const ['utilities.manage'],
         ),
       ],
     ),

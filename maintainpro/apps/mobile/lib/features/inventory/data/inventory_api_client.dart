@@ -80,6 +80,44 @@ class InventoryApiClient {
         return ErpStatusSummary.fromJson(map);
       });
 
+  Future<List<PartRequestSummary>> listPartRequests({
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/work-orders/part-requests',
+          queryParameters: {
+            'page': page,
+            'limit': limit,
+            if (status != null && status.isNotEmpty) 'status': status,
+          },
+        );
+        return _list(res.data, PartRequestSummary.fromJson);
+      });
+
+  Future<List<WarehouseBalanceSummary>> listWarehouseBalances({
+    String? warehouseId,
+    String? partId,
+    bool nonZeroOnly = true,
+    int page = 1,
+    int limit = 50,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/inventory/warehouse-balances',
+          queryParameters: {
+            'page': page,
+            'limit': limit,
+            if (warehouseId != null) 'warehouseId': warehouseId,
+            if (partId != null) 'partId': partId,
+            if (nonZeroOnly) 'nonZeroOnly': 'true',
+          },
+        );
+        return _list(res.data, WarehouseBalanceSummary.fromJson);
+      });
+
   Future<Map<String, dynamic>> erpInventoryReadiness() => _guarded(() async {
         final res = await _dio.get<dynamic>('/inventory/erp/readiness');
         return _unwrapMap(res.data);

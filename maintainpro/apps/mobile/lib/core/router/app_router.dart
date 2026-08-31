@@ -24,15 +24,25 @@ import '../../features/fg/cl30_recorder_screen.dart';
 import '../../features/fg/cl30_supervisor_detail_screen.dart';
 import '../../features/fg/cl30_supervisor_queue_screen.dart';
 import '../../features/fg/fg_hub_screen.dart';
+import '../../features/facilities/cleaning_locations_screen.dart';
+import '../../features/facilities/facilities_hub_screen.dart';
+import '../../features/facilities/facility_issue_detail_screen.dart';
+import '../../features/facilities/facility_issues_list_screen.dart';
+import '../../features/facilities/facility_room_detail_screen.dart';
+import '../../features/facilities/facility_rooms_list_screen.dart';
+import '../../features/facilities/utilities_meters_screen.dart';
+import '../../features/facilities/utility_meter_detail_screen.dart';
 import '../../features/inventory/erp_status_screen.dart';
 import '../../features/inventory/inventory_hub_screen.dart';
 import '../../features/inventory/low_stock_screen.dart';
 import '../../features/inventory/part_detail_screen.dart';
 import '../../features/inventory/parts_list_screen.dart';
+import '../../features/inventory/part_requests_list_screen.dart';
 import '../../features/inventory/purchase_order_detail_screen.dart';
 import '../../features/inventory/purchase_orders_list_screen.dart';
 import '../../features/inventory/supplier_detail_screen.dart';
 import '../../features/inventory/suppliers_list_screen.dart';
+import '../../features/inventory/warehouse_balances_screen.dart';
 import '../../features/inventory/warehouses_screen.dart';
 import '../../features/assets/asset_detail_screen.dart';
 import '../../features/assets/assets_hub_screen.dart';
@@ -371,9 +381,73 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: 'warehouse-balances',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const WarehouseBalancesScreen(),
+          ),
+          GoRoute(
+            path: 'part-requests',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PartRequestsListScreen(),
+          ),
+          GoRoute(
             path: 'erp',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) => const ErpStatusScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/facilities',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FacilitiesHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'rooms',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FacilityRoomsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => FacilityRoomDetailScreen(
+                  roomId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'issues',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FacilityIssuesListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => FacilityIssueDetailScreen(
+                  issueId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'cleaning',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const CleaningLocationsScreen(),
+          ),
+          GoRoute(
+            path: 'utilities',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const UtilitiesMetersScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => UtilityMeterDetailScreen(
+                  meterId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),

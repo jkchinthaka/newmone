@@ -195,6 +195,20 @@ class _InventoryHubScreenState extends ConsumerState<InventoryHubScreen> {
               ),
               _link(
                 context,
+                icon: Icons.inventory_outlined,
+                title: 'Warehouse balances',
+                subtitle: 'Per-warehouse stock rows (server)',
+                route: '/inventory/warehouse-balances',
+              ),
+              _link(
+                context,
+                icon: Icons.request_page_outlined,
+                title: 'Part requests',
+                subtitle: 'Global request inbox (read-only)',
+                route: '/inventory/part-requests',
+              ),
+              _link(
+                context,
                 icon: Icons.local_shipping_outlined,
                 title: 'Suppliers',
                 subtitle: 'Vendor directory',

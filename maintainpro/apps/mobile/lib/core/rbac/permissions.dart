@@ -20,6 +20,8 @@ abstract final class MpPermissions {
   static const vehiclesCreate = 'vehicles.create';
   static const vehiclesDelete = 'vehicles.delete';
   static const assetsView = 'assets.view';
+  static const facilitiesView = 'facilities.view';
+  static const partRequestsView = 'part_requests.view';
   static const reportsView = 'reports.view';
   static const complianceView = 'compliance.view';
   static const farmView = 'farm.view';

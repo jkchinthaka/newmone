@@ -356,6 +356,77 @@ class ErpStatusSummary {
   }
 }
 
+class PartRequestSummary {
+  const PartRequestSummary({
+    required this.id,
+    required this.status,
+    required this.requestedQuantity,
+    this.partName,
+    this.partNumber,
+    this.workOrderNumber,
+    this.workOrderId,
+  });
+
+  final String id;
+  final String status;
+  final num requestedQuantity;
+  final String? partName;
+  final String? partNumber;
+  final String? workOrderNumber;
+  final String? workOrderId;
+
+  factory PartRequestSummary.fromJson(Map<String, dynamic> json) {
+    final part = json['part'];
+    final wo = json['workOrder'];
+    return PartRequestSummary(
+      id: (json['id'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      requestedQuantity: _num(json['requestedQuantity']),
+      partName: part is Map ? part['name']?.toString() : null,
+      partNumber: part is Map ? part['partNumber']?.toString() : null,
+      workOrderNumber: wo is Map ? wo['woNumber']?.toString() : null,
+      workOrderId: wo is Map ? wo['id']?.toString() : json['workOrderId']?.toString(),
+    );
+  }
+}
+
+class WarehouseBalanceSummary {
+  const WarehouseBalanceSummary({
+    required this.id,
+    required this.onHand,
+    required this.available,
+    this.reserved = 0,
+    this.partNumber,
+    this.partName,
+    this.warehouseCode,
+    this.warehouseName,
+  });
+
+  final String id;
+  final num onHand;
+  final num available;
+  final num reserved;
+  final String? partNumber;
+  final String? partName;
+  final String? warehouseCode;
+  final String? warehouseName;
+
+  factory WarehouseBalanceSummary.fromJson(Map<String, dynamic> json) {
+    final part = json['part'];
+    final warehouse = json['warehouse'];
+    return WarehouseBalanceSummary(
+      id: (json['id'] ?? '').toString(),
+      onHand: _num(json['onHand']),
+      available: _num(json['available']),
+      reserved: _num(json['reserved']),
+      partNumber: part is Map ? part['partNumber']?.toString() : null,
+      partName: part is Map ? part['name']?.toString() : null,
+      warehouseCode: warehouse is Map ? warehouse['code']?.toString() : null,
+      warehouseName: warehouse is Map ? warehouse['name']?.toString() : null,
+    );
+  }
+}
+
 num _num(dynamic value) {
   if (value is num) return value;
   return num.tryParse('${value ?? ''}') ?? 0;
