@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 /// Persists JWT + tenant secrets in platform secure storage.
 class SecureTokenStore {
@@ -13,6 +14,7 @@ class SecureTokenStore {
   static const _refreshKey = 'mp_refresh_token';
   static const _tenantKey = 'mp_tenant_id';
   static const _userIdKey = 'mp_user_id';
+  static const _pushInstallationKey = 'mp_push_installation_id';
 
   final FlutterSecureStorage _storage;
 
@@ -52,6 +54,20 @@ class SecureTokenStore {
     await _storage.delete(key: _accessKey);
     await _storage.delete(key: _refreshKey);
   }
+
+  Future<String> getOrCreatePushInstallationId() async {
+    final existing = await _storage.read(key: _pushInstallationKey);
+    if (existing != null && existing.trim().isNotEmpty) {
+      return existing.trim();
+    }
+    const uuid = Uuid();
+    final created = uuid.v4();
+    await _storage.write(key: _pushInstallationKey, value: created);
+    return created;
+  }
+
+  Future<String?> readPushInstallationId() =>
+      _storage.read(key: _pushInstallationKey);
 
   Future<void> clearAll() async {
     await clearTokens();

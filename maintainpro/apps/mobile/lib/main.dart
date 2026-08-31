@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,6 @@ Future<void> main() async {
   }
 
   // Firebase is optional — only initialize when a platform config exists.
-  // Push wiring lands in a later milestone; boot must not fail without it.
   await _tryInitFirebase();
 
   runApp(
@@ -26,11 +26,10 @@ Future<void> main() async {
 
 Future<void> _tryInitFirebase() async {
   try {
-    // ignore: depend_on_referenced_packages
-    // Soft-load: if firebase_options / google-services are absent, skip.
-    // Importing firebase_core at top-level is fine; initializeApp may throw.
-    // Deferred to avoid hard crash in tests / simulators without config.
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
   } catch (_) {
-    // Intentionally ignored.
+    // Push registration skips when Firebase is not configured.
   }
 }

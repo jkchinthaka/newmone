@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/app_strings.dart';
-import '../../design_system/tokens/spacing.dart';
+import '../../design_system/design_system.dart';
+import '../notifications/push_notifications_service.dart';
 
 /// Phone: NavigationBar. Tablet / wide: NavigationRail.
-class AdaptiveShell extends StatelessWidget {
+class AdaptiveShell extends ConsumerWidget {
   const AdaptiveShell({super.key, required this.child});
 
   final Widget child;
@@ -34,11 +36,20 @@ class AdaptiveShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.toString();
     final index = _indexForLocation(location);
     final width = MediaQuery.sizeOf(context).width;
     final useRail = width >= 800;
+    final unread = ref.watch(unreadNotificationsCountProvider);
+
+    Widget tabIcon(_TabSpec tab, {required bool selected}) {
+      final icon = Icon(selected ? tab.selectedIcon : tab.icon);
+      if (tab.path == '/alerts' && unread > 0) {
+        return MpBadge(count: unread, child: icon);
+      }
+      return icon;
+    }
 
     if (useRail) {
       return Scaffold(
@@ -51,8 +62,8 @@ class AdaptiveShell extends StatelessWidget {
               destinations: [
                 for (final tab in _tabs)
                   NavigationRailDestination(
-                    icon: Icon(tab.icon),
-                    selectedIcon: Icon(tab.selectedIcon),
+                    icon: tabIcon(tab, selected: false),
+                    selectedIcon: tabIcon(tab, selected: true),
                     label: Text(tab.label),
                   ),
               ],
@@ -72,8 +83,8 @@ class AdaptiveShell extends StatelessWidget {
         destinations: [
           for (final tab in _tabs)
             NavigationDestination(
-              icon: Icon(tab.icon),
-              selectedIcon: Icon(tab.selectedIcon),
+              icon: tabIcon(tab, selected: false),
+              selectedIcon: tabIcon(tab, selected: true),
               label: tab.label,
             ),
         ],
