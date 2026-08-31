@@ -24,8 +24,8 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 12b | /work-orders (detail) | Parts issue/return | PATCH/POST parts/:lineId/* | PATCH/POST | inventory.stock_issue | INV/TECH | — | Not on mobile (stock authoritative) | online | blocked |
 | 12c | /work-orders (detail) | Activity timeline | GET /api/work-orders/:id/activity | GET | work_orders.* | TECH+ | WO Detail | Timeline | cache | done |
 | 12d | /work-orders (detail) | Asset/vehicle history context | GET /api/work-orders/:id/history | GET | work_orders.* | TECH+ | — | Context API unused in UI yet | cache | partial |
-| 13 | /assets | Assets CRUD | /api/assets | GET/POST/PATCH | assets.manage | TECH+ | Module Hub | Navigate | cache | hub |
-| 14 | /assets/health | Asset health | domain health endpoints | GET | assets.manage | MGR/ASSET/ADMIN | Module Hub | Navigate | online | hub |
+| 13 | /assets | Assets CRUD | /api/assets | GET/POST/PATCH | assets.manage | MGR/ASSET/ADMIN | Assets hub/list/detail | Browse, PM, job codes | cache | done |
+| 14 | /assets/health | Asset health | domain health endpoints | GET | assets.manage | MGR/ASSET/ADMIN | Assets hub | Service focus filter | online | partial |
 | 15 | /fleet/gate | Gate In/Out | POST /api/vehicles/:id/gate-in|gate-out | POST | gate.in.create|gate.out.create | SECURITY+ | Gate Home / Vehicle | In/Out + history | online required | done |
 | 15a | /fleet/gate | Gate eligibility | GET /api/vehicles/:id/gate-eligibility | GET | vehicles.view | SECURITY+ | Gate Vehicle | Server block reasons | online | done |
 | 15b | /fleet/gate | Gate override | POST gate-out + allowOverride | POST | gate.override.approve | ADMIN/MGR+ | Gate Out | Override iff server canOverride | online | done |
@@ -41,13 +41,13 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 17f | /vehicles meter | Meter reading | POST /:id/meter-reading | POST | vehicles.operate | FLEET/DRIVER+ | Meter form | Online; InFlightGuard only | online required | done |
 | 18 | /vehicles/health | Vehicle health | serviceStatus + alerts | GET | vehicles.view | MGR/FLEET/ADMIN | Vehicle detail chips | serviceStatus/alerts map only — no new algorithm | online | partial |
 | 19 | /vehicles/costs | Vehicle costs | fuel-analytics (not full cost report) | GET | vehicles.view | MGR/FIN/ADMIN | Vehicle detail | Fuel cost KPIs only | online | partial |
-| 20 | /inventory | Inventory | /api/inventory | GET/POST | inventory.* | INV/PROC/MGR | Module Hub | Navigate | stock ops online | hub |
-| 21 | /inventory/erp-import | ERP Stock Import | /api/inventory/erp-import* | POST | erp.import|inventory | ADMIN/MGR/INV | Module Hub | Navigate | online | hub |
+| 20 | /inventory | Inventory | /api/inventory | GET/POST | inventory.manage | INV/PROC/MGR | Inventory hub | Parts/warehouses/low stock | cache reads | partial |
+| 21 | /inventory/erp-import | ERP Stock Import | /api/inventory/erp-import* | POST | erp.import|inventory | ADMIN/MGR/INV | Inventory ERP status | Read-only status | online | partial |
 | 22 | /inventory/warranty | Warranty | inventory warranty | GET | inventory.* | MGR/INV/ADMIN | Module Hub | Navigate | cache | hub |
 | 23 | /operations/exceptions | Exceptions | /api/operations/* | GET | operations.view | MGR/ADMIN | Module Hub | Navigate | online | hub |
 | 24 | /operations/sla | SLA risk | /api/operations/* | GET | operations.view | MGR/ADMIN | Module Hub | Navigate | online | hub |
 | 25 | /operations/budget | Budget commitments | /api/operations/* | GET | reports.vehicle_cost.view | MGR/FIN/ADMIN | Module Hub | Navigate | online | hub |
-| 26 | /procurement | Procurement | /api/suppliers + PO | GET/POST | purchase_orders.* | PROC/INV/MGR | Module Hub | Navigate | online | hub |
+| 26 | /procurement | Procurement | /api/suppliers + PO | GET/POST | purchase_orders.* | PROC/INV/MGR | PO list/detail | Read approvals | online | partial |
 | 27 | /procurement/matching | PO matching | procurement matching | GET | purchase_orders.view | PROC/FIN/MGR | Module Hub | Navigate | online | hub |
 | 28 | /fg | FG Digital Recording hub | Nest /api/mobile/fg/session* | POST/GET | fg.access | FG roles | FG Hub | Bootstrap + navigate | — | done |
 | 29 | /fg/records/new | CL30 create/open/save/submit | /api/mobile/fg/cl30/records* | POST/GET | fg.recording.* | RECORDER+ | CL30 Recorder | Draft/save/submit | draft offline; submit online | done |
@@ -55,7 +55,7 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 31 | /fg/qa | QA verification | /api/mobile/fg/qa* | GET/POST | fg.qa.* | QA | FG QA | Release/Hold/Reject | online | done |
 | 31 | /fg/qa | QA verification | FG QA | POST | fg.qa* | QA | FG QA | Verify | online | planned |
 | 32 | /maintenance/forecast | Maintenance forecast | maintenance/predictive | GET | - | MGR/TECH/ADMIN | Module Hub | Navigate | online | hub |
-| 33 | /maintenance/job-codes | Job Codes | /api/job-codes | GET | - | MGR/SUP/ADMIN | Module Hub | Navigate | cache | hub |
+| 33 | /maintenance/job-codes | Job Codes | /api/job-codes | GET | - | MGR/SUP/ADMIN | Assets job codes | Browse | cache | done |
 | 34 | /utilities | Utilities | /api/utilities | GET | utilities.manage | MGR/FAC/ADMIN | Module Hub | Navigate | cache | hub |
 | 35 | /compliance | Compliance | /api/compliance | GET | compliance.view | COMP/MGR/ADMIN | Module Hub | Navigate | cache | hub |
 | 36 | /accidents | Accidents | /api/accidents | GET/POST | accidents.* | COMP/MGR/ADMIN | Module Hub | Draft/Submit | draft offline | hub |
@@ -111,9 +111,19 @@ Status legend: `done` | `partial` | `ui` (shell only) | `hub` (discoverable in M
 | 86 | mobile-only | Bootstrap BFF | GET /api/mobile/bootstrap | GET | auth | * | Startup | Aggregate | online | api-gap |
 
 ## Totals
-- Rows: ~93 (fleet sub-rows 16a–17f added)
-- Fleet vertical this pass: hub/list/detail/trips/fuel/meter **done**; drivers/health/costs/assign **partial**; live map **hub**; unassign **blocked**
-- Remaining domains still largely hub/ui/planned outside WO, FG, Gate, Fleet
+- **GLOBAL_PARITY_ROWS_TOTAL:** 100 (rows 1–86 plus sub-rows 12a–12d, 15a–15c, 16a, 17a–17f; duplicate FG QA row 31 counted once)
+- **GLOBAL_PARITY_ROWS_DONE:** 32 (WO, FG CL30, Gate, Fleet core, Auth, Assets/PM read slice, mobile-only drafts/sync/diagnostics, etc.)
+- **GLOBAL_PARITY_ROWS_PARTIAL:** 18 (Fleet drivers/health/costs, inventory/procurement read, WO history context, scan, notifications, …)
+- **GLOBAL_PARITY_ROWS_BLOCKED:** 3 (WO parts issue/return, vehicle unassign, stock mutations on mobile)
+
+## Assets/PM slice (subset — do not replace global totals)
+- **ASSETS_PM_PARITY_ROWS_TOTAL:** 10
+- **ASSETS_PM_PARITY_ROWS_DONE:** 10 (list, detail, MACHINE filter, service focus, PM read, job codes, scan, RBAC UX, tenant via Nest, WO assetId filter)
+- **ASSETS_PM_PARITY_ROWS_PARTIAL:** 0
+- **ASSETS_PM_PARITY_ROWS_BLOCKED:** 0 (PM/status mutations intentionally read-only)
+
+- Fleet vertical: hub/list/detail/trips/fuel/meter **done**; drivers/health/costs/assign **partial**; live map **hub**; unassign **blocked**
+- Inventory vertical this pass: parts/warehouses/low-stock/suppliers/PO read **partial**; mutations/receiving/PO approval **blocked**
 
 ## Hidden / reachable web routes (not all in sidebar)
 Also discovered under App Router: `/accept-invite`, `/register`, `/forgot-password`, `/splash`, `/qr/report-issue`, `/support/*`, `/change-requests`, `/releases`, `/admin/users|people|roles|tenants|invitations`, `/fg/*` subroutes, `/go-live/*`, `/erp/*`, `/post-go-live/*`, `/delivery-readiness/*`, `/qa/*`, legacy `(fms)`: `/machinery`, `/service`, `/vehicle`, `/pending-requests`, `/reports/job-costing`.
