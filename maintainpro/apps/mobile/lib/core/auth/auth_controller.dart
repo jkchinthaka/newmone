@@ -33,6 +33,13 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Clears a previous API error (e.g. before client-side form validation).
+  void clearError() {
+    if (state.errorMessage != null) {
+      state = state.copyWith(clearError: true);
+    }
+  }
+
   Future<bool> login({
     required String email,
     required String password,

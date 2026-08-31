@@ -31,30 +31,32 @@ class ModuleHubScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(MpSpacing.screenPadding),
         children: [
+          // onTap on MpListTile (not MpCard InkWell) so ListTile owns the
+          // gesture — nested InkWell+ListTile was unreliable for Sync center.
           MpCard(
-            onTap: () => context.push('/drafts'),
-            child: const MpListTile(
+            child: MpListTile(
               title: AppStrings.draftsTitle,
               subtitle: 'Local unsynced drafts',
-              leading: Icon(Icons.drafts_outlined),
+              leading: const Icon(Icons.drafts_outlined),
+              onTap: () => context.push('/drafts'),
             ),
           ),
           const SizedBox(height: MpSpacing.sm),
           MpCard(
-            onTap: () => context.push('/sync'),
-            child: const MpListTile(
+            child: MpListTile(
               title: AppStrings.syncTitle,
               subtitle: 'Outbox and connectivity',
-              leading: Icon(Icons.cloud_sync_outlined),
+              leading: const Icon(Icons.cloud_sync_outlined),
+              onTap: () => context.push('/sync'),
             ),
           ),
           const SizedBox(height: MpSpacing.sm),
           MpCard(
-            onTap: () => context.push('/settings'),
-            child: const MpListTile(
+            child: MpListTile(
               title: AppStrings.settingsTitle,
               subtitle: 'Preferences',
-              leading: Icon(Icons.settings_outlined),
+              leading: const Icon(Icons.settings_outlined),
+              onTap: () => context.push('/settings'),
             ),
           ),
           for (final group in groups) ...[

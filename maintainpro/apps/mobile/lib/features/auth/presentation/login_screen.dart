@@ -28,16 +28,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    // Drop stale API errors before client validation so users never see
+    // both a field error and a leftover "email must be an email" banner.
+    ref.read(authControllerProvider.notifier).clearError();
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     final ok = await ref.read(authControllerProvider.notifier).login(
-          email: _email.text,
+          email: _email.text.trim(),
           password: _password.text,
         );
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
       context.go('/home');
+    }
+  }
+
+  void _onCredentialsChanged() {
+    if (ref.read(authControllerProvider).errorMessage != null) {
+      ref.read(authControllerProvider.notifier).clearError();
     }
   }
 
@@ -84,11 +93,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       prefixIcon: Icons.email_outlined,
                       autofillHints: const [AutofillHints.email],
+                      onChanged: (_) => _onCredentialsChanged(),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return AppStrings.fieldRequired;
                         }
-                        if (!v.contains('@')) return AppStrings.invalidEmail;
+                        final email = v.trim();
+                        // Simple local check — Nest still validates on submit.
+                        final ok = RegExp(
+                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                        ).hasMatch(email);
+                        if (!ok) return AppStrings.invalidEmail;
                         return null;
                       },
                     ),
@@ -100,6 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       prefixIcon: Icons.lock_outline,
                       autofillHints: const [AutofillHints.password],
+                      onChanged: (_) => _onCredentialsChanged(),
                       onSubmitted: (_) => _submit(),
                       suffixIcon: IconButton(
                         onPressed: () =>
@@ -120,7 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     if (auth.errorMessage != null) ...[
                       const SizedBox(height: MpSpacing.md),
                       Text(
-                        auth.errorMessage!,
+                        _friendlyAuthError(auth.errorMessage!),
                         style: TextStyle(color: scheme.error),
                       ),
                     ],
@@ -139,5 +155,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  /// Prefer product copy over Nest class-validator phrasing for email shape.
+  static String _friendlyAuthError(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('must be an email') ||
+        lower == 'email must be an email') {
+      return AppStrings.invalidEmail;
+    }
+    return message;
   }
 }
