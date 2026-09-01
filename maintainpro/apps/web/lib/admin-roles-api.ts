@@ -10,6 +10,17 @@ export async function fetchAdminRolesPermissionsMatrix(): Promise<AdminRolesPerm
   return response.data.data;
 }
 
+export async function syncPermissionCatalog(): Promise<{ existingCount: number; createdCount: number; createdKeys: string[] }> {
+  try {
+    const response = await apiClient.post<ApiEnvelope<{ existingCount: number; createdCount: number; createdKeys: string[] }>>(
+      "/admin/permissions/sync"
+    );
+    return response.data.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to sync the permission catalog"));
+  }
+}
+
 export async function updateRolePermissions(roleId: string, permissionIds: string[]) {
   try {
     const response = await apiClient.patch<ApiEnvelope<{ id: string; name: string; permissionCount: number }>>(
