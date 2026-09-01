@@ -163,6 +163,35 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .get();
   }
+
+  /// Removes all local rows for a user session (shared-device logout safety).
+  Future<void> purgeUserLocalData({
+    required String tenantId,
+    required String userId,
+  }) async {
+    await (delete(outboxOperations)
+          ..where(
+            (t) => t.tenantId.equals(tenantId) & t.userId.equals(userId),
+          ))
+        .go();
+    await (delete(localDrafts)
+          ..where(
+            (t) => t.tenantId.equals(tenantId) & t.userId.equals(userId),
+          ))
+        .go();
+    await (delete(cacheEntries)
+          ..where(
+            (t) => t.tenantId.equals(tenantId) & t.userId.equals(userId),
+          ))
+        .go();
+  }
+
+  /// Clears all on-device offline data (full logout on shared tablets).
+  Future<void> purgeAllLocalData() async {
+    await delete(outboxOperations).go();
+    await delete(localDrafts).go();
+    await delete(cacheEntries).go();
+  }
 }
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {

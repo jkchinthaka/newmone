@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_exception.dart';
 import '../network/dio_client.dart';
+import '../offline/local_data_purge.dart';
 import 'auth_session.dart';
 import 'secure_token_store.dart';
 
@@ -10,11 +11,14 @@ class AuthRepository {
   AuthRepository({
     required Dio dio,
     required SecureTokenStore tokens,
+    LocalDataPurge? localDataPurge,
   })  : _dio = dio,
-        _tokens = tokens;
+        _tokens = tokens,
+        _localDataPurge = localDataPurge;
 
   final Dio _dio;
   final SecureTokenStore _tokens;
+  final LocalDataPurge? _localDataPurge;
 
   Future<AuthSession> login({
     required String email,
@@ -106,6 +110,7 @@ class AuthRepository {
     } catch (_) {
       // Best-effort server logout; always clear local secrets.
     } finally {
+      await _localDataPurge?.onLogout();
       await _tokens.clearAll();
     }
   }
@@ -124,5 +129,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     dio: ref.watch(dioProvider),
     tokens: ref.watch(secureTokenStoreProvider),
+    localDataPurge: ref.watch(localDataPurgeProvider),
   );
 });
