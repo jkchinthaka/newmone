@@ -49,8 +49,8 @@ const sampleMatrix: AdminRolesPermissionsMatrix = {
 };
 
 describe("admin roles frontend helpers", () => {
-  it("does not expose mutation actions in matrix config", () => {
-    expect(adminRolesMatrixAllowsMutations()).toBe(false);
+  it("exposes mutation actions now that the Admin Console permission matrix is editable (SUPER_ADMIN only, server-enforced)", () => {
+    expect(adminRolesMatrixAllowsMutations()).toBe(true);
   });
 
   it("formats role and module labels safely", () => {

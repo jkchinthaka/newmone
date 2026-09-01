@@ -56,6 +56,9 @@ const createPrismaMock = () => ({
   },
   tenantMembership: {
     findUnique: jest.fn()
+  },
+  auditLog: {
+    create: jest.fn().mockResolvedValue({ id: "audit-1" })
   }
 });
 

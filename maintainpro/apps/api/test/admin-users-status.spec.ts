@@ -1,11 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
-import { ExecutionContext } from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
+import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { RoleName } from "@prisma/client";
 
-import { RolesGuard } from "../src/common/guards/roles.guard";
+import { SuperAdminGuard } from "../src/common/guards/super-admin.guard";
 import { requestContext } from "../src/common/context/request-context";
-import { AdminAccessController } from "../src/modules/admin/admin-access.controller";
 import {
   ADMIN_USER_ACCESS_SENSITIVE_FIELDS,
   UsersService
@@ -35,6 +32,9 @@ const createPrismaMock = () => ({
     findFirst: jest.fn(),
     update: jest.fn(),
     count: jest.fn().mockResolvedValue(2)
+  },
+  auditLog: {
+    create: jest.fn().mockResolvedValue({ id: "audit-1" })
   }
 });
 
@@ -174,17 +174,58 @@ describe("Admin user status mutation", () => {
     );
   });
 
-  it("blocks non-admin roles from the admin status endpoint via RolesGuard", () => {
-    const guard = new RolesGuard(new Reflector());
-
+  // The admin status endpoint is now gated by SuperAdminGuard (DB-authoritative),
+  // not @Roles(SUPER_ADMIN, ADMIN) — this is a deliberate tightening: only
+  // SUPER_ADMIN may mutate users through the Admin Console.
+  it("blocks a DB-current ADMIN (even with a JWT sub) from the SUPER_ADMIN-only admin console guard", async () => {
+    const prisma: any = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ isActive: true, lockedUntil: null, role: { name: RoleName.ADMIN } })
+      }
+    };
+    const guard = new SuperAdminGuard(prisma);
     const context = {
-      getHandler: () => AdminAccessController.prototype.updateUserStatus,
-      getClass: () => AdminAccessController,
-      switchToHttp: () => ({
-        getRequest: () => ({ user: { role: "VIEWER" } })
-      })
-    } as unknown as ExecutionContext;
+      switchToHttp: () => ({ getRequest: () => ({ user: { sub: "admin-1" } }) })
+    } as any;
 
-    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("blocks a stale JWT claiming SUPER_ADMIN when the DB currently says ADMIN", async () => {
+    const prisma: any = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ isActive: true, lockedUntil: null, role: { name: RoleName.ADMIN } })
+      }
+    };
+    const guard = new SuperAdminGuard(prisma);
+    const context = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { sub: "admin-1", role: RoleName.SUPER_ADMIN } }) })
+    } as any;
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("rejects a disabled or locked SUPER_ADMIN account", async () => {
+    const prisma: any = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ isActive: false, lockedUntil: null, role: { name: RoleName.SUPER_ADMIN } })
+      }
+    };
+    const guard = new SuperAdminGuard(prisma);
+    const context = { switchToHttp: () => ({ getRequest: () => ({ user: { sub: "super-1" } }) }) } as any;
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("allows an active, unlocked, DB-current SUPER_ADMIN", async () => {
+    const prisma: any = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ isActive: true, lockedUntil: null, role: { name: RoleName.SUPER_ADMIN } })
+      }
+    };
+    const guard = new SuperAdminGuard(prisma);
+    const context = { switchToHttp: () => ({ getRequest: () => ({ user: { sub: "super-1" } }) }) } as any;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 });

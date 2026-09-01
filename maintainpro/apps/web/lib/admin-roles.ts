@@ -65,7 +65,7 @@ export function roleHasPermission(
 }
 
 export function adminRolesMatrixAllowsMutations(): boolean {
-  return false;
+  return true;
 }
 
 export function filterRolesPermissionsMatrix(
