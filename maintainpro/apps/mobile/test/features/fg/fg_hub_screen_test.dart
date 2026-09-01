@@ -133,6 +133,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('New CL18'), findsOneWidget);
-    expect(find.text('Controlled production records'), findsOneWidget);
+    expect(find.text('Production records'), findsOneWidget);
   });
 }
