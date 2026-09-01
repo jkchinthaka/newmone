@@ -182,18 +182,25 @@ abstract final class RoleHomeConfig {
 
   static const _adminCards = [
     HomeCard(
-      id: 'system-health',
-      title: 'Diagnostics',
-      subtitle: 'Connectivity and sync health',
-      route: '/diagnostics',
-      iconName: 'monitor_heart',
+      id: 'admin-console',
+      title: 'Admin Console',
+      subtitle: 'Users, roles, tenants, audit',
+      route: '/admin',
+      iconName: 'admin_panel_settings',
     ),
     HomeCard(
-      id: 'action-center',
-      title: 'Action Center',
-      subtitle: 'Tenant priorities',
-      route: '/tasks',
-      iconName: 'notifications_active',
+      id: 'reports',
+      title: 'Management Reports',
+      subtitle: 'KPIs and module reports',
+      route: '/reports',
+      iconName: 'insights',
+    ),
+    HomeCard(
+      id: 'system-health',
+      title: 'System Health',
+      subtitle: 'API readiness',
+      route: '/admin/system-health',
+      iconName: 'monitor_heart',
     ),
     HomeCard(
       id: 'work-orders',
@@ -201,13 +208,6 @@ abstract final class RoleHomeConfig {
       subtitle: 'All jobs',
       route: '/work-orders',
       iconName: 'build',
-    ),
-    HomeCard(
-      id: 'more',
-      title: 'Administration',
-      subtitle: 'Modules and settings',
-      route: '/more',
-      iconName: 'admin_panel_settings',
     ),
   ];
 

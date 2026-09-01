@@ -1,0 +1,105 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/network/dio_client.dart';
+import 'reports_models.dart';
+
+class ReportsApiClient {
+  ReportsApiClient(this._dio);
+
+  final Dio _dio;
+
+  Future<T> _guarded<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on DioException catch (e) {
+      throwApiException(e);
+    }
+  }
+
+  Future<ReportDashboard> dashboard({
+    String? startDate,
+    String? endDate,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/reports/dashboard',
+          queryParameters: {
+            if (startDate != null) 'startDate': startDate,
+            if (endDate != null) 'endDate': endDate,
+          },
+        );
+        return ReportDashboard.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<ReportModulePage> moduleReport(
+    String module, {
+    String? startDate,
+    String? endDate,
+    String? status,
+    String? search,
+    int page = 1,
+    int pageSize = 20,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/reports/$module',
+          queryParameters: {
+            if (startDate != null) 'startDate': startDate,
+            if (endDate != null) 'endDate': endDate,
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (search != null && search.isNotEmpty) 'search': search,
+            'page': page,
+            'pageSize': pageSize,
+          },
+        );
+        final map = unwrapDataMap(res.data);
+        if (map.isEmpty && res.data is Map) {
+          return ReportModulePage.fromJson(Map<String, dynamic>.from(res.data as Map));
+        }
+        return ReportModulePage.fromJson(map);
+      });
+
+  Future<Map<String, dynamic>> managementSummary({
+    String? dateFrom,
+    String? dateTo,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>(
+          '/reports/management/profitability/summary',
+          queryParameters: {
+            if (dateFrom != null) 'dateFrom': dateFrom,
+            if (dateTo != null) 'dateTo': dateTo,
+          },
+        );
+        return unwrapDataMap(res.data);
+      });
+
+  Future<List<MaintenanceExceptionCard>> maintenanceExceptions() =>
+      _guarded(() async {
+        final res = await _dio.get<dynamic>('/reports/maintenance/exceptions');
+        final data = unwrapData(res.data);
+        final map = asMap(data) ?? {};
+        final cards = asMapList(map['cards'] ?? data);
+        return cards.map(MaintenanceExceptionCard.fromJson).toList();
+      });
+
+  Future<Map<String, dynamic>> erpMonitoring() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/reports/erp-monitoring');
+        return unwrapDataMap(res.data);
+      });
+
+  Future<Map<String, dynamic>> facilitiesAging() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/facilities/reports/aging');
+        return unwrapDataMap(res.data);
+      });
+
+  Future<Map<String, dynamic>> enterpriseOpsDashboard() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/enterprise-ops/dashboard');
+        return unwrapDataMap(res.data);
+      });
+}
+
+final reportsApiClientProvider = Provider<ReportsApiClient>((ref) {
+  return ReportsApiClient(ref.watch(dioProvider));
+});

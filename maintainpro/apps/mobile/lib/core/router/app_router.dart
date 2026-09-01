@@ -36,6 +36,15 @@ import '../../features/compliance/insurance_claims_list_screen.dart';
 import '../../features/compliance/traffic_fine_detail_screen.dart';
 import '../../features/compliance/traffic_fines_list_screen.dart';
 import '../../features/compliance/vehicle_document_detail_screen.dart';
+import '../../features/admin/admin_audit_health_screens.dart';
+import '../../features/admin/admin_hub_screen.dart';
+import '../../features/admin/admin_people_screen.dart';
+import '../../features/admin/admin_roles_screen.dart';
+import '../../features/admin/admin_tenants_invitations_departments.dart';
+import '../../features/admin/admin_users_screen.dart';
+import '../../features/admin/data/admin_models.dart';
+import '../../features/reports/reports_hub_screen.dart';
+import '../../features/reports/reports_screens.dart';
 import '../../features/facilities/cleaning_locations_screen.dart';
 import '../../features/facilities/cleaning_visits_list_screen.dart';
 import '../../features/facilities/facilities_hub_screen.dart';
@@ -676,6 +685,117 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'history',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) => const Cl30HistoryScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/admin',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AdminHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'users',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminUsersScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final extra = state.extra;
+                  if (extra is AdminUserRow) {
+                    return AdminUserDetailScreen(user: extra);
+                  }
+                  return AdminUserDetailScreen(
+                    user: AdminUserRow(
+                      id: state.pathParameters['id']!,
+                      displayName: 'User',
+                      email: '',
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'people',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminPeopleScreen(),
+          ),
+          GoRoute(
+            path: 'roles',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminRolesScreen(),
+          ),
+          GoRoute(
+            path: 'tenants',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminTenantsScreen(),
+          ),
+          GoRoute(
+            path: 'invitations',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminInvitationsScreen(),
+          ),
+          GoRoute(
+            path: 'departments',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminDepartmentsScreen(),
+          ),
+          GoRoute(
+            path: 'audit',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminAuditScreen(),
+          ),
+          GoRoute(
+            path: 'system-health',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminSystemHealthScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/reports',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ReportsHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'dashboard',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ReportsDashboardScreen(),
+          ),
+          GoRoute(
+            path: 'management',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ManagementIntelligenceScreen(),
+          ),
+          GoRoute(
+            path: 'maintenance-exceptions',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const MaintenanceExceptionsScreen(),
+          ),
+          GoRoute(
+            path: 'modules/:module',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => ReportModuleScreen(
+              module: state.pathParameters['module']!,
+            ),
+          ),
+          GoRoute(
+            path: 'facilities-aging',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => SimpleMapReportScreen(
+              title: 'Facilities aging',
+              loader: (c) => c.facilitiesAging(),
+            ),
+          ),
+          GoRoute(
+            path: 'erp',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => SimpleMapReportScreen(
+              title: 'ERP monitoring',
+              loader: (c) => c.erpMonitoring(),
+            ),
           ),
         ],
       ),

@@ -341,7 +341,7 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'reports',
           label: 'Reports',
-          route: '/more',
+          route: '/reports',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.supervisor,
@@ -350,11 +350,12 @@ abstract final class NavPolicy {
             NavRoles.admin,
             NavRoles.finance,
           ]),
+          requiredPermissions: const ['reports.view'],
         ),
         ModuleNavItem(
           id: 'management-intelligence',
           label: 'Management Intelligence',
-          route: '/more',
+          route: '/reports/management',
           allowedRoles: NavRoles.merge([
             NavRoles.management,
             NavRoles.admin,
@@ -370,13 +371,13 @@ abstract final class NavPolicy {
         const ModuleNavItem(
           id: 'admin-console',
           label: 'Admin Console',
-          route: '/more',
+          route: '/admin',
           allowedRoles: NavRoles.admin,
         ),
         const ModuleNavItem(
           id: 'system-health',
           label: 'System Health',
-          route: '/diagnostics',
+          route: '/admin/system-health',
           allowedRoles: NavRoles.admin,
         ),
         ModuleNavItem(
@@ -391,11 +392,17 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'master-data',
           label: 'Master Data',
-          route: '/more',
+          route: '/admin/departments',
           allowedRoles: NavRoles.merge([
             NavRoles.admin,
             ['MANAGER'],
           ]),
+        ),
+        const ModuleNavItem(
+          id: 'audit-logs',
+          label: 'Audit Logs',
+          route: '/admin/audit',
+          allowedRoles: NavRoles.admin,
         ),
       ],
     ),
