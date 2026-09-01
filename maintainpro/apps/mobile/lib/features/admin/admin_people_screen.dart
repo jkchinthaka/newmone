@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../design_system/design_system.dart';
 import 'data/admin_api_client.dart';
 import 'data/admin_models.dart';
+import 'admin_settings_people_extras.dart';
 
 class AdminPeopleScreen extends ConsumerStatefulWidget {
   const AdminPeopleScreen({super.key});
@@ -103,6 +104,13 @@ class _AdminPeopleScreenState extends ConsumerState<AdminPeopleScreen> {
                             itemBuilder: (context, i) {
                               final p = _rows[i];
                               return MpCard(
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => AdminPersonDetailScreen(
+                                      personId: p.id,
+                                    ),
+                                  ),
+                                ),
                                 child: ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(p.fullName),

@@ -6,6 +6,7 @@ import '../../core/network/api_exception.dart';
 import '../../design_system/design_system.dart';
 import 'data/admin_api_client.dart';
 import 'data/admin_models.dart';
+import 'admin_settings_people_extras.dart';
 
 class AdminUsersScreen extends ConsumerStatefulWidget {
   const AdminUsersScreen({super.key});
@@ -101,6 +102,13 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
         ],
       ),
+      floatingActionButton: adminCanManageUsers(ref)
+          ? FloatingActionButton.extended(
+              onPressed: () => showAdminUserEditor(context, ref, onSaved: _load),
+              icon: const Icon(Icons.person_add),
+              label: const Text('Create'),
+            )
+          : null,
       body: _loading
           ? const MpLoading(message: 'Loading users…')
           : _error != null
@@ -179,15 +187,29 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   }
 }
 
-class AdminUserDetailScreen extends StatelessWidget {
+class AdminUserDetailScreen extends ConsumerWidget {
   const AdminUserDetailScreen({super.key, required this.user});
 
   final AdminUserRow user;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: Text(user.displayName)),
+      appBar: AppBar(
+        title: Text(user.displayName),
+        actions: [
+          if (adminCanManageUsers(ref))
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => showAdminUserEditor(
+                context,
+                ref,
+                existing: user,
+                onSaved: () {},
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(MpSpacing.screenPadding),
         children: [

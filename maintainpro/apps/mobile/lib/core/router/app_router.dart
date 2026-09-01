@@ -40,11 +40,13 @@ import '../../features/admin/admin_audit_health_screens.dart';
 import '../../features/admin/admin_hub_screen.dart';
 import '../../features/admin/admin_people_screen.dart';
 import '../../features/admin/admin_roles_screen.dart';
+import '../../features/admin/admin_settings_people_extras.dart';
 import '../../features/admin/admin_tenants_invitations_departments.dart';
 import '../../features/admin/admin_users_screen.dart';
 import '../../features/admin/data/admin_models.dart';
 import '../../features/reports/reports_hub_screen.dart';
 import '../../features/reports/reports_screens.dart';
+import '../../features/farm/farm_screens.dart';
 import '../../features/facilities/cleaning_locations_screen.dart';
 import '../../features/facilities/cleaning_visits_list_screen.dart';
 import '../../features/facilities/facilities_hub_screen.dart';
@@ -721,6 +723,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'people',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) => const AdminPeopleScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => AdminPersonDetailScreen(
+                  personId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'roles',
@@ -751,6 +762,82 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'system-health',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) => const AdminSystemHealthScreen(),
+          ),
+          GoRoute(
+            path: 'settings',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminOrgSettingsScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/farm',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FarmHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'fields',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Fields',
+              loader: (c) => c.listFields(),
+            ),
+          ),
+          GoRoute(
+            path: 'crops',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Crops',
+              loader: (c) => c.listCrops(),
+            ),
+          ),
+          GoRoute(
+            path: 'harvest',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Harvest',
+              loader: (c) => c.listHarvest(),
+            ),
+          ),
+          GoRoute(
+            path: 'livestock',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Livestock',
+              loader: (c) => c.listLivestock(),
+            ),
+          ),
+          GoRoute(
+            path: 'irrigation',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Irrigation',
+              loader: (c) => c.listIrrigation(),
+            ),
+          ),
+          GoRoute(
+            path: 'workers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Workers',
+              loader: (c) => c.listWorkers(),
+            ),
+          ),
+          GoRoute(
+            path: 'attendance',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Attendance',
+              loader: (c) => c.listAttendance(),
+            ),
+          ),
+          GoRoute(
+            path: 'traceability',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Traceability',
+              loader: (c) => c.listTraceability(),
+            ),
           ),
         ],
       ),

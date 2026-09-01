@@ -143,6 +143,79 @@ class AdminApiClient {
         final res = await _dio.get<dynamic>('/health');
         return asMap(res.data) ?? unwrapDataMap(res.data);
       });
+
+  Future<AdminUserRow> getUser(String id) => _guarded(() async {
+        final res = await _dio.get<dynamic>('/users/$id');
+        return AdminUserRow.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<AdminUserRow> createUser({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required String roleId,
+    String? phone,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.post<dynamic>(
+          '/users',
+          data: {
+            'email': email.trim(),
+            'password': password,
+            'firstName': firstName.trim(),
+            'lastName': lastName.trim(),
+            'roleId': roleId,
+            if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+          },
+        );
+        return AdminUserRow.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<AdminUserRow> updateUser(
+    String id, {
+    String? firstName,
+    String? lastName,
+    String? phone,
+    String? roleId,
+  }) =>
+      _guarded(() async {
+        final res = await _dio.patch<dynamic>(
+          '/users/$id',
+          data: {
+            if (firstName != null) 'firstName': firstName.trim(),
+            if (lastName != null) 'lastName': lastName.trim(),
+            if (phone != null) 'phone': phone.trim(),
+            if (roleId != null) 'roleId': roleId,
+          },
+        );
+        return AdminUserRow.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<PersonRow> deactivatePerson(String id) => _guarded(() async {
+        final res = await _dio.post<dynamic>('/people/$id/deactivate');
+        return PersonRow.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<PersonRow> reactivatePerson(String id) => _guarded(() async {
+        final res = await _dio.post<dynamic>('/people/$id/reactivate');
+        return PersonRow.fromJson(unwrapDataMap(res.data));
+      });
+
+  Future<Map<String, dynamic>> getOrganizationSettings() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/settings/organization');
+        return unwrapDataMap(res.data);
+      });
+
+  Future<Map<String, dynamic>> getSystemSettings() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/settings/system');
+        return unwrapDataMap(res.data);
+      });
+
+  Future<Map<String, dynamic>> getFeatureToggles() => _guarded(() async {
+        final res = await _dio.get<dynamic>('/settings/feature-toggles');
+        return unwrapDataMap(res.data);
+      });
 }
 
 final adminApiClientProvider = Provider<AdminApiClient>((ref) {
