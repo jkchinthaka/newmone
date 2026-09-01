@@ -274,7 +274,7 @@ abstract final class NavPolicy {
         ModuleNavItem(
           id: 'farm',
           label: 'Farm Operations',
-          route: '/more',
+          route: '/farm',
           allowedRoles: NavRoles.merge([
             NavRoles.farm,
             NavRoles.admin,

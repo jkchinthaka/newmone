@@ -1,4 +1,4 @@
-package com.example.maintainpro_mobile
+package com.maintainpro.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
