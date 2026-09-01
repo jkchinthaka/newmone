@@ -32,7 +32,7 @@ Route hub: `/reports`
 | ERP monitoring | `GET /reports/erp-monitoring` |
 | Compliance / FG / Audit | deep-links to existing hubs |
 
-All KPI/totals are server-authoritative. Export binary downloads remain Web-first (permission `reports.export`).
+All KPI/totals are server-authoritative. Module export (`csv`/`xlsx`/`pdf`) is wired on mobile module report screens when `reports.export` is granted. Maintenance/management CSV exports remain Web-first.
 
 ## RBAC
 
