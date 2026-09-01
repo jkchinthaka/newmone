@@ -1,10 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../core/auth/auth_controller.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/rbac/permissions.dart';
 import '../../design_system/design_system.dart';
 import 'data/reports_api_client.dart';
 import 'data/reports_models.dart';
+import 'report_filter_bar.dart';
 
 class ReportsDashboardScreen extends ConsumerStatefulWidget {
   const ReportsDashboardScreen({super.key});
@@ -19,6 +25,7 @@ class _ReportsDashboardScreenState
   bool _loading = true;
   String? _error;
   ReportDashboard? _dash;
+  ReportFilterParams _filters = const ReportFilterParams();
 
   @override
   void initState() {
@@ -32,7 +39,9 @@ class _ReportsDashboardScreenState
       _error = null;
     });
     try {
-      final dash = await ref.read(reportsApiClientProvider).dashboard();
+      final dash = await ref
+          .read(reportsApiClientProvider)
+          .dashboardFiltered(_filters);
       if (!mounted) return;
       setState(() {
         _dash = dash;
@@ -64,52 +73,68 @@ class _ReportsDashboardScreenState
           ? const MpLoading(message: 'Loading KPIs…')
           : _error != null
               ? MpErrorState(title: 'Dashboard unavailable', message: _error, onRetry: _load)
-              : cards.isEmpty
-                  ? const MpEmptyState(
-                      title: 'No KPIs',
-                      message: 'Server returned an empty dashboard for this role.',
-                      icon: Icons.dashboard_outlined,
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(MpSpacing.screenPadding),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: MpSpacing.sm,
-                        crossAxisSpacing: MpSpacing.sm,
-                        childAspectRatio: 1.35,
-                      ),
-                      itemCount: cards.length,
-                      itemBuilder: (context, i) {
-                        final c = cards[i];
-                        return MpCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                c.label,
-                                style: Theme.of(context).textTheme.labelLarge,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const Spacer(),
-                              Text(
-                                c.value,
-                                style: Theme.of(context).textTheme.headlineSmall,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (c.subLabel != null)
+              : ListView(
+                  padding: const EdgeInsets.all(MpSpacing.screenPadding),
+                  children: [
+                    ReportFilterBar(
+                      filters: _filters,
+                      showStatus: false,
+                      showSearch: false,
+                      onChanged: (f) => setState(() => _filters = f),
+                      onApply: _load,
+                    ),
+                    const SizedBox(height: MpSpacing.md),
+                    if (cards.isEmpty)
+                      const MpEmptyState(
+                        title: 'No KPIs',
+                        message: 'Server returned an empty dashboard for this role.',
+                        icon: Icons.dashboard_outlined,
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: MpSpacing.sm,
+                          crossAxisSpacing: MpSpacing.sm,
+                          childAspectRatio: 1.35,
+                        ),
+                        itemCount: cards.length,
+                        itemBuilder: (context, i) {
+                          final c = cards[i];
+                          return MpCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  c.subLabel!,
-                                  style: Theme.of(context).textTheme.bodySmall,
+                                  c.label,
+                                  style: Theme.of(context).textTheme.labelLarge,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                                const Spacer(),
+                                Text(
+                                  c.value,
+                                  style: Theme.of(context).textTheme.headlineSmall,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (c.subLabel != null)
+                                  Text(
+                                    c.subLabel!,
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
     );
   }
 }
@@ -127,6 +152,16 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
   bool _loading = true;
   String? _error;
   ReportModulePage? _page;
+  ReportFilterParams _filters = const ReportFilterParams();
+  bool _exporting = false;
+
+  bool _canExport() {
+    final user = ref.read(authControllerProvider).user;
+    if (user == null) return false;
+    final role = user.role.toUpperCase();
+    if (role == 'SUPER_ADMIN' || role == 'ADMIN') return true;
+    return MpPermissions.has(user.permissions, 'reports.export');
+  }
 
   @override
   void initState() {
@@ -140,9 +175,10 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
       _error = null;
     });
     try {
-      final page = await ref
-          .read(reportsApiClientProvider)
-          .moduleReport(widget.module);
+      final page = await ref.read(reportsApiClientProvider).moduleReport(
+            widget.module,
+            filters: _filters,
+          );
       if (!mounted) return;
       setState(() {
         _page = page;
@@ -157,6 +193,35 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
     }
   }
 
+  Future<void> _export(String format) async {
+    if (!_canExport()) return;
+    setState(() => _exporting = true);
+    try {
+      final result = await ref.read(reportsApiClientProvider).exportModuleReport(
+            widget.module,
+            format: format,
+            filters: _filters,
+          );
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/${result.fileName}');
+      await file.writeAsBytes(result.bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Exported ${result.fileName}'
+            '${result.truncated ? ' (truncated)' : ''}',
+          ),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = kReportModules[widget.module] ?? widget.module;
@@ -165,6 +230,16 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
       appBar: AppBar(
         title: Text(title),
         actions: [
+          if (_canExport())
+            PopupMenuButton<String>(
+              enabled: !_exporting,
+              onSelected: _export,
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+                PopupMenuItem(value: 'xlsx', child: Text('Export Excel')),
+                PopupMenuItem(value: 'pdf', child: Text('Export PDF')),
+              ],
+            ),
           IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
         ],
       ),
@@ -172,15 +247,22 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
           ? const MpLoading(message: 'Loading report…')
           : _error != null
               ? MpErrorState(title: 'Report unavailable', message: _error, onRetry: _load)
-              : page == null || (page.rows.isEmpty && page.kpis.isEmpty)
-                  ? const MpEmptyState(
-                      title: 'Empty report',
-                      message: 'No rows for the current filters.',
-                      icon: Icons.table_chart_outlined,
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.all(MpSpacing.screenPadding),
-                      children: [
+              : ListView(
+                  padding: const EdgeInsets.all(MpSpacing.screenPadding),
+                  children: [
+                    ReportFilterBar(
+                      filters: _filters,
+                      onChanged: (f) => setState(() => _filters = f),
+                      onApply: _load,
+                    ),
+                    const SizedBox(height: MpSpacing.md),
+                    if (page == null || (page.rows.isEmpty && page.kpis.isEmpty))
+                      const MpEmptyState(
+                        title: 'Empty report',
+                        message: 'No rows for the current filters.',
+                        icon: Icons.table_chart_outlined,
+                      )
+                    else ...[
                         if (page.kpis.isNotEmpty) ...[
                           Wrap(
                             spacing: MpSpacing.sm,
@@ -227,8 +309,47 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
                             ),
                           );
                         }),
-                      ],
-                    ),
+                      if (page.total > page.rows.length)
+                        Padding(
+                          padding: const EdgeInsets.only(top: MpSpacing.sm),
+                          child: Row(
+                            children: [
+                              MpButton(
+                                label: 'Previous',
+                                expand: false,
+                                variant: MpButtonVariant.outlined,
+                                onPressed: _filters.page > 1
+                                    ? () {
+                                        setState(() {
+                                          _filters = _filters.copyWith(
+                                            page: _filters.page - 1,
+                                          );
+                                        });
+                                        _load();
+                                      }
+                                    : null,
+                              ),
+                              const SizedBox(width: MpSpacing.sm),
+                              MpButton(
+                                label: 'Next',
+                                expand: false,
+                                onPressed: page.rows.length >= _filters.pageSize
+                                    ? () {
+                                        setState(() {
+                                          _filters = _filters.copyWith(
+                                            page: _filters.page + 1,
+                                          );
+                                        });
+                                        _load();
+                                      }
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
     );
   }
 }
