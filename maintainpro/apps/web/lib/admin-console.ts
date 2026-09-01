@@ -105,6 +105,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/roles"
     },
     {
+      id: "bulk-imports",
+      title: "Bulk Imports",
+      description: "Bulk upload master data (vehicles, assets, departments, suppliers, job codes) and review import history. SUPER_ADMIN only.",
+      status: "available",
+      statusLabel: "SUPER_ADMIN only",
+      href: "/admin/bulk-imports"
+    },
+    {
       id: "system-health",
       title: "System Health",
       description: "Operational readiness, dependency checks, replication status, and integration modes.",

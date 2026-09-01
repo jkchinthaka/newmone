@@ -22,6 +22,7 @@ import { AssetsModule } from "./modules/assets/assets.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { BulkImportModule } from "./modules/bulk-import/bulk-import.module";
 import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { ComplianceModule } from "./modules/compliance/compliance.module";
 import { VehicleDocumentsModule } from "./modules/vehicle-documents/vehicle-documents.module";
@@ -133,6 +134,7 @@ normalizeDatabaseEnvironment();
     RolesModule,
     AssetsModule,
     AuditModule,
+    BulkImportModule,
     VehiclesModule,
     FleetModule,
     DriversModule,

@@ -38,6 +38,7 @@ model Tenant {
   stockMovements               StockMovement[]
   inventoryIdempotencies       InventoryIdempotency[]
   inventoryImportRuns          InventoryImportRun[]
+  bulkImportRuns               BulkImportRun[]
   suppliers                    Supplier[]
   purchaseOrders               PurchaseOrder[]
   partRequests                 PartRequest[]
@@ -323,6 +324,7 @@ model User {
   notifications               Notification[]
   auditEvents                 AuditLog[]
   inventoryImportRuns         InventoryImportRun[]
+  bulkImportRuns              BulkImportRun[]
   driverProfile               Driver?
   cleaningVisits              CleaningVisit[]         @relation("CleanerVisits")
   signedOffVisits             CleaningVisit[]         @relation("SupervisorSignOffs")
@@ -1815,6 +1817,92 @@ enum InventoryImportRowStatus {
   UNMAPPED
   DUPLICATE
   INVALID
+}
+
+/// Generic reusable bulk master-data import framework (Vehicles, Assets,
+/// Departments, Suppliers, Job Codes, ...). See docs/BULK_IMPORT_ARCHITECTURE.md.
+/// DB-backed staging (not Redis) so preview/commit survive multi-replica
+/// deployments without a hard Redis dependency — mirrors InventoryImportRun above.
+model BulkImportRun {
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String              @db.ObjectId
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  entityType     BulkImportEntity
+  mode           BulkImportMode      @default(CREATE_NEW_SKIP_EXISTING)
+  status         BulkImportRunStatus @default(UPLOADED)
+  originalFilename String
+  fileFormat     String
+  fileSha256     String
+  fileSizeBytes  Int
+  actorUserId    String              @db.ObjectId
+  actor          User                @relation(fields: [actorUserId], references: [id])
+  actorEmail     String
+  totalRows      Int                 @default(0)
+  createCount    Int                 @default(0)
+  updateCount    Int                 @default(0)
+  skipCount      Int                 @default(0)
+  errorCount     Int                 @default(0)
+  errorSummary   String?
+  createdAt      DateTime            @default(now())
+  validatedAt    DateTime?
+  committedAt    DateTime?
+  expiresAt      DateTime
+  rows           BulkImportRow[]
+
+  @@index([tenantId, entityType, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([expiresAt])
+}
+
+model BulkImportRow {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String            @db.ObjectId
+  runId           String            @db.ObjectId
+  run             BulkImportRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  rowNumber       Int
+  naturalKey      String?
+  normalizedData  Json
+  rawData         Json
+  action          BulkImportRowAction
+  errors          Json?
+  warnings        Json?
+  createdEntityId String?           @db.ObjectId
+
+  @@index([runId, rowNumber])
+  @@index([tenantId, runId])
+  @@index([runId, naturalKey])
+}
+
+enum BulkImportEntity {
+  VEHICLE
+  ASSET
+  DEPARTMENT
+  SUPPLIER
+  JOB_CODE
+}
+
+enum BulkImportMode {
+  CREATE_NEW_SKIP_EXISTING
+  UPDATE_EXISTING
+}
+
+enum BulkImportRunStatus {
+  UPLOADED
+  VALIDATED
+  BLOCKED
+  COMMITTING
+  COMPLETED
+  PARTIAL
+  FAILED
+  EXPIRED
+}
+
+enum BulkImportRowAction {
+  CREATE
+  UPDATE
+  SKIP_EXISTING
+  SKIP_DUPLICATE_FILE_ROW
+  ERROR
 }
 
 enum MovementType {
