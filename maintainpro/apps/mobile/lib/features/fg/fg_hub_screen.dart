@@ -80,16 +80,10 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
       body: ListView(
         padding: const EdgeInsets.all(MpSpacing.screenPadding),
         children: [
-          Text(
-            'Controlled production records',
-            style: Theme.of(context).textTheme.headlineSmall,
+          const MpPageHeader(
+            title: 'Production records',
+            subtitle: 'Controlled forms CL18, CL24, CL30, CL39 via Nest FG BFF.',
           ),
-          const SizedBox(height: MpSpacing.sm),
-          Text(
-            'Controlled production records (CL18, CL24, CL30, CL39) via Nest FG BFF.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: MpSpacing.lg),
           if (!hasFg)
             const MpErrorState(
               title: 'FG access required',
@@ -97,7 +91,10 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
                   'Your account needs fg.access (or admin) to use FG Digital Recording.',
             )
           else if (_loading)
-            const MpLoading(message: 'Preparing FG session…')
+            const SizedBox(
+              height: 280,
+              child: MpSkeletonList(count: 2),
+            )
           else if (_error != null) ...[
             MpErrorState(
               title: 'FG session unavailable',
@@ -128,70 +125,44 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
               ),
               const SizedBox(height: MpSpacing.sm),
               if (_can(perms, role, MpPermissions.fgRecordingCreate))
-                MpCard(
+                MpHubTile(
+                  icon: Icons.note_add_outlined,
+                  title: 'New ${form.title}',
+                  subtitle: form.subtitle,
                   onTap: () => context.push('${form.routePrefix}/new'),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.note_add_outlined),
-                    title: Text('New ${form.title}'),
-                    subtitle: Text(form.subtitle),
-                    trailing: const Icon(Icons.chevron_right),
-                  ),
                 ),
               const SizedBox(height: MpSpacing.sm),
             ],
             const MpSectionHeader(title: 'Workflow'),
             if (_can(perms, role, MpPermissions.fgRecordingView) ||
                 _can(perms, role, MpPermissions.fgRecordingEdit))
-              MpCard(
+              MpHubTile(
+                icon: Icons.drafts_outlined,
+                title: 'My CL30 drafts',
+                subtitle: 'Resume local freezer-truck drafts',
                 onTap: () => context.push('/fg/cl30/drafts'),
-                child: const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.drafts_outlined),
-                  title: Text('My CL30 drafts'),
-                  subtitle: Text('Resume local freezer-truck drafts'),
-                  trailing: Icon(Icons.chevron_right),
-                ),
               ),
-            if (_can(perms, role, MpPermissions.fgReviewView)) ...[
-              const SizedBox(height: MpSpacing.sm),
-              MpCard(
+            if (_can(perms, role, MpPermissions.fgReviewView))
+              MpHubTile(
+                icon: Icons.fact_check_outlined,
+                title: 'Supervisor reviews',
+                subtitle: 'Approve or return submissions',
                 onTap: () => context.push('/fg/reviews'),
-                child: const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.fact_check_outlined),
-                  title: Text('Supervisor reviews'),
-                  subtitle: Text('Approve or return submissions'),
-                  trailing: Icon(Icons.chevron_right),
-                ),
               ),
-            ],
-            if (_can(perms, role, MpPermissions.fgQaView)) ...[
-              const SizedBox(height: MpSpacing.sm),
-              MpCard(
+            if (_can(perms, role, MpPermissions.fgQaView))
+              MpHubTile(
+                icon: Icons.verified_outlined,
+                title: 'QA',
+                subtitle: 'Release, hold, or reject',
                 onTap: () => context.push('/fg/qa'),
-                child: const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.verified_outlined),
-                  title: Text('QA'),
-                  subtitle: Text('Release, hold, or reject'),
-                  trailing: Icon(Icons.chevron_right),
-                ),
               ),
-            ],
-            if (_can(perms, role, MpPermissions.fgRecordingView)) ...[
-              const SizedBox(height: MpSpacing.sm),
-              MpCard(
+            if (_can(perms, role, MpPermissions.fgRecordingView))
+              MpHubTile(
+                icon: Icons.history,
+                title: 'History',
+                subtitle: 'Past CL30 records',
                 onTap: () => context.push('/fg/history'),
-                child: const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.history),
-                  title: Text('History'),
-                  subtitle: Text('Past CL30 records'),
-                  trailing: Icon(Icons.chevron_right),
-                ),
               ),
-            ],
           ] else
             MpErrorState(
               title: 'Not authenticated to FG',

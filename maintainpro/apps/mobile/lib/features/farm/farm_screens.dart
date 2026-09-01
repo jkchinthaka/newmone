@@ -49,12 +49,10 @@ class _FarmHubScreenState extends ConsumerState<FarmHubScreen> {
       body: ListView(
         padding: const EdgeInsets.all(MpSpacing.screenPadding),
         children: [
-          Text('Farm operations', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: MpSpacing.sm),
-          Text(
-            'Read-first mobile views backed by Nest /farm APIs. '
-            'No client-side agronomic or financial calculations.',
-            style: Theme.of(context).textTheme.bodyMedium,
+          const MpPageHeader(
+            title: 'Farm operations',
+            subtitle:
+                'Read-first views backed by Nest /farm APIs. No client-side agronomic calculations.',
           ),
           if (_loading)
             const Padding(
@@ -81,29 +79,17 @@ class _FarmHubScreenState extends ConsumerState<FarmHubScreen> {
           _tile(context, 'Workers', '/farm/workers', Icons.groups_outlined),
           _tile(context, 'Attendance', '/farm/attendance', Icons.event_available_outlined),
           _tile(context, 'Traceability', '/farm/traceability', Icons.qr_code_2_outlined),
-          const SizedBox(height: MpSpacing.md),
-          Text(
-            'Spray logs, soil tests, weather, and finance remain Web-first '
-            'or can be added when mobile UX is prioritized.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
         ],
       ),
     );
   }
 
   Widget _tile(BuildContext context, String title, String route, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: MpSpacing.sm),
-      child: MpCard(
-        onTap: () => context.push(route),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(title),
-          trailing: const Icon(Icons.chevron_right),
-        ),
-      ),
+    return MpHubTile(
+      icon: icon,
+      title: title,
+      subtitle: 'View $title records',
+      onTap: () => context.push(route),
     );
   }
 }

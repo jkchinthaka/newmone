@@ -70,7 +70,7 @@ class _ReportsDashboardScreenState
         ],
       ),
       body: _loading
-          ? const MpLoading(message: 'Loading KPIs…')
+          ? const MpSkeletonList(count: 4)
           : _error != null
               ? MpErrorState(title: 'Dashboard unavailable', message: _error, onRetry: _load)
               : ListView(
@@ -91,45 +91,28 @@ class _ReportsDashboardScreenState
                         icon: Icons.dashboard_outlined,
                       )
                     else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: MpSpacing.sm,
-                          crossAxisSpacing: MpSpacing.sm,
-                          childAspectRatio: 1.35,
-                        ),
-                        itemCount: cards.length,
-                        itemBuilder: (context, i) {
-                          final c = cards[i];
-                          return MpCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  c.label,
-                                  style: Theme.of(context).textTheme.labelLarge,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  c.value,
-                                  style: Theme.of(context).textTheme.headlineSmall,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (c.subLabel != null)
-                                  Text(
-                                    c.subLabel!,
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                              ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cols = constraints.maxWidth >= 600 ? 3 : 2;
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: cols,
+                              mainAxisSpacing: MpSpacing.sm,
+                              crossAxisSpacing: MpSpacing.sm,
+                              childAspectRatio: cols == 3 ? 1.45 : 1.35,
                             ),
+                            itemCount: cards.length,
+                            itemBuilder: (context, i) {
+                              final c = cards[i];
+                              return MpKpiCard(
+                                label: c.label,
+                                value: c.value,
+                                subLabel: c.subLabel,
+                              );
+                            },
                           );
                         },
                       ),

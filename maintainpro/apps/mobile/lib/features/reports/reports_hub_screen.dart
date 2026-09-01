@@ -35,75 +35,72 @@ class ReportsHubScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.all(MpSpacing.screenPadding),
               children: [
-                Text(
-                  'Advanced reports',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                const MpPageHeader(
+                  title: 'Management reports',
+                  subtitle:
+                      'Server-calculated KPIs and operational intelligence. Export available on module reports.',
                 ),
-                const SizedBox(height: MpSpacing.sm),
-                Text(
-                  'All KPIs and totals are server-calculated. Flutter is presentation only.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: MpSpacing.lg),
                 const MpSectionHeader(title: 'Executive'),
-                _tile(context, Icons.dashboard_outlined, 'Management dashboard',
-                    'Role-variant KPIs', '/reports/dashboard'),
-                _tile(
-                    context,
-                    Icons.insights_outlined,
-                    'Management intelligence',
-                    'Profitability & cost summaries',
-                    '/reports/management'),
-                const SizedBox(height: MpSpacing.md),
+                MpHubTile(
+                  icon: Icons.dashboard_outlined,
+                  title: 'Management dashboard',
+                  subtitle: 'Role-variant KPIs',
+                  onTap: () => context.push('/reports/dashboard'),
+                ),
+                MpHubTile(
+                  icon: Icons.insights_outlined,
+                  title: 'Management intelligence',
+                  subtitle: 'Profitability & cost summaries',
+                  onTap: () => context.push('/reports/management'),
+                ),
                 const MpSectionHeader(title: 'Operations & maintenance'),
-                _tile(context, Icons.warning_amber_outlined,
-                    'Maintenance exceptions', 'Exception cards',
-                    '/reports/maintenance-exceptions'),
+                MpHubTile(
+                  icon: Icons.warning_amber_outlined,
+                  title: 'Maintenance exceptions',
+                  subtitle: 'Exception cards',
+                  onTap: () => context.push('/reports/maintenance-exceptions'),
+                ),
                 ...kReportModules.entries.map(
-                  (e) => _tile(
-                    context,
-                    Icons.table_chart_outlined,
-                    e.value,
-                    'Module report · ${e.key}',
-                    '/reports/modules/${e.key}',
+                  (e) => MpHubTile(
+                    icon: Icons.table_chart_outlined,
+                    title: e.value,
+                    subtitle: 'Module report · ${e.key}',
+                    onTap: () => context.push('/reports/modules/${e.key}'),
                   ),
                 ),
-                const SizedBox(height: MpSpacing.md),
                 const MpSectionHeader(title: 'Domain'),
-                _tile(context, Icons.apartment_outlined, 'Facilities aging',
-                    'WO aging by facility', '/reports/facilities-aging'),
-                _tile(context, Icons.cloud_sync_outlined, 'ERP monitoring',
-                    'Integration status', '/reports/erp'),
-                _tile(context, Icons.verified_user_outlined, 'Compliance',
-                    'Documents & exceptions', '/compliance'),
-                _tile(context, Icons.fact_check_outlined, 'FG history',
-                    'CL18–CL39 via FG hub', '/fg'),
-                _tile(context, Icons.history, 'Audit trail',
-                    'System activity', '/admin/audit'),
+                MpHubTile(
+                  icon: Icons.apartment_outlined,
+                  title: 'Facilities aging',
+                  subtitle: 'WO aging by facility',
+                  onTap: () => context.push('/reports/facilities-aging'),
+                ),
+                MpHubTile(
+                  icon: Icons.cloud_sync_outlined,
+                  title: 'ERP monitoring',
+                  subtitle: 'Integration status',
+                  onTap: () => context.push('/reports/erp'),
+                ),
+                MpHubTile(
+                  icon: Icons.verified_user_outlined,
+                  title: 'Compliance',
+                  subtitle: 'Documents & exceptions',
+                  onTap: () => context.push('/compliance'),
+                ),
+                MpHubTile(
+                  icon: Icons.fact_check_outlined,
+                  title: 'FG history',
+                  subtitle: 'CL18–CL39 via FG hub',
+                  onTap: () => context.push('/fg'),
+                ),
+                MpHubTile(
+                  icon: Icons.history,
+                  title: 'Audit trail',
+                  subtitle: 'System activity',
+                  onTap: () => context.push('/admin/audit'),
+                ),
               ],
             ),
-    );
-  }
-
-  Widget _tile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    String route,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: MpSpacing.sm),
-      child: MpCard(
-        onTap: () => context.push(route),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right),
-        ),
-      ),
     );
   }
 }

@@ -28,68 +28,82 @@ class AdminHubScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.all(MpSpacing.screenPadding),
               children: [
-                Text(
-                  'Administration',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                const MpPageHeader(
+                  title: 'Administration',
+                  subtitle:
+                      'User, access, tenant, and system controls. Critical mutations are online-only.',
                 ),
-                const SizedBox(height: MpSpacing.sm),
-                Text(
-                  'Source-backed user, access, tenant, and system controls. '
-                  'Critical mutations are online-only.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: MpSpacing.lg),
                 const MpSectionHeader(title: 'Access'),
-                _tile(context, Icons.people_outline, 'Users',
-                    'Access review and activate/deactivate', '/admin/users'),
-                _tile(context, Icons.badge_outlined, 'People',
-                    'Employee directory', '/admin/people'),
-                _tile(context, Icons.security_outlined, 'Roles & permissions',
-                    'Server permission catalog', '/admin/roles'),
-                _tile(context, Icons.apartment_outlined, 'Tenants',
-                    'Tenant overview', '/admin/tenants'),
-                _tile(context, Icons.mail_outline, 'Invitations',
-                    'Pending invites', '/admin/invitations'),
-                const SizedBox(height: MpSpacing.md),
+                MpHubTile(
+                  icon: Icons.people_outline,
+                  title: 'Users',
+                  subtitle: 'Access review and activate/deactivate',
+                  onTap: () => context.push('/admin/users'),
+                ),
+                MpHubTile(
+                  icon: Icons.badge_outlined,
+                  title: 'People',
+                  subtitle: 'Employee directory',
+                  onTap: () => context.push('/admin/people'),
+                ),
+                MpHubTile(
+                  icon: Icons.security_outlined,
+                  title: 'Roles & permissions',
+                  subtitle: 'Server permission catalog (read-only)',
+                  onTap: () => context.push('/admin/roles'),
+                ),
+                MpHubTile(
+                  icon: Icons.apartment_outlined,
+                  title: 'Tenants',
+                  subtitle: 'Tenant overview',
+                  onTap: () => context.push('/admin/tenants'),
+                ),
+                MpHubTile(
+                  icon: Icons.mail_outline,
+                  title: 'Invitations',
+                  subtitle: 'Pending invites',
+                  onTap: () => context.push('/admin/invitations'),
+                ),
                 const MpSectionHeader(title: 'Organization'),
-                _tile(context, Icons.account_tree_outlined, 'Departments',
-                    'Master data', '/admin/departments'),
-                _tile(context, Icons.settings_outlined, 'Organization settings',
-                    'Org profile & toggles', '/admin/settings'),
-                _tile(context, Icons.tune_outlined, 'App settings',
-                    'User preferences', '/settings'),
-                const SizedBox(height: MpSpacing.md),
+                MpHubTile(
+                  icon: Icons.account_tree_outlined,
+                  title: 'Departments',
+                  subtitle: 'Master data',
+                  onTap: () => context.push('/admin/departments'),
+                ),
+                MpHubTile(
+                  icon: Icons.settings_outlined,
+                  title: 'Organization settings',
+                  subtitle: 'Org profile & toggles',
+                  onTap: () => context.push('/admin/settings'),
+                ),
+                MpHubTile(
+                  icon: Icons.tune_outlined,
+                  title: 'App settings',
+                  subtitle: 'User preferences',
+                  onTap: () => context.push('/settings'),
+                ),
                 const MpSectionHeader(title: 'Governance'),
-                _tile(context, Icons.history, 'Audit logs',
-                    'Read-only activity trail', '/admin/audit'),
-                _tile(context, Icons.monitor_heart_outlined, 'System health',
-                    'API readiness dependencies', '/admin/system-health'),
-                _tile(context, Icons.bug_report_outlined, 'Diagnostics',
-                    'Device / sync diagnostics', '/diagnostics'),
+                MpHubTile(
+                  icon: Icons.history,
+                  title: 'Audit logs',
+                  subtitle: 'Read-only activity trail',
+                  onTap: () => context.push('/admin/audit'),
+                ),
+                MpHubTile(
+                  icon: Icons.monitor_heart_outlined,
+                  title: 'System health',
+                  subtitle: 'API readiness dependencies',
+                  onTap: () => context.push('/admin/system-health'),
+                ),
+                MpHubTile(
+                  icon: Icons.bug_report_outlined,
+                  title: 'Diagnostics',
+                  subtitle: 'Device / sync diagnostics',
+                  onTap: () => context.push('/diagnostics'),
+                ),
               ],
             ),
-    );
-  }
-
-  Widget _tile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    String route,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: MpSpacing.sm),
-      child: MpCard(
-        onTap: () => context.push(route),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right),
-        ),
-      ),
     );
   }
 }
