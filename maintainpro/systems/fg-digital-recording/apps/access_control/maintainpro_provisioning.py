@@ -18,12 +18,24 @@ to whichever FG ``Organization`` rows are mapped to the principal's MaintainPro 
 - grants Django superuser or ``is_staff``;
 - creates a system-wide (organization=None) assignment — every grant is tied to a real,
   tenant-mapped ``Organization``, preserving org/tenant isolation;
-- touches anything for ``fg.admin`` principals, who already get full capability through the
-  existing bypass in ``apps.access_control.services`` — this function only ever adds the
-  narrow recorder bundle, never anything broader;
+- grants anything beyond the two-permission recorder bundle, to anyone, regardless of what
+  other ``fg.*`` keys a principal also holds;
 - removes or renames the role's permission set (additive-only), and never deletes a
   ``ScopedRoleAssignment`` row — a permission that's no longer granted is *deactivated*
   (``is_active=False``), consistent with ``revoke_role_assignment``'s existing convention.
+
+The grant trigger is presence of any ``fg.recording.*`` key, independent of whether the
+principal also holds ``fg.admin``. Earlier revisions of this module special-cased
+``fg.admin`` (skipping provisioning entirely on the theory that admins already get full
+capability via the separate bypass in ``apps.access_control.services.user_has_permission``
+/ ``user_has_permission_any_scope``). That bypass does **not** cover
+``organization_ids_with_permission`` — the exact function the recording sidebar and Daily
+Records / Recordable-tasks queries use — so an ``fg.admin`` principal who also legitimately
+holds ``fg.recording.*`` was left with neither grant path, reproducing the same "sidebar
+hidden" symptom this module exists to fix. Since the recorder bundle is a fixed, narrow,
+non-escalating pair of permissions, granting it in addition to whatever ``fg.admin``
+already provides elsewhere is not a privilege escalation — it only makes recording
+capability behave consistently no matter what else a principal is assigned.
 
 Called from ``apps.accounts.sso.establish_fg_session`` on every SSO login (idempotent —
 safe to run every time), best-effort (never raises — a failure here must not block login).
@@ -130,11 +142,12 @@ def reconcile_recorder_scope(
     try:
         permission_set = set(permissions)
 
-        # fg.admin already receives full capability via the existing bypass in
-        # apps.access_control.services.user_has_permission(_any_scope); leave it alone.
-        if "fg.admin" in permission_set:
-            return
-
+        # Grant is driven solely by fg.recording.* presence — independent of fg.admin.
+        # See module docstring: the fg.admin bypass elsewhere does not cover
+        # organization_ids_with_permission, so an fg.admin + fg.recording.* principal
+        # must still receive this narrow, non-escalating grant to see the recording
+        # module. A pure fg.admin (no fg.recording.*) still gets nothing here, same as
+        # before — this only adds the missing combination, nothing is taken away.
         should_have_recorder = any(key in permission_set for key in RECORDER_FG_TRIGGER_KEYS)
         target_orgs = _organizations_for_tenant(tenant_id) if should_have_recorder else []
         target_org_ids = {org.id for org in target_orgs}

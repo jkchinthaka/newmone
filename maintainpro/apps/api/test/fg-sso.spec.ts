@@ -94,6 +94,50 @@ describe("FgSsoService", () => {
     expect(payload.aud).toBe("fg-digital-recording");
   });
 
+  it("includes exactly the role's held fg.* keys — no more, no less (proves DB-current, not stale/hardcoded)", async () => {
+    const { service, jwtService } = buildService(
+      buildUser({
+        role: {
+          name: RoleName.TECHNICIAN,
+          permissions: [
+            { key: "fg.access" },
+            { key: "fg.recording.view" },
+            { key: "fg.recording.create" },
+            { key: "fg.recording.edit" },
+            { key: "fg.recording.submit" },
+            { key: "work-orders.view" } // non-fg permission must never leak into the fg.* claim list
+          ]
+        }
+      })
+    );
+    await service.exchangeForUser("507f1f77bcf86cd799439011");
+    const payload = jwtService.signAsync.mock.calls[0][0];
+    const permissions = payload.permissions as string[];
+    expect([...permissions].sort()).toEqual(
+      ["fg.access", "fg.recording.create", "fg.recording.edit", "fg.recording.submit", "fg.recording.view"].sort()
+    );
+    expect(permissions).not.toContain("fg.admin");
+    expect(permissions).not.toContain("work-orders.view");
+  });
+
+  it("reflects an over-granted fg.admin faithfully (SSO is DB-current, not a source of truth correction)", async () => {
+    const { service, jwtService } = buildService(
+      buildUser({
+        role: {
+          name: RoleName.TECHNICIAN,
+          permissions: [{ key: "fg.access" }, { key: "fg.admin" }, { key: "fg.recording.view" }]
+        }
+      })
+    );
+    await service.exchangeForUser("507f1f77bcf86cd799439011");
+    const payload = jwtService.signAsync.mock.calls[0][0];
+    // The assertion must carry whatever the DB-current role actually holds — correctness
+    // of the *permission grant itself* is an RBAC/admin-console concern, not this service's.
+    expect(payload.permissions).toEqual(
+      expect.arrayContaining(["fg.access", "fg.admin", "fg.recording.view"])
+    );
+  });
+
   it("grants all FG permissions to SUPER_ADMIN", async () => {
     const { service, jwtService } = buildService(
       buildUser({
