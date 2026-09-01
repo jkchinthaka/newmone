@@ -33,6 +33,21 @@ class AdminApiClient {
         return AdminUserRow.fromJson(unwrapDataMap(res.data));
       });
 
+  Future<void> setAdminUserPassword(
+    String id, {
+    required String password,
+    required String confirmPassword,
+  }) =>
+      _guarded(() async {
+        await _dio.post<dynamic>(
+          '/admin/users/$id/set-password',
+          data: {
+            'password': password,
+            'confirmPassword': confirmPassword,
+          },
+        );
+      });
+
   Future<List<PersonRow>> listPeople({String? search, int page = 1, int pageSize = 30}) =>
       _guarded(() async {
         final res = await _dio.get<dynamic>(

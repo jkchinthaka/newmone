@@ -906,6 +906,12 @@ async function main() {
   }
 
   const adminPasswordHash = await bcrypt.hash(getSeedPassword(), 12);
+  const seedAuthLockReset = {
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    mustChangePassword: false,
+    temporaryPasswordExpiresAt: null
+  } as const;
 
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@maintainpro.local" },
@@ -915,6 +921,7 @@ async function main() {
       roleId: roles.get(RoleName.SUPER_ADMIN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -936,6 +943,7 @@ async function main() {
       roleId: roles.get(RoleName.ADMIN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -957,6 +965,7 @@ async function main() {
       roleId: roles.get(RoleName.SUPERVISOR)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "SUPERVISOR",
       dailyCapacityHours: 8,
       isActive: true
@@ -982,6 +991,7 @@ async function main() {
       roleId: roles.get(RoleName.CLEANER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "CLEANER",
       dailyCapacityHours: 8,
       isActive: true
@@ -1007,6 +1017,7 @@ async function main() {
       roleId: roles.get(RoleName.SECURITY_OFFICER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -1028,6 +1039,7 @@ async function main() {
       roleId: roles.get(RoleName.MANAGER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -1049,6 +1061,7 @@ async function main() {
       roleId: roles.get(RoleName.TECHNICIAN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "TECHNICIAN",
       dailyCapacityHours: 8,
       skills: ["General maintenance", "Preventive service"],
@@ -1076,6 +1089,7 @@ async function main() {
       roleId: roles.get(RoleName.MECHANIC)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "MECHANIC",
       dailyCapacityHours: 8,
       skills: ["Engine repair", "Hydraulics"],
@@ -1103,6 +1117,7 @@ async function main() {
       roleId: roles.get(RoleName.INVENTORY_KEEPER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -1126,6 +1141,7 @@ async function main() {
         roleId: roles.get(RoleName.DRIVER)!.id,
         tenantId: tenant.id,
         passwordHash: adminPasswordHash,
+        ...seedAuthLockReset,
         isActive: true
       },
       create: {

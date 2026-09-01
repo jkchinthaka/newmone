@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { RoleName, TenantMembershipRole } from "@prisma/client";
+import { AuditAction, RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 
@@ -210,6 +210,65 @@ export class UsersService {
     const { isSuperAdmin } = this.currentTenantScope();
     const updated = await this.applyProtectedUserStatusUpdate(userId, isActive);
     return this.toAdminUserAccessRow(updated, isSuperAdmin);
+  }
+
+  async setAdminUserPassword(userId: string, password: string, confirmPassword: string): Promise<AdminUserAccessRow> {
+    if (password !== confirmPassword) {
+      throw new BadRequestException("Passwords do not match");
+    }
+
+    const target = await this.findAdminMutationTarget(userId);
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const now = new Date();
+    const actorId = requestContext.getActorId();
+    const ctx = requestContext.get();
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null
+        },
+        include: {
+          role: { select: this.userRoleSelect },
+          tenant: { select: { id: true, name: true } },
+          memberships: { include: { tenant: { select: { id: true, name: true } } } }
+        }
+      });
+
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tenantId: user.tenantId,
+          actorId: actorId ?? undefined,
+          module: "admin",
+          entity: "USER",
+          entityId: userId,
+          action: AuditAction.UPDATE,
+          reason: "Super admin set user password",
+          ipAddress: ctx?.ipAddress ?? undefined,
+          userAgent: ctx?.userAgent ?? undefined,
+          requestPath: ctx?.requestPath ?? undefined,
+          afterData: { passwordSetBySuperAdmin: true, refreshSessionsRevoked: true }
+        }
+      });
+
+      return user;
+    });
+
+    return this.toAdminUserAccessRow(updated, this.currentTenantScope().isSuperAdmin);
   }
 
   private async applyProtectedUserStatusUpdate(userId: string, isActive: boolean) {

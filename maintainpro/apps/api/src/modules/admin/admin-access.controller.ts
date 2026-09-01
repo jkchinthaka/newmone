@@ -8,7 +8,7 @@ import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.d
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequireEntitlement } from "../entitlements/entitlement.decorator";
 import { EntitlementGuard } from "../entitlements/entitlement.guard";
-import { UpdateUserStatusDto } from "../users/dto/users.dto";
+import { SetAdminUserPasswordDto, UpdateUserStatusDto } from "../users/dto/users.dto";
 import { UsersService } from "../users/users.service";
 import { CreateAdminInvitationDto } from "./dto/create-admin-invitation.dto";
 import { AdminTenantsService } from "./admin-tenants.service";
@@ -71,5 +71,13 @@ export class AdminAccessController {
   async updateUserStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
     const user = await this.usersService.updateAdminUserStatus(id, body.isActive);
     return { data: user, message: "User status updated" };
+  }
+
+  @Post("users/:id/set-password")
+  @Roles(RoleName.SUPER_ADMIN)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async setUserPassword(@Param("id") id: string, @Body() body: SetAdminUserPasswordDto) {
+    const user = await this.usersService.setAdminUserPassword(id, body.password, body.confirmPassword);
+    return { data: user, message: "Password updated" };
   }
 }

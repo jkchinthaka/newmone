@@ -227,9 +227,16 @@ class AdminUserDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: MpSpacing.md),
+          if (adminIsSuperAdmin(ref))
+            FilledButton.icon(
+              onPressed: () => showAdminSetPasswordSheet(context, ref, user: user),
+              icon: const Icon(Icons.lock_reset),
+              label: const Text('Set / reset password'),
+            ),
+          if (adminIsSuperAdmin(ref)) const SizedBox(height: MpSpacing.md),
           Text(
             'Password hashes and auth secrets are never shown. '
-            'Invite / reset flows use secure Nest endpoints only.',
+            'Super admins can set a new password online; invite flows use secure Nest endpoints.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

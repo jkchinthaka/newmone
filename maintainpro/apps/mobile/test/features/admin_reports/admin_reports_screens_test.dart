@@ -8,6 +8,7 @@ import 'package:maintainpro_mobile/core/network/dio_client.dart';
 import 'package:maintainpro_mobile/features/admin/admin_hub_screen.dart';
 import 'package:maintainpro_mobile/features/admin/admin_users_screen.dart';
 import 'package:maintainpro_mobile/features/admin/data/admin_api_client.dart';
+import 'package:maintainpro_mobile/features/admin/data/admin_models.dart';
 import 'package:maintainpro_mobile/features/reports/reports_hub_screen.dart';
 import 'package:maintainpro_mobile/features/reports/data/reports_api_client.dart';
 import 'package:maintainpro_mobile/features/reports/reports_screens.dart';
@@ -142,6 +143,29 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Ada Admin'), findsOneWidget);
+  });
+
+  testWidgets('super admin user detail shows set password action', (tester) async {
+    const user = AdminUserRow(
+      id: 'u2',
+      displayName: 'Tech User',
+      email: 'tech@test.local',
+      roleName: 'TECHNICIAN',
+      isActive: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            (ref) => _FixedAuthController(ref, _auth(role: 'SUPER_ADMIN')),
+          ),
+        ],
+        child: const MaterialApp(home: AdminUserDetailScreen(user: user)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Set / reset password'), findsOneWidget);
   });
 
   testWidgets('reports hub blocked without permission', (tester) async {

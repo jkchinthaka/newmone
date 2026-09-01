@@ -390,3 +390,136 @@ bool adminCanManageUsers(WidgetRef ref) {
   return MpPermissions.has(user.permissions, 'users.create') ||
       MpPermissions.has(user.permissions, 'users.edit');
 }
+
+bool adminIsSuperAdmin(WidgetRef ref) {
+  final role = ref.read(authControllerProvider).user?.role.toUpperCase();
+  return role == 'SUPER_ADMIN';
+}
+
+Future<void> showAdminSetPasswordSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required AdminUserRow user,
+}) async {
+  final passwordCtrl = TextEditingController();
+  final confirmCtrl = TextEditingController();
+  var obscure = true;
+  var saving = false;
+  String? error;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Future<void> submit() async {
+            final password = passwordCtrl.text;
+            final confirm = confirmCtrl.text;
+            if (password.length < 8) {
+              setSheetState(() => error = 'Password must be at least 8 characters');
+              return;
+            }
+            if (password != confirm) {
+              setSheetState(() => error = 'Passwords do not match');
+              return;
+            }
+            setSheetState(() {
+              saving = true;
+              error = null;
+            });
+            try {
+              await ref.read(adminApiClientProvider).setAdminUserPassword(
+                    user.id,
+                    password: password,
+                    confirmPassword: confirm,
+                  );
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Password updated for ${user.displayName}')),
+              );
+            } on ApiException catch (e) {
+              setSheetState(() {
+                saving = false;
+                error = e.message;
+              });
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              MpSpacing.screenPadding,
+              0,
+              MpSpacing.screenPadding,
+              MediaQuery.viewInsetsOf(ctx).bottom + MpSpacing.screenPadding,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Set password',
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                ),
+                const SizedBox(height: MpSpacing.xs),
+                Text(
+                  '${user.displayName} · ${user.email}\n'
+                  'Online only. Existing passwords are never shown.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: MpSpacing.md),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: obscure,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: 'New password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setSheetState(() => obscure = !obscure),
+                    ),
+                  ),
+                  enabled: !saving,
+                ),
+                const SizedBox(height: MpSpacing.sm),
+                TextField(
+                  controller: confirmCtrl,
+                  obscureText: obscure,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm password',
+                    border: OutlineInputBorder(),
+                  ),
+                  enabled: !saving,
+                  onSubmitted: (_) => submit(),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: MpSpacing.sm),
+                  Text(error!, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                ],
+                const SizedBox(height: MpSpacing.md),
+                FilledButton(
+                  onPressed: saving ? null : submit,
+                  child: saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save password'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  passwordCtrl.dispose();
+  confirmCtrl.dispose();
+}
