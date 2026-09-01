@@ -66,79 +66,26 @@ class HomeScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(MpSpacing.screenPadding),
         children: [
-          Text(
-            'Hello, $name',
-            style: Theme.of(context).textTheme.headlineSmall,
+          MpPageHeader(
+            title: 'Hello, $name',
+            subtitle: 'Your field workspace for today.',
+            badge: role.replaceAll('_', ' '),
           ),
-          const SizedBox(height: MpSpacing.xs),
-          Text(
-            role.replaceAll('_', ' '),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: MpSpacing.md),
           if (sync.phase == SyncPhase.offline || sync.pendingCount > 0)
-            MpCard(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              onTap: () => context.push('/sync'),
-              child: Row(
-                children: [
-                  Icon(
-                    sync.phase == SyncPhase.offline
-                        ? Icons.cloud_off
-                        : Icons.cloud_sync,
-                  ),
-                  const SizedBox(width: MpSpacing.md),
-                  Expanded(
-                    child: Text(
-                      sync.phase == SyncPhase.offline
-                          ? AppStrings.offlineBanner
-                          : '${sync.pendingCount} pending sync item(s)',
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
-            ),
-          MpSectionHeader(
-            title: 'Shortcuts',
-            subtitle: 'Role-aware workspace',
-            actionLabel: 'Modules',
-            onAction: () => context.go('/more'),
-          ),
-          ...cards.map(
-            (card) => Padding(
-              padding: const EdgeInsets.only(bottom: MpSpacing.md),
+            Padding(
+              padding: const EdgeInsets.only(bottom: MpSpacing.lg),
               child: MpCard(
-                onTap: () {
-                  final route = card.route;
-                  if (route.startsWith('/work-orders') ||
-                      route.startsWith('/diagnostics') ||
-                      route.startsWith('/settings') ||
-                      route.startsWith('/profile') ||
-                      route.startsWith('/sync') ||
-                      route.startsWith('/drafts') ||
-                      route.startsWith('/search') ||
-                      route.startsWith('/gate') ||
-                      route.startsWith('/fleet') ||
-                      route.startsWith('/fg')) {
-                    context.push(route);
-                  } else {
-                    context.go(route);
-                  }
-                },
+                color: sync.phase == SyncPhase.offline
+                    ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.35)
+                    : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
+                onTap: () => context.push('/sync'),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.12),
-                      child: Icon(
-                        _icon(card.iconName),
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                    Icon(
+                      sync.phase == SyncPhase.offline
+                          ? Icons.cloud_off
+                          : Icons.cloud_sync,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: MpSpacing.md),
                     Expanded(
@@ -146,13 +93,18 @@ class HomeScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            card.title,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            sync.phase == SyncPhase.offline
+                                ? AppStrings.offlineBanner
+                                : 'Sync pending',
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
-                          const SizedBox(height: MpSpacing.xxs),
                           Text(
-                            card.subtitle,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            sync.phase == SyncPhase.offline
+                                ? 'Read-only where cached. Mutations queue when back online.'
+                                : '${sync.pendingCount} item(s) waiting to sync',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ),
@@ -161,6 +113,41 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            ),
+          const MpSectionHeader(title: 'Quick actions', subtitle: 'Role-aware shortcuts'),
+          ...cards.map(
+            (card) => MpHubTile(
+              icon: _icon(card.iconName),
+              title: card.title,
+              subtitle: card.subtitle,
+              onTap: () {
+                final route = card.route;
+                if (route.startsWith('/work-orders') ||
+                    route.startsWith('/diagnostics') ||
+                    route.startsWith('/settings') ||
+                    route.startsWith('/profile') ||
+                    route.startsWith('/sync') ||
+                    route.startsWith('/drafts') ||
+                    route.startsWith('/search') ||
+                    route.startsWith('/gate') ||
+                    route.startsWith('/fleet') ||
+                    route.startsWith('/fg') ||
+                    route.startsWith('/admin') ||
+                    route.startsWith('/reports') ||
+                    route.startsWith('/farm')) {
+                  context.push(route);
+                } else {
+                  context.go(route);
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: MpSpacing.sm),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => context.go('/more'),
+              icon: const Icon(Icons.apps_outlined),
+              label: const Text('Browse all modules'),
             ),
           ),
         ],

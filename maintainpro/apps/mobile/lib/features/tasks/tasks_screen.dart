@@ -94,32 +94,15 @@ class TasksScreen extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: MpSpacing.sm),
               itemBuilder: (context, index) {
                 final wo = items[index];
-                return MpCard(
+                return MpWorkOrderCard(
+                  title: wo.title,
+                  status: wo.status,
+                  priority: wo.priority,
+                  assetName: wo.assetName,
+                  vehicleName: wo.vehicleName,
+                  assigneeName: wo.assignedToName,
+                  dueDate: wo.dueDate,
                   onTap: () => context.push('/work-orders/${wo.id}'),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              wo.title,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            if (wo.assetName != null) ...[
-                              const SizedBox(height: MpSpacing.xs),
-                              Text(wo.assetName!),
-                            ],
-                          ],
-                        ),
-                      ),
-                      MpStatusChip(
-                        label: wo.status.replaceAll('_', ' '),
-                        tone: _toneFor(wo.status),
-                      ),
-                    ],
-                  ),
                 );
               },
             ),
@@ -127,22 +110,5 @@ class TasksScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  MpStatusTone _toneFor(String status) {
-    final s = status.toUpperCase();
-    if (s.contains('COMPLETE') || s.contains('CLOSED')) {
-      return MpStatusTone.success;
-    }
-    if (s.contains('PROGRESS') || s.contains('OPEN')) {
-      return MpStatusTone.primary;
-    }
-    if (s.contains('HOLD') || s.contains('WAIT') || s.contains('REWORK')) {
-      return MpStatusTone.warning;
-    }
-    if (s.contains('CANCEL') || s.contains('FAIL') || s.contains('OVERDUE')) {
-      return MpStatusTone.error;
-    }
-    return MpStatusTone.neutral;
   }
 }

@@ -164,36 +164,15 @@ class _WorkOrdersListScreenState extends ConsumerState<WorkOrdersListScreen> {
                         const SizedBox(height: MpSpacing.sm),
                     itemBuilder: (context, index) {
                       final wo = items[index];
-                      return MpCard(
+                      return MpWorkOrderCard(
+                        title: wo.title,
+                        status: wo.status,
+                        priority: wo.priority,
+                        assetName: wo.assetName,
+                        vehicleName: wo.vehicleName,
+                        assigneeName: wo.assignedToName,
+                        dueDate: wo.dueDate,
                         onTap: () => context.push('/work-orders/${wo.id}'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    wo.title,
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                ),
-                                MpStatusChip(
-                                  label: wo.status.replaceAll('_', ' '),
-                                  tone: MpStatusTone.primary,
-                                ),
-                              ],
-                            ),
-                            if (wo.assetName != null) ...[
-                              const SizedBox(height: MpSpacing.xs),
-                              Text(wo.assetName!),
-                            ],
-                            if (wo.priority != null) ...[
-                              const SizedBox(height: MpSpacing.xs),
-                              Text('Priority: ${wo.priority}'),
-                            ],
-                          ],
-                        ),
                       );
                     },
                   ),
