@@ -1,8 +1,19 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { RoleName } from "@prisma/client";
+import { AuditAction, RoleName } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
+import { PERMISSION_CATALOG } from "../../database/permission-catalog";
+import type { JwtPayload } from "../auth/auth.types";
+
+type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
+
+export type PermissionCatalogSyncResult = {
+  existingCount: number;
+  createdCount: number;
+  createdKeys: string[];
+};
 
 export type AdminPermissionReviewRow = {
   id: string;
@@ -197,5 +208,48 @@ export class AdminRolesService {
   private permissionModule(key: string): string {
     const [module = "general"] = key.split(".");
     return module;
+  }
+
+  /**
+   * SUPER_ADMIN-only, idempotent catalog sync: upserts any Permission rows
+   * that exist in the canonical source catalog (PERMISSION_CATALOG — the
+   * same list `db:seed` uses) but are missing from this database, without
+   * running the full production seed. Never deletes, never renames a key,
+   * and never touches any Role.permissionIds — a sync only makes new
+   * permission keys *available* to be granted; granting them to a role is
+   * a separate, explicit action.
+   */
+  async syncPermissionCatalog(actor: Actor): Promise<PermissionCatalogSyncResult> {
+    const existing = await this.prisma.permission.findMany({
+      where: { key: { in: PERMISSION_CATALOG } },
+      select: { key: true }
+    });
+    const existingKeys = new Set(existing.map((p) => p.key));
+    const missingKeys = PERMISSION_CATALOG.filter((key) => !existingKeys.has(key));
+
+    for (const key of missingKeys) {
+      // upsert (not create) so a concurrent sync can never race into a duplicate-key error.
+      await this.prisma.permission.upsert({
+        where: { key },
+        update: {},
+        create: { key, description: key }
+      });
+    }
+
+    await writeAuditTrail(this.prisma, {
+      entity: "Permission",
+      entityId: "catalog",
+      action: AuditAction.CREATE,
+      module: "admin-roles",
+      actor,
+      reason: "Permission catalog synced via Admin Console",
+      metadata: { event: "PERMISSION_CATALOG_SYNCED", createdCount: missingKeys.length, createdKeys: missingKeys }
+    });
+
+    return {
+      existingCount: existingKeys.size,
+      createdCount: missingKeys.length,
+      createdKeys: missingKeys
+    };
   }
 }
