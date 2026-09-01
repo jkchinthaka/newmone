@@ -123,6 +123,61 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
     }
   }
 
+  Future<void> _assignDriver(BuildContext context, WidgetRef ref) async {
+    try {
+      final drivers = await ref.read(fleetApiClientProvider).listDrivers();
+      if (!mounted) return;
+      if (drivers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No drivers available to assign')),
+        );
+        return;
+      }
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (ctx) => ListView(
+          children: drivers
+              .map(
+                (d) => ListTile(
+                  title: Text(d.displayLabel),
+                  subtitle: Text(d.licenseNumber ?? d.id),
+                  onTap: () => Navigator.pop(ctx, d.id),
+                ),
+              )
+              .toList(),
+        ),
+      );
+      if (selected == null || !mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Assign driver?'),
+          content: const Text(
+            'Online-only mutation. Server validates vehicles.edit, tenant scope, and current assignment state.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Assign')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      await ref.read(fleetApiClientProvider).assignDriver(
+            widget.vehicleId,
+            selected,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver assigned')),
+      );
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   VehicleHealthLabel get _health {
     final hasCritical = _alerts.any((a) => a.isCritical);
     return healthFromServiceStatus(
@@ -288,6 +343,19 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                    if (canEdit &&
+                        (v?.driverId == null || v!.driverId!.isEmpty)) ...[
+                      const SizedBox(height: MpSpacing.sm),
+                      MpButton(
+                        label: 'Assign driver',
+                        variant: MpButtonVariant.filled,
+                        expand: false,
+                        icon: Icons.person_add_alt,
+                        onPressed: offline
+                            ? null
+                            : () => _assignDriver(context, ref),
                       ),
                     ],
                     if (canEdit &&
