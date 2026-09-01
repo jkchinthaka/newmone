@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/radius.dart';
 import '../tokens/spacing.dart';
+import 'mp_card.dart';
 
 /// Lightweight shimmer placeholder (no extra shimmer package).
 class MpSkeleton extends StatefulWidget {
@@ -72,16 +73,19 @@ class MpSkeletonList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(MpSpacing.screenPadding),
       itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: MpSpacing.md),
-      itemBuilder: (_, __) => const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MpSkeleton(height: 18, width: 180),
-          SizedBox(height: MpSpacing.sm),
-          MpSkeleton(height: 14),
-          SizedBox(height: MpSpacing.xs),
-          MpSkeleton(height: 14, width: 220),
-        ],
+      separatorBuilder: (_, __) => const SizedBox(height: MpSpacing.sm),
+      itemBuilder: (_, __) => MpCard(
+        bordered: false,
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MpSkeleton(height: 18, width: 180),
+            SizedBox(height: MpSpacing.sm),
+            MpSkeleton(height: 14),
+            SizedBox(height: MpSpacing.xs),
+            MpSkeleton(height: 14, width: 220),
+          ],
+        ),
       ),
     );
   }

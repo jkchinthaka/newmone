@@ -61,10 +61,14 @@ abstract final class MpTheme {
         titleTextStyle: textTheme.titleLarge,
       ),
       cardTheme: CardThemeData(
-        elevation: MpElevation.low,
-        shape: RoundedRectangleBorder(borderRadius: MpRadius.mdAll),
+        elevation: MpElevation.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: MpRadius.mdAll,
+          side: BorderSide(color: scheme.outline.withValues(alpha: 0.35)),
+        ),
         clipBehavior: Clip.antiAlias,
         color: scheme.surface,
+        margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -93,7 +97,17 @@ abstract final class MpTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        indicatorColor: scheme.primary.withValues(alpha: 0.15),
+        height: 68,
+        indicatorColor: scheme.primary.withValues(alpha: 0.14),
+        backgroundColor: scheme.surface,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 24,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+          );
+        }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return textTheme.labelMedium?.copyWith(
