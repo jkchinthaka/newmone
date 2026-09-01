@@ -259,6 +259,14 @@ def establish_fg_session(request: HttpRequest, claims: FgSsoClaims) -> Any:
     request.session["fg_sso_exp"] = claims.exp
     request.session["fg_sso_authenticated_at"] = datetime.now(tz=UTC).isoformat()
     request.session["mp_revalidated_at"] = int(time.time())
+
+    # Deterministically reconcile the FG org-scoped Recorder ScopedRoleAssignment from
+    # the MaintainPro fg.* claims on every login. Best-effort: provisioning must never
+    # block an otherwise-valid SSO session (see maintainpro_provisioning docstring).
+    from apps.access_control.maintainpro_provisioning import reconcile_recorder_scope
+
+    reconcile_recorder_scope(user, tenant_id=claims.tenant_id, permissions=claims.permissions)
+
     return user
 
 
