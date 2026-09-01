@@ -9,7 +9,9 @@ import '../../core/offline/sync_controller.dart';
 import '../../core/tenant/tenant_context.dart';
 import '../../design_system/design_system.dart';
 
-final _outboxProvider = FutureProvider.autoDispose((ref) async {
+// Keep alive for the screen session — autoDispose + invalidate caused
+// `_dependents.isEmpty` framework asserts when refreshing after sync.
+final _outboxProvider = FutureProvider((ref) async {
   final auth = ref.watch(authControllerProvider);
   final tenant = ref.watch(tenantContextProvider);
   final user = auth.user;
