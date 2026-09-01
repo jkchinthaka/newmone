@@ -37,6 +37,7 @@ import type { Route } from "next";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
@@ -1356,6 +1357,13 @@ export default function AssetsManagementPage() {
                   <FileUp size={16} /> Import
                 </button>
               )}
+
+              <BulkImportButton
+                entity="asset"
+                entityLabel="Assets"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                onImported={() => queryClient.invalidateQueries({ queryKey: ["assets-list"] })}
+              />
 
               {canCreate && (
                 <button
