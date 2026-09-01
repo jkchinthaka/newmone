@@ -4,19 +4,24 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
-import { fetchAdminUserAccessList, updateAdminUserStatus } from "@/lib/admin-users-api";
+import { fetchAdminUserAccessList, updateAdminUserStatus, type AdminUserDetail } from "@/lib/admin-users-api";
+import { fetchAdminRolesPermissionsMatrix } from "@/lib/admin-roles-api";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
 import type { AdminUserAccessRow } from "@/lib/admin-users";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
+import { AdminUserFormDialog } from "./admin-user-form-dialog";
+import { AdminUserPasswordDialog } from "./admin-user-password-dialog";
+import { AdminUserPermissionsView } from "./admin-user-permissions-view";
 import { UserAccessTable } from "./user-access-table";
 
 export function AdminUsersPage() {
@@ -28,11 +33,22 @@ export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUserDetail | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<AdminUserAccessRow | null>(null);
+  const [permissionsTarget, setPermissionsTarget] = useState<AdminUserAccessRow | null>(null);
+
   const query = useQuery({
     queryKey: ["admin", "users"],
     queryFn: fetchAdminUserAccessList,
     enabled: isAdmin,
     refetchInterval: 60_000
+  });
+
+  const matrixQuery = useQuery({
+    queryKey: ["admin", "roles-permissions"],
+    queryFn: fetchAdminRolesPermissionsMatrix,
+    enabled: isSuperAdmin
   });
 
   const statusMutation = useMutation({
@@ -92,6 +108,20 @@ export function AdminUsersPage() {
     statusMutation.mutate({ userId: row.id, isActive: nextActive });
   };
 
+  const handleEdit = async (row: AdminUserAccessRow) => {
+    try {
+      const response = await apiClient.get<{ data: AdminUserDetail }>(`/admin/users/${row.id}`);
+      setEditingUser(response.data.data);
+      setFormOpen(true);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not load user details."));
+    }
+  };
+
+  const refreshUsers = () => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+  };
+
   if (!isAdmin) {
     return (
       <div className="space-y-5">
@@ -119,29 +149,46 @@ export function AdminUsersPage() {
           </Link>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">Users & Access</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Review users, roles, tenant association, and access status. Deactivate or reactivate users with confirmation;
-            invite, delete, role edits, and password resets remain deferred.
+            {isSuperAdmin
+              ? "Add, edit, and manage every user's role, tenant, department, status, and password."
+              : "Review users, roles, tenant association, and access status. Deactivate or reactivate users with confirmation."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => query.refetch()}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-        >
-          <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingUser(null);
+                setFormOpen(true);
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+            >
+              <Plus size={15} aria-hidden="true" /> Add User
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => query.refetch()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
         {isSuperAdmin ? (
           <p>
             <span className="font-semibold text-slate-900">SUPER_ADMIN scope:</span> showing users across all tenants
-            where the backend returns them. Status changes enforce super-admin protection rules on the server.
+            where the backend returns them. Every mutation here is independently re-verified against your current
+            database role — a stale session cannot bypass this.
           </p>
         ) : (
           <p>
             <span className="font-semibold text-slate-900">Tenant scope:</span> showing and updating users associated
-            with your active tenant only. Super admin accounts cannot be modified by tenant admins.
+            with your active tenant only. Super admin accounts cannot be modified by tenant admins. Adding users,
+            editing profiles, and resetting passwords are SUPER_ADMIN-only actions.
           </p>
         )}
       </div>
@@ -151,7 +198,7 @@ export function AdminUsersPage() {
         <input
           type="search"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, email, role, or tenant"
           className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         />
@@ -168,11 +215,40 @@ export function AdminUsersPage() {
             viewerRoleName: roleName
           }}
           onStatusAction={handleStatusAction}
+          onEdit={isSuperAdmin ? handleEdit : undefined}
+          onSetPassword={isSuperAdmin ? (row) => setPasswordTarget(row) : undefined}
+          onViewPermissions={isSuperAdmin ? (row) => setPermissionsTarget(row) : undefined}
           pendingUserId={statusMutation.isPending ? statusMutation.variables?.userId ?? null : null}
           rows={filteredRows}
           showTenantColumns={isSuperAdmin}
         />
       )}
+
+      {isSuperAdmin ? (
+        <>
+          <AdminUserFormDialog
+            open={formOpen}
+            onClose={() => setFormOpen(false)}
+            onSaved={refreshUsers}
+            roles={matrixQuery.data?.roles ?? []}
+            user={editingUser}
+          />
+          <AdminUserPasswordDialog
+            open={Boolean(passwordTarget)}
+            onClose={() => setPasswordTarget(null)}
+            onSaved={refreshUsers}
+            userId={passwordTarget?.id ?? null}
+            userLabel={passwordTarget?.displayName || passwordTarget?.email || ""}
+          />
+          <AdminUserPermissionsView
+            open={Boolean(permissionsTarget)}
+            onClose={() => setPermissionsTarget(null)}
+            userLabel={permissionsTarget?.displayName || permissionsTarget?.email || ""}
+            roleName={permissionsTarget?.roleName ?? null}
+            matrix={matrixQuery.data ?? null}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

@@ -18,6 +18,10 @@ type UserAccessTableProps = {
   actionContext: AdminUserStatusActionContext;
   pendingUserId?: string | null;
   onStatusAction?: (row: AdminUserAccessRow) => void;
+  /** SUPER_ADMIN-only extra actions — omit any handler to hide that action entirely. */
+  onEdit?: (row: AdminUserAccessRow) => void;
+  onSetPassword?: (row: AdminUserAccessRow) => void;
+  onViewPermissions?: (row: AdminUserAccessRow) => void;
 };
 
 export function UserAccessTable({
@@ -25,10 +29,13 @@ export function UserAccessTable({
   showTenantColumns,
   actionContext,
   pendingUserId = null,
-  onStatusAction
+  onStatusAction,
+  onEdit,
+  onSetPassword,
+  onViewPermissions
 }: UserAccessTableProps) {
   const columns = useMemo(() => buildColumns(showTenantColumns), [showTenantColumns]);
-  const showActions = Boolean(onStatusAction);
+  const showActions = Boolean(onStatusAction || onEdit || onSetPassword || onViewPermissions);
 
   return (
     <DataTable
@@ -43,27 +50,55 @@ export function UserAccessTable({
       renderActions={
         showActions
           ? (row) => {
-              if (!canShowAdminUserStatusAction(row, actionContext)) {
-                return null;
-              }
-
               const isPending = pendingUserId === row.id;
-              const label = getAdminUserStatusActionLabel(row.isActive);
+              const canMutateStatus = onStatusAction && canShowAdminUserStatusAction(row, actionContext);
+              const statusLabel = getAdminUserStatusActionLabel(row.isActive);
 
               return (
-                <button
-                  type="button"
-                  aria-label={`${label} ${row.displayName || row.email}`}
-                  disabled={isPending}
-                  onClick={() => onStatusAction?.(row)}
-                  className={`inline-flex min-h-11 items-center rounded-lg border px-3 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    row.isActive
-                      ? "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                  }`}
-                >
-                  {isPending ? "Saving…" : label}
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {onViewPermissions ? (
+                    <button
+                      type="button"
+                      onClick={() => onViewPermissions(row)}
+                      className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Permissions
+                    </button>
+                  ) : null}
+                  {onEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(row)}
+                      className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                  {onSetPassword ? (
+                    <button
+                      type="button"
+                      onClick={() => onSetPassword(row)}
+                      className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Password
+                    </button>
+                  ) : null}
+                  {canMutateStatus ? (
+                    <button
+                      type="button"
+                      aria-label={`${statusLabel} ${row.displayName || row.email}`}
+                      disabled={isPending}
+                      onClick={() => onStatusAction?.(row)}
+                      className={`inline-flex min-h-9 items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        row.isActive
+                          ? "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {isPending ? "Saving…" : statusLabel}
+                    </button>
+                  ) : null}
+                </div>
               );
             }
           : undefined

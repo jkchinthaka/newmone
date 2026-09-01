@@ -3,17 +3,18 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
 import { fetchAdminRolesPermissionsMatrix } from "@/lib/admin-roles-api";
-import { filterRolesPermissionsMatrix, formatRoleLabel } from "@/lib/admin-roles";
+import { filterRolesPermissionsMatrix, formatRoleLabel, type AdminRoleReviewRow } from "@/lib/admin-roles";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
+import { RolePermissionEditor } from "./role-permission-editor";
 import { RolesPermissionsMatrix } from "./roles-permissions-matrix";
 
 export function AdminRolesPage() {
@@ -22,6 +23,8 @@ export function AdminRolesPage() {
   const isAdmin = isAdminConsoleRole(roleName);
   const isSuperAdmin = roleName === "SUPER_ADMIN";
   const [search, setSearch] = useState("");
+  const [editingRole, setEditingRole] = useState<AdminRoleReviewRow | null>(null);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["admin", "roles-permissions"],
@@ -61,8 +64,9 @@ export function AdminRolesPage() {
           </Link>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">Roles & Permissions</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Review role and permission coverage before future invitation or assignment workflows. This view is read-only;
-            role, permission, and user assignment mutations remain deferred.
+            {isSuperAdmin
+              ? "Review permission coverage and edit any role's permissions directly. Changes take effect immediately for every user assigned that role."
+              : "Review role and permission coverage. Editing role permissions is a SUPER_ADMIN-only action."}
           </p>
         </div>
         <button
@@ -78,8 +82,8 @@ export function AdminRolesPage() {
         {isSuperAdmin ? (
           <p>
             <span className="font-semibold text-slate-900">Cross-tenant scope:</span> permissions are global catalog
-            entries; roles are tenant-scoped records shown with tenant labels. No user lists, tokens, or secrets are
-            returned.
+            entries; roles are tenant-scoped records shown with tenant labels. Editing is independently re-verified
+            against your current database role on every save.
           </p>
         ) : (
           <p>
@@ -122,12 +126,38 @@ export function AdminRolesPage() {
         />
       </label>
 
+      {isSuperAdmin && filteredMatrix ? (
+        <div className="flex flex-wrap gap-2">
+          {filteredMatrix.roles.map((role) => (
+            <button
+              key={role.id}
+              type="button"
+              onClick={() => setEditingRole(role)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Edit {formatRoleLabel(role.name)}
+              {role.tenantName ? <span className="text-slate-400">({role.tenantName})</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {query.isLoading ? (
         <InlineLoadingState label="Loading roles and permissions matrix…" />
       ) : query.isError ? (
         <ErrorState title="Could not load roles matrix" error={query.error} onRetry={() => query.refetch()} />
       ) : filteredMatrix ? (
         <RolesPermissionsMatrix matrix={filteredMatrix} showTenantColumns={isSuperAdmin} />
+      ) : null}
+
+      {isSuperAdmin ? (
+        <RolePermissionEditor
+          open={Boolean(editingRole)}
+          onClose={() => setEditingRole(null)}
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ["admin", "roles-permissions"] })}
+          role={editingRole}
+          matrix={query.data ?? null}
+        />
       ) : null}
     </div>
   );
