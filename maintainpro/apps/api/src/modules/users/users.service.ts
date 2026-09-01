@@ -1,11 +1,16 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { RoleName, TenantMembershipRole } from "@prisma/client";
+import { AuditAction, RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { requestContext } from "../../common/context/request-context";
+import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
+import type { JwtPayload } from "../auth/auth.types";
+import { CreateAdminUserDto, SetAdminUserPasswordDto, UpdateAdminUserDto } from "../admin/dto/admin-user-mutations.dto";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
+
+type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
 export type PublicUserResponse = {
   id: string;
@@ -14,6 +19,10 @@ export type PublicUserResponse = {
   email: string;
   phone: string | null;
   isActive: boolean;
+  tenantId: string | null;
+  departmentId: string | null;
+  designation: string | null;
+  mustChangePassword: boolean;
   role: {
     id: string;
     name: RoleName;
@@ -27,6 +36,10 @@ export const PUBLIC_USER_RESPONSE_FIELDS = [
   "email",
   "phone",
   "isActive",
+  "tenantId",
+  "departmentId",
+  "designation",
+  "mustChangePassword",
   "role"
 ] as const;
 
@@ -64,6 +77,10 @@ export class UsersService {
     email: string;
     phone: string | null;
     isActive: boolean;
+    tenantId?: string | null;
+    departmentId?: string | null;
+    designation?: string | null;
+    mustChangePassword?: boolean;
     role: { id: string; name: RoleName };
   }): PublicUserResponse {
     return {
@@ -73,6 +90,10 @@ export class UsersService {
       email: user.email,
       phone: user.phone ?? null,
       isActive: user.isActive,
+      tenantId: user.tenantId ?? null,
+      departmentId: user.departmentId ?? null,
+      designation: user.designation ?? null,
+      mustChangePassword: user.mustChangePassword ?? false,
       role: {
         id: user.role.id,
         name: user.role.name
@@ -242,7 +263,7 @@ export class UsersService {
       }
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { isActive },
       include: {
@@ -257,6 +278,30 @@ export class UsersService {
         }
       }
     });
+
+    await writeAuditTrail(this.prisma, {
+      entity: "User",
+      entityId: userId,
+      action: AuditAction.UPDATE,
+      module: "admin-users",
+      reason: isActive ? "User reactivated" : "User deactivated",
+      metadata: { event: "USER_STATUS_CHANGED", isActive }
+    });
+
+    return updated;
+  }
+
+  /** Throws if deactivating/reassigning-away-from/deleting this target would leave zero active SUPER_ADMIN accounts. */
+  private async assertNotLastActiveSuperAdmin(target: { id: string; role: { name: RoleName } }) {
+    if (target.role.name !== RoleName.SUPER_ADMIN) {
+      return;
+    }
+    const activeSuperAdminCount = await this.prisma.user.count({
+      where: { isActive: true, role: { name: RoleName.SUPER_ADMIN } }
+    });
+    if (activeSuperAdminCount <= 1) {
+      throw new BadRequestException("Cannot remove the last active SUPER_ADMIN account's administration");
+    }
   }
 
   private async findAdminMutationTarget(userId: string) {
@@ -470,6 +515,16 @@ export class UsersService {
 
   async remove(id: string) {
     await this.assertTenantUserAccessOrThrow(id);
+    const actorId = requestContext.getActorId();
+    if (actorId && actorId === id) {
+      throw new BadRequestException("You cannot delete your own account");
+    }
+    const target = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: { select: this.userRoleSelect } } });
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+    await this.assertNotLastActiveSuperAdmin(target);
+
     const { tenantId, isSuperAdmin } = this.currentTenantScope();
     const openWorkOrders = await this.prisma.workOrder.count({
       where: {
@@ -490,5 +545,226 @@ export class UsersService {
     return {
       deleted: true
     };
+  }
+
+  // ---------------------------------------------------------------------
+  // Admin Console (SUPER_ADMIN-only) surface. Authorization is enforced by
+  // SuperAdminGuard at the controller — these methods still apply the same
+  // tenant/last-SUPER_ADMIN/self-action business protections as the
+  // general-purpose methods above.
+  // ---------------------------------------------------------------------
+
+  private async assertTenantExists(tenantId: string): Promise<void> {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, isActive: true } });
+    if (!tenant || !tenant.isActive) {
+      throw new BadRequestException("Tenant not found or inactive");
+    }
+  }
+
+  private async assertDepartmentExists(tenantId: string | null, departmentId: string): Promise<void> {
+    const department = await this.prisma.department.findFirst({
+      where: { id: departmentId, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true }
+    });
+    if (!department) {
+      throw new BadRequestException("Department not found for the selected tenant");
+    }
+  }
+
+  async createForAdminConsole(dto: CreateAdminUserDto, actor: Actor) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing) {
+      throw new BadRequestException("Email already in use");
+    }
+
+    const role = await this.ensureRoleExists(dto.roleId);
+    const tenantId = dto.tenantId ?? null;
+    if (tenantId) {
+      await this.assertTenantExists(tenantId);
+    }
+    if (dto.departmentId) {
+      await this.assertDepartmentExists(tenantId, dto.departmentId);
+    }
+
+    const generatedPassword = dto.password ? null : `Tmp-${randomBytes(6).toString("hex")}A1!`;
+    const passwordHash = await bcrypt.hash(dto.password ?? generatedPassword!, 12);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName.trim(),
+          phone: dto.phone?.trim() || undefined,
+          roleId: dto.roleId,
+          tenantId: tenantId ?? undefined,
+          departmentId: dto.departmentId ?? undefined,
+          designation: dto.designation?.trim() || undefined,
+          mustChangePassword: !dto.password
+        },
+        include: { role: { select: this.userRoleSelect }, tenant: { select: { id: true, name: true } } }
+      });
+
+      if (tenantId) {
+        await tx.tenantMembership.create({
+          data: { tenantId, userId: created.id, membershipRole: this.membershipRoleForRole(role.name) }
+        });
+      }
+
+      return created;
+    });
+
+    await writeAuditTrail(this.prisma, {
+      entity: "User",
+      entityId: user.id,
+      action: AuditAction.CREATE,
+      module: "admin-users",
+      actor,
+      reason: "User created via Admin Console",
+      metadata: { event: "USER_CREATED", email, roleId: dto.roleId, tenantId, generatedTemporaryPassword: Boolean(generatedPassword) }
+    });
+
+    return { ...this.toPublicUserResponse(user), temporaryPassword: generatedPassword ?? undefined };
+  }
+
+  async updateForAdminConsole(id: string, dto: UpdateAdminUserDto, actor: Actor) {
+    const target = await this.prisma.user.findUnique({
+      where: { id },
+      include: { role: { select: this.userRoleSelect } }
+    });
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+
+    let nextTenantId: string | null | undefined;
+    if (dto.tenantId !== undefined) {
+      await this.assertTenantExists(dto.tenantId);
+      nextTenantId = dto.tenantId;
+    }
+
+    if (dto.departmentId !== undefined) {
+      await this.assertDepartmentExists(nextTenantId ?? target.tenantId, dto.departmentId);
+    }
+
+    let normalizedEmail: string | undefined;
+    if (dto.email) {
+      normalizedEmail = dto.email.toLowerCase().trim();
+      if (normalizedEmail !== target.email) {
+        const emailTaken = await this.prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
+        if (emailTaken) {
+          throw new BadRequestException("Email already in use");
+        }
+      }
+    }
+
+    let nextRole: { id: string; name: RoleName } | undefined;
+    if (dto.roleId && dto.roleId !== target.roleId) {
+      nextRole = await this.ensureRoleExists(dto.roleId);
+      if (target.role.name === RoleName.SUPER_ADMIN && nextRole.name !== RoleName.SUPER_ADMIN) {
+        await this.assertNotLastActiveSuperAdmin(target);
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        firstName: dto.firstName?.trim(),
+        lastName: dto.lastName?.trim(),
+        email: normalizedEmail,
+        phone: dto.phone?.trim() || undefined,
+        roleId: dto.roleId,
+        tenantId: nextTenantId,
+        departmentId: dto.departmentId,
+        designation: dto.designation?.trim() || undefined
+      },
+      include: { role: { select: this.userRoleSelect } }
+    });
+
+    if (normalizedEmail && normalizedEmail !== target.email) {
+      await writeAuditTrail(this.prisma, {
+        entity: "User",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        module: "admin-users",
+        actor,
+        reason: "User email changed",
+        metadata: { event: "USER_EMAIL_CHANGED" },
+        beforeData: { email: target.email },
+        afterData: { email: normalizedEmail }
+      });
+    }
+
+    if (nextRole) {
+      await writeAuditTrail(this.prisma, {
+        entity: "User",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        module: "admin-users",
+        actor,
+        reason: "User role changed",
+        metadata: { event: "USER_ROLE_CHANGED" },
+        beforeData: { role: target.role.name },
+        afterData: { role: nextRole.name }
+      });
+    }
+
+    await writeAuditTrail(this.prisma, {
+      entity: "User",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      module: "admin-users",
+      actor,
+      reason: "User updated via Admin Console",
+      metadata: { event: "USER_UPDATED" }
+    });
+
+    return this.toPublicUserResponse(updated);
+  }
+
+  async setPasswordForAdminConsole(id: string, dto: SetAdminUserPasswordDto, actor: Actor) {
+    const target = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+
+    const generatedPassword = dto.newPassword ? null : `Tmp-${randomBytes(6).toString("hex")}A1!`;
+    const passwordHash = await bcrypt.hash(dto.newPassword ?? generatedPassword!, 12);
+    const mustChangePassword = dto.mustChangePassword ?? true;
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          passwordHash,
+          mustChangePassword,
+          lastPasswordChangedAt: now,
+          temporaryPasswordExpiresAt: mustChangePassword ? new Date(now.getTime() + 72 * 60 * 60 * 1000) : null,
+          failedLoginAttempts: 0,
+          lockedUntil: null
+        }
+      });
+
+      // Revoke existing sessions — mirrors AuthService.resetPassword's session-revocation pattern.
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+    });
+
+    // Never log/return the plaintext password or its hash.
+    await writeAuditTrail(this.prisma, {
+      entity: "User",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      module: "admin-users",
+      actor,
+      reason: "Password reset via Admin Console",
+      metadata: { event: "USER_PASSWORD_RESET", mustChangePassword, sessionsRevoked: true }
+    });
+
+    return { updated: true, temporaryPassword: generatedPassword ?? undefined, mustChangePassword };
   }
 }
