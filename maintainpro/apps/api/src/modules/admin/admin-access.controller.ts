@@ -92,6 +92,18 @@ export class AdminAccessController {
     return { data: role, message: "Role permissions updated" };
   }
 
+  /**
+   * Idempotent, additive-only permission-catalog sync. SUPER_ADMIN only.
+   * Never removes/renames a key and never touches Role.permissionIds.
+   */
+  @Post("permissions/sync")
+  @Roles(RoleName.SUPER_ADMIN)
+  @UseGuards(SuperAdminGuard)
+  async syncPermissionCatalog(@Req() req: AuthedRequest) {
+    const result = await this.adminRolesService.syncPermissionCatalog(req.user);
+    return { data: result, message: `${result.createdCount} permission(s) created, ${result.existingCount} already present` };
+  }
+
   @Get("tenants")
   @SkipTenantContext()
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)

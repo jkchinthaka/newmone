@@ -3,12 +3,14 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Database, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
-import { fetchAdminRolesPermissionsMatrix } from "@/lib/admin-roles-api";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { fetchAdminRolesPermissionsMatrix, syncPermissionCatalog } from "@/lib/admin-roles-api";
 import { filterRolesPermissionsMatrix, formatRoleLabel, type AdminRoleReviewRow } from "@/lib/admin-roles";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { extractRoleName } from "@/lib/role-redirect";
@@ -25,6 +27,7 @@ export function AdminRolesPage() {
   const [search, setSearch] = useState("");
   const [editingRole, setEditingRole] = useState<AdminRoleReviewRow | null>(null);
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const query = useQuery({
     queryKey: ["admin", "roles-permissions"],
@@ -32,6 +35,34 @@ export function AdminRolesPage() {
     enabled: isAdmin,
     refetchInterval: 60_000
   });
+
+  const syncMutation = useMutation({
+    mutationFn: syncPermissionCatalog,
+    onSuccess: (result) => {
+      toast.success(
+        result.createdCount > 0
+          ? `Permission catalog synced — ${result.createdCount} new permission(s) added.`
+          : "Permission catalog already up to date — nothing to add."
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin", "roles-permissions"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Permission catalog sync failed");
+    }
+  });
+
+  const handleSyncCatalog = async () => {
+    const confirmed = await confirm({
+      title: "Sync permission catalog?",
+      description:
+        "Adds any permission keys defined in the source code but missing from this database. Never removes or renames a permission, and never changes what any role is granted — you'll still need to explicitly grant new permissions to a role afterward.",
+      confirmLabel: "Sync catalog",
+      cancelLabel: "Cancel",
+      variant: "default"
+    });
+    if (!confirmed) return;
+    syncMutation.mutate();
+  };
 
   const filteredMatrix = useMemo(
     () => (query.data ? filterRolesPermissionsMatrix(query.data, search) : null),
@@ -53,6 +84,7 @@ export function AdminRolesPage() {
   return (
     <div className="space-y-5">
       <PageBreadcrumbs />
+      {confirmDialog}
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -69,13 +101,27 @@ export function AdminRolesPage() {
               : "Review role and permission coverage. Editing role permissions is a SUPER_ADMIN-only action."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => query.refetch()}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-        >
-          <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              onClick={handleSyncCatalog}
+              disabled={syncMutation.isPending}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Add any permission keys defined in source code but missing from this database"
+            >
+              <Database size={15} className={syncMutation.isPending ? "animate-pulse" : ""} aria-hidden="true" />
+              {syncMutation.isPending ? "Syncing…" : "Sync Permission Catalog"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => query.refetch()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
