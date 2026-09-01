@@ -10,7 +10,15 @@ void main() {
       expect(AppConfig.isUnsafeApiBaseUrl('https://api.maintainpro.example.com'), isTrue);
       expect(AppConfig.isUnsafeApiBaseUrl('https://newmone.onrender.com'), isTrue);
       expect(AppConfig.isUnsafeApiBaseUrl('https://newmone.chinthakajayaweera1.workers.dev'), isTrue);
-      expect(AppConfig.isUnsafeApiBaseUrl('http://135.171.163.249'), isFalse);
+      expect(AppConfig.isUnsafeApiBaseUrl('http://135.171.163.249'), isTrue);
+      expect(
+        AppConfig.isUnsafeApiBaseUrl(
+          'http://135.171.163.249',
+          allowInsecureProdHttp: true,
+        ),
+        isFalse,
+      );
+      expect(AppConfig.isUnsafeApiBaseUrl('https://135.171.163.249'), isFalse);
     });
 
     test('normalizeApiBaseUrl appends /api once', () {
@@ -39,7 +47,25 @@ void main() {
       );
       expect(
         () => AppConfig.assertProductionSafeApiBaseUrl('http://135.171.163.249'),
+        throwsStateError,
+      );
+      expect(
+        () => AppConfig.assertProductionSafeApiBaseUrl(
+          'http://135.171.163.249',
+          allowInsecureProdHttp: true,
+        ),
         returnsNormally,
+      );
+      expect(
+        () => AppConfig.assertProductionSafeApiBaseUrl('https://135.171.163.249'),
+        returnsNormally,
+      );
+      expect(
+        () => AppConfig.assertProductionSafeApiBaseUrl(
+          'http://192.168.1.1',
+          allowInsecureProdHttp: true,
+        ),
+        throwsStateError,
       );
     });
   });

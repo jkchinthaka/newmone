@@ -17,6 +17,9 @@ class AppConfig {
   final String appName;
   final bool enableLogging;
 
+  /// Temporary pilot-only host authorized for explicit insecure HTTP prod builds.
+  static const authorizedInsecureProdHost = '135.171.163.249';
+
   /// Host patterns that must never be used for production mobile builds.
   static const blockedProductionHostPatterns = [
     'example.com',
@@ -55,6 +58,11 @@ class AppConfig {
     _resolveApiBaseUrl(flavor: flavor, override: override);
   }
 
+  static bool allowInsecureProdHttpFromDefine() {
+    const raw = String.fromEnvironment('ALLOW_INSECURE_PROD_HTTP');
+    return raw.trim().toLowerCase() == 'true';
+  }
+
   static String _resolveApiBaseUrl({
     required AppFlavor flavor,
     required String override,
@@ -66,7 +74,10 @@ class AppConfig {
           'Use the operator-configured PUBLIC_HOST from production Docker/nginx (not Render staging).',
         );
       }
-      assertProductionSafeApiBaseUrl(override);
+      assertProductionSafeApiBaseUrl(
+        override,
+        allowInsecureProdHttp: allowInsecureProdHttpFromDefine(),
+      );
       return normalizeApiBaseUrl(override);
     }
 
@@ -84,7 +95,10 @@ class AppConfig {
     return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
   }
 
-  static bool isUnsafeApiBaseUrl(String raw) {
+  static bool isUnsafeApiBaseUrl(
+    String raw, {
+    bool allowInsecureProdHttp = false,
+  }) {
     final value = raw.trim().toLowerCase();
     if (value.isEmpty) return true;
 
@@ -96,11 +110,32 @@ class AppConfig {
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) return true;
     if (uri.scheme != 'http' && uri.scheme != 'https') return true;
 
+    if (uri.scheme == 'http') {
+      if (!allowInsecureProdHttp) return true;
+      if (uri.host != authorizedInsecureProdHost) return true;
+    }
+
     return false;
   }
 
-  static void assertProductionSafeApiBaseUrl(String raw) {
-    if (isUnsafeApiBaseUrl(raw)) {
+  static void assertProductionSafeApiBaseUrl(
+    String raw, {
+    bool allowInsecureProdHttp = false,
+  }) {
+    if (isUnsafeApiBaseUrl(raw, allowInsecureProdHttp: allowInsecureProdHttp)) {
+      final uri = Uri.tryParse(raw.trim());
+      if (uri?.scheme == 'http') {
+        if (!allowInsecureProdHttp) {
+          throw StateError(
+            'Production HTTP is blocked. Pass --dart-define=ALLOW_INSECURE_PROD_HTTP=true '
+            'with --dart-define=API_BASE_URL=http://$authorizedInsecureProdHost for the temporary pilot only.',
+          );
+        }
+        throw StateError(
+          'Production HTTP is allowed only for http://$authorizedInsecureProdHost '
+          'when ALLOW_INSECURE_PROD_HTTP=true.',
+        );
+      }
       throw StateError(
         'Invalid production API_BASE_URL. Use the Windows Server Docker/nginx PUBLIC_HOST only. '
         'Staging hosts (Render/Workers), localhost, emulator hosts, and placeholders are rejected.',
