@@ -194,12 +194,14 @@ class TestReconcileRecorderScopeDenials:
         assert organization_ids_with_permission(user, RECORD_CHECKLIST_TASK) == set()
         assert actor_can_access_recording_module(user) is False
 
-    def test_fg_admin_continues_to_work_unmodified(self):
+    def test_pure_fg_admin_without_recording_key_gets_no_grant(self):
         _make_org(code="RECORG8", tenant_id="tenant-i")
         user = _make_projected_user("sub-admin-1")
 
-        # fg.admin already gets full capability via the existing bypass — this function
-        # must be a no-op for admins, not a second, redundant grant path.
+        # A pure fg.admin with no fg.recording.* key present is unaffected by this
+        # module: the grant trigger is fg.recording.* presence, not fg.admin absence.
+        # fg.admin's own broader capability continues to come entirely from the
+        # separate bypass in user_has_permission/user_has_permission_any_scope.
         reconcile_recorder_scope(
             user, tenant_id="tenant-i", permissions=["fg.access", "fg.admin"]
         )
@@ -207,6 +209,37 @@ class TestReconcileRecorderScopeDenials:
         assert not ScopedRoleAssignment.objects.filter(
             user=user, role__code=RECORDER_ROLE_CODE
         ).exists()
+
+    def test_fg_admin_with_recording_permission_still_gets_org_scoped_grant(self):
+        """
+        Reproduces the production incident: a principal holding fg.admin *and*
+        fg.recording.* (e.g. a role over-granted the full fg.* catalog) must still
+        receive the org-scoped Recorder assignment. organization_ids_with_permission
+        (used by both the sidebar and Daily Records/Recordable-tasks queries) has no
+        fg.admin bypass — only this module's grant closes that gap, and it must not
+        skip a principal just because fg.admin also happens to be present.
+        """
+        org = _make_org(code="RECORG8B", tenant_id="tenant-i2")
+        user = _make_projected_user("sub-admin-recording-1")
+
+        reconcile_recorder_scope(
+            user,
+            tenant_id="tenant-i2",
+            permissions=["fg.access", "fg.admin", "fg.recording.view", "fg.recording.edit"],
+        )
+
+        assignment = ScopedRoleAssignment.objects.get(
+            user=user, role__code=RECORDER_ROLE_CODE, is_active=True
+        )
+        assert assignment.organization_id == org.id
+        assert organization_ids_with_permission(user, RECORD_CHECKLIST_TASK) == {org.id}
+        assert actor_can_access_recording_module(user) is True
+
+        # The grant is still exactly the narrow recorder bundle — fg.admin gains
+        # nothing beyond what fg.recording.* alone would have granted.
+        role = Role.objects.get(code=RECORDER_ROLE_CODE)
+        codenames = set(role.permissions.values_list("codename", flat=True))
+        assert codenames == {"record_checklisttask", "view_checklisttask"}
 
     def test_no_privilege_escalation_to_unrelated_modules(self):
         org = _make_org(code="RECORG9", tenant_id="tenant-j")
