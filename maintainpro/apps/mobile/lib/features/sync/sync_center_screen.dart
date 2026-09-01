@@ -17,7 +17,7 @@ final _outboxProvider = FutureProvider((ref) async {
   final user = auth.user;
   final tenantId = tenant.tenantId;
   if (user == null || tenantId == null) return const <OutboxOperation>[];
-  return ref.watch(outboxServiceProvider).listAll(
+  return ref.read(outboxServiceProvider).listAll(
         tenantId: tenantId,
         userId: user.id,
       );
@@ -66,28 +66,28 @@ class SyncCenterScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(MpSpacing.screenPadding),
             child: MpCard(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Status: ${sync.phase.name}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        if (sync.message != null) Text(sync.message!),
-                        Text('Pending: ${sync.pendingCount}'),
-                      ],
-                    ),
+                  Text(
+                    'Status: ${sync.phase.name}',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  MpButton(
-                    label: 'Sync',
-                    expand: false,
-                    onPressed: () async {
-                      await ref.read(syncControllerProvider.notifier).syncNow();
-                      ref.invalidate(_outboxProvider);
-                    },
+                  if (sync.message != null) Text(sync.message!),
+                  Text('Pending: ${sync.pendingCount}'),
+                  const SizedBox(height: MpSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: MpButton(
+                      label: 'Sync',
+                      expand: false,
+                      onPressed: () async {
+                        await ref
+                            .read(syncControllerProvider.notifier)
+                            .syncNow();
+                        ref.invalidate(_outboxProvider);
+                      },
+                    ),
                   ),
                 ],
               ),
