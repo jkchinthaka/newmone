@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -664,6 +665,7 @@ export default function VehiclesPage() {
             >
               <Plus size={14} /> Register Vehicle
             </button>
+            <BulkImportButton entity="vehicle" entityLabel="Vehicles" variant="dark" onImported={refreshAll} />
           </div>
         </div>
         {!canCreate && !canEdit && (

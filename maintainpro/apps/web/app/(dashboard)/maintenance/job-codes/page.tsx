@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronRight, Layers, Loader2, Pencil, Plus, PowerOff } from
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { apiClient } from "@/lib/api-client";
 
 interface JobCode {
@@ -193,8 +194,13 @@ export default function JobCodesPage() {
         <Link href="/maintenance" className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600 hover:underline">
           <ArrowLeft size={12} aria-hidden /> Maintenance
         </Link>
-        <h1 className="text-2xl font-semibold text-slate-900">Job Codes</h1>
-        <p className="mt-1 text-sm text-slate-500">Main jobs and cascading sub-jobs used across maintenance and work orders.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Job Codes</h1>
+            <p className="mt-1 text-sm text-slate-500">Main jobs and cascading sub-jobs used across maintenance and work orders.</p>
+          </div>
+          <BulkImportButton entity="job-code" entityLabel="Job Codes" onImported={() => refreshMain(searchMain.trim() || undefined)} />
+        </div>
       </header>
 
       {/* Form */}

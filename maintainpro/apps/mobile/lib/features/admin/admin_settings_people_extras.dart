@@ -396,6 +396,10 @@ bool adminIsSuperAdmin(WidgetRef ref) {
   return role == 'SUPER_ADMIN';
 }
 
+bool _adminPasswordMeetsPolicy(String password) {
+  return RegExp(r'^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$').hasMatch(password);
+}
+
 Future<void> showAdminSetPasswordSheet(
   BuildContext context,
   WidgetRef ref, {
@@ -421,6 +425,13 @@ Future<void> showAdminSetPasswordSheet(
               setSheetState(() => error = 'Password must be at least 8 characters');
               return;
             }
+            if (!_adminPasswordMeetsPolicy(password)) {
+              setSheetState(
+                () => error =
+                    'Use 8+ chars with uppercase, number, and special character',
+              );
+              return;
+            }
             if (password != confirm) {
               setSheetState(() => error = 'Passwords do not match');
               return;
@@ -432,8 +443,7 @@ Future<void> showAdminSetPasswordSheet(
             try {
               await ref.read(adminApiClientProvider).setAdminUserPassword(
                     user.id,
-                    password: password,
-                    confirmPassword: confirm,
+                    newPassword: password,
                   );
               if (!ctx.mounted) return;
               Navigator.pop(ctx);

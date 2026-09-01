@@ -69,7 +69,7 @@ const MASTER_ENTITIES = [
   {
     label: "Suppliers",
     description: "Parts and service providers with categories and payment terms.",
-    href: "/inventory",
+    href: "/master-data/suppliers",
     icon: Truck,
     color: "text-rose-600",
     bg: "bg-rose-50",

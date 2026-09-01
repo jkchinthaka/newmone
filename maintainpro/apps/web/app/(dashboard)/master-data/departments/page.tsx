@@ -7,6 +7,7 @@ import { ArrowLeft, Building2, ChevronDown, ChevronRight, Loader2, Pencil, Plus,
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { apiClient } from "@/lib/api-client";
 import { EntityPicker } from "@/components/ui/entity-picker";
 
@@ -286,12 +287,15 @@ export default function DepartmentsPage() {
             </h2>
             <p className="mt-0.5 text-xs text-slate-400">{items.length} records</p>
           </div>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or code…"
-            className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-          />
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or code…"
+              className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
+            />
+            <BulkImportButton entity="department" entityLabel="Departments" onImported={() => refresh(search.trim() || undefined)} />
+          </div>
         </div>
 
         {loading ? (

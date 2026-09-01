@@ -85,6 +85,13 @@
       "owner": "maintainpro-backend",
       "status": "APPROVED",
       "reason": "Work-order taxonomy is dual-scoped reference data: entries are either tenant-owned or global (tenantId null) seed defaults shared across tenants, keyed by a __global__ cache bucket. tenantId ?? null selects the correct scope rather than dropping tenant filtering. All controller entry points pass the authenticated actor and the TenantContextGuard forces a resolvable tenant for non-SUPER_ADMIN, so the null (global) path is unreachable from tenant-user HTTP requests. Retained by design, not a tenant-owned data leak."
+    },
+    {
+      "file": "apps/api/src/modules/users/users.service.ts",
+      "scope": "platform-super-admin",
+      "owner": "maintainpro-backend",
+      "status": "APPROVED",
+      "reason": "createForAdminConsole/updateForAdminConsole are the Admin Console user-management endpoints, reachable only through SuperAdminGuard (DB-authoritative SUPER_ADMIN check) at the controller — not exposed to tenant-scoped actors. assertDepartmentExists' tenantId-optional lookup and the tenantId ?? undefined create payload only relax scope for a verified SUPER_ADMIN creating/editing a platform-level (tenantless) user; every other read/write path in this file remains tenant-scoped via requireTenantId()/currentTenantScope()."
     }
   ]
 }

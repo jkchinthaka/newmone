@@ -62,13 +62,3 @@ export class UpdateUserStatusDto {
   @IsBoolean()
   isActive!: boolean;
 }
-
-export class SetAdminUserPasswordDto {
-  @IsString()
-  @MinLength(8)
-  password!: string;
-
-  @IsString()
-  @MinLength(8)
-  confirmPassword!: string;
-}

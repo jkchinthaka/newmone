@@ -35,15 +35,15 @@ class AdminApiClient {
 
   Future<void> setAdminUserPassword(
     String id, {
-    required String password,
-    required String confirmPassword,
+    required String newPassword,
+    bool mustChangePassword = true,
   }) =>
       _guarded(() async {
-        await _dio.post<dynamic>(
-          '/admin/users/$id/set-password',
+        await _dio.patch<dynamic>(
+          '/admin/users/$id/password',
           data: {
-            'password': password,
-            'confirmPassword': confirmPassword,
+            'newPassword': newPassword,
+            'mustChangePassword': mustChangePassword,
           },
         );
       });
