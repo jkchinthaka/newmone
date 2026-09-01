@@ -110,10 +110,10 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
         _loading = false;
         if (!_hasLoadedOnce) _items = [];
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = 'Unable to load vehicles. Pull to refresh.';
         _loading = false;
       });
     }
@@ -143,11 +143,11 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
         _loadingMore = false;
         _error = e.message;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _loadingMore = false;
-        _error = e.toString();
+        _error = 'Unable to load more vehicles.';
       });
     }
   }

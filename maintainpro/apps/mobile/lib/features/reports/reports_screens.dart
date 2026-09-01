@@ -272,7 +272,7 @@ class _ReportModuleScreenState extends ConsumerState<ReportModuleScreen> {
                           final subtitle = page.columns
                               .skip(1)
                               .take(3)
-                              .map((c) => '${c}: ${row[c] ?? '—'}')
+                              .map((c) => '$c: ${row[c] ?? '—'}')
                               .join(' · ');
                           return Padding(
                             padding: const EdgeInsets.only(bottom: MpSpacing.sm),
