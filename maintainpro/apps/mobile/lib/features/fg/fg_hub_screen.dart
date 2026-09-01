@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_controller.dart';
-import '../../core/network/api_exception.dart';
 import '../../core/rbac/permissions.dart';
 import '../../design_system/design_system.dart';
 import 'data/fg_api_client.dart';
 import 'data/fg_models.dart';
+import 'fg_bootstrap_error.dart';
 
 /// FG Digital Recording hub — bootstraps Nest `/mobile/fg` session, then
 /// surfaces CL30 / review / QA / history actions gated by permission keys.
@@ -44,17 +44,10 @@ class _FgHubScreenState extends ConsumerState<FgHubScreen> {
         _session = status;
         _loading = false;
       });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.message;
-        _loading = false;
-        _session = null;
-      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = fgBootstrapUserMessage(e);
         _loading = false;
         _session = null;
       });

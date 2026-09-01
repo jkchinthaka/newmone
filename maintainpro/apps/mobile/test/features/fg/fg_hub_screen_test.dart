@@ -135,4 +135,44 @@ void main() {
     expect(find.text('New CL18'), findsOneWidget);
     expect(find.text('Production records'), findsOneWidget);
   });
+
+  testWidgets('hub shows friendly message when bootstrap route missing', (tester) async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    dio.interceptors.add(
+      _ScriptedInterceptor({
+        'session/bootstrap': (o) => Response(
+              requestOptions: o,
+              statusCode: 404,
+              data: {
+                'success': false,
+                'error': {
+                  'code': 'NOT_FOUND',
+                  'message': 'Cannot POST /api/mobile/fg/session/bootstrap',
+                },
+              },
+            ),
+      }),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            (ref) => _FixedAuthController(
+              ref,
+              _auth(permissions: const ['fg.access', 'fg.recording.view']),
+            ),
+          ),
+          dioProvider.overrideWithValue(dio),
+          fgApiClientProvider.overrideWithValue(FgApiClient(dio)),
+        ],
+        child: const MaterialApp(home: FgHubScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('FG session unavailable'), findsOneWidget);
+    expect(find.textContaining('FG mobile gateway is not available'), findsOneWidget);
+    expect(find.textContaining('unexpected error occurred'), findsNothing);
+  });
 }
