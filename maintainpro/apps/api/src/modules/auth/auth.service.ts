@@ -246,11 +246,16 @@ export class AuthService {
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
+    // Permissions are deliberately NOT embedded in the JWT: PermissionsGuard is
+    // DB-authoritative in production and ignores any permissions claim on the
+    // token (see permissions.guard.ts). Embedding the full list here bloats
+    // every access/refresh cookie in proportion to role size and can exceed
+    // browsers' ~4KB per-cookie limit for high-permission-count roles, causing
+    // the browser to silently drop the cookie and break login entirely.
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
       role: user.role.name,
-      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
@@ -361,11 +366,16 @@ export class AuthService {
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
+    // Permissions are deliberately NOT embedded in the JWT: PermissionsGuard is
+    // DB-authoritative in production and ignores any permissions claim on the
+    // token (see permissions.guard.ts). Embedding the full list here bloats
+    // every access/refresh cookie in proportion to role size and can exceed
+    // browsers' ~4KB per-cookie limit for high-permission-count roles, causing
+    // the browser to silently drop the cookie and break login entirely.
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
       role: user.role.name,
-      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
@@ -451,14 +461,13 @@ export class AuthService {
       data: { revokedAt: now, lastUsedAt: now }
     });
 
-    const permissionKeys = this.permissionKeysFromRole(user.role);
-
+    // See the comment in login()/register(): permissions are never embedded in
+    // the JWT — PermissionsGuard is DB-authoritative and ignores this claim.
     const tokens = await this.generateTokens(
       {
         sub: user.id,
         email: user.email,
         role: user.role.name,
-        permissions: permissionKeys,
         tenantId: user.tenantId ?? null
       },
       { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
