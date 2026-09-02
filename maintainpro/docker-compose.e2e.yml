@@ -202,6 +202,28 @@ services:
     entrypoint: ["node", "scripts/e2e-auth-path-diagnostic.mjs"]
     restart: "no"
 
+  # The base compose file hardcodes DJANGO_SETTINGS_MODULE=config.settings.production for
+  # fg / fg-celery-worker / fg-celery-beat (not overridable per env var). That settings
+  # module fails closed — by design, for real production — if MONGODB_DATABASE isn't
+  # exactly "maintainpro_prod", and if DJANGO_SECRET_KEY looks like a dev placeholder.
+  # Neither is appropriate for an isolated, disposable E2E database
+  # (PRIMARY_DATABASE_NAME=maintainpro_e2e_primary), so E2E runs these services under
+  # config.settings.mongo_test instead — a real Mongo-backed settings module that
+  # *refuses* the production database name (the opposite, correct safety property for a
+  # disposable test stack) rather than requiring it. This does not touch or weaken
+  # config.settings.production in any way; real deploys are unaffected.
+  fg:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.mongo_test
+
+  fg-celery-worker:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.mongo_test
+
+  fg-celery-beat:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.mongo_test
+
 volumes:
   maintainpro-e2e-mongo-data:
     name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}_mongo_data
