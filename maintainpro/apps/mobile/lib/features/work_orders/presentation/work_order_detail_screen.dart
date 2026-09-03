@@ -1,669 +1,716 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/offline/offline_sync.dart';
-import '../../../core/utils/date_formatter.dart';
-import '../../../core/widgets/bottom_sheet_widget.dart';
-import '../../../core/widgets/error_widget.dart';
-import '../../../core/widgets/loading_shimmer.dart';
-import '../../../core/widgets/priority_badge.dart';
-import '../../../core/widgets/status_badge.dart';
-import '../data/models/work_order.dart';
-import 'providers/work_orders_provider.dart';
+import '../../../core/auth/auth_controller.dart';
+import '../../../core/i18n/app_strings.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/offline/outbox_service.dart';
+import '../../../core/offline/sync_controller.dart';
+import '../../../core/tenant/tenant_context.dart';
+import '../../../design_system/design_system.dart';
+import '../data/evidence_upload_service.dart';
+import '../data/work_orders_repository.dart';
 
-const _statusFlow = [
-  'OPEN',
-  'IN_PROGRESS',
-  'ON_HOLD',
-  'COMPLETED',
-  'CANCELLED'
-];
+const _statusActionRoles = {
+  'SUPER_ADMIN',
+  'ADMIN',
+  'MANAGER',
+  'OPERATIONS_MANAGER',
+  'ASSET_MANAGER',
+  'TECHNICIAN',
+  'MECHANIC',
+  'FACILITY_MANAGER',
+};
 
-class WorkOrderDetailScreen extends ConsumerWidget {
-  const WorkOrderDetailScreen({super.key, required this.id});
-  final String id;
+const _evidenceUploadRoles = {
+  'SUPER_ADMIN',
+  'ADMIN',
+  'ASSET_MANAGER',
+  'MECHANIC',
+  'TECHNICIAN',
+  'FACILITY_MANAGER',
+  'MANAGER',
+};
+
+class WorkOrderDetailScreen extends ConsumerStatefulWidget {
+  const WorkOrderDetailScreen({super.key, required this.workOrderId});
+
+  final String workOrderId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(workOrderDetailProvider(id));
+  ConsumerState<WorkOrderDetailScreen> createState() =>
+      _WorkOrderDetailScreenState();
+}
+
+class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
+  final _noteController = TextEditingController();
+  final _actionGuard = InFlightGuard();
+  final _noteGuard = InFlightGuard();
+
+  String _evidenceType = 'BEFORE_PHOTO';
+  List<PendingEvidenceDraft> _pending = const [];
+  bool _pendingLoading = false;
+  bool _evidenceBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reloadPending());
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _isOnline() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
+  }
+
+  Future<void> _reloadPending() async {
+    setState(() => _pendingLoading = true);
+    try {
+      final list = await ref
+          .read(evidenceUploadServiceProvider)
+          .listPendingForWorkOrder(widget.workOrderId);
+      if (!mounted) return;
+      setState(() => _pending = list);
+    } catch (_) {
+      // Draft DB may be unavailable in tests / before bootstrap.
+      if (mounted) setState(() => _pending = const []);
+    } finally {
+      if (mounted) setState(() => _pendingLoading = false);
+    }
+  }
+
+  Future<void> _updateStatus(String status) async {
+    final auth = ref.read(authControllerProvider);
+    final tenantId =
+        ref.read(tenantContextProvider).tenantId ?? auth.user?.tenantId ?? '';
+    final userId = auth.user?.id ?? '';
+    final online = await _isOnline();
+
+    Future<void> enqueueStatus() async {
+      if (tenantId.isEmpty || userId.isEmpty) {
+        throw StateError('Missing tenant/user for offline queue');
+      }
+      await ref.read(outboxServiceProvider).enqueueIfAbsent(
+            tenantId: tenantId,
+            userId: userId,
+            entityType: 'work_order',
+            entityId: widget.workOrderId,
+            operation: 'status',
+            payload: {
+              'id': widget.workOrderId,
+              'status': status,
+            },
+            idempotencyKey: const Uuid().v4(),
+          );
+      unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+    }
+
+    final result = await _actionGuard.run(() async {
+      if (!online) {
+        await enqueueStatus();
+        return 'queued';
+      }
+      try {
+        await ref.read(workOrdersRepositoryProvider).updateStatus(
+              id: widget.workOrderId,
+              status: status,
+            );
+        ref.invalidate(workOrderDetailProvider(widget.workOrderId));
+        ref.invalidate(workOrderActivityProvider(widget.workOrderId));
+        return 'updated';
+      } on NetworkException {
+        await enqueueStatus();
+        return 'queued';
+      } on ServerException {
+        await enqueueStatus();
+        return 'queued';
+      }
+    });
+
+    if (!mounted) return;
+    if (result == null) return; // double-submit ignored
+    setState(() {});
+    if (result == 'queued') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.queuedForSync)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.statusUpdated)),
+      );
+    }
+  }
+
+  Future<void> _saveNote() async {
+    final text = _noteController.text.trim();
+    if (text.isEmpty) return;
+
+    final auth = ref.read(authControllerProvider);
+    final tenantId =
+        ref.read(tenantContextProvider).tenantId ?? auth.user?.tenantId ?? '';
+    final userId = auth.user?.id ?? '';
+
+    await _noteGuard.run(() async {
+      final online = await _isOnline();
+      try {
+        if (online && tenantId.isNotEmpty) {
+          await ref.read(workOrdersRepositoryProvider).addNote(
+                id: widget.workOrderId,
+                note: text,
+              );
+          if (!mounted) return;
+          _noteController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Note saved')),
+          );
+          ref.invalidate(workOrderActivityProvider(widget.workOrderId));
+        } else {
+          if (tenantId.isEmpty || userId.isEmpty) {
+            throw const NetworkException(AppStrings.onlineRequired);
+          }
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+                idempotencyKey: const Uuid().v4(),
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+          if (!mounted) return;
+          _noteController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppStrings.queuedForSync)),
+          );
+        }
+      } on NetworkException {
+        if (tenantId.isNotEmpty && userId.isNotEmpty) {
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+        }
+        if (!mounted) return;
+        _noteController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.queuedForSync)),
+        );
+      } on ServerException catch (e) {
+        if (tenantId.isNotEmpty && userId.isNotEmpty) {
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+          if (!mounted) return;
+          _noteController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${e.message} — ${AppStrings.queuedForSync}')),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    });
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _addEvidence(ImageSource source) async {
+    setState(() => _evidenceBusy = true);
+    try {
+      final outcome =
+          await ref.read(evidenceUploadServiceProvider).captureAndUpload(
+                workOrderId: widget.workOrderId,
+                source: source,
+                evidenceType: _evidenceType,
+              );
+      if (!mounted) return;
+      switch (outcome.status) {
+        case EvidenceUploadStatus.cancelled:
+          break;
+        case EvidenceUploadStatus.inFlight:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Upload already in progress')),
+          );
+        case EvidenceUploadStatus.queued:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved offline — retry from pending list'),
+            ),
+          );
+        case EvidenceUploadStatus.uploaded:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Evidence uploaded')),
+          );
+          ref.invalidate(workOrderEvidenceProvider(widget.workOrderId));
+          ref.invalidate(workOrderActivityProvider(widget.workOrderId));
+        case EvidenceUploadStatus.failed:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(outcome.message ?? 'Evidence upload failed'),
+            ),
+          );
+      }
+      await _reloadPending();
+    } finally {
+      if (mounted) setState(() => _evidenceBusy = false);
+    }
+  }
+
+  Future<void> _retryPending(PendingEvidenceDraft draft) async {
+    setState(() => _evidenceBusy = true);
+    try {
+      final outcome =
+          await ref.read(evidenceUploadServiceProvider).retryPending(draft);
+      if (!mounted) return;
+      if (outcome.status == EvidenceUploadStatus.uploaded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pending evidence synced')),
+        );
+        ref.invalidate(workOrderEvidenceProvider(widget.workOrderId));
+      } else if (outcome.status == EvidenceUploadStatus.failed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(outcome.message ?? 'Retry failed')),
+        );
+      }
+      await _reloadPending();
+    } finally {
+      if (mounted) setState(() => _evidenceBusy = false);
+    }
+  }
+
+  bool _canActOnStatus(String? role) {
+    if (role == null) return false;
+    return _statusActionRoles.contains(role.toUpperCase());
+  }
+
+  bool _canUploadEvidence(String? role) {
+    if (role == null) return false;
+    return _evidenceUploadRoles.contains(role.toUpperCase());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(workOrderDetailProvider(widget.workOrderId));
+    final role = ref.watch(authControllerProvider).user?.role;
+    final acting = _actionGuard.isBusy;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Work Order'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-        child: SafeArea(
-          bottom: false,
-          child: async.when(
-            loading: () => ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: const [
-                CardShimmer(height: 160),
-                SizedBox(height: AppSpacing.sm),
-                CardShimmer(height: 120),
-                SizedBox(height: AppSpacing.sm),
-                CardShimmer(height: 200),
-              ],
-            ),
-            error: (e, _) => AppErrorWidget(
-              message: e.toString(),
-              onRetry: () => ref.invalidate(workOrderDetailProvider(id)),
-            ),
-            data: (wo) => _DetailBody(workOrder: wo),
-          ),
+      appBar: AppBar(title: const Text(AppStrings.workOrderDetailTitle)),
+      body: async.when(
+        loading: () => const MpLoading(),
+        error: (e, _) => MpErrorState(
+          title: 'Could not load work order',
+          message: e is ApiException ? e.message : e.toString(),
+          onRetry: () =>
+              ref.invalidate(workOrderDetailProvider(widget.workOrderId)),
         ),
+        data: (wo) {
+          final status = wo.status.toUpperCase();
+          final canStart = _canActOnStatus(role) &&
+              (status == 'OPEN' || status == 'REWORK_REQUIRED');
+          final canComplete = _canActOnStatus(role) &&
+              (status == 'IN_PROGRESS' || status == 'ON_HOLD');
+          final assetVehicle = [
+            if (wo.assetName != null && wo.assetName!.isNotEmpty) wo.assetName!,
+            if (wo.vehicleName != null && wo.vehicleName!.isNotEmpty)
+              wo.vehicleName!,
+          ].join(' · ');
+          final due = wo.dueDate ??
+              DateTime.tryParse((wo.raw['dueDate'] ?? '').toString());
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(workOrderDetailProvider(widget.workOrderId));
+              ref.invalidate(workOrderEvidenceProvider(widget.workOrderId));
+              ref.invalidate(workOrderPartsProvider(widget.workOrderId));
+              ref.invalidate(workOrderActivityProvider(widget.workOrderId));
+              await _reloadPending();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(MpSpacing.screenPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(wo.title,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: MpSpacing.sm),
+                  Wrap(
+                    spacing: MpSpacing.sm,
+                    runSpacing: MpSpacing.sm,
+                    children: [
+                      MpStatusChip(
+                        label: wo.status.replaceAll('_', ' '),
+                        tone: MpStatusTone.primary,
+                      ),
+                      if (wo.priority != null)
+                        MpStatusChip(
+                          label: wo.priority!,
+                          tone: MpStatusTone.warning,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: MpSpacing.lg),
+                  if (assetVehicle.isNotEmpty)
+                    MpListTile(
+                      title: 'Asset / Vehicle',
+                      subtitle: assetVehicle,
+                      leading:
+                          const Icon(Icons.precision_manufacturing_outlined),
+                    ),
+                  if (wo.assignedToName != null)
+                    MpListTile(
+                      title: 'Assignee',
+                      subtitle: wo.assignedToName,
+                      leading: const Icon(Icons.person_outline),
+                    ),
+                  if (due != null)
+                    MpListTile(
+                      title: 'Due',
+                      subtitle:
+                          DateFormat.yMMMd().add_jm().format(due.toLocal()),
+                      leading: const Icon(Icons.event_outlined),
+                    ),
+                  if (wo.description != null && wo.description!.isNotEmpty) ...[
+                    const MpSectionHeader(title: 'Description'),
+                    Text(wo.description!),
+                  ],
+                  if (canStart || canComplete) ...[
+                    const MpSectionHeader(title: 'Actions'),
+                    if (canStart)
+                      MpButton(
+                        label: AppStrings.startWork,
+                        icon: Icons.play_arrow,
+                        isLoading: acting,
+                        onPressed:
+                            acting ? null : () => _updateStatus('IN_PROGRESS'),
+                      ),
+                    if (canStart && canComplete)
+                      const SizedBox(height: MpSpacing.md),
+                    if (canComplete)
+                      MpButton(
+                        label: AppStrings.completeWork,
+                        icon: Icons.check,
+                        variant: MpButtonVariant.tonal,
+                        isLoading: acting,
+                        onPressed: acting
+                            ? null
+                            : () => _updateStatus('TECHNICIAN_COMPLETED'),
+                      ),
+                  ],
+                  const MpSectionHeader(title: 'Field note'),
+                  MpTextField(
+                    controller: _noteController,
+                    label: 'Note',
+                    hint: 'Capture observations…',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: MpSpacing.sm),
+                  MpButton(
+                    label: 'Save note',
+                    icon: Icons.note_alt_outlined,
+                    variant: MpButtonVariant.outlined,
+                    isLoading: _noteGuard.isBusy,
+                    onPressed: _noteGuard.isBusy ? null : _saveNote,
+                  ),
+                  const MpSectionHeader(title: 'Evidence'),
+                  _EvidenceSection(
+                    workOrderId: widget.workOrderId,
+                    canUpload: _canUploadEvidence(role),
+                    evidenceType: _evidenceType,
+                    onEvidenceTypeChanged: (v) =>
+                        setState(() => _evidenceType = v),
+                    busy: _evidenceBusy,
+                    pending: _pending,
+                    pendingLoading: _pendingLoading,
+                    onCamera: () => _addEvidence(ImageSource.camera),
+                    onGallery: () => _addEvidence(ImageSource.gallery),
+                    onRetry: _retryPending,
+                  ),
+                  const MpSectionHeader(title: 'Parts'),
+                  _PartsSection(workOrderId: widget.workOrderId),
+                  const MpSectionHeader(title: 'Activity'),
+                  _ActivitySection(workOrderId: widget.workOrderId),
+                  const SizedBox(height: MpSpacing.xxl),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _DetailBody extends ConsumerWidget {
-  const _DetailBody({required this.workOrder});
-  final WorkOrder workOrder;
+class _EvidenceSection extends ConsumerWidget {
+  const _EvidenceSection({
+    required this.workOrderId,
+    required this.canUpload,
+    required this.evidenceType,
+    required this.onEvidenceTypeChanged,
+    required this.busy,
+    required this.pending,
+    required this.pendingLoading,
+    required this.onCamera,
+    required this.onGallery,
+    required this.onRetry,
+  });
 
-  Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(workOrderDetailProvider(workOrder.id));
-    await ref.read(workOrdersListProvider.notifier).refresh();
-  }
+  final String workOrderId;
+  final bool canUpload;
+  final String evidenceType;
+  final ValueChanged<String> onEvidenceTypeChanged;
+  final bool busy;
+  final List<PendingEvidenceDraft> pending;
+  final bool pendingLoading;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final void Function(PendingEvidenceDraft) onRetry;
+
+  static const _types = [
+    ('BEFORE_PHOTO', 'Before'),
+    ('AFTER_PHOTO', 'After'),
+    ('DAMAGE_PHOTO', 'Damage'),
+    ('PART_PHOTO', 'Part'),
+    ('OTHER_DOCUMENT', 'Other'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final wo = workOrder;
-    final overdue = wo.isOverdue;
+    final async = ref.watch(workOrderEvidenceProvider(workOrderId));
 
-    return RefreshIndicator(
-      onRefresh: () => _refresh(ref),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.huge),
-        children: [
-          // Header card
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.card.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(
-                color: overdue ? AppColors.error : AppColors.border,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  wo.woNumber,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.primaryLight,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(wo.title, style: AppTextStyles.title),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    StatusBadge(status: overdue ? 'OVERDUE' : wo.status),
-                    PriorityBadge(priority: wo.priority),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm, vertical: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Text(
-                        wo.type,
-                        style: AppTextStyles.label,
-                      ),
-                    ),
-                  ],
-                ),
-                if (wo.description.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(wo.description, style: AppTextStyles.body),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Timing card
-          _Section(
-            title: 'Schedule',
-            children: [
-              _KvRow(
-                icon: Icons.event_available_outlined,
-                label: 'Created',
-                value: DateFormatter.dateTime(wo.createdAt),
-              ),
-              _KvRow(
-                icon: Icons.schedule_rounded,
-                label: 'Due',
-                value: wo.dueDate == null
-                    ? '—'
-                    : '${DateFormatter.shortDate(wo.dueDate)} · ${DateFormatter.countdown(wo.dueDate)}',
-                valueColor: overdue ? AppColors.error : AppColors.textPrimary,
-              ),
-              if (wo.slaDeadline != null)
-                _KvRow(
-                  icon: Icons.timer_outlined,
-                  label: 'SLA',
-                  value: DateFormatter.countdown(wo.slaDeadline),
-                ),
-              if (wo.startDate != null)
-                _KvRow(
-                  icon: Icons.play_circle_outline,
-                  label: 'Started',
-                  value: DateFormatter.dateTime(wo.startDate),
-                ),
-              if (wo.completedDate != null)
-                _KvRow(
-                  icon: Icons.check_circle_outline,
-                  label: 'Completed',
-                  value: DateFormatter.dateTime(wo.completedDate),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Assignment card
-          _Section(
-            title: 'Assignment',
-            children: [
-              _KvRow(
-                icon: Icons.engineering_outlined,
-                label: 'Technician',
-                value: wo.technicianName ?? 'Unassigned',
-              ),
-              _KvRow(
-                icon: Icons.person_outline,
-                label: 'Created by',
-                value: wo.createdByName ?? '—',
-              ),
-              if (wo.assetName != null)
-                _KvRow(
-                  icon: Icons.precision_manufacturing_outlined,
-                  label: 'Asset',
-                  value: wo.assetName!,
-                ),
-              if (wo.vehiclePlate != null)
-                _KvRow(
-                  icon: Icons.directions_car_outlined,
-                  label: 'Vehicle',
-                  value: wo.vehiclePlate!,
-                ),
-            ],
-          ),
-
-          // Costs
-          if (wo.estimatedCost != null ||
-              wo.actualCost != null ||
-              wo.estimatedHours != null ||
-              wo.actualHours != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _Section(
-              title: 'Cost & Effort',
-              children: [
-                if (wo.estimatedCost != null)
-                  _KvRow(
-                    icon: Icons.payments_outlined,
-                    label: 'Est. cost',
-                    value: wo.estimatedCost!.toStringAsFixed(2),
-                  ),
-                if (wo.actualCost != null)
-                  _KvRow(
-                    icon: Icons.payments_outlined,
-                    label: 'Actual cost',
-                    value: wo.actualCost!.toStringAsFixed(2),
-                  ),
-                if (wo.estimatedHours != null)
-                  _KvRow(
-                    icon: Icons.access_time_outlined,
-                    label: 'Est. hours',
-                    value: wo.estimatedHours!.toStringAsFixed(1),
-                  ),
-                if (wo.actualHours != null)
-                  _KvRow(
-                    icon: Icons.access_time_outlined,
-                    label: 'Actual hours',
-                    value: wo.actualHours!.toStringAsFixed(1),
-                  ),
-              ],
-            ),
-          ],
-
-          // Parts
-          const SizedBox(height: AppSpacing.sm),
-          _Section(
-            title: 'Parts (${wo.parts.length})',
-            trailing: TextButton.icon(
-              onPressed: () => _showAddPart(context, ref, wo.id),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add'),
-            ),
-            children: wo.parts.isEmpty
-                ? [
-                    const Text(
-                      'No parts logged.',
-                      style: AppTextStyles.bodySecondary,
-                    ),
-                  ]
-                : [
-                    for (final p in wo.parts) _PartRow(part: p),
-                  ],
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // Action buttons
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (canUpload) ...[
           Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _showStatusSheet(context, ref, wo),
-                icon: const Icon(Icons.published_with_changes_rounded),
-                label: const Text('Update status'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _showAddNote(context, ref, wo.id),
-                icon: const Icon(Icons.note_add_outlined),
-                label: const Text('Add note'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _showAddAttachment(context, ref, wo.id),
-                icon: const Icon(Icons.attach_file_rounded),
-                label: const Text('Attachment'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────── Action handlers ─────────────────
-
-  Future<void> _showStatusSheet(
-      BuildContext context, WidgetRef ref, WorkOrder wo) async {
-    String selected = wo.status;
-    final actualCostCtrl = TextEditingController();
-    final actualHoursCtrl = TextEditingController();
-
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Update Status',
-      child: StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                for (final s in _statusFlow)
-                  ChoiceChip(
-                    label: Text(s.replaceAll('_', ' ')),
-                    selected: selected == s,
-                    onSelected: (_) => setState(() => selected = s),
+            spacing: MpSpacing.sm,
+            children: _types
+                .map(
+                  (t) => ChoiceChip(
+                    label: Text(t.$2),
+                    selected: evidenceType == t.$1,
+                    onSelected:
+                        busy ? null : (_) => onEvidenceTypeChanged(t.$1),
                   ),
-              ],
-            ),
-            if (selected == 'COMPLETED') ...[
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: actualCostCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Actual cost',
-                  prefixIcon: Icon(Icons.payments_outlined),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: actualHoursCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Actual hours',
-                  prefixIcon: Icon(Icons.access_time_outlined),
-                ),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () async {
-                  HapticFeedback.mediumImpact();
-                  final nav = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-                  try {
-                    final result = await ref
-                        .read(offlineSyncControllerProvider)
-                        .submitWorkOrderStatus(
-                          wo.id,
-                          status: selected,
-                          actualCost: num.tryParse(actualCostCtrl.text),
-                          actualHours: num.tryParse(actualHoursCtrl.text),
-                        );
-                    nav.pop();
-                    if (result.isSynced) {
-                      await _refresh(ref);
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Status updated')),
-                      );
-                    } else {
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.isDuplicate
-                                ? 'This status update is already queued for sync.'
-                                : 'Saved offline. This status update will sync when you are back online.',
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(e.toString())),
-                    );
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showAddNote(
-      BuildContext context, WidgetRef ref, String id) async {
-    final ctrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Note',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: ctrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'Type your note…',
-            ),
+                )
+                .toList(),
           ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final note = ctrl.text.trim();
-                if (note.isEmpty) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(workOrdersRemoteProvider).addNote(id, note);
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Note added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAddAttachment(
-      BuildContext context, WidgetRef ref, String id) async {
-    final ctrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Attachment',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'Attachment URL',
-              prefixIcon: Icon(Icons.link_rounded),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final url = ctrl.text.trim();
-                if (url.isEmpty) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref
-                      .read(workOrdersRemoteProvider)
-                      .addAttachment(id, url);
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Attachment added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAddPart(
-      BuildContext context, WidgetRef ref, String id) async {
-    final partIdCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController();
-    final costCtrl = TextEditingController();
-    await showAppBottomSheet<void>(
-      context,
-      title: 'Add Part',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: partIdCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Part ID',
-              prefixIcon: Icon(Icons.qr_code_2_rounded),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: qtyCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Quantity',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: costCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Unit cost',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () async {
-                final partId = partIdCtrl.text.trim();
-                final qty = num.tryParse(qtyCtrl.text);
-                final cost = num.tryParse(costCtrl.text);
-                if (partId.isEmpty || qty == null || cost == null) return;
-                final nav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(workOrdersRemoteProvider).addPart(
-                        id,
-                        partId: partId,
-                        quantity: qty,
-                        unitCost: cost,
-                      );
-                  nav.pop();
-                  await _refresh(ref);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Part added')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.children,
-    this.trailing,
-  });
-
-  final String title;
-  final List<Widget> children;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: MpSpacing.sm),
           Row(
             children: [
-              Expanded(child: Text(title, style: AppTextStyles.subtitle)),
-              if (trailing != null) trailing!,
+              Expanded(
+                child: MpButton(
+                  label: 'Camera',
+                  icon: Icons.photo_camera_outlined,
+                  isLoading: busy,
+                  onPressed: busy ? null : onCamera,
+                ),
+              ),
+              const SizedBox(width: MpSpacing.sm),
+              Expanded(
+                child: MpButton(
+                  label: 'Gallery',
+                  icon: Icons.photo_library_outlined,
+                  variant: MpButtonVariant.outlined,
+                  isLoading: busy,
+                  onPressed: busy ? null : onGallery,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          ...children,
+          if (busy) ...[
+            const SizedBox(height: MpSpacing.sm),
+            const LinearProgressIndicator(),
+          ],
+          const SizedBox(height: MpSpacing.md),
         ],
-      ),
-    );
-  }
-}
-
-class _KvRow extends StatelessWidget {
-  const _KvRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
+        if (pendingLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: MpSpacing.sm),
+            child: MpLoading(centered: false),
+          )
+        else if (pending.isNotEmpty) ...[
           Text(
-            value,
-            style: AppTextStyles.body.copyWith(
-              color: valueColor,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.right,
+            'Pending local uploads',
+            style: Theme.of(context).textTheme.titleSmall,
           ),
+          const SizedBox(height: MpSpacing.sm),
+          ...pending.map(
+            (d) => MpListTile(
+              title: d.fileName,
+              subtitle:
+                  '${d.evidenceType.replaceAll('_', ' ')} · ${d.state}${d.lastError != null ? ' · ${d.lastError}' : ''}',
+              leading: const Icon(Icons.cloud_upload_outlined),
+              trailing: IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: busy ? null : () => onRetry(d),
+              ),
+            ),
+          ),
+          const SizedBox(height: MpSpacing.md),
         ],
-      ),
+        async.when(
+          loading: () => const MpLoading(centered: false),
+          error: (e, _) => MpErrorState(
+            title: 'Evidence unavailable',
+            message: e is ApiException ? e.message : e.toString(),
+            onRetry: () =>
+                ref.invalidate(workOrderEvidenceProvider(workOrderId)),
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return const MpEmptyState(
+                title: 'No evidence yet',
+                message: 'Add before/after photos from the field.',
+                icon: Icons.image_outlined,
+              );
+            }
+            return Column(
+              children: items
+                  .map(
+                    (item) => MpListTile(
+                      title: item.fileName,
+                      subtitle:
+                          '${item.evidenceType.replaceAll('_', ' ')} · ${item.status}${item.verificationStatus != null ? ' · ${item.verificationStatus}' : ''}',
+                      leading: const Icon(Icons.attach_file),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
-class _PartRow extends StatelessWidget {
-  const _PartRow({required this.part});
-  final WorkOrderPart part;
+class _PartsSection extends ConsumerWidget {
+  const _PartsSection({required this.workOrderId});
+
+  final String workOrderId;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          const Icon(Icons.build_outlined,
-              size: 16, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  part.partName ?? part.partId,
-                  style: AppTextStyles.body,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (part.sku != null)
-                  Text(part.sku!, style: AppTextStyles.caption),
-              ],
-            ),
-          ),
-          Text('${part.quantity} × ${part.unitCost.toStringAsFixed(2)}',
-              style: AppTextStyles.label),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(workOrderPartsProvider(workOrderId));
+    return async.when(
+      loading: () => const MpLoading(centered: false),
+      error: (e, _) => MpErrorState(
+        title: 'Parts unavailable',
+        message: e is ApiException ? e.message : e.toString(),
+        onRetry: () => ref.invalidate(workOrderPartsProvider(workOrderId)),
       ),
+      data: (parts) {
+        if (parts.isEmpty) {
+          return const MpEmptyState(
+            title: 'No parts on this work order',
+            message:
+                'Inventory issue/return is online-only and not available here.',
+            icon: Icons.inventory_2_outlined,
+          );
+        }
+        return Column(
+          children: parts
+              .map(
+                (line) => MpListTile(
+                  title: line.partName,
+                  subtitle: [
+                    if (line.sku != null) line.sku!,
+                    if (line.lineStatus != null)
+                      line.lineStatus!.replaceAll('_', ' '),
+                    if (line.requestedQuantity != null)
+                      'Qty ${line.requestedQuantity}',
+                    if (line.issuedQuantity != null)
+                      'Issued ${line.issuedQuantity}',
+                  ].join(' · '),
+                  leading: const Icon(Icons.handyman_outlined),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _ActivitySection extends ConsumerWidget {
+  const _ActivitySection({required this.workOrderId});
+
+  final String workOrderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(workOrderActivityProvider(workOrderId));
+    return async.when(
+      loading: () => const MpLoading(centered: false),
+      error: (e, _) => MpErrorState(
+        title: 'Activity unavailable',
+        message: e is ApiException ? e.message : e.toString(),
+        onRetry: () => ref.invalidate(workOrderActivityProvider(workOrderId)),
+      ),
+      data: (events) {
+        if (events.isEmpty) {
+          return const MpEmptyState(
+            title: 'No activity yet',
+            icon: Icons.timeline,
+          );
+        }
+        return Column(
+          children: events.map((e) {
+            final when =
+                DateFormat.MMMd().add_jm().format(e.timestamp.toLocal());
+            return MpListTile(
+              title: e.label,
+              subtitle: [
+                when,
+                if (e.actorName != null) e.actorName!,
+                if (e.description != null && e.description!.isNotEmpty)
+                  e.description!,
+              ].join(' · '),
+              leading: const Icon(Icons.circle, size: 12),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

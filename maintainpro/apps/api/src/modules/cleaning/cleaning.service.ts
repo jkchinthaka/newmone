@@ -1082,6 +1082,20 @@ export class CleaningService {
     return issues.map((issue) => toPublicFacilityIssueResponse(issue));
   }
 
+  async getIssue(tenantId: string | null, id: string): Promise<PublicFacilityIssueResponse> {
+    const issue = await this.prisma.facilityIssue.findFirst({
+      where: {
+        id,
+        tenantId: requireTenantId(tenantId)
+      },
+      include: FACILITY_ISSUE_INCLUDE
+    });
+    if (!issue) {
+      throw new NotFoundException("Issue not found");
+    }
+    return toPublicFacilityIssueResponse(issue);
+  }
+
   async updateIssue(
     id: string,
     actorId: string,

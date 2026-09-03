@@ -435,6 +435,27 @@ export class InventoryController {
     return { data, message: "Warehouses fetched" };
   }
 
+  @Get("warehouse-balances")
+  @Roles(...INVENTORY_READ_ROLES)
+  @Permissions("inventory.manage")
+  async warehouseBalances(
+    @Req() req: AuthedRequest,
+    @Query("warehouseId") warehouseId?: string,
+    @Query("partId") partId?: string,
+    @Query("nonZeroOnly") nonZeroOnly?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string
+  ) {
+    const data = await this.inventoryService.listWarehouseBalances(req.user, {
+      warehouseId,
+      partId,
+      nonZeroOnly,
+      page,
+      limit
+    });
+    return { data: data.items, meta: data.meta, message: "Warehouse balances fetched" };
+  }
+
   @Get("movements")
   @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")

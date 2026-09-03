@@ -83,22 +83,28 @@ services:
   mongo:
     image: mongo:7
     ports:
-      - "27017:27017"
+      # Host 27017 may be occupied by unrelated local Mongo; containers still use mongo:27017.
+      - "27018:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-root_password}
       MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-bileeta_db}
       MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-maintainpro_app}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-maintainpro_password}
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-nelna}
+      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-bileeta_db}
+    # MongoDB 7+ requires keyFile when auth + replica set are combined (same pattern as e2e).
     volumes:
       - maintainpro-mongo-data-dev:/data/db
       - ./infra/mongo/init-app-user.js:/docker-entrypoint-initdb.d/init-app-user.js:ro
+      - ./infra/mongo/docker-entrypoint-e2e.sh:/dev-mongo-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/dev-mongo-entrypoint.sh"]
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\""]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 18
+      start_period: 30s
 
   redis:
     image: redis:7-alpine

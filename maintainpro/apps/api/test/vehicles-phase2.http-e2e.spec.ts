@@ -66,7 +66,8 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
     },
     vehicleGateMovement: {
       create: jest.fn(),
-      findMany: jest.fn()
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null)
     },
     vehicleMeterLog: {
       create: jest.fn(),
@@ -368,9 +369,10 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
       })
     );
     prisma.user.findUnique.mockResolvedValueOnce({
-      id: "mgr-1",
+      id: "user-actor",
       role: {
-        name: RoleName.FLEET_MANAGER
+        name: RoleName.FLEET_MANAGER,
+        permissions: [{ key: "gate.override.approve" }]
       }
     });
     tx.vehicle.update.mockResolvedValue({ id: "veh-1" });
@@ -394,6 +396,11 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     expect(response.body.message).toBe("Gate-out recorded");
     expect(response.body.data.allowed).toBe(true);
     expect(response.body.data.overrideUsed).toBe(true);
+    expect(tx.vehicleGateMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        approvedById: "user-actor"
+      })
+    });
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entity: "VEHICLE_GATE_MOVEMENT",
@@ -412,9 +419,10 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
       })
     );
     prisma.user.findUnique.mockResolvedValueOnce({
-      id: "driver-approver",
+      id: "user-actor",
       role: {
-        name: RoleName.DRIVER
+        name: RoleName.DRIVER,
+        permissions: [{ key: "gate.out.create" }]
       }
     });
 
@@ -427,9 +435,9 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
         overrideReason: "Try bypass",
         approvedByUserId: "driver-approver"
       })
-      .expect(400);
+      .expect(403);
 
-    expect(response.body.message).toBe("Override approver does not have authority for gate release");
+    expect(response.body.message).toBe("Gate override is not authorized for this actor");
   });
 
   it("records gate-in movement and meter log", async () => {
