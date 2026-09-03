@@ -13,7 +13,6 @@ import '../../core/tenant/tenant_context.dart';
 import '../../core/widgets/offline_banner.dart';
 import '../../design_system/design_system.dart';
 import '../work_orders/data/work_orders_repository.dart';
-import 'data/fg_form_config.dart';
 import 'data/cl30_draft_store.dart';
 import 'data/fg_api_client.dart';
 import 'data/fg_models.dart';

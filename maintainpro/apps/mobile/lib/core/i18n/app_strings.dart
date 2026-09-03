@@ -40,6 +40,10 @@ abstract final class AppStrings {
   static const emptyDrafts = 'No local drafts';
   static const emptySync = 'Outbox is empty';
   static const offlineBanner = 'You are offline — changes will sync later';
+  static const onlineRequired =
+      'Internet connection required for this operation.';
+  static const draftSavedOnDevice = 'Draft saved on this device';
+  static const queuedForSync = 'Saved offline — will sync when online';
   static const online = 'Online';
   static const offline = 'Offline';
 

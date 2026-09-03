@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/app_strings.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/offline/outbox_service.dart';
+import '../../../core/offline/sync_controller.dart';
 import '../../../core/tenant/tenant_context.dart';
 import '../../../design_system/design_system.dart';
 import '../data/evidence_upload_service.dart';
@@ -88,30 +92,65 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   }
 
   Future<void> _updateStatus(String status) async {
-    if (!await _isOnline()) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.offlineBanner)),
-      );
-      return;
+    final auth = ref.read(authControllerProvider);
+    final tenantId =
+        ref.read(tenantContextProvider).tenantId ?? auth.user?.tenantId ?? '';
+    final userId = auth.user?.id ?? '';
+    final online = await _isOnline();
+
+    Future<void> enqueueStatus() async {
+      if (tenantId.isEmpty || userId.isEmpty) {
+        throw StateError('Missing tenant/user for offline queue');
+      }
+      await ref.read(outboxServiceProvider).enqueueIfAbsent(
+            tenantId: tenantId,
+            userId: userId,
+            entityType: 'work_order',
+            entityId: widget.workOrderId,
+            operation: 'status',
+            payload: {
+              'id': widget.workOrderId,
+              'status': status,
+            },
+            idempotencyKey: const Uuid().v4(),
+          );
+      unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
     }
 
     final result = await _actionGuard.run(() async {
-      await ref.read(workOrdersRepositoryProvider).updateStatus(
-            id: widget.workOrderId,
-            status: status,
-          );
-      ref.invalidate(workOrderDetailProvider(widget.workOrderId));
-      ref.invalidate(workOrderActivityProvider(widget.workOrderId));
-      return true;
+      if (!online) {
+        await enqueueStatus();
+        return 'queued';
+      }
+      try {
+        await ref.read(workOrdersRepositoryProvider).updateStatus(
+              id: widget.workOrderId,
+              status: status,
+            );
+        ref.invalidate(workOrderDetailProvider(widget.workOrderId));
+        ref.invalidate(workOrderActivityProvider(widget.workOrderId));
+        return 'updated';
+      } on NetworkException {
+        await enqueueStatus();
+        return 'queued';
+      } on ServerException {
+        await enqueueStatus();
+        return 'queued';
+      }
     });
 
     if (!mounted) return;
     if (result == null) return; // double-submit ignored
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.statusUpdated)),
-    );
+    if (result == 'queued') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.queuedForSync)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.statusUpdated)),
+      );
+    }
   }
 
   Future<void> _saveNote() async {
@@ -138,40 +177,76 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           );
           ref.invalidate(workOrderActivityProvider(widget.workOrderId));
         } else {
-          await ref.read(outboxServiceProvider).saveDraft(
-            tenantId: tenantId.isEmpty ? 'unknown' : tenantId,
-            userId: userId.isEmpty ? 'unknown' : userId,
-            entityType: 'WorkOrderNote',
-            entityId: widget.workOrderId,
-            title: 'WO note draft',
-            payload: {
-              'workOrderId': widget.workOrderId,
-              'note': text,
-            },
-          );
+          if (tenantId.isEmpty || userId.isEmpty) {
+            throw const NetworkException(AppStrings.onlineRequired);
+          }
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+                idempotencyKey: const Uuid().v4(),
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
           if (!mounted) return;
           _noteController.clear();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note saved to Draft Center')),
+            const SnackBar(content: Text(AppStrings.queuedForSync)),
+          );
+        }
+      } on NetworkException {
+        if (tenantId.isNotEmpty && userId.isNotEmpty) {
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+        }
+        if (!mounted) return;
+        _noteController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.queuedForSync)),
+        );
+      } on ServerException catch (e) {
+        if (tenantId.isNotEmpty && userId.isNotEmpty) {
+          await ref.read(outboxServiceProvider).enqueueIfAbsent(
+                tenantId: tenantId,
+                userId: userId,
+                entityType: 'work_order',
+                entityId: widget.workOrderId,
+                operation: 'note',
+                payload: {
+                  'workOrderId': widget.workOrderId,
+                  'note': text,
+                },
+              );
+          unawaited(ref.read(syncControllerProvider.notifier).refreshCounts());
+          if (!mounted) return;
+          _noteController.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${e.message} — ${AppStrings.queuedForSync}')),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
           );
         }
       } on ApiException catch (e) {
-        if (tenantId.isNotEmpty && userId.isNotEmpty) {
-          await ref.read(outboxServiceProvider).saveDraft(
-            tenantId: tenantId,
-            userId: userId,
-            entityType: 'WorkOrderNote',
-            entityId: widget.workOrderId,
-            title: 'WO note draft',
-            payload: {
-              'workOrderId': widget.workOrderId,
-              'note': text,
-            },
-          );
-        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${e.message} — saved as draft')),
+          SnackBar(content: Text(e.message)),
         );
       }
     });

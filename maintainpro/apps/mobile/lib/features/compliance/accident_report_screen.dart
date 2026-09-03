@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_controller.dart';
+import '../../core/i18n/app_strings.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/offline/outbox_service.dart';
 import '../../design_system/design_system.dart';
@@ -74,7 +75,7 @@ class _AccidentReportScreenState extends ConsumerState<AccidentReportScreen> {
         );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Draft saved locally')),
+      const SnackBar(content: Text(AppStrings.draftSavedOnDevice)),
     );
   }
 

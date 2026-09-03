@@ -326,7 +326,7 @@ Future<void> showAdminUserEditor(
               ),
             if (roles.isNotEmpty)
               DropdownButtonFormField<String>(
-                value: roleId,
+                initialValue: roleId,
                 decoration: const InputDecoration(labelText: 'Role'),
                 items: roles
                     .map(

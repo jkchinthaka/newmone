@@ -51,6 +51,57 @@ class OutboxService {
     return id;
   }
 
+  /// Enqueues only when no matching pending/retryable/syncing op exists.
+  ///
+  /// Dedupes by tenant+user+entityType+operation+entityId+payloadHash so
+  /// repeated taps do not create duplicate server writes after reconnect.
+  Future<String> enqueueIfAbsent({
+    required String tenantId,
+    required String userId,
+    required String entityType,
+    required String operation,
+    required Map<String, dynamic> payload,
+    String? entityId,
+    String? idempotencyKey,
+  }) async {
+    final json = jsonEncode(payload);
+    final hash = sha256.convert(utf8.encode(json)).toString();
+    final existing = await (_db.select(_db.outboxOperations)
+          ..where(
+            (t) =>
+                t.tenantId.equals(tenantId) &
+                t.userId.equals(userId) &
+                t.entityType.equals(entityType) &
+                t.operation.equals(operation) &
+                t.payloadHash.equals(hash) &
+                t.state.isIn([
+                  OutboxState.queued.wire,
+                  OutboxState.syncing.wire,
+                  OutboxState.failedRetryable.wire,
+                ]),
+          ))
+        .get();
+
+    if (entityId != null && entityId.isNotEmpty) {
+      final sameEntity = existing.where((o) => o.entityId == entityId);
+      if (sameEntity.isNotEmpty) {
+        return sameEntity.first.operationId;
+      }
+    } else if (existing.isNotEmpty) {
+      return existing.first.operationId;
+    }
+
+    return enqueue(
+      tenantId: tenantId,
+      userId: userId,
+      entityType: entityType,
+      operation: operation,
+      payload: payload,
+      entityId: entityId,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
   Future<void> updateState({
     required String operationId,
     required OutboxState state,

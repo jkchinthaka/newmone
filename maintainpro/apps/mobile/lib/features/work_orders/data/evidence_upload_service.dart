@@ -96,9 +96,7 @@ class EvidenceUploadService {
     return dir;
   }
 
-  Future<List<PendingEvidenceDraft>> listPendingForWorkOrder(
-    String workOrderId,
-  ) async {
+  Future<List<PendingEvidenceDraft>> listAllPending() async {
     final auth = _ref.read(authControllerProvider);
     final tenantId =
         _ref.read(tenantContextProvider).tenantId ?? auth.user?.tenantId ?? '';
@@ -112,9 +110,23 @@ class EvidenceUploadService {
     return drafts
         .where((d) => d.entityType == 'WorkOrderEvidence')
         .map(PendingEvidenceDraft.fromDraft)
-        .where((d) => d.workOrderId == workOrderId)
         .where((d) => d.state != 'synced')
         .toList();
+  }
+
+  Future<List<PendingEvidenceDraft>> listPendingForWorkOrder(
+    String workOrderId,
+  ) async {
+    final all = await listAllPending();
+    return all.where((d) => d.workOrderId == workOrderId).toList();
+  }
+
+  /// Retries all pending evidence drafts sequentially (reconnect / Sync Center).
+  Future<void> retryAllPending() async {
+    final pending = await listAllPending();
+    for (final draft in pending) {
+      await retryPending(draft);
+    }
   }
 
   /// Camera or gallery pick with compression, then upload or queue offline.

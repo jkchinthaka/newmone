@@ -74,9 +74,9 @@ class MpSkeletonList extends StatelessWidget {
       padding: const EdgeInsets.all(MpSpacing.screenPadding),
       itemCount: count,
       separatorBuilder: (_, __) => const SizedBox(height: MpSpacing.sm),
-      itemBuilder: (_, __) => MpCard(
+      itemBuilder: (_, __) => const MpCard(
         bordered: false,
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MpSkeleton(height: 18, width: 180),

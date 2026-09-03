@@ -30,7 +30,7 @@ class _FixedSyncController extends SyncController {
 }
 
 AuthState _superAdminAuth() {
-  return AuthState(
+  return const AuthState(
     status: AuthStatus.authenticated,
     session: AuthSession(
       accessToken: 't',
@@ -41,7 +41,7 @@ AuthState _superAdminAuth() {
         name: 'Super Admin',
         role: 'SUPER_ADMIN',
         tenantId: 'tenant',
-        permissions: const ['*'],
+        permissions: ['*'],
       ),
     ),
   );

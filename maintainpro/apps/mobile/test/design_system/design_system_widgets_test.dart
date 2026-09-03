@@ -40,7 +40,7 @@ void main() {
 
   testWidgets('MpKpiCard renders label and value', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: SizedBox(
             height: 140,

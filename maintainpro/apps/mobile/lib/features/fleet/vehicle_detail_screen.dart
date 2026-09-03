@@ -124,11 +124,12 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
   }
 
   Future<void> _assignDriver(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final drivers = await ref.read(fleetApiClientProvider).listDrivers();
-      if (!mounted) return;
+      if (!context.mounted) return;
       if (drivers.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('No drivers available to assign')),
         );
         return;
@@ -148,7 +149,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
               .toList(),
         ),
       );
-      if (selected == null || !mounted) return;
+      if (selected == null || !context.mounted) return;
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -162,19 +163,19 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
           ],
         ),
       );
-      if (ok != true || !mounted) return;
+      if (ok != true || !context.mounted) return;
       await ref.read(fleetApiClientProvider).assignDriver(
             widget.vehicleId,
             selected,
           );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      messenger.showSnackBar(
         const SnackBar(content: Text('Driver assigned')),
       );
       await _load();
     } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (!context.mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 

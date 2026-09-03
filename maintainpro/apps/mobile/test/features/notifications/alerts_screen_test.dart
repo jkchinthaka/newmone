@@ -60,7 +60,7 @@ Dio _dio(Map<String, Response<dynamic> Function(RequestOptions)> scripts) {
 }
 
 AuthState _auth() {
-  return AuthState(
+  return const AuthState(
     status: AuthStatus.authenticated,
     session: AuthSession(
       accessToken: 't',
@@ -71,7 +71,7 @@ AuthState _auth() {
         name: 'Admin',
         role: 'ADMIN',
         tenantId: 't1',
-        permissions: const [],
+        permissions: [],
       ),
     ),
   );

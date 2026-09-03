@@ -39,19 +39,32 @@ class DraftCenterScreen extends ConsumerWidget {
           if (drafts.isEmpty) {
             return const MpEmptyState(
               title: AppStrings.emptyDrafts,
+              message: AppStrings.draftSavedOnDevice,
               icon: Icons.drafts_outlined,
             );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(MpSpacing.screenPadding),
-            itemCount: drafts.length,
+            itemCount: drafts.length + 1,
             separatorBuilder: (_, __) => const SizedBox(height: MpSpacing.sm),
             itemBuilder: (context, index) {
-              final d = drafts[index];
+              if (index == 0) {
+                return const MpCard(
+                  child: Padding(
+                    padding: EdgeInsets.all(MpSpacing.md),
+                    child: Text(
+                      '${AppStrings.draftSavedOnDevice}. These are not synced '
+                      'until you submit them online.',
+                    ),
+                  ),
+                );
+              }
+              final d = drafts[index - 1];
               return MpCard(
                 child: MpListTile(
                   title: d.title ?? d.entityType,
-                  subtitle: 'Updated ${d.updatedAt.toLocal()}',
+                  subtitle:
+                      '${AppStrings.draftSavedOnDevice} · ${d.updatedAt.toLocal()}',
                   leading: const Icon(Icons.edit_note),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline),

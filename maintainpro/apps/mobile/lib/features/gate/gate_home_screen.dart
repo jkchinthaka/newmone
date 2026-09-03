@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/app_strings.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/offline/sync_controller.dart';
 import '../../design_system/design_system.dart';
@@ -245,7 +246,14 @@ class _GateHomeScreenState extends ConsumerState<GateHomeScreen> {
             ),
           const SizedBox(height: MpSpacing.xl),
           Text(
-            'Gate actions require a live connection. They are never queued offline.',
+            AppStrings.onlineRequired,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: MpSpacing.sm),
+          Text(
+            'Gate actions are never queued offline.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

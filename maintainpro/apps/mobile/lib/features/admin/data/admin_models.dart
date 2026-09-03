@@ -1,4 +1,4 @@
-/// Tolerant parsers for Nest admin / reports envelopes.
+// Tolerant parsers for Nest admin / reports envelopes.
 
 Map<String, dynamic>? asMap(dynamic value) {
   if (value is Map<String, dynamic>) return value;

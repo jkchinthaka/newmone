@@ -93,7 +93,7 @@ void main() {
           authControllerProvider.overrideWith(
             (ref) => _FixedAuthController(
               ref,
-              AuthState(
+              const AuthState(
                 status: AuthStatus.authenticated,
                 session: AuthSession(
                   accessToken: 't',
@@ -104,7 +104,7 @@ void main() {
                     name: 'Admin',
                     role: 'ADMIN',
                     tenantId: 'tenant',
-                    permissions: const ['*'],
+                    permissions: ['*'],
                   ),
                 ),
               ),

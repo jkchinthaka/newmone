@@ -286,11 +286,11 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                                                   .bodySmall,
                                             ),
                                             if (item.overdue)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
+                                              const Padding(
+                                                padding: EdgeInsets.only(
                                                   top: 4,
                                                 ),
-                                                child: const MpStatusChip(
+                                                child: MpStatusChip(
                                                   label: 'Overdue',
                                                   tone: MpStatusTone.warning,
                                                 ),

@@ -52,13 +52,29 @@ android {
 
     buildTypes {
         release {
+            // Only attach release signing when key.properties exists.
+            // Hard-fail is deferred to release assemble/bundle tasks so debug builds still work.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+
+// Fail release packaging at task execution time (not configuration) when unsigned.
+tasks.configureEach {
+    val isReleasePackage =
+        name.equals("assembleRelease", ignoreCase = true) ||
+            name.equals("bundleRelease", ignoreCase = true) ||
+            name.equals("assembleReleaseUnitTest", ignoreCase = true)
+    if (isReleasePackage) {
+        doFirst {
             if (!keystorePropertiesFile.exists()) {
                 throw GradleException(
                     "Release signing required. Create android/key.properties (see key.properties.example) " +
                         "with storeFile, storePassword, keyAlias, and keyPassword. Never commit the keystore.",
                 )
             }
-            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
