@@ -1,7 +1,7 @@
 name: maintainpro_mobile
-description: MaintainPro - Operations Excellence. Enterprise facility & fleet management.
+description: MaintainPro Mobile V2 — field operations for facility & fleet management.
 publish_to: "none"
-version: 1.2.0+2
+version: 2.0.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -11,62 +11,46 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # State management
+  # State & routing
   flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
 
   # Networking
   dio: ^5.7.0
+  connectivity_plus: ^6.1.0
+  socket_io_client: ^3.0.1
 
-  # Storage
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
+  # Secure storage & auth
   flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
 
-  # Scanning & camera
+  # Offline / local DB (Drift + SQLite)
+  drift: ^2.22.1
+  drift_flutter: ^0.2.4
+  sqlite3_flutter_libs: ^0.5.28
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # Utils
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  crypto: ^3.0.6
+
+  # Scanning & media
   mobile_scanner: ^6.0.6
   image_picker: ^1.1.2
-  file_picker: ^8.1.4
 
-  # Firebase
+  # Push notifications (optional at runtime)
   firebase_core: ^3.8.1
   firebase_messaging: ^15.2.3
   flutter_local_notifications: ^18.0.1
-
-  # Routing
-  go_router: ^14.6.2
-
-  # Utils & i18n
-  intl: ^0.19.0
-  uuid: ^4.5.1
-  path_provider: ^2.1.4
-  share_plus: ^10.1.2
-  url_launcher: ^6.3.1
-  package_info_plus: ^8.1.2
-
-  # Network awareness & sockets
-  socket_io_client: ^3.0.1
-  connectivity_plus: ^6.1.0
-
-  # Location & maps
-  geolocator: ^13.0.2
-  permission_handler: ^11.3.1
-  google_maps_flutter: ^2.9.0
-
-  # UI & UX
-  cached_network_image: ^3.4.1
-  shimmer: ^3.0.0
-  lottie: ^3.1.3
-  flutter_animate: ^4.5.0
-  fl_chart: ^0.69.0
-  syncfusion_flutter_charts: ^27.1.58
-  table_calendar: ^3.1.2
-  pull_to_refresh_flutter3: ^2.0.2
-  infinite_scroll_pagination: ^4.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  drift_dev: ^2.22.1
+  build_runner: ^2.4.13
 
 flutter:
   uses-material-design: true

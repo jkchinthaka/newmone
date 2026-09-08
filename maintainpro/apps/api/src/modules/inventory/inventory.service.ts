@@ -18,6 +18,7 @@ import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import { PrismaService } from "../../database/prisma.service";
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
+import { createPaginationMeta } from "../../common/utils/pagination-meta";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
 import {
@@ -1970,6 +1971,68 @@ export class InventoryService {
       where: { tenantId, isActive: true },
       orderBy: [{ isDefault: "desc" }, { code: "asc" }]
     });
+  }
+
+  async listWarehouseBalances(
+    actor?: Actor,
+    query?: {
+      warehouseId?: string;
+      partId?: string;
+      nonZeroOnly?: string;
+      page?: string;
+      limit?: string;
+    }
+  ) {
+    const tenantId = this.resolveTenantId(actor);
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(500, Math.max(1, Number(query?.limit) || 50));
+    const skip = (page - 1) * limit;
+    const nonZeroOnly = query?.nonZeroOnly === "true";
+
+    const where: Prisma.WarehouseItemBalanceWhereInput = {
+      tenantId,
+      ...(query?.warehouseId ? { warehouseId: query.warehouseId } : {}),
+      ...(query?.partId ? { partId: query.partId } : {}),
+      ...(nonZeroOnly
+        ? {
+            OR: [{ onHand: { gt: 0 } }, { reserved: { gt: 0 } }]
+          }
+        : {})
+    };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.warehouseItemBalance.count({ where }),
+      this.prisma.warehouseItemBalance.findMany({
+        where,
+        include: {
+          part: {
+            select: {
+              id: true,
+              partNumber: true,
+              name: true,
+              category: true,
+              unit: true
+            }
+          },
+          warehouse: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              isDefault: true
+            }
+          }
+        },
+        orderBy: [{ warehouse: { code: "asc" } }, { part: { partNumber: "asc" } }],
+        skip,
+        take: limit
+      })
+    ]);
+
+    return {
+      items,
+      meta: createPaginationMeta(page, limit, total)
+    };
   }
 
   async transferStock(

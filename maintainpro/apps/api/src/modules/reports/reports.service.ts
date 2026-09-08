@@ -217,6 +217,27 @@ export class ReportsService {
     private readonly erpMonitoringService: ErpMonitoringService
   ) {}
 
+  /**
+   * report-access.matrix.ts's fine-grained checks (assertCanViewReportModule,
+   * assertCanExportReport) key off actor.permissions. That field used to be
+   * carried on the JWT, but the JWT deliberately no longer embeds permissions
+   * (PermissionsGuard has always been DB-authoritative in production and
+   * never read the JWT claim; embedding it there only bloated every session
+   * cookie, which broke login outright for high-permission roles). Report
+   * access is the one place in this module that still expected the claim to
+   * arrive via req.user, so it must now fetch current permissions itself
+   * rather than trust whatever (now always empty) list is on the actor.
+   */
+  private async withCurrentPermissions(actor: ReportActor): Promise<ReportActor> {
+    if (!actor?.sub) return actor;
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: actor.sub },
+      select: { role: { select: { permissions: { select: { key: true } } } } }
+    });
+    const permissions = dbUser?.role?.permissions.map((p) => p.key) ?? [];
+    return { ...actor, permissions };
+  }
+
   async options(actor: ReportActor): Promise<ReportFilterOptions> {
     return this.getFilterOptions(actor.tenantId ?? null);
   }
@@ -612,6 +633,7 @@ export class ReportsService {
 
   async moduleReport(actor: ReportActor, module: ReportModuleKey, query: ReportQuery = {}): Promise<ReportModuleResponse> {
     this.assertModule(module);
+    actor = await this.withCurrentPermissions(actor);
     this.assertModuleAccess(actor, module);
 
     switch (module) {
@@ -641,6 +663,7 @@ export class ReportsService {
   }
 
   async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile & { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }> {
+    actor = await this.withCurrentPermissions(actor);
     assertCanExportReport(actor, module);
     const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_PAGE_SIZE });
     const totalMatchedCount = report.table.pagination.total;

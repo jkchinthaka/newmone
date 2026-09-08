@@ -188,6 +188,14 @@ async function runLifecycleGate(browser: Browser): Promise<{
 
 test.describe("E2E work-order lifecycle diagnostic @wo-lifecycle-gate", () => {
   test("WO-LIFECYCLE-DIAG-001 gate lifecycle flags", async ({ browser }) => {
+    // This single test performs 6 real logins across 6 actors/contexts against
+    // POST /auth/login's genuine, unweakened rate limit (5 requests / 60s —
+    // untouched by this change). loginViaUi() now correctly waits out a 429
+    // via the server's own Retry-After rather than silently proceeding
+    // unauthenticated (see helpers/auth.ts) -- so this test's own timeout must
+    // be generous enough to accommodate that legitimate, occasional backoff
+    // instead of failing on Playwright's 60s default before the wait completes.
+    test.setTimeout(180_000);
     const flags = await runLifecycleGate(browser);
     console.log(
       JSON.stringify({

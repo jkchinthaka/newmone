@@ -274,6 +274,27 @@ export class WorkOrdersController {
     return { data, message: "Work order created" };
   }
 
+  @Get("part-requests")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "SUPERVISOR", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
+  @Permissions("part_requests.view")
+  async listAllPartRequests(
+    @Req() req: AuthedRequest,
+    @Query("status") status?: string,
+    @Query("workOrderId") workOrderId?: string,
+    @Query("partId") partId?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string
+  ) {
+    const data = await this.workOrdersService.listAllPartRequests(req.user, {
+      status,
+      workOrderId,
+      partId,
+      page,
+      limit
+    });
+    return { data: data.items, meta: data.meta, message: "Part requests fetched" };
+  }
+
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {

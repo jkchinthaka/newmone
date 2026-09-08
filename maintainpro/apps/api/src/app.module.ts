@@ -51,6 +51,7 @@ import { InventoryModule } from "./modules/inventory/inventory.module";
 import { InvitationsModule } from "./modules/invitations/invitations.module";
 import { JobCodesModule } from "./modules/job-codes/job-codes.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
+import { MobileFgModule } from "./modules/mobile-fg/mobile-fg.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OperationsModule } from "./modules/operations/operations.module";
 import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
@@ -140,6 +141,7 @@ normalizeDatabaseEnvironment();
     DriversModule,
     DriverIntelligenceModule,
     MaintenanceModule,
+    MobileFgModule,
     JobCodesModule,
     WorkOrdersModule,
     WorkOrderTaxonomyModule,

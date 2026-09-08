@@ -46,6 +46,12 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-maintainpro-files}
+      FG_SSO_SIGNING_SECRET: ${FG_SSO_SIGNING_SECRET:-local-dev-only-fg-sso-signing-secret-32c}
+      FG_SSO_ISSUER: ${FG_SSO_ISSUER:-maintainpro}
+      FG_SSO_AUDIENCE: ${FG_SSO_AUDIENCE:-fg-digital-recording}
+      FG_SSO_TTL_SECONDS: ${FG_SSO_TTL_SECONDS:-60}
+      FG_API_INTERNAL_URL: ${FG_API_INTERNAL_URL:-http://fg:8000}
+      FG_MOBILE_SESSION_TTL_SECONDS: ${FG_MOBILE_SESSION_TTL_SECONDS:-1800}
     depends_on:
       mongo:
         condition: service_healthy

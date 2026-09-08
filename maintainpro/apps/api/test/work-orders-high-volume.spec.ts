@@ -61,6 +61,15 @@ describe("UAT-019 high-volume work orders", () => {
     expect(parsed.sortDirection).toBe("asc");
   });
 
+  it("parses assetId filter for work order list", () => {
+    const parsed = parseWorkOrderListQuery({
+      assetId: "asset-123",
+      page: "1",
+      pageSize: "25"
+    });
+    expect(parsed.assetId).toBe("asset-123");
+  });
+
   it("maps open queue alias to open-requests", () => {
     const parsed = parseWorkOrderListQuery({ queue: "open", page: "1", pageSize: "25" });
     expect(parsed.queue).toBe("open-requests");
