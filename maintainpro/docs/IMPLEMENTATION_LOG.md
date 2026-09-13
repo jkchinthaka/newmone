@@ -5,6 +5,19 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-00 | Freeze, backup & current-state audit
+- What changed: Full architecture/audit documentation only (no business feature code, no DB drops). Baseline validated on `origin/main` @ `290bf3a`.
+- Files created:
+  - `docs/PHASE_00_CURRENT_STATE_AUDIT.md`
+  - `docs/DATA_MODEL_DISPOSITION.md`
+  - `docs/ROUTE_AND_MODULE_DISPOSITION.md`
+  - `docs/TARGET_ARCHITECTURE.md`
+  - `docs/MIGRATION_RISK_REGISTER.md`
+- Tests run (baseline): `db:generate`, `typecheck`, `lint`, API tests (1247 passed), API build, web build — all PASS
+- Remaining risks: See `MIGRATION_RISK_REGISTER.md`. Phase 1 may proceed (scope/nav cleanup only).
+
+---
+
 ## 2026-06-12 | PHASE-0 | Repository audit and TODO system bootstrap
 - What changed: completed a read-only architecture audit across API, web, mobile, schema, auth, tenancy, notifications, deployment, and CI; created and initialized the three required tracking docs for production-readiness execution.
 - Files changed:
