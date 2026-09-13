@@ -97,6 +97,8 @@ model Tenant {
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
+  vendorContracts              VendorContract[]
+  workOrderCostSnapshots       WorkOrderCostSnapshot[]
   workOrderTaxonomies          WorkOrderTaxonomy[]
   businessExceptions           BusinessException[]
   partCompatibilities          PartCompatibility[]
@@ -1260,6 +1262,8 @@ model WorkOrder {
   completedDate          DateTime?
   estimatedCost          Float?
   actualCost             Float?
+  /// INTERNAL | EXTERNAL | MIXED — who executes the work.
+  executionMode          WorkOrderExecutionMode @default(INTERNAL)
   estimatedHours         Float?
   actualHours            Float?
   slaDeadline            DateTime?
@@ -1291,6 +1295,7 @@ model WorkOrder {
   evidenceAttachments EvidenceAttachment[]
   assignees           WorkOrderAssignee[]
   vendorRepairCase    VendorRepairCase?
+  costSnapshot        WorkOrderCostSnapshot?
 
   taxonomyCategoryId   String?             @db.ObjectId
   taxonomyCategory     WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1597,6 +1602,13 @@ model SparePart {
   name            String
   description     String?
   category        String
+  /// SPARE_PART | CONSUMABLE | TOOL — maintenance classification (not Bileeta item master).
+  classification  SparePartClassification @default(SPARE_PART)
+  /// Official ERP/Bileeta item code when mapped; MaintainPro never owns purchasing stock truth.
+  erpCode         String?
+  /// Maintenance-friendly alias for technicians.
+  maintenanceAlias String?
+  maintenanceCategory String?
   unit            String    @default("pcs")
   /// ON_HAND (denormalized default-warehouse / company total for current single-warehouse tenants).
   quantityInStock Int       @default(0)
@@ -1604,6 +1616,8 @@ model SparePart {
   reservedQuantity Int      @default(0)
   /// AVAILABLE = ON_HAND - RESERVED. Maintained atomically by InventoryTransactionEngine.
   availableQuantity Int     @default(0)
+  /// Reference/available stock hint from ERP sync — not authoritative purchasing stock.
+  referenceStock  Int?
   minimumStock    Int       @default(0)
   reorderPoint    Int       @default(0)
   maximumStock    Int       @default(0)
@@ -1616,6 +1630,7 @@ model SparePart {
   leadTimeDays    Int?
   /// CRITICAL | NORMAL. Consumables may omit serial/warranty tracking.
   criticality     String?
+  criticalSpare   Boolean   @default(false)
   warrantyDays    Int?
   warrantyMileage Float?
   createdAt       DateTime  @default(now())
@@ -1634,6 +1649,15 @@ model SparePart {
   @@index([tenantId])
   @@index([supplierId])
   @@index([tenantId, isActive])
+  @@index([tenantId, classification])
+  @@index([tenantId, erpCode])
+  @@index([tenantId, criticalSpare])
+}
+
+enum SparePartClassification {
+  SPARE_PART
+  CONSUMABLE
+  TOOL
 }
 
 /// Tenant warehouse / store. Existing SparePart.location remains a display hint.
@@ -2012,6 +2036,8 @@ model Supplier {
   vendorRepairCases  VendorRepairCase[]
   vendorQuotations   VendorQuotation[]
   vendorInvoices     VendorInvoice[]
+  contracts          VendorContract[]
+  contacts           VendorContact[]
 
   @@unique([tenantId, vendorCode])
   @@index([tenantId])
@@ -2330,13 +2356,22 @@ model PartIssue {
   issuedById    String      @db.ObjectId
   issuedBy      User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
   quantity      Int
+  /// Snapshot unit cost at issue time — historical WO cost must stay stable.
+  unitCostSnapshot Float?
   notes         String?
+  /// TOOL issues expect return; quantityReturned tracks returns.
+  expectsReturn Boolean     @default(false)
+  quantityReturned Int      @default(0)
+  returnedAt    DateTime?
+  returnedById  String?     @db.ObjectId
+  returnNotes   String?
   createdAt     DateTime    @default(now())
 
   @@index([tenantId])
   @@index([partRequestId])
   @@index([workOrderId])
   @@index([partId])
+  @@index([tenantId, expectsReturn, returnedAt])
 }
 
 model PurchaseReceipt {
@@ -5495,4 +5530,97 @@ model ComplianceRequirement {
   @@index([tenantId, subjectType, subjectId])
   @@index([tenantId, expiresAt])
   @@index([tenantId, isActive, expiresAt])
+}
+
+enum WorkOrderExecutionMode {
+  INTERNAL
+  EXTERNAL
+  MIXED
+}
+
+/// Frozen WO cost breakdown. Historical totals must not change if live unit costs move.
+model WorkOrderCostSnapshot {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String   @db.ObjectId
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  workOrderId         String   @unique @db.ObjectId
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id])
+  partsCost           Float    @default(0)
+  internalLabourCost  Float    @default(0)
+  externalServiceCost Float    @default(0)
+  transportCost       Float    @default(0)
+  otherCost           Float    @default(0)
+  totalCost           Float    @default(0)
+  currency            String   @default("LKR")
+  snappedAt           DateTime @default(now())
+  snappedById         String?  @db.ObjectId
+  notes               String?
+  lineItems           Json?
+
+  @@index([tenantId, snappedAt])
+}
+
+model VendorContact {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String   @db.ObjectId
+  supplierId String   @db.ObjectId
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  name       String
+  role       String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, supplierId])
+}
+
+enum VendorContractType {
+  AMC
+  SERVICE
+  REPAIR_WARRANTY
+  OTHER
+}
+
+enum VendorContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+}
+
+/// AMC / service contract / repair warranty — MaintainPro maintenance context (not Bileeta finance).
+model VendorContract {
+  id              String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String               @db.ObjectId
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  supplierId      String               @db.ObjectId
+  supplier        Supplier             @relation(fields: [supplierId], references: [id])
+  contractNo      String
+  contractType    VendorContractType   @default(AMC)
+  status          VendorContractStatus @default(DRAFT)
+  title           String
+  coverage        String?
+  slaSummary      String?
+  visitCount      Int?
+  assetIds        String[]             @db.ObjectId
+  siteIds         String[]
+  startDate       DateTime
+  endDate         DateTime
+  valueReference  Float?
+  currency        String               @default("LKR")
+  documentUrls    String[]
+  reminderDays    Int                  @default(30)
+  notes           String?
+  isActive        Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([tenantId, contractNo])
+  @@index([tenantId, status])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, endDate])
 }

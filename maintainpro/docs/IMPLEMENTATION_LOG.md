@@ -5,6 +5,12 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-09 | Parts, ERP boundary, costs, vendors & contracts
+- What changed: Spare part classifications + ERP/maintenance metadata; immutable WO cost snapshots; tool issue return; AMC/vendor contracts + contacts; execution mode; stock source-of-truth helpers that never claim mock sync as production success.
+- Files changed: `prisma/schema.prisma`, `apps/api/src/modules/maintenance-supply/*`, `app.module.ts`, `test/maintenance-supply-phase09.spec.ts`, `docs/PHASE_09_PARTS_ERP_VENDORS.md`
+- Tests run: `npx jest --config ./jest.config.cjs test/maintenance-supply-phase09.spec.ts`
+- Remaining risks: Live Bileeta apply remains env-gated; purchasing still must occur in Bileeta.
+
 ## 2026-09-14 | PHASE-08 | PM, meters, inspection, calibration & compliance engine
 - What changed: Added generic planning engine (`PmPlan` + revisions, combined trigger engine, asset meters, checklist templates, inspections, calibration, compliance requirements) with auto-WO and duplicate-generation prevention. API under `/planning/*`.
 - Files changed:
