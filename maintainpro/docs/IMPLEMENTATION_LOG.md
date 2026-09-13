@@ -5,6 +5,11 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-11 | Company-wide domain coverage
+- What changed: Domain profile registry for all agreed maintenance domains with domain-specific KPIs; shared-engine assertion; farm/IT/outlet scope notes.
+- Files: `apps/api/src/modules/domain-coverage/*`, `test/domain-coverage-phase11.spec.ts`, `docs/PHASE_11_DOMAIN_COVERAGE.md`
+- Tests: `npx jest --config ./jest.config.cjs test/domain-coverage-phase11.spec.ts`
+
 ## 2026-09-14 | PHASE-10 | Fleet maintenance & administration
 - What changed: Vehicle↔Asset link; tyre/battery models; gate-out policy + override audit; fuel efficiency helpers; accident→repair WO→claim chain API.
 - Files: `prisma/schema.prisma`, `apps/api/src/modules/fleet-lifecycle/*`, `test/fleet-lifecycle-phase10.spec.ts`, `docs/PHASE_10_FLEET.md`
