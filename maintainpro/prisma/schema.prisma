@@ -106,6 +106,13 @@ model Tenant {
   maintenanceForecasts         MaintenanceForecast[]
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
+  pmPlans                      PmPlan[]
+  assetMeters                  AssetMeter[]
+  checklistTemplates           ChecklistTemplate[]
+  inspectionTemplates          InspectionTemplate[]
+  inspections                  Inspection[]
+  calibrationRecords           CalibrationRecord[]
+  complianceRequirements       ComplianceRequirement[]
 }
 
 model AuditLog {
@@ -765,6 +772,10 @@ model Asset {
   maintenanceLogs      MaintenanceLog[]
   maintenanceSchedules MaintenanceSchedule[]
   workOrders           WorkOrder[]
+  assetMeters          AssetMeter[]
+  pmPlans              PmPlan[]
+  inspections          Inspection[]
+  calibrationRecords   CalibrationRecord[]
   predictiveLogs       PredictiveLog[]
 
   @@index([tenantId])
@@ -874,6 +885,9 @@ model Vehicle {
   trafficFines         TrafficFine[]
   installedParts       InstalledPart[]
   healthSnapshots      VehicleHealthSnapshot[]
+  assetMeters          AssetMeter[]
+  pmPlans              PmPlan[]
+  inspections          Inspection[]
 
   @@index([tenantId])
   @@index([status])
@@ -1218,6 +1232,9 @@ model WorkOrder {
   vehicle                Vehicle?                @relation(fields: [vehicleId], references: [id])
   scheduleId             String?                 @db.ObjectId
   schedule               MaintenanceSchedule?    @relation(fields: [scheduleId], references: [id])
+  /// Phase-8 PM plan that auto-generated or owns this WO (duplicate auto-gen key).
+  pmPlanId               String?                 @db.ObjectId
+  pmPlan                 PmPlan?                 @relation(fields: [pmPlanId], references: [id])
   createdById            String                  @db.ObjectId
   createdBy              User                    @relation("CreatorWorkOrders", fields: [createdById], references: [id])
   technicianId           String?                 @db.ObjectId
@@ -1310,6 +1327,8 @@ model WorkOrder {
   @@index([taxonomyTypeId])
   @@index([taxonomyIssueId])
   @@index([isTriage])
+  @@index([tenantId, pmPlanId, status])
+  @@index([pmPlanId])
 }
 
 enum WorkOrderTaxonomyLevel {
@@ -5090,4 +5109,390 @@ model BudgetCommitment {
   @@unique([tenantId, sourceType, sourceId])
   @@index([tenantId, period, status])
   @@index([tenantId, departmentId, period])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — Generic PM / meter / inspection / calibration / compliance engine
+// ---------------------------------------------------------------------------
+
+enum PmPlanStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+enum PmTriggerKind {
+  CALENDAR
+  METER
+  EXPIRY
+  CONDITION
+  EVENT
+}
+
+/// EARLIEST = OR / whichever comes first; ALL = AND / every trigger must be due.
+enum PmTriggerCombineMode {
+  EARLIEST
+  ALL
+}
+
+enum AssetMeterType {
+  RUNNING_HOURS
+  MILEAGE
+  CYCLES
+  PRODUCTION_COUNT
+  CUSTOM
+}
+
+enum MeterReadingSource {
+  USER
+  DEVICE
+  IMPORT
+  SYSTEM
+}
+
+enum ChecklistItemType {
+  CHECKBOX
+  PASS_FAIL
+  YES_NO
+  NUMERIC
+  TEXT
+  PHOTO
+  DROPDOWN
+  METER_READING
+  SIGNATURE
+}
+
+enum InspectionResult {
+  PASS
+  OBSERVATION
+  FAIL
+}
+
+enum CalibrationResult {
+  PASS
+  FAIL
+  CONDITIONAL
+}
+
+enum ComplianceRequirementStatus {
+  CURRENT
+  DUE
+  GRACE
+  EXPIRED
+  UNKNOWN
+}
+
+/// Preventive maintenance plan (revisioned). One generic engine for all domains.
+model PmPlan {
+  id                       String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                 String        @db.ObjectId
+  tenant                   Tenant        @relation(fields: [tenantId], references: [id])
+  code                     String
+  name                     String
+  description              String?
+  status                   PmPlanStatus  @default(DRAFT)
+  assetId                  String?       @db.ObjectId
+  asset                    Asset?        @relation(fields: [assetId], references: [id])
+  vehicleId                String?       @db.ObjectId
+  vehicle                  Vehicle?      @relation(fields: [vehicleId], references: [id])
+  location                 String?
+  teamId                   String?       @db.ObjectId
+  estimatedDurationMinutes Int?
+  requiredPartIds          String[]      @db.ObjectId
+  checklistTemplateId      String?       @db.ObjectId
+  checklistTemplate        ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id])
+  gracePeriodDays          Int           @default(0)
+  autoCreateWorkOrder      Boolean       @default(true)
+  combineMode              PmTriggerCombineMode @default(EARLIEST)
+  currentRevision          Int           @default(1)
+  effectiveFrom            DateTime?
+  effectiveTo              DateTime?
+  lastCompletionAt         DateTime?
+  lastCompletionMileage    Float?
+  lastCompletionHours      Float?
+  nextDueAt                DateTime?
+  nextDueMeterValue        Float?
+  nextDueMeterId           String?       @db.ObjectId
+  legacyScheduleId         String?       @db.ObjectId
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  revisions   PmPlanRevision[]
+  triggers    PmTrigger[]
+  workOrders  WorkOrder[]
+  generations PmAutoGeneration[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, nextDueAt])
+  @@index([assetId])
+  @@index([vehicleId])
+  @@index([checklistTemplateId])
+}
+
+model PmPlanRevision {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String   @db.ObjectId
+  planId        String   @db.ObjectId
+  plan          PmPlan   @relation(fields: [planId], references: [id])
+  revision      Int
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  snapshot      Json
+  changeReason  String?
+  createdById   String?  @db.ObjectId
+  createdAt     DateTime @default(now())
+
+  @@unique([planId, revision])
+  @@index([tenantId, planId])
+  @@index([planId, effectiveFrom])
+}
+
+model PmTrigger {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String         @db.ObjectId
+  planId        String         @db.ObjectId
+  plan          PmPlan         @relation(fields: [planId], references: [id])
+  kind          PmTriggerKind
+  /// Triggers sharing the same group are combined per plan.combineMode.
+  combineGroup  Int            @default(0)
+  intervalDays  Int?
+  intervalValue Float?
+  meterType     AssetMeterType?
+  meterId       String?        @db.ObjectId
+  meter         AssetMeter?    @relation(fields: [meterId], references: [id])
+  unit          String?
+  /// EXPIRY compliance type key, CONDITION expression, or EVENT type.
+  referenceKey  String?
+  metadata      Json?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId, planId])
+  @@index([planId, kind])
+  @@index([meterId])
+}
+
+/// Idempotent record of auto-generated WOs so due evaluation cannot double-create.
+model PmAutoGeneration {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  planId      String   @db.ObjectId
+  plan        PmPlan   @relation(fields: [planId], references: [id])
+  /// Stable key for the due window (e.g. planId + nextDueAt ISO date).
+  generationKey String
+  workOrderId String?  @db.ObjectId
+  triggerSummary Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, planId, generationKey])
+  @@index([tenantId, planId])
+}
+
+model AssetMeter {
+  id                   String         @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String         @db.ObjectId
+  tenant               Tenant         @relation(fields: [tenantId], references: [id])
+  assetId              String?        @db.ObjectId
+  asset                Asset?         @relation(fields: [assetId], references: [id])
+  vehicleId            String?        @db.ObjectId
+  vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id])
+  meterType            AssetMeterType
+  name                 String
+  unit                 String
+  currentValue         Float          @default(0)
+  lastReadingAt        DateTime?
+  staleAfterDays       Int            @default(30)
+  /// Absolute jump above this delta raises SUSPICIOUS_JUMP (warning, still accepted).
+  jumpWarningThreshold Float?
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  readings AssetMeterReading[]
+  triggers PmTrigger[]
+
+  @@index([tenantId, assetId])
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, meterType])
+}
+
+model AssetMeterReading {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String             @db.ObjectId
+  meterId         String             @db.ObjectId
+  meter           AssetMeter         @relation(fields: [meterId], references: [id])
+  value           Float
+  previousValue   Float?
+  source          MeterReadingSource @default(USER)
+  recordedById    String?            @db.ObjectId
+  deviceId        String?
+  recordedAt      DateTime           @default(now())
+  isStale         Boolean            @default(false)
+  suspiciousJump  Boolean            @default(false)
+  rejected        Boolean            @default(false)
+  rejectReason    String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+
+  @@index([tenantId, meterId, recordedAt])
+  @@index([meterId, recordedAt])
+}
+
+model ChecklistTemplate {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  code          String
+  name          String
+  description   String?
+  version       Int       @default(1)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  domainKey     String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items   ChecklistTemplateItem[]
+  pmPlans PmPlan[]
+  inspectionTemplates InspectionTemplate[]
+
+  @@unique([tenantId, code, version])
+  @@index([tenantId, isActive])
+  @@index([tenantId, domainKey])
+}
+
+model ChecklistTemplateItem {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String            @db.ObjectId
+  templateId String            @db.ObjectId
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
+  sortOrder  Int               @default(0)
+  key        String
+  label      String
+  type       ChecklistItemType
+  required   Boolean           @default(false)
+  unit       String?
+  minValue   Float?
+  maxValue   Float?
+  options    String[]
+  /// SIGNATURE justified only when this is true and business requires attestation.
+  signatureJustified Boolean   @default(false)
+  metadata   Json?
+  createdAt  DateTime          @default(now())
+
+  @@index([templateId, sortOrder])
+  @@unique([templateId, key])
+}
+
+model InspectionTemplate {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  code                String
+  name                String
+  description         String?
+  version             Int       @default(1)
+  effectiveFrom       DateTime  @default(now())
+  effectiveTo         DateTime?
+  checklistTemplateId String?   @db.ObjectId
+  checklistTemplate   ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id])
+  domainKey           String?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  inspections Inspection[]
+
+  @@unique([tenantId, code, version])
+  @@index([tenantId, isActive])
+}
+
+model Inspection {
+  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String            @db.ObjectId
+  tenant              Tenant            @relation(fields: [tenantId], references: [id])
+  templateId          String?           @db.ObjectId
+  template            InspectionTemplate? @relation(fields: [templateId], references: [id])
+  assetId             String?           @db.ObjectId
+  asset               Asset?            @relation(fields: [assetId], references: [id])
+  vehicleId           String?           @db.ObjectId
+  vehicle             Vehicle?          @relation(fields: [vehicleId], references: [id])
+  inspectorId         String?           @db.ObjectId
+  scheduledAt         DateTime?
+  performedAt         DateTime?
+  isAdHoc             Boolean           @default(false)
+  result              InspectionResult?
+  findings            String?
+  evidenceUrls        String[]
+  answers             Json?
+  correctiveWorkOrderId String?         @db.ObjectId
+  status              String            @default("OPEN")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, result])
+  @@index([assetId])
+  @@index([vehicleId])
+  @@index([templateId])
+}
+
+model CalibrationRecord {
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String             @db.ObjectId
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  equipmentAssetId  String?            @db.ObjectId
+  equipmentAsset    Asset?             @relation(fields: [equipmentAssetId], references: [id])
+  calibrationType   String
+  lastCalibratedAt  DateTime?
+  nextDueAt         DateTime?
+  vendorId          String?            @db.ObjectId
+  vendorName        String?
+  certificateUrl    String?
+  result            CalibrationResult?
+  tolerance         String?
+  measuredValue     Float?
+  passFail          Boolean?
+  correctiveAction  String?
+  correctiveWorkOrderId String?        @db.ObjectId
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([tenantId, nextDueAt])
+  @@index([tenantId, equipmentAssetId])
+  @@index([tenantId, result])
+}
+
+/// Generic expiry/compliance engine (insurance, licence, fire, warranty, etc.).
+model ComplianceRequirement {
+  id              String                      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String                      @db.ObjectId
+  tenant          Tenant                      @relation(fields: [tenantId], references: [id])
+  /// Configurable type key: INSURANCE, REVENUE_LICENCE, EMISSION, FIRE_SERVICING,
+  /// CALIBRATION, WARRANTY, STATUTORY_INSPECTION, SERVICE_AGREEMENT, or custom.
+  typeKey         String
+  subjectType     String
+  subjectId       String
+  title           String
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  gracePeriodDays Int                         @default(0)
+  reminderDays    Int                         @default(30)
+  status          ComplianceRequirementStatus @default(UNKNOWN)
+  certificateUrl  String?
+  providerName    String?
+  metadata        Json?
+  isActive        Boolean                     @default(true)
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  @@index([tenantId, typeKey, status])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, expiresAt])
+  @@index([tenantId, isActive, expiresAt])
 }

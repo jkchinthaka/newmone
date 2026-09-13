@@ -5,6 +5,19 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-08 | PM, meters, inspection, calibration & compliance engine
+- What changed: Added generic planning engine (`PmPlan` + revisions, combined trigger engine, asset meters, checklist templates, inspections, calibration, compliance requirements) with auto-WO and duplicate-generation prevention. API under `/planning/*`.
+- Files changed:
+  - `prisma/schema.prisma` (Phase-8 models + `WorkOrder.pmPlanId`)
+  - `apps/api/src/modules/planning/*`
+  - `apps/api/src/app.module.ts`
+  - `apps/api/test/planning-phase08.spec.ts`
+  - `docs/PHASE_08_MAINTENANCE_PLANNING.md`
+- Tests run: `npx jest --config ./jest.config.cjs test/planning-phase08.spec.ts`
+- Remaining risks: UI surfaces for PM plan admin not yet built; legacy `MaintenanceSchedule` still in use alongside `PmPlan`; production `db:push` required before live use.
+
+---
+
 ## 2026-06-12 | PHASE-0 | Repository audit and TODO system bootstrap
 - What changed: completed a read-only architecture audit across API, web, mobile, schema, auth, tenancy, notifications, deployment, and CI; created and initialized the three required tracking docs for production-readiness execution.
 - Files changed:
