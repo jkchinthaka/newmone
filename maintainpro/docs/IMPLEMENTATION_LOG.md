@@ -5,6 +5,11 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-12 | Admin panel & data governance
+- What changed: Operational maintenance admin section catalog; deactivate/last-admin/self-lockout/tech-reassignment guards; config-change guard; bulk-import stage gate; data-quality rule catalog; web admin console restructure.
+- Files: `apps/api/src/modules/admin-governance/*`, `apps/web/lib/admin-console.ts`, `test/admin-governance-phase12.spec.ts`, `docs/PHASE_12_ADMIN_GOVERNANCE.md`
+- Tests: `npx jest --config ./jest.config.cjs test/admin-governance-phase12.spec.ts`
+
 ## 2026-09-14 | PHASE-11 | Company-wide domain coverage
 - What changed: Domain profile registry for all agreed maintenance domains with domain-specific KPIs; shared-engine assertion; farm/IT/outlet scope notes.
 - Files: `apps/api/src/modules/domain-coverage/*`, `test/domain-coverage-phase11.spec.ts`, `docs/PHASE_11_DOMAIN_COVERAGE.md`

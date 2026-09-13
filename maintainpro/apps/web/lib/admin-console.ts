@@ -11,6 +11,7 @@ export type AdminConsoleSection = {
   status: AdminSectionStatus;
   statusLabel: string;
   href?: string;
+  technicalOnly?: boolean;
 };
 
 export function isAdminConsoleRole(roleName: string | null | undefined): boolean {
@@ -19,142 +20,139 @@ export function isAdminConsoleRole(roleName: string | null | undefined): boolean
 }
 
 /**
- * Read-only admin console sections. No user/tenant/RBAC counts are included.
- * Links only point at routes that exist today.
+ * Operational Maintenance Administration console (Phase 12).
+ * Prefers operational configuration over software-delivery go-live modules.
  */
 export function getAdminConsoleSections(): AdminConsoleSection[] {
   return [
     {
-      id: "people-onboarding",
-      title: "People & Onboarding",
-      description: "Add employees, technician profiles, login access, roles, and secure invitations.",
+      id: "overview",
+      title: "Overview",
+      description: "Configuration and data-quality health for maintenance operations.",
+      status: "available",
+      statusLabel: "Operations",
+      href: "/admin"
+    },
+    {
+      id: "organization",
+      title: "Organization",
+      description: "Organization, sites, departments, areas, lines, and functional locations.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/master-data/departments"
+    },
+    {
+      id: "assets-master",
+      title: "Assets & Master Data",
+      description: "Domains, categories, assets, meters, bulk import/edit, and QR labels.",
+      status: "available",
+      statusLabel: "Assets",
+      href: "/assets"
+    },
+    {
+      id: "people-access",
+      title: "People & Access",
+      description: "People, users, technicians, teams, roles, and permissions.",
       status: "available",
       statusLabel: "Full onboarding",
       href: "/admin/people"
     },
     {
-      id: "qa-incidents",
-      title: "QA & Incidents",
-      description: "Software error register, incident lifecycle, RCA, regression tracking, and release quality.",
-      status: "available",
-      statusLabel: "Quality control",
-      href: "/qa"
-    },
-    {
-      id: "delivery-readiness",
-      title: "Delivery Readiness",
-      description: "Client handover checklist, final QA, security, deployment, backup, and sign-off workflow.",
-      status: "available",
-      statusLabel: "Handover pack",
-      href: "/delivery-readiness"
-    },
-    {
-      id: "go-live-control",
-      title: "Go-Live Control",
-      description: "Pilot rollout, cutover checklist, rollout waves, go/no-go board, rollback, and sign-off.",
-      status: "available",
-      statusLabel: "Cutover control",
-      href: "/go-live"
-    },
-    {
-      id: "erp-integration",
-      title: "ERP Integration Readiness",
-      description: "Bileeta mapping, mock sync, file import, reconciliation, and API access checklist.",
-      status: "available",
-      statusLabel: "Integration prep",
-      href: "/erp"
-    },
-    {
-      id: "post-go-live",
-      title: "Post-Go-Live Operations",
-      description: "Support tickets, SLA, training, change control, releases, hypercare, and handover.",
-      status: "available",
-      statusLabel: "Operations",
-      href: "/post-go-live"
-    },
-    {
       id: "users-access",
       title: "Users & Access",
-      description: "Review users, roles, tenant association, and access status in a read-only admin view.",
+      description: "Review users, roles, tenant association, and safe deactivate/reactivate.",
       status: "available",
-      statusLabel: "Read-only review",
+      statusLabel: "Access control",
       href: "/admin/users"
-    },
-    {
-      id: "tenants",
-      title: "Tenants",
-      description: "Review tenant context and tenant readiness in a read-only admin workspace.",
-      status: "available",
-      statusLabel: "Read-only review",
-      href: "/admin/tenants"
-    },
-    {
-      id: "invitations-onboarding",
-      title: "Invitations & Onboarding",
-      description: "Review onboarding status and create controlled tenant invitations from the admin workspace.",
-      status: "available",
-      statusLabel: "Review + create",
-      href: "/admin/invitations"
     },
     {
       id: "roles-permissions",
       title: "Roles & Permissions",
-      description: "Review role and permission coverage in a read-only admin matrix.",
+      description: "Role and permission coverage matrix.",
       status: "available",
-      statusLabel: "Read-only review",
+      statusLabel: "RBAC",
       href: "/admin/roles"
+    },
+    {
+      id: "maintenance-setup",
+      title: "Maintenance Setup",
+      description: "Work types, priorities, SLA, failure/cause/remedy codes, PM and checklists.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/domain-coverage"
+    },
+    {
+      id: "fleet-setup",
+      title: "Fleet Setup",
+      description: "Vehicle types, service/document types, fines, and insurers.",
+      status: "available",
+      statusLabel: "Fleet",
+      href: "/vehicles"
+    },
+    {
+      id: "vendors-contracts",
+      title: "Vendors & Contracts",
+      description: "Vendors, contacts, and AMC/service contracts.",
+      status: "available",
+      statusLabel: "Vendors",
+      href: "/procurement"
+    },
+    {
+      id: "erp-parts",
+      title: "ERP & Spare Parts",
+      description: "Bileeta mapping, sync runs, reconciliation (MaintainPro does not own stock truth).",
+      status: "available",
+      statusLabel: "Integration",
+      href: "/erp"
     },
     {
       id: "bulk-imports",
       title: "Bulk Imports",
-      description: "Bulk upload master data (vehicles, assets, departments, suppliers, job codes) and review import history. SUPER_ADMIN only.",
+      description: "Upload → Validate → Preview → Errors → Confirm → Import → Audit. Never write unvalidated rows.",
       status: "available",
       statusLabel: "SUPER_ADMIN only",
       href: "/admin/bulk-imports"
     },
     {
-      id: "system-health",
-      title: "System Health",
-      description: "Operational readiness, dependency checks, replication status, and integration modes.",
+      id: "data-quality",
+      title: "Data Quality",
+      description: "Duplicates, missing location/criticality, stale meters, inactive tech with jobs, ERP errors.",
       status: "available",
-      statusLabel: "Live readiness",
-      href: "/system-health"
+      statusLabel: "Exceptions",
+      href: "/operations/exceptions"
     },
     {
-      id: "audit-security",
-      title: "Audit & Security",
-      description:
-        "Review audit history and security-sensitive changes through existing settings views until a dedicated admin audit workspace ships.",
+      id: "audit-log",
+      title: "Audit Log",
+      description: "Read-only filterable audit of actor, entity, action, before/after values.",
       status: "available",
-      statusLabel: "Settings · Audit",
+      statusLabel: "Audit",
       href: "/settings"
     },
     {
-      id: "integrations",
-      title: "Integrations",
-      description:
-        "Email, SMS, ERP, billing, and storage integration readiness is surfaced through system health checks today.",
+      id: "technical",
+      title: "Technical Administration",
+      description: "API, DB, queue, storage, ERP, email/SMS, backups, errors, app version.",
       status: "available",
-      statusLabel: "Readiness checks",
-      href: "/system-health"
+      statusLabel: "Technical",
+      href: "/system-health",
+      technicalOnly: true
     },
     {
-      id: "notifications-dispatch",
-      title: "Notifications / Email / SMS",
-      description:
-        "Dispatch modes and queue health are visible in system health. Dedicated notification admin controls are not connected yet.",
+      id: "tenants",
+      title: "Tenants",
+      description: "Tenant context and readiness (SUPER_ADMIN).",
       status: "available",
-      statusLabel: "System health",
-      href: "/system-health"
+      statusLabel: "Tenancy",
+      href: "/admin/tenants"
     },
     {
-      id: "environment-readiness",
-      title: "Environment Readiness",
-      description:
-        "Environment configuration, required dependencies, and deployment readiness signals from the existing readiness endpoint.",
+      id: "invitations-onboarding",
+      title: "Invitations",
+      description: "Controlled tenant invitations.",
       status: "available",
-      statusLabel: "Readiness endpoint",
-      href: "/system-health"
+      statusLabel: "Onboarding",
+      href: "/admin/invitations"
     }
   ];
 }
