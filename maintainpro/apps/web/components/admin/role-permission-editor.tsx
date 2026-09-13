@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useFocusTrap } from "@/lib/use-focus-trap";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { updateRolePermissions } from "@/lib/admin-roles-api";
 import {
   formatPermissionModuleLabel,
@@ -33,10 +34,37 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
   const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { confirm: confirmDiscard, dialog: discardDialog } = useConfirmDialog();
 
   const initialKeys = useMemo(() => new Set(role?.permissionKeys ?? []), [role]);
 
-  useFocusTrap(open, panelRef, { onEscape: submitting ? undefined : onClose });
+  const changedCount = Array.from(new Set([...initialKeys, ...selected])).filter(
+    (key) => initialKeys.has(key) !== selected.has(key)
+  ).length;
+
+  /**
+   * Every way to leave this dialog (backdrop click, X, Cancel, Escape) must go
+   * through here. Unsaved checkbox changes must never be discarded silently —
+   * that produced a real production incident: an admin toggled TECHNICIAN's
+   * fg.* checkboxes, closed the dialog believing it saved, and no request (and
+   * therefore no audit entry) was ever sent.
+   */
+  async function requestClose() {
+    if (submitting) return;
+    if (changedCount > 0) {
+      const discard = await confirmDiscard({
+        title: "Discard unsaved changes?",
+        description: `${changedCount} permission change${changedCount === 1 ? "" : "s"} to ${formatRoleLabel(role?.name ?? "")} ${changedCount === 1 ? "has" : "have"} not been saved. Closing now will discard ${changedCount === 1 ? "it" : "them"}.`,
+        confirmLabel: "Discard changes",
+        cancelLabel: "Keep editing",
+        variant: "destructive"
+      });
+      if (!discard) return;
+    }
+    onClose();
+  }
+
+  useFocusTrap(open, panelRef, { onEscape: submitting ? undefined : requestClose });
 
   useEffect(() => {
     if (open) {
@@ -59,10 +87,6 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
       )
     }))
     .filter((group) => group.permissions.length > 0);
-
-  const changedCount = Array.from(new Set([...initialKeys, ...selected])).filter(
-    (key) => initialKeys.has(key) !== selected.has(key)
-  ).length;
 
   function togglePermission(key: string) {
     setSelected((current) => {
@@ -107,7 +131,7 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
 
   return (
     <div className="fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/50 p-4 sm:items-center">
-      <button type="button" aria-label="Close dialog backdrop" className="absolute inset-0" onClick={submitting ? undefined : onClose} />
+      <button type="button" aria-label="Close dialog backdrop" className="absolute inset-0" onClick={submitting ? undefined : requestClose} />
       <div
         ref={panelRef}
         role="dialog"
@@ -123,7 +147,7 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
               {role.tenantName ? <span className="ml-2 text-sm font-normal text-slate-500">{role.tenantName}</span> : null}
             </h2>
           </div>
-          <button type="button" onClick={submitting ? undefined : onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100" aria-label="Close">
+          <button type="button" onClick={submitting ? undefined : requestClose} className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100" aria-label="Close">
             <X size={16} />
           </button>
         </div>
@@ -192,7 +216,7 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
-          <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+          <button type="button" onClick={requestClose} disabled={submitting} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">
             Cancel
           </button>
           <button
@@ -232,6 +256,7 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
           </div>
         ) : null}
       </div>
+      {discardDialog}
     </div>
   );
 }

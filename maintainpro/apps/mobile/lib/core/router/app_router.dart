@@ -2,592 +2,901 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/alerts/alerts_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/register_screen.dart';
-import '../../features/assets/presentation/asset_detail_screen.dart';
-import '../../features/assets/presentation/asset_scanner_screen.dart';
-import '../../features/assets/presentation/assets_screen.dart';
-import '../../features/ai/presentation/ai_assistant_screen.dart';
-import '../../features/auth/presentation/splash_screen.dart';
-import '../../features/cleaning/presentation/cleaning_analytics_screen.dart';
-import '../../features/cleaning/presentation/cleaning_hub_screen.dart';
-import '../../features/cleaning/presentation/cleaning_location_detail_screen.dart';
-import '../../features/cleaning/presentation/cleaning_locations_screen.dart';
-import '../../features/cleaning/presentation/cleaning_scan_screen.dart';
-import '../../features/cleaning/presentation/cleaning_signoff_queue_screen.dart';
-import '../../features/cleaning/presentation/cleaning_visit_detail_screen.dart';
-import '../../features/cleaning/presentation/cleaning_visits_screen.dart';
-import '../../features/cleaning/presentation/facility_issues_screen.dart';
-import '../../features/dashboard/presentation/dashboard_screen.dart';
-import '../../features/fleet/presentation/driver_detail_screen.dart';
-import '../../features/fleet/presentation/drivers_screen.dart';
-import '../../features/fleet/presentation/fleet_alerts_screen.dart';
-import '../../features/fleet/presentation/fleet_hub_screen.dart';
-import '../../features/fleet/presentation/fleet_map_screen.dart';
-import '../../features/fleet/presentation/fuel_logs_screen.dart';
-import '../../features/fleet/presentation/trip_detail_screen.dart';
-import '../../features/fleet/presentation/trips_screen.dart';
-import '../../features/fleet/presentation/vehicle_detail_screen.dart';
-import '../../features/fleet/presentation/vehicles_screen.dart';
-import '../../features/inventory/presentation/inventory_hub_screen.dart';
-import '../../features/inventory/presentation/part_detail_screen.dart';
-import '../../features/inventory/presentation/parts_screen.dart';
-import '../../features/inventory/presentation/purchase_orders_screen.dart';
-import '../../features/maintenance/presentation/maintenance_calendar_screen.dart';
-import '../../features/maintenance/presentation/maintenance_hub_screen.dart';
-import '../../features/maintenance/presentation/maintenance_logs_screen.dart';
-import '../../features/maintenance/presentation/predictive_alerts_screen.dart';
-import '../../features/maintenance/presentation/schedule_detail_screen.dart';
-import '../../features/maintenance/presentation/schedules_screen.dart';
-import '../../features/farm/presentation/farm_map_screen.dart';
-import '../../features/farm/presentation/farm_screens.dart';
-import '../../features/billing/presentation/billing_screens.dart';
-import '../../features/notifications/data/datasources/notifications_socket.dart';
-import '../../features/notifications/presentation/notifications_screen.dart';
-import '../../features/operations/presentation/operations_scan_screen.dart';
-import '../../features/reports/presentation/reports_screens.dart';
-import '../../features/settings/presentation/about_screen.dart';
-import '../../features/settings/presentation/settings_screens.dart';
-import '../../features/profile/presentation/profile_screen.dart';
-import '../../features/suppliers/presentation/supplier_detail_screen.dart';
-import '../../features/suppliers/presentation/suppliers_screen.dart';
-import '../../features/utilities/presentation/bill_detail_screen.dart';
-import '../../features/utilities/presentation/bills_screen.dart';
-import '../../features/utilities/presentation/meter_detail_screen.dart';
-import '../../features/utilities/presentation/meters_screen.dart';
-import '../../features/utilities/presentation/utilities_hub_screen.dart';
-import '../../features/utilities/presentation/utility_analytics_screen.dart';
-import '../../features/work_orders/presentation/work_order_create_screen.dart';
+import '../../features/diagnostics/diagnostics_screen.dart';
+import '../../features/drafts/draft_center_screen.dart';
+import '../../features/home/home_screen.dart';
+import '../../features/more/module_hub_screen.dart';
+import '../../features/profile/profile_screen.dart';
+import '../../features/scan/scan_screen.dart';
+import '../../features/search/global_search_screen.dart';
+import '../../features/settings/settings_screen.dart';
+import '../../features/shell/adaptive_shell.dart';
+import '../../features/splash/splash_screen.dart';
+import '../../features/sync/sync_center_screen.dart';
+import '../../features/tasks/tasks_screen.dart';
+import '../../features/fg/cl30_drafts_screen.dart';
+import '../../features/fg/cl30_history_screen.dart';
+import '../../features/fg/cl30_qa_detail_screen.dart';
+import '../../features/fg/cl30_qa_queue_screen.dart';
+import '../../features/fg/cl30_recorder_screen.dart';
+import '../../features/fg/data/fg_form_config.dart';
+import '../../features/fg/fg_form_recorder_screen.dart';
+import '../../features/fg/cl30_supervisor_detail_screen.dart';
+import '../../features/fg/cl30_supervisor_queue_screen.dart';
+import '../../features/fg/fg_hub_screen.dart';
+import '../../features/compliance/accident_detail_screen.dart';
+import '../../features/compliance/accident_report_screen.dart';
+import '../../features/compliance/accidents_list_screen.dart';
+import '../../features/compliance/compliance_hub_screen.dart';
+import '../../features/compliance/expiring_documents_screen.dart';
+import '../../features/compliance/insurance_claim_detail_screen.dart';
+import '../../features/compliance/insurance_claims_list_screen.dart';
+import '../../features/compliance/traffic_fine_detail_screen.dart';
+import '../../features/compliance/traffic_fines_list_screen.dart';
+import '../../features/compliance/vehicle_document_detail_screen.dart';
+import '../../features/admin/admin_audit_health_screens.dart';
+import '../../features/admin/admin_hub_screen.dart';
+import '../../features/admin/admin_people_screen.dart';
+import '../../features/admin/admin_roles_screen.dart';
+import '../../features/admin/admin_settings_people_extras.dart';
+import '../../features/admin/admin_tenants_invitations_departments.dart';
+import '../../features/admin/admin_users_screen.dart';
+import '../../features/admin/data/admin_models.dart';
+import '../../features/reports/reports_hub_screen.dart';
+import '../../features/reports/reports_screens.dart';
+import '../../features/farm/farm_screens.dart';
+import '../../features/facilities/cleaning_locations_screen.dart';
+import '../../features/facilities/cleaning_visits_list_screen.dart';
+import '../../features/facilities/facilities_hub_screen.dart';
+import '../../features/facilities/facility_issue_detail_screen.dart';
+import '../../features/facilities/facility_issue_report_screen.dart';
+import '../../features/facilities/facility_issues_list_screen.dart';
+import '../../features/facilities/facility_room_detail_screen.dart';
+import '../../features/facilities/facility_rooms_list_screen.dart';
+import '../../features/facilities/utilities_meters_screen.dart';
+import '../../features/facilities/utility_meter_detail_screen.dart';
+import '../../features/inventory/erp_status_screen.dart';
+import '../../features/inventory/inventory_hub_screen.dart';
+import '../../features/inventory/low_stock_screen.dart';
+import '../../features/inventory/part_detail_screen.dart';
+import '../../features/inventory/parts_list_screen.dart';
+import '../../features/inventory/part_requests_list_screen.dart';
+import '../../features/inventory/purchase_order_detail_screen.dart';
+import '../../features/inventory/purchase_orders_list_screen.dart';
+import '../../features/inventory/supplier_detail_screen.dart';
+import '../../features/inventory/suppliers_list_screen.dart';
+import '../../features/inventory/warehouse_balances_screen.dart';
+import '../../features/inventory/warehouses_screen.dart';
+import '../../features/assets/asset_detail_screen.dart';
+import '../../features/assets/assets_hub_screen.dart';
+import '../../features/assets/assets_list_screen.dart';
+import '../../features/assets/job_codes_list_screen.dart';
+import '../../features/assets/pm_schedules_screen.dart';
+import '../../features/fleet/driver_detail_screen.dart';
+import '../../features/fleet/drivers_list_screen.dart';
+import '../../features/fleet/fleet_hub_screen.dart';
+import '../../features/fleet/fuel_log_form_screen.dart';
+import '../../features/fleet/meter_reading_form_screen.dart';
+import '../../features/fleet/trip_end_screen.dart';
+import '../../features/fleet/trip_start_screen.dart';
+import '../../features/fleet/vehicle_detail_screen.dart';
+import '../../features/fleet/vehicles_list_screen.dart';
+import '../../features/gate/gate_home_screen.dart';
+import '../../features/gate/gate_in_screen.dart';
+import '../../features/gate/gate_out_screen.dart';
+import '../../features/gate/gate_vehicle_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
-import '../../features/work_orders/presentation/work_orders_screen.dart';
-import '../widgets/glass_bottom_nav.dart';
-import '../widgets/placeholder_screen.dart';
+import '../../features/work_orders/presentation/work_orders_list_screen.dart';
+import '../auth/auth_controller.dart';
+import '../auth/auth_session.dart';
 
-/// Top-level go_router instance. All app routes are registered here.
-/// Real screens will replace `PlaceholderScreen` calls in later phases.
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/splash',
-  debugLogDiagnostics: false,
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/splash',
-      builder: (_, __) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (_, __) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register',
-      builder: (_, __) => const RegisterScreen(),
-    ),
-    GoRoute(
-      path: '/forgot-password',
-      builder: (_, __) => const ForgotPasswordScreen(),
-    ),
+final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 
-    // Shell with bottom nav
-    ShellRoute(
-      builder: (_, __, child) => _BottomNavShell(child: child),
-      routes: [
-        GoRoute(
-          path: '/dashboard',
-          builder: (_, __) => const DashboardScreen(),
-        ),
-        GoRoute(
-          path: '/work-orders',
-          builder: (_, __) => const WorkOrdersScreen(),
-          routes: [
-            GoRoute(
-              path: 'create',
-              builder: (_, __) => const WorkOrderCreateScreen(),
-            ),
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  WorkOrderDetailScreen(id: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/scan',
-          redirect: (_, __) => '/operations/scan',
-        ),
-        GoRoute(
-          path: '/notifications',
-          builder: (_, __) => const NotificationsScreen(),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (_, __) => const ProfileScreen(),
-          routes: [
-            GoRoute(
-              path: 'edit',
-              builder: (_, __) =>
-                  const PlaceholderScreen(title: 'Edit Profile'),
-            ),
-          ],
-        ),
-      ],
-    ),
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authControllerProvider);
 
-    // Full-screen (no bottom nav) routes
-    GoRoute(
-      path: '/operations/scan',
-      builder: (_, __) => const OperationsScanScreen(),
-    ),
-    GoRoute(
-      path: '/assets',
-      builder: (_, __) => const AssetsScreen(),
-      routes: [
-        GoRoute(
-          path: 'scan',
-          builder: (_, __) => const AssetScannerScreen(),
-        ),
-        GoRoute(
-          path: ':id',
-          builder: (_, state) =>
-              AssetDetailScreen(id: state.pathParameters['id'] ?? ''),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/maintenance',
-      builder: (_, __) => const MaintenanceHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'schedules',
-          builder: (_, __) => const MaintenanceSchedulesScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => ScheduleDetailScreen(
-                  scheduleId: state.pathParameters['id'] ?? ''),
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/splash',
+    refreshListenable: _AuthRefresh(ref),
+    redirect: (context, state) {
+      final loc = state.matchedLocation;
+      final loggingIn = loc == '/login';
+      final splashing = loc == '/splash';
+
+      // Stay on splash only while auth status is still resolving.
+      if (auth.status == AuthStatus.unknown) {
+        return splashing ? null : '/splash';
+      }
+
+      if (!auth.isAuthenticated) {
+        return loggingIn ? null : '/login';
+      }
+
+      if (loggingIn || splashing) {
+        return '/home';
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) => AdaptiveShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/home',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: HomeScreen(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: 'logs',
-          builder: (_, __) => const MaintenanceLogsScreen(),
-        ),
-        GoRoute(
-          path: 'calendar',
-          builder: (_, __) => const MaintenanceCalendarScreen(),
-        ),
-        GoRoute(
-          path: 'alerts',
-          builder: (_, __) => const PredictiveAlertsScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/fleet',
-      builder: (_, __) => const FleetHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'vehicles',
-          builder: (_, __) => const VehiclesScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => VehicleDetailScreen(
-                  vehicleId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'drivers',
-          builder: (_, __) => const DriversScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => DriverDetailScreen(
-                  driverId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'map',
-          builder: (_, __) => const FleetMapScreen(),
-        ),
-        GoRoute(
-          path: 'fuel',
-          builder: (_, __) => const FuelLogsScreen(),
-        ),
-        GoRoute(
-          path: 'trips',
-          builder: (_, __) => const TripsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  TripDetailScreen(tripId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'alerts',
-          builder: (_, __) => const FleetAlertsScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/inventory',
-      builder: (_, __) => const InventoryHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'parts',
-          builder: (_, __) => const PartsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  PartDetailScreen(partId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'low-stock',
-          builder: (_, __) => const PartsScreen(lowStockOnly: true),
-        ),
-        GoRoute(
-          path: 'purchase-orders',
-          builder: (_, __) => const PurchaseOrdersScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/cleaning',
-      builder: (_, __) => const CleaningHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'locations',
-          builder: (_, __) => const CleaningLocationsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => CleaningLocationDetailScreen(
-                  id: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'scan',
-          builder: (_, __) => const CleaningScanScreen(),
-        ),
-        GoRoute(
-          path: 'visits',
-          builder: (_, state) => CleaningVisitsScreen(
-            initialStatus: state.uri.queryParameters['status'],
           ),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => CleaningVisitDetailScreen(
-                  id: state.pathParameters['id'] ?? ''),
+          GoRoute(
+            path: '/tasks',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: TasksScreen(
+                queue: state.uri.queryParameters['queue'],
+              ),
             ),
-          ],
-        ),
-        GoRoute(
-          path: 'issues',
-          builder: (_, __) => const FacilityIssuesScreen(),
-        ),
-        GoRoute(
-          path: 'analytics',
-          builder: (_, __) => const CleaningAnalyticsScreen(),
-        ),
-        GoRoute(
-          path: 'signoff',
-          builder: (_, __) => const CleaningSignoffQueueScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/farm',
-      builder: (_, __) => const FarmHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'fields',
-          builder: (_, __) => const FieldsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  FieldDetailScreen(fieldId: state.pathParameters['id'] ?? ''),
+          ),
+          GoRoute(
+            path: '/scan',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ScanScreen(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: 'crops',
-          builder: (_, __) => const CropsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  CropDetailScreen(cropId: state.pathParameters['id'] ?? ''),
+          ),
+          GoRoute(
+            path: '/alerts',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AlertsScreen(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: 'harvest',
-          builder: (_, __) => const HarvestScreen(),
-        ),
-        GoRoute(
-          path: 'livestock',
-          builder: (_, __) => const LivestockScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => AnimalDetailScreen(
-                  animalId: state.pathParameters['id'] ?? ''),
+          ),
+          GoRoute(
+            path: '/more',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ModuleHubScreen(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: 'feeding',
-          builder: (_, __) => const FeedingScreen(),
-        ),
-        GoRoute(
-          path: 'irrigation',
-          builder: (_, __) => const IrrigationScreen(),
-        ),
-        GoRoute(
-          path: 'spray',
-          builder: (_, __) => const SprayLogsScreen(),
-        ),
-        GoRoute(
-          path: 'soil-tests',
-          builder: (_, __) => const SoilTestsScreen(),
-        ),
-        GoRoute(
-          path: 'weather',
-          builder: (_, __) => const WeatherScreen(),
-        ),
-        GoRoute(
-          path: 'workers',
-          builder: (_, __) => const WorkersScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) => WorkerDetailScreen(
-                  workerId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'attendance',
-          builder: (_, __) => const AttendanceScreen(),
-        ),
-        GoRoute(
-          path: 'finance',
-          builder: (_, __) => const FinanceScreen(),
-        ),
-        GoRoute(
-          path: 'traceability',
-          builder: (_, __) => const TraceabilityScreen(),
-        ),
-        GoRoute(
-          path: 'map',
-          builder: (_, __) => const FarmMapScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/utilities',
-      builder: (_, __) => const UtilitiesHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'meters',
-          builder: (_, __) => const MetersScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  MeterDetailScreen(meterId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'bills',
-          builder: (_, __) => const BillsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (_, state) =>
-                  BillDetailScreen(billId: state.pathParameters['id'] ?? ''),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: 'analytics',
-          builder: (_, __) => const UtilityAnalyticsScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/suppliers',
-      builder: (_, __) => const SuppliersScreen(),
-      routes: [
-        GoRoute(
-          path: ':id',
-          builder: (_, state) => SupplierDetailScreen(
-              supplierId: state.pathParameters['id'] ?? ''),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/reports',
-      builder: (_, __) => const ReportsHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'dashboard',
-          builder: (_, __) => const ReportDashboardScreen(),
-        ),
-        GoRoute(
-          path: 'maintenance-cost',
-          builder: (_, __) => const ReportMaintenanceCostScreen(),
-        ),
-        GoRoute(
-          path: 'fleet-efficiency',
-          builder: (_, __) => const ReportFleetEfficiencyScreen(),
-        ),
-        GoRoute(
-          path: 'downtime',
-          builder: (_, __) => const ReportDowntimeScreen(),
-        ),
-        GoRoute(
-          path: 'work-orders',
-          builder: (_, __) => const ReportWorkOrdersScreen(),
-        ),
-        GoRoute(
-          path: 'inventory',
-          builder: (_, __) => const ReportInventoryScreen(),
-        ),
-        GoRoute(
-          path: 'utilities',
-          builder: (_, __) => const ReportUtilitiesScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: '/billing',
-      builder: (_, __) => const BillingHubScreen(),
-    ),
-    GoRoute(
-      path: '/ai',
-      builder: (_, __) => const AiAssistantScreen(),
-    ),
-    GoRoute(
-      path: '/settings',
-      builder: (_, __) => const SettingsHubScreen(),
-      routes: [
-        GoRoute(
-          path: 'profile',
-          builder: (_, __) => const ProfileSettingsScreen(),
-        ),
-        GoRoute(
-          path: 'organization',
-          builder: (_, __) => const OrganizationSettingsScreen(),
-        ),
-        GoRoute(
-          path: 'system',
-          builder: (_, __) => const SystemSettingsScreen(),
-        ),
-        GoRoute(
-          path: 'integrations',
-          builder: (_, __) => const IntegrationsSettingsScreen(),
-        ),
-        GoRoute(
-          path: 'feature-toggles',
-          builder: (_, __) => const FeatureTogglesScreen(),
-        ),
-        GoRoute(
-          path: 'automation-rules',
-          builder: (_, __) => const AutomationRulesScreen(),
-        ),
-        GoRoute(
-          path: 'digest-schedules',
-          builder: (_, __) => const DigestSchedulesScreen(),
-        ),
-        GoRoute(
-          path: 'audit-logs',
-          builder: (_, __) => const AuditLogsScreen(),
-        ),
-        GoRoute(
-          path: 'about',
-          builder: (_, __) => const AboutScreen(),
-        ),
-      ],
-    ),
-  ],
-);
-
-/// Bottom nav shell used by the inner ShellRoute, with a glassmorphism nav bar.
-class _BottomNavShell extends ConsumerWidget {
-  const _BottomNavShell({required this.child});
-  final Widget child;
-
-  static const List<
-          ({String path, IconData icon, IconData activeIcon, String label})>
-      _tabs = [
-    (
-      path: '/dashboard',
-      icon: Icons.dashboard_outlined,
-      activeIcon: Icons.dashboard_rounded,
-      label: 'Home'
-    ),
-    (
-      path: '/work-orders',
-      icon: Icons.assignment_outlined,
-      activeIcon: Icons.assignment_rounded,
-      label: 'Orders'
-    ),
-    (
-      path: '/scan',
-      icon: Icons.qr_code_scanner_outlined,
-      activeIcon: Icons.qr_code_scanner_rounded,
-      label: 'Scan'
-    ),
-    (
-      path: '/notifications',
-      icon: Icons.notifications_outlined,
-      activeIcon: Icons.notifications_rounded,
-      label: 'Alerts'
-    ),
-    (
-      path: '/profile',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-      label: 'Profile'
-    ),
-  ];
-
-  int _indexFor(String location) {
-    for (var i = 0; i < _tabs.length; i++) {
-      if (location.startsWith(_tabs[i].path)) return i;
-    }
-    return 0;
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Activate the notifications socket lifecycle (auto-connects on auth).
-    ref.watch(notificationsSocketProvider);
-    final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = _indexFor(location);
-    return Scaffold(
-      extendBody: true,
-      body: child,
-      bottomNavigationBar: GlassBottomNav(
-        currentIndex: currentIndex,
-        onTap: (i) => context.go(_tabs[i].path),
-        items: [
-          for (final t in _tabs)
-            GlassNavItem(
-                icon: t.icon, activeIcon: t.activeIcon, label: t.label),
+          ),
         ],
       ),
-    );
+      GoRoute(
+        path: '/search',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const GlobalSearchScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/diagnostics',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const DiagnosticsScreen(),
+      ),
+      GoRoute(
+        path: '/drafts',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const DraftCenterScreen(),
+      ),
+      GoRoute(
+        path: '/sync',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SyncCenterScreen(),
+      ),
+      GoRoute(
+        path: '/work-orders',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WorkOrdersListScreen(
+          initialQueue: state.uri.queryParameters['queue'],
+          initialAssetId: state.uri.queryParameters['assetId'],
+          assetFilterLabel: state.uri.queryParameters['assetTag'],
+        ),
+        routes: [
+          GoRoute(
+            path: ':id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => WorkOrderDetailScreen(
+              workOrderId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/fleet',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FleetHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'vehicles',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const VehiclesListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => VehicleDetailScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'trip-start',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => TripStartScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'trip-end',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => TripEndScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'fuel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => FuelLogFormScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'meter',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => MeterReadingFormScreen(
+                      vehicleId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'drivers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const DriversListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => DriverDetailScreen(
+                  driverId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/gate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const GateHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'vehicle/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => GateVehicleScreen(
+              vehicleId: state.pathParameters['id']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'out',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => GateOutScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+              ),
+              GoRoute(
+                path: 'in',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => GateInScreen(
+                  vehicleId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/assets',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AssetsHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'list',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final cat = state.uri.queryParameters['category'];
+              final serviceFocus =
+                  state.uri.queryParameters['serviceFocus'] == '1';
+              return AssetsListScreen(
+                initialCategory: cat,
+                serviceFocus: serviceFocus,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'pm',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PmSchedulesScreen(),
+          ),
+          GoRoute(
+            path: 'job-codes',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const JobCodesListScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => AssetDetailScreen(
+              assetId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/inventory',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const InventoryHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'parts',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PartsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => PartDetailScreen(
+                  partId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'low-stock',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const LowStockScreen(),
+          ),
+          GoRoute(
+            path: 'warehouses',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const WarehousesScreen(),
+          ),
+          GoRoute(
+            path: 'suppliers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const SuppliersListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => SupplierDetailScreen(
+                  supplierId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'purchase-orders',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PurchaseOrdersListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => PurchaseOrderDetailScreen(
+                  purchaseOrderId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'warehouse-balances',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const WarehouseBalancesScreen(),
+          ),
+          GoRoute(
+            path: 'part-requests',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PartRequestsListScreen(),
+          ),
+          GoRoute(
+            path: 'erp',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ErpStatusScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/facilities',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FacilitiesHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'rooms',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FacilityRoomsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => FacilityRoomDetailScreen(
+                  roomId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'issues',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FacilityIssuesListScreen(),
+            routes: [
+              GoRoute(
+                path: 'report',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final q = state.uri.queryParameters;
+                  return FacilityIssueReportScreen(
+                    draftId: q['draftId'],
+                    roomId: q['roomId'],
+                    roomLabel: q['roomLabel'],
+                  );
+                },
+              ),
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => FacilityIssueDetailScreen(
+                  issueId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'cleaning',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const CleaningLocationsScreen(),
+            routes: [
+              GoRoute(
+                path: 'visits',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => const CleaningVisitsListScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'utilities',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const UtilitiesMetersScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => UtilityMeterDetailScreen(
+                  meterId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/compliance',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ComplianceHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'documents/expiring',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ExpiringDocumentsScreen(),
+          ),
+          GoRoute(
+            path: 'documents/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => VehicleDocumentDetailScreen(
+              documentId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: 'accidents',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final vehicleId = state.uri.queryParameters['vehicleId'];
+              return AccidentsListScreen(vehicleId: vehicleId);
+            },
+            routes: [
+              GoRoute(
+                path: 'report',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final q = state.uri.queryParameters;
+                  return AccidentReportScreen(
+                    vehicleId: q['vehicleId'],
+                    draftId: q['draftId'],
+                  );
+                },
+              ),
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => AccidentDetailScreen(
+                  accidentId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'insurance-claims',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const InsuranceClaimsListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => InsuranceClaimDetailScreen(
+                  claimId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'traffic-fines',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final vehicleId = state.uri.queryParameters['vehicleId'];
+              return TrafficFinesListScreen(vehicleId: vehicleId);
+            },
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => TrafficFineDetailScreen(
+                  fineId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/fg',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FgHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'cl30/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final extra = state.extra;
+              String? draftId;
+              if (extra is Map && extra['draftId'] != null) {
+                draftId = extra['draftId'].toString();
+              }
+              return Cl30RecorderScreen(resumeDraftId: draftId);
+            },
+          ),
+          GoRoute(
+            path: 'cl30/drafts',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30DraftsScreen(),
+          ),
+          GoRoute(
+            path: 'cl30/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final extra = state.extra;
+              String? draftId;
+              if (extra is Map && extra['draftId'] != null) {
+                draftId = extra['draftId'].toString();
+              }
+              return Cl30RecorderScreen(
+                recordId: state.pathParameters['id'],
+                resumeDraftId: draftId,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'cl18/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl18,
+            ),
+          ),
+          GoRoute(
+            path: 'cl18/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl18,
+              recordId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: 'cl24/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl24,
+            ),
+          ),
+          GoRoute(
+            path: 'cl24/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl24,
+              recordId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: 'cl39/new',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const FgFormRecorderScreen(
+              config: FgFormConfig.cl39,
+            ),
+          ),
+          GoRoute(
+            path: 'cl39/records/:id',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FgFormRecorderScreen(
+              config: FgFormConfig.cl39,
+              recordId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: 'reviews',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30SupervisorQueueScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => Cl30SupervisorDetailScreen(
+                  submissionId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'qa',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30QaQueueScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => Cl30QaDetailScreen(
+                  submissionId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'history',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const Cl30HistoryScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/admin',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AdminHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'users',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminUsersScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final extra = state.extra;
+                  if (extra is AdminUserRow) {
+                    return AdminUserDetailScreen(user: extra);
+                  }
+                  return AdminUserDetailScreen(
+                    user: AdminUserRow(
+                      id: state.pathParameters['id']!,
+                      displayName: 'User',
+                      email: '',
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'people',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminPeopleScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) => AdminPersonDetailScreen(
+                  personId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'roles',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminRolesScreen(),
+          ),
+          GoRoute(
+            path: 'tenants',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminTenantsScreen(),
+          ),
+          GoRoute(
+            path: 'invitations',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminInvitationsScreen(),
+          ),
+          GoRoute(
+            path: 'departments',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminDepartmentsScreen(),
+          ),
+          GoRoute(
+            path: 'audit',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminAuditScreen(),
+          ),
+          GoRoute(
+            path: 'system-health',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminSystemHealthScreen(),
+          ),
+          GoRoute(
+            path: 'settings',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const AdminOrgSettingsScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/farm',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FarmHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'fields',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Fields',
+              loader: (c) => c.listFields(),
+            ),
+          ),
+          GoRoute(
+            path: 'crops',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Crops',
+              loader: (c) => c.listCrops(),
+            ),
+          ),
+          GoRoute(
+            path: 'harvest',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Harvest',
+              loader: (c) => c.listHarvest(),
+            ),
+          ),
+          GoRoute(
+            path: 'livestock',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Livestock',
+              loader: (c) => c.listLivestock(),
+            ),
+          ),
+          GoRoute(
+            path: 'irrigation',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Irrigation',
+              loader: (c) => c.listIrrigation(),
+            ),
+          ),
+          GoRoute(
+            path: 'workers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Workers',
+              loader: (c) => c.listWorkers(),
+            ),
+          ),
+          GoRoute(
+            path: 'attendance',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Attendance',
+              loader: (c) => c.listAttendance(),
+            ),
+          ),
+          GoRoute(
+            path: 'traceability',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => FarmListScreen(
+              title: 'Traceability',
+              loader: (c) => c.listTraceability(),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/reports',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ReportsHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'dashboard',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ReportsDashboardScreen(),
+          ),
+          GoRoute(
+            path: 'management',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const ManagementIntelligenceScreen(),
+          ),
+          GoRoute(
+            path: 'maintenance-exceptions',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const MaintenanceExceptionsScreen(),
+          ),
+          GoRoute(
+            path: 'modules/:module',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => ReportModuleScreen(
+              module: state.pathParameters['module']!,
+            ),
+          ),
+          GoRoute(
+            path: 'facilities-aging',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => SimpleMapReportScreen(
+              title: 'Facilities aging',
+              loader: (c) => c.facilitiesAging(),
+            ),
+          ),
+          GoRoute(
+            path: 'erp',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => SimpleMapReportScreen(
+              title: 'ERP monitoring',
+              loader: (c) => c.erpMonitoring(),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+});
+
+/// Bridges Riverpod auth changes into GoRouter refresh.
+class _AuthRefresh extends ChangeNotifier {
+  _AuthRefresh(this._ref) {
+    _ref.listen<AuthState>(authControllerProvider, (_, __) {
+      notifyListeners();
+    });
   }
+
+  final Ref _ref;
 }

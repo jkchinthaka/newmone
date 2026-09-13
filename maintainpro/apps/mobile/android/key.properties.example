@@ -1,0 +1,8 @@
+# Copy to key.properties (never commit). Paths are relative to android/.
+# storePassword and keyPassword are supplied locally or via CI secrets.
+#
+# Example (Windows Server production signing — use company release keystore only):
+# storeFile=../keystore/maintainpro-release.jks
+# storePassword=***
+# keyAlias=maintainpro
+# keyPassword=***

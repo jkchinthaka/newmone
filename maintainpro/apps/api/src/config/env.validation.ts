@@ -75,6 +75,9 @@ export const envValidationSchema = Joi.object({
   FG_SSO_ISSUER: Joi.string().default("maintainpro"),
   FG_SSO_AUDIENCE: Joi.string().default("fg-digital-recording"),
   FG_SSO_TTL_SECONDS: Joi.number().integer().min(15).max(300).default(60),
+  // Internal Django FG API base for the mobile session broker (server-side only).
+  FG_API_INTERNAL_URL: Joi.string().uri({ allowRelative: false }).allow("").default(""),
+  FG_MOBILE_SESSION_TTL_SECONDS: Joi.number().integer().min(60).max(86400).default(1800),
   ALLOW_PUBLIC_REGISTRATION: Joi.boolean().default(false),
   ALLOW_PUBLIC_REGISTRATION_IN_PRODUCTION: Joi.boolean().default(false),
   STRIPE_SECRET_KEY: Joi.string().allow(""),

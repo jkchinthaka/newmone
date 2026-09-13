@@ -237,10 +237,17 @@ export class CleaningController {
   }
 
   @Get("issues")
-  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER", "ASSET_MANAGER", "FACILITY_MANAGER", "BUILDING_SUPERVISOR", "MANAGER", "VIEWER")
   async listIssues(@Req() req: AuthedRequest, @Query("status") status?: FacilityIssueStatus) {
     const data = await this.cleaning.listIssues(req.user?.tenantId ?? null, status);
     return { data, message: "Issues fetched" };
+  }
+
+  @Get("issues/:id")
+  @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER", "ASSET_MANAGER", "FACILITY_MANAGER", "BUILDING_SUPERVISOR", "MANAGER", "VIEWER")
+  async getIssue(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.cleaning.getIssue(req.user?.tenantId ?? null, id);
+    return { data, message: "Issue fetched" };
   }
 
   @Patch("issues/:id")

@@ -3,6 +3,8 @@ import {
   BillingInterval,
   DriverTrainingStatus,
   EntitlementType,
+  MaintenanceFrequency,
+  MaintenanceType,
   Prisma,
   PrismaClient,
   Priority,
@@ -743,6 +745,12 @@ async function main() {
   }
 
   const adminPasswordHash = await bcrypt.hash(getSeedPassword(), 12);
+  const seedAuthLockReset = {
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    mustChangePassword: false,
+    temporaryPasswordExpiresAt: null
+  } as const;
 
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@maintainpro.local" },
@@ -752,6 +760,7 @@ async function main() {
       roleId: roles.get(RoleName.SUPER_ADMIN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -773,6 +782,7 @@ async function main() {
       roleId: roles.get(RoleName.ADMIN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -794,6 +804,7 @@ async function main() {
       roleId: roles.get(RoleName.SUPERVISOR)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "SUPERVISOR",
       dailyCapacityHours: 8,
       isActive: true
@@ -819,6 +830,7 @@ async function main() {
       roleId: roles.get(RoleName.CLEANER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "CLEANER",
       dailyCapacityHours: 8,
       isActive: true
@@ -844,6 +856,7 @@ async function main() {
       roleId: roles.get(RoleName.SECURITY_OFFICER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -865,6 +878,7 @@ async function main() {
       roleId: roles.get(RoleName.MANAGER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -886,6 +900,7 @@ async function main() {
       roleId: roles.get(RoleName.TECHNICIAN)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "TECHNICIAN",
       dailyCapacityHours: 8,
       skills: ["General maintenance", "Preventive service"],
@@ -913,6 +928,7 @@ async function main() {
       roleId: roles.get(RoleName.MECHANIC)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       designation: "MECHANIC",
       dailyCapacityHours: 8,
       skills: ["Engine repair", "Hydraulics"],
@@ -940,6 +956,7 @@ async function main() {
       roleId: roles.get(RoleName.INVENTORY_KEEPER)!.id,
       tenantId: tenant.id,
       passwordHash: adminPasswordHash,
+      ...seedAuthLockReset,
       isActive: true
     },
     create: {
@@ -963,6 +980,7 @@ async function main() {
         roleId: roles.get(RoleName.DRIVER)!.id,
         tenantId: tenant.id,
         passwordHash: adminPasswordHash,
+        ...seedAuthLockReset,
         isActive: true
       },
       create: {
@@ -1219,32 +1237,182 @@ async function main() {
 
   const assetTags = ["AST-1001", "AST-1002", "AST-1003", "AST-1004", "AST-1005"];
   const assetIds: string[] = [];
+  const dayMs = 24 * 60 * 60 * 1000;
+  const localAssetFixtures = [
+    {
+      tag: "AST-1001",
+      name: "[LOCAL DEV] CNC Press",
+      category: "MACHINE" as const,
+      status: "ACTIVE" as const,
+      location: "Plant A",
+      nextServiceOffsetDays: -10
+    },
+    {
+      tag: "AST-1002",
+      name: "[LOCAL DEV] Conveyor Line",
+      category: "MACHINE" as const,
+      status: "UNDER_MAINTENANCE" as const,
+      location: "Plant A",
+      nextServiceOffsetDays: 2
+    },
+    {
+      tag: "AST-1003",
+      name: "[LOCAL DEV] Air Compressor",
+      category: "EQUIPMENT" as const,
+      status: "ACTIVE" as const,
+      location: "Plant B",
+      nextServiceOffsetDays: 14
+    },
+    {
+      tag: "AST-1004",
+      name: "[LOCAL DEV] Packaging Unit",
+      category: "MACHINE" as const,
+      status: "ACTIVE" as const,
+      location: "Plant B",
+      nextServiceOffsetDays: 45
+    },
+    {
+      tag: "AST-1005",
+      name: "[LOCAL DEV] Tool Cabinet",
+      category: "EQUIPMENT" as const,
+      status: "ACTIVE" as const,
+      location: "Plant A",
+      nextServiceOffsetDays: 90
+    }
+  ];
 
-  for (let i = 0; i < assetTags.length; i += 1) {
+  for (let i = 0; i < localAssetFixtures.length; i += 1) {
+    const fixture = localAssetFixtures[i];
+    const nextServiceDate = new Date(Date.now() + fixture.nextServiceOffsetDays * dayMs);
+    const lastServiceDate = new Date(nextServiceDate.getTime() - 90 * dayMs);
+
     const asset = await prisma.asset.upsert({
-      where: { assetTag: assetTags[i] },
+      where: { assetTag: fixture.tag },
       update: {
         tenantId: tenant.id,
-        name: `Sample Asset ${i + 1}`,
-        category: i % 2 === 0 ? "MACHINE" : "EQUIPMENT",
-        status: "ACTIVE",
+        name: fixture.name,
+        category: fixture.category,
+        status: fixture.status,
         images: [],
         documents: [],
-        location: i % 2 === 0 ? "Plant A" : "Plant B"
+        location: fixture.location,
+        nextServiceDate,
+        lastServiceDate,
+        archivedAt: null,
+        description: "Synthetic local/dev seed asset — not production data"
       },
       create: {
         tenantId: tenant.id,
-        assetTag: assetTags[i],
-        name: `Sample Asset ${i + 1}`,
-        category: i % 2 === 0 ? "MACHINE" : "EQUIPMENT",
-        status: "ACTIVE",
+        assetTag: fixture.tag,
+        name: fixture.name,
+        category: fixture.category,
+        status: fixture.status,
         images: [],
         documents: [],
-        location: i % 2 === 0 ? "Plant A" : "Plant B"
+        location: fixture.location,
+        nextServiceDate,
+        lastServiceDate,
+        archivedAt: null,
+        description: "Synthetic local/dev seed asset — not production data"
       }
     });
 
     assetIds.push(asset.id);
+  }
+
+  const pmScheduleFixtures = [
+    {
+      name: "[LOCAL DEV] Overdue belt inspection",
+      assetIndex: 0,
+      nextDueOffsetDays: -7,
+      type: MaintenanceType.PREVENTIVE,
+      frequency: MaintenanceFrequency.MONTHLY,
+      intervalDays: 30
+    },
+    {
+      name: "[LOCAL DEV] Due-soon lubrication",
+      assetIndex: 1,
+      nextDueOffsetDays: 3,
+      type: MaintenanceType.PREVENTIVE,
+      frequency: MaintenanceFrequency.WEEKLY,
+      intervalDays: 7
+    },
+    {
+      name: "[LOCAL DEV] Upcoming quarterly check",
+      assetIndex: 3,
+      nextDueOffsetDays: 21,
+      type: MaintenanceType.INSPECTION,
+      frequency: MaintenanceFrequency.QUARTERLY,
+      intervalDays: 90
+    }
+  ];
+
+  for (const schedule of pmScheduleFixtures) {
+    const assetId = assetIds[schedule.assetIndex];
+    const nextDueDate = new Date(Date.now() + schedule.nextDueOffsetDays * dayMs);
+    const existing = await prisma.maintenanceSchedule.findFirst({
+      where: { name: schedule.name, assetId }
+    });
+    if (existing) {
+      await prisma.maintenanceSchedule.update({
+        where: { id: existing.id },
+        data: {
+          nextDueDate,
+          type: schedule.type,
+          frequency: schedule.frequency,
+          intervalDays: schedule.intervalDays,
+          isActive: true,
+          description: "Synthetic local/dev PM schedule"
+        }
+      });
+    } else {
+      await prisma.maintenanceSchedule.create({
+        data: {
+          name: schedule.name,
+          description: "Synthetic local/dev PM schedule",
+          type: schedule.type,
+          frequency: schedule.frequency,
+          intervalDays: schedule.intervalDays,
+          assetId,
+          nextDueDate,
+          isActive: true
+        }
+      });
+    }
+  }
+
+  const localJobCodes = [
+    { code: "LOCAL-JC-100", name: "[LOCAL DEV] Replace belt", category: "Mechanical" },
+    { code: "LOCAL-JC-110", name: "[LOCAL DEV] Lubricate bearings", category: "Mechanical" },
+    { code: "LOCAL-JC-120", name: "[LOCAL DEV] Electrical safety check", category: "Electrical" },
+    { code: "LOCAL-JC-130", name: "[LOCAL DEV] Filter replacement", category: "HVAC" }
+  ];
+
+  for (const job of localJobCodes) {
+    await prisma.jobCode.upsert({
+      where: {
+        tenantId_code: {
+          tenantId: tenant.id,
+          code: job.code
+        }
+      },
+      update: {
+        name: job.name,
+        category: job.category,
+        isActive: true,
+        description: "Synthetic local/dev job code"
+      },
+      create: {
+        tenantId: tenant.id,
+        code: job.code,
+        name: job.name,
+        category: job.category,
+        isActive: true,
+        description: "Synthetic local/dev job code",
+        requiredSkills: [],
+        requiredPartIds: []
+      }
+    });
   }
 
   const vehicleIds: string[] = [];

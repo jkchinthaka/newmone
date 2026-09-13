@@ -24,7 +24,16 @@ assertSafeBaseUrl(baseURL);
 
 export default defineConfig({
   testDir: "./e2e-real",
-  timeout: 60_000,
+  // POST /auth/login is intentionally rate-limited (5 requests / 60s — a real,
+  // unweakened anti-brute-force control). loginViaUi() now correctly waits out
+  // a 429 via the server's own Retry-After instead of silently proceeding
+  // unauthenticated (see e2e-real/helpers/auth.ts), but that legitimate backoff
+  // can take ~60s on its own. Several specs call loginViaUi multiple times
+  // (sequentially — workers: 1, fullyParallel: false below — but still within
+  // the same 60s throttle window when a file has several tests), so the
+  // per-test timeout must be comfortably larger than a single backoff cycle,
+  // not just larger than the fast-path case.
+  timeout: 150_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,

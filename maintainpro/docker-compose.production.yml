@@ -50,6 +50,13 @@ services:
       APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:?APP_BUILD_TIMESTAMP is required}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
       APP_SERVICE_NAME: maintainpro-api
+      # Nest mobile FG broker → Django FG (Docker DNS; never expose to Flutter).
+      FG_SSO_SIGNING_SECRET: ${FG_SSO_SIGNING_SECRET:?FG_SSO_SIGNING_SECRET is required}
+      FG_SSO_ISSUER: ${FG_SSO_ISSUER:-maintainpro}
+      FG_SSO_AUDIENCE: ${FG_SSO_AUDIENCE:-fg-digital-recording}
+      FG_SSO_TTL_SECONDS: ${FG_SSO_TTL_SECONDS:-60}
+      FG_API_INTERNAL_URL: ${FG_API_INTERNAL_URL:-http://fg:8000}
+      FG_MOBILE_SESSION_TTL_SECONDS: ${FG_MOBILE_SESSION_TTL_SECONDS:-1800}
     # API remains internal-only (no host publish).
     expose:
       - "3000"

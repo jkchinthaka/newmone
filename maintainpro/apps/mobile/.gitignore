@@ -27,11 +27,24 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 /coverage/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+**/google-services.json
+**/GoogleService-Info.plist
+**/key.properties
+**/*.jks
+**/*.keystore
+**/secrets.dart
+**/firebase_options.dart
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +56,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated Drift / build_runner output (regenerate with build_runner)
+# Prefer generating locally; commit only if CI cannot run codegen.
+# *.g.dart
+# *.freezed.dart
