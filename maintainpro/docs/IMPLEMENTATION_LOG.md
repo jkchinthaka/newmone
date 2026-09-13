@@ -5,6 +5,11 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-13 | Role UX, reports & dashboards
+- What changed: Versioned KPI formula catalog + calculators; role Home profiles; reporting-kpis API; web `role-home.ts`.
+- Files: `apps/api/src/modules/reporting-kpis/*`, `apps/web/lib/role-home.ts`, `test/reporting-kpis-phase13.spec.ts`, `docs/PHASE_13_UX_REPORTS.md`
+- Tests: `npx jest --config ./jest.config.cjs test/reporting-kpis-phase13.spec.ts`
+
 ## 2026-09-14 | PHASE-12 | Admin panel & data governance
 - What changed: Operational maintenance admin section catalog; deactivate/last-admin/self-lockout/tech-reassignment guards; config-change guard; bulk-import stage gate; data-quality rule catalog; web admin console restructure.
 - Files: `apps/api/src/modules/admin-governance/*`, `apps/web/lib/admin-console.ts`, `test/admin-governance-phase12.spec.ts`, `docs/PHASE_12_ADMIN_GOVERNANCE.md`

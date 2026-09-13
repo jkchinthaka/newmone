@@ -55,6 +55,7 @@ import { MaintenanceSupplyModule } from "./modules/maintenance-supply/maintenanc
 import { FleetLifecycleModule } from "./modules/fleet-lifecycle/fleet-lifecycle.module";
 import { DomainCoverageModule } from "./modules/domain-coverage/domain-coverage.module";
 import { AdminGovernanceModule } from "./modules/admin-governance/admin-governance.module";
+import { ReportingKpisModule } from "./modules/reporting-kpis/reporting-kpis.module";
 import { PlanningModule } from "./modules/planning/planning.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OperationsModule } from "./modules/operations/operations.module";
@@ -149,6 +150,7 @@ normalizeDatabaseEnvironment();
     FleetLifecycleModule,
     DomainCoverageModule,
     AdminGovernanceModule,
+    ReportingKpisModule,
     PlanningModule,
     JobCodesModule,
     WorkOrdersModule,
