@@ -5,6 +5,11 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-10 | Fleet maintenance & administration
+- What changed: Vehicle↔Asset link; tyre/battery models; gate-out policy + override audit; fuel efficiency helpers; accident→repair WO→claim chain API.
+- Files: `prisma/schema.prisma`, `apps/api/src/modules/fleet-lifecycle/*`, `test/fleet-lifecycle-phase10.spec.ts`, `docs/PHASE_10_FLEET.md`
+- Tests: `npx jest --config ./jest.config.cjs test/fleet-lifecycle-phase10.spec.ts`
+
 ## 2026-09-14 | PHASE-09 | Parts, ERP boundary, costs, vendors & contracts
 - What changed: Spare part classifications + ERP/maintenance metadata; immutable WO cost snapshots; tool issue return; AMC/vendor contracts + contacts; execution mode; stock source-of-truth helpers that never claim mock sync as production success.
 - Files changed: `prisma/schema.prisma`, `apps/api/src/modules/maintenance-supply/*`, `app.module.ts`, `test/maintenance-supply-phase09.spec.ts`, `docs/PHASE_09_PARTS_ERP_VENDORS.md`

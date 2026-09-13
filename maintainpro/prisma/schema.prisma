@@ -99,6 +99,8 @@ model Tenant {
   vendorInvoices               VendorInvoice[]
   vendorContracts              VendorContract[]
   workOrderCostSnapshots       WorkOrderCostSnapshot[]
+  vehicleTyres                 VehicleTyre[]
+  vehicleBatteries             VehicleBattery[]
   workOrderTaxonomies          WorkOrderTaxonomy[]
   businessExceptions           BusinessException[]
   partCompatibilities          PartCompatibility[]
@@ -778,6 +780,7 @@ model Asset {
   pmPlans              PmPlan[]
   inspections          Inspection[]
   calibrationRecords   CalibrationRecord[]
+  linkedVehicles       Vehicle[]           @relation("VehicleAsset")
   predictiveLogs       PredictiveLog[]
 
   @@index([tenantId])
@@ -830,6 +833,9 @@ model Vehicle {
   tenant                    Tenant?              @relation(fields: [tenantId], references: [id])
   registrationNo            String               @unique
   assetTag                  String?
+  /// Vehicle is an Asset with vehicle-specific data — optional FK to shared Asset engine.
+  assetId                   String?              @db.ObjectId
+  asset                     Asset?               @relation("VehicleAsset", fields: [assetId], references: [id])
   make                      String
   vehicleModel              String
   description               String?
@@ -890,6 +896,8 @@ model Vehicle {
   assetMeters          AssetMeter[]
   pmPlans              PmPlan[]
   inspections          Inspection[]
+  tyres                VehicleTyre[]
+  batteries            VehicleBattery[]
 
   @@index([tenantId])
   @@index([status])
@@ -899,6 +907,7 @@ model Vehicle {
   @@index([departmentId])
   @@index([serviceStatus])
   @@index([assetTag])
+  @@index([assetId])
   @@index([costCenter])
   @@index([tenantId, status, nextServiceDate])
 }
@@ -5623,4 +5632,62 @@ model VendorContract {
   @@index([tenantId, status])
   @@index([tenantId, supplierId])
   @@index([tenantId, endDate])
+}
+
+enum TyreCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  RETREAD
+  DISPOSED
+}
+
+model VehicleTyre {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String        @db.ObjectId
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  vehicleId         String        @db.ObjectId
+  vehicle           Vehicle       @relation(fields: [vehicleId], references: [id])
+  serialNumber      String?
+  brand             String?
+  size              String?
+  wheelPosition     String?
+  installedAt       DateTime?
+  installedMileage  Float?
+  rotatedAt         DateTime?
+  retreadCount      Int           @default(0)
+  condition         TyreCondition @default(GOOD)
+  replacedAt        DateTime?
+  disposedAt        DateTime?
+  cost              Float?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, serialNumber])
+}
+
+model VehicleBattery {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String    @db.ObjectId
+  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  vehicleId        String    @db.ObjectId
+  vehicle          Vehicle   @relation(fields: [vehicleId], references: [id])
+  serialNumber     String?
+  brand            String?
+  capacityAh       Float?
+  installedAt      DateTime?
+  warrantyExpiresAt DateTime?
+  replacedAt       DateTime?
+  failureReason    String?
+  cost             Float?
+  notes            String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, serialNumber])
 }
