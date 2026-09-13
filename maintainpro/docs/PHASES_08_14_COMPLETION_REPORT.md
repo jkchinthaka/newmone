@@ -17,7 +17,7 @@
 | 11 | `maintainpro/phase-11-domain-coverage` | `e0899df` | Company domain profiles + shared engine |
 | 12 | `maintainpro/phase-12-admin-governance` | `df16071` | Operational admin + safety guards |
 | 13 | `maintainpro/phase-13-ux-reports` | `4a8499c` | Role home + versioned KPIs |
-| 14 | `maintainpro/phase-14-production` | *(this commit)* | Hardening docs, acceptance matrix, validation |
+| 14 | `maintainpro/phase-14-production` | `86707fd` | Hardening docs, acceptance matrix, validation |
 
 ## Database
 
@@ -38,10 +38,10 @@ Guards on new routes; tenant scoping; admin deactivate protections; mock ERP not
 
 | Item | Value |
 |------|-------|
-| Final phase branch | `maintainpro/phase-14-production` |
-| Main (pre-merge) | `origin/main` @ `290bf3a` (images) — **not auto-merged** |
-| Push status | Phase 8–13 pushed; Phase 14 pushed with this report |
-| PR/merge | Create PR from phase-14 → main after CI green |
+| Final phase branch | `maintainpro/phase-14-production` @ `86707fd` |
+| Main (pre-merge) | `origin/main` @ `290bf3a` — **not auto-merged** |
+| Push status | Phases 8–14 all pushed to origin |
+| PR/merge | Open PR from `maintainpro/phase-14-production` → `main` after CI green |
 
 ## Remaining external dependencies
 
