@@ -127,21 +127,21 @@ export function actionCenterIsReadOnly(variant: ActionCenterVariant): boolean {
 export function getActionCenterTitle(variant: ActionCenterVariant): string {
   switch (variant) {
     case "admin":
-      return "Operations Action Center";
+      return "Home";
     case "management":
-      return "Operations Action Center";
+      return "Home";
     case "technician":
-      return "My Action Center";
+      return "Home";
     case "inventory":
-      return "Inventory Action Center";
+      return "Home";
     case "cleaner":
-      return "Cleaning Action Center";
+      return "Home";
     case "driver":
-      return "Driver Action Center";
+      return "Home";
     case "viewer":
-      return "Read-only Action Center";
+      return "Home";
     default:
-      return "Action Center";
+      return "Home";
   }
 }
 

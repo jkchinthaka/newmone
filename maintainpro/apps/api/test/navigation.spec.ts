@@ -14,99 +14,105 @@ import {
 } from "../../web/lib/navigation";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
-describe("navigation config", () => {
-  it("maps facility roles to facilities navigation", () => {
+describe("navigation config (Phase 1 CMMS scope)", () => {
+  it("exposes CMMS primary navigation for admin roles", () => {
+    const hrefs = getVisibleNavigationItems("ADMIN").map((item) => item.href);
+
+    expect(hrefs).toContain("/action-center");
+    expect(hrefs).toContain("/work-orders");
+    expect(hrefs).toContain("/maintenance/forecast");
+    expect(hrefs).toContain("/assets");
+    expect(hrefs).toContain("/fleet");
+    expect(hrefs).toContain("/inventory");
+    expect(hrefs).toContain("/reports");
+    expect(hrefs).toContain("/admin");
+    expect(hrefs).toContain("/system-health");
+    expect(hrefs).not.toContain("/workspace");
+    expect(hrefs).not.toContain("/dashboard");
+    expect(hrefs).not.toContain("/farm");
+    expect(hrefs).not.toContain("/cleaning");
+    expect(hrefs).not.toContain("/billing");
+  });
+
+  it("maps facility roles to Assets (facilities are not top-level)", () => {
     const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
     const buildingSupervisorItems = getVisibleNavigationItems("BUILDING_SUPERVISOR");
     const cleanerItems = getVisibleNavigationItems("CLEANER");
 
-    expect(facilityManagerItems.map((item) => item.href)).toContain("/facilities");
-    expect(buildingSupervisorItems.map((item) => item.href)).toContain("/facilities");
+    expect(facilityManagerItems.map((item) => item.href)).toContain("/assets");
+    expect(buildingSupervisorItems.map((item) => item.href)).toContain("/assets");
+    expect(cleanerItems.map((item) => item.href)).toContain("/action-center");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
   });
 
-  it("maps admin roles to workspace, dashboard, and system health", () => {
-    const adminItems = getVisibleNavigationItems("ADMIN");
-    const hrefs = adminItems.map((item) => item.href);
-
-    expect(hrefs).toContain("/workspace");
-    expect(hrefs).toContain("/dashboard");
-    expect(hrefs).toContain("/action-center");
-    expect(hrefs).toContain("/admin");
-    expect(hrefs).toContain("/system-health");
-    expect(hrefs).toContain("/work-orders");
-    expect(hrefs).toContain("/inventory");
-  });
-
-  it("maps technician roles to workspace tasks without admin modules", () => {
+  it("maps technician roles to Home and Work Orders without admin modules", () => {
     const technicianItems = getVisibleNavigationItems("TECHNICIAN");
     const ids = technicianItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["my-workspace", "action-center", "my-tasks", "work-orders", "assets"])
+      expect.arrayContaining(["home", "work-orders", "assets", "preventive-maintenance"])
     );
-    expect(ids).not.toContain("admin-console");
+    expect(ids).not.toContain("admin");
     expect(ids).not.toContain("billing");
     expect(ids).not.toContain("dashboard");
-    expect(ids).not.toContain("inventory");
   });
 
-  it("maps store keeper roles to inventory workspace shortcuts", () => {
+  it("maps store keeper roles to Spare Parts", () => {
     const inventoryItems = getVisibleNavigationItems("INVENTORY_KEEPER");
     const ids = inventoryItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["inventory", "waiting-parts", "action-center"]));
-    expect(ids).not.toContain("admin-console");
-    expect(ids).not.toContain("dashboard");
+    expect(ids).toEqual(expect.arrayContaining(["spare-parts", "home"]));
+    expect(ids).not.toContain("admin");
   });
 
-  it("maps supervisor roles to verification and high risk shortcuts", () => {
+  it("maps supervisor roles to Requests, Work Orders, and PM", () => {
     const supervisorItems = getVisibleNavigationItems("SUPERVISOR");
     const ids = supervisorItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["supervisor-verification", "high-risk-queue", "action-center", "work-orders"])
+      expect.arrayContaining(["home", "requests", "work-orders", "preventive-maintenance"])
     );
     expect(ids).not.toContain("billing");
   });
 
-  it("maps manager roles to high risk and reports", () => {
+  it("maps manager roles to reports and work orders", () => {
     const managerItems = getVisibleNavigationItems("MANAGER");
     const ids = managerItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["high-risk-queue", "reports", "action-center"]));
-    expect(ids).not.toContain("admin-console");
+    expect(ids).toEqual(expect.arrayContaining(["home", "reports", "work-orders"]));
+    expect(ids).not.toContain("admin");
   });
 
-  it("maps finance approver roles to billing and reports", () => {
+  it("maps finance approver roles to reports without work orders", () => {
     const financeItems = getVisibleNavigationItems("FINANCE_APPROVER");
     const ids = financeItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["billing", "reports", "action-center"]));
+    expect(ids).toEqual(expect.arrayContaining(["home", "reports"]));
     expect(ids).not.toContain("work-orders");
+    expect(ids).not.toContain("billing");
   });
 
-  it("maps security officer roles to gate workspace shortcuts", () => {
+  it("maps security officer roles to Fleet", () => {
     const securityItems = getVisibleNavigationItems("SECURITY_OFFICER");
     const ids = securityItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["fleet-gate", "action-center"]));
-    expect(ids).not.toContain("admin-console");
+    expect(ids).toEqual(expect.arrayContaining(["fleet", "home"]));
+    expect(ids).not.toContain("admin");
   });
 
-  it("maps cleaner roles to cleaning routes", () => {
+  it("retires cleaning workforce navigation for cleaner roles", () => {
     const cleanerItems = getVisibleNavigationItems("CLEANER");
     const hrefs = cleanerItems.map((item) => item.href);
 
-    expect(hrefs).toContain("/cleaning");
-    expect(hrefs).toContain("/cleaning/issues");
-    expect(hrefs).not.toContain("/dashboard");
+    expect(hrefs).toContain("/action-center");
+    expect(hrefs).not.toContain("/cleaning");
+    expect(hrefs).not.toContain("/cleaning/issues");
     expect(hrefs).not.toContain("/work-orders");
   });
 
-  it("returns action center fallback for unknown or missing roles", () => {
+  it("returns Home fallback for unknown or missing roles", () => {
     expect(getVisibleNavigationItems(null).map((item) => item.id)).toEqual(
-      expect.arrayContaining(["my-workspace", "action-center"])
+      expect.arrayContaining(["home"])
     );
     expect(getVisibleNavigationItems("UNKNOWN_ROLE")).toEqual([
       expect.objectContaining({ href: "/action-center" })
@@ -119,14 +125,15 @@ describe("navigation config", () => {
     expect(getPostLoginRedirect("MANAGER")).toBe("/action-center");
   });
 
-  it("does not expose /home as a primary Home nav item", () => {
+  it("uses Home label on /action-center and does not expose legacy /home as primary Home", () => {
     const allVisibleForAdmin = getVisibleNavigationItems("ADMIN", { fullNavigation: true });
-    const legacyItem = NAVIGATION_ITEMS.find((item) => item.id === "legacy-fms-archive");
+    const homeItem = allVisibleForAdmin.find((item) => item.id === "home");
 
-    expect(legacyItem?.label).toBe("Legacy FMS Archive");
-    expect(legacyItem?.legacy).toBe(true);
+    expect(homeItem?.label).toBe("Home");
+    expect(homeItem?.href).toBe("/action-center");
     expect(hasPrimaryHomeNavItem(allVisibleForAdmin)).toBe(false);
-    expect(allVisibleForAdmin.some((item) => item.label === "Home")).toBe(false);
+    expect(allVisibleForAdmin.some((item) => item.href === "/home")).toBe(false);
+    expect(NAVIGATION_ITEMS.some((item) => item.href === "/home")).toBe(false);
   });
 
   it("highlights nested routes with startsWith matching", () => {
@@ -138,21 +145,12 @@ describe("navigation config", () => {
     expect(isNavItemActive("/work-orders-archive", workOrders!)).toBe(false);
   });
 
-  it("matches queue-specific work order links", () => {
-    const myTasks = NAVIGATION_ITEMS.find((item) => item.id === "my-tasks");
-
-    expect(myTasks).toBeDefined();
-    expect(isNavItemActive("/work-orders", myTasks!, "queue=my-tasks")).toBe(true);
-    expect(isNavItemActive("/work-orders", myTasks!, "queue=assigned")).toBe(false);
-  });
-
-  it("groups visible navigation by category without empty groups", () => {
+  it("groups visible navigation by primary/secondary without empty groups", () => {
     const groups = getNavigationGroups("MANAGER");
 
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.every((group) => group.items.length > 0)).toBe(true);
-    expect(groups.some((group) => group.category === "workspace")).toBe(true);
-    expect(groups.some((group) => group.category === "operations")).toBe(true);
+    expect(groups.some((group) => group.category === "primary")).toBe(true);
   });
 
   it("hides legacy FMS archive from normal operational roles", () => {
@@ -162,15 +160,14 @@ describe("navigation config", () => {
     }
   });
 
-  it("restricts legacy FMS archive access to admin roles in full navigation mode", () => {
+  it("restricts legacy FMS archive browser access to admin roles", () => {
     expect(canAccessLegacyFmsArchive("SUPER_ADMIN")).toBe(true);
     expect(canAccessLegacyFmsArchive("ADMIN")).toBe(true);
     expect(canAccessLegacyFmsArchive("TECHNICIAN")).toBe(false);
     for (const role of LEGACY_FMS_ARCHIVE_ROLES) {
-      expect(getVisibleNavigationItems(role, { fullNavigation: true }).map((item) => item.href)).toContain(
-        "/home"
-      );
+      expect(canAccessNavigationPath("/home", role, [])).toBe(true);
     }
+    expect(canAccessNavigationPath("/home", "TECHNICIAN", [])).toBe(false);
   });
 
   it("blocks admin routes for technicians via route guard helper", () => {
@@ -180,11 +177,19 @@ describe("navigation config", () => {
     expect(canAccessNavigationPath("/work-orders/abc", "TECHNICIAN", [])).toBe(true);
   });
 
-  it("does not imply FG Digital Records from role alone", () => {
+  it("blocks retired product paths for non-admin roles", () => {
+    expect(canAccessNavigationPath("/farm", "TECHNICIAN", [])).toBe(false);
+    expect(canAccessNavigationPath("/cleaning", "CLEANER", [])).toBe(false);
+    expect(canAccessNavigationPath("/billing", "FINANCE_APPROVER", [])).toBe(false);
+    expect(canAccessNavigationPath("/predictive-ai", "MANAGER", [])).toBe(false);
+    expect(canAccessNavigationPath("/farm", "ADMIN", [])).toBe(true);
+  });
+
+  it("does not invent FG Digital Records from role alone", () => {
     const adminWithoutFg = getVisibleNavigationItems("ADMIN", { permissions: [] });
     expect(adminWithoutFg.some((item) => item.id === "fg-digital-recording")).toBe(false);
     const withFg = getVisibleNavigationItems("MANAGER", { permissions: ["fg.access"] });
-    expect(withFg.some((item) => item.href === "/fg")).toBe(true);
+    expect(withFg.some((item) => item.href === "/fg")).toBe(false);
     expect(canAccessNavigationPath("/fg", "MANAGER", [])).toBe(false);
     expect(canAccessNavigationPath("/fg", "MANAGER", ["fg.access"])).toBe(true);
     expect(canAccessNavigationPath("/fg/sso/denied", "VIEWER", [])).toBe(true);
@@ -192,13 +197,13 @@ describe("navigation config", () => {
 
   it("provides role default favorites", () => {
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).toEqual(
-      expect.arrayContaining(["my-tasks", "action-center"])
+      expect.arrayContaining(["home", "work-orders"])
     );
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
-      expect.arrayContaining(["inventory", "waiting-parts"])
+      expect.arrayContaining(["home", "spare-parts"])
     );
     expect(getDefaultFavoriteNavIds("ADMIN")).toEqual(
-      expect.arrayContaining(["system-health", "admin-console"])
+      expect.arrayContaining(["home", "admin", "system-health"])
     );
   });
 
@@ -206,7 +211,7 @@ describe("navigation config", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
     expect(technicianMobile.some((item) => item.id === "home")).toBe(true);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
-    expect(technicianMobile.some((item) => item.id === "create")).toBe(true);
+    expect(technicianMobile.some((item) => item.id === "work-orders")).toBe(true);
   });
 
   it("does not invent FG records in mobile nav without FG access", () => {

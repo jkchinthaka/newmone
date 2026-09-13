@@ -38,11 +38,12 @@ describe("facility dashboard web helpers", () => {
     expect(canViewFacilityReports("DRIVER", [])).toBe(false);
   });
 
-  it("includes facility reports navigation only for allowed roles", () => {
+  it("does not expose facility reports as top-level navigation (Phase 1)", () => {
     const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
     const driverItems = getVisibleNavigationItems("DRIVER");
 
-    expect(facilityManagerItems.some((item) => item.href === "/facilities/reports")).toBe(true);
+    expect(facilityManagerItems.some((item) => item.href === "/facilities/reports")).toBe(false);
+    expect(facilityManagerItems.some((item) => item.href === "/assets")).toBe(true);
     expect(driverItems.some((item) => item.href === "/facilities/reports")).toBe(false);
   });
 });

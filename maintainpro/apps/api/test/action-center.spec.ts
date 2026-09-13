@@ -165,9 +165,9 @@ describe("action center section builders", () => {
     expect(facility?.items.some((item) => item.href === "/facilities/reports")).toBe(true);
   });
 
-  it("uses role-specific action center titles", () => {
-    expect(getActionCenterTitle("technician")).toBe("My Action Center");
-    expect(getActionCenterTitle("inventory")).toBe("Inventory Action Center");
+  it("uses unified Home title for action center variants", () => {
+    expect(getActionCenterTitle("technician")).toBe("Home");
+    expect(getActionCenterTitle("inventory")).toBe("Home");
   });
 
   it("adds FG workflow links when fg.access is granted and does not invent metrics", () => {

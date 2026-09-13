@@ -45,13 +45,13 @@ describe("admin console foundation", () => {
       true
     );
 
-    const tenants = sections.find((section) => section.id === "tenants");
-    expect(tenants?.status).toBe("available");
-    expect(tenants?.href).toBe("/admin/tenants");
-    expect(tenants?.description).toMatch(/read-only/i);
+    const overview = sections.find((section) => section.id === "overview");
+    expect(overview?.status).toBe("available");
+    expect(overview?.href).toBe("/admin");
 
-    const systemHealth = sections.find((section) => section.id === "system-health");
+    const systemHealth = sections.find((section) => section.id === "technical");
     expect(systemHealth?.href).toBe("/system-health");
+    expect(systemHealth?.technicalOnly).toBe(true);
 
     const usersAccess = sections.find((section) => section.id === "users-access");
     expect(usersAccess?.href).toBe("/admin/users");
@@ -65,5 +65,9 @@ describe("admin console foundation", () => {
     expect(invitations?.status).toBe("available");
     expect(invitations?.href).toBe("/admin/invitations");
     expect(invitations?.description).toMatch(/review|create|invitation/i);
+
+    expect(sections.some((section) => /delivery|go-live|post-go-live|billing|qa/i.test(section.id))).toBe(
+      false
+    );
   });
 });
