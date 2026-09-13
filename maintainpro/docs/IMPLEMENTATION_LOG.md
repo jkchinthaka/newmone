@@ -5,6 +5,12 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-14 | Production hardening & completion report
+- What changed: Acceptance matrix, deferred destructive cleanup policy, security/reliability notes, final Phases 8–14 completion report. Validation: 43 unit tests across phase suites + acceptance map.
+- Files: `docs/PHASE_14_PRODUCTION.md`, `docs/PHASES_08_14_COMPLETION_REPORT.md`, `test/phase14-acceptance-map.spec.ts`
+- Tests: phase 8–13 suites (43 passed) + `phase14-acceptance-map.spec.ts`
+- Remaining risks: live `db:push`, Bileeta credentials, browser UAT, backup restore drill, CI before merge to main.
+
 ## 2026-09-14 | PHASE-13 | Role UX, reports & dashboards
 - What changed: Versioned KPI formula catalog + calculators; role Home profiles; reporting-kpis API; web `role-home.ts`.
 - Files: `apps/api/src/modules/reporting-kpis/*`, `apps/web/lib/role-home.ts`, `test/reporting-kpis-phase13.spec.ts`, `docs/PHASE_13_UX_REPORTS.md`
