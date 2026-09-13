@@ -5,6 +5,16 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | PHASE-01 | Product scope cleanup & navigation refactor
+- What changed: CMMS-focused primary nav (Home/Requests/WO/PM/Assets/Fleet/Spare Parts/Reports/Admin); retired Farm/Cleaning/Billing/Predictive AI/QA-Delivery-GoLive from normal surface; Admin landing cleaned; Workspace/Dashboard redirect to Home; no DB drops.
+- Files changed (key):
+  - `apps/web/lib/navigation.ts`, `admin-console.ts`, `role-redirect.ts`, `action-center.ts`, `command-palette.ts`, `breadcrumbs.ts`
+  - `apps/web/app/(dashboard)/workspace/page.tsx`, `dashboard/page.tsx` (redirects)
+  - `apps/api/test/navigation.spec.ts`, `command-palette.spec.ts`, `admin-console.spec.ts`, `action-center.spec.ts`, `facility-dashboard-ui.spec.ts`
+  - `docs/PHASE_01_SCOPE_CLEANUP.md`
+- Tests: typecheck, lint, targeted API nav/admin/action-center/command-palette specs, API test suite, web build (recorded in Phase 1 response)
+- Remaining risks: retired APIs still callable; deep links to retired UIs for admins; full role Home KPIs not yet rebuilt.
+
 ## 2026-09-14 | PHASE-00 | Freeze, backup & current-state audit
 - What changed: Full architecture/audit documentation only (no business feature code, no DB drops). Baseline validated on `origin/main` @ `290bf3a`.
 - Files created:
