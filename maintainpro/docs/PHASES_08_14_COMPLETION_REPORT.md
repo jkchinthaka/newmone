@@ -38,7 +38,7 @@ Guards on new routes; tenant scoping; admin deactivate protections; mock ERP not
 
 | Item | Value |
 |------|-------|
-| Final phase branch | `maintainpro/phase-14-production` @ `86707fd` |
+| Final phase branch | `maintainpro/phase-14-production` @ `32dfaf2` |
 | Main (pre-merge) | `origin/main` @ `290bf3a` — **not auto-merged** |
 | Push status | Phases 8–14 all pushed to origin |
 | PR/merge | Open PR from `maintainpro/phase-14-production` → `main` after CI green |
