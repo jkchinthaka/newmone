@@ -28,14 +28,16 @@ Phases **2–7 have not been implemented** as the required sequential foundation
 
 ## Mandatory execution order (now)
 
-Continue from completed Phase 1 tip (`maintainpro/phase-01-scope-cleanup` @ `b108e76`):
+Continue from completed Phase 2 tip when Phase 2 is done; otherwise from Phase 1:
 
-1. Phase 2 — Responsive Web / PWA  
-2. Phase 3 — Organization & Functional Locations  
-3. Phase 4 — Universal Asset Engine  
-4. Phase 5 — Maintenance Requests & Triage  
-5. Phase 6 — Work Order Core  
-6. Phase 7 — Approval Engine  
+0. Phase 0 — Audit (`maintainpro/phase-00-audit`)
+1. Phase 1 — Scope cleanup (`maintainpro/phase-01-scope-cleanup` @ `d954360`)
+2. Phase 2 — Responsive Web / PWA (`maintainpro/phase-02-responsive-pwa`)
+3. Phase 3 — Organization & Functional Locations
+4. Phase 4 — Universal Asset Engine
+5. Phase 5 — Maintenance Requests & Triage
+6. Phase 6 — Work Order Core
+7. Phase 7 — Approval Engine
 
 Do **not** merge Phase 8–14 directly into `main` before those phases exist.
 
