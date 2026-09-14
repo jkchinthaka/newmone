@@ -32,7 +32,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
+    // camera=(self) required for in-app QR scanning on supported mobile browsers.
+    // microphone stays disabled; do not expand without a documented product need.
+    value: "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()"
   }
 ];
 
