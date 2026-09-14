@@ -4,7 +4,9 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangle,
   BellRing,
+  Boxes,
   ClipboardList,
   FileCheck2,
   Home,
@@ -23,7 +25,9 @@ const MOBILE_ICON_MAP: Record<string, LucideIcon> = {
   ClipboardList,
   FileCheck2,
   Search,
-  UserCircle2
+  UserCircle2,
+  AlertTriangle,
+  Boxes
 };
 
 type Props = {

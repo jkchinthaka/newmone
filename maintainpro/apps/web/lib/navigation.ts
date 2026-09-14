@@ -643,15 +643,23 @@ export function getMobileBottomNavItems(
 ): MobileBottomNavItem[] {
   const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
   const hasWorkOrders = visible.some((item) => item.id === "work-orders");
+  const hasRequests = visible.some((item) => item.id === "requests");
+  const hasAssets = visible.some((item) => item.id === "assets");
   const hasSettings = visible.some((item) => item.id === "settings");
   const homeHref = visible.find((item) => item.id === "home")?.href ?? "/action-center";
+  const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/qr/report-issue";
 
   const items: MobileBottomNavItem[] = [
     { id: "home", label: "Home", href: homeHref, icon: "Home" }
   ];
 
-  if (hasWorkOrders) {
+  // Requester-heavy roles: surface Requests; technicians/supervisors: Work Orders.
+  if (hasRequests && !hasWorkOrders) {
+    items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
+  } else if (hasWorkOrders) {
     items.push({ id: "work-orders", label: "Work Orders", href: "/work-orders", icon: "ClipboardList" });
+  } else if (hasAssets) {
+    items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
   }
 
   items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });
