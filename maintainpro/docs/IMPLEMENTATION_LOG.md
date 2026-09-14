@@ -5,6 +5,12 @@ Record each completed task with:
 
 ---
 
+## 2026-09-14 | BRANCH-RECOVERY | Integration rule locked
+- What changed: Documented binding rule — continue Phase 2–7 from Phase 1 line; keep Phase 8–14 as provisional/reference; integrate only after Phase 7 on `maintainpro/integration-v1`; never merge Phase 14 into `main` prematurely.
+- Files: `docs/BRANCH_RECOVERY_AND_INTEGRATION.md`
+- Next: Phase 2 from `maintainpro/phase-01-scope-cleanup` @ `b108e76`
+- Remaining risks: Phase 8–14 contain useful engines that will need cherry-pick/port after Phase 7; schema conflicts expected.
+
 ## 2026-09-14 | PHASE-01 | Product scope cleanup & navigation refactor
 - What changed: CMMS-focused primary nav (Home/Requests/WO/PM/Assets/Fleet/Spare Parts/Reports/Admin); retired Farm/Cleaning/Billing/Predictive AI/QA-Delivery-GoLive from normal surface; Admin landing cleaned; Workspace/Dashboard redirect to Home; no DB drops.
 - Files changed (key):
