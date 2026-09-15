@@ -46,6 +46,8 @@ Phase 8 historical branch `maintainpro/phase-08-maintenance-planning` @ `844f176
 
 Phase 9 historical branch `maintainpro/phase-09-parts-erp-vendors` @ `1562147` remains untouched. Canonical parts/ERP/vendors live on `integration-v1` (baseline `9d18b59`). Supplier is the Vendor entity; no competing Vendor model.
 
+Phase 10 historical branch tip @ `96fbe49` remains untouched (REFERENCE ONLY). Canonical fleet lifecycle lives on `integration-v1` (baseline `465c73d`). `_p10_extract/` has been removed after integration. Vehicle = Asset extension; `Vehicle.assetId` unique link established in Phase 4; full fleet lifecycle in Phase 10. Gate write path remains in `vehicles.service.gateOut`; `FleetLifecycleService.evaluateGateEligibility` is read-only.
+
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).

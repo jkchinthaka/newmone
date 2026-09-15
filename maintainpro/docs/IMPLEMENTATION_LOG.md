@@ -5,6 +5,23 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-10 | Fleet Lifecycle — Tyres, Batteries, Assignments, Gate Engine
+- Baseline (clean HEAD): `465c73d3616480eb796ebc382b2840cc84331b77` on `maintainpro/integration-v1` (Phase 9 tip)
+- Historical reference: `origin/maintainpro/phase-10-*` @ `96fbe49` (not rewritten; `_p10_extract/` removed after integration)
+- What changed:
+  - Schema: `TyreCondition` enum; `VehicleTyre`, `VehicleBattery`, `VehicleAssignment` models; `Vehicle.gateBlocked/gateBlockReason`; Tenant + Driver back-relations
+  - Module `fleet-lifecycle/`: `fleet-policies.ts` (pure functions + warnings), `fleet-lifecycle.service.ts`, `fleet-lifecycle.controller.ts`, `fleet-lifecycle.module.ts`
+  - `FleetLifecycleModule` registered in `AppModule`
+  - `VehiclesService` wired with `ApprovalsService` (optional); gate override checks `GATE_OVERRIDE` approval before proceeding
+  - `VehiclesModule` imports `ApprovalsModule` with `forwardRef`
+  - `permission-catalog.ts`: 16 new Phase 10 keys added
+  - `permissions.guard.ts`: 16 legacy aliases for fleet.*/gate.* permissions
+  - Migration script: `apps/api/scripts/migrate-vehicle-asset-links.ts`
+  - Web: `/fleet` page with overview cards; `lib/fleet-lifecycle-api.ts`; `/fleet/tyres` route in nav
+  - Docs: `docs/PHASE_10_FLEET.md`
+- Tests: `apps/api/test/fleet-lifecycle-phase10.spec.ts` (42 cases)
+- Remaining risks: `prisma validate` + full typecheck needed; approval rule for GATE_OVERRIDE must be configured in tenant to activate approval path
+
 ## 2026-09-15 | PHASE-09 | Parts, ERP mapping, costs, vendors & contracts
 - Baseline: Phase 8 tip `9d18b598ab4acd31856c35a30a02757434a76c08` on `maintainpro/integration-v1`
 - Historical reference: `origin/maintainpro/phase-09-parts-erp-vendors` @ `1562147` (not rewritten)
