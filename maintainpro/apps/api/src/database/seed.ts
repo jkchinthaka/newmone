@@ -15,6 +15,7 @@ import {
 import * as bcrypt from "bcryptjs";
 
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
+import { AssetTaxonomyService } from "../modules/asset-taxonomy/asset-taxonomy.service";
 import {
   normalizeWorkforceOnlyLinkedUserIds,
   upsertLinkedWorkforceEmployee,
@@ -1489,6 +1490,12 @@ async function main() {
   await verifySeedBaseline(tenant.id);
 
   await seedWorkforceEmployees(tenant.id);
+
+  const taxonomy = new AssetTaxonomyService(prisma as never);
+  const taxonomySeed = await taxonomy.seedDefaults(tenant.id);
+  console.log(
+    `Asset taxonomy seed: domains=${taxonomySeed.domainsCreated} categories=${taxonomySeed.categoriesCreated} types=${taxonomySeed.typesCreated}`
+  );
 
   console.log("Seed complete");
 }

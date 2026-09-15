@@ -65,6 +65,12 @@ model Tenant {
   /// Phase 3 authoritative spatial masters (legacy Property/Building/Floor/Room retained)
   sites                        Site[]
   functionalLocations          FunctionalLocation[]
+  /// Phase 4 configurable asset taxonomy (tenant-scoped)
+  assetDomains                 AssetDomain[]
+  assetCategoryMasters         AssetCategoryMaster[]
+  assetTypeMasters             AssetTypeMaster[]
+  assetAttributeDefinitions    AssetAttributeDefinition[]
+  assetLocationHistories       AssetLocationHistory[]
   jobCodes                     JobCode[]
   departments                  Department[]
   vehicleDocuments             VehicleDocument[]
@@ -283,38 +289,38 @@ model Permission {
 }
 
 model User {
-  id                  String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId            String?     @db.ObjectId
-  tenant              Tenant?     @relation(fields: [tenantId], references: [id])
-  email               String      @unique
-  passwordHash        String
-  firstName           String
-  lastName            String
-  phone               String?
-  avatar              String?
-  roleId              String      @db.ObjectId
-  role                Role        @relation(fields: [roleId], references: [id])
+  id                         String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                   String?     @db.ObjectId
+  tenant                     Tenant?     @relation(fields: [tenantId], references: [id])
+  email                      String      @unique
+  passwordHash               String
+  firstName                  String
+  lastName                   String
+  phone                      String?
+  avatar                     String?
+  roleId                     String      @db.ObjectId
+  role                       Role        @relation(fields: [roleId], references: [id])
   /// FK to Department master — nullable for legacy records
-  departmentId        String?     @db.ObjectId
-  department          Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId               String?     @db.ObjectId
+  department                 Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Job designation for workforce allocation (e.g. Electrician, Fitter)
-  designation         String?
+  designation                String?
   /// Daily capacity in hours for workload checks (default 8)
-  dailyCapacityHours  Float       @default(8)
+  dailyCapacityHours         Float       @default(8)
   /// Skill tags for assignment filtering
-  skills              String[]
+  skills                     String[]
   /// Force password change on next login (temp password / reset)
-  mustChangePassword  Boolean     @default(false)
+  mustChangePassword         Boolean     @default(false)
   /// Optional branch scope label for RBAC filtering
-  branchScope         String?
+  branchScope                String?
   temporaryPasswordExpiresAt DateTime?
-  lastPasswordChangedAt DateTime?
-  isActive            Boolean     @default(true)
-  lastLogin           DateTime?
-  failedLoginAttempts Int         @default(0)
-  lockedUntil         DateTime?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  lastPasswordChangedAt      DateTime?
+  isActive                   Boolean     @default(true)
+  lastLogin                  DateTime?
+  failedLoginAttempts        Int         @default(0)
+  lockedUntil                DateTime?
+  createdAt                  DateTime    @default(now())
+  updatedAt                  DateTime    @updatedAt
 
   assignedWorkOrders          WorkOrder[]             @relation("TechnicianWorkOrders")
   createdWorkOrders           WorkOrder[]             @relation("CreatorWorkOrders")
@@ -362,6 +368,7 @@ model User {
   workOrderAssignmentsCreated WorkOrderAssignee[]     @relation("WorkOrderAssigneeAssignedBy")
   employeeLeaveApprovals      EmployeeLeaveRequest[]  @relation("EmployeeLeaveApprover")
   linkedWorkforceEmployees    Employee[]              @relation("EmployeeLinkedUser")
+  responsibleAssets           Asset[]                 @relation("AssetResponsiblePerson")
 
   @@index([tenantId])
   @@index([roleId])
@@ -370,21 +377,21 @@ model User {
 }
 
 model RefreshToken {
-  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
-  tokenHash            String    @unique
-  familyId             String    @default(uuid())
-  replacedByTokenHash  String?
-  userId               String    @db.ObjectId
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenantId             String?   @db.ObjectId
-  tenant               Tenant?   @relation(fields: [tenantId], references: [id])
-  deviceInfo           String?
-  ipAddress            String?
-  userAgent            String?
-  expiresAt            DateTime
-  revokedAt            DateTime?
-  lastUsedAt           DateTime?
-  createdAt            DateTime  @default(now())
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash           String    @unique
+  familyId            String    @default(uuid())
+  replacedByTokenHash String?
+  userId              String    @db.ObjectId
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId            String?   @db.ObjectId
+  tenant              Tenant?   @relation(fields: [tenantId], references: [id])
+  deviceInfo          String?
+  ipAddress           String?
+  userAgent           String?
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  lastUsedAt          DateTime?
+  createdAt           DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([tenantId, createdAt])
@@ -714,11 +721,11 @@ model Department {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  assets    Asset[]    @relation("AssetDepartment")
-  vehicles  Vehicle[]  @relation("VehicleDepartment")
-  drivers   Driver[]   @relation("DriverDepartment")
-  users     User[]     @relation("UserDepartment")
-  employees Employee[] @relation("EmployeeDepartment")
+  assets              Asset[]              @relation("AssetDepartment")
+  vehicles            Vehicle[]            @relation("VehicleDepartment")
+  drivers             Driver[]             @relation("DriverDepartment")
+  users               User[]               @relation("UserDepartment")
+  employees           Employee[]           @relation("EmployeeDepartment")
   /// Optional business ownership link for physical locations (not a hierarchy node)
   functionalLocations FunctionalLocation[] @relation("LocationDepartment")
 
@@ -729,48 +736,79 @@ model Department {
 }
 
 model Asset {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?        @db.ObjectId
-  tenant          Tenant?        @relation(fields: [tenantId], references: [id])
-  assetTag        String         @unique
-  name            String
-  description     String?
-  category        AssetCategory
-  condition       AssetCondition @default(GOOD)
-  status          AssetStatus    @default(ACTIVE)
-  purchaseDate    DateTime?
-  purchasePrice   Float?
-  supplier        String?
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?           @db.ObjectId
+  tenant           Tenant?           @relation(fields: [tenantId], references: [id])
+  assetTag         String            @unique
+  name             String
+  description      String?
+  /// Legacy fixed enum — retained for compatibility; prefer categoryMasterId
+  category         AssetCategory
+  condition        AssetCondition    @default(GOOD)
+  status           AssetStatus       @default(ACTIVE)
+  purchaseDate     DateTime?
+  purchasePrice    Float?
+  supplier         String?
   /// Legacy free-text department — preserved for historical accuracy
-  department      String?
+  department       String?
   /// FK to Department master — nullable for legacy records
-  departmentId    String?        @db.ObjectId
-  departmentRef   Department?    @relation("AssetDepartment", fields: [departmentId], references: [id])
-  ownerName       String?
-  currentValue    Float?
-  location        String?
-  manufacturer    String?
-  model           String?
-  serialNumber    String?
-  meterReading    Float?
-  lastServiceDate DateTime?
-  nextServiceDate DateTime?
-  warrantyExpiry  DateTime?
-  /// SAFETY | PRODUCTION | STANDARD | LOW — explainable criticality, not a legal gate.
-  criticality     String?
-  disposalDate    DateTime?
-  disposalReason  String?
-  archivedAt      DateTime?
-  images          String[]
-  documents       String[]
-  qrCodeUrl       String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  departmentId     String?           @db.ObjectId
+  departmentRef    Department?       @relation("AssetDepartment", fields: [departmentId], references: [id])
+  ownerName        String?
+  currentValue     Float?
+  /// Deprecated free-text location — keep during Phase 4 migration; authoritative = site/FL
+  location         String?
+  manufacturer     String?
+  model            String?
+  serialNumber     String?
+  /// Compatibility/summary meter only — Phase 8 owns multi-meter engine
+  meterReading     Float?
+  /// Compatibility service dates — Phase 8 owns PM plans
+  lastServiceDate  DateTime?
+  nextServiceDate  DateTime?
+  warrantyExpiry   DateTime?
+  /// Legacy free-text criticality (SAFETY|PRODUCTION|…); prefer criticalityLevel
+  criticality      String?
+  criticalityLevel AssetCriticality?
+  disposalDate     DateTime?
+  disposalReason   String?
+  retiredAt        DateTime?
+  retirementReason String?
+  commissionedAt   DateTime?
+  archivedAt       DateTime?
+  images           String[]
+  documents        String[]
+  qrCodeUrl        String?
+
+  /// Phase 4 universal registry links
+  domainId             String?              @db.ObjectId
+  domain               AssetDomain?         @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryMasterId     String?              @db.ObjectId
+  categoryMaster       AssetCategoryMaster? @relation(fields: [categoryMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  typeMasterId         String?              @db.ObjectId
+  typeMaster           AssetTypeMaster?     @relation(fields: [typeMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  siteId               String?              @db.ObjectId
+  site                 Site?                @relation(fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  functionalLocationId String?              @db.ObjectId
+  functionalLocation   FunctionalLocation?  @relation(fields: [functionalLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentAssetId        String?              @db.ObjectId
+  parentAsset          Asset?               @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childAssets          Asset[]              @relation("AssetChildren")
+  responsiblePersonId  String?              @db.ObjectId
+  responsiblePerson    User?                @relation("AssetResponsiblePerson", fields: [responsiblePersonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Validated type-specific attributes (server validates against AssetAttributeDefinition)
+  customAttributes     Json?
+  isActive             Boolean              @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   maintenanceLogs      MaintenanceLog[]
   maintenanceSchedules MaintenanceSchedule[]
   workOrders           WorkOrder[]
   predictiveLogs       PredictiveLog[]
+  locationHistories    AssetLocationHistory[]
+  linkedVehicle        Vehicle?
 
   @@index([tenantId])
   @@index([status])
@@ -779,12 +817,23 @@ model Asset {
   @@index([archivedAt])
   @@index([nextServiceDate])
   @@index([departmentId])
+  @@index([tenantId, siteId])
+  @@index([tenantId, functionalLocationId])
+  @@index([tenantId, domainId])
+  @@index([tenantId, categoryMasterId])
+  @@index([tenantId, typeMasterId])
+  @@index([tenantId, parentAssetId])
+  @@index([tenantId, criticalityLevel])
+  @@index([tenantId, serialNumber])
+  @@index([tenantId, isActive])
 }
 
 enum AssetStatus {
+  DRAFT
   ACTIVE
   INACTIVE
   UNDER_MAINTENANCE
+  OUT_OF_SERVICE
   DISPOSED
   RETIRED
 }
@@ -816,12 +865,139 @@ enum AssetCondition {
   CRITICAL
 }
 
+/// Business criticality for maintenance prioritization (do not invent values for legacy rows)
+enum AssetCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AssetAttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+}
+
+/// Tenant-scoped maintenance domain family (not a separate software engine)
+model AssetDomain {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories AssetCategoryMaster[]
+  assets     Asset[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+}
+
+/// Configurable category under a domain — name avoids collision with enum AssetCategory
+model AssetCategoryMaster {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String         @db.ObjectId
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domainId    String         @db.ObjectId
+  domain      AssetDomain    @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  /// Optional deterministic map from legacy AssetCategory enum value
+  legacyEnum  AssetCategory?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  types  AssetTypeMaster[]
+  assets Asset[]
+
+  @@unique([tenantId, domainId, code])
+  @@index([tenantId, domainId])
+  @@index([tenantId, isActive])
+}
+
+model AssetTypeMaster {
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String              @db.ObjectId
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoryId  String              @db.ObjectId
+  category    AssetCategoryMaster @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  attributeDefinitions AssetAttributeDefinition[]
+  assets               Asset[]
+
+  @@unique([tenantId, categoryId, code])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, isActive])
+}
+
+model AssetAttributeDefinition {
+  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String                 @db.ObjectId
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  typeMasterId String                 @db.ObjectId
+  typeMaster   AssetTypeMaster        @relation(fields: [typeMasterId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  dataType     AssetAttributeDataType
+  unit         String?
+  required     Boolean                @default(false)
+  options      String[]
+  minValue     Float?
+  maxValue     Float?
+  displayOrder Int                    @default(0)
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([tenantId, typeMasterId, key])
+  @@index([tenantId, typeMasterId, isActive])
+}
+
+/// Authoritative asset location movement history — never silent overwrite only
+model AssetLocationHistory {
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                 String   @db.ObjectId
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId                  String   @db.ObjectId
+  asset                    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromSiteId               String?  @db.ObjectId
+  fromFunctionalLocationId String?  @db.ObjectId
+  toSiteId                 String   @db.ObjectId
+  toFunctionalLocationId   String   @db.ObjectId
+  effectiveAt              DateTime @default(now())
+  reason                   String
+  movedById                String?  @db.ObjectId
+  createdAt                DateTime @default(now())
+
+  @@index([tenantId, assetId, effectiveAt])
+  @@index([tenantId, toSiteId])
+}
+
 model Vehicle {
   id                        String               @id @default(auto()) @map("_id") @db.ObjectId
   tenantId                  String?              @db.ObjectId
   tenant                    Tenant?              @relation(fields: [tenantId], references: [id])
   registrationNo            String               @unique
   assetTag                  String?
+  /// Phase 4: Vehicle becomes Asset extension — optional link; full Fleet in Phase 10
+  assetId                   String?              @unique @db.ObjectId
+  asset                     Asset?               @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   make                      String
   vehicleModel              String
   description               String?
@@ -974,21 +1150,21 @@ model Driver {
 }
 
 model FuelLog {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  vehicleId     String   @db.ObjectId
-  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id])
-  driverId      String?  @db.ObjectId
-  driver        Driver?  @relation(fields: [driverId], references: [id])
-  date          DateTime
-  liters        Float
-  costPerLiter  Float
-  totalCost     Float
-  mileageAtFuel Float
-  fuelStation   String?
-  receiptUrl    String?
-  notes         String?
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId      String   @db.ObjectId
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id])
+  driverId       String?  @db.ObjectId
+  driver         Driver?  @relation(fields: [driverId], references: [id])
+  date           DateTime
+  liters         Float
+  costPerLiter   Float
+  totalCost      Float
+  mileageAtFuel  Float
+  fuelStation    String?
+  receiptUrl     String?
+  notes          String?
   clientActionId String?
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([vehicleId, date])
   @@index([driverId, date])
@@ -1098,31 +1274,31 @@ model GpsLocation {
 }
 
 model MaintenanceSchedule {
-  id              String               @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  description     String?
-  type            MaintenanceType
-  frequency       MaintenanceFrequency
-  intervalDays    Int?
-  intervalMileage Float?
-  assetId         String?              @db.ObjectId
-  asset           Asset?               @relation(fields: [assetId], references: [id])
-  vehicleId       String?              @db.ObjectId
-  vehicle         Vehicle?             @relation(fields: [vehicleId], references: [id])
-  nextDueDate     DateTime?
-  nextDueMileage  Float?
-  nextDueHours    Float?
-  intervalHours   Float?
-  lastCompletedAt DateTime?
+  id                   String               @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  description          String?
+  type                 MaintenanceType
+  frequency            MaintenanceFrequency
+  intervalDays         Int?
+  intervalMileage      Float?
+  assetId              String?              @db.ObjectId
+  asset                Asset?               @relation(fields: [assetId], references: [id])
+  vehicleId            String?              @db.ObjectId
+  vehicle              Vehicle?             @relation(fields: [vehicleId], references: [id])
+  nextDueDate          DateTime?
+  nextDueMileage       Float?
+  nextDueHours         Float?
+  intervalHours        Float?
+  lastCompletedAt      DateTime?
   lastCompletedMileage Float?
   lastCompletedHours   Float?
   /// ACTUAL_COMPLETION (default) or FIXED_SCHEDULE. Documented in BUSINESS_DECISIONS_REQUIRED.md.
-  advancePolicy   String?
-  isActive        Boolean              @default(true)
-  estimatedCost   Float?
-  estimatedHours  Float?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  advancePolicy        String?
+  isActive             Boolean              @default(true)
+  estimatedCost        Float?
+  estimatedHours       Float?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   maintenanceLogs MaintenanceLog[]
   workOrders      WorkOrder[]
@@ -1203,73 +1379,73 @@ model MaintenanceLog {
 }
 
 model WorkOrder {
-  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId               String?                 @db.ObjectId
-  tenant                 Tenant?                 @relation(fields: [tenantId], references: [id])
-  woNumber               String                  @unique
-  title                  String
-  description            String
-  priority               Priority                @default(MEDIUM)
-  status                 WorkOrderStatus         @default(OPEN)
-  approvalStatus         WorkOrderApprovalStatus @default(APPROVED)
-  approvedById           String?                 @db.ObjectId
-  approvedBy             User?                   @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
-  approvedAt             DateTime?
-  rejectionReason        String?
-  type                   WorkOrderType
-  assetId                String?                 @db.ObjectId
-  asset                  Asset?                  @relation(fields: [assetId], references: [id])
-  vehicleId              String?                 @db.ObjectId
-  vehicle                Vehicle?                @relation(fields: [vehicleId], references: [id])
-  scheduleId             String?                 @db.ObjectId
-  schedule               MaintenanceSchedule?    @relation(fields: [scheduleId], references: [id])
-  createdById            String                  @db.ObjectId
-  createdBy              User                    @relation("CreatorWorkOrders", fields: [createdById], references: [id])
-  technicianId           String?                 @db.ObjectId
-  technician             User?                   @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
-  dueDate                DateTime?
-  expectedCompletionDate DateTime?
-  plannedStartAt         DateTime?
-  plannedEndAt           DateTime?
-  delayReason            String?
-  cancelledReason        String?
-  technicianCompletionNote String?
-  verificationStatus     WorkOrderVerificationStatus @default(NOT_REQUIRED)
-  verifiedById           String?                 @db.ObjectId
-  verifiedBy             User?                   @relation("VerifiedWorkOrders", fields: [verifiedById], references: [id])
-  verifiedAt             DateTime?
-  verificationNote       String?
+  id                          String                        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                    String?                       @db.ObjectId
+  tenant                      Tenant?                       @relation(fields: [tenantId], references: [id])
+  woNumber                    String                        @unique
+  title                       String
+  description                 String
+  priority                    Priority                      @default(MEDIUM)
+  status                      WorkOrderStatus               @default(OPEN)
+  approvalStatus              WorkOrderApprovalStatus       @default(APPROVED)
+  approvedById                String?                       @db.ObjectId
+  approvedBy                  User?                         @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
+  approvedAt                  DateTime?
+  rejectionReason             String?
+  type                        WorkOrderType
+  assetId                     String?                       @db.ObjectId
+  asset                       Asset?                        @relation(fields: [assetId], references: [id])
+  vehicleId                   String?                       @db.ObjectId
+  vehicle                     Vehicle?                      @relation(fields: [vehicleId], references: [id])
+  scheduleId                  String?                       @db.ObjectId
+  schedule                    MaintenanceSchedule?          @relation(fields: [scheduleId], references: [id])
+  createdById                 String                        @db.ObjectId
+  createdBy                   User                          @relation("CreatorWorkOrders", fields: [createdById], references: [id])
+  technicianId                String?                       @db.ObjectId
+  technician                  User?                         @relation("TechnicianWorkOrders", fields: [technicianId], references: [id])
+  dueDate                     DateTime?
+  expectedCompletionDate      DateTime?
+  plannedStartAt              DateTime?
+  plannedEndAt                DateTime?
+  delayReason                 String?
+  cancelledReason             String?
+  technicianCompletionNote    String?
+  verificationStatus          WorkOrderVerificationStatus   @default(NOT_REQUIRED)
+  verifiedById                String?                       @db.ObjectId
+  verifiedBy                  User?                         @relation("VerifiedWorkOrders", fields: [verifiedById], references: [id])
+  verifiedAt                  DateTime?
+  verificationNote            String?
   verificationRejectionReason String?
-  reopenReason           String?
-  reopenedAt             DateTime?
-  reopenedById           String?                 @db.ObjectId
-  reopenedBy             User?                   @relation("ReopenedWorkOrders", fields: [reopenedById], references: [id])
-  startDate              DateTime?
-  completedDate          DateTime?
-  estimatedCost          Float?
-  actualCost             Float?
-  estimatedHours         Float?
-  actualHours            Float?
-  slaDeadline            DateTime?
-  slaBreached            Boolean                 @default(false)
-  notes                  String?
-  attachments            String[]
-  completionCondition    WorkOrderCompletionCondition?
-  followUpRequired       Boolean                 @default(false)
-  followUpNote           String?
-  qrVerificationStatus   QrVerificationStatus    @default(NOT_REQUIRED)
-  qrVerifiedAt           DateTime?
-  qrVerifiedById         String?                 @db.ObjectId
-  qrVerifiedBy           User?                   @relation("QrVerifiedWorkOrders", fields: [qrVerifiedById], references: [id])
-  qrVerifiedAssetId      String?                 @db.ObjectId
-  qrVerifiedVehicleId    String?                 @db.ObjectId
-  qrOverrideReason       String?
-  accidentId             String?                 @db.ObjectId
-  accident               AccidentReport?         @relation(fields: [accidentId], references: [id])
-  trafficFineId          String?                 @db.ObjectId
-  trafficFine            TrafficFine?            @relation(fields: [trafficFineId], references: [id])
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  reopenReason                String?
+  reopenedAt                  DateTime?
+  reopenedById                String?                       @db.ObjectId
+  reopenedBy                  User?                         @relation("ReopenedWorkOrders", fields: [reopenedById], references: [id])
+  startDate                   DateTime?
+  completedDate               DateTime?
+  estimatedCost               Float?
+  actualCost                  Float?
+  estimatedHours              Float?
+  actualHours                 Float?
+  slaDeadline                 DateTime?
+  slaBreached                 Boolean                       @default(false)
+  notes                       String?
+  attachments                 String[]
+  completionCondition         WorkOrderCompletionCondition?
+  followUpRequired            Boolean                       @default(false)
+  followUpNote                String?
+  qrVerificationStatus        QrVerificationStatus          @default(NOT_REQUIRED)
+  qrVerifiedAt                DateTime?
+  qrVerifiedById              String?                       @db.ObjectId
+  qrVerifiedBy                User?                         @relation("QrVerifiedWorkOrders", fields: [qrVerifiedById], references: [id])
+  qrVerifiedAssetId           String?                       @db.ObjectId
+  qrVerifiedVehicleId         String?                       @db.ObjectId
+  qrOverrideReason            String?
+  accidentId                  String?                       @db.ObjectId
+  accident                    AccidentReport?               @relation(fields: [accidentId], references: [id])
+  trafficFineId               String?                       @db.ObjectId
+  trafficFine                 TrafficFine?                  @relation(fields: [trafficFineId], references: [id])
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
 
   maintenanceLogs     MaintenanceLog[]
   parts               WorkOrderPart[]
@@ -1280,20 +1456,20 @@ model WorkOrder {
   assignees           WorkOrderAssignee[]
   vendorRepairCase    VendorRepairCase?
 
-  taxonomyCategoryId   String?             @db.ObjectId
-  taxonomyCategory     WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  taxonomyTypeId       String?             @db.ObjectId
-  taxonomyType         WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  taxonomyIssueId      String?             @db.ObjectId
-  taxonomyIssue          WorkOrderTaxonomy?  @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyCategoryId   String?            @db.ObjectId
+  taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyTypeId       String?            @db.ObjectId
+  taxonomyType         WorkOrderTaxonomy? @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyIssueId      String?            @db.ObjectId
+  taxonomyIssue        WorkOrderTaxonomy? @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   installedParts       InstalledPart[]
   categoryNameSnapshot String?
   typeNameSnapshot     String?
   issueNameSnapshot    String?
-  isTriage             Boolean             @default(false)
+  isTriage             Boolean            @default(false)
   triageReason         String?
   triageClassifiedAt   DateTime?
-  triageClassifiedById String?             @db.ObjectId
+  triageClassifiedById String?            @db.ObjectId
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1324,40 +1500,40 @@ enum WorkOrderTaxonomyLevel {
 }
 
 model WorkOrderTaxonomy {
-  id                          String                 @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId                    String?                @db.ObjectId
-  tenant                      Tenant?                @relation(fields: [tenantId], references: [id])
-  code                        String
-  name                        String
-  description                 String?
-  parentId                    String?                @db.ObjectId
-  parent                      WorkOrderTaxonomy?     @relation("WorkOrderTaxonomyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children                    WorkOrderTaxonomy[]    @relation("WorkOrderTaxonomyHierarchy")
-  level                       WorkOrderTaxonomyLevel
-  active                      Boolean                @default(true)
-  sortOrder                   Int                    @default(0)
-  departmentScope             String?
-  defaultPriority             Priority?
-  defaultSlaHours             Int?
-  requiresAsset               Boolean                @default(false)
-  requiresVehicle             Boolean                @default(false)
-  requiresLocation            Boolean                @default(false)
-  requiresEvidence            Boolean                @default(false)
-  requiresSupervisorVerification Boolean             @default(false)
-  requiresPartsReview         Boolean                @default(false)
-  requiresFinanceApproval     Boolean                @default(false)
-  gateOutBlockingRisk         Boolean                @default(false)
-  downtimeTrackingRequired    Boolean                @default(false)
-  allowedRoles                String[]
-  aliases                     String[]
-  keywords                    String[]
-  commonMistakes              String[]
-  sinhalaKeywords             String[]
-  departmentHints             String[]
-  createdById                 String?                @db.ObjectId
-  updatedById                 String?                @db.ObjectId
-  createdAt                   DateTime               @default(now())
-  updatedAt                   DateTime               @updatedAt
+  id                             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                       String?                @db.ObjectId
+  tenant                         Tenant?                @relation(fields: [tenantId], references: [id])
+  code                           String
+  name                           String
+  description                    String?
+  parentId                       String?                @db.ObjectId
+  parent                         WorkOrderTaxonomy?     @relation("WorkOrderTaxonomyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children                       WorkOrderTaxonomy[]    @relation("WorkOrderTaxonomyHierarchy")
+  level                          WorkOrderTaxonomyLevel
+  active                         Boolean                @default(true)
+  sortOrder                      Int                    @default(0)
+  departmentScope                String?
+  defaultPriority                Priority?
+  defaultSlaHours                Int?
+  requiresAsset                  Boolean                @default(false)
+  requiresVehicle                Boolean                @default(false)
+  requiresLocation               Boolean                @default(false)
+  requiresEvidence               Boolean                @default(false)
+  requiresSupervisorVerification Boolean                @default(false)
+  requiresPartsReview            Boolean                @default(false)
+  requiresFinanceApproval        Boolean                @default(false)
+  gateOutBlockingRisk            Boolean                @default(false)
+  downtimeTrackingRequired       Boolean                @default(false)
+  allowedRoles                   String[]
+  aliases                        String[]
+  keywords                       String[]
+  commonMistakes                 String[]
+  sinhalaKeywords                String[]
+  departmentHints                String[]
+  createdById                    String?                @db.ObjectId
+  updatedById                    String?                @db.ObjectId
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
 
   workOrdersAsCategory WorkOrder[] @relation("WorkOrderTaxonomyCategory")
   workOrdersAsType     WorkOrder[] @relation("WorkOrderTaxonomyType")
@@ -1457,30 +1633,30 @@ enum WorkOrderAssigneeStatus {
 
 /// Workforce / technician master — assignable to work orders with or without login.
 model Employee {
-  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?     @db.ObjectId
-  tenant             Tenant?     @relation(fields: [tenantId], references: [id])
-  employeeNo         String?
-  fullName           String
-  phone              String?
-  email              String?
+  id                   String                     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?                    @db.ObjectId
+  tenant               Tenant?                    @relation(fields: [tenantId], references: [id])
+  employeeNo           String?
+  fullName             String
+  phone                String?
+  email                String?
   /// Optional branch/site label until Branch master exists
-  branchName         String?
-  departmentId       String?     @db.ObjectId
-  department         Department? @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  designation        String
-  skills             String[]
-  workCategories     String[]                    @default([])
-  shift              String?
-  availabilityStatus EmployeeAvailabilityStatus @default(AVAILABLE)
-  canReceiveWorkOrders Boolean                   @default(true)
-  dailyCapacityHours Float                       @default(8)
-  active             Boolean                     @default(true)
-  canLogin           Boolean     @default(false)
-  linkedUserId       String?     @db.ObjectId
-  linkedUser         User?       @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  branchName           String?
+  departmentId         String?                    @db.ObjectId
+  department           Department?                @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  designation          String
+  skills               String[]
+  workCategories       String[]                   @default([])
+  shift                String?
+  availabilityStatus   EmployeeAvailabilityStatus @default(AVAILABLE)
+  canReceiveWorkOrders Boolean                    @default(true)
+  dailyCapacityHours   Float                      @default(8)
+  active               Boolean                    @default(true)
+  canLogin             Boolean                    @default(false)
+  linkedUserId         String?                    @db.ObjectId
+  linkedUser           User?                      @relation("EmployeeLinkedUser", fields: [linkedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 
   workOrderAssigneeRows WorkOrderAssignee[]    @relation("WorkOrderAssigneeEmployee")
   employeeRosterEntries EmployeeRosterEntry[]
@@ -1576,45 +1752,45 @@ model EmployeeLeaveRequest {
 }
 
 model SparePart {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?   @db.ObjectId
-  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
-  partNumber      String    @unique
-  name            String
-  description     String?
-  category        String
-  unit            String    @default("pcs")
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?   @db.ObjectId
+  tenant            Tenant?   @relation(fields: [tenantId], references: [id])
+  partNumber        String    @unique
+  name              String
+  description       String?
+  category          String
+  unit              String    @default("pcs")
   /// ON_HAND (denormalized default-warehouse / company total for current single-warehouse tenants).
-  quantityInStock Int       @default(0)
+  quantityInStock   Int       @default(0)
   /// RESERVED units held for approved work-order demand.
-  reservedQuantity Int      @default(0)
+  reservedQuantity  Int       @default(0)
   /// AVAILABLE = ON_HAND - RESERVED. Maintained atomically by InventoryTransactionEngine.
-  availableQuantity Int     @default(0)
-  minimumStock    Int       @default(0)
-  reorderPoint    Int       @default(0)
-  maximumStock    Int       @default(0)
-  unitCost        Float
-  location        String?
-  supplierId      String?   @db.ObjectId
-  supplier        Supplier? @relation(fields: [supplierId], references: [id])
-  images          String[]
-  isActive        Boolean   @default(true)
-  leadTimeDays    Int?
+  availableQuantity Int       @default(0)
+  minimumStock      Int       @default(0)
+  reorderPoint      Int       @default(0)
+  maximumStock      Int       @default(0)
+  unitCost          Float
+  location          String?
+  supplierId        String?   @db.ObjectId
+  supplier          Supplier? @relation(fields: [supplierId], references: [id])
+  images            String[]
+  isActive          Boolean   @default(true)
+  leadTimeDays      Int?
   /// CRITICAL | NORMAL. Consumables may omit serial/warranty tracking.
-  criticality     String?
-  warrantyDays    Int?
-  warrantyMileage Float?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  criticality       String?
+  warrantyDays      Int?
+  warrantyMileage   Float?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  stockMovements     StockMovement[]
-  workOrderParts     WorkOrderPart[]
-  partRequests       PartRequest[]
-  partIssues         PartIssue[]
-  purchaseOrderLines PurchaseOrderLine[]
-  warehouseBalances  WarehouseItemBalance[]
-  compatibilities    PartCompatibility[]
-  installedParts     InstalledPart[]
+  stockMovements             StockMovement[]
+  workOrderParts             WorkOrderPart[]
+  partRequests               PartRequest[]
+  partIssues                 PartIssue[]
+  purchaseOrderLines         PurchaseOrderLine[]
+  warehouseBalances          WarehouseItemBalance[]
+  compatibilities            PartCompatibility[]
+  installedParts             InstalledPart[]
   procurementRecommendations ProcurementRecommendation[]
 
   @@index([tenantId])
@@ -1645,19 +1821,19 @@ model Warehouse {
 
 /// Authoritative per-warehouse stock. Unique identity: tenant + warehouse + item.
 model WarehouseItemBalance {
-  id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String    @db.ObjectId
-  tenant            Tenant    @relation(fields: [tenantId], references: [id])
-  warehouseId       String    @db.ObjectId
-  warehouse         Warehouse @relation(fields: [warehouseId], references: [id])
-  partId            String    @db.ObjectId
-  part              SparePart @relation(fields: [partId], references: [id])
-  onHand            Int       @default(0)
-  reserved          Int       @default(0)
-  available         Int       @default(0)
-  lastMovementAt    DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String    @db.ObjectId
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  warehouseId    String    @db.ObjectId
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id])
+  partId         String    @db.ObjectId
+  part           SparePart @relation(fields: [partId], references: [id])
+  onHand         Int       @default(0)
+  reserved       Int       @default(0)
+  available      Int       @default(0)
+  lastMovementAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([tenantId, warehouseId, partId])
   @@index([tenantId, partId])
@@ -1665,31 +1841,31 @@ model WarehouseItemBalance {
 }
 
 model StockMovement {
-  id                    String       @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId              String?      @db.ObjectId
-  tenant                Tenant?      @relation(fields: [tenantId], references: [id])
-  partId                String       @db.ObjectId
-  part                  SparePart    @relation(fields: [partId], references: [id])
-  warehouseId           String?      @db.ObjectId
-  warehouse             Warehouse?   @relation(fields: [warehouseId], references: [id])
-  type                  MovementType
-  quantity              Int
-  reference             String?
-  notes                 String?
-  workOrderId           String?      @db.ObjectId
-  vehicleId             String?      @db.ObjectId
-  actorUserId           String?      @db.ObjectId
-  sourceType            String?
-  sourceDocument        String?
-  sourceLineKey         String?
-  importRunId           String?      @db.ObjectId
-  importRun             ErpImportBatch? @relation(fields: [importRunId], references: [id])
-  transferGroupId       String?
-  reversalOfMovementId  String?      @db.ObjectId
-  reversalOf            StockMovement?  @relation("StockMovementReversal", fields: [reversalOfMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  reversals             StockMovement[] @relation("StockMovementReversal")
-  quantityReversed      Int          @default(0)
-  createdAt             DateTime     @default(now())
+  id                   String          @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?         @db.ObjectId
+  tenant               Tenant?         @relation(fields: [tenantId], references: [id])
+  partId               String          @db.ObjectId
+  part                 SparePart       @relation(fields: [partId], references: [id])
+  warehouseId          String?         @db.ObjectId
+  warehouse            Warehouse?      @relation(fields: [warehouseId], references: [id])
+  type                 MovementType
+  quantity             Int
+  reference            String?
+  notes                String?
+  workOrderId          String?         @db.ObjectId
+  vehicleId            String?         @db.ObjectId
+  actorUserId          String?         @db.ObjectId
+  sourceType           String?
+  sourceDocument       String?
+  sourceLineKey        String?
+  importRunId          String?         @db.ObjectId
+  importRun            ErpImportBatch? @relation(fields: [importRunId], references: [id])
+  transferGroupId      String?
+  reversalOfMovementId String?         @db.ObjectId
+  reversalOf           StockMovement?  @relation("StockMovementReversal", fields: [reversalOfMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversals            StockMovement[] @relation("StockMovementReversal")
+  quantityReversed     Int             @default(0)
+  createdAt            DateTime        @default(now())
 
   @@index([partId, createdAt])
   @@index([tenantId, workOrderId])
@@ -1704,14 +1880,14 @@ model StockMovement {
 
 /// Tenant-scoped idempotency for stock-out (only created when client supplies a key).
 model InventoryStockIssueIdempotency {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId   String   @db.ObjectId
-  key        String
-  partId     String   @db.ObjectId
-  movementId String   @db.ObjectId
-  workOrderId String? @db.ObjectId
-  quantity   Int
-  createdAt  DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  key         String
+  partId      String   @db.ObjectId
+  movementId  String   @db.ObjectId
+  workOrderId String?  @db.ObjectId
+  quantity    Int
+  createdAt   DateTime @default(now())
 
   @@unique([tenantId, key])
   @@index([tenantId, partId])
@@ -1781,23 +1957,23 @@ model InventoryImportRun {
 }
 
 model InventoryImportRow {
-  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId             String                    @db.ObjectId
-  importRunId          String                    @db.ObjectId
-  importRun            InventoryImportRun        @relation(fields: [importRunId], references: [id], onDelete: Cascade)
-  rowNumber            Int
-  erpItemCode          String?
-  itemName             String?
-  erpQuantity          Int?
-  warehouseCode        String?
-  uom                  String?
-  partId               String?                   @db.ObjectId
-  partNumber           String?
-  maintainProQuantity  Int?
-  difference           Int?
-  status               InventoryImportRowStatus
-  message              String?
-  createdAt            DateTime                  @default(now())
+  id                  String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String                   @db.ObjectId
+  importRunId         String                   @db.ObjectId
+  importRun           InventoryImportRun       @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  rowNumber           Int
+  erpItemCode         String?
+  itemName            String?
+  erpQuantity         Int?
+  warehouseCode       String?
+  uom                 String?
+  partId              String?                  @db.ObjectId
+  partNumber          String?
+  maintainProQuantity Int?
+  difference          Int?
+  status              InventoryImportRowStatus
+  message             String?
+  createdAt           DateTime                 @default(now())
 
   @@index([importRunId, status])
   @@index([tenantId, importRunId])
@@ -1829,30 +2005,30 @@ enum InventoryImportRowStatus {
 /// DB-backed staging (not Redis) so preview/commit survive multi-replica
 /// deployments without a hard Redis dependency — mirrors InventoryImportRun above.
 model BulkImportRun {
-  id             String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId       String              @db.ObjectId
-  tenant         Tenant              @relation(fields: [tenantId], references: [id])
-  entityType     BulkImportEntity
-  mode           BulkImportMode      @default(CREATE_NEW_SKIP_EXISTING)
-  status         BulkImportRunStatus @default(UPLOADED)
+  id               String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String              @db.ObjectId
+  tenant           Tenant              @relation(fields: [tenantId], references: [id])
+  entityType       BulkImportEntity
+  mode             BulkImportMode      @default(CREATE_NEW_SKIP_EXISTING)
+  status           BulkImportRunStatus @default(UPLOADED)
   originalFilename String
-  fileFormat     String
-  fileSha256     String
-  fileSizeBytes  Int
-  actorUserId    String              @db.ObjectId
-  actor          User                @relation(fields: [actorUserId], references: [id])
-  actorEmail     String
-  totalRows      Int                 @default(0)
-  createCount    Int                 @default(0)
-  updateCount    Int                 @default(0)
-  skipCount      Int                 @default(0)
-  errorCount     Int                 @default(0)
-  errorSummary   String?
-  createdAt      DateTime            @default(now())
-  validatedAt    DateTime?
-  committedAt    DateTime?
-  expiresAt      DateTime
-  rows           BulkImportRow[]
+  fileFormat       String
+  fileSha256       String
+  fileSizeBytes    Int
+  actorUserId      String              @db.ObjectId
+  actor            User                @relation(fields: [actorUserId], references: [id])
+  actorEmail       String
+  totalRows        Int                 @default(0)
+  createCount      Int                 @default(0)
+  updateCount      Int                 @default(0)
+  skipCount        Int                 @default(0)
+  errorCount       Int                 @default(0)
+  errorSummary     String?
+  createdAt        DateTime            @default(now())
+  validatedAt      DateTime?
+  committedAt      DateTime?
+  expiresAt        DateTime
+  rows             BulkImportRow[]
 
   @@index([tenantId, entityType, createdAt])
   @@index([tenantId, status, createdAt])
@@ -1860,10 +2036,10 @@ model BulkImportRun {
 }
 
 model BulkImportRow {
-  id              String            @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String            @db.ObjectId
-  runId           String            @db.ObjectId
-  run             BulkImportRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String              @db.ObjectId
+  runId           String              @db.ObjectId
+  run             BulkImportRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
   rowNumber       Int
   naturalKey      String?
   normalizedData  Json
@@ -1871,7 +2047,7 @@ model BulkImportRow {
   action          BulkImportRowAction
   errors          Json?
   warnings        Json?
-  createdEntityId String?           @db.ObjectId
+  createdEntityId String?             @db.ObjectId
 
   @@index([runId, rowNumber])
   @@index([tenantId, runId])
@@ -1993,11 +2169,11 @@ model Supplier {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  spareParts         SparePart[]
-  purchaseOrders     PurchaseOrder[]
-  vendorRepairCases  VendorRepairCase[]
-  vendorQuotations   VendorQuotation[]
-  vendorInvoices     VendorInvoice[]
+  spareParts        SparePart[]
+  purchaseOrders    PurchaseOrder[]
+  vendorRepairCases VendorRepairCase[]
+  vendorQuotations  VendorQuotation[]
+  vendorInvoices    VendorInvoice[]
 
   @@unique([tenantId, vendorCode])
   @@index([tenantId])
@@ -2049,28 +2225,28 @@ enum VendorApprovalLevel {
 }
 
 model VendorRepairCase {
-  id                     String             @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId               String?            @db.ObjectId
-  tenant                 Tenant?            @relation(fields: [tenantId], references: [id])
-  workOrderId            String             @unique @db.ObjectId
-  workOrder              WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  supplierId             String?            @db.ObjectId
-  supplier               Supplier?          @relation(fields: [supplierId], references: [id])
-  status                 VendorRepairStatus @default(INTERNAL_REVIEW)
-  externalRepairReason   String?
-  emergencyOverride      Boolean            @default(false)
+  id                      String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String?            @db.ObjectId
+  tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
+  workOrderId             String             @unique @db.ObjectId
+  workOrder               WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  supplierId              String?            @db.ObjectId
+  supplier                Supplier?          @relation(fields: [supplierId], references: [id])
+  status                  VendorRepairStatus @default(INTERNAL_REVIEW)
+  externalRepairReason    String?
+  emergencyOverride       Boolean            @default(false)
   emergencyOverrideReason String?
-  emergencyOverrideById  String?            @db.ObjectId
-  requestedById          String?            @db.ObjectId
-  requestedAt            DateTime?
-  authorizedById         String?            @db.ObjectId
-  authorizedAt           DateTime?
-  vendorCompletedAt      DateTime?
-  closedAt               DateTime?
+  emergencyOverrideById   String?            @db.ObjectId
+  requestedById           String?            @db.ObjectId
+  requestedAt             DateTime?
+  authorizedById          String?            @db.ObjectId
+  authorizedAt            DateTime?
+  vendorCompletedAt       DateTime?
+  closedAt                DateTime?
   approvedQuotationAmount Float?
-  approvedQuotationId    String?            @db.ObjectId
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  approvedQuotationId     String?            @db.ObjectId
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   quotations VendorQuotation[]
   invoices   VendorInvoice[]
@@ -2081,30 +2257,30 @@ model VendorRepairCase {
 }
 
 model VendorQuotation {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId             String?               @db.ObjectId
-  tenant               Tenant?               @relation(fields: [tenantId], references: [id])
-  vendorRepairCaseId   String                @db.ObjectId
-  vendorRepairCase     VendorRepairCase      @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
-  workOrderId          String                @db.ObjectId
-  supplierId           String                @db.ObjectId
-  supplier             Supplier              @relation(fields: [supplierId], references: [id])
-  quotationNo          String
-  quotationDate        DateTime
-  quotedAmount         Float
-  currency             String                @default("LKR")
-  validityDate         DateTime?
-  evidenceAttachmentId String?               @db.ObjectId
-  status               VendorQuotationStatus @default(DRAFT)
-  submittedById        String?               @db.ObjectId
-  submittedAt          DateTime?
-  approvedById         String?               @db.ObjectId
-  approvedAt           DateTime?
-  approvalNote         String?
-  rejectionReason      String?
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId              String?               @db.ObjectId
+  tenant                Tenant?               @relation(fields: [tenantId], references: [id])
+  vendorRepairCaseId    String                @db.ObjectId
+  vendorRepairCase      VendorRepairCase      @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
+  workOrderId           String                @db.ObjectId
+  supplierId            String                @db.ObjectId
+  supplier              Supplier              @relation(fields: [supplierId], references: [id])
+  quotationNo           String
+  quotationDate         DateTime
+  quotedAmount          Float
+  currency              String                @default("LKR")
+  validityDate          DateTime?
+  evidenceAttachmentId  String?               @db.ObjectId
+  status                VendorQuotationStatus @default(DRAFT)
+  submittedById         String?               @db.ObjectId
+  submittedAt           DateTime?
+  approvedById          String?               @db.ObjectId
+  approvedAt            DateTime?
+  approvalNote          String?
+  rejectionReason       String?
   requiredApprovalLevel VendorApprovalLevel?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([vendorRepairCaseId])
@@ -2112,35 +2288,35 @@ model VendorQuotation {
 }
 
 model VendorInvoice {
-  id                   String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId             String?             @db.ObjectId
-  tenant               Tenant?             @relation(fields: [tenantId], references: [id])
-  vendorRepairCaseId   String              @db.ObjectId
-  vendorRepairCase     VendorRepairCase    @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
-  workOrderId          String              @db.ObjectId
-  supplierId           String              @db.ObjectId
-  supplier             Supplier            @relation(fields: [supplierId], references: [id])
-  invoiceNo            String
-  invoiceDate          DateTime
-  invoiceAmount        Float
-  taxAmount            Float               @default(0)
-  totalAmount          Float
-  currency             String              @default("LKR")
-  evidenceAttachmentId String?             @db.ObjectId
-  status               VendorInvoiceStatus @default(SUBMITTED)
-  submittedById        String?             @db.ObjectId
-  submittedAt          DateTime?
-  financeApprovedById  String?             @db.ObjectId
-  financeApprovedAt    DateTime?
-  financeNote          String?
-  rejectionReason      String?
+  id                     String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId               String?             @db.ObjectId
+  tenant                 Tenant?             @relation(fields: [tenantId], references: [id])
+  vendorRepairCaseId     String              @db.ObjectId
+  vendorRepairCase       VendorRepairCase    @relation(fields: [vendorRepairCaseId], references: [id], onDelete: Cascade)
+  workOrderId            String              @db.ObjectId
+  supplierId             String              @db.ObjectId
+  supplier               Supplier            @relation(fields: [supplierId], references: [id])
+  invoiceNo              String
+  invoiceDate            DateTime
+  invoiceAmount          Float
+  taxAmount              Float               @default(0)
+  totalAmount            Float
+  currency               String              @default("LKR")
+  evidenceAttachmentId   String?             @db.ObjectId
+  status                 VendorInvoiceStatus @default(SUBMITTED)
+  submittedById          String?             @db.ObjectId
+  submittedAt            DateTime?
+  financeApprovedById    String?             @db.ObjectId
+  financeApprovedAt      DateTime?
+  financeNote            String?
+  rejectionReason        String?
   exceedsQuotationReason String?
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
 
+  @@unique([tenantId, supplierId, invoiceNo])
   @@index([tenantId, workOrderId])
   @@index([vendorRepairCaseId])
-  @@unique([tenantId, supplierId, invoiceNo])
 }
 
 model PurchaseOrder {
@@ -2175,31 +2351,33 @@ model PurchaseOrder {
   @@index([supplierId])
   @@index([createdById])
 }
+
 model PurchaseOrderLine {
-  id                 String                @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?               @db.ObjectId
-  tenant             Tenant?               @relation(fields: [tenantId], references: [id])
-  purchaseOrderId    String                @db.ObjectId
-  purchaseOrder      PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  partId             String?               @db.ObjectId
-  part               SparePart?            @relation(fields: [partId], references: [id])
-  partRequestId      String?               @db.ObjectId
-  partRequest        PartRequest?          @relation(fields: [partRequestId], references: [id])
-  description        String
-  quantity           Int
-  unitCost           Float
-  totalCost          Float
-  receivedQuantity   Int                   @default(0)
-  rejectedQuantity   Int                   @default(0)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  receiptLines       PurchaseReceiptLine[]
+  id               String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?               @db.ObjectId
+  tenant           Tenant?               @relation(fields: [tenantId], references: [id])
+  purchaseOrderId  String                @db.ObjectId
+  purchaseOrder    PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  partId           String?               @db.ObjectId
+  part             SparePart?            @relation(fields: [partId], references: [id])
+  partRequestId    String?               @db.ObjectId
+  partRequest      PartRequest?          @relation(fields: [partRequestId], references: [id])
+  description      String
+  quantity         Int
+  unitCost         Float
+  totalCost        Float
+  receivedQuantity Int                   @default(0)
+  rejectedQuantity Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  receiptLines     PurchaseReceiptLine[]
 
   @@index([tenantId])
   @@index([purchaseOrderId])
   @@index([partId])
   @@index([partRequestId])
 }
+
 model PurchaseOrderApproval {
   id              String                 @id @default(auto()) @map("_id") @db.ObjectId
   tenantId        String?                @db.ObjectId
@@ -2250,6 +2428,7 @@ model PurchaseOrderErpSync {
   @@index([tenantId, idempotencyKey])
   @@index([purchaseOrderId, createdAt])
 }
+
 model PartRequest {
   id                      String            @id @default(auto()) @map("_id") @db.ObjectId
   tenantId                String?           @db.ObjectId
@@ -2271,10 +2450,10 @@ model PartRequest {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
 
-  approvals           PartRequestApproval[]
-  issues              PartIssue[]
-  workOrderParts      WorkOrderPart[]
-  purchaseOrderLines  PurchaseOrderLine[]
+  approvals          PartRequestApproval[]
+  issues             PartIssue[]
+  workOrderParts     WorkOrderPart[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -2348,18 +2527,18 @@ model PurchaseReceipt {
 }
 
 model PurchaseReceiptLine {
-  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId            String?            @db.ObjectId
-  tenant              Tenant?            @relation(fields: [tenantId], references: [id])
-  receiptId           String             @db.ObjectId
-  receipt             PurchaseReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  purchaseOrderLineId String             @db.ObjectId
-  purchaseOrderLine   PurchaseOrderLine  @relation(fields: [purchaseOrderLineId], references: [id])
+  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?           @db.ObjectId
+  tenant              Tenant?           @relation(fields: [tenantId], references: [id])
+  receiptId           String            @db.ObjectId
+  receipt             PurchaseReceipt   @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  purchaseOrderLineId String            @db.ObjectId
+  purchaseOrderLine   PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id])
   acceptedQuantity    Int
-  rejectedQuantity    Int                @default(0)
+  rejectedQuantity    Int               @default(0)
   rejectionReason     String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([receiptId, purchaseOrderLineId])
   @@index([tenantId])
@@ -2379,6 +2558,7 @@ model PurchaseReceiptIdempotency {
   @@unique([tenantId, key])
   @@index([tenantId, purchaseOrderId])
 }
+
 enum POStatus {
   PENDING
   ORDERED
@@ -2799,22 +2979,23 @@ enum FunctionalLocationType {
 }
 
 model Site {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String   @db.ObjectId
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  code         String
-  name         String
-  type         SiteType
-  description  String?
-  address      String?
-  contactPhone String?
-  isActive     Boolean  @default(true)
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String   @db.ObjectId
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code             String
+  name             String
+  type             SiteType
+  description      String?
+  address          String?
+  contactPhone     String?
+  isActive         Boolean  @default(true)
   /// Traceability to legacy Property during migration (do not delete Property yet)
-  legacyPropertyId String? @db.ObjectId
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  legacyPropertyId String?  @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   locations FunctionalLocation[]
+  assets    Asset[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -2823,16 +3004,16 @@ model Site {
 }
 
 model FunctionalLocation {
-  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String                 @db.ObjectId
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId       String                 @db.ObjectId
-  site         Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  parentId     String?                @db.ObjectId
-  parent       FunctionalLocation?    @relation("LocationChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children     FunctionalLocation[]   @relation("LocationChildren")
-  departmentId String?                @db.ObjectId
-  department   Department?            @relation("LocationDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String               @db.ObjectId
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String               @db.ObjectId
+  site         Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  parentId     String?              @db.ObjectId
+  parent       FunctionalLocation?  @relation("LocationChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     FunctionalLocation[] @relation("LocationChildren")
+  departmentId String?              @db.ObjectId
+  department   Department?          @relation("LocationDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   code        String
   name        String
@@ -2846,6 +3027,8 @@ model FunctionalLocation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  assets Asset[]
 
   @@unique([tenantId, siteId, code])
   @@index([tenantId, siteId])
@@ -3981,23 +4164,23 @@ enum QaRegressionResult {
 
 /// Software quality / incident register for UAT-025.
 model QaIssue {
-  id                   String            @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId             String?           @db.ObjectId
-  tenant               Tenant?           @relation(fields: [tenantId], references: [id])
+  id                   String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?             @db.ObjectId
+  tenant               Tenant?             @relation(fields: [tenantId], references: [id])
   issueNo              String
   title                String
   description          String
   category             QaIssueCategory
   subCategory          String?
-  severity             QaIssueSeverity   @default(MEDIUM)
-  priority             QaIssuePriority   @default(MEDIUM)
-  status               QaIssueStatus     @default(REPORTED)
+  severity             QaIssueSeverity     @default(MEDIUM)
+  priority             QaIssuePriority     @default(MEDIUM)
+  status               QaIssueStatus       @default(REPORTED)
   affectedModule       String?
   affectedPage         String?
   affectedApi          String?
-  environment          QaEnvironment     @default(STAGING)
-  reportedByUserId     String            @db.ObjectId
-  assignedToUserId     String?           @db.ObjectId
+  environment          QaEnvironment       @default(STAGING)
+  reportedByUserId     String              @db.ObjectId
+  assignedToUserId     String?             @db.ObjectId
   ownerDepartment      String?
   businessImpact       String?
   userImpact           String?
@@ -4011,26 +4194,26 @@ model QaIssue {
   linkedCommitHash     String?
   linkedDeployId       String?
   linkedUatPhase       String?
-  linkedWorkOrderId    String?           @db.ObjectId
-  linkedIncidentId     String?           @db.ObjectId
+  linkedWorkOrderId    String?             @db.ObjectId
+  linkedIncidentId     String?             @db.ObjectId
   attachmentMetadata   Json?
-  isSensitive          Boolean           @default(false)
+  isSensitive          Boolean             @default(false)
   resolutionNote       String?
-  acceptedRiskByUserId String?           @db.ObjectId
+  acceptedRiskByUserId String?             @db.ObjectId
   acceptedRiskAt       DateTime?
   riskReviewDate       DateTime?
   futureFixPlan        String?
   knownLimitation      String?
-  regressionRequired   Boolean           @default(false)
+  regressionRequired   Boolean             @default(false)
   regressionResult     QaRegressionResult?
   firstDetectedAt      DateTime?
   fixedAt              DateTime?
   closedAt             DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
-  rcaRecords       QaIssueRca[]
-  regressionTests  QaRegressionTest[]
+  rcaRecords      QaIssueRca[]
+  regressionTests QaRegressionTest[]
 
   @@unique([tenantId, issueNo])
   @@index([tenantId, status])
@@ -4125,25 +4308,25 @@ enum DeliveryReadinessVerdict {
 
 /// Client delivery readiness master checklist (UAT-026).
 model DeliveryChecklist {
-  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId             String?                   @db.ObjectId
-  tenant               Tenant?                   @relation(fields: [tenantId], references: [id])
-  checklistNo          String
-  title                String
-  category             DeliveryChecklistCategory
-  description          String?
-  status               DeliveryItemStatus        @default(NOT_STARTED)
-  priority             DeliveryChecklistPriority @default(MEDIUM)
-  requiredForDelivery  Boolean                   @default(true)
-  ownerUserId          String?                   @db.ObjectId
-  evidence             String?
-  notes                String?
-  acceptedRiskReason   String?
-  acceptedByUserId     String?                   @db.ObjectId
-  completedByUserId    String?                   @db.ObjectId
-  completedAt          DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  id                  String                    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?                   @db.ObjectId
+  tenant              Tenant?                   @relation(fields: [tenantId], references: [id])
+  checklistNo         String
+  title               String
+  category            DeliveryChecklistCategory
+  description         String?
+  status              DeliveryItemStatus        @default(NOT_STARTED)
+  priority            DeliveryChecklistPriority @default(MEDIUM)
+  requiredForDelivery Boolean                   @default(true)
+  ownerUserId         String?                   @db.ObjectId
+  evidence            String?
+  notes               String?
+  acceptedRiskReason  String?
+  acceptedByUserId    String?                   @db.ObjectId
+  completedByUserId   String?                   @db.ObjectId
+  completedAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   items DeliveryChecklistItem[]
 
@@ -4153,30 +4336,30 @@ model DeliveryChecklist {
 }
 
 model DeliveryChecklistItem {
-  id                   String                    @id @default(auto()) @map("_id") @db.ObjectId
-  checklistId          String                    @db.ObjectId
-  checklist            DeliveryChecklist         @relation(fields: [checklistId], references: [id], onDelete: Cascade)
-  tenantId             String?                   @db.ObjectId
-  title                String
-  description          String?
-  category             DeliveryChecklistCategory
-  status               DeliveryItemStatus        @default(NOT_STARTED)
-  evidence             String?
-  notes                String?
-  testedByUserId       String?                   @db.ObjectId
-  testedRole           String?
-  testedEnvironment    String?
-  deviceSize           String?
-  responseTimeMs       Int?
-  usabilityRating      Int?
-  blocker              Boolean                   @default(false)
-  requiredForDelivery  Boolean                   @default(true)
-  signOffRequired      Boolean                   @default(false)
-  acceptedRiskReason   String?
-  acceptedByUserId     String?                   @db.ObjectId
-  completedAt          DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  id                  String                    @id @default(auto()) @map("_id") @db.ObjectId
+  checklistId         String                    @db.ObjectId
+  checklist           DeliveryChecklist         @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  tenantId            String?                   @db.ObjectId
+  title               String
+  description         String?
+  category            DeliveryChecklistCategory
+  status              DeliveryItemStatus        @default(NOT_STARTED)
+  evidence            String?
+  notes               String?
+  testedByUserId      String?                   @db.ObjectId
+  testedRole          String?
+  testedEnvironment   String?
+  deviceSize          String?
+  responseTimeMs      Int?
+  usabilityRating     Int?
+  blocker             Boolean                   @default(false)
+  requiredForDelivery Boolean                   @default(true)
+  signOffRequired     Boolean                   @default(false)
+  acceptedRiskReason  String?
+  acceptedByUserId    String?                   @db.ObjectId
+  completedAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@index([checklistId])
   @@index([tenantId, category])
@@ -4414,29 +4597,29 @@ model EscalationRule {
 }
 
 model ChangeRequest {
-  id                String              @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?             @db.ObjectId
-  tenant            Tenant?             @relation(fields: [tenantId], references: [id])
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?               @db.ObjectId
+  tenant            Tenant?               @relation(fields: [tenantId], references: [id])
   crNo              String
   title             String
   description       String
-  requestedByUserId String              @db.ObjectId
+  requestedByUserId String                @db.ObjectId
   department        String?
   affectedModule    String?
   businessReason    String?
   priority          SupportTicketPriority @default(MEDIUM)
-  impactLevel       ChangeRequestImpact @default(MEDIUM)
-  status            ChangeRequestStatus @default(REQUESTED)
+  impactLevel       ChangeRequestImpact   @default(MEDIUM)
+  status            ChangeRequestStatus   @default(REQUESTED)
   estimatedEffort   String?
   estimatedCost     Float?
-  approvedByUserId  String?             @db.ObjectId
+  approvedByUserId  String?               @db.ObjectId
   approvalNote      String?
   rejectionReason   String?
-  linkedTicketId    String?             @db.ObjectId
-  linkedQaIssueId   String?             @db.ObjectId
-  linkedReleaseId   String?             @db.ObjectId
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  linkedTicketId    String?               @db.ObjectId
+  linkedQaIssueId   String?               @db.ObjectId
+  linkedReleaseId   String?               @db.ObjectId
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@unique([tenantId, crNo])
   @@index([tenantId, status])
@@ -4609,32 +4792,32 @@ enum GoLiveSignOffDecision {
 }
 
 model PilotRollout {
-  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId            String?            @db.ObjectId
-  tenant              Tenant?            @relation(fields: [tenantId], references: [id])
-  pilotName           String
-  department          String?
-  branch              String?
-  startDate           DateTime?
-  endDate             DateTime?
-  pilotOwnerUserId    String?            @db.ObjectId
-  selectedUsers       Json?
-  selectedRoles       Json?
-  selectedModules     Json?
-  successCriteria     String?
-  riskLevel           String?
-  status              PilotRolloutStatus @default(PLANNED)
-  notes               String?
-  trainedUsersCount   Int                @default(0)
-  activeUsersCount    Int                @default(0)
-  workOrdersCreated   Int                @default(0)
-  issuesReported      Int                @default(0)
-  criticalBlockers    Int                @default(0)
-  userFeedback        String?
-  managerFeedback     String?
-  pilotResult         String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?            @db.ObjectId
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id])
+  pilotName         String
+  department        String?
+  branch            String?
+  startDate         DateTime?
+  endDate           DateTime?
+  pilotOwnerUserId  String?            @db.ObjectId
+  selectedUsers     Json?
+  selectedRoles     Json?
+  selectedModules   Json?
+  successCriteria   String?
+  riskLevel         String?
+  status            PilotRolloutStatus @default(PLANNED)
+  notes             String?
+  trainedUsersCount Int                @default(0)
+  activeUsersCount  Int                @default(0)
+  workOrdersCreated Int                @default(0)
+  issuesReported    Int                @default(0)
+  criticalBlockers  Int                @default(0)
+  userFeedback      String?
+  managerFeedback   String?
+  pilotResult       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([tenantId, status])
   @@index([tenantId, department])
@@ -4664,25 +4847,25 @@ model CutoverChecklistItem {
 }
 
 model RolloutWave {
-  id                String            @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?           @db.ObjectId
-  tenant            Tenant?           @relation(fields: [tenantId], references: [id])
-  waveNo            Int
-  waveName          String
-  departments       Json?
-  branches          Json?
-  roles             Json?
-  users             Json?
-  plannedStartDate  DateTime?
-  plannedEndDate    DateTime?
-  status            RolloutWaveStatus @default(PLANNED)
-  successCriteria   String?
-  blockers          Json?
-  notes             String?
-  signOffByUserId   String?           @db.ObjectId
-  signOffAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?           @db.ObjectId
+  tenant           Tenant?           @relation(fields: [tenantId], references: [id])
+  waveNo           Int
+  waveName         String
+  departments      Json?
+  branches         Json?
+  roles            Json?
+  users            Json?
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  status           RolloutWaveStatus @default(PLANNED)
+  successCriteria  String?
+  blockers         Json?
+  notes            String?
+  signOffByUserId  String?           @db.ObjectId
+  signOffAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@unique([tenantId, waveNo])
   @@index([tenantId, status])
@@ -4784,10 +4967,10 @@ model UatScenarioExecution {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  @@unique([tenantId, executionId])
   @@index([tenantId, scenarioId])
   @@index([tenantId, evidenceClass])
   @@index([tenantId, outcome])
-  @@unique([tenantId, executionId])
 }
 
 /// Bileeta ERP integration readiness (UAT-029).
@@ -4891,13 +5074,13 @@ model ErpImportBatch {
 
 /// Stable source-row identity for inventory/ERP Excel imports.
 model ErpImportRow {
-  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String               @db.ObjectId
-  tenant             Tenant               @relation(fields: [tenantId], references: [id])
-  importRunId        String               @db.ObjectId
-  importRun          ErpImportBatch       @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String         @db.ObjectId
+  tenant             Tenant         @relation(fields: [tenantId], references: [id])
+  importRunId        String         @db.ObjectId
+  importRun          ErpImportBatch @relation(fields: [importRunId], references: [id], onDelete: Cascade)
   rowNumber          Int
-  selected           Boolean              @default(false)
+  selected           Boolean        @default(false)
   sourceLineKey      String
   documentStatus     String?
   warehouseCode      String?
@@ -4913,17 +5096,17 @@ model ErpImportRow {
   lot                String?
   orderNo            String?
   orderDate          String?
-  mappedPartId       String?              @db.ObjectId
-  mappedWarehouseId  String?              @db.ObjectId
-  mappedWarehouse    Warehouse?           @relation(fields: [mappedWarehouseId], references: [id])
-  appliedMovementId  String?              @db.ObjectId
-  status             String               @default("PENDING")
+  mappedPartId       String?        @db.ObjectId
+  mappedWarehouseId  String?        @db.ObjectId
+  mappedWarehouse    Warehouse?     @relation(fields: [mappedWarehouseId], references: [id])
+  appliedMovementId  String?        @db.ObjectId
+  status             String         @default("PENDING")
   errorCode          String?
   errorMessage       String?
   sourceFingerprint  String?
   sourceMetadata     Json?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@unique([importRunId, sourceLineKey])
   @@index([tenantId, importRunId])
@@ -4968,33 +5151,33 @@ model ErpReconciliationMismatch {
 }
 
 model ErpAccessChecklistItem {
-  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String?                  @db.ObjectId
-  tenant      Tenant?                  @relation(fields: [tenantId], references: [id])
-  itemKey     String
-  title       String
-  description String?
-  status      ErpAccessChecklistStatus @default(NOT_STARTED)
-  notes       String?
-  updatedByUserId String?              @db.ObjectId
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  id              String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?                  @db.ObjectId
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id])
+  itemKey         String
+  title           String
+  description     String?
+  status          ErpAccessChecklistStatus @default(NOT_STARTED)
+  notes           String?
+  updatedByUserId String?                  @db.ObjectId
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@unique([tenantId, itemKey])
   @@index([tenantId, status])
 }
 
 model ErpMockSyncRun {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String?  @db.ObjectId
-  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String?                @db.ObjectId
+  tenant          Tenant?                @relation(fields: [tenantId], references: [id])
   syncMode        ErpIntegrationSyncMode @default(MOCK)
   entityTypes     Json?
-  recordsFetched  Int      @default(0)
+  recordsFetched  Int                    @default(0)
   summary         Json?
-  startedByUserId String?  @db.ObjectId
+  startedByUserId String?                @db.ObjectId
   completedAt     DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime               @default(now())
 
   @@index([tenantId, createdAt])
 }
@@ -5029,19 +5212,19 @@ model BusinessException {
 
 /// Vehicle make/model/type compatibility for a spare part. UNKNOWN is not treated as incompatible.
 model PartCompatibility {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String   @db.ObjectId
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  partId      String   @db.ObjectId
-  part        SparePart @relation(fields: [partId], references: [id])
-  vehicleType String?
-  make        String?
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String    @db.ObjectId
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  partId       String    @db.ObjectId
+  part         SparePart @relation(fields: [partId], references: [id])
+  vehicleType  String?
+  make         String?
   vehicleModel String?
-  engineCode  String?
-  assetId     String?  @db.ObjectId
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  engineCode   String?
+  assetId      String?   @db.ObjectId
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([tenantId, partId])
   @@index([tenantId, make, vehicleModel])
@@ -5049,29 +5232,29 @@ model PartCompatibility {
 
 /// Installed part / warranty tracking. Serial optional — consumables may omit it.
 model InstalledPart {
-  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String    @db.ObjectId
-  tenant             Tenant    @relation(fields: [tenantId], references: [id])
-  partId             String    @db.ObjectId
-  part               SparePart @relation(fields: [partId], references: [id])
-  vehicleId          String    @db.ObjectId
-  vehicle            Vehicle   @relation(fields: [vehicleId], references: [id])
-  workOrderId        String?   @db.ObjectId
-  workOrder          WorkOrder? @relation(fields: [workOrderId], references: [id])
-  supplierId         String?   @db.ObjectId
-  batch              String?
-  lot                String?
-  serialNumber       String?
-  receivedAt         DateTime?
-  installedAt        DateTime  @default(now())
-  installedMileage   Float?
-  warrantyExpiresAt  DateTime?
-  warrantyMileage    Float?
-  removedAt          DateTime?
-  removedMileage     Float?
-  failureReason      String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String     @db.ObjectId
+  tenant            Tenant     @relation(fields: [tenantId], references: [id])
+  partId            String     @db.ObjectId
+  part              SparePart  @relation(fields: [partId], references: [id])
+  vehicleId         String     @db.ObjectId
+  vehicle           Vehicle    @relation(fields: [vehicleId], references: [id])
+  workOrderId       String?    @db.ObjectId
+  workOrder         WorkOrder? @relation(fields: [workOrderId], references: [id])
+  supplierId        String?    @db.ObjectId
+  batch             String?
+  lot               String?
+  serialNumber      String?
+  receivedAt        DateTime?
+  installedAt       DateTime   @default(now())
+  installedMileage  Float?
+  warrantyExpiresAt DateTime?
+  warrantyMileage   Float?
+  removedAt         DateTime?
+  removedMileage    Float?
+  failureReason     String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([tenantId, vehicleId, installedAt])
   @@index([tenantId, partId, installedAt])
@@ -5079,46 +5262,46 @@ model InstalledPart {
 }
 
 model VehicleHealthSnapshot {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId    String   @db.ObjectId
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  vehicleId   String   @db.ObjectId
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
-  score       Int
-  band        String
-  reasons     Json
-  factors     Json?
-  coverage    String   @default("COMPLETE")
-  createdAt   DateTime @default(now())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @db.ObjectId
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  vehicleId String   @db.ObjectId
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  score     Int
+  band      String
+  reasons   Json
+  factors   Json?
+  coverage  String   @default("COMPLETE")
+  createdAt DateTime @default(now())
 
   @@index([tenantId, vehicleId, createdAt])
   @@index([tenantId, band, createdAt])
 }
 
 model ProcurementRecommendation {
-  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String    @db.ObjectId
-  tenant             Tenant    @relation(fields: [tenantId], references: [id])
-  partId             String    @db.ObjectId
-  part               SparePart @relation(fields: [partId], references: [id])
-  warehouseId        String?   @db.ObjectId
-  fingerprint        String
-  onHand             Int
-  reserved           Int
-  available          Int
-  incoming           Int       @default(0)
-  forecastNeed       Int       @default(0)
-  reorderPoint       Int       @default(0)
-  targetStock        Int       @default(0)
-  suggestedQuantity  Int
-  priority           String
-  reasonCodes        String[]
-  status             String    @default("OPEN")
-  purchaseOrderId    String?   @db.ObjectId
-  reviewedById       String?   @db.ObjectId
-  reviewedAt         DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String    @db.ObjectId
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  partId            String    @db.ObjectId
+  part              SparePart @relation(fields: [partId], references: [id])
+  warehouseId       String?   @db.ObjectId
+  fingerprint       String
+  onHand            Int
+  reserved          Int
+  available         Int
+  incoming          Int       @default(0)
+  forecastNeed      Int       @default(0)
+  reorderPoint      Int       @default(0)
+  targetStock       Int       @default(0)
+  suggestedQuantity Int
+  priority          String
+  reasonCodes       String[]
+  status            String    @default("OPEN")
+  purchaseOrderId   String?   @db.ObjectId
+  reviewedById      String?   @db.ObjectId
+  reviewedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([tenantId, fingerprint])
   @@index([tenantId, status, priority])
@@ -5126,12 +5309,12 @@ model ProcurementRecommendation {
 }
 
 model MaintenanceForecast {
-  id               String               @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId         String               @db.ObjectId
-  tenant           Tenant               @relation(fields: [tenantId], references: [id])
-  scheduleId       String               @db.ObjectId
-  schedule         MaintenanceSchedule  @relation(fields: [scheduleId], references: [id])
-  vehicleId        String?              @db.ObjectId
+  id               String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String              @db.ObjectId
+  tenant           Tenant              @relation(fields: [tenantId], references: [id])
+  scheduleId       String              @db.ObjectId
+  schedule         MaintenanceSchedule @relation(fields: [scheduleId], references: [id])
+  vehicleId        String?             @db.ObjectId
   estimatedDueDate DateTime?
   remainingKm      Float?
   remainingDays    Float?
@@ -5139,8 +5322,8 @@ model MaintenanceForecast {
   coverage         String
   confidence       String?
   shortageParts    Json?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@unique([tenantId, scheduleId])
   @@index([tenantId, estimatedDueDate])
@@ -5149,21 +5332,21 @@ model MaintenanceForecast {
 
 /// Reliable domain-event outbox. Distinct from ReplicationOutbox (primary→backup Mongo).
 model DomainEventOutbox {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId        String    @db.ObjectId
-  tenant          Tenant    @relation(fields: [tenantId], references: [id])
-  eventId         String
-  eventType       String
-  aggregateType   String
-  aggregateId     String
-  payloadVersion  Int       @default(1)
-  payload         Json
-  status          String    @default("PENDING")
-  attempts        Int       @default(0)
-  processedAt     DateTime?
-  lastError       String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String    @db.ObjectId
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  eventId        String
+  eventType      String
+  aggregateType  String
+  aggregateId    String
+  payloadVersion Int       @default(1)
+  payload        Json
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  processedAt    DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([tenantId, eventId])
   @@index([tenantId, status, createdAt])

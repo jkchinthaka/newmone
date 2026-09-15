@@ -19,6 +19,7 @@ import { BuildInfoController } from "./build-info.controller";
 import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { HealthService } from "./health.service";
 import { AssetsModule } from "./modules/assets/assets.module";
+import { AssetTaxonomyModule } from "./modules/asset-taxonomy/asset-taxonomy.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
@@ -134,6 +135,7 @@ normalizeDatabaseEnvironment();
     AdminModule,
     RolesModule,
     AssetsModule,
+    AssetTaxonomyModule,
     AuditModule,
     BulkImportModule,
     VehiclesModule,
