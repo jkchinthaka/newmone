@@ -100,8 +100,27 @@ Columns: **Role** = minimum role required; **Steps** = brief action sequence; **
 
 ---
 
+## Phase 15A / SQL Server UAT attempt (2026-09-15)
+
+**Environment:** local disposable `MaintainProDev` + Nest API on SQL (not company staging).  
+**Tester:** automated agent (no business sign-off).
+
+| Test ID | Role | Preconditions | Steps | Expected | Actual | Evidence | Tester | Date | Result | Defect |
+|---------|------|---------------|-------|----------|--------|----------|--------|------|--------|--------|
+| U-SQL-01 | ADMIN | Fixture user bcrypt-updated | Login `/api/auth/login` | JWT issued | Login successful | API response success | agent | 2026-09-15 | PASS | |
+| U-SQL-02 | TECHNICIAN | Fixture tech user | Login | JWT issued | Login successful | API response success | agent | 2026-09-15 | PASS | |
+| U-SQL-03 | ADMIN | Valid JWT + X-Tenant-Id | GET assets/requests/WOs/vehicles/PM/KPIs | 200 | `TENANT_ACCESS_DENIED` | error code TENANT_ACCESS_DENIED | agent | 2026-09-15 | FAIL | Tenant middleware rejects fixture tenant after SQL login |
+| U-01…U-20 | Matrix roles | Staging seed + web | Full runbook scenarios | PASS | **NOT EXECUTED** | — | — | — | NOT EXECUTED | Gate 1 blocked |
+| Responsive phone/tablet/desktop | — | Staging web | Emulation/device | PASS | **NOT EXECUTED** | — | — | — | NOT EXECUTED | |
+| Human UAT sign-off | — | Critical journeys PASS | Signature | Obtained | **PENDING** | — | — | — | PENDING | Do not invent |
+
+**Gate 1 overall:** FAIL — see `docs/V1_FINAL_VALIDATION_GATE_STATUS.md`.
+
+---
+
 ## Related Docs
 
+- `docs/V1_FINAL_VALIDATION_GATE_STATUS.md` — Gates 0–6 status for V1 completion
 - `docs/UAT_CHECKLIST.md` — full checklist catalog (130+ items)
 - `docs/uat/` — domain-specific UAT guides
 - `docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md` — cutover checklist

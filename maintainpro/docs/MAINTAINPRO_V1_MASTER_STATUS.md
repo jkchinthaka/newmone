@@ -6,7 +6,7 @@
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
 **Primary database target (engineering):** Microsoft SQL Server — **live rehearsal completed on disposable `MaintainProDev`; cutover not production-validated**  
 **MongoDB:** retained as migration **source** (not deleted; fixture + production paths preserved)  
-**Production readiness verdict:** READY FOR STAGING UAT (Mongo integration-v1); SQL Server staging UAT **READY TO START** (disposable rehearsal PASS; production dump + HTTP UAT still required)  
+**Production readiness verdict:** READY FOR STAGING UAT (Mongo integration-v1); SQL Server staging UAT **FAIL / incomplete** (Gate 1 — see `V1_FINAL_VALIDATION_GATE_STATUS.md`)  
 **Main merge recommendation:** NO
 
 > **If Cursor chat context is lost, read this file FIRST before any further implementation.**  
@@ -16,23 +16,24 @@
 
 ## 15. Current Next Action
 
-**Current canonical phase:** Phase 15A complete on `maintainpro/phase-15-sqlserver-migration` (live disposable SQL validation + migration rehearsal)
+**Current canonical phase:** Phase 15A rehearsal complete; **V1 final validation Gate 1 FAIL** (see `docs/V1_FINAL_VALIDATION_GATE_STATUS.md`)
 
 **Next required action:**
 
-1. Run SQL Server **staging UAT** against a non-production staging instance with a real Mongo snapshot (not only the fixture)
-2. Complete HTTP login / full workflow smoke with production-like bcrypt credentials
-3. Operator sign-off on reconciliation + backup/restore against staging
-4. Keep Mongo snapshot frozen for rollback until cutover acceptance
-5. Do **NOT** production cutover or merge to `main` without sign-off
+1. Remediate SQL `TENANT_ACCESS_DENIED` after login against `MaintainProDev`
+2. Seed full staging roles + representative Mongo→SQL snapshot on real staging SQL
+3. Complete `docs/UAT_RUNBOOK.md` with human testers — Gate 1 must PASS before Bileeta / cutover
+4. Do **NOT** production cutover, merge to `main`, or declare MaintainPro V1 COMPLETE
 
 **Do NOT start another product phase automatically.**  
 **Do NOT merge to `main` automatically.**
 
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
 **Phase 15A baseline remote tip:** `0a6a96d98eee8e6a84a08ab6222eddf17b05a479`  
-**Phase 15A final remote tip:** `a7d08939d50e3499e6684c652ef2fe32b617e2d8`  
+**Phase 15A final remote tip (Gate 0 start):** `21ff7f04793ee018a08b164c479abf1e903e5a62`  
 **Phase 15 source HEAD (product):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
+
+**Final validation verdict:** **NOT READY**
 
 ---
 
