@@ -50,6 +50,8 @@ Phase 10 historical branch tip @ `96fbe49` remains untouched (REFERENCE ONLY). C
 
 Phase 11 historical branch tip @ `e0899df` remains untouched (REFERENCE ONLY). Canonical domain coverage lives on `integration-v1` (baseline `3e96648`). `_p11_extract/` has been removed after integration. `DomainProfile` is configuration metadata keyed by `AssetDomain.code` — NOT a separate engine module. All domains share the same shared WO/PM/compliance/parts/vendor engines.
 
+Phase 12 historical branch tip @ `df16071` remains untouched (REFERENCE ONLY). Canonical admin governance lives on `integration-v1` (baseline `3694173`). `_p12_extract/` has been removed after integration. `AdminGovernanceModule` is a standalone Nest module (no schema changes). `evaluateUserDeactivation` is wired into `UsersService.applyProtectedUserStatusUpdate` for tenant-ADMIN and TECHNICIAN open WO protections. No go-live/delivery/QA/billing admin clutter.
+
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).

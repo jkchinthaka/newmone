@@ -5,6 +5,32 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-12 | Admin Governance
+- Baseline (clean HEAD): `3694173d074f7255587910c1be29d3990279da6c` on `maintainpro/integration-v1` (Phase 11 tip)
+- Historical reference: `df16071` (REFERENCE ONLY; `_p12_extract/` removed after integration)
+- Architecture: `AdminGovernanceModule` under `src/modules/admin-governance/` — admin-catalog, admin-safety (pure helpers), service, controller; folded into AppModule. No schema changes.
+- What changed:
+  - New `admin-catalog.ts`: 14 DQ rules with CRITICAL/HIGH/WARNING/INFO severity; `DataQualityFindingCode` type
+  - New `admin-safety.ts`: `evaluateUserDeactivation`, `evaluateHighImpactConfigChange`, `nextBulkImportStage`, `canWriteBulkRows`, `sanitizeSystemResponse`, `SENSITIVE_CONFIG_FIELDS`
+  - New `admin-governance.service.ts`: `overview`, `previewDeactivate`, `guardConfigChange`, `dataQualityIssues`, `systemInfo`
+  - New `admin-governance.controller.ts`: 5 endpoints (`/overview`, `/users/:id/deactivate-preview`, `/config-change/guard`, `/data-quality`, `/system`) with `@Permissions` decorators
+  - New `admin-governance.module.ts`: registered in AppModule
+  - `permission-catalog.ts`: 6 new Phase 12 keys (`admin.overview.view`, `admin.dataquality.view`, `admin.audit.view`, `admin.system.view`, `admin.users.manage`, `admin.organization.manage`)
+  - `permissions.guard.ts`: 6 new Phase 12 aliases to existing `settings.view`/`audit.view`/`users.manage` etc.
+  - `users.service.ts`: integrated `evaluateUserDeactivation` into `applyProtectedUserStatusUpdate` — added last-tenant-ADMIN protection (counts ADMIN+SA in tenant) and TECHNICIAN open WO block
+  - `app.module.ts`: added `AdminGovernanceModule`
+  - `apps/web/lib/admin-console.ts`: `data-quality` href → `/admin/data-quality`, `audit-log` href → `/admin/audit`
+  - `apps/web/lib/navigation.ts`: added `/admin/data-quality` and `/admin/audit` to `EXISTING_NAV_ROUTES`
+  - `apps/web/lib/admin-governance-api.ts`: new API helper (overview, DQ issues, deactivate preview, config guard)
+  - `apps/web/components/admin/admin-console-page.tsx`: fetches overview, shows `OverviewCard` signal grid; removed SystemHealthSummary from business overview
+  - `apps/web/app/(dashboard)/admin/data-quality/page.tsx`: new — DQ issues by severity
+  - `apps/web/app/(dashboard)/admin/audit/page.tsx`: new — filterable audit log
+  - `apps/api/test/admin-governance-phase12.spec.ts`: 37 test cases (safety, DQ catalog, bulk staging, secrets, RBAC, admin console hrefs, mocked service)
+  - `apps/api/test/admin-console.spec.ts`: updated assertions for new hrefs
+  - `docs/PHASE_12_ADMIN_GOVERNANCE.md`: created canonical Phase 12 doc
+- Tests run: `admin-governance-phase12`, `admin-console`
+- Remaining risks: `BusinessException.groupBy` is zero-tolerance — wrapped in `.catch(() => [])` for resilience. Vehicle/SparePart counts also fault-tolerant.
+
 ## 2026-09-15 | PHASE-11 | Company-wide Domain Coverage
 - Baseline (clean HEAD): `3e96648e504409ae4fb6af7fbb1d5a5bfeee2e8f` on `maintainpro/integration-v1` (Phase 10 tip)
 - Historical reference: `origin/maintainpro/phase-11-domain-coverage` @ `e0899df` (REFERENCE ONLY; `_p11_extract/` removed after integration)
