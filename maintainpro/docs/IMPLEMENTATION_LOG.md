@@ -5,6 +5,28 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-13 | UX Reports & KPI Role Dashboards
+- Baseline (clean HEAD): `15e5f67a60586543da453a82533a7b559b9072be` on `maintainpro/integration-v1` (Phase 12 tip)
+- Historical reference: `4a8499c` (origin/maintainpro/phase-13-ux-reports) — REFERENCE ONLY; `_p13_extract/` removed after integration
+- Architecture: `ReportingKpisModule` under `src/modules/reporting-kpis/` — pure formula helpers, role home profiles, service, controller. No schema changes.
+- KPI formula version: `2026-09-15.v1`
+- What changed:
+  - New `kpi-definitions.ts`: 19 KPI codes with `code/displayName/formulaSummary/numerator/denominator/applicableDomains/emptyBehavior`; pure compute helpers for all KPIs; back-compat aliases `key/label/formula/help`; `TERMINAL_WO_STATUSES` constant; `isKpiApplicableForDomain` helper
+  - New `role-home.ts`: 6 role profiles (REQUESTER, TECHNICIAN, SUPERVISOR, FLEET, MANAGER, MANAGEMENT_VIEWER) with `resolveRoleHome(roleName)`; ADMIN/SUPER_ADMIN → MANAGER; VIEWER/AUDITOR/FINANCE → MANAGEMENT_VIEWER
+  - New `reporting-kpis.service.ts`: `listDefinitions`, `getDefinition`, `resolveHome`, `evaluateKpis` (thin DB counts + pure helpers, with `dataWarnings`)
+  - New `reporting-kpis.controller.ts`: GET `/reporting-kpis`, GET `/reporting-kpis/home`, GET `/reporting-kpis/home/:role`, POST `/reporting-kpis/overview`, GET `/reporting-kpis/:code`; route order: specific routes before `:code` wildcard
+  - New `reporting-kpis.module.ts`: registered in AppModule next to ReportsModule
+  - `permission-catalog.ts`: 4 new Phase 13 keys: `reports.view.maintenance`, `reports.view.cost`, `reports.view.fleet`, `reports.view.compliance`
+  - `permissions.guard.ts`: 4 new Phase 13 aliases to `reports.view` / existing module keys
+  - `app.module.ts`: added `ReportingKpisModule` import
+  - `apps/web/lib/reporting-kpis-api.ts`: new — axios helpers for all endpoints
+  - `apps/web/lib/role-home.ts`: new — client-side `resolveRoleHome` (mirrors backend)
+  - `apps/web/components/action-center/action-center-page.tsx`: added `RoleHomeCards` strip and `KpiStrip` for manager/admin roles; single Home entry maintained
+  - `docs/PHASE_13_UX_REPORTS.md`: created canonical Phase 13 doc
+  - `docs/KPI_DEFINITIONS.md`: created formula reference table
+- Tests run: `reporting-kpis-phase13` (35+ tests: KPI catalog, overdue logic, all compute helpers with exact fixtures, role home profiles, resolveRoleHome mapping, domain applicability, RBAC catalog, navigation Home invariant, payload security)
+- Remaining risks: `evaluateKpis` DB paths use `.catch(() => 0)` for resilience; pre-aggregated inputs bypass DB entirely for testing. Cost KPIs require callers to pass `snapshotTotal`, not live unit prices.
+
 ## 2026-09-15 | PHASE-12 | Admin Governance
 - Baseline (clean HEAD): `3694173d074f7255587910c1be29d3990279da6c` on `maintainpro/integration-v1` (Phase 11 tip)
 - Historical reference: `df16071` (REFERENCE ONLY; `_p12_extract/` removed after integration)

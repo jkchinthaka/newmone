@@ -52,6 +52,8 @@ Phase 11 historical branch tip @ `e0899df` remains untouched (REFERENCE ONLY). C
 
 Phase 12 historical branch tip @ `df16071` remains untouched (REFERENCE ONLY). Canonical admin governance lives on `integration-v1` (baseline `3694173`). `_p12_extract/` has been removed after integration. `AdminGovernanceModule` is a standalone Nest module (no schema changes). `evaluateUserDeactivation` is wired into `UsersService.applyProtectedUserStatusUpdate` for tenant-ADMIN and TECHNICIAN open WO protections. No go-live/delivery/QA/billing admin clutter.
 
+Phase 13 historical branch tip @ `4a8499c` (origin/maintainpro/phase-13-ux-reports) remains untouched (REFERENCE ONLY). Canonical UX Reports & KPI Role Dashboards live on `integration-v1` (baseline `15e5f67`). `_p13_extract/` has been removed after integration. `ReportingKpisModule` is a standalone Nest module (no schema changes). KPI formula version `2026-09-15.v1`. Single Home entry maintained at `/action-center`. N/A ≠ 0 invariant enforced for MTBF and other INSUFFICIENT_DATA KPIs.
+
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).
