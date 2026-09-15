@@ -54,6 +54,8 @@ Phase 12 historical branch tip @ `df16071` remains untouched (REFERENCE ONLY). C
 
 Phase 13 historical branch tip @ `4a8499c` (origin/maintainpro/phase-13-ux-reports) remains untouched (REFERENCE ONLY). Canonical UX Reports & KPI Role Dashboards live on `integration-v1` (baseline `15e5f67`). `_p13_extract/` has been removed after integration. `ReportingKpisModule` is a standalone Nest module (no schema changes). KPI formula version `2026-09-15.v1`. Single Home entry maintained at `/action-center`. N/A ≠ 0 invariant enforced for MTBF and other INSUFFICIENT_DATA KPIs.
 
+Phase 14 historical branch tip @ `ce38e89` (origin/maintainpro/phase-14-production) remains untouched (REFERENCE ONLY). Canonical production hardening & go-live docs live on `integration-v1` (baseline `dacae29`). `_p14_extract/` has been removed after integration. Phase 14 delivers: acceptance coverage map (33 items), hardening tests (20+), production readiness report (verdict: READY FOR STAGING UAT), UAT runbook, go-live checklist, migration runbook, data disposition report, root alias deployment/rollback pointers. No new Prisma models. No new API routes. Soft-retired modules remain registered. Main merge recommendation: NO until go-live blockers cleared.
+
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).
@@ -117,5 +119,7 @@ Target: one coherent production system on a single integrated line — not indep
 | Phase 0 tip | `f78d465` |
 | Phase 1 tip (continue from) | `b108e76` |
 | Phase 8 tip | `844f176` |
-| Phase 14 tip (do not merge) | `ce38e89` |
+| Phase 13 tip (reference) | `4a8499c` |
+| Phase 14 tip (reference) | `ce38e89` |
+| integration-v1 Phase 14 baseline | `dacae29` |
 | Common merge-base (all lines) | `290bf3a` |

@@ -5,6 +5,36 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-14 | Production Hardening, Acceptance Map & Go-Live Preparation
+
+- Baseline (clean HEAD): `dacae29be806ed627babfb485f139f199828ef6f` on `maintainpro/integration-v1` (Phase 13 tip)
+- Historical reference: `ce38e89` (`maintainpro/phase-14-production`) — REFERENCE ONLY; `_p14_extract/` removed after integration
+- Architecture: Thin production-hardening module (`src/modules/production-hardening/production-hardening.ts`); no new Prisma models; no new API routes; documentation and test only phase.
+- What changed:
+  - New `apps/api/src/modules/production-hardening/production-hardening.ts`: `SOFT_RETIRED_MODULE_KEYS`, `isSoftRetiredModule`, `assertNoFabricatedErpSuccess`, re-exports of `erpSyncOutcome`, `TERMINAL_WO_STATUSES`, `isTerminalStatus`, `evaluateUserDeactivation`, `sanitizeSystemResponse`, `SENSITIVE_CONFIG_FIELDS`
+  - New `apps/api/test/phase14-acceptance-map.spec.ts`: 33-item acceptance coverage map; asserts evidence files exist on disk; documents automated (29) vs manual_uat (3) vs operator (1) items
+  - New `apps/api/test/phase14-hardening.spec.ts`: 20+ pure unit tests for sensitive field stripping, overdue closed WO invariant, ERP mock safety, last admin protection, MTBF INSUFFICIENT_DATA, PM compliance null-on-no-data, cost snapshot immutability, permission catalog completeness, soft-retired module inventory, KPI version stability
+  - New `docs/PHASE_14_PRODUCTION.md`: baseline SHA, historical tip, scope table, database cleanup policy, soft-retired inventory, acceptance matrix, go-live blockers, git discipline
+  - New `docs/PRODUCTION_READINESS_REPORT.md`: executive verdict READY FOR STAGING UAT, full structure (scope, DB disposition, migrations, security, reliability, performance, backup/restore status, UAT status, integrations, go-live blockers, main merge recommendation NO)
+  - New `docs/UAT_RUNBOOK.md`: 20 key UAT scenarios with role/steps/expected/PASS-FAIL columns; index to docs/uat/ full catalog
+  - New `docs/GO_LIVE_CHECKLIST.md`: 6 sections (technical, integrations, security, business data, UAT, operations) with priority/owner/status columns; links to remediation runbooks
+  - New `docs/MIGRATION_RUNBOOK.md`: ordered dry-run-first execution for all 5 migration scripts plus `db:push` and domain defaults seed
+  - New `docs/DATA_DISPOSITION_REPORT.md`: model-level disposition table (KEEP/RETAIN TEMPORARILY/BLOCKED/SOFT-RETIRED) for FacilityIssue, Farm*, Cleaning, Billing, QA/GoLive, PredictiveAi, MaintenanceSchedule, Asset.location, TECHNICIAN_COMPLETED/OVERDUE, cost snapshots
+  - New `docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md`: root alias pointer to `remediation/PRODUCTION_DEPLOYMENT_RUNBOOK.md`
+  - New `docs/ROLLBACK_RUNBOOK.md`: root alias pointer to `remediation/PRODUCTION_ROLLBACK_RUNBOOK.md`
+  - Updated `docs/IMPLEMENTATION_LOG.md` (this entry)
+  - Updated `docs/BRANCH_RECOVERY_AND_INTEGRATION.md`: Phase 14 integration note
+  - Removed `maintainpro/_p14_extract/` directory
+- Tests run: `phase14-acceptance-map` (8 describe blocks, 20+ tests), `phase14-hardening` (10 describe blocks, 20+ tests). Also validated: `reporting-kpis-phase13`, `admin-governance-phase12`, `planning-phase08`, `maintenance-supply-phase09`, `fleet-lifecycle-phase10`, `domain-coverage-phase11`
+- Remaining risks:
+  - Backup/restore drill NOT executed — OPERATOR_ACTION_REQUIRED before production
+  - Live `db:push` to Atlas staging still required for Phase 8–13 models
+  - Bileeta ERP credentials not validated live — BLOCKER for ERP-dependent workflows
+  - Manual browser UAT (items 30–32) outstanding
+  - Do NOT merge to `main` until all go-live blockers cleared
+
+---
+
 ## 2026-09-15 | PHASE-13 | UX Reports & KPI Role Dashboards
 - Baseline (clean HEAD): `15e5f67a60586543da453a82533a7b559b9072be` on `maintainpro/integration-v1` (Phase 12 tip)
 - Historical reference: `4a8499c` (origin/maintainpro/phase-13-ux-reports) — REFERENCE ONLY; `_p13_extract/` removed after integration
