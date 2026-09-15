@@ -204,6 +204,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/inventory/import",
   "/inventory/erp-import",
   "/inventory/warranty",
+  "/maintenance-supply",
   "/procurement",
   "/procurement/vendors",
   "/reports",
@@ -369,6 +370,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     category: "primary",
     description: "Maintenance parts usage and reservations (Bileeta owns official stock)",
     activeMatch: "startsWith"
+  },
+  {
+    id: "maintenance-supply",
+    label: "Supply & ERP Map",
+    href: "/maintenance-supply",
+    icon: "Layers",
+    allowedRoles: PARTS_ROLES,
+    category: "secondary",
+    description: "ERP mapping status and outstanding tool returns",
+    activeMatch: "exact"
   },
   {
     id: "reports",
