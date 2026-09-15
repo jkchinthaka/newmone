@@ -45,6 +45,7 @@ import { WeatherModule } from "./modules/farm/weather/weather.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { EvidenceModule } from "./modules/evidence/evidence.module";
 import { FacilitiesModule } from "./modules/facilities/facilities.module";
+import { OrganizationModule } from "./modules/organization/organization.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
@@ -167,6 +168,7 @@ normalizeDatabaseEnvironment();
     PredictiveAiModule,
     CleaningModule,
     FacilitiesModule,
+    OrganizationModule,
     ComplianceModule,
     VehicleDocumentsModule,
     AccidentsModule,

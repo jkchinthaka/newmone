@@ -19,7 +19,12 @@ type RequestUser = {
 
 const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "gate.out.create": ["vehicles.operate"],
-  "gate.in.create": ["vehicles.operate"]
+  "gate.in.create": ["vehicles.operate"],
+  // Phase 3 organization/locations reuse established facilities permissions.
+  "organization.view": ["facilities.view"],
+  "organization.manage": ["facilities.manage", "settings.organization.manage"],
+  "locations.view": ["facilities.view", "organization.view"],
+  "locations.manage": ["facilities.manage", "organization.manage"]
 };
 
 @Injectable()

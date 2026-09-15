@@ -7,7 +7,12 @@ export const FACILITY_PERMISSION_KEYS = [
   "facility_issues.report",
   "facility_issues.manage",
   "facility_inspections.view",
-  "facility_inspections.manage"
+  "facility_inspections.manage",
+  // Phase 3 — preferred names; aliases map to facilities.* for existing roles.
+  "organization.view",
+  "organization.manage",
+  "locations.view",
+  "locations.manage"
 ] as const;
 
 export type FacilityPermissionKey = (typeof FACILITY_PERMISSION_KEYS)[number];
@@ -29,6 +34,10 @@ export const FACILITY_MANAGER_PERMISSIONS: readonly string[] = [
   "facility_issues.manage",
   "facility_inspections.view",
   "facility_inspections.manage",
+  "organization.view",
+  "organization.manage",
+  "locations.view",
+  "locations.manage",
   "cleaning.report_issue",
   "cleaning.manage"
 ];
@@ -43,6 +52,8 @@ export const BUILDING_SUPERVISOR_PERMISSIONS: readonly string[] = [
   "facility_issues.manage",
   "facility_inspections.view",
   "facility_inspections.manage",
+  "organization.view",
+  "locations.view",
   "cleaning.report_issue",
   "cleaning.sign_off",
   "cleaning.manage"

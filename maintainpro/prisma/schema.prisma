@@ -62,6 +62,9 @@ model Tenant {
   buildings                    Building[]
   floors                       Floor[]
   rooms                        Room[]
+  /// Phase 3 authoritative spatial masters (legacy Property/Building/Floor/Room retained)
+  sites                        Site[]
+  functionalLocations          FunctionalLocation[]
   jobCodes                     JobCode[]
   departments                  Department[]
   vehicleDocuments             VehicleDocument[]
@@ -716,6 +719,8 @@ model Department {
   drivers   Driver[]   @relation("DriverDepartment")
   users     User[]     @relation("UserDepartment")
   employees Employee[] @relation("EmployeeDepartment")
+  /// Optional business ownership link for physical locations (not a hierarchy node)
+  functionalLocations FunctionalLocation[] @relation("LocationDepartment")
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -2756,6 +2761,101 @@ model Room {
   @@index([tenantId, floorId])
   @@index([tenantId, isActive])
   @@index([tenantId, name])
+}
+
+// ============================================================
+// ORGANIZATION / SITE / FUNCTIONAL LOCATION — Phase 3
+// Tenant remains the backend organization partition (UI: Organization).
+// Department stays a separate business dimension; optional location.departmentId.
+// Legacy Property→Building→Floor→Room is retained and bridged via migration.
+// ============================================================
+
+enum SiteType {
+  FACTORY
+  FARM
+  OUTLET
+  WAREHOUSE
+  OFFICE
+  WORKSHOP
+  OTHER
+}
+
+enum FunctionalLocationType {
+  BUILDING
+  FLOOR
+  ZONE
+  AREA
+  DEPARTMENT_AREA
+  PRODUCTION_LINE
+  ROOM
+  PLANT_ROOM
+  UTILITY_AREA
+  YARD
+  FARM_AREA
+  OUTLET_AREA
+  STORAGE_AREA
+  EXTERNAL_AREA
+  OTHER
+}
+
+model Site {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String   @db.ObjectId
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  type         SiteType
+  description  String?
+  address      String?
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  /// Traceability to legacy Property during migration (do not delete Property yet)
+  legacyPropertyId String? @db.ObjectId
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  locations FunctionalLocation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@index([tenantId, type])
+  @@index([tenantId, legacyPropertyId])
+}
+
+model FunctionalLocation {
+  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String                 @db.ObjectId
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String                 @db.ObjectId
+  site         Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  parentId     String?                @db.ObjectId
+  parent       FunctionalLocation?    @relation("LocationChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     FunctionalLocation[]   @relation("LocationChildren")
+  departmentId String?                @db.ObjectId
+  department   Department?            @relation("LocationDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  code        String
+  name        String
+  type        FunctionalLocationType
+  description String?
+  isActive    Boolean                @default(true)
+
+  legacyBuildingId String? @db.ObjectId
+  legacyFloorId    String? @db.ObjectId
+  legacyRoomId     String? @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, siteId, code])
+  @@index([tenantId, siteId])
+  @@index([tenantId, parentId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, type])
+  @@index([departmentId])
+  @@index([tenantId, legacyBuildingId])
+  @@index([tenantId, legacyFloorId])
+  @@index([tenantId, legacyRoomId])
 }
 
 // ============================================================
