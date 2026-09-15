@@ -8,6 +8,7 @@ import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { CreateAdminUserDto, SetAdminUserPasswordDto, UpdateAdminUserDto } from "../admin/dto/admin-user-mutations.dto";
+import { evaluateUserDeactivation } from "../admin-governance/admin-safety";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -260,6 +261,47 @@ export class UsersService {
 
       if (activeSuperAdminCount <= 1) {
         throw new BadRequestException("Cannot deactivate the last active super admin");
+      }
+    }
+
+    // Phase 12: protect last tenant ADMIN and block technicians with open WOs
+    if (!isActive) {
+      const { tenantId } = this.currentTenantScope();
+      const activeAdminCount = tenantId
+        ? await this.prisma.user.count({
+            where: {
+              isActive: true,
+              memberships: { some: { tenantId } },
+              role: { name: { in: [RoleName.ADMIN, RoleName.SUPER_ADMIN] } }
+            }
+          })
+        : 2; // SUPER_ADMIN scope: already guarded above, allow
+
+      const openWorkOrders =
+        target.role.name === RoleName.TECHNICIAN
+          ? await this.prisma.workOrder.findMany({
+              where: {
+                technicianId: userId,
+                ...(tenantId ? { tenantId } : {}),
+                status: { in: ["OPEN", "IN_PROGRESS", "ON_HOLD", "OVERDUE", "REWORK_REQUIRED"] as any }
+              },
+              select: { id: true },
+              take: 100
+            })
+          : [];
+
+      const decision = evaluateUserDeactivation({
+        actorId: actorId ?? "",
+        targetUserId: userId,
+        targetRole: target.role.name,
+        targetIsActive: target.isActive,
+        nextIsActive: false,
+        activeAdminCount,
+        openWorkOrderIds: openWorkOrders.map((w) => w.id)
+      });
+
+      if (!decision.allowed) {
+        throw new BadRequestException(decision.message);
       }
     }
 
