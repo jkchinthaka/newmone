@@ -190,6 +190,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/work-orders",
   "/maintenance/job-codes",
   "/maintenance/forecast",
+  "/maintenance/plans",
   "/assets",
   "/assets/health",
   "/fleet",
@@ -332,7 +333,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     id: "preventive-maintenance",
     label: "Preventive Maintenance",
-    href: "/maintenance/forecast",
+    href: "/maintenance/plans",
     icon: "CalendarClock",
     allowedRoles: PM_ROLES,
     category: "primary",

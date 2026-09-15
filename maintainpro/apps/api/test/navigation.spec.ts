@@ -20,7 +20,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(hrefs).toContain("/action-center");
     expect(hrefs).toContain("/work-orders");
-    expect(hrefs).toContain("/maintenance/forecast");
+    expect(hrefs).toContain("/maintenance/plans");
     expect(hrefs).toContain("/assets");
     expect(hrefs).toContain("/fleet");
     expect(hrefs).toContain("/inventory");
