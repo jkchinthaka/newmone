@@ -2,7 +2,8 @@
 
 **Document version:** Phase 14 canonical  
 **Branch:** `maintainpro/integration-v1`  
-**Canonical Git SHA:** `dacae29be806ed627babfb485f139f199828ef6f`  
+**Canonical Git SHA:** `ea7801cd72dfe43f044823bd3dafd2dc21d35ff5`  
+**Phase 13 baseline:** `dacae29be806ed627babfb485f139f199828ef6f`  
 **Historical tip (reference):** `ce38e89` (`maintainpro/phase-14-production`)  
 **Report date:** 2026-09-15  
 

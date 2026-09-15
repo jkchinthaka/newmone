@@ -33,7 +33,7 @@ Phases 8–13 delivered the core planning, supply, fleet, domain, admin, and rep
 | 11 | Company domain profiles + shared KPI engine | integration-v1 |
 | 12 | Operational admin + safety guards | integration-v1 |
 | 13 | Role home + versioned KPIs | integration-v1 |
-| **14** | **Hardening docs, acceptance matrix, production readiness** | **`dacae29`** |
+| **14** | **Hardening docs, acceptance matrix, production readiness** | **`ea7801cd`** (baseline Phase 13 `dacae29`) |
 
 ---
 
