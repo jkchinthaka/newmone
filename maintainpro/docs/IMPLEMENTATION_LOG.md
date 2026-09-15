@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-05 | Maintenance Request & Triage
+- Baseline: Phase 4 tip `a50b6b9624b1a0f281e20095badf453d7ab02fdb` on `maintainpro/phase-04-universal-assets`
+- Branch: `maintainpro/phase-05-requests-triage`
+- What changed: Canonical `MaintenanceRequest` + history + problem categories; triage/approve/reject/cancel/duplicate; idempotent WO conversion; request UI `/requests`; QR report redirects to `/requests/new`; FacilityIssue retained with migration bridge docs/script; offline queue action type `MAINTENANCE_REQUEST_CREATE` (text only)
+- Docs: `docs/PHASE_05_MAINTENANCE_REQUESTS.md`, `docs/PHASE_05_REQUEST_MIGRATION.md`
+- Phase 8–14 not merged/cherry-picked
+
 ## 2026-09-15 | PHASE-04 | Universal Asset Engine
 - Baseline: Phase 3 tip `b8d53ff9de9d84188edcccd455e435a40828dec5` on `maintainpro/phase-03-organization-locations`
 - Branch: `maintainpro/phase-04-universal-assets`
