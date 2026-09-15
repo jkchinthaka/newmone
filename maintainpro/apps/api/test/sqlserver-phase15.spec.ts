@@ -71,9 +71,10 @@ describe("Phase 15 — SQL Server schema invariants", () => {
     expect(sql).toMatch(/ON DELETE NO ACTION/);
   });
 
-  it("10. migration_lock is sqlserver", () => {
+  it("10. migration_lock is mssql (Prisma SQL Server)", () => {
     const lock = fs.readFileSync(path.join(root, "prisma", "migrations", "migration_lock.toml"), "utf8");
-    expect(lock).toMatch(/provider\s*=\s*"sqlserver"/);
+    // Prisma writes provider = "mssql" for SQL Server (not "sqlserver")
+    expect(lock).toMatch(/provider\s*=\s*"mssql"/);
   });
 });
 
