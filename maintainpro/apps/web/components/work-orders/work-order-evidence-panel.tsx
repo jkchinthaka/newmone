@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Camera, CheckCircle2, FileText, Loader2, QrCode, UploadCloud, WifiOff, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { EvidencePicker, type EvidencePickerFile } from "@/components/evidence/evidence-picker";
+import { QrScanner } from "@/components/qr/qr-scanner";
 import {
   enqueueOfflineEvidenceDraft,
   isBrowserOnline,
@@ -63,11 +65,12 @@ export function WorkOrderEvidencePanel({
   onRefresh
 }: WorkOrderEvidencePanelProps) {
   const currentUser = useCurrentUser();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [evidenceType, setEvidenceType] = useState("BEFORE_PHOTO");
   const [uploadNote, setUploadNote] = useState("");
+  const [pendingFile, setPendingFile] = useState<EvidencePickerFile | null>(null);
   const [qrInput, setQrInput] = useState("");
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [offlineQueue, setOfflineQueue] = useState<OfflineEvidenceDraft[]>([]);
@@ -91,16 +94,14 @@ export function WorkOrderEvidencePanel({
   }, [items]);
 
   const handleFileSelected = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-
-      if (!file) {
+    async (file: File) => {
+      if (!storageConfigured) {
+        toast.error("File upload storage is not configured.");
         return;
       }
 
-      if (!storageConfigured) {
-        toast.error("File upload storage is not configured.");
+      if (readiness?.maxFileSizeMb && file.size > readiness.maxFileSizeMb * 1024 * 1024) {
+        toast.error(`File exceeds the ${readiness.maxFileSizeMb} MB limit.`);
         return;
       }
 
@@ -117,6 +118,7 @@ export function WorkOrderEvidencePanel({
         });
         setOfflineQueue(readOfflineEvidenceQueue().filter((item) => item.workOrderId === workOrderId));
         toast.message("Offline draft saved. It will sync when online.");
+        setPendingFile(null);
         return;
       }
 
@@ -126,6 +128,7 @@ export function WorkOrderEvidencePanel({
 
       setSubmitting(true);
       try {
+        // clientGeneratedId doubles as idempotency for upload-request retries on flaky mobile networks.
         const clientGeneratedId = crypto.randomUUID();
         const uploadResponse = await apiClient.post<ApiEnvelope<EvidenceUploadRequestResultLike>>(
           `/work-orders/${workOrderId}/evidence/upload-request`,
@@ -157,6 +160,7 @@ export function WorkOrderEvidencePanel({
 
         toast.success("Evidence recorded.");
         setUploadNote("");
+        setPendingFile(null);
         await onRefresh?.();
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Evidence upload failed."));
@@ -164,7 +168,7 @@ export function WorkOrderEvidencePanel({
         setSubmitting(false);
       }
     },
-    [canUpload, evidenceType, onRefresh, storageConfigured, uploadNote, workOrderId]
+    [canUpload, evidenceType, onRefresh, readiness?.maxFileSizeMb, storageConfigured, uploadNote, workOrderId]
   );
 
   async function retryOfflineDraft(draft: OfflineEvidenceDraft) {
@@ -412,30 +416,32 @@ export function WorkOrderEvidencePanel({
             />
           </label>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={(readiness?.allowedMimeTypes ?? []).join(",")}
-            className="sr-only"
-            aria-label="Upload evidence file"
-            disabled={submitting}
-            onChange={(event) => void handleFileSelected(event)}
+        <div className="mt-3 space-y-3">
+          <EvidencePicker
+            disabled={submitting || (!canUpload && isBrowserOnline())}
+            accept={(readiness?.allowedMimeTypes ?? []).join(",") || undefined}
+            maxBytes={(readiness?.maxFileSizeMb ?? 15) * 1024 * 1024}
+            helperText={
+              readiness
+                ? `${formatAllowedEvidenceMimeTypes(readiness.allowedMimeTypes)} · Max ${readiness.maxFileSizeMb} MB`
+                : undefined
+            }
+            onInvalid={(message) => toast.error(message)}
+            onFileChange={setPendingFile}
           />
           <button
             type="button"
-            disabled={submitting || (!canUpload && isBrowserOnline())}
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={submitting || !pendingFile || (!canUpload && isBrowserOnline())}
+            onClick={() => {
+              if (pendingFile?.file) {
+                void handleFileSelected(pendingFile.file);
+              }
+            }}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
-            Upload file
+            {isBrowserOnline() ? "Upload selected evidence" : "Queue selected evidence"}
           </button>
-          {readiness ? (
-            <span className="text-xs text-slate-500">
-              {formatAllowedEvidenceMimeTypes(readiness.allowedMimeTypes)} · Max {readiness.maxFileSizeMb} MB
-            </span>
-          ) : null}
         </div>
       </div>
 
@@ -445,22 +451,41 @@ export function WorkOrderEvidencePanel({
             <QrCode size={16} /> QR verification
           </div>
           <p className="mt-1 text-xs text-slate-600">Confirm you are working on the correct asset or vehicle.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
               value={qrInput}
               onChange={(event) => setQrInput(event.target.value)}
               placeholder={assetId ? "Scanned asset ID" : "Scanned vehicle ID"}
-              className="min-w-[220px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="min-h-11 min-w-[220px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
             <button
               type="button"
               disabled={submitting}
+              onClick={() => setQrScannerOpen(true)}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800"
+            >
+              <Camera size={16} aria-hidden />
+              Scan with camera
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
               onClick={() => void verifyQr()}
-              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+              className="min-h-11 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
             >
               Verify scan
             </button>
           </div>
+          <QrScanner
+            open={qrScannerOpen}
+            onClose={() => setQrScannerOpen(false)}
+            title="Scan asset or vehicle tag"
+            onScan={(value) => {
+              setQrInput(value);
+              setQrScannerOpen(false);
+              toast.message("QR value captured — confirm Verify scan.");
+            }}
+          />
         </div>
       ) : null}
 

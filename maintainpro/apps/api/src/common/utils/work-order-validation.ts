@@ -33,17 +33,26 @@ export function assertWorkOrderAssetRules(input: {
   type: WorkOrderType;
   assetId?: string | null;
   vehicleId?: string | null;
+  functionalLocationId?: string | null;
 }) {
   const assetId = normalizeOptionalObjectId(input.assetId);
   const vehicleId = normalizeOptionalObjectId(input.vehicleId);
+  const functionalLocationId = normalizeOptionalObjectId(input.functionalLocationId);
 
   if (ASSET_OR_VEHICLE_REQUIRED_TYPES.has(input.type) && !assetId && !vehicleId) {
     throw new BadRequestException(
-      `Work order type ${input.type} requires an asset or vehicle link. General tasks (CORRECTIVE, EMERGENCY) may omit both.`
+      `Work order type ${input.type} requires an asset or vehicle link. Location-only is not sufficient for this type.`
     );
   }
 
-  return { assetId, vehicleId };
+  // Phase 6: at least one of asset, vehicle, or functional location for all WOs
+  if (!assetId && !vehicleId && !functionalLocationId) {
+    throw new BadRequestException(
+      "Work order requires an asset, vehicle, or functional location (at least one)."
+    );
+  }
+
+  return { assetId, vehicleId, functionalLocationId };
 }
 
 export type SlaRiskLevel = "OVERDUE" | "DUE_24H" | "DUE_3D" | "FUTURE" | "NONE";
@@ -56,7 +65,7 @@ export function calculateSlaRisk(input: {
   now?: Date;
 }): { level: SlaRiskLevel; delayDays: number; targetDate: Date | null } {
   const now = input.now ?? new Date();
-  if (input.status === "COMPLETED" || input.status === "CANCELLED") {
+  if (input.status === "COMPLETED" || input.status === "CANCELLED" || input.status === "CLOSED" || input.status === "VERIFIED") {
     return { level: "NONE", delayDays: 0, targetDate: null };
   }
 

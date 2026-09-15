@@ -272,11 +272,11 @@ export class WorkforcePlanningService {
       active: true,
       tenantId,
       ...(filters.designation?.trim()
-        ? { designation: { equals: filters.designation.trim(), mode: "insensitive" } }
+        ? { designation: { equals: filters.designation.trim() } }
         : {}),
       ...(filters.departmentId?.trim() ? { departmentId: filters.departmentId.trim() } : {}),
       ...(filters.branchName?.trim()
-        ? { branchName: { equals: filters.branchName.trim(), mode: "insensitive" } }
+        ? { branchName: { equals: filters.branchName.trim() } }
         : {})
     };
 

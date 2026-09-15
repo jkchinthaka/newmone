@@ -9,6 +9,7 @@ import { GlobalCommandPalette } from "@/components/layout/global-command-palette
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavigationRouteGuard } from "@/components/layout/navigation-route-guard";
+import { NetworkStatusBanner } from "@/components/layout/network-status-banner";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import {
@@ -115,6 +116,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
+      <NetworkStatusBanner />
       <div className="flex min-h-screen">
         <Sidebar />
         <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />

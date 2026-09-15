@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { stringArrayToText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 
@@ -59,9 +60,9 @@ export class JobCodesService {
         ...(q
           ? {
               OR: [
-                { code: { contains: q, mode: "insensitive" as const } },
-                { name: { contains: q, mode: "insensitive" as const } },
-                { category: { contains: q, mode: "insensitive" as const } }
+                { code: { contains: q } },
+                { name: { contains: q } },
+                { category: { contains: q } }
               ]
             }
           : {})
@@ -108,8 +109,10 @@ export class JobCodesService {
         category: input.category?.trim() || null,
         parentId: input.parentId || null,
         estimatedHours: input.estimatedHours ?? null,
-        requiredSkills: input.requiredSkills ?? [],
-        requiredPartIds: input.requiredPartIds ?? []
+        requiredSkills: stringArrayToText(input.requiredSkills ?? []),
+        requiredParts: {
+          create: (input.requiredPartIds ?? []).map((sparePartId) => ({ sparePartId }))
+        }
       }
     });
   }
@@ -132,8 +135,17 @@ export class JobCodesService {
     if (input.category !== undefined) data.category = input.category?.trim() || null;
     if (input.parentId !== undefined) data.parentId = input.parentId || null;
     if (input.estimatedHours !== undefined) data.estimatedHours = input.estimatedHours;
-    if (input.requiredSkills !== undefined) data.requiredSkills = input.requiredSkills;
-    if (input.requiredPartIds !== undefined) data.requiredPartIds = input.requiredPartIds;
+    if (input.requiredSkills !== undefined) {
+      data.requiredSkills = stringArrayToText(input.requiredSkills);
+    }
+    if (input.requiredPartIds !== undefined) {
+      await this.prisma.jobCodeRequiredPart.deleteMany({ where: { jobCodeId: id } });
+      if (input.requiredPartIds.length > 0) {
+        await this.prisma.jobCodeRequiredPart.createMany({
+          data: input.requiredPartIds.map((sparePartId) => ({ jobCodeId: id, sparePartId }))
+        });
+      }
+    }
     if (input.isActive !== undefined) data.isActive = input.isActive;
 
     return this.prisma.jobCode.update({ where: { id }, data });

@@ -1,5 +1,7 @@
 import type { Employee, Prisma, PrismaClient } from "@prisma/client";
 
+import { stringArrayToText } from "../common/utils/json-text";
+
 export type WorkforceSeedMatch = {
   linkedUserId?: string;
   employeeNo?: string;
@@ -103,27 +105,14 @@ export async function findExistingWorkforceEmployee(
 }
 
 export async function normalizeWorkforceOnlyLinkedUserIds(prisma: PrismaClient, tenantId: string) {
-  const rows = await prisma.employee.findMany({
+  await prisma.employee.updateMany({
     where: {
       tenantId,
       canLogin: false,
-      linkedUserId: null
+      linkedUserId: { not: null }
     },
-    select: { id: true }
+    data: { linkedUserId: null }
   });
-
-  for (const row of rows) {
-    await prisma.$runCommandRaw({
-      update: "Employee",
-      updates: [
-        {
-          q: { _id: { $oid: row.id } },
-          u: { $unset: { linkedUserId: "" } },
-          multi: false
-        }
-      ]
-    });
-  }
 }
 
 export async function upsertLinkedWorkforceEmployee(
@@ -144,7 +133,7 @@ export async function upsertLinkedWorkforceEmployee(
     departmentId: input.departmentId ?? null,
     branchName: input.branchName ?? "Main Site",
     designation: input.designation,
-    skills: input.skills,
+    skills: stringArrayToText(input.skills),
     dailyCapacityHours: input.dailyCapacityHours,
     active: input.active,
     canLogin: true,
@@ -178,7 +167,7 @@ export async function upsertWorkforceOnlyEmployee(
     employeeNo: input.employeeNo,
     fullName: input.fullName,
     designation: input.designation,
-    skills: input.skills,
+    skills: stringArrayToText(input.skills),
     dailyCapacityHours: input.dailyCapacityHours,
     active: input.active,
     canLogin: false,

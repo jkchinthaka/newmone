@@ -10,30 +10,24 @@ export const DEFAULT_POST_LOGIN_REDIRECT = "/action-center";
 
 /** App Router paths confirmed to exist today (2026-06-12 audit). */
 export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
-  "/facilities",
-  "/workspace",
-  "/dashboard",
+  "/action-center",
   "/admin",
   "/system-health",
   "/work-orders",
-  "/cleaning",
-  "/cleaning/issues",
-  "/action-center",
-  "/cleaning/scan",
-  "/cleaning/visits",
   "/fleet",
   "/fleet/gate",
   "/inventory",
-  "/procurement",
   "/reports",
   "/compliance",
   "/assets",
   "/vehicles",
-  "/farm",
-  "/billing",
+  "/facilities",
   "/utilities",
   "/notifications",
-  "/settings"
+  "/settings",
+  "/qr/report-issue",
+  "/requests",
+  "/maintenance/forecast"
 ]);
 
 export type PostLoginUserLike =
@@ -46,41 +40,43 @@ export type PostLoginUserLike =
 
 /**
  * Preferred landing paths per role (first existing route wins).
- * Missing routes fall back to `/dashboard` via `resolvePostLoginPath`.
+ * Phase 1: CMMS/fleet focused — no farm/cleaning/billing landings.
  */
 export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
-  SUPER_ADMIN: ["/action-center", "/admin", "/system-health", "/workspace"],
-  ADMIN: ["/action-center", "/workspace", "/admin", "/dashboard"],
-  MANAGER: ["/action-center", "/workspace", "/dashboard"],
-  OPERATIONS_MANAGER: ["/action-center", "/workspace", "/dashboard"],
-  FACILITY_MANAGER: ["/action-center", "/facilities", "/cleaning/issues", "/workspace"],
-  BUILDING_SUPERVISOR: ["/action-center", "/facilities", "/cleaning/issues", "/workspace"],
-  MAINTENANCE_SUPERVISOR: ["/action-center", "/work-orders", "/workspace"],
-  TECHNICIAN: ["/action-center", "/workspace", "/work-orders"],
-  MECHANIC: ["/action-center", "/workspace", "/work-orders"],
-  CLEANER: ["/action-center", "/cleaning", "/workspace"],
-  SECURITY_OFFICER: ["/action-center", "/fleet/gate", "/workspace"],
-  INVENTORY_KEEPER: ["/action-center", "/inventory", "/workspace"],
-  STOREKEEPER: ["/action-center", "/inventory", "/workspace"],
-  PROCUREMENT_OFFICER: ["/action-center", "/procurement", "/workspace"],
-  FINANCE_APPROVER: ["/action-center", "/reports", "/billing", "/workspace"],
-  VENDOR: ["/action-center", DEFAULT_POST_LOGIN_REDIRECT],
-  REQUESTER: ["/action-center", DEFAULT_POST_LOGIN_REDIRECT],
-  VIEWER: ["/action-center", "/reports", DEFAULT_POST_LOGIN_REDIRECT],
-  AUDITOR: ["/action-center", "/reports", DEFAULT_POST_LOGIN_REDIRECT],
-  FLEET_MANAGER: ["/action-center", "/fleet", DEFAULT_POST_LOGIN_REDIRECT],
-  COMPLIANCE_MANAGER: ["/action-center", "/compliance", DEFAULT_POST_LOGIN_REDIRECT],
-  ASSET_MANAGER: ["/action-center", "/assets", DEFAULT_POST_LOGIN_REDIRECT],
-  SUPERVISOR: ["/action-center", "/work-orders", DEFAULT_POST_LOGIN_REDIRECT],
-  DRIVER: ["/action-center", "/vehicles", "/fleet", DEFAULT_POST_LOGIN_REDIRECT],
-  FARM_OWNER: ["/action-center", "/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  FARM_MANAGER: ["/action-center", "/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  FIELD_SUPERVISOR: ["/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  AGRONOMIST: ["/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  VETERINARIAN: ["/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  FARM_WORKER: ["/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  IRRIGATION_OPERATOR: ["/farm", DEFAULT_POST_LOGIN_REDIRECT],
-  HARVEST_CREW: ["/farm", DEFAULT_POST_LOGIN_REDIRECT]
+  SUPER_ADMIN: ["/action-center", "/admin", "/system-health"],
+  ADMIN: ["/action-center", "/admin"],
+  MANAGER: ["/action-center", "/reports", "/work-orders"],
+  OPERATIONS_MANAGER: ["/action-center", "/work-orders", "/reports"],
+  FACILITY_MANAGER: ["/action-center", "/facilities", "/assets"],
+  BUILDING_SUPERVISOR: ["/action-center", "/facilities", "/work-orders"],
+  MAINTENANCE_SUPERVISOR: ["/action-center", "/work-orders"],
+  TECHNICIAN: ["/action-center", "/work-orders"],
+  MECHANIC: ["/action-center", "/work-orders"],
+  CLEANER: ["/action-center"],
+  SECURITY_OFFICER: ["/action-center", "/fleet/gate"],
+  INVENTORY_KEEPER: ["/action-center", "/inventory"],
+  STOREKEEPER: ["/action-center", "/inventory"],
+  PROCUREMENT_OFFICER: ["/action-center", "/inventory"],
+  FINANCE_APPROVER: ["/action-center", "/reports"],
+  FINANCE: ["/action-center", "/reports"],
+  VENDOR: ["/action-center"],
+  REQUESTER: ["/action-center", "/requests"],
+  VIEWER: ["/action-center", "/reports"],
+  AUDITOR: ["/action-center", "/reports"],
+  FLEET_MANAGER: ["/action-center", "/fleet"],
+  COMPLIANCE_MANAGER: ["/action-center", "/compliance"],
+  ASSET_MANAGER: ["/action-center", "/assets"],
+  SUPERVISOR: ["/action-center", "/work-orders"],
+  DRIVER: ["/action-center", "/fleet"],
+  // Farm ops retired from product surface — land on Home; farm infrastructure via Assets later.
+  FARM_OWNER: ["/action-center", "/assets"],
+  FARM_MANAGER: ["/action-center", "/assets"],
+  FIELD_SUPERVISOR: ["/action-center"],
+  AGRONOMIST: ["/action-center"],
+  VETERINARIAN: ["/action-center"],
+  FARM_WORKER: ["/action-center"],
+  IRRIGATION_OPERATOR: ["/action-center"],
+  HARVEST_CREW: ["/action-center"]
 };
 
 export function extractRoleName(userOrRole: PostLoginUserLike): string | null {

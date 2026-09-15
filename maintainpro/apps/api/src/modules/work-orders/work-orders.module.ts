@@ -3,6 +3,7 @@ import { Module, forwardRef } from "@nestjs/common";
 import { EvidenceModule } from "../evidence/evidence.module";
 import { EnterpriseOpsModule } from "../enterprise-ops/enterprise-ops.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { ApprovalsModule } from "../approvals/approvals.module";
 import { ReportsModule } from "../reports/reports.module";
 import { WorkOrderTaxonomyModule } from "../work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "../workforce/workforce.module";
@@ -27,6 +28,7 @@ import { InventoryModule } from "../inventory/inventory.module";
     ReportsModule,
     WorkOrderTaxonomyModule,
     InventoryModule,
+    ApprovalsModule,
     forwardRef(() => EnterpriseOpsModule)
   ],
   controllers: [WorkOrdersController],

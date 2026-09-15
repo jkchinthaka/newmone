@@ -238,7 +238,7 @@ export function mapStatusSafe(raw: unknown): {
 
 export function mapVehicleTypeSafe(raw: unknown): VehicleType {
   const g = cellString(raw).toUpperCase();
-  if (Object.values(VehicleType).includes(g as VehicleType)) {
+  if ((Object.values(VehicleType) as readonly string[]).includes(g)) {
     return g as VehicleType;
   }
   const lower = g.toLowerCase();

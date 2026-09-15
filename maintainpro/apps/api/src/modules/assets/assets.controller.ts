@@ -26,7 +26,12 @@ import {
   BulkAssetActionDto,
   BulkImportAssetsDto,
   CreateAssetDto,
+  DisposeAssetDto,
+  LinkVehicleDto,
+  MoveAssetDto,
   QrCodeDownloadQueryDto,
+  RetireAssetDto,
+  SetParentAssetDto,
   UpdateAssetDto,
   UpdateAssetStatusDto
 } from "./dto/assets.dto";
@@ -128,11 +133,110 @@ export class AssetsController {
     return { data, message: "Bulk asset action complete" };
   }
 
+  @Get("data-quality")
+  @Roles(...ASSET_READ_ROLES)
+  async dataQuality(@Req() req: AuthedRequest) {
+    const data = await this.assetsService.dataQualityHooks(req.user?.tenantId ?? null);
+    return { data, message: "Asset data-quality hooks fetched" };
+  }
+
+  @Post("migrations/legacy-categories")
+  @Roles(...ASSET_WRITE_ROLES)
+  async backfillLegacyCategories(
+    @Req() req: AuthedRequest,
+    @Query("dryRun") dryRun?: string
+  ) {
+    const isDryRun = !["false", "0", "no"].includes((dryRun ?? "true").toLowerCase());
+    const data = await this.assetsService.backfillLegacyCategories(
+      req.user?.tenantId ?? null,
+      isDryRun
+    );
+    return { data, message: isDryRun ? "Legacy category dry-run complete" : "Legacy category backfill applied" };
+  }
+
   @Get(":id")
   @Roles(...ASSET_READ_ROLES)
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.findOne(id, req.user?.tenantId ?? null);
     return { data, message: "Asset fetched" };
+  }
+
+  @Post(":id/move")
+  @Roles(...ASSET_WRITE_ROLES)
+  async move(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: MoveAssetDto) {
+    const data = await this.assetsService.moveAsset(id, req.user?.tenantId ?? null, req.user!.sub, body);
+    return { data, message: "Asset moved" };
+  }
+
+  @Get(":id/movements")
+  @Roles(...ASSET_READ_ROLES)
+  async movements(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.assetsService.listMovementHistory(id, req.user?.tenantId ?? null);
+    return { data, message: "Asset movement history fetched" };
+  }
+
+  @Post(":id/parent")
+  @Roles(...ASSET_WRITE_ROLES)
+  async setParent(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: SetParentAssetDto
+  ) {
+    const data = await this.assetsService.setParentAsset(
+      id,
+      req.user?.tenantId ?? null,
+      req.user!.sub,
+      body.parentAssetId ?? null
+    );
+    return { data, message: "Asset parent updated" };
+  }
+
+  @Get(":id/children")
+  @Roles(...ASSET_READ_ROLES)
+  async children(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.assetsService.listChildAssets(id, req.user?.tenantId ?? null);
+    return { data, message: "Child assets fetched" };
+  }
+
+  @Post(":id/retire")
+  @Roles(...ASSET_WRITE_ROLES)
+  async retire(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: RetireAssetDto) {
+    const data = await this.assetsService.retireAsset(
+      id,
+      req.user?.tenantId ?? null,
+      req.user!.sub,
+      body,
+      req.user
+    );
+    return { data, message: "Asset retired" };
+  }
+
+  @Post(":id/dispose")
+  @Roles(...ASSET_WRITE_ROLES)
+  async dispose(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: DisposeAssetDto) {
+    const data = await this.assetsService.disposeAsset(
+      id,
+      req.user?.tenantId ?? null,
+      req.user!.sub,
+      body
+    );
+    return { data, message: "Asset disposed" };
+  }
+
+  @Post(":id/link-vehicle")
+  @Roles(...ASSET_WRITE_ROLES)
+  async linkVehicle(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: LinkVehicleDto
+  ) {
+    const data = await this.assetsService.linkVehicleToAsset(
+      id,
+      req.user?.tenantId ?? null,
+      req.user!.sub,
+      body.vehicleId
+    );
+    return { data, message: "Vehicle linked to asset" };
   }
 
   @Patch(":id")

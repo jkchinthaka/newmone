@@ -1112,7 +1112,7 @@ export class WorkOrderQueuesService {
       where.status = query.status as WorkOrderStatus;
     }
     if (query.priority && query.priority !== "ALL") {
-      where.priority = query.priority as Prisma.EnumPriorityFilter;
+      where.priority = query.priority as Priority;
     }
     if (query.assetId) where.assetId = query.assetId;
     if (query.vehicleId) where.vehicleId = query.vehicleId;
@@ -1156,7 +1156,7 @@ export class WorkOrderQueuesService {
     if (query.taxonomyTypeId) where.taxonomyTypeId = query.taxonomyTypeId;
     if (query.taxonomyIssueId) where.taxonomyIssueId = query.taxonomyIssueId;
     if (query.triageOnly === true || query.triageOnly === "true") where.isTriage = true;
-    if (query.type) where.type = query.type as Prisma.EnumWorkOrderTypeFilter;
+    if (query.type) where.type = query.type as WorkOrderType;
 
     const searchTerm = (query.search ?? query.query)?.trim();
     if (searchTerm && searchTerm.length >= 2) {

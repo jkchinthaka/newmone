@@ -127,7 +127,7 @@ describe("WorkforcePlanningService.listEmployeesByDesignation", () => {
 });
 
 describe("WorkforceEmployeesService", () => {
-  const prisma = {
+  const prisma: any = {
     employee: {
       count: jest.fn(),
       findFirst: jest.fn(),
@@ -137,9 +137,11 @@ describe("WorkforceEmployeesService", () => {
       findMany: jest.fn()
     },
     user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    userSkill: { deleteMany: jest.fn(), createMany: jest.fn() },
     role: { findFirst: jest.fn() },
     department: { findFirst: jest.fn() },
-    tenantMembership: { create: jest.fn() }
+    tenantMembership: { create: jest.fn() },
+    $transaction: jest.fn(async (arg: any) => (typeof arg === "function" ? arg(prisma) : Promise.all(arg)))
   };
 
   const service = new WorkforceEmployeesService(prisma as never);
@@ -150,7 +152,7 @@ describe("WorkforceEmployeesService", () => {
     prisma.employee.findFirst.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.role.findFirst.mockResolvedValue({ id: "role-tech", name: RoleName.TECHNICIAN });
-    prisma.employee.create.mockImplementation(async ({ data }) => ({ id: "emp-new", ...data }));
+    prisma.employee.create.mockImplementation(async ({ data }: any) => ({ id: "emp-new", ...data }));
   });
 
   it("creates employee without login", async () => {

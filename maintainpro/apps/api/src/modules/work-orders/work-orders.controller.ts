@@ -586,16 +586,37 @@ export class WorkOrdersController {
 
   @Post(":id/verify-supervisor")
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ description: "Work order supervisor verified and completed" })
+  @ApiOkResponse({ description: "Work order supervisor verified (Phase 6 VERIFIED)" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.verify")
   async verifySupervisor(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { verificationNote?: string; actualCost?: number; actualHours?: number; delayReason?: string; overrideReason?: string }
+    @Body()
+    body: {
+      verificationNote?: string;
+      actualCost?: number;
+      actualHours?: number;
+      delayReason?: string;
+      overrideReason?: string;
+    }
   ) {
     const data = await this.workOrdersService.verifySupervisor(id, body, req.user);
-    return { data, message: "Work order supervisor verified" };
+    return { data, message: "Work order verified" };
+  }
+
+  @Post(":id/close")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order closed (Phase 6 CLOSED)" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.close")
+  async closeWorkOrder(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { note?: string }
+  ) {
+    const data = await this.workOrdersService.closeWorkOrder(id, body?.note, req.user);
+    return { data, message: "Work order closed" };
   }
 
   @Post(":id/reject-supervisor")

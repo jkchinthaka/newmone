@@ -5,6 +5,7 @@ import { INestApplication, Injectable, Logger, OnModuleInit } from "@nestjs/comm
 import { Prisma, PrismaClient, ReplicationOperation, ReplicationOutbox } from "@prisma/client";
 
 import { requestContext } from "../common/context/request-context";
+import { toJsonText } from "../common/utils/json-text";
 import {
   AUDIT_SECURITY_SKIP_MODELS,
   MODEL_AUDIT_EXTRA_KEYS,
@@ -76,6 +77,113 @@ const MUTATION_ACTIONS = new Set<Prisma.PrismaAction>([
 ]);
 
 type Json = Prisma.InputJsonValue;
+
+const JSON_TEXT_FIELD_NAMES = new Set([
+  "metadata",
+  "metadataSafe",
+  "payload",
+  "actorSnapshot",
+  "beforeData",
+  "afterData",
+  "resultJson",
+  "raw",
+  "value",
+  "customAttributes",
+  "customFields",
+  "profile",
+  "conditions",
+  "answers",
+  "lineItems",
+  "options",
+  "images",
+  "documents",
+  "attachments",
+  "photos",
+  "evidenceUrls",
+  "documentUrls",
+  "beforePhotos",
+  "afterPhotos",
+  "ppeRequired",
+  "skills",
+  "workCategories",
+  "skillTags",
+  "requiredSkills",
+  "allowedRoles",
+  "aliases",
+  "keywords",
+  "commonMistakes",
+  "sinhalaKeywords",
+  "departmentHints",
+  "serviceCategories",
+  "certifications",
+  "reasonCodes",
+  "priorityScope",
+  "workTypeScope",
+  "linkedChangeRequests",
+  "linkedQaIssues",
+  "linkedTickets",
+  "handoverChecklist",
+  "mappingSnapshot",
+  "stagingRecords",
+  "sheetsDetected",
+  "warehousesDetected",
+  "normalizedData",
+  "rawData",
+  "errors",
+  "warnings",
+  "requestPayload",
+  "responsePayload",
+  "contextSnapshot",
+  "criteriaSnapshot",
+  "ruleSnapshot",
+  "sourceContext",
+  "templateSnapshot",
+  "triggerSummary",
+  "dryRunSummary",
+  "applySummary",
+  "sourceMetadata",
+  "entityTypes",
+  "summary",
+  "shortageParts",
+  "selectedUsers",
+  "selectedRoles",
+  "selectedModules",
+  "blockers",
+  "attachmentMetadata",
+  "actions",
+  "reasons",
+  "factors",
+  "items",
+  "checklistItems",
+  "dailyChecklist",
+  "gpsPolygon"
+]);
+
+/** Serialize known JSON-text columns only — never touch relation graphs. */
+function serializeJsonTextArgs<T>(value: T, parentKey?: string): T {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+  if (value instanceof Date) return value;
+
+  if (parentKey && JSON_TEXT_FIELD_NAMES.has(parentKey)) {
+    if (typeof value === "string") return value;
+    return toJsonText(value) as unknown as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((v) => serializeJsonTextArgs(v)) as unknown as T;
+  }
+
+  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+    return value;
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = serializeJsonTextArgs(v, k);
+  }
+  return out as T;
+}
 
 interface ReplicationCandidate {
   modelName: string;
@@ -206,6 +314,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    this.installJsonTextMiddleware();
     this.installReplicationMiddleware();
     this.installAuditMiddleware();
 
@@ -264,7 +373,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       throw new Error("Backup database is not configured.");
     }
 
-    await this.backupClient.$runCommandRaw({ ping: 1 });
+    await this.backupClient.$queryRaw`SELECT 1`;
   }
 
   $transaction<R>(
@@ -296,6 +405,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
   private shouldCaptureReplication(): boolean {
     return this.replicationConfig.enabled && this.replicationConfig.mode !== "disabled";
+  }
+
+  /** Phase 15: stringify plain objects/arrays written into NVARCHAR JSON-text columns. */
+  private installJsonTextMiddleware(): void {
+    this.$use(async (params, next) => {
+      if (params.args && MUTATION_ACTIONS.has(params.action)) {
+        params.args = serializeJsonTextArgs(params.args);
+      }
+      return next(params);
+    });
   }
 
   private installReplicationMiddleware(): void {
@@ -495,7 +614,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         throw new Error("Backup database is not configured for strict_dual_write mode.");
       }
 
-      await applyReplicationEventToBackup(backup, event);
+      await applyReplicationEventToBackup(backup, {
+        modelName: event.modelName,
+        entityId: event.entityId,
+        operation: event.operation as ReplicationOperation,
+        payload: event.payload
+      });
       await this.replicationOutbox.update({
         where: { id: event.id },
         data: {
@@ -679,15 +803,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     for (const entry of entries) {
       if (!entry.entityId) continue;
 
-      let beforeData: Json | undefined;
-      let afterData: Json | undefined;
+      let beforeData: string | undefined;
+      let afterData: string | undefined;
 
       if (entry.action === "UPDATE") {
         const changes = diffRecords(entry.before, entry.after, opts.model);
         if (changes.length === 0) continue;
         // Store the field-level diff in BOTH columns: beforeData holds prev values, afterData holds new
-        beforeData = changes.map((c) => ({ field: c.field, value: c.before })) as unknown as Json;
-        afterData = changes.map((c) => ({ field: c.field, value: c.after })) as unknown as Json;
+        beforeData = toJsonText(changes.map((c) => ({ field: c.field, value: c.before }))) ?? undefined;
+        afterData = toJsonText(changes.map((c) => ({ field: c.field, value: c.after }))) ?? undefined;
       } else if (entry.action === "CREATE") {
         const snapshot: Record<string, unknown> = {};
         const safeAfter = redactForAudit(opts.model, entry.after);
@@ -695,7 +819,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }
-        afterData = snapshot as Json;
+        afterData = toJsonText(snapshot) ?? undefined;
       } else {
         const snapshot: Record<string, unknown> = {};
         const safeBefore = redactForAudit(opts.model, entry.before);
@@ -703,7 +827,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }
-        beforeData = snapshot as Json;
+        beforeData = toJsonText(snapshot) ?? undefined;
       }
 
       const tenantForRow =
@@ -727,7 +851,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           requestPath,
           actorSnapshot:
             actorId || actorEmail || actorRole
-              ? ({ id: actorId, email: actorEmail, role: actorRole } as Json)
+              ? toJsonText({ id: actorId, email: actorEmail, role: actorRole }) ?? undefined
               : undefined,
           beforeData,
           afterData

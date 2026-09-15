@@ -1,14 +1,20 @@
 /**
- * Centralized dashboard navigation configuration.
- * Frontend UX only — backend RBAC remains authoritative for route access.
+ * Centralized dashboard navigation — Phase 1 CMMS scope.
+ * Primary nav: Home, Requests, Work Orders, Preventive Maintenance, Assets, Fleet, Spare Parts, Reports, Admin.
+ * Frontend UX only — backend RBAC remains authoritative for API access.
+ *
+ * Retired from normal product surface (routes may remain for compatibility; not in primary nav):
+ * Farm Operations, Cleaning workforce, FG product UI, SaaS Billing, Predictive AI,
+ * QA/Delivery/Go-Live/Post-Go-Live business admin clutter.
  */
 
 import { LEGACY_FMS_HOME_PATH } from "./role-redirect";
-import { LEGACY_FMS_ARCHIVE_ROLES } from "./legacy-fms-access";
 
 export type NavActiveMatch = "exact" | "startsWith";
 
 export type NavCategory =
+  | "primary"
+  | "secondary"
   | "workspace"
   | "core"
   | "operations"
@@ -61,7 +67,6 @@ const MANAGEMENT_ROLES = [
 ] as const;
 const SUPERVISOR_ROLES = ["MAINTENANCE_SUPERVISOR", "SUPERVISOR"] as const;
 const TECHNICIAN_ROLES = ["TECHNICIAN", "MECHANIC"] as const;
-const CLEANING_ROLES = ["CLEANER"] as const;
 const FACILITY_ROLES = ["FACILITY_MANAGER", "BUILDING_SUPERVISOR"] as const;
 const SECURITY_ROLES = ["SECURITY_OFFICER"] as const;
 const INVENTORY_ROLES = ["INVENTORY_KEEPER", "STOREKEEPER"] as const;
@@ -69,7 +74,14 @@ const PROCUREMENT_ROLES = ["PROCUREMENT_OFFICER"] as const;
 const FINANCE_ROLES = ["FINANCE", "FINANCE_APPROVER"] as const;
 const READ_ONLY_ROLES = ["VIEWER", "AUDITOR"] as const;
 const DRIVER_ROLES = ["DRIVER"] as const;
-const FARM_ROLES = [
+const FLEET_ROLES = ["FLEET_MANAGER"] as const;
+const COMPLIANCE_ROLES = ["COMPLIANCE_MANAGER"] as const;
+const ASSET_ROLES = ["ASSET_MANAGER"] as const;
+const REQUESTER_ROLES = ["REQUESTER", "VENDOR"] as const;
+/** Cleaning ops retired from product surface; role still needs Home access. */
+const CLEANER_ROLES = ["CLEANER"] as const;
+/** Farm ops retired; roles land on Home / Assets for infrastructure maintenance. */
+const FARM_INFRA_ROLES = [
   "FARM_OWNER",
   "FARM_MANAGER",
   "FIELD_SUPERVISOR",
@@ -79,829 +91,363 @@ const FARM_ROLES = [
   "IRRIGATION_OPERATOR",
   "HARVEST_CREW"
 ] as const;
-const FLEET_ROLES = ["FLEET_MANAGER"] as const;
-const COMPLIANCE_ROLES = ["COMPLIANCE_MANAGER"] as const;
-const ASSET_ROLES = ["ASSET_MANAGER"] as const;
 
 function mergeRoles(...groups: ReadonlyArray<readonly string[]>): readonly string[] {
   return [...new Set(groups.flat())];
 }
 
-const DASHBOARD_ROLES = mergeRoles(
-  ADMIN_ROLES,
-  MANAGEMENT_ROLES,
-  SUPERVISOR_ROLES,
-  SECURITY_ROLES,
-  READ_ONLY_ROLES,
-  FARM_ROLES,
-  FACILITY_ROLES,
-  FLEET_ROLES,
-  COMPLIANCE_ROLES,
-  ASSET_ROLES
-);
-
-const ACTION_CENTER_ROLES = mergeRoles(
+const HOME_ROLES = mergeRoles(
   ADMIN_ROLES,
   MANAGEMENT_ROLES,
   SUPERVISOR_ROLES,
   TECHNICIAN_ROLES,
-  CLEANING_ROLES,
   FACILITY_ROLES,
   SECURITY_ROLES,
   INVENTORY_ROLES,
   PROCUREMENT_ROLES,
   READ_ONLY_ROLES,
   DRIVER_ROLES,
-  FARM_ROLES,
   FLEET_ROLES,
   COMPLIANCE_ROLES,
   ASSET_ROLES,
-  FINANCE_ROLES
+  FINANCE_ROLES,
+  REQUESTER_ROLES,
+  CLEANER_ROLES,
+  FARM_INFRA_ROLES
 );
 
-/** Confirmed App Router paths (2026-06-12 audit). */
+const REQUEST_ROLES = mergeRoles(
+  HOME_ROLES,
+  TECHNICIAN_ROLES,
+  SUPERVISOR_ROLES,
+  MANAGEMENT_ROLES,
+  FACILITY_ROLES,
+  READ_ONLY_ROLES
+);
+
+const WO_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  SUPERVISOR_ROLES,
+  TECHNICIAN_ROLES,
+  ASSET_ROLES,
+  FLEET_ROLES,
+  FACILITY_ROLES,
+  INVENTORY_ROLES
+);
+
+const PM_ROLES = mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, SUPERVISOR_ROLES, ASSET_ROLES, TECHNICIAN_ROLES);
+
+const ASSET_NAV_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  SUPERVISOR_ROLES,
+  ASSET_ROLES,
+  TECHNICIAN_ROLES,
+  FACILITY_ROLES,
+  READ_ONLY_ROLES
+);
+
+const FLEET_NAV_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  FLEET_ROLES,
+  DRIVER_ROLES,
+  SECURITY_ROLES,
+  COMPLIANCE_ROLES,
+  TECHNICIAN_ROLES,
+  READ_ONLY_ROLES
+);
+
+const PARTS_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  INVENTORY_ROLES,
+  PROCUREMENT_ROLES,
+  TECHNICIAN_ROLES,
+  SUPERVISOR_ROLES
+);
+
+const REPORT_ROLES = mergeRoles(
+  ADMIN_ROLES,
+  MANAGEMENT_ROLES,
+  SUPERVISOR_ROLES,
+  FLEET_ROLES,
+  ASSET_ROLES,
+  FINANCE_ROLES,
+  COMPLIANCE_ROLES,
+  READ_ONLY_ROLES
+);
+
+/** Routes still valid for redirects / deep links (not all appear in primary nav). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
-  "/facilities",
-  "/facilities/reports",
+  "/action-center",
   "/workspace",
   "/dashboard",
-  "/action-center",
-  "/admin",
-  "/system-health",
+  "/requests",
+  "/requests/new",
+  "/qr/report-issue",
   "/work-orders",
+  "/maintenance/job-codes",
+  "/maintenance/forecast",
+  "/maintenance/plans",
   "/assets",
+  "/assets/health",
   "/fleet",
   "/fleet/gate",
+  "/fleet/tyres",
+  "/vehicles",
+  "/vehicles/health",
+  "/vehicles/costs",
   "/inventory",
   "/inventory/movements",
   "/inventory/daily",
   "/inventory/import",
   "/inventory/erp-import",
-  "/fg",
-  "/procurement",
-  "/compliance",
-  "/reports",
-  "/vehicles",
-  "/settings",
-  "/notifications",
-  "/billing",
-  "/utilities",
-  "/predictive-ai",
-  "/master-data",
-  "/master-data/employees",
-  "/accidents",
-  "/insurance-claims",
-  "/traffic-fines",
-  "/maintenance/job-codes",
-  "/cleaning",
-  "/cleaning/scan",
-  "/cleaning/visits",
-  "/cleaning/sign-off",
-  "/cleaning/analytics",
-  "/cleaning/issues",
-  "/cleaning/locations",
-  "/farm",
-  "/farm/fields",
-  "/farm/crops",
-  "/farm/harvest",
-  "/farm/livestock",
-  "/farm/irrigation",
-  "/farm/spray-logs",
-  "/farm/soil-tests",
-  "/farm/weather",
-  "/farm/workers",
-  "/farm/attendance",
-  "/farm/finance",
-  "/farm/traceability",
-  "/qa",
-  "/delivery-readiness",
-  "/go-live",
-  "/erp",
-  "/post-go-live",
-  "/operations/exceptions",
-  "/operations/sla",
-  "/operations/budget",
-  "/operations/mappings",
-  "/procurement/matching",
-  "/procurement/recommendations",
-  "/procurement/vendors",
-  "/assets/health",
-  "/maintenance/forecast",
-  "/vehicles/health",
-  "/vehicles/costs",
   "/inventory/warranty",
+  "/maintenance-supply",
+  "/procurement",
+  "/procurement/vendors",
+  "/reports",
   "/reports/maintenance-exceptions",
   "/reports/fraud-control",
   "/reports/management-intelligence",
+  "/admin",
+  "/admin/organization",
+  "/admin/asset-masters",
+  "/admin/data-quality",
+  "/admin/audit",
+  "/erp",
+  "/system-health",
+  "/settings",
+  "/notifications",
+  "/master-data",
+  "/master-data/employees",
+  "/master-data/departments",
+  "/compliance",
+  "/accidents",
+  "/insurance-claims",
+  "/traffic-fines",
+  "/facilities",
+  "/utilities",
+  "/operations/exceptions",
   LEGACY_FMS_HOME_PATH
 ]);
 
 export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
-  workspace: "Workspace",
+  primary: "Main",
+  secondary: "Account",
+  workspace: "Home",
   core: "Overview",
   operations: "Operations",
-  compliance: "Control & Compliance",
-  reports: "Reports & Analytics",
-  admin: "Administration",
-  cleaning: "Facility Management",
-  farm: "Farm Operations",
+  compliance: "Compliance",
+  reports: "Reports",
+  admin: "Admin",
+  cleaning: "Facility (retired)",
+  farm: "Farm (retired)",
   legacy: "Archive"
 };
 
-const WORKSPACE_ROLES = ACTION_CENTER_ROLES;
-
 export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = {
-  TECHNICIAN: ["my-tasks", "waiting-evidence", "action-center"],
-  MECHANIC: ["my-tasks", "waiting-evidence", "action-center"],
-  INVENTORY_KEEPER: ["inventory", "waiting-parts", "action-center"],
-  STOREKEEPER: ["inventory", "waiting-parts", "action-center"],
-  SUPERVISOR: ["supervisor-verification", "action-center", "high-risk-queue"],
-  MAINTENANCE_SUPERVISOR: ["supervisor-verification", "action-center", "high-risk-queue"],
-  MANAGER: ["high-risk-queue", "action-center", "reports"],
-  OPERATIONS_MANAGER: ["high-risk-queue", "action-center", "reports"],
-  SUPER_ADMIN: ["system-health", "admin-console", "action-center"],
-  ADMIN: ["system-health", "admin-console", "action-center"],
-  SECURITY_OFFICER: ["fleet-gate", "action-center"],
-  FACILITY_MANAGER: ["facilities", "cleaning-issues", "action-center"],
-  FARM_MANAGER: ["farm-dashboard", "action-center"]
+  TECHNICIAN: ["home", "work-orders"],
+  MECHANIC: ["home", "work-orders"],
+  INVENTORY_KEEPER: ["home", "spare-parts"],
+  STOREKEEPER: ["home", "spare-parts"],
+  SUPERVISOR: ["home", "work-orders", "requests"],
+  MAINTENANCE_SUPERVISOR: ["home", "work-orders", "preventive-maintenance"],
+  MANAGER: ["home", "reports", "work-orders"],
+  OPERATIONS_MANAGER: ["home", "reports", "work-orders"],
+  SUPER_ADMIN: ["home", "admin", "system-health"],
+  ADMIN: ["home", "admin", "system-health"],
+  SECURITY_OFFICER: ["home", "fleet"],
+  FLEET_MANAGER: ["home", "fleet", "work-orders"],
+  DRIVER: ["home", "fleet"],
+  VIEWER: ["home", "reports"],
+  ASSET_MANAGER: ["home", "assets", "preventive-maintenance"]
 };
 
 export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
 
+/**
+ * Phase 1 primary navigation — CMMS / Fleet focused.
+ * Queue shortcuts live under Home (Action Center), not as competing top-level items.
+ */
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
-    id: "my-workspace",
-    label: "My Workspace",
-    href: "/workspace",
-    icon: "LayoutDashboard",
-    allowedRoles: WORKSPACE_ROLES,
-    category: "workspace",
-    description: "Role-based shortcuts for your daily work",
-    mobilePriority: true,
-    activeMatch: "exact"
-  },
-  {
-    id: "action-center",
-    label: "Action Center",
+    id: "home",
+    label: "Home",
     href: "/action-center",
-    icon: "BellRing",
-    allowedRoles: ACTION_CENTER_ROLES,
-    category: "workspace",
-    description: "Role-aware operational priorities and attention items",
+    icon: "Home",
+    allowedRoles: HOME_ROLES,
+    category: "primary",
+    description: "Role-aware priorities (replaces Workspace / Dashboard / Action Center top-level split)",
     badgeKey: "action-center",
     mobilePriority: true,
-    pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES),
+    pinByDefaultForRoles: HOME_ROLES,
     activeMatch: "exact"
   },
   {
-    id: "my-tasks",
-    label: "My Tasks",
-    href: "/work-orders?queue=my-tasks",
-    icon: "ClipboardList",
-    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
-    category: "workspace",
-    description: "Work orders assigned to you",
-    badgeKey: "my-tasks",
-    pinByDefaultForRoles: TECHNICIAN_ROLES,
-    mobilePriority: true
-  },
-  {
-    id: "waiting-parts",
-    label: "Waiting Parts",
-    href: "/work-orders?queue=waiting-parts",
-    icon: "Layers",
-    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, INVENTORY_ROLES, MANAGEMENT_ROLES),
-    category: "workspace",
-    badgeKey: "waiting-parts",
-    pinByDefaultForRoles: INVENTORY_ROLES
-  },
-  {
-    id: "waiting-evidence",
-    label: "Evidence Needed",
-    href: "/work-orders?queue=waiting-evidence",
-    icon: "FileCheck2",
-    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, MANAGEMENT_ROLES),
-    category: "workspace",
-    badgeKey: "waiting-evidence",
-    pinByDefaultForRoles: TECHNICIAN_ROLES
-  },
-  {
-    id: "supervisor-verification",
-    label: "Pending Verification",
-    href: "/work-orders?queue=supervisor-verification",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "workspace",
-    badgeKey: "supervisor-verification",
-    pinByDefaultForRoles: SUPERVISOR_ROLES
-  },
-  {
-    id: "high-risk-queue",
-    label: "High Risk",
-    href: "/work-orders?queue=high-risk",
-    icon: "ShieldAlert",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES),
-    category: "workspace",
-    badgeKey: "high-risk",
-    pinByDefaultForRoles: MANAGEMENT_ROLES
-  },
-  {
-    id: "triage-queue",
-    label: "Triage Queue",
-    href: "/work-orders?queue=triage",
+    id: "requests",
+    label: "Requests",
+    href: "/requests",
     icon: "AlertTriangle",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES),
-    category: "workspace",
-    badgeKey: "triage"
-  },
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: "LayoutDashboard",
-    allowedRoles: DASHBOARD_ROLES,
-    category: "core",
-    activeMatch: "exact"
-  },
-  {
-    id: "admin-console",
-    label: "Admin Console",
-    href: "/admin",
-    icon: "ShieldCheck",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Platform administration and readiness overview",
+    allowedRoles: REQUEST_ROLES,
+    category: "primary",
+    description: "Report and triage Maintenance Requests",
+    mobilePriority: true,
     activeMatch: "startsWith"
-  },
-  {
-    id: "qa-incidents",
-    label: "QA & Incidents",
-    href: "/qa",
-    icon: "Bug",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Software quality, incidents, RCA, and release readiness",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "delivery-readiness",
-    label: "Delivery Readiness",
-    href: "/delivery-readiness",
-    icon: "ClipboardCheck",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Client delivery checklist, handover pack, and sign-off",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "go-live-control",
-    label: "Go-Live Control",
-    href: "/go-live",
-    icon: "Rocket",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Pilot rollout, cutover checklist, waves, and go/no-go decisions",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "erp-integration",
-    label: "ERP Integration",
-    href: "/erp",
-    icon: "Plug",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Bileeta ERP readiness, mapping, mock sync, and reconciliation",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "post-go-live",
-    label: "Post-Go-Live",
-    href: "/post-go-live",
-    icon: "LifeBuoy",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Support, SLA, training, change control, and hypercare",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "system-health",
-    label: "System Health",
-    href: "/system-health",
-    icon: "ServerCog",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    badgeKey: "system-health"
   },
   {
     id: "work-orders",
     label: "Work Orders",
     href: "/work-orders",
     icon: "ClipboardList",
-    allowedRoles: mergeRoles(
-      MANAGEMENT_ROLES,
-      SUPERVISOR_ROLES,
-      TECHNICIAN_ROLES,
-      ASSET_ROLES
-    ),
-    category: "operations"
+    allowedRoles: WO_ROLES,
+    category: "primary",
+    description: "Executable maintenance work",
+    badgeKey: "my-tasks",
+    mobilePriority: true,
+    pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
+    activeMatch: "startsWith"
+  },
+  {
+    id: "my-jobs",
+    label: "My Jobs",
+    href: "/work-orders/my",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
+    category: "primary",
+    description: "Technician assigned work queue",
+    mobilePriority: true,
+    activeMatch: "exact"
+  },
+  {
+    id: "approvals",
+    label: "Approvals",
+    href: "/approvals",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
+    requiredPermissions: ["approvals.view"],
+    category: "primary",
+    description: "Pending approval inbox",
+    mobilePriority: true,
+    badgeKey: "triage",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "preventive-maintenance",
+    label: "Preventive Maintenance",
+    href: "/maintenance/plans",
+    icon: "CalendarClock",
+    allowedRoles: PM_ROLES,
+    category: "primary",
+    description: "Planned / triggered maintenance",
+    activeMatch: "startsWith"
   },
   {
     id: "assets",
     label: "Assets",
     href: "/assets",
-    icon: "HardDrive",
-    allowedRoles: mergeRoles(
-      MANAGEMENT_ROLES,
-      SUPERVISOR_ROLES,
-      TECHNICIAN_ROLES,
-      ASSET_ROLES
-    ),
-    category: "operations"
-  },
-  {
-    id: "fleet-gate",
-    label: "Gate",
-    href: "/fleet/gate",
-    icon: "ShieldCheck",
-    allowedRoles: mergeRoles(SECURITY_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, FLEET_ROLES),
-    category: "operations",
+    icon: "Boxes",
+    allowedRoles: ASSET_NAV_ROLES,
+    category: "primary",
+    description: "Asset register and health",
     activeMatch: "startsWith"
   },
   {
     id: "fleet",
     label: "Fleet",
     href: "/fleet",
-    icon: "Fuel",
-    allowedRoles: mergeRoles(
-      MANAGEMENT_ROLES,
-      SECURITY_ROLES,
-      DRIVER_ROLES,
-      FLEET_ROLES
-    ),
-    category: "operations"
+    icon: "Truck",
+    allowedRoles: FLEET_NAV_ROLES,
+    category: "primary",
+    description: "Vehicles, gate, and fleet operations",
+    activeMatch: "startsWith"
   },
   {
-    id: "vehicles",
-    label: "Vehicles",
-    href: "/vehicles",
-    icon: "Gauge",
-    allowedRoles: mergeRoles(
-      MANAGEMENT_ROLES,
-      DRIVER_ROLES,
-      ASSET_ROLES,
-      FLEET_ROLES,
-      TECHNICIAN_ROLES
-    ),
-    category: "operations"
-  },
-  {
-    id: "inventory",
-    label: "Inventory",
+    id: "spare-parts",
+    label: "Spare Parts",
     href: "/inventory",
     icon: "Layers",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, PROCUREMENT_ROLES),
-    category: "operations"
+    allowedRoles: PARTS_ROLES,
+    category: "primary",
+    description: "Maintenance parts usage and reservations (Bileeta owns official stock)",
+    activeMatch: "startsWith"
   },
   {
-    id: "operations-exceptions",
-    label: "Exceptions",
-    href: "/operations/exceptions",
-    icon: "AlertTriangle",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "operations",
-    requiredPermissions: ["operations.view"]
-  },
-  {
-    id: "operations-sla",
-    label: "SLA risk",
-    href: "/operations/sla",
-    icon: "Clock3",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "operations",
-    requiredPermissions: ["operations.view"]
-  },
-  {
-    id: "procurement-matching",
-    label: "PO matching",
-    href: "/procurement/matching",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, PROCUREMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
-    category: "operations",
-    requiredPermissions: ["purchase_orders.view"]
-  },
-  {
-    id: "operations-budget",
-    label: "Budget commitments",
-    href: "/operations/budget",
-    icon: "Wallet",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
-    category: "operations",
-    requiredPermissions: ["reports.vehicle_cost.view"]
-  },
-  {
-    id: "asset-health",
-    label: "Asset health",
-    href: "/assets/health",
-    icon: "Gauge",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ASSET_ROLES, ADMIN_ROLES),
-    category: "operations"
-  },
-  {
-    id: "maintenance-forecast",
-    label: "Maintenance forecast",
-    href: "/maintenance/forecast",
-    icon: "ClipboardList",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
-    category: "operations"
-  },
-  {
-    id: "vehicle-health",
-    label: "Vehicle health",
-    href: "/vehicles/health",
-    icon: "Gauge",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FLEET_ROLES, ADMIN_ROLES),
-    category: "operations"
-  },
-  {
-    id: "vehicle-costs",
-    label: "Vehicle costs",
-    href: "/vehicles/costs",
-    icon: "ChartColumnBig",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, FINANCE_ROLES, ADMIN_ROLES),
-    requiredPermissions: ["reports.vehicle_cost.view"],
-    category: "operations"
-  },
-  {
-    id: "inventory-warranty",
-    label: "Warranty",
-    href: "/inventory/warranty",
-    icon: "ShieldAlert",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, ADMIN_ROLES),
-    category: "operations"
-  },
-  {
-    id: "inventory-erp-import",
-    label: "ERP Stock Import",
-    href: "/inventory/erp-import",
-    icon: "ClipboardList",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES),
-    category: "operations"
-  },
-  {
-    id: "fg-digital-recording",
-    label: "FG Digital Recording",
-    href: "/fg",
-    icon: "FileCheck2",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, TECHNICIAN_ROLES, ADMIN_ROLES),
-    category: "operations",
-    activeMatch: "startsWith",
-    description: "Controlled production records, review workflow and QA verification",
-    requiredPermissions: ["fg.access"]
-  },
-  {
-    id: "procurement",
-    label: "Procurement",
-    href: "/procurement",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, INVENTORY_ROLES, PROCUREMENT_ROLES),
-    category: "operations"
-  },
-  {
-    id: "compliance",
-    label: "Compliance",
-    href: "/compliance",
-    icon: "ShieldCheck",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, COMPLIANCE_ROLES, ADMIN_ROLES),
-    category: "compliance"
-  },
-  {
-    id: "accidents",
-    label: "Accidents",
-    href: "/accidents",
-    icon: "AlertTriangle",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, COMPLIANCE_ROLES, ADMIN_ROLES),
-    category: "compliance"
-  },
-  {
-    id: "insurance-claims",
-    label: "Insurance Claims",
-    href: "/insurance-claims",
-    icon: "FileCheck2",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, COMPLIANCE_ROLES, ADMIN_ROLES),
-    category: "compliance"
-  },
-  {
-    id: "traffic-fines",
-    label: "Traffic Fines",
-    href: "/traffic-fines",
-    icon: "Receipt",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, COMPLIANCE_ROLES, ADMIN_ROLES, FLEET_ROLES),
-    category: "compliance"
+    id: "maintenance-supply",
+    label: "Supply & ERP Map",
+    href: "/maintenance-supply",
+    icon: "Layers",
+    allowedRoles: PARTS_ROLES,
+    category: "secondary",
+    description: "ERP mapping status and outstanding tool returns",
+    activeMatch: "exact"
   },
   {
     id: "reports",
     label: "Reports",
     href: "/reports",
-    icon: "ChartColumnBig",
-    allowedRoles: mergeRoles(
-      MANAGEMENT_ROLES,
-      SUPERVISOR_ROLES,
-      READ_ONLY_ROLES,
-      COMPLIANCE_ROLES,
-      ADMIN_ROLES,
-      FINANCE_ROLES
-    ),
-    category: "reports"
-  },
-  {
-    id: "maintenance-exceptions",
-    label: "Maintenance Exceptions",
-    href: "/reports/maintenance-exceptions",
-    icon: "ShieldAlert",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES, FINANCE_ROLES),
-    category: "reports",
-    description: "Fraud monitoring, exception dashboard, and maintenance KPIs"
-  },
-  {
-    id: "fraud-control",
-    label: "Fraud & Control",
-    href: "/reports/fraud-control",
-    icon: "ShieldCheck",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES, INVENTORY_ROLES, FINANCE_ROLES),
-    category: "reports",
-    description: "Anti-fraud dashboard, admin overrides, and parts misuse controls"
-  },
-  {
-    id: "management-intelligence",
-    label: "Management Intelligence",
-    href: "/reports/management-intelligence",
     icon: "BarChart3",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES, FINANCE_ROLES),
-    category: "reports",
-    description: "Profitability, cost leakage, and repair vs replace insights"
+    allowedRoles: REPORT_ROLES,
+    category: "primary",
+    description: "Maintenance and fleet reports",
+    activeMatch: "startsWith"
   },
   {
-    id: "utilities",
-    label: "Utilities",
-    href: "/utilities",
-    icon: "Droplets",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES, FACILITY_ROLES),
-    category: "operations"
-  },
-  {
-    id: "predictive-ai",
-    label: "AI Assistant",
-    href: "/predictive-ai",
-    icon: "Bot",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "admin"
-  },
-  {
-    id: "master-data",
-    label: "Master Data",
-    href: "/master-data",
-    icon: "Database",
-    allowedRoles: mergeRoles(ADMIN_ROLES, ["MANAGER"]),
-    category: "admin"
-  },
-  {
-    id: "job-codes",
-    label: "Job Codes",
-    href: "/maintenance/job-codes",
-    icon: "Tag",
-    allowedRoles: mergeRoles(MANAGEMENT_ROLES, SUPERVISOR_ROLES, ADMIN_ROLES),
-    category: "operations"
+    id: "admin",
+    label: "Admin",
+    href: "/admin",
+    icon: "ShieldCheck",
+    allowedRoles: ADMIN_ROLES,
+    category: "primary",
+    description: "Maintenance administration",
+    activeMatch: "startsWith"
   },
   {
     id: "notifications",
     label: "Notifications",
     href: "/notifications",
     icon: "Bell",
-    allowedRoles: DASHBOARD_ROLES,
-    category: "admin"
-  },
-  {
-    id: "billing",
-    label: "Billing",
-    href: "/billing",
-    icon: "CreditCard",
-    allowedRoles: mergeRoles(ADMIN_ROLES, FINANCE_ROLES),
-    category: "admin"
+    allowedRoles: HOME_ROLES,
+    category: "secondary",
+    activeMatch: "exact"
   },
   {
     id: "settings",
-    label: "Settings",
+    label: "My Profile",
     href: "/settings",
-    icon: "Settings",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES),
-    category: "admin"
-  },
-  {
-    id: "facilities",
-    label: "Facilities",
-    href: "/facilities",
-    icon: "Building2",
-    allowedRoles: mergeRoles(
-      ADMIN_ROLES,
-      MANAGEMENT_ROLES,
-      FACILITY_ROLES,
-      SUPERVISOR_ROLES,
-      READ_ONLY_ROLES
-    ),
-    category: "cleaning",
-    description: "Property, building, floor, and room hierarchy",
+    icon: "UserCircle2",
+    allowedRoles: HOME_ROLES,
+    category: "secondary",
     activeMatch: "startsWith"
   },
   {
-    id: "facilities-reports",
-    label: "Facility Reports",
-    href: "/facilities/reports",
-    icon: "BarChart3",
-    allowedRoles: mergeRoles(
-      ADMIN_ROLES,
-      MANAGEMENT_ROLES,
-      FACILITY_ROLES,
-      SUPERVISOR_ROLES,
-      READ_ONLY_ROLES
-    ),
-    category: "cleaning",
-    description: "Hierarchy and issue KPI summary",
-    activeMatch: "exact"
+    id: "system-health",
+    label: "Technical Admin",
+    href: "/system-health",
+    icon: "Activity",
+    allowedRoles: ADMIN_ROLES,
+    category: "secondary",
+    description: "API, DB, queue, integrations — not business Admin",
+    badgeKey: "system-health",
+    activeMatch: "startsWith"
   },
   {
-    id: "cleaning-overview",
-    label: "Overview",
-    href: "/cleaning",
-    icon: "SprayCan",
-    allowedRoles: mergeRoles(CLEANING_ROLES, FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-issues",
-    label: "Facility Issues",
-    href: "/cleaning/issues",
-    icon: "Bell",
-    allowedRoles: mergeRoles(CLEANING_ROLES, FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-scan",
-    label: "Scan QR",
-    href: "/cleaning/scan",
-    icon: "QrCode",
-    allowedRoles: mergeRoles(CLEANING_ROLES, FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-visits",
-    label: "Visits",
-    href: "/cleaning/visits",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(CLEANING_ROLES, FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-sign-off",
-    label: "Sign-off Queue",
-    href: "/cleaning/sign-off",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(CLEANING_ROLES, FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-analytics",
-    label: "Analytics",
-    href: "/cleaning/analytics",
-    icon: "ChartColumnBig",
-    allowedRoles: mergeRoles(FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "cleaning-locations",
-    label: "Locations",
-    href: "/cleaning/locations",
-    icon: "MapPin",
-    allowedRoles: mergeRoles(FACILITY_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "cleaning"
-  },
-  {
-    id: "farm-dashboard",
-    label: "Farm Dashboard",
-    href: "/farm",
-    icon: "Tractor",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES, ["MANAGER"]),
-    category: "farm"
-  },
-  {
-    id: "farm-fields",
-    label: "Fields & Map",
-    href: "/farm/fields",
-    icon: "MapPin",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-crops",
-    label: "Crops",
-    href: "/farm/crops",
-    icon: "Sprout",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-harvest",
-    label: "Harvest",
-    href: "/farm/harvest",
-    icon: "Leaf",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-livestock",
-    label: "Livestock",
-    href: "/farm/livestock",
-    icon: "Tractor",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-irrigation",
-    label: "Irrigation",
-    href: "/farm/irrigation",
-    icon: "Droplets",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-spray-logs",
-    label: "Spray Logs",
-    href: "/farm/spray-logs",
-    icon: "SprayCan",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-soil-tests",
-    label: "Soil Tests",
-    href: "/farm/soil-tests",
-    icon: "Layers",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-weather",
-    label: "Weather",
-    href: "/farm/weather",
-    icon: "Sun",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-workers",
-    label: "Workers",
-    href: "/farm/workers",
-    icon: "Users",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-attendance",
-    label: "Attendance",
-    href: "/farm/attendance",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-finance",
-    label: "Finance",
-    href: "/farm/finance",
-    icon: "Wallet",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "farm-traceability",
-    label: "Traceability",
-    href: "/farm/traceability",
-    icon: "QrCode",
-    allowedRoles: mergeRoles(FARM_ROLES, ADMIN_ROLES),
-    category: "farm"
-  },
-  {
-    id: "legacy-fms-archive",
-    label: "Legacy FMS Archive",
-    href: LEGACY_FMS_HOME_PATH,
-    icon: "Archive",
-    allowedRoles: LEGACY_FMS_ARCHIVE_ROLES,
-    category: "legacy",
-    description: "Admin-only read-only archived workspace. Use Work Orders for current maintenance history.",
-    legacy: true,
-    activeMatch: "exact"
+    id: "erp-integration",
+    label: "ERP & Spare Parts Sync",
+    href: "/erp",
+    icon: "Database",
+    allowedRoles: ADMIN_ROLES,
+    category: "secondary",
+    description: "Bileeta mapping and reconciliation",
+    activeMatch: "startsWith"
   }
 ];
 
 const NAV_CATEGORY_ORDER: NavCategory[] = [
+  "primary",
+  "secondary",
   "workspace",
   "core",
   "operations",
@@ -916,28 +462,61 @@ const NAV_CATEGORY_ORDER: NavCategory[] = [
 const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/users": ["/admin"],
   "/admin/people": ["/admin"],
-  "/qa": ["/qa"],
   "/admin/roles": ["/admin"],
   "/admin/tenants": ["/admin"],
   "/admin/invitations": ["/admin"],
-  "/reports/job-costing": ["/reports"],
-  "/reports/fraud-control/admin-overrides": ["/reports/fraud-control", "/reports"],
-  "/reports/fraud-control/parts-misuse": ["/reports/fraud-control", "/reports"],
+  "/admin/bulk-imports": ["/admin"],
+  "/admin/organization": ["/admin"],
+  "/admin/asset-masters": ["/admin"],
+  "/workspace": ["/action-center"],
+  "/dashboard": ["/action-center"],
+  "/maintenance": ["/action-center"],
+  "/maintenance/job-codes": ["/maintenance/forecast"],
+  "/vehicles": ["/fleet"],
+  "/vehicles/health": ["/fleet"],
+  "/vehicles/costs": ["/fleet"],
+  "/fleet/gate": ["/fleet"],
+  "/fleet/tyres": ["/fleet"],
+  "/procurement": ["/inventory"],
+  "/procurement/vendors": ["/inventory"],
+  "/reports/fraud-control": ["/reports"],
   "/reports/management-intelligence": ["/reports"],
-  "/master-data/employees": ["/master-data"],
-  "/procurement/recommendations": ["/procurement"],
-  "/procurement/matching": ["/procurement"],
-  "/inventory/warranty": ["/inventory"],
-  "/operations/sla": ["/operations/exceptions"],
-  "/operations/budget": ["/operations/exceptions"],
-  "/assets/health": ["/assets"]
+  "/reports/maintenance-exceptions": ["/reports"],
+  "/assets/health": ["/assets"],
+  "/master-data/employees": ["/admin"],
+  "/master-data/departments": ["/admin"],
+  "/compliance": ["/fleet"],
+  "/accidents": ["/fleet"],
+  "/insurance-claims": ["/fleet"],
+  "/traffic-fines": ["/fleet"],
+  "/facilities": ["/assets"],
+  "/utilities": ["/assets"],
+  "/operations/exceptions": ["/reports"]
 };
+
+/** Paths retired from normal product access (except SUPER_ADMIN/ADMIN full override). */
+const RETIRED_PATH_PREFIXES = [
+  "/farm",
+  "/cleaning",
+  "/billing",
+  "/predictive-ai",
+  "/qa",
+  "/delivery-readiness",
+  "/go-live",
+  "/post-go-live",
+  "/releases",
+  "/support",
+  "/machinery",
+  "/vehicle",
+  "/service",
+  "/pending-requests",
+  "/home"
+] as const;
 
 export function normalizeNavigationRole(roleName: string | null | undefined): string | null {
   if (!roleName) {
     return null;
   }
-
   const trimmed = roleName.trim();
   return trimmed.length > 0 ? trimmed.toUpperCase() : null;
 }
@@ -950,7 +529,7 @@ export function isNavigationItemVisible(
   const normalized = normalizeNavigationRole(roleName);
 
   if (!normalized) {
-    return item.id === "my-workspace" || item.id === "action-center";
+    return item.id === "home";
   }
 
   if (!item.allowedRoles.includes(normalized)) {
@@ -963,13 +542,6 @@ export function isNavigationItemVisible(
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
       return false;
     }
-    if (
-      item.requiredPermissions.includes("fg.access") &&
-      !granted.has("fg.access") &&
-      normalized !== "SUPER_ADMIN"
-    ) {
-      return false;
-    }
   }
 
   return true;
@@ -978,7 +550,7 @@ export function isNavigationItemVisible(
 export function getDefaultFavoriteNavIds(roleName: string | null | undefined): string[] {
   const normalized = normalizeNavigationRole(roleName);
   if (!normalized) {
-    return ["action-center"];
+    return ["home"];
   }
 
   const configured = ROLE_DEFAULT_FAVORITE_NAV_IDS[normalized];
@@ -986,11 +558,11 @@ export function getDefaultFavoriteNavIds(roleName: string | null | undefined): s
     return [...configured];
   }
 
-  const pinned = NAVIGATION_ITEMS.filter(
-    (item) => item.pinByDefaultForRoles?.includes(normalized)
+  const pinned = NAVIGATION_ITEMS.filter((item) =>
+    item.pinByDefaultForRoles?.includes(normalized)
   ).map((item) => item.id);
 
-  return pinned.length > 0 ? pinned : ["action-center"];
+  return pinned.length > 0 ? pinned : ["home"];
 }
 
 export function getVisibleNavigationItems(
@@ -999,32 +571,20 @@ export function getVisibleNavigationItems(
 ): NavigationItem[] {
   const normalized = normalizeNavigationRole(roleName);
   const permissions = options?.permissions ?? [];
-  const fullNavigation = Boolean(options?.fullNavigation && normalized && FULL_NAVIGATION_ROLES.has(normalized));
 
   const visible = NAVIGATION_ITEMS.filter((item) => {
     const baseHref = item.href.split("?")[0];
     if (!EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
-
-    if (!isNavigationItemVisible(item, roleName, permissions)) {
-      return false;
-    }
-
-    if (!fullNavigation && normalized && !FULL_NAVIGATION_ROLES.has(normalized)) {
-      if (item.category === "legacy") {
-        return false;
-      }
-    }
-
-    return true;
+    return isNavigationItemVisible(item, roleName, permissions);
   });
 
   if (visible.length > 0) {
     return visible;
   }
 
-  const fallback = NAVIGATION_ITEMS.find((item) => item.id === "action-center");
+  const fallback = NAVIGATION_ITEMS.find((item) => item.id === "home");
   return fallback ? [fallback] : [];
 }
 
@@ -1049,13 +609,35 @@ export function canAccessNavigationPath(
   if (
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname.startsWith("/forgot-password")
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/accept-invite")
   ) {
     return true;
   }
 
-  const visible = getVisibleNavigationItems(roleName, { permissions });
+  const normalized = normalizeNavigationRole(roleName);
   const normalizedPath = pathname.split("?")[0];
+
+  // FG SSO bridge must remain reachable for external FG system handoff.
+  if (normalizedPath.startsWith("/fg/sso")) {
+    return true;
+  }
+  if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
+    return (
+      permissions.includes("fg.access") ||
+      FULL_NAVIGATION_ROLES.has(normalized ?? "")
+    );
+  }
+
+  const isRetired = RETIRED_PATH_PREFIXES.some(
+    (prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+  );
+  if (isRetired) {
+    // Soft retire: only technical admins retain browser access for migration/ops.
+    return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+  }
+
+  const visible = getVisibleNavigationItems(roleName, { permissions });
 
   if (visible.some((item) => isNavItemActive(normalizedPath, item))) {
     return true;
@@ -1067,30 +649,30 @@ export function canAccessNavigationPath(
   }
 
   if (normalizedPath.startsWith("/work-orders")) {
-    return visible.some((item) => item.href.startsWith("/work-orders") || item.id === "my-tasks");
+    return visible.some((item) => item.id === "work-orders");
   }
 
   if (normalizedPath.startsWith("/admin")) {
-    return visible.some((item) => item.href === "/admin" || item.href.startsWith("/admin"));
+    return visible.some((item) => item.id === "admin");
   }
 
-  if (normalizedPath.startsWith("/farm")) {
-    return visible.some((item) => item.category === "farm");
+  if (normalizedPath.startsWith("/inventory") || normalizedPath.startsWith("/procurement")) {
+    return visible.some((item) => item.id === "spare-parts");
   }
 
-  if (normalizedPath.startsWith("/cleaning") || normalizedPath.startsWith("/facilities")) {
-    return visible.some((item) => item.category === "cleaning");
+  if (normalizedPath.startsWith("/fleet") || normalizedPath.startsWith("/vehicles")) {
+    return visible.some((item) => item.id === "fleet");
   }
 
-  if (normalizedPath.startsWith("/fg/sso/denied")) {
-    return true;
+  if (normalizedPath.startsWith("/reports")) {
+    return visible.some((item) => item.id === "reports");
   }
 
-  if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
-    return visible.some((item) => item.id === "fg-digital-recording");
+  if (normalizedPath.startsWith("/maintenance")) {
+    return visible.some((item) => item.id === "preventive-maintenance" || item.id === "home");
   }
 
-  return FULL_NAVIGATION_ROLES.has(normalizeNavigationRole(roleName) ?? "");
+  return FULL_NAVIGATION_ROLES.has(normalized ?? "");
 }
 
 export type MobileBottomNavItem = {
@@ -1106,26 +688,27 @@ export function getMobileBottomNavItems(
   options?: { permissions?: readonly string[] }
 ): MobileBottomNavItem[] {
   const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
-  const hasWorkOrders = visible.some((item) => item.id === "work-orders" || item.id === "my-tasks");
-  const hasFg = visible.some((item) => item.id === "fg-digital-recording");
+  const hasWorkOrders = visible.some((item) => item.id === "work-orders");
+  const hasRequests = visible.some((item) => item.id === "requests");
+  const hasAssets = visible.some((item) => item.id === "assets");
   const hasSettings = visible.some((item) => item.id === "settings");
-
-  const homeHref = visible.find((item) => item.id === "action-center")?.href ?? "/action-center";
-  const tasksHref = visible.find((item) => item.id === "my-tasks")?.href ?? "/work-orders";
+  const homeHref = visible.find((item) => item.id === "home")?.href ?? "/action-center";
+  const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/requests";
 
   const items: MobileBottomNavItem[] = [
-    { id: "home", label: "Home", href: homeHref, icon: "Home" },
-    { id: "actions", label: "Actions", href: "/action-center", icon: "BellRing" }
+    { id: "home", label: "Home", href: homeHref, icon: "Home" }
   ];
 
-  if (hasWorkOrders) {
-    items.push({ id: "create", label: "Jobs", href: tasksHref, icon: "ClipboardList" });
-  } else if (hasFg) {
-    items.push({ id: "fg-records", label: "Records", href: "/fg", icon: "FileCheck2" });
+  // Requester-heavy roles: surface Requests; technicians/supervisors: Work Orders.
+  if (hasRequests && !hasWorkOrders) {
+    items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
+  } else if (hasWorkOrders) {
+    items.push({ id: "work-orders", label: "Work Orders", href: "/work-orders", icon: "ClipboardList" });
+  } else if (hasAssets) {
+    items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
   }
 
   items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });
-
   items.push({
     id: "profile",
     label: "Profile",
@@ -1138,7 +721,7 @@ export function getMobileBottomNavItems(
 
 export function isNavItemActive(pathname: string, item: NavigationItem, search = ""): boolean {
   const [itemPath, itemQuery = ""] = item.href.split("?");
-  const match = item.activeMatch ?? (itemPath === "/dashboard" ? "exact" : "startsWith");
+  const match = item.activeMatch ?? "startsWith";
 
   if (itemQuery) {
     const params = new URLSearchParams(itemQuery);
@@ -1162,10 +745,14 @@ export function isNavItemActive(pathname: string, item: NavigationItem, search =
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
-export function hasPrimaryHomeNavItem(items: NavigationItem[]): boolean {
+/**
+ * True only when legacy `/home` appears as a primary Home destination.
+ * Phase 1 Home is `/action-center` (label "Home") — that must not trip this check.
+ */
+export function hasPrimaryHomeNavItem(items: readonly NavigationItem[]): boolean {
   return items.some(
     (item) =>
-      !item.legacy &&
-      (item.href === LEGACY_FMS_HOME_PATH || item.label.toLowerCase() === "home")
+      item.href === LEGACY_FMS_HOME_PATH ||
+      (item.label === "Home" && item.href === LEGACY_FMS_HOME_PATH)
   );
 }

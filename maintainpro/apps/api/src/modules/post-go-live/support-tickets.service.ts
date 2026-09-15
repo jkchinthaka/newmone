@@ -234,13 +234,13 @@ export class SupportTicketsService {
       ...(query.status ? { status: query.status as never } : {}),
       ...(query.assignedTo ? { assignedToUserId: query.assignedTo } : {}),
       ...(query.reportedBy ? { reportedByUserId: query.reportedBy } : {}),
-      ...(query.module?.trim() ? { affectedModule: { contains: query.module.trim(), mode: "insensitive" } } : {}),
+      ...(query.module?.trim() ? { affectedModule: { contains: query.module.trim() } } : {}),
       ...(!canManage ? { reportedByUserId: actorId } : {}),
       ...(query.search?.trim()
         ? {
             OR: [
-              { title: { contains: query.search.trim(), mode: "insensitive" } },
-              { ticketNo: { contains: query.search.trim(), mode: "insensitive" } }
+              { title: { contains: query.search.trim() } },
+              { ticketNo: { contains: query.search.trim() } }
             ]
           }
         : {})

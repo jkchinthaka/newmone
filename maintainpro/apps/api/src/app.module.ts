@@ -19,6 +19,7 @@ import { BuildInfoController } from "./build-info.controller";
 import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { HealthService } from "./health.service";
 import { AssetsModule } from "./modules/assets/assets.module";
+import { AssetTaxonomyModule } from "./modules/asset-taxonomy/asset-taxonomy.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
@@ -27,6 +28,7 @@ import { CleaningModule } from "./modules/cleaning/cleaning.module";
 import { ComplianceModule } from "./modules/compliance/compliance.module";
 import { VehicleDocumentsModule } from "./modules/vehicle-documents/vehicle-documents.module";
 import { AccidentsModule } from "./modules/accidents/accidents.module";
+import { ApprovalsModule } from "./modules/approvals/approvals.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { InsuranceClaimsModule } from "./modules/insurance-claims/insurance-claims.module";
 import { TrafficFinesModule } from "./modules/traffic-fines/traffic-fines.module";
@@ -45,6 +47,8 @@ import { WeatherModule } from "./modules/farm/weather/weather.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { EvidenceModule } from "./modules/evidence/evidence.module";
 import { FacilitiesModule } from "./modules/facilities/facilities.module";
+import { OrganizationModule } from "./modules/organization/organization.module";
+import { MaintenanceRequestsModule } from "./modules/maintenance-requests/maintenance-requests.module";
 import { FleetModule } from "./modules/fleet/fleet.module";
 import { FuelModule } from "./modules/fuel/fuel.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
@@ -70,6 +74,11 @@ import { TripsModule } from "./modules/trips/trips.module";
 import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
+import { PlanningModule } from "./modules/planning/planning.module";
+import { MaintenanceSupplyModule } from "./modules/maintenance-supply/maintenance-supply.module";
+import { FleetLifecycleModule } from "./modules/fleet-lifecycle/fleet-lifecycle.module";
+import { AdminGovernanceModule } from "./modules/admin-governance/admin-governance.module";
+import { ReportingKpisModule } from "./modules/reporting-kpis/reporting-kpis.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "./modules/workforce/workforce.module";
@@ -133,6 +142,7 @@ normalizeDatabaseEnvironment();
     AdminModule,
     RolesModule,
     AssetsModule,
+    AssetTaxonomyModule,
     AuditModule,
     BulkImportModule,
     VehiclesModule,
@@ -143,6 +153,11 @@ normalizeDatabaseEnvironment();
     JobCodesModule,
     WorkOrdersModule,
     WorkOrderTaxonomyModule,
+    PlanningModule,
+    MaintenanceSupplyModule,
+    FleetLifecycleModule,
+    AdminGovernanceModule,
+    ApprovalsModule,
     WorkforceModule,
     PeopleModule,
     QaModule,
@@ -161,12 +176,15 @@ normalizeDatabaseEnvironment();
     OperationsModule,
     SettingsModule,
     ReportsModule,
+    ReportingKpisModule,
     FraudControlModule,
     ManagementIntelligenceModule,
     UtilitiesModule,
     PredictiveAiModule,
     CleaningModule,
     FacilitiesModule,
+    OrganizationModule,
+    MaintenanceRequestsModule,
     ComplianceModule,
     VehicleDocumentsModule,
     AccidentsModule,

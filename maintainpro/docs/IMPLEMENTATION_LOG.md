@@ -5,6 +5,206 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-14 | Production Hardening, Acceptance Map & Go-Live Preparation
+
+- Baseline (clean HEAD): `dacae29be806ed627babfb485f139f199828ef6f` on `maintainpro/integration-v1` (Phase 13 tip)
+- Historical reference: `ce38e89` (`maintainpro/phase-14-production`) — REFERENCE ONLY; `_p14_extract/` removed after integration
+- Architecture: Thin production-hardening module (`src/modules/production-hardening/production-hardening.ts`); no new Prisma models; no new API routes; documentation and test only phase.
+- What changed:
+  - New `apps/api/src/modules/production-hardening/production-hardening.ts`: `SOFT_RETIRED_MODULE_KEYS`, `isSoftRetiredModule`, `assertNoFabricatedErpSuccess`, re-exports of `erpSyncOutcome`, `TERMINAL_WO_STATUSES`, `isTerminalStatus`, `evaluateUserDeactivation`, `sanitizeSystemResponse`, `SENSITIVE_CONFIG_FIELDS`
+  - New `apps/api/test/phase14-acceptance-map.spec.ts`: 33-item acceptance coverage map; asserts evidence files exist on disk; documents automated (29) vs manual_uat (3) vs operator (1) items
+  - New `apps/api/test/phase14-hardening.spec.ts`: 20+ pure unit tests for sensitive field stripping, overdue closed WO invariant, ERP mock safety, last admin protection, MTBF INSUFFICIENT_DATA, PM compliance null-on-no-data, cost snapshot immutability, permission catalog completeness, soft-retired module inventory, KPI version stability
+  - New `docs/PHASE_14_PRODUCTION.md`: baseline SHA, historical tip, scope table, database cleanup policy, soft-retired inventory, acceptance matrix, go-live blockers, git discipline
+  - New `docs/PRODUCTION_READINESS_REPORT.md`: executive verdict READY FOR STAGING UAT, full structure (scope, DB disposition, migrations, security, reliability, performance, backup/restore status, UAT status, integrations, go-live blockers, main merge recommendation NO)
+  - New `docs/UAT_RUNBOOK.md`: 20 key UAT scenarios with role/steps/expected/PASS-FAIL columns; index to docs/uat/ full catalog
+  - New `docs/GO_LIVE_CHECKLIST.md`: 6 sections (technical, integrations, security, business data, UAT, operations) with priority/owner/status columns; links to remediation runbooks
+  - New `docs/MIGRATION_RUNBOOK.md`: ordered dry-run-first execution for all 5 migration scripts plus `db:push` and domain defaults seed
+  - New `docs/DATA_DISPOSITION_REPORT.md`: model-level disposition table (KEEP/RETAIN TEMPORARILY/BLOCKED/SOFT-RETIRED) for FacilityIssue, Farm*, Cleaning, Billing, QA/GoLive, PredictiveAi, MaintenanceSchedule, Asset.location, TECHNICIAN_COMPLETED/OVERDUE, cost snapshots
+  - New `docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md`: root alias pointer to `remediation/PRODUCTION_DEPLOYMENT_RUNBOOK.md`
+  - New `docs/ROLLBACK_RUNBOOK.md`: root alias pointer to `remediation/PRODUCTION_ROLLBACK_RUNBOOK.md`
+  - Updated `docs/IMPLEMENTATION_LOG.md` (this entry)
+  - Updated `docs/BRANCH_RECOVERY_AND_INTEGRATION.md`: Phase 14 integration note
+  - Removed `maintainpro/_p14_extract/` directory
+- Tests run: `phase14-acceptance-map` (8 describe blocks, 20+ tests), `phase14-hardening` (10 describe blocks, 20+ tests). Also validated: `reporting-kpis-phase13`, `admin-governance-phase12`, `planning-phase08`, `maintenance-supply-phase09`, `fleet-lifecycle-phase10`, `domain-coverage-phase11`
+- Remaining risks:
+  - Backup/restore drill NOT executed — OPERATOR_ACTION_REQUIRED before production
+  - Live `db:push` to Atlas staging still required for Phase 8–13 models
+  - Bileeta ERP credentials not validated live — BLOCKER for ERP-dependent workflows
+  - Manual browser UAT (items 30–32) outstanding
+  - Do NOT merge to `main` until all go-live blockers cleared
+
+---
+
+## 2026-09-15 | PHASE-13 | UX Reports & KPI Role Dashboards
+- Baseline (clean HEAD): `15e5f67a60586543da453a82533a7b559b9072be` on `maintainpro/integration-v1` (Phase 12 tip)
+- Historical reference: `4a8499c` (origin/maintainpro/phase-13-ux-reports) — REFERENCE ONLY; `_p13_extract/` removed after integration
+- Architecture: `ReportingKpisModule` under `src/modules/reporting-kpis/` — pure formula helpers, role home profiles, service, controller. No schema changes.
+- KPI formula version: `2026-09-15.v1`
+- What changed:
+  - New `kpi-definitions.ts`: 19 KPI codes with `code/displayName/formulaSummary/numerator/denominator/applicableDomains/emptyBehavior`; pure compute helpers for all KPIs; back-compat aliases `key/label/formula/help`; `TERMINAL_WO_STATUSES` constant; `isKpiApplicableForDomain` helper
+  - New `role-home.ts`: 6 role profiles (REQUESTER, TECHNICIAN, SUPERVISOR, FLEET, MANAGER, MANAGEMENT_VIEWER) with `resolveRoleHome(roleName)`; ADMIN/SUPER_ADMIN → MANAGER; VIEWER/AUDITOR/FINANCE → MANAGEMENT_VIEWER
+  - New `reporting-kpis.service.ts`: `listDefinitions`, `getDefinition`, `resolveHome`, `evaluateKpis` (thin DB counts + pure helpers, with `dataWarnings`)
+  - New `reporting-kpis.controller.ts`: GET `/reporting-kpis`, GET `/reporting-kpis/home`, GET `/reporting-kpis/home/:role`, POST `/reporting-kpis/overview`, GET `/reporting-kpis/:code`; route order: specific routes before `:code` wildcard
+  - New `reporting-kpis.module.ts`: registered in AppModule next to ReportsModule
+  - `permission-catalog.ts`: 4 new Phase 13 keys: `reports.view.maintenance`, `reports.view.cost`, `reports.view.fleet`, `reports.view.compliance`
+  - `permissions.guard.ts`: 4 new Phase 13 aliases to `reports.view` / existing module keys
+  - `app.module.ts`: added `ReportingKpisModule` import
+  - `apps/web/lib/reporting-kpis-api.ts`: new — axios helpers for all endpoints
+  - `apps/web/lib/role-home.ts`: new — client-side `resolveRoleHome` (mirrors backend)
+  - `apps/web/components/action-center/action-center-page.tsx`: added `RoleHomeCards` strip and `KpiStrip` for manager/admin roles; single Home entry maintained
+  - `docs/PHASE_13_UX_REPORTS.md`: created canonical Phase 13 doc
+  - `docs/KPI_DEFINITIONS.md`: created formula reference table
+- Tests run: `reporting-kpis-phase13` (35+ tests: KPI catalog, overdue logic, all compute helpers with exact fixtures, role home profiles, resolveRoleHome mapping, domain applicability, RBAC catalog, navigation Home invariant, payload security)
+- Remaining risks: `evaluateKpis` DB paths use `.catch(() => 0)` for resilience; pre-aggregated inputs bypass DB entirely for testing. Cost KPIs require callers to pass `snapshotTotal`, not live unit prices.
+
+## 2026-09-15 | PHASE-12 | Admin Governance
+- Baseline (clean HEAD): `3694173d074f7255587910c1be29d3990279da6c` on `maintainpro/integration-v1` (Phase 11 tip)
+- Historical reference: `df16071` (REFERENCE ONLY; `_p12_extract/` removed after integration)
+- Architecture: `AdminGovernanceModule` under `src/modules/admin-governance/` — admin-catalog, admin-safety (pure helpers), service, controller; folded into AppModule. No schema changes.
+- What changed:
+  - New `admin-catalog.ts`: 14 DQ rules with CRITICAL/HIGH/WARNING/INFO severity; `DataQualityFindingCode` type
+  - New `admin-safety.ts`: `evaluateUserDeactivation`, `evaluateHighImpactConfigChange`, `nextBulkImportStage`, `canWriteBulkRows`, `sanitizeSystemResponse`, `SENSITIVE_CONFIG_FIELDS`
+  - New `admin-governance.service.ts`: `overview`, `previewDeactivate`, `guardConfigChange`, `dataQualityIssues`, `systemInfo`
+  - New `admin-governance.controller.ts`: 5 endpoints (`/overview`, `/users/:id/deactivate-preview`, `/config-change/guard`, `/data-quality`, `/system`) with `@Permissions` decorators
+  - New `admin-governance.module.ts`: registered in AppModule
+  - `permission-catalog.ts`: 6 new Phase 12 keys (`admin.overview.view`, `admin.dataquality.view`, `admin.audit.view`, `admin.system.view`, `admin.users.manage`, `admin.organization.manage`)
+  - `permissions.guard.ts`: 6 new Phase 12 aliases to existing `settings.view`/`audit.view`/`users.manage` etc.
+  - `users.service.ts`: integrated `evaluateUserDeactivation` into `applyProtectedUserStatusUpdate` — added last-tenant-ADMIN protection (counts ADMIN+SA in tenant) and TECHNICIAN open WO block
+  - `app.module.ts`: added `AdminGovernanceModule`
+  - `apps/web/lib/admin-console.ts`: `data-quality` href → `/admin/data-quality`, `audit-log` href → `/admin/audit`
+  - `apps/web/lib/navigation.ts`: added `/admin/data-quality` and `/admin/audit` to `EXISTING_NAV_ROUTES`
+  - `apps/web/lib/admin-governance-api.ts`: new API helper (overview, DQ issues, deactivate preview, config guard)
+  - `apps/web/components/admin/admin-console-page.tsx`: fetches overview, shows `OverviewCard` signal grid; removed SystemHealthSummary from business overview
+  - `apps/web/app/(dashboard)/admin/data-quality/page.tsx`: new — DQ issues by severity
+  - `apps/web/app/(dashboard)/admin/audit/page.tsx`: new — filterable audit log
+  - `apps/api/test/admin-governance-phase12.spec.ts`: 37 test cases (safety, DQ catalog, bulk staging, secrets, RBAC, admin console hrefs, mocked service)
+  - `apps/api/test/admin-console.spec.ts`: updated assertions for new hrefs
+  - `docs/PHASE_12_ADMIN_GOVERNANCE.md`: created canonical Phase 12 doc
+- Tests run: `admin-governance-phase12`, `admin-console`
+- Remaining risks: `BusinessException.groupBy` is zero-tolerance — wrapped in `.catch(() => [])` for resilience. Vehicle/SparePart counts also fault-tolerant.
+
+## 2026-09-15 | PHASE-11 | Company-wide Domain Coverage
+- Baseline (clean HEAD): `3e96648e504409ae4fb6af7fbb1d5a5bfeee2e8f` on `maintainpro/integration-v1` (Phase 10 tip)
+- Historical reference: `origin/maintainpro/phase-11-domain-coverage` @ `e0899df` (REFERENCE ONLY; `_p11_extract/` removed after integration)
+- Architecture: `DomainProfile` is configuration metadata keyed by `AssetDomain.code` — NOT a separate Nest engine. Folded into existing `AssetTaxonomyModule`.
+- What changed:
+  - Schema: added `profile Json?` on `AssetDomain` (tenant overrides)
+  - New `domain-profiles.ts`: 24 static profiles (all V1 domains + HVAC_REFRIGERATION legacy) + helpers: `resolveDomainProfile`, `normalizeDomainCode`, `assertSharedEngineReuse`, `isKpiApplicable`, `isDowntimeApplicableDefault`
+  - `domain-defaults.ts`: added HVAC, REFRIGERATION, PLUMBING to `DEFAULT_ASSET_DOMAINS`; expanded `DEFAULT_CATEGORY_EXAMPLES` (Fire Extinguisher, IT Laptop, Plumbing Fixture, External Road/Drain, Cold Room under REFRIGERATION); added `DEFAULT_ATTRIBUTE_EXAMPLES` (capacity, refrigerant, hostname attribute defs seeded for Generator/Cold Room/IT Laptop)
+  - `asset-taxonomy.service.ts`: `listDomainProfiles`, `getDomainProfileForCode`, `updateDomainProfile`; enriched `listDomains` with `resolvedProfile`; seeded attribute definitions in `seedDefaults`
+  - `asset-taxonomy.controller.ts`: 3 new endpoints (`GET domain-profiles`, `GET domain-profiles/:code`, `PATCH domains/:id/profile`)
+  - `work-orders.service.ts`: `create()` inherits `domainId` from linked asset when not supplied
+  - `permission-catalog.ts`: 2 new Phase 11 keys (`domains.view`, `domains.manage`)
+  - `permissions.guard.ts`: aliases for `domains.*` → `assets.manage` / `organization.manage`
+  - Web: `asset-taxonomy-api.ts` — `DomainProfileSummary` type + 3 API helpers; `admin/asset-masters/page.tsx` — domain profile summary panel (KPIs, downtime flag, location-only flag, scope notes)
+  - Docs: `docs/PHASE_11_DOMAIN_COVERAGE.md`
+- Tests: `apps/api/test/domain-coverage-phase11.spec.ts` (33 cases; static-only, no DB required)
+- Remaining risks: `prisma validate` + `prisma generate` required; seed new domains in existing tenants via `POST /asset-taxonomy/seed-defaults`; verify Phase 6 WO asset-rules tests still pass
+
+
+- Baseline (clean HEAD): `465c73d3616480eb796ebc382b2840cc84331b77` on `maintainpro/integration-v1` (Phase 9 tip)
+- Historical reference: `origin/maintainpro/phase-10-*` @ `96fbe49` (not rewritten; `_p10_extract/` removed after integration)
+- What changed:
+  - Schema: `TyreCondition` enum; `VehicleTyre`, `VehicleBattery`, `VehicleAssignment` models; `Vehicle.gateBlocked/gateBlockReason`; Tenant + Driver back-relations
+  - Module `fleet-lifecycle/`: `fleet-policies.ts` (pure functions + warnings), `fleet-lifecycle.service.ts`, `fleet-lifecycle.controller.ts`, `fleet-lifecycle.module.ts`
+  - `FleetLifecycleModule` registered in `AppModule`
+  - `VehiclesService` wired with `ApprovalsService` (optional); gate override checks `GATE_OVERRIDE` approval before proceeding
+  - `VehiclesModule` imports `ApprovalsModule` with `forwardRef`
+  - `permission-catalog.ts`: 16 new Phase 10 keys added
+  - `permissions.guard.ts`: 16 legacy aliases for fleet.*/gate.* permissions
+  - Migration script: `apps/api/scripts/migrate-vehicle-asset-links.ts`
+  - Web: `/fleet` page with overview cards; `lib/fleet-lifecycle-api.ts`; `/fleet/tyres` route in nav
+  - Docs: `docs/PHASE_10_FLEET.md`
+- Tests: `apps/api/test/fleet-lifecycle-phase10.spec.ts` (42 cases)
+- Remaining risks: `prisma validate` + full typecheck needed; approval rule for GATE_OVERRIDE must be configured in tenant to activate approval path
+
+## 2026-09-15 | PHASE-09 | Parts, ERP mapping, costs, vendors & contracts
+- Baseline: Phase 8 tip `9d18b598ab4acd31856c35a30a02757434a76c08` on `maintainpro/integration-v1`
+- Historical reference: `origin/maintainpro/phase-09-parts-erp-vendors` @ `1562147` (not rewritten)
+- What changed: SparePart classification/ERP fields; PartIssue tool return + unit cost snapshot; WorkOrder executionMode/vendorSupplier/costSnapshot; VendorContact/Contract + ComplianceRequirement bridge; RepairWarranty; MaintenanceSupply module/API; `/maintenance-supply` UI
+- Docs: `docs/PHASE_09_PARTS_ERP_VENDORS.md`
+- Phase 10+ not started; historical Phase 9 branch untouched
+
+## 2026-09-15 | PHASE-08 | Canonical Maintenance Planning Integration
+- Baseline: Phase 7 tip `b871a8da7d2b5f8782f39ff6e9719622ae55aa25`
+- Branch: `maintainpro/integration-v1`
+- Historical reference: `origin/maintainpro/phase-08-maintenance-planning` @ `844f176` (not rewritten)
+- What changed: Ported PM/trigger/meter/checklist/inspection/calibration/compliance onto Site/FL/WO/Approval; WO generation via Phase 6 service; occurrence idempotency; legacy meter dry-run migration; `/maintenance/plans` UI
+- Docs: `docs/PHASE_08_MAINTENANCE_PLANNING.md`
+- Phase 9 not started; historical Phase 8 untouched
+
+## 2026-09-15 | PHASE-07 | Configurable Approval & Control Engine
+- Baseline: Phase 6 tip `bb48180af64f9d5bae066f9c6428911450989585` on `maintainpro/phase-06-work-orders`
+- Branch: `maintainpro/phase-07-approval-engine`
+- What changed: ApprovalRule/Request/Step/Decision models; structured conditions; multi-level resolution; versioning; SLA/escalation; emergency override; WO create/start/reopen + asset retirement integration; Admin matrix + Approvals inbox; Gate hook for Phase 10; Part/PO approvals kept separate
+- Docs: `docs/PHASE_07_APPROVAL_ENGINE.md`
+- Phase 8–14 not merged/cherry-picked
+
+## 2026-09-15 | PHASE-06 | Work Order Core & Execution
+- Baseline: Phase 5 tip `6b5948032d2226b7938bbac52ea4931db79110d6` on `maintainpro/phase-05-requests-triage`
+- Branch: `maintainpro/phase-06-work-orders`
+- What changed: Canonical WO lifecycle (PLANNED/ASSIGNED/VERIFIED/CLOSED); OVERDUE derived; execution timestamps; hold history; RCA codes; labour entries; status history; concurrency-safe WO numbering; asset/FL requirement; My Jobs UI; verify→VERIFIED + close→CLOSED; Phase 7 approval extension hook
+- Docs: `docs/PHASE_06_WORK_ORDER_CORE.md`
+- Phase 8–14 not merged/cherry-picked
+
+## 2026-09-15 | PHASE-05 | Maintenance Request & Triage
+- Baseline: Phase 4 tip `a50b6b9624b1a0f281e20095badf453d7ab02fdb` on `maintainpro/phase-04-universal-assets`
+- Branch: `maintainpro/phase-05-requests-triage`
+- What changed: Canonical `MaintenanceRequest` + history + problem categories; triage/approve/reject/cancel/duplicate; idempotent WO conversion; request UI `/requests`; QR report redirects to `/requests/new`; FacilityIssue retained with migration bridge docs/script; offline queue action type `MAINTENANCE_REQUEST_CREATE` (text only)
+- Docs: `docs/PHASE_05_MAINTENANCE_REQUESTS.md`, `docs/PHASE_05_REQUEST_MIGRATION.md`
+- Phase 8–14 not merged/cherry-picked
+
+## 2026-09-15 | PHASE-04 | Universal Asset Engine
+- Baseline: Phase 3 tip `b8d53ff9de9d84188edcccd455e435a40828dec5` on `maintainpro/phase-03-organization-locations`
+- Branch: `maintainpro/phase-04-universal-assets`
+- What changed: Configurable Domain/Category/Type + attributes; Asset↔Site/FL; movement history; parent/child; lifecycle retire/dispose; Vehicle.assetId link; data-quality hooks; admin `/admin/asset-masters`; backfill script; QR/bulk compatibility retained
+- Docs: `docs/PHASE_04_UNIVERSAL_ASSETS.md`
+- Phase 8–14 not merged/cherry-picked
+
+## 2026-09-15 | PHASE-03 | Organization, sites & functional locations
+- Baseline: Phase 2 tip `e18a58c` on `maintainpro/phase-02-responsive-pwa`
+- Branch: `maintainpro/phase-03-organization-locations`
+- What changed: Site + FunctionalLocation models; organization API; legacy facility migration bridge; Admin `/admin/organization` UI; Tenant remains backend org boundary (UI: Organization); no Asset redesign
+- Docs: `docs/PHASE_03_ORGANIZATION_LOCATIONS.md`
+- Phase 8–14 not merged/cherry-picked
+
+## 2026-09-14 | PHASE-02 | Responsive web + PWA foundation
+- Baseline: Phase 1 tip `d954360` on `maintainpro/phase-01-scope-cleanup`
+- Branch: `maintainpro/phase-02-responsive-pwa`
+- What changed: responsive shell/network banner; safer SW v3 caching; offline queue + idempotency helpers; shared QR scanner + evidence picker; camera Permissions-Policy; Flutter marked non-production; Phase 1 nav preserved
+- Docs: `docs/PHASE_02_RESPONSIVE_PWA.md`, `apps/mobile/README.md`
+- No business schema redesign; Phase 8–14 not merged/cherry-picked
+- Remaining risks: camera requires secure context; offline sync of binary evidence still limited to metadata drafts
+
+## 2026-09-14 | BRANCH-RECOVERY | Integration rule locked
+- What changed: Documented binding rule — continue Phase 2–7 from Phase 1 line; keep Phase 8–14 as provisional/reference; integrate only after Phase 7 on `maintainpro/integration-v1`; never merge Phase 14 into `main` prematurely.
+- Files: `docs/BRANCH_RECOVERY_AND_INTEGRATION.md`
+- Next: Phase 2 from `maintainpro/phase-01-scope-cleanup` @ `b108e76`
+- Remaining risks: Phase 8–14 contain useful engines that will need cherry-pick/port after Phase 7; schema conflicts expected.
+
+## 2026-09-14 | PHASE-01 | Product scope cleanup & navigation refactor
+- What changed: CMMS-focused primary nav (Home/Requests/WO/PM/Assets/Fleet/Spare Parts/Reports/Admin); retired Farm/Cleaning/Billing/Predictive AI/QA-Delivery-GoLive from normal surface; Admin landing cleaned; Workspace/Dashboard redirect to Home; no DB drops.
+- Files changed (key):
+  - `apps/web/lib/navigation.ts`, `admin-console.ts`, `role-redirect.ts`, `action-center.ts`, `command-palette.ts`, `breadcrumbs.ts`
+  - `apps/web/app/(dashboard)/workspace/page.tsx`, `dashboard/page.tsx` (redirects)
+  - `apps/api/test/navigation.spec.ts`, `command-palette.spec.ts`, `admin-console.spec.ts`, `action-center.spec.ts`, `facility-dashboard-ui.spec.ts`
+  - `docs/PHASE_01_SCOPE_CLEANUP.md`
+- Tests: typecheck, lint, targeted API nav/admin/action-center/command-palette specs, API test suite, web build (recorded in Phase 1 response)
+- Remaining risks: retired APIs still callable; deep links to retired UIs for admins; full role Home KPIs not yet rebuilt.
+
+## 2026-09-14 | PHASE-00 | Freeze, backup & current-state audit
+- What changed: Full architecture/audit documentation only (no business feature code, no DB drops). Baseline validated on `origin/main` @ `290bf3a`.
+- Files created:
+  - `docs/PHASE_00_CURRENT_STATE_AUDIT.md`
+  - `docs/DATA_MODEL_DISPOSITION.md`
+  - `docs/ROUTE_AND_MODULE_DISPOSITION.md`
+  - `docs/TARGET_ARCHITECTURE.md`
+  - `docs/MIGRATION_RISK_REGISTER.md`
+- Tests run (baseline): `db:generate`, `typecheck`, `lint`, API tests (1247 passed), API build, web build — all PASS
+- Remaining risks: See `MIGRATION_RISK_REGISTER.md`. Phase 1 may proceed (scope/nav cleanup only).
+
+---
+
 ## 2026-06-12 | PHASE-0 | Repository audit and TODO system bootstrap
 - What changed: completed a read-only architecture audit across API, web, mobile, schema, auth, tenancy, notifications, deployment, and CI; created and initialized the three required tracking docs for production-readiness execution.
 - Files changed:
@@ -2161,3 +2361,11 @@ Record each completed task with:
   - Backfill apply remains off by default; manual review required for ambiguous matches
   - WO aging limited to linked work orders with due dates (no platform-wide WO SLA engine yet)
 - Recommended next task: **OPS-003** duplicate issue detection
+
+## 2026-09-15 � Phase 15 SQL Server migration (engineering)
+
+- Branch: `maintainpro/phase-15-sqlserver-migration` from `integration-v1` @ `c54d7824`
+- Prisma kept at 5.22.0; datasource `sqlserver`; ObjectIds removed; junctions; Json/enums as String
+- Initial migration `20260915120000_phase15_sqlserver_init`; mongo?sql script dry-run default
+- Live SQL apply / backup-restore NOT EXECUTED (no local SQL Server/Docker)
+- Docs: PHASE_15 audit + migration + runbooks; master status updated

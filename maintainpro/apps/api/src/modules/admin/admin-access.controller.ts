@@ -74,7 +74,11 @@ export class AdminAccessController {
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
   async updateRolePermissions(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: UpdateRolePermissionsDto) {
-    const before = await this.prisma.role.findUnique({ where: { id }, select: { permissionIds: true } });
+    const beforeLinks = await this.prisma.rolePermission.findMany({
+      where: { roleId: id },
+      select: { permissionId: true }
+    });
+    const beforePermissionIds = beforeLinks.map((link) => link.permissionId);
     const role = await this.rolesService.update(id, { permissionIds: body.permissionIds });
 
     await writeAuditTrail(this.prisma, {
@@ -85,7 +89,7 @@ export class AdminAccessController {
       actor: req.user,
       reason: "Role permissions updated via Admin Console",
       metadata: { event: "ROLE_PERMISSIONS_UPDATED", roleName: role.name, permissionCount: body.permissionIds.length },
-      beforeData: { permissionIds: before?.permissionIds ?? [] },
+      beforeData: { permissionIds: beforePermissionIds },
       afterData: { permissionIds: body.permissionIds }
     });
 
@@ -94,7 +98,7 @@ export class AdminAccessController {
 
   /**
    * Idempotent, additive-only permission-catalog sync. SUPER_ADMIN only.
-   * Never removes/renames a key and never touches Role.permissionIds.
+   * Never removes/renames a key and never touches role permission assignments.
    */
   @Post("permissions/sync")
   @Roles(RoleName.SUPER_ADMIN)

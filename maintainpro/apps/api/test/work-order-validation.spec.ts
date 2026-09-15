@@ -8,14 +8,25 @@ import {
 } from "../src/common/utils/work-order-validation";
 
 describe("work order validation", () => {
-  it("allows CORRECTIVE work orders without asset or vehicle", () => {
+  it("allows CORRECTIVE work orders with functional location only", () => {
+    expect(() =>
+      assertWorkOrderAssetRules({
+        type: WorkOrderType.CORRECTIVE,
+        assetId: undefined,
+        vehicleId: undefined,
+        functionalLocationId: "507f1f77bcf86cd799439011"
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects CORRECTIVE without asset, vehicle, or functional location", () => {
     expect(() =>
       assertWorkOrderAssetRules({
         type: WorkOrderType.CORRECTIVE,
         assetId: undefined,
         vehicleId: undefined
       })
-    ).not.toThrow();
+    ).toThrow(BadRequestException);
   });
 
   it("requires asset or vehicle for PREVENTIVE work orders", () => {
@@ -23,7 +34,8 @@ describe("work order validation", () => {
       assertWorkOrderAssetRules({
         type: WorkOrderType.PREVENTIVE,
         assetId: undefined,
-        vehicleId: undefined
+        vehicleId: undefined,
+        functionalLocationId: "507f1f77bcf86cd799439011"
       })
     ).toThrow(BadRequestException);
   });
@@ -52,5 +64,13 @@ describe("work order validation", () => {
 
     expect(risk.level).toBe("OVERDUE");
     expect(risk.delayDays).toBeGreaterThan(0);
+  });
+
+  it("treats CLOSED as non-SLA terminal", () => {
+    const risk = calculateSlaRisk({
+      dueDate: new Date(Date.now() - 86400000),
+      status: "CLOSED"
+    });
+    expect(risk.level).toBe("NONE");
   });
 });

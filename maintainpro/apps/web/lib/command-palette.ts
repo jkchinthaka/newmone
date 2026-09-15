@@ -16,23 +16,16 @@ export type CommandPaletteItem = {
 };
 
 const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
-  dashboard: ["overview", "summary"],
-  "action-center": ["priorities", "attention", "operations", "briefing"],
-  facilities: ["buildings", "rooms", "property", "hierarchy", "facility"],
-  "facilities-reports": ["facility reports", "facility kpi", "facility dashboard", "issues summary"],
+  home: ["priorities", "attention", "operations", "briefing", "action center", "dashboard", "workspace"],
   "work-orders": ["wo", "maintenance jobs", "jobs"],
+  requests: ["report issue", "maintenance request"],
+  "preventive-maintenance": ["pm", "forecast", "scheduled"],
   assets: ["equipment", "registry"],
-  inventory: ["parts", "stock", "spares", "warehouse", "import"],
-  "fg-digital-recording": ["fg", "finished goods", "checklist", "cl18", "cl24", "cl30", "qa", "supervisor"],
-  procurement: ["purchase", "po", "suppliers"],
-  fleet: ["tracking", "gps"],
-  vehicles: ["trucks", "cars"],
+  "spare-parts": ["parts", "stock", "spares", "warehouse", "inventory"],
+  fleet: ["tracking", "gps", "vehicles", "trucks"],
   reports: ["analytics", "kpi"],
-  "system-health": ["status", "integrations", "health"],
-  "admin-console": ["admin", "administration", "platform"],
-  compliance: ["safety", "audit"],
-  cleaning: ["janitorial", "hygiene"],
-  "legacy-fms-archive": ["legacy", "archive", "fms"]
+  "system-health": ["status", "integrations", "health", "technical admin"],
+  admin: ["admin", "administration", "platform"],
 };
 
 export function navigationItemToCommand(item: NavigationItem): CommandPaletteItem {
@@ -139,11 +132,8 @@ export function filterCommandPaletteItems(
 }
 
 export function usesLegacyHomeAsDashboard(items: readonly CommandPaletteItem[]): boolean {
-  return items.some(
-    (item) =>
-      !item.legacy &&
-      (item.href === LEGACY_FMS_HOME_PATH || item.label.toLowerCase() === "home")
-  );
+  // Phase 1: primary "Home" is /action-center — only treat legacy /home as dashboard misuse.
+  return items.some((item) => !item.legacy && item.href === LEGACY_FMS_HOME_PATH);
 }
 
 export function getPrimaryDashboardCommand(

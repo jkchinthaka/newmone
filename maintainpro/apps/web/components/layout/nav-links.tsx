@@ -116,6 +116,18 @@ const GROUP_SURFACE: Record<
   NavCategory,
   { container: string; heading: string; active: string; idle: string }
 > = {
+  primary: {
+    container: "",
+    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
+    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    idle: "text-slate-600 hover:bg-slate-100"
+  },
+  secondary: {
+    container: "",
+    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
+    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    idle: "text-slate-600 hover:bg-slate-100"
+  },
   workspace: {
     container: "rounded-xl border border-brand-200 bg-brand-50/60 p-2",
     heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-700",

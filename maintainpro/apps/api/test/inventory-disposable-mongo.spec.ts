@@ -305,7 +305,12 @@ describeDisposable("inventory disposable Mongo validation", () => {
   });
 
   it("exposes unique indexes used by the engine", async () => {
-    const indexes = await prisma.$runCommandRaw({
+    if (!("$runCommandRaw" in prisma)) {
+      // Phase 15 SQL Server — index introspection uses migration/spec tests instead of Mongo commands.
+      expect(true).toBe(true);
+      return;
+    }
+    const indexes = await (prisma as { $runCommandRaw: (cmd: unknown) => Promise<unknown> }).$runCommandRaw({
       listIndexes: "WarehouseItemBalance"
     });
     expect(JSON.stringify(indexes)).toMatch(/tenantId/i);

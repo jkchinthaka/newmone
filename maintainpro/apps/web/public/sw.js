@@ -1,6 +1,15 @@
-const STATIC_CACHE = "maintainpro-static-v2";
-const RUNTIME_CACHE = "maintainpro-runtime-v2";
-const LEGACY_CACHES = ["maintainpro-static-v1", "maintainpro-runtime-v1"];
+/**
+ * Phase 2 service worker — conservative caching.
+ *
+ * Intentionally does NOT cache:
+ * - /api/* or authenticated API payloads (stale maintenance data is dangerous)
+ * - HTML navigations of the authenticated app shell (prefer fresh SSR/RSC)
+ * - tokens / credentials (never stored here)
+ *
+ * Safe to cache: static PWA shell assets, icons, immutable /_next/static build chunks.
+ */
+const STATIC_CACHE = "maintainpro-static-v3";
+const RUNTIME_CACHE = "maintainpro-runtime-v3";
 
 const APP_SHELL = [
   "/offline.html",
@@ -46,13 +55,24 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+  // Never intercept API — authenticated operational data must stay network-fresh.
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
     return;
   }
 
   if (isImmutableBuildAsset(url.pathname)) {
     event.respondWith(
-      fetch(request).catch(async () => {
+      caches.open(RUNTIME_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) {
+          return cached;
+        }
+        const response = await fetch(request);
+        if (response.ok) {
+          void cache.put(request, response.clone());
+        }
+        return response;
+      }).catch(async () => {
         const cached = await caches.match(request);
         if (cached) {
           return cached;
@@ -64,32 +84,35 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (isNavigationRequest(request)) {
+    // Network-first; do not put authenticated HTML documents into cache.
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const responseClone = response.clone();
-            void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cachedResponse = await caches.match(request);
-          return cachedResponse || caches.match("/offline.html");
-        })
+      fetch(request).catch(async () => {
+        return (await caches.match("/offline.html")) || Response.error();
+      })
     );
     return;
   }
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response.ok && response.type === "basic") {
-          const responseClone = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
+  // Public static assets under /public (icons, offline.html, etc.)
+  if (
+    url.pathname.endsWith(".svg") ||
+    url.pathname.endsWith(".png") ||
+    url.pathname.endsWith(".ico") ||
+    url.pathname.endsWith(".webmanifest") ||
+    url.pathname === "/offline.html"
+  ) {
+    event.respondWith(
+      caches.open(STATIC_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) {
+          return cached;
+        }
+        const response = await fetch(request);
+        if (response.ok) {
+          void cache.put(request, response.clone());
         }
         return response;
-      })
-      .catch(() => caches.match(request))
-  );
+      }).catch(() => caches.match(request))
+    );
+  }
 });

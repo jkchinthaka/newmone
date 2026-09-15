@@ -21,12 +21,15 @@ const sampleRoleDb = {
   id: "role-admin",
   name: RoleName.ADMIN,
   tenantId: "tenant-a",
-  permissionIds: ["perm-1", "perm-2"],
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-06-01T00:00:00.000Z"),
-  permissions: [
-    { id: "perm-1", key: "users.view", description: "View users", roleIds: ["role-admin"] },
-    { id: "perm-2", key: "users.edit", description: "Edit users", roleIds: ["role-admin"] }
+  permissionLinks: [
+    {
+      permission: { id: "perm-1", key: "users.view", description: "View users" }
+    },
+    {
+      permission: { id: "perm-2", key: "users.edit", description: "Edit users" }
+    }
   ],
   users: [{ id: "user-1" }]
 };
@@ -54,10 +57,13 @@ describe("Legacy roles API hardening", () => {
     expect(prisma.role.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          permissions: {
-            select: { id: true, key: true, description: true },
-            orderBy: { key: "asc" }
-          }
+          permissionLinks: expect.objectContaining({
+            select: expect.objectContaining({
+              permission: {
+                select: { id: true, key: true, description: true }
+              }
+            })
+          })
         })
       })
     );

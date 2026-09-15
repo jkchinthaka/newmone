@@ -4,6 +4,7 @@ import { AuditAction, RoleName } from "@prisma/client";
 import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { PERMISSION_CATALOG } from "../../database/permission-catalog";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -110,9 +111,13 @@ export class AdminRolesService {
             name: true
           }
         },
-        permissions: {
+        permissionLinks: {
           select: {
-            key: true
+            permission: {
+              select: {
+                key: true
+              }
+            }
           }
         }
       },
@@ -149,14 +154,14 @@ export class AdminRolesService {
   private toRoleReviewRow(
     role: {
       id: string;
-      name: RoleName;
+      name: string;
       tenantId: string | null;
       tenant: { id: string; name: string } | null;
-      permissions: Array<{ key: string }>;
+      permissionLinks: Array<{ permission: { key: string } }>;
     },
     isSuperAdmin: boolean
   ): AdminRoleReviewRow {
-    const permissionKeys = role.permissions.map((permission) => permission.key).sort();
+    const permissionKeys = rolePermissionKeys(role).sort();
 
     return {
       id: role.id,
@@ -215,7 +220,7 @@ export class AdminRolesService {
    * that exist in the canonical source catalog (PERMISSION_CATALOG — the
    * same list `db:seed` uses) but are missing from this database, without
    * running the full production seed. Never deletes, never renames a key,
-   * and never touches any Role.permissionIds — a sync only makes new
+   * and never touches role permission assignments — a sync only makes new
    * permission keys *available* to be granted; granting them to a role is
    * a separate, explicit action.
    */

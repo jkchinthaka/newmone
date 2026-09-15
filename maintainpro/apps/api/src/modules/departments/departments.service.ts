@@ -55,9 +55,9 @@ export class DepartmentsService {
         ...(q
           ? {
               OR: [
-                { name: { contains: q, mode: "insensitive" as const } },
-                { code: { contains: q, mode: "insensitive" as const } },
-                { description: { contains: q, mode: "insensitive" as const } }
+                { name: { contains: q } },
+                { code: { contains: q } },
+                { description: { contains: q } }
               ]
             }
           : {})

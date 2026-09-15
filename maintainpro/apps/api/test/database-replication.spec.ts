@@ -50,7 +50,7 @@ describe("database replication", () => {
           sourceDatabase: "primary",
           targetDatabase: "backup",
           correlationId: "corr-1",
-          payload: expect.objectContaining({ id: tenantId, slug: "nelna" })
+          payload: expect.stringContaining(`"slug":"nelna"`)
         })
       })
     );

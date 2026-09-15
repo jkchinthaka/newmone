@@ -13,6 +13,7 @@ import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, Us
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
@@ -42,14 +43,19 @@ export class AuthService {
   }
 
   private permissionKeysFromRole(
-    role: { permissions?: Array<{ key: string }> } | null | undefined
+    role:
+      | {
+          permissionLinks?: Array<{ permission: { key: string } }>;
+        }
+      | null
+      | undefined
   ): string[] {
-    if (!role || !Array.isArray(role.permissions)) {
+    if (!role || !Array.isArray(role.permissionLinks)) {
       return [];
     }
 
-    return role.permissions
-      .map((permission) => permission.key)
+    return role.permissionLinks
+      .map((link) => link.permission.key)
       .filter((key) => typeof key === "string" && key.trim().length > 0);
   }
 
@@ -180,7 +186,9 @@ export class AuthService {
       throw new ForbiddenException("Registration is by invitation only. Please contact your administrator.");
     }
 
-    const roleName = invitation ? this.roleNameForMembership(invitation.membershipRole) : RoleName.TECHNICIAN;
+    const roleName = invitation
+      ? this.roleNameForMembership(invitation.membershipRole as TenantMembershipRole)
+      : RoleName.TECHNICIAN;
     const role = await this.prisma.role.findFirst({ where: { name: roleName } });
 
     if (!role) {
@@ -201,9 +209,13 @@ export class AuthService {
       include: {
         role: {
           include: {
-            permissions: {
+            permissionLinks: {
               select: {
-                key: true
+                permission: {
+                  select: {
+                    key: true
+                  }
+                }
               }
             }
           }
@@ -240,7 +252,7 @@ export class AuthService {
         ipAddress: ctx?.ipAddress ?? undefined,
         userAgent: ctx?.userAgent ?? undefined,
         requestPath: ctx?.requestPath ?? undefined,
-        afterData: { email: user.email, role: user.role.name, tenantId: user.tenantId ?? null }
+        afterData: toJsonText({ email: user.email, role: user.role.name, tenantId: user.tenantId ?? null }) ?? undefined
       }
     });
 
@@ -249,7 +261,7 @@ export class AuthService {
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
-      role: user.role.name,
+      role: user.role.name as RoleName,
       permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
@@ -273,9 +285,13 @@ export class AuthService {
       include: {
         role: {
           include: {
-            permissions: {
+            permissionLinks: {
               select: {
-                key: true
+                permission: {
+                  select: {
+                    key: true
+                  }
+                }
               }
             }
           }
@@ -364,7 +380,7 @@ export class AuthService {
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email,
-      role: user.role.name,
+      role: user.role.name as RoleName,
       permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
@@ -420,9 +436,13 @@ export class AuthService {
       include: {
         role: {
           include: {
-            permissions: {
+            permissionLinks: {
               select: {
-                key: true
+                permission: {
+                  select: {
+                    key: true
+                  }
+                }
               }
             }
           }
@@ -457,7 +477,7 @@ export class AuthService {
       {
         sub: user.id,
         email: user.email,
-        role: user.role.name,
+        role: user.role.name as RoleName,
         permissions: permissionKeys,
         tenantId: user.tenantId ?? null
       },
@@ -621,7 +641,7 @@ export class AuthService {
           ipAddress: ctx?.ipAddress ?? undefined,
           userAgent: ctx?.userAgent ?? undefined,
           requestPath: ctx?.requestPath ?? undefined,
-          afterData: { passwordResetAt: now.toISOString(), refreshSessionsRevoked: true }
+          afterData: toJsonText({ passwordResetAt: now.toISOString(), refreshSessionsRevoked: true }) ?? undefined
         }
       });
     });
@@ -726,7 +746,7 @@ export class AuthService {
           ipAddress: ctx?.ipAddress ?? undefined,
           userAgent: ctx?.userAgent ?? undefined,
           requestPath: ctx?.requestPath ?? undefined,
-          metadata: { event: "invitation_accepted" }
+          metadata: toJsonText({ event: "invitation_accepted" }) ?? undefined
         }
       });
     });
@@ -743,9 +763,13 @@ export class AuthService {
       include: {
         role: {
           include: {
-            permissions: {
+            permissionLinks: {
               select: {
-                key: true
+                permission: {
+                  select: {
+                    key: true
+                  }
+                }
               }
             }
           }

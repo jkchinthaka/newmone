@@ -9,6 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import { createHash, randomUUID } from "crypto";
 
 import { PrismaService } from "../../database/prisma.service";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import {
   FG_PERMISSION_KEYS,
   FG_SSO_AUDIENCE_DEFAULT,
@@ -93,7 +94,17 @@ export class FgSsoService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { role: { include: { permissions: true } } }
+      include: {
+        role: {
+          include: {
+            permissionLinks: {
+              include: {
+                permission: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user || !user.isActive) {
@@ -103,9 +114,7 @@ export class FgSsoService {
       throw new UnauthorizedException("User account is locked");
     }
 
-    const permissionKeys = new Set(
-      (user.role?.permissions ?? []).map((p) => p.key).filter(Boolean)
-    );
+    const permissionKeys = new Set(rolePermissionKeys(user.role));
     const isSuperAdmin = user.role?.name === "SUPER_ADMIN";
     if (!isSuperAdmin && !permissionKeys.has("fg.access")) {
       throw new ForbiddenException("Missing required permission: fg.access");
@@ -166,7 +175,17 @@ export class FgSsoService {
     // Live re-check — fail closed if revoked/disabled since mint.
     const user = await this.prisma.user.findUnique({
       where: { id: verified.sub },
-      include: { role: { include: { permissions: true } } }
+      include: {
+        role: {
+          include: {
+            permissionLinks: {
+              include: {
+                permission: true
+              }
+            }
+          }
+        }
+      }
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException("User is inactive or not found");
@@ -174,7 +193,7 @@ export class FgSsoService {
     if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       throw new UnauthorizedException("User account is locked");
     }
-    const keys = new Set((user.role?.permissions ?? []).map((p) => p.key));
+    const keys = new Set(rolePermissionKeys(user.role));
     if (user.role?.name !== "SUPER_ADMIN" && !keys.has("fg.access")) {
       throw new ForbiddenException("Missing required permission: fg.access");
     }

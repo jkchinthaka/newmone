@@ -1,6 +1,9 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AuditAction,
+  ApprovalProcessType,
+  ApprovalRequestStatus,
+  ApprovalTrigger,
   GateMovementStatus,
   GateMovementType,
   Prisma,
@@ -8,8 +11,10 @@ import {
   RoleName,
   TripStatus,
   VehicleMeterReadingType,
+  VehicleOwnershipType,
   VehicleServiceStatus,
   VehicleStatus,
+  VehicleType,
   WorkOrderStatus,
   WorkOrderType
 } from "@prisma/client";
@@ -20,6 +25,7 @@ import { normalizeRegistrationNo, registrationSearchPattern } from "../../common
 import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
 import { FRAUD_AUDIT_EVENTS } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
+import { ApprovalsService } from "../approvals/approvals.service";
 import { ComplianceService } from "../compliance/compliance.service";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { FleetService } from "../fleet/fleet.service";
@@ -86,7 +92,11 @@ export class VehiclesService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(FleetService) private readonly fleetService: FleetService,
     @Inject(ComplianceService) private readonly complianceService: ComplianceService,
-    @Optional() private readonly enterpriseOps?: EnterpriseOpsService
+    @Optional() private readonly enterpriseOps?: EnterpriseOpsService,
+    // Phase 10: ApprovalsService injected for gate override approval path.
+    // Gate override is a high-risk action; approval engine enforces the four-eyes
+    // principle by requiring a second authorized user to approve before override proceeds.
+    @Optional() private readonly approvalsService?: ApprovalsService
   ) {}
 
   private currentTenantId(): string {
@@ -107,12 +117,12 @@ export class VehiclesService {
       const flex = registrationSearchPattern(q);
       const normalized = normalizeRegistrationNo(q);
       where.OR = [
-        { registrationNo: { contains: q, mode: "insensitive" } },
-        { vehicleModel: { contains: q, mode: "insensitive" } },
-        { make: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } },
+        { registrationNo: { contains: q } },
+        { vehicleModel: { contains: q } },
+        { make: { contains: q } },
+        { assetTag: { contains: q } },
         ...(flex
-          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          ? [{ registrationNo: { contains: normalized } }]
           : [])
       ];
     }
@@ -164,12 +174,12 @@ export class VehiclesService {
       tenantId,
       ...(allowedTypes ? { type: { in: allowedTypes as never } } : {}),
       OR: [
-        { registrationNo: { contains: q, mode: "insensitive" } },
-        { make: { contains: q, mode: "insensitive" } },
-        { vehicleModel: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } },
+        { registrationNo: { contains: q } },
+        { make: { contains: q } },
+        { vehicleModel: { contains: q } },
+        { assetTag: { contains: q } },
         ...(normalized
-          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          ? [{ registrationNo: { contains: normalized } }]
           : [])
       ]
     };
@@ -451,10 +461,10 @@ export class VehiclesService {
     description?: string;
     location?: string;
     year: number;
-    type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
-    ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
-    serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
+    type: VehicleType;
+    ownershipType?: VehicleOwnershipType;
+    fuelType: string;
+    serviceStatus?: VehicleServiceStatus;
     fuelCapacity?: number;
     currentMileage?: number;
     serviceIntervalDays?: number;
@@ -765,6 +775,41 @@ export class VehiclesService {
     let approvedByUserId: string | undefined;
     let movementStatus: GateMovementStatus = GateMovementStatus.ALLOWED;
     if (blocked && data.allowOverride) {
+      // Phase 10: Check Approval Engine BEFORE authorizing override.
+      // Gate override requires a second authorized approver (four-eyes principle via Phase 7).
+      // If an approval rule is configured for GATE_OVERRIDE, the request must be APPROVED
+      // before we allow the override — PENDING status blocks the gate.
+      if (this.approvalsService) {
+        const approvalResult = await this.approvalsService.ensureApprovalRequired({
+          actor: { sub: data.approvedByUserId ?? "system", tenantId },
+          processType: ApprovalProcessType.GATE_OVERRIDE,
+          trigger: ApprovalTrigger.BEFORE_GATE_OVERRIDE,
+          subjectEntityType: "Vehicle",
+          subjectEntityId: id,
+          context: {
+            processType: ApprovalProcessType.GATE_OVERRIDE,
+            blockedReasons: blockReasons
+          } as any
+        });
+
+        if (approvalResult.configError) {
+          throw new BadRequestException(approvalResult.configError);
+        }
+
+        if (
+          approvalResult.required &&
+          (approvalResult.status === ApprovalRequestStatus.PENDING ||
+            approvalResult.status === ApprovalRequestStatus.EMERGENCY_OVERRIDE_PENDING_REVIEW)
+        ) {
+          throw new BadRequestException({
+            message: "Gate override requires approval before proceeding",
+            code: "APPROVAL_REQUIRED",
+            approvalRequestId: approvalResult.approvalRequestId,
+            processType: ApprovalProcessType.GATE_OVERRIDE
+          });
+        }
+      }
+
       approvedByUserId = await this.assertGateOverrideApprover(data.approvedByUserId);
       assertPolicy(
         canVehicleGateOut({

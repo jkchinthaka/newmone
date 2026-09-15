@@ -385,7 +385,7 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     const mainNav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(mainNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Home" }).first()).toBeVisible();
     await expect(mainNav.getByRole("link", { name: "System Health" })).toBeVisible();
     await expect(mainNav.getByRole("link", { name: "Admin Console" })).toBeVisible();
 
@@ -409,7 +409,7 @@ test.describe("authentication", () => {
 
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const mobileNav = page.getByRole("dialog", { name: "Mobile navigation" });
-    await expect(mobileNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
+    await expect(mobileNav.getByRole("link", { name: "Home" }).first()).toBeVisible();
     await mobileNav.getByRole("button", { name: "Operations", exact: true }).click();
     await expect(mobileNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
     await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
@@ -470,7 +470,7 @@ test.describe("authentication", () => {
 
     await page.goto("/action-center");
 
-    await expect(page.getByRole("heading", { name: /Action Center/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Home/i })).toBeVisible();
     await assertNoLegacyTokenStorage(page);
   });
 });

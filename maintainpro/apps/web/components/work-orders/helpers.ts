@@ -107,6 +107,10 @@ export function getStatusClass(status: WorkOrderStatus): string {
   switch (status) {
     case "OPEN":
       return "bg-slate-200 text-slate-700 ring-slate-300";
+    case "PLANNED":
+      return "bg-indigo-100 text-indigo-800 ring-indigo-200";
+    case "ASSIGNED":
+      return "bg-cyan-100 text-cyan-800 ring-cyan-200";
     case "IN_PROGRESS":
       return "bg-sky-100 text-sky-700 ring-sky-200";
     case "ON_HOLD":
@@ -115,6 +119,9 @@ export function getStatusClass(status: WorkOrderStatus): string {
       return "bg-violet-100 text-violet-800 ring-violet-200";
     case "REWORK_REQUIRED":
       return "bg-orange-100 text-orange-800 ring-orange-200";
+    case "VERIFIED":
+      return "bg-teal-100 text-teal-800 ring-teal-200";
+    case "CLOSED":
     case "COMPLETED":
       return "bg-emerald-100 text-emerald-700 ring-emerald-200";
     case "CANCELLED":
@@ -130,6 +137,25 @@ export function toTitleCase(value: string): string {
     .split("_")
     .map((entry) => entry.charAt(0).toUpperCase() + entry.slice(1).toLowerCase())
     .join(" ");
+}
+
+/** Phase 6 human labels — TECHNICIAN_COMPLETED displays as Completed */
+export function humanWorkOrderStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    OPEN: "Open",
+    PLANNED: "Planned",
+    ASSIGNED: "Assigned",
+    IN_PROGRESS: "In Progress",
+    ON_HOLD: "On Hold",
+    TECHNICIAN_COMPLETED: "Completed",
+    REWORK_REQUIRED: "Return for Correction",
+    VERIFIED: "Verified",
+    CLOSED: "Closed",
+    COMPLETED: "Closed (Legacy)",
+    CANCELLED: "Cancelled",
+    OVERDUE: "Overdue"
+  };
+  return labels[status] ?? toTitleCase(status);
 }
 
 export function getTechnicianName(order: WorkOrder): string {
@@ -154,7 +180,12 @@ export function getAssetLabel(order: WorkOrder): string {
 }
 
 export function isWorkOrderOverdue(order: WorkOrder): boolean {
-  if (order.status === "COMPLETED" || order.status === "CANCELLED") {
+  if (
+    order.status === "COMPLETED" ||
+    order.status === "CANCELLED" ||
+    order.status === "CLOSED" ||
+    order.status === "VERIFIED"
+  ) {
     return false;
   }
 
@@ -253,9 +284,9 @@ export function requiresAssetOrVehicle(type: WorkOrder["type"]): boolean {
   return type === "PREVENTIVE" || type === "INSPECTION" || type === "INSTALLATION";
 }
 
-/** Pre-start queue: only OPEN work orders belong on the Open board tab. */
+/** Pre-start queue: OPEN / PLANNED / ASSIGNED on the Open board tab. */
 export function isWorkOrderOpenTabStatus(status: WorkOrderStatus): boolean {
-  return status === "OPEN";
+  return status === "OPEN" || status === "PLANNED" || status === "ASSIGNED";
 }
 
 /** Active execution queue: started or paused work belongs on the In Progress tab. */
@@ -297,10 +328,14 @@ export function groupWorkOrdersByBoardTab(rows: WorkOrder[]): {
 export function groupWorkOrdersByStatus(rows: WorkOrder[]): Record<WorkOrderStatus, WorkOrder[]> {
   const grouped = {
     OPEN: [] as WorkOrder[],
+    PLANNED: [] as WorkOrder[],
+    ASSIGNED: [] as WorkOrder[],
     IN_PROGRESS: [] as WorkOrder[],
     ON_HOLD: [] as WorkOrder[],
     TECHNICIAN_COMPLETED: [] as WorkOrder[],
     REWORK_REQUIRED: [] as WorkOrder[],
+    VERIFIED: [] as WorkOrder[],
+    CLOSED: [] as WorkOrder[],
     COMPLETED: [] as WorkOrder[],
     CANCELLED: [] as WorkOrder[],
     OVERDUE: [] as WorkOrder[]
@@ -339,13 +374,17 @@ export function compareWorkOrders(
 
   const statusRank: Record<WorkOrderStatus, number> = {
     OPEN: 1,
-    IN_PROGRESS: 2,
-    ON_HOLD: 3,
-    TECHNICIAN_COMPLETED: 4,
-    REWORK_REQUIRED: 5,
-    OVERDUE: 6,
-    COMPLETED: 7,
-    CANCELLED: 8
+    PLANNED: 2,
+    ASSIGNED: 3,
+    IN_PROGRESS: 4,
+    ON_HOLD: 5,
+    TECHNICIAN_COMPLETED: 6,
+    REWORK_REQUIRED: 7,
+    VERIFIED: 8,
+    CLOSED: 9,
+    OVERDUE: 10,
+    COMPLETED: 11,
+    CANCELLED: 12
   };
 
   const getDate = (value?: string | null) => {

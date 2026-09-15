@@ -70,6 +70,32 @@ export const PERMISSION_CATALOG = [
   "work_orders.manage",
   "work_orders.update_status",
   "work_orders.view_own",
+  "work_orders.plan",
+  "work_orders.assign",
+  "work_orders.start",
+  "work_orders.hold",
+  "work_orders.resume",
+  "work_orders.complete",
+  "work_orders.verify",
+  "work_orders.close",
+  "work_orders.cancel",
+  "work_orders.reopen",
+  "work_orders.correct",
+  "planning.view",
+  "planning.manage",
+  "parts.view",
+  "parts.issue",
+  "parts.return",
+  "erp.mapping.manage",
+  "vendor.manage",
+  "contract.manage",
+  "cost.view",
+  "cost.adjust",
+  "approvals.view",
+  "approvals.view_all",
+  "approvals.decide",
+  "approvals.rule.manage",
+  "approvals.override.emergency",
   "part_requests.create",
   "part_requests.view",
   "part_requests.approve_operational",
@@ -157,6 +183,8 @@ export const PERMISSION_CATALOG = [
   "traffic_fines.manage",
   "traffic_fines.payment",
 
+  // Phase 5 Maintenance Request permissions live in FACILITY_PERMISSION_KEYS (spread above).
+
   // Phase 5 — intelligence, analytics, dashboards
   "driver_intelligence.view",
   "driver_intelligence.manage",
@@ -166,5 +194,42 @@ export const PERMISSION_CATALOG = [
 
   // Phase 6 — operational scanning
   "operations.scan_lookup",
-  "predictive_insights.view"
+  "predictive_insights.view",
+
+  // Phase 10 — fleet lifecycle: vehicle, tyre, battery, assignment, accident, gate
+  "fleet.view",
+  "fleet.vehicle.manage",
+  "fleet.service.manage",
+  "fleet.inspection.perform",
+  "fleet.tyre.manage",
+  "fleet.battery.manage",
+  "fleet.fuel.record",
+  "fleet.driver.manage",
+  "fleet.assignment.manage",
+  "fleet.document.manage",
+  "fleet.accident.manage",
+  "fleet.claim.manage",
+  "fleet.fine.manage",
+  "gate.check",
+  "gate.record",
+  "gate.override",
+
+  // Phase 11 — domain coverage: asset taxonomy domain profile read/manage
+  "domains.view",
+  "domains.manage",
+
+  // Phase 12 — admin governance
+  "admin.overview.view",
+  "admin.dataquality.view",
+  "admin.audit.view",
+  "admin.system.view",
+  "admin.users.manage",
+  "admin.organization.manage",
+
+  // Phase 13 — Reporting KPIs and role home
+  // Granular report-domain permissions; all alias to reports.view for rollout.
+  "reports.view.maintenance",
+  "reports.view.cost",
+  "reports.view.fleet",
+  "reports.view.compliance"
 ];

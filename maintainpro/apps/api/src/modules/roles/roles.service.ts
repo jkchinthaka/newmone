@@ -46,6 +46,29 @@ export const ROLES_LEGACY_SENSITIVE_FIELDS = [
   "tenantSecret"
 ] as const;
 
+const ROLE_PERMISSION_LINKS_SELECT = {
+  permissionLinks: {
+    select: {
+      permission: {
+        select: {
+          id: true,
+          key: true,
+          description: true
+        }
+      }
+    },
+    orderBy: { permission: { key: "asc" as const } }
+  }
+} as const;
+
+type RoleWithPermissionLinks = {
+  id: string;
+  name: string;
+  permissionLinks: Array<{
+    permission: { id: string; key: string; description: string | null };
+  }>;
+};
+
 @Injectable()
 export class RolesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -55,14 +78,7 @@ export class RolesService {
       select: {
         id: true,
         name: true,
-        permissions: {
-          select: {
-            id: true,
-            key: true,
-            description: true
-          },
-          orderBy: { key: "asc" }
-        }
+        ...ROLE_PERMISSION_LINKS_SELECT
       },
       orderBy: { name: "asc" }
     });
@@ -104,16 +120,14 @@ export class RolesService {
     return this.toPublicPermissionResponse(permission);
   }
 
-  private toPublicRoleResponse(role: {
-    id: string;
-    name: RoleName;
-    permissions: Array<{ id: string; key: string; description: string | null }>;
-  }): PublicRoleResponse {
-    const permissions = role.permissions.map((permission) => this.toPublicPermissionSummary(permission));
+  private toPublicRoleResponse(role: RoleWithPermissionLinks): PublicRoleResponse {
+    const permissions = role.permissionLinks.map((link) =>
+      this.toPublicPermissionSummary(link.permission)
+    );
 
     return {
       id: role.id,
-      name: role.name,
+      name: role.name as RoleName,
       permissionCount: permissions.length,
       permissions
     };
@@ -122,6 +136,38 @@ export class RolesService {
   private permissionModule(key: string): string {
     const [module = "general"] = key.split(".");
     return module;
+  }
+
+  private async syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+    const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
+
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
+      ...(uniquePermissionIds.length > 0
+        ? [
+            this.prisma.rolePermission.createMany({
+              data: uniquePermissionIds.map((permissionId) => ({ roleId, permissionId }))
+            })
+          ]
+        : [])
+    ]);
+  }
+
+  private async findRoleForPublicResponse(id: string): Promise<PublicRoleResponse> {
+    const role = await this.prisma.role.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        ...ROLE_PERMISSION_LINKS_SELECT
+      }
+    });
+
+    if (!role) {
+      throw new NotFoundException("Role not found");
+    }
+
+    return this.toPublicRoleResponse(role);
   }
 
   async createPermission(data: { key: string; description?: string }) {
@@ -152,28 +198,16 @@ export class RolesService {
     const role = await this.prisma.role.create({
       data: {
         name: roleName,
-        tenantId: data.tenantId ?? null,
-        permissions: data.permissionIds?.length
-          ? {
-              connect: data.permissionIds.map((id) => ({ id }))
-            }
-          : undefined
+        tenantId: data.tenantId ?? null
       },
-      select: {
-        id: true,
-        name: true,
-        permissions: {
-          select: {
-            id: true,
-            key: true,
-            description: true
-          },
-          orderBy: { key: "asc" }
-        }
-      }
+      select: { id: true }
     });
 
-    return this.toPublicRoleResponse(role);
+    if (data.permissionIds?.length) {
+      await this.syncRolePermissions(role.id, data.permissionIds);
+    }
+
+    return this.findRoleForPublicResponse(role.id);
   }
 
   async update(id: string, data: { name?: string; permissionIds?: string[] }) {
@@ -186,33 +220,18 @@ export class RolesService {
       throw new NotFoundException("Role not found");
     }
 
-    const role = await this.prisma.role.update({
-      where: { id },
-      data: {
-        ...(data.name ? { name: this.toRoleName(data.name) } : {}),
-        ...(data.permissionIds
-          ? {
-              permissions: {
-                set: data.permissionIds.map((permissionId) => ({ id: permissionId }))
-              }
-            }
-          : {})
-      },
-      select: {
-        id: true,
-        name: true,
-        permissions: {
-          select: {
-            id: true,
-            key: true,
-            description: true
-          },
-          orderBy: { key: "asc" }
-        }
-      }
-    });
+    if (data.name) {
+      await this.prisma.role.update({
+        where: { id },
+        data: { name: this.toRoleName(data.name) }
+      });
+    }
 
-    return this.toPublicRoleResponse(role);
+    if (data.permissionIds) {
+      await this.syncRolePermissions(id, data.permissionIds);
+    }
+
+    return this.findRoleForPublicResponse(id);
   }
 
   async remove(id: string) {

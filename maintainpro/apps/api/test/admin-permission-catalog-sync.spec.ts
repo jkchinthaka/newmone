@@ -4,6 +4,7 @@ import { requestContext } from "../src/common/context/request-context";
 import { SuperAdminGuard } from "../src/common/guards/super-admin.guard";
 import { AdminRolesService } from "../src/modules/admin/admin-roles.service";
 import { PERMISSION_CATALOG } from "../src/database/permission-catalog";
+import { auditJsonField } from "./helpers/audit-json";
 
 const actor = { sub: "super-1", email: "super@test.local", role: RoleName.SUPER_ADMIN, tenantId: "tenant-a" };
 const ctx = {
@@ -57,8 +58,9 @@ describe("Permission catalog sync (SUPER_ADMIN)", () => {
     expect(result.createdKeys).toContain("fg.nonconformance.manage");
     expect(permissions.size).toBe(PERMISSION_CATALOG.length);
     expect(auditEntries).toHaveLength(1);
-    expect(auditEntries[0].metadata.event).toBe("PERMISSION_CATALOG_SYNCED");
-    expect(auditEntries[0].metadata.createdCount).toBe(result.createdCount);
+    const metadata = auditJsonField(auditEntries[0].metadata, {} as { event?: string; createdCount?: number });
+    expect(metadata.event).toBe("PERMISSION_CATALOG_SYNCED");
+    expect(metadata.createdCount).toBe(result.createdCount);
     // No secrets, no full-catalog dump beyond the created keys.
     expect(JSON.stringify(auditEntries)).not.toMatch(/passwordHash|token|secret/i);
   });

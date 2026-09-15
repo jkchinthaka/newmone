@@ -88,3 +88,6 @@ MaintainPro_Vehicle_Master_Import.xlsx
 **/MaintainPro_Vehicle_Master_Import.xlsx
 apps/api/scripts/data/*.xlsx
 apps/api/scripts/private-imports/
+
+.env.sqlserver.local
+

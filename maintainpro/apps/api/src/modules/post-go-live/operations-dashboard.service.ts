@@ -82,7 +82,7 @@ export class OperationsDashboardService {
 
     let healthSummary: Record<string, unknown> = { status: "unknown" };
     try {
-      await this.prisma.$runCommandRaw({ ping: 1 });
+      await this.prisma.$queryRaw`SELECT 1`;
       healthSummary = {
         status: "healthy",
         database: "healthy",

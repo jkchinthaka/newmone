@@ -108,8 +108,8 @@ export class PilotRolloutService {
     if (query.status) filter.status = query.status as PilotRolloutStatus;
     if (query.search) {
       filter.OR = [
-        { pilotName: { contains: query.search, mode: "insensitive" } },
-        { department: { contains: query.search, mode: "insensitive" } }
+        { pilotName: { contains: query.search } },
+        { department: { contains: query.search } }
       ];
     }
 

@@ -62,7 +62,7 @@ test.describe("staging browser UAT (UAT-001)", () => {
     await page.waitForURL(/\/(dashboard|admin|work-orders)/, { timeout: 60_000 });
 
     await page.goto(`${stagingWeb}/action-center`);
-    await expect(page.getByRole("heading", { name: /Action Center/i })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: /Home/i })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
   });
 

@@ -10,30 +10,30 @@ import {
 } from "../../web/lib/command-palette";
 import { DEFAULT_POST_LOGIN_REDIRECT, LEGACY_FMS_HOME_PATH } from "../../web/lib/role-redirect";
 
-describe("command palette helpers", () => {
-  it("includes Facilities command for facility manager roles", () => {
+describe("command palette helpers (Phase 1 CMMS scope)", () => {
+  it("includes Assets command for facility manager roles", () => {
     const commands = getCommandPaletteItems("FACILITY_MANAGER");
-    const facilities = commands.find((item) => item.href === "/facilities");
+    const assets = commands.find((item) => item.href === "/assets");
 
-    expect(facilities).toBeDefined();
-    expect(facilities?.label).toBe("Facilities");
+    expect(assets).toBeDefined();
+    expect(assets?.label).toBe("Assets");
   });
 
-  it("finds Facilities via hierarchy keyword search", () => {
+  it("finds Spare Parts via inventory keyword search", () => {
     const commands = getCommandPaletteItems("ADMIN");
-    const matches = filterCommandPaletteItems(commands, "hierarchy");
+    const matches = filterCommandPaletteItems(commands, "inventory");
 
-    expect(matches.some((item) => item.href === "/facilities")).toBe(true);
+    expect(matches.some((item) => item.href === "/inventory")).toBe(true);
   });
 
   it("builds role-filtered commands from navigation config", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
     const technicianCommands = getCommandPaletteItems("TECHNICIAN");
 
-    expect(adminCommands.some((item) => item.href === "/dashboard")).toBe(true);
+    expect(adminCommands.some((item) => item.href === "/action-center")).toBe(true);
     expect(adminCommands.some((item) => item.href === "/inventory")).toBe(true);
     expect(technicianCommands.some((item) => item.href === "/work-orders")).toBe(true);
-    expect(technicianCommands.some((item) => item.href === "/inventory")).toBe(false);
+    expect(technicianCommands.some((item) => item.href === "/admin")).toBe(false);
   });
 
   it("returns action-center commands for unknown roles", () => {
@@ -43,21 +43,20 @@ describe("command palette helpers", () => {
     expect(commands[0]?.href).toBe(DEFAULT_POST_LOGIN_REDIRECT);
   });
 
-  it("does not treat /home as the primary Dashboard command", () => {
+  it("does not treat /home as the primary Home command", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
-    const dashboard = adminCommands.find((item) => item.href === "/dashboard");
+    const home = adminCommands.find((item) => item.id === "home");
     const legacy = adminCommands.find((item) => item.href === LEGACY_FMS_HOME_PATH);
 
-    expect(dashboard?.href).toBe("/dashboard");
-    expect(dashboard?.label).toBe("Dashboard");
+    expect(home?.href).toBe("/action-center");
+    expect(home?.label).toBe("Home");
     expect(usesLegacyHomeAsDashboard(adminCommands)).toBe(false);
-    expect(legacy?.label).toBe("Legacy FMS Archive");
-    expect(legacy?.legacy).toBe(true);
+    expect(legacy).toBeUndefined();
   });
 
   it("filters commands by label and keyword search", () => {
     const commands = getCommandPaletteItems("ADMIN");
-    const byLabel = filterCommandPaletteItems(commands, "inventory");
+    const byLabel = filterCommandPaletteItems(commands, "spare");
     const byKeyword = filterCommandPaletteItems(commands, "parts");
 
     expect(byLabel.some((item) => item.href === "/inventory")).toBe(true);
@@ -98,12 +97,12 @@ describe("command palette helpers", () => {
     }
   });
 
-  it("includes FG Digital Records when fg.access is granted", () => {
+  it("does not invent FG Digital Records in palette (external FG SSO only)", () => {
     const without = getCommandPaletteItems("ADMIN");
     expect(without.some((item) => item.href === "/fg")).toBe(false);
 
     const withFg = getCommandPaletteItems("ADMIN", { permissions: ["fg.access"] });
-    expect(withFg.some((item) => item.href === "/fg")).toBe(true);
+    expect(withFg.some((item) => item.href === "/fg")).toBe(false);
   });
 
   it("adds a work-order search jump for typed queries", () => {
