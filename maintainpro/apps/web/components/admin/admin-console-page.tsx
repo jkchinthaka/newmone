@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
-import { SystemHealthSummary } from "@/components/dashboard/system-health-summary";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PermissionState } from "@/components/ui/page-state";
+import { fetchAdminOverview, type AdminOverview } from "@/lib/admin-governance-api";
 import { getAdminConsoleSections, isAdminConsoleRole } from "@/lib/admin-console";
 import { apiClient } from "@/lib/api-client";
 import { extractRoleName } from "@/lib/role-redirect";
@@ -19,6 +20,80 @@ type TenantEnvelope = {
     slug?: string;
   };
 };
+
+type OverviewCardProps = {
+  label: string;
+  value: number | string;
+  sublabel?: string;
+  variant?: "default" | "warning" | "critical";
+  href?: string;
+};
+
+function OverviewCard({ label, value, sublabel, variant = "default", href }: OverviewCardProps) {
+  const variantStyles = {
+    default: "border-slate-200 bg-white",
+    warning: "border-yellow-200 bg-yellow-50",
+    critical: "border-red-200 bg-red-50"
+  };
+  const valueStyles = {
+    default: "text-slate-900",
+    warning: "text-yellow-800",
+    critical: "text-red-800"
+  };
+
+  const content = (
+    <div className={`rounded-xl border p-4 shadow-sm ${variantStyles[variant]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${valueStyles[variant]}`}>{value}</p>
+      {sublabel && <p className="mt-1 text-xs text-slate-500">{sublabel}</p>}
+    </div>
+  );
+
+  if (href) {
+    return (
+      <Link href={href as any} className="block hover:opacity-90 transition-opacity">
+        {content}
+      </Link>
+    );
+  }
+  return content;
+}
+
+function AdminOverviewSignals({ overview }: { overview: AdminOverview }) {
+  const { users, dataQuality, pendingImports } = overview;
+  const dq = dataQuality.issuesBySeverity;
+  const criticalOrHigh = dq.CRITICAL + dq.HIGH;
+
+  return (
+    <section aria-labelledby="admin-overview-heading">
+      <h3 id="admin-overview-heading" className="mb-3 text-sm font-semibold text-slate-900">
+        Operational signals
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewCard label="Active users" value={users.active} sublabel={`${users.inactive} inactive`} />
+        <OverviewCard
+          label="DQ issues"
+          value={dataQuality.totalIssues}
+          sublabel={`${criticalOrHigh} critical/high`}
+          variant={criticalOrHigh > 0 ? "critical" : dataQuality.totalIssues > 0 ? "warning" : "default"}
+          href="/admin/data-quality"
+        />
+        <OverviewCard
+          label="Critical findings"
+          value={dq.CRITICAL}
+          variant={dq.CRITICAL > 0 ? "critical" : "default"}
+          href={dq.CRITICAL > 0 ? "/admin/data-quality" : undefined}
+        />
+        <OverviewCard
+          label="Pending imports"
+          value={pendingImports}
+          variant={pendingImports > 0 ? "warning" : "default"}
+          href={pendingImports > 0 ? "/admin/bulk-imports" : undefined}
+        />
+      </div>
+    </section>
+  );
+}
 
 type AdminConsoleAuthorizedProps = {
   user: CurrentUser;
@@ -37,13 +112,19 @@ function AdminConsoleAuthorized({
 }: AdminConsoleAuthorizedProps) {
   const sections = getAdminConsoleSections();
 
+  const overviewQuery = useQuery({
+    queryKey: ["admin-governance", "overview"],
+    queryFn: fetchAdminOverview,
+    staleTime: 60_000,
+    retry: false
+  });
+
   return (
     <>
       <header>
         <h2 className="text-2xl font-semibold text-slate-900">Admin Console</h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">
-          Read-only administration overview for MaintainPro. Navigation visibility is a UX convenience only; backend RBAC
-          remains authoritative for every module and API action.
+          Maintenance operations administration. Backend RBAC remains authoritative for all API access.
         </p>
       </header>
 
@@ -73,14 +154,15 @@ function AdminConsoleAuthorized({
         </dl>
       </section>
 
+      {overviewQuery.data && <AdminOverviewSignals overview={overviewQuery.data} />}
+
       <section aria-labelledby="admin-modules-heading">
         <div className="mb-3">
           <h3 id="admin-modules-heading" className="text-sm font-semibold text-slate-900">
             Administration modules
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Placeholder cards for upcoming admin workflows. No user, tenant, or permission counts are displayed in this
-            foundation pass.
+            Navigate to any module below. Backend RBAC controls access — not navigation visibility.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -126,8 +208,6 @@ export function AdminConsolePage() {
           tenantName={tenantQuery.data?.name ?? "Not connected"}
         />
       )}
-
-      <SystemHealthSummary enabled={isAdmin} />
     </div>
   );
 }

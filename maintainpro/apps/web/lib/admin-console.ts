@@ -149,10 +149,10 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "data-quality",
       title: "Data Quality",
-      description: "Exceptions and data-quality findings.",
+      description: "Duplicates, missing fields, stale meters, ERP mapping errors, and open exception findings.",
       status: "available",
-      statusLabel: "Exceptions",
-      href: "/operations/exceptions"
+      statusLabel: "Governance",
+      href: "/admin/data-quality"
     },
     {
       id: "notifications",
@@ -165,10 +165,10 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "audit-log",
       title: "Audit",
-      description: "Audit history via settings until dedicated audit workspace ships.",
+      description: "Filterable read-only audit trail for all platform actions.",
       status: "available",
-      statusLabel: "Audit",
-      href: "/settings"
+      statusLabel: "Governance",
+      href: "/admin/audit"
     },
     {
       id: "technical",

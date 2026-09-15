@@ -60,6 +60,12 @@ describe("admin console foundation", () => {
     expect(systemHealth?.href).toBe("/system-health");
     expect(systemHealth?.technicalOnly).toBe(true);
 
+    const dataQuality = sections.find((section) => section.id === "data-quality");
+    expect(dataQuality?.href).toBe("/admin/data-quality");
+
+    const auditLog = sections.find((section) => section.id === "audit-log");
+    expect(auditLog?.href).toBe("/admin/audit");
+
     const usersAccess = sections.find((section) => section.id === "users-access");
     expect(usersAccess?.href).toBe("/admin/users");
 

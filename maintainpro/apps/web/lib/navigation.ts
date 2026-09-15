@@ -215,6 +215,8 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin",
   "/admin/organization",
   "/admin/asset-masters",
+  "/admin/data-quality",
+  "/admin/audit",
   "/erp",
   "/system-health",
   "/settings",
