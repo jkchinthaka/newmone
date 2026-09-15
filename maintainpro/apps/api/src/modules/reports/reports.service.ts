@@ -1958,9 +1958,9 @@ export class ReportsService {
       const search = query.search.trim();
       andFilters.push({
         OR: [
-          { woNumber: { contains: search, mode: "insensitive" as const } },
-          { title: { contains: search, mode: "insensitive" as const } },
-          { description: { contains: search, mode: "insensitive" as const } }
+          { woNumber: { contains: search as const } },
+          { title: { contains: search as const } },
+          { description: { contains: search as const } }
         ]
       });
     }
@@ -1979,10 +1979,10 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { assetTag: { contains: search, mode: "insensitive" as const } },
-        { name: { contains: search, mode: "insensitive" as const } },
-        { location: { contains: search, mode: "insensitive" as const } },
-        { serialNumber: { contains: search, mode: "insensitive" as const } }
+        { assetTag: { contains: search as const } },
+        { name: { contains: search as const } },
+        { location: { contains: search as const } },
+        { serialNumber: { contains: search as const } }
       ];
     }
     return where;
@@ -1998,9 +1998,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { registrationNo: { contains: search, mode: "insensitive" as const } },
-        { vehicleModel: { contains: search, mode: "insensitive" as const } },
-        { make: { contains: search, mode: "insensitive" as const } }
+        { registrationNo: { contains: search as const } },
+        { vehicleModel: { contains: search as const } },
+        { make: { contains: search as const } }
       ];
     }
     return where;
@@ -2014,9 +2014,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { partNumber: { contains: search, mode: "insensitive" as const } },
-        { name: { contains: search, mode: "insensitive" as const } },
-        { category: { contains: search, mode: "insensitive" as const } }
+        { partNumber: { contains: search as const } },
+        { name: { contains: search as const } },
+        { category: { contains: search as const } }
       ];
     }
     return where;
@@ -2087,8 +2087,8 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { entity: { contains: search, mode: "insensitive" as const } },
-        { entityId: { contains: search, mode: "insensitive" as const } }
+        { entity: { contains: search as const } },
+        { entityId: { contains: search as const } }
       ];
     }
     return where;
@@ -2102,9 +2102,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { firstName: { contains: search, mode: "insensitive" as const } },
-        { lastName: { contains: search, mode: "insensitive" as const } },
-        { email: { contains: search, mode: "insensitive" as const } }
+        { firstName: { contains: search as const } },
+        { lastName: { contains: search as const } },
+        { email: { contains: search as const } }
       ];
     }
     return where;

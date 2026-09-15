@@ -87,9 +87,9 @@ export class OrganizationService {
       ...(q
         ? {
             OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { code: { contains: q, mode: "insensitive" } },
-              { address: { contains: q, mode: "insensitive" } }
+              { name: { contains: q } },
+              { code: { contains: q } },
+              { address: { contains: q } }
             ]
           }
         : {})
@@ -234,8 +234,8 @@ export class OrganizationService {
       ...(q
         ? {
             OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { code: { contains: q, mode: "insensitive" } }
+              { name: { contains: q } },
+              { code: { contains: q } }
             ]
           }
         : {})

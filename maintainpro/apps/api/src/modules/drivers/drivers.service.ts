@@ -18,10 +18,10 @@ export class DriversService {
         ...(q
           ? {
               OR: [
-                { licenseNumber: { contains: q, mode: "insensitive" } },
-                { user: { is: { firstName: { contains: q, mode: "insensitive" } } } },
-                { user: { is: { lastName: { contains: q, mode: "insensitive" } } } },
-                { user: { is: { email: { contains: q, mode: "insensitive" } } } }
+                { licenseNumber: { contains: q } },
+                { user: { is: { firstName: { contains: q } } } },
+                { user: { is: { lastName: { contains: q } } } },
+                { user: { is: { email: { contains: q } } } }
               ]
             }
           : {})

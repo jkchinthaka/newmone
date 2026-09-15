@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, ReplicationOperation } from "@prisma/client";
 
+import { parseJsonText, toJsonText } from "../common/utils/json-text";
 import { redactSensitiveData, REDACTED_PLACEHOLDER } from "../common/utils/sensitive-data-redaction.util";
 import {
   getReplicationClass,
@@ -155,10 +156,10 @@ export function stripUnavailableCredentialFields(
   return next;
 }
 
-export function toOutboxJson(value: unknown): Prisma.InputJsonValue | undefined {
+export function toOutboxJson(value: unknown): string | undefined {
   const normalized = normalizeJson(value);
   if (normalized === undefined) return undefined;
-  return normalized as Prisma.InputJsonValue;
+  return toJsonText(normalized) ?? undefined;
 }
 
 function normalizeJson(value: unknown): unknown {
@@ -180,7 +181,9 @@ function normalizeJson(value: unknown): unknown {
 }
 
 export function fromOutboxJson(modelName: string, payload: unknown): Record<string, unknown> | null {
-  const sanitized = sanitizeRecordForModel(modelName, payload);
+  const parsed =
+    typeof payload === "string" ? parseJsonText<Record<string, unknown> | null>(payload, null) : payload;
+  const sanitized = sanitizeRecordForModel(modelName, parsed);
   if (!sanitized) return null;
 
   const dateFields = dateFieldNames(modelName);
@@ -199,8 +202,8 @@ export async function applyReplicationEventToBackup(
   event: {
     modelName: string;
     entityId: string;
-    operation: ReplicationOperation;
-    payload?: Prisma.JsonValue | null;
+    operation: ReplicationOperation | string;
+    payload?: unknown;
   }
 ): Promise<void> {
   if (!isSyncableModel(event.modelName)) {

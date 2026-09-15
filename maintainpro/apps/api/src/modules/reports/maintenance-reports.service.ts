@@ -132,12 +132,12 @@ export class MaintenanceReportsService {
       ...(query.departmentId?.trim()
         ? { asset: { departmentId: query.departmentId.trim() } }
         : {}),
-      ...(query.branch?.trim() ? { asset: { location: { equals: query.branch.trim(), mode: "insensitive" } } } : {}),
+      ...(query.branch?.trim() ? { asset: { location: { equals: query.branch.trim() } } } : {}),
       ...(query.search?.trim()
         ? {
             OR: [
-              { woNumber: { contains: query.search.trim(), mode: "insensitive" } },
-              { title: { contains: query.search.trim(), mode: "insensitive" } }
+              { woNumber: { contains: query.search.trim() } },
+              { title: { contains: query.search.trim() } }
             ]
           }
         : {})

@@ -21,6 +21,7 @@ import {
   upsertLinkedWorkforceEmployee,
   upsertWorkforceOnlyEmployee
 } from "./workforce-seed";
+import { parseJsonText, stringArrayToText, toJsonText } from "../common/utils/json-text";
 import { BUILDING_SUPERVISOR_PERMISSIONS, FACILITY_MANAGER_PERMISSIONS } from "./facility-seed.constants";
 import { PERMISSION_CATALOG } from "./permission-catalog";
 
@@ -38,6 +39,36 @@ function getSeedPassword(): string {
 // Canonical list lives in ./permission-catalog.ts — shared with the Admin
 // Console's permission-catalog sync endpoint. Do not re-duplicate here.
 const permissionCatalog = PERMISSION_CATALOG;
+
+async function syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+  const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
+
+  await prisma.$transaction([
+    prisma.rolePermission.deleteMany({ where: { roleId } }),
+    ...(uniquePermissionIds.length > 0
+      ? [
+          prisma.rolePermission.createMany({
+            data: uniquePermissionIds.map((permissionId) => ({ roleId, permissionId }))
+          })
+        ]
+      : [])
+  ]);
+}
+
+async function syncUserSkills(userId: string, skills: string[]): Promise<void> {
+  const uniqueSkills = [...new Set(skills.map((skill) => skill.trim()).filter(Boolean))];
+
+  await prisma.$transaction([
+    prisma.userSkill.deleteMany({ where: { userId } }),
+    ...(uniqueSkills.length > 0
+      ? [
+          prisma.userSkill.createMany({
+            data: uniqueSkills.map((skill) => ({ userId, skill }))
+          })
+        ]
+      : [])
+  ]);
+}
 
 const rolePermissions: Record<RoleName, string[]> = {
   SUPER_ADMIN: [...permissionCatalog],
@@ -589,11 +620,11 @@ async function ensureSystemPolicyDefaults(tenantId: string) {
         scope: AppSettingScope.TENANT,
         scopeId: tenantId,
         key: item.key,
-        value: item.value as Prisma.InputJsonValue,
+        value: toJsonText(item.value)!,
         isSecret: item.isSecret ?? false
       },
       update: {
-        value: item.value as Prisma.InputJsonValue,
+        value: toJsonText(item.value)!,
         isSecret: item.isSecret ?? false
       }
     });
@@ -613,10 +644,7 @@ async function ensureVehicleGatePolicyBackfill() {
   });
 
   for (const setting of settings) {
-    const currentValue =
-      setting.value && typeof setting.value === "object" && !Array.isArray(setting.value)
-        ? ({ ...setting.value } as Record<string, unknown>)
-        : {};
+    const currentValue = { ...parseJsonText<Record<string, unknown>>(setting.value, {}) };
 
     if (currentValue.vehicleGatePolicy && typeof currentValue.vehicleGatePolicy === "object") {
       continue;
@@ -632,7 +660,7 @@ async function ensureVehicleGatePolicyBackfill() {
     await prisma.appSetting.update({
       where: { id: setting.id },
       data: {
-        value: currentValue as Prisma.InputJsonValue
+        value: toJsonText(currentValue)!
       }
     });
   }
@@ -651,7 +679,16 @@ async function verifySeedBaseline(tenantId: string) {
   ];
 
   const [roles, permissions, systemConfiguration, usersCount, tenantsCount] = await Promise.all([
-    prisma.role.findMany({ where: { tenantId, name: { in: requiredRoles } }, include: { permissions: true } }),
+    prisma.role.findMany({
+      where: { tenantId, name: { in: requiredRoles } },
+      include: {
+        permissionLinks: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    }),
     prisma.permission.findMany({ where: { key: { in: permissionCatalog } } }),
     prisma.appSetting.findUnique({
       where: {
@@ -679,7 +716,9 @@ async function verifySeedBaseline(tenantId: string) {
   }
 
   const superAdmin = roles.find((role) => role.name === RoleName.SUPER_ADMIN);
-  const superAdminPermissions = new Set(superAdmin?.permissions.map((permission) => permission.key) ?? []);
+  const superAdminPermissions = new Set(
+    superAdmin?.permissionLinks.map((link) => link.permission.key) ?? []
+  );
   const missingSuperAdminPermissions = permissionCatalog.filter(
     (permission) => !superAdminPermissions.has(permission)
   );
@@ -689,16 +728,15 @@ async function verifySeedBaseline(tenantId: string) {
     );
   }
 
-  const configurationValue =
-    systemConfiguration?.value && typeof systemConfiguration.value === "object" && !Array.isArray(systemConfiguration.value)
-      ? (systemConfiguration.value as Record<string, unknown>)
-      : null;
+  const configurationValue = systemConfiguration?.value
+    ? parseJsonText<Record<string, unknown>>(systemConfiguration.value, {})
+    : null;
   if (!configurationValue?.vehicleGatePolicy) {
     throw new Error("Seed verification failed: vehicle gate policy is missing");
   }
 
   if (usersCount < 1 || tenantsCount < 1) {
-    throw new Error("Seed verification failed: core MongoDB collections are not queryable");
+    throw new Error("Seed verification failed: core database tables are not queryable");
   }
 }
 
@@ -727,19 +765,16 @@ async function main() {
     const existing = await prisma.role.findFirst({
       where: { tenantId: tenant.id, name: roleName }
     });
-    const role = existing
-      ? await prisma.role.update({
-          where: { id: existing.id },
-          data: { permissionIds: { set: permissionIds } }
-        })
-      : await prisma.role.create({
-          data: {
-            tenantId: tenant.id,
-            name: roleName,
-            permissionIds: { set: permissionIds }
-          }
-        });
+    const role =
+      existing ??
+      (await prisma.role.create({
+        data: {
+          tenantId: tenant.id,
+          name: roleName
+        }
+      }));
 
+    await syncRolePermissions(role.id, permissionIds);
     roles.set(roleName, { id: role.id });
   }
 
@@ -879,7 +914,7 @@ async function main() {
     }
   });
 
-  await prisma.user.upsert({
+  const techUser = await prisma.user.upsert({
     where: { email: "tech@maintainpro.local" },
     update: {
       firstName: "Field",
@@ -889,7 +924,6 @@ async function main() {
       passwordHash: adminPasswordHash,
       designation: "TECHNICIAN",
       dailyCapacityHours: 8,
-      skills: ["General maintenance", "Preventive service"],
       isActive: true
     },
     create: {
@@ -901,12 +935,12 @@ async function main() {
       roleId: roles.get(RoleName.TECHNICIAN)!.id,
       designation: "TECHNICIAN",
       dailyCapacityHours: 8,
-      skills: ["General maintenance", "Preventive service"],
       isActive: true
     }
   });
+  await syncUserSkills(techUser.id, ["General maintenance", "Preventive service"]);
 
-  await prisma.user.upsert({
+  const mechanicUser = await prisma.user.upsert({
     where: { email: "mechanic@maintainpro.local" },
     update: {
       firstName: "Workshop",
@@ -916,7 +950,6 @@ async function main() {
       passwordHash: adminPasswordHash,
       designation: "MECHANIC",
       dailyCapacityHours: 8,
-      skills: ["Engine repair", "Hydraulics"],
       isActive: true
     },
     create: {
@@ -928,10 +961,10 @@ async function main() {
       roleId: roles.get(RoleName.MECHANIC)!.id,
       designation: "MECHANIC",
       dailyCapacityHours: 8,
-      skills: ["Engine repair", "Hydraulics"],
       isActive: true
     }
   });
+  await syncUserSkills(mechanicUser.id, ["Engine repair", "Hydraulics"]);
 
   await prisma.user.upsert({
     where: { email: "inventory@maintainpro.local" },
@@ -1229,8 +1262,8 @@ async function main() {
         name: `Sample Asset ${i + 1}`,
         category: i % 2 === 0 ? "MACHINE" : "EQUIPMENT",
         status: "ACTIVE",
-        images: [],
-        documents: [],
+        images: stringArrayToText([]),
+        documents: stringArrayToText([]),
         location: i % 2 === 0 ? "Plant A" : "Plant B"
       },
       create: {
@@ -1239,8 +1272,8 @@ async function main() {
         name: `Sample Asset ${i + 1}`,
         category: i % 2 === 0 ? "MACHINE" : "EQUIPMENT",
         status: "ACTIVE",
-        images: [],
-        documents: [],
+        images: stringArrayToText([]),
+        documents: stringArrayToText([]),
         location: i % 2 === 0 ? "Plant A" : "Plant B"
       }
     });
@@ -1261,7 +1294,7 @@ async function main() {
         type: i % 2 === 0 ? "VAN" : "TRUCK",
         fuelType: i % 2 === 0 ? "DIESEL" : "PETROL",
         currentMileage: 10000 + i * 1200,
-        images: [],
+        images: stringArrayToText([]),
         vin,
         driverId: i <= drivers.length ? drivers[i - 1].id : undefined
       },
@@ -1274,7 +1307,7 @@ async function main() {
         type: i % 2 === 0 ? "VAN" : "TRUCK",
         fuelType: i % 2 === 0 ? "DIESEL" : "PETROL",
         currentMileage: 10000 + i * 1200,
-        images: [],
+        images: stringArrayToText([]),
         vin,
         driverId: i <= drivers.length ? drivers[i - 1].id : undefined
       }
@@ -1294,7 +1327,7 @@ async function main() {
         minimumStock: 5,
         reorderPoint: 3,
         unitCost: 25 + i,
-        images: []
+        images: stringArrayToText([])
       },
       create: {
         tenantId: tenant.id,
@@ -1305,7 +1338,7 @@ async function main() {
         minimumStock: 5,
         reorderPoint: 3,
         unitCost: 25 + i,
-        images: []
+        images: stringArrayToText([])
       }
     });
   }
@@ -1334,7 +1367,7 @@ async function main() {
         vehicleId: vehicleIds[i % vehicleIds.length],
         createdById: superAdmin.id,
         notes: "Seeded work order",
-        attachments: []
+        attachments: stringArrayToText([])
       },
       create: {
         tenantId: tenant.id,
@@ -1348,7 +1381,7 @@ async function main() {
         vehicleId: vehicleIds[i % vehicleIds.length],
         createdById: superAdmin.id,
         notes: "Seeded work order",
-        attachments: []
+        attachments: stringArrayToText([])
       }
     });
   }
@@ -1393,7 +1426,7 @@ async function main() {
           readingDate: date,
           readingValue: baseReading,
           consumption: meterDef.type === "ELECTRICITY" ? 600 : 140,
-          images: [],
+          images: stringArrayToText([]),
           notes: "Seeded reading"
         }
       });
@@ -1506,12 +1539,16 @@ async function seedWorkforceEmployees(tenantId: string) {
   const maintenanceDept = await prisma.department.findFirst({
     where: {
       tenantId,
-      OR: [{ code: "MAINT" }, { code: "MAINTENANCE" }, { name: { contains: "Maintenance", mode: "insensitive" } }]
+      OR: [{ code: "MAINT" }, { code: "MAINTENANCE" }, { name: { contains: "Maintenance" } }]
     }
   });
 
-  const techUser = await prisma.user.findUnique({ where: { email: "tech@maintainpro.local" } });
+  const techUser = await prisma.user.findUnique({
+    where: { email: "tech@maintainpro.local" },
+    include: { userSkills: true }
+  });
   if (techUser) {
+    const techSkills = techUser.userSkills.map((entry) => entry.skill);
     await upsertLinkedWorkforceEmployee(prisma, {
       tenantId,
       employeeNo: "EMP-0001",
@@ -1521,15 +1558,19 @@ async function seedWorkforceEmployees(tenantId: string) {
       departmentId: techUser.departmentId,
       branchName: "Main Site",
       designation: "TECHNICIAN",
-      skills: techUser.skills.length ? techUser.skills : ["General maintenance", "Preventive service"],
+      skills: techSkills.length ? techSkills : ["General maintenance", "Preventive service"],
       dailyCapacityHours: techUser.dailyCapacityHours ?? 8,
       active: techUser.isActive,
       linkedUserId: techUser.id
     });
   }
 
-  const mechanicUser = await prisma.user.findUnique({ where: { email: "mechanic@maintainpro.local" } });
+  const mechanicUser = await prisma.user.findUnique({
+    where: { email: "mechanic@maintainpro.local" },
+    include: { userSkills: true }
+  });
   if (mechanicUser) {
+    const mechanicSkills = mechanicUser.userSkills.map((entry) => entry.skill);
     await upsertLinkedWorkforceEmployee(prisma, {
       tenantId,
       employeeNo: "EMP-0002",
@@ -1539,7 +1580,7 @@ async function seedWorkforceEmployees(tenantId: string) {
       departmentId: mechanicUser.departmentId,
       branchName: "Main Site",
       designation: "MECHANIC",
-      skills: mechanicUser.skills.length ? mechanicUser.skills : ["Engine repair", "Hydraulics"],
+      skills: mechanicSkills.length ? mechanicSkills : ["Engine repair", "Hydraulics"],
       dailyCapacityHours: mechanicUser.dailyCapacityHours ?? 8,
       active: mechanicUser.isActive,
       linkedUserId: mechanicUser.id

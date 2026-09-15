@@ -59,9 +59,9 @@ export class JobCodesService {
         ...(q
           ? {
               OR: [
-                { code: { contains: q, mode: "insensitive" as const } },
-                { name: { contains: q, mode: "insensitive" as const } },
-                { category: { contains: q, mode: "insensitive" as const } }
+                { code: { contains: q as const } },
+                { name: { contains: q as const } },
+                { category: { contains: q as const } }
               ]
             }
           : {})

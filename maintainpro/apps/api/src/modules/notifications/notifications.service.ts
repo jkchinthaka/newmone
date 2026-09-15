@@ -167,8 +167,8 @@ export class NotificationsService {
     if (query.search && query.search.trim().length > 0) {
       const term = query.search.trim();
       where.OR = [
-        { title: { contains: term, mode: "insensitive" } },
-        { message: { contains: term, mode: "insensitive" } }
+        { title: { contains: term } },
+        { message: { contains: term } }
       ];
     }
 

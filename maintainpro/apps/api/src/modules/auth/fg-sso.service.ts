@@ -93,7 +93,17 @@ export class FgSsoService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { role: { include: { permissions: true } } }
+      include: {
+        role: {
+          include: {
+            permissionLinks: {
+              include: {
+                permission: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user || !user.isActive) {
@@ -104,7 +114,7 @@ export class FgSsoService {
     }
 
     const permissionKeys = new Set(
-      (user.role?.permissions ?? []).map((p) => p.key).filter(Boolean)
+      (user.role?.permissionLinks ?? []).map((link) => link.permission.key).filter(Boolean)
     );
     const isSuperAdmin = user.role?.name === "SUPER_ADMIN";
     if (!isSuperAdmin && !permissionKeys.has("fg.access")) {
@@ -166,7 +176,17 @@ export class FgSsoService {
     // Live re-check — fail closed if revoked/disabled since mint.
     const user = await this.prisma.user.findUnique({
       where: { id: verified.sub },
-      include: { role: { include: { permissions: true } } }
+      include: {
+        role: {
+          include: {
+            permissionLinks: {
+              include: {
+                permission: true
+              }
+            }
+          }
+        }
+      }
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException("User is inactive or not found");
@@ -174,7 +194,7 @@ export class FgSsoService {
     if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       throw new UnauthorizedException("User account is locked");
     }
-    const keys = new Set((user.role?.permissions ?? []).map((p) => p.key));
+    const keys = new Set((user.role?.permissionLinks ?? []).map((link) => link.permission.key));
     if (user.role?.name !== "SUPER_ADMIN" && !keys.has("fg.access")) {
       throw new ForbiddenException("Missing required permission: fg.access");
     }

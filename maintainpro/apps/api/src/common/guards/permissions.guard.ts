@@ -157,7 +157,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     return this.assertHasPermissions(
-      this.toPermissionSet(dbUser.role.permissions.map((p) => p.key)),
+      this.toPermissionSet(dbUser.role.permissionLinks.map((link) => link.permission.key)),
       requiredPermissions
     );
   }
@@ -176,8 +176,12 @@ export class PermissionsGuard implements CanActivate {
         role: {
           select: {
             name: true,
-            permissions: {
-              select: { key: true }
+            permissionLinks: {
+              select: {
+                permission: {
+                  select: { key: true }
+                }
+              }
             }
           }
         }

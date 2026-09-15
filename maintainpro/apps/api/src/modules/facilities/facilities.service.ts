@@ -69,9 +69,9 @@ export class FacilitiesService {
 
     return {
       OR: [
-        { name: { contains: needle, mode: "insensitive" } },
-        { code: { contains: needle, mode: "insensitive" } },
-        { address: { contains: needle, mode: "insensitive" } }
+        { name: { contains: needle } },
+        { code: { contains: needle } },
+        { address: { contains: needle } }
       ]
     };
   }
@@ -198,9 +198,9 @@ export class FacilitiesService {
         ...(params.q?.trim()
           ? {
               OR: [
-                { name: { contains: params.q.trim(), mode: "insensitive" } },
-                { code: { contains: params.q.trim(), mode: "insensitive" } },
-                { description: { contains: params.q.trim(), mode: "insensitive" } }
+                { name: { contains: params.q.trim() } },
+                { code: { contains: params.q.trim() } },
+                { description: { contains: params.q.trim() } }
               ]
             }
           : {})
@@ -309,7 +309,7 @@ export class FacilitiesService {
         isActive: params.includeInactive ? undefined : true,
         ...(params.q?.trim()
           ? {
-              OR: [{ name: { contains: params.q.trim(), mode: "insensitive" } }]
+              OR: [{ name: { contains: params.q.trim() } }]
             }
           : {})
       },
@@ -405,8 +405,8 @@ export class FacilitiesService {
         ...(params.q?.trim()
           ? {
               OR: [
-                { name: { contains: params.q.trim(), mode: "insensitive" } },
-                { code: { contains: params.q.trim(), mode: "insensitive" } }
+                { name: { contains: params.q.trim() } },
+                { code: { contains: params.q.trim() } }
               ]
             }
           : {})

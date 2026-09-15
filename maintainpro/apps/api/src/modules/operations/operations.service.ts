@@ -114,7 +114,7 @@ export class OperationsService {
         tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
-          { assetTag: { equals: code, mode: "insensitive" } }
+          { assetTag: { equals: code } }
         ]
       },
       select: {
@@ -156,8 +156,8 @@ export class OperationsService {
         tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
-          { registrationNo: { equals: code, mode: "insensitive" } },
-          { assetTag: { equals: code, mode: "insensitive" } }
+          { registrationNo: { equals: code } },
+          { assetTag: { equals: code } }
         ]
       },
       select: {
@@ -210,8 +210,8 @@ export class OperationsService {
         tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }, { userId: code }] : []),
-          { licenseNumber: { equals: code, mode: "insensitive" } },
-          { user: { is: { email: { equals: code, mode: "insensitive" } } } }
+          { licenseNumber: { equals: code } },
+          { user: { is: { email: { equals: code } } } }
         ]
       },
       include: {
@@ -267,7 +267,7 @@ export class OperationsService {
         tenantId,
         OR: [
           ...(this.isObjectId(code) ? [{ id: code }] : []),
-          { woNumber: { equals: code, mode: "insensitive" } }
+          { woNumber: { equals: code } }
         ]
       },
       select: {

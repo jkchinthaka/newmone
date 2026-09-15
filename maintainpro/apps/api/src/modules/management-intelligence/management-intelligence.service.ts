@@ -466,8 +466,8 @@ export class ManagementIntelligenceService {
       where.AND = [
         {
           OR: [
-            { asset: { location: { contains: branch, mode: "insensitive" } } },
-            { assignees: { some: { employee: { branchName: { contains: branch, mode: "insensitive" } } } } }
+            { asset: { location: { contains: branch } } },
+            { assignees: { some: { employee: { branchName: { contains: branch } } } } }
           ]
         }
       ];

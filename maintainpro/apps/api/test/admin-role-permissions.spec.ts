@@ -9,8 +9,8 @@ describe("Admin Console role permission matrix", () => {
   it("updates a role's permissionIds and writes a ROLE_PERMISSIONS_UPDATED audit entry", async () => {
     const auditEntries: any[] = [];
     const prisma: any = {
-      role: {
-        findUnique: jest.fn().mockResolvedValue({ permissionIds: ["perm-old"] })
+      rolePermission: {
+        findMany: jest.fn().mockResolvedValue([{ permissionId: "perm-old" }])
       },
       auditLog: {
         create: jest.fn(async ({ data }: any) => {

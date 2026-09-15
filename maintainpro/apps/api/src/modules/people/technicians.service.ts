@@ -105,24 +105,24 @@ export class TechniciansService {
     const andClauses: Record<string, unknown>[] = [
       ...(scopedTenant ? [{ tenantId: scopedTenant }] : []),
       ...(filters.branchName?.trim()
-        ? [{ branchName: { equals: filters.branchName.trim(), mode: "insensitive" } }]
+        ? [{ branchName: { equals: filters.branchName.trim() } }]
         : []),
       ...(filters.departmentId?.trim() ? [{ departmentId: filters.departmentId.trim() }] : []),
       ...(q
         ? [
             {
               OR: [
-                { fullName: { contains: q, mode: "insensitive" } },
-                { employeeNo: { contains: q, mode: "insensitive" } },
-                { email: { contains: q, mode: "insensitive" } }
+                { fullName: { contains: q } },
+                { employeeNo: { contains: q } },
+                { email: { contains: q } }
               ]
             }
           ]
         : []),
       {
         OR: [
-          { designation: { contains: "TECHNICIAN", mode: "insensitive" } },
-          { designation: { contains: "MECHANIC", mode: "insensitive" } },
+          { designation: { contains: "TECHNICIAN" } },
+          { designation: { contains: "MECHANIC" } },
           { canReceiveWorkOrders: true }
         ]
       }

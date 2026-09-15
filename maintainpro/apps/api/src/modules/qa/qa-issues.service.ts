@@ -168,7 +168,7 @@ export class QaIssuesService {
       ...(query.severity ? { severity: query.severity as QaIssueSeverity } : {}),
       ...(query.priority ? { priority: query.priority as Prisma.EnumQaIssuePriorityFilter } : {}),
       ...(query.status ? { status: query.status as QaIssueStatus } : {}),
-      ...(query.module?.trim() ? { affectedModule: { contains: query.module.trim(), mode: "insensitive" } } : {}),
+      ...(query.module?.trim() ? { affectedModule: { contains: query.module.trim() } } : {}),
       ...(query.environment ? { environment: query.environment as QaEnvironment } : {}),
       ...(query.assignedTo ? { assignedToUserId: query.assignedTo } : {}),
       ...(query.reportedBy ? { reportedByUserId: query.reportedBy } : {}),
@@ -187,10 +187,10 @@ export class QaIssuesService {
       ...(query.search?.trim()
         ? {
             OR: [
-              { title: { contains: query.search.trim(), mode: "insensitive" } },
-              { issueNo: { contains: query.search.trim(), mode: "insensitive" } },
-              { description: { contains: query.search.trim(), mode: "insensitive" } },
-              { affectedModule: { contains: query.search.trim(), mode: "insensitive" } }
+              { title: { contains: query.search.trim() } },
+              { issueNo: { contains: query.search.trim() } },
+              { description: { contains: query.search.trim() } },
+              { affectedModule: { contains: query.search.trim() } }
             ]
           }
         : {}),
@@ -664,7 +664,7 @@ export class QaIssuesService {
       ...(query.uatPhase ? { linkedUatPhase: query.uatPhase } : {}),
       ...(query.environment ? { environment: query.environment as QaEnvironment } : {}),
       ...(query.module?.trim()
-        ? { affectedModule: { contains: query.module.trim(), mode: "insensitive" } }
+        ? { affectedModule: { contains: query.module.trim() } }
         : {}),
       ...(query.severity ? { severity: query.severity as QaIssueSeverity } : {}),
       ...(query.status ? { status: query.status as QaIssueStatus } : {}),

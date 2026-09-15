@@ -1278,14 +1278,14 @@ export class AssetsService {
       where.condition = query.condition;
     }
     if (query.location) {
-      where.location = { contains: query.location, mode: "insensitive" };
+      where.location = { contains: query.location };
     }
     if (query.department) {
       const departmentId = this.toNullableString(query.departmentId);
       if (departmentId) {
         where.departmentId = departmentId;
       } else {
-        where.department = { contains: query.department, mode: "insensitive" };
+        where.department = { contains: query.department };
       }
     } else if (query.departmentId) {
       where.departmentId = query.departmentId;
@@ -1299,23 +1299,23 @@ export class AssetsService {
     if (query.parentAssetId) where.parentAssetId = query.parentAssetId;
     if (typeof query.isActive === "boolean") where.isActive = query.isActive;
     if (query.supplier) {
-      where.supplier = { contains: query.supplier, mode: "insensitive" };
+      where.supplier = { contains: query.supplier };
     }
     if (query.ownerName) {
-      where.ownerName = { contains: query.ownerName, mode: "insensitive" };
+      where.ownerName = { contains: query.ownerName };
     }
     if (query.search) {
       const matchingCategories = this.matchCategoriesForSearch(query.search);
       where.OR = [
-        { assetTag: { contains: query.search, mode: "insensitive" } },
-        { name: { contains: query.search, mode: "insensitive" } },
-        { location: { contains: query.search, mode: "insensitive" } },
-        { manufacturer: { contains: query.search, mode: "insensitive" } },
-        { model: { contains: query.search, mode: "insensitive" } },
-        { serialNumber: { contains: query.search, mode: "insensitive" } },
-        { supplier: { contains: query.search, mode: "insensitive" } },
-        { department: { contains: query.search, mode: "insensitive" } },
-        { ownerName: { contains: query.search, mode: "insensitive" } }
+        { assetTag: { contains: query.search } },
+        { name: { contains: query.search } },
+        { location: { contains: query.search } },
+        { manufacturer: { contains: query.search } },
+        { model: { contains: query.search } },
+        { serialNumber: { contains: query.search } },
+        { supplier: { contains: query.search } },
+        { department: { contains: query.search } },
+        { ownerName: { contains: query.search } }
       ];
       if (matchingCategories.length > 0) {
         where.OR.push({

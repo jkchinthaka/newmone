@@ -174,8 +174,8 @@ export class AssetTaxonomyService {
         ...(q
           ? {
               OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { code: { contains: q, mode: "insensitive" } }
+                { name: { contains: q } },
+                { code: { contains: q } }
               ]
             }
           : {})
@@ -345,8 +345,8 @@ export class AssetTaxonomyService {
         ...(q
           ? {
               OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { code: { contains: q, mode: "insensitive" } }
+                { name: { contains: q } },
+                { code: { contains: q } }
               ]
             }
           : {})
@@ -439,8 +439,8 @@ export class AssetTaxonomyService {
         ...(q
           ? {
               OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { code: { contains: q, mode: "insensitive" } }
+                { name: { contains: q } },
+                { code: { contains: q } }
               ]
             }
           : {})

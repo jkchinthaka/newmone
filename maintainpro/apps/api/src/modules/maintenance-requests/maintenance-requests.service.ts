@@ -194,9 +194,9 @@ export class MaintenanceRequestsService {
     if (query.search?.trim()) {
       const q = query.search.trim();
       where.OR = [
-        { requestNumber: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
-        { problemCategoryLabel: { contains: q, mode: "insensitive" } }
+        { requestNumber: { contains: q } },
+        { description: { contains: q } },
+        { problemCategoryLabel: { contains: q } }
       ];
     }
 

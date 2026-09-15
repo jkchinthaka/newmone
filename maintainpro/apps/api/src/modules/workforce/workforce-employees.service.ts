@@ -119,15 +119,15 @@ export class WorkforceEmployeesService {
         ...(filters.active !== undefined ? { active: filters.active } : {}),
         ...(filters.departmentId?.trim() ? { departmentId: filters.departmentId.trim() } : {}),
         ...(filters.branchName?.trim()
-          ? { branchName: { equals: filters.branchName.trim(), mode: "insensitive" } }
+          ? { branchName: { equals: filters.branchName.trim() } }
           : {}),
         ...(q
           ? {
               OR: [
-                { fullName: { contains: q, mode: "insensitive" } },
-                { employeeNo: { contains: q, mode: "insensitive" } },
-                { email: { contains: q, mode: "insensitive" } },
-                { phone: { contains: q, mode: "insensitive" } }
+                { fullName: { contains: q } },
+                { employeeNo: { contains: q } },
+                { email: { contains: q } },
+                { phone: { contains: q } }
               ]
             }
           : {})

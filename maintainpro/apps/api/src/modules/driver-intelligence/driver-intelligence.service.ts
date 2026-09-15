@@ -331,11 +331,11 @@ export class DriverIntelligenceService {
     const search = query.search?.trim();
     if (search) {
       where.OR = [
-        { licenseNumber: { contains: search, mode: "insensitive" } },
-        { user: { is: { firstName: { contains: search, mode: "insensitive" } } } },
-        { user: { is: { lastName: { contains: search, mode: "insensitive" } } } },
-        { user: { is: { email: { contains: search, mode: "insensitive" } } } },
-        { vehicles: { some: { registrationNo: { contains: search, mode: "insensitive" } } } }
+        { licenseNumber: { contains: search } },
+        { user: { is: { firstName: { contains: search } } } },
+        { user: { is: { lastName: { contains: search } } } },
+        { user: { is: { email: { contains: search } } } },
+        { vehicles: { some: { registrationNo: { contains: search } } } }
       ];
     }
 

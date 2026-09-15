@@ -5,7 +5,7 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().default(3000),
   CORS_ORIGIN: Joi.string().default("http://localhost:3001"),
   FRONTEND_URL: Joi.string().uri().default("http://localhost:3001"),
-  DATABASE_PROVIDER: Joi.string().valid("mongodb").default("mongodb"),
+  DATABASE_PROVIDER: Joi.string().valid("sqlserver", "mongodb").default("sqlserver"),
   PRIMARY_DATABASE_URL: Joi.string().allow(""),
   BACKUP_DATABASE_URL: Joi.string().allow(""),
   PRIMARY_DATABASE_NAME: Joi.string().allow("").default("nelna"),

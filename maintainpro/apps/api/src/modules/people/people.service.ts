@@ -209,15 +209,15 @@ export class PeopleService {
       ...this.tenantFilter(),
       ...(query.departmentId?.trim() ? { departmentId: query.departmentId.trim() } : {}),
       ...(query.branchName?.trim() || query.branchId?.trim()
-        ? { branchName: { equals: (query.branchName ?? query.branchId)!.trim(), mode: "insensitive" } }
+        ? { branchName: { equals: (query.branchName ?? query.branchId)!.trim() } }
         : {}),
       ...(query.status === "active" ? { active: true } : {}),
       ...(query.status === "inactive" ? { active: false } : {}),
       ...(technicianOnly
         ? {
             OR: [
-              { designation: { contains: "TECHNICIAN", mode: "insensitive" } },
-              { designation: { contains: "MECHANIC", mode: "insensitive" } },
+              { designation: { contains: "TECHNICIAN" } },
+              { designation: { contains: "MECHANIC" } },
               { canReceiveWorkOrders: true }
             ]
           }
@@ -225,10 +225,10 @@ export class PeopleService {
       ...(search
         ? {
             OR: [
-              { fullName: { contains: search, mode: "insensitive" } },
-              { employeeNo: { contains: search, mode: "insensitive" } },
-              { email: { contains: search, mode: "insensitive" } },
-              { phone: { contains: search, mode: "insensitive" } }
+              { fullName: { contains: search } },
+              { employeeNo: { contains: search } },
+              { email: { contains: search } },
+              { phone: { contains: search } }
             ]
           }
         : {})

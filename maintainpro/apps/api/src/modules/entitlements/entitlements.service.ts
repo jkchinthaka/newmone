@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { EntitlementType, UsageEventType, UsageMetricWindow } from "@prisma/client";
 
+import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 
 @Injectable()
@@ -156,9 +157,7 @@ export class EntitlementsService {
         key,
         eventType,
         quantity: safeQuantity,
-        metadata: metadata
-          ? (metadata as Prisma.InputJsonValue)
-          : undefined
+        metadata: metadata ? toJsonText(metadata) ?? undefined : undefined
       }
     });
 

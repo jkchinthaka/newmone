@@ -115,12 +115,12 @@ export class VehiclesService {
       const flex = registrationSearchPattern(q);
       const normalized = normalizeRegistrationNo(q);
       where.OR = [
-        { registrationNo: { contains: q, mode: "insensitive" } },
-        { vehicleModel: { contains: q, mode: "insensitive" } },
-        { make: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } },
+        { registrationNo: { contains: q } },
+        { vehicleModel: { contains: q } },
+        { make: { contains: q } },
+        { assetTag: { contains: q } },
         ...(flex
-          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          ? [{ registrationNo: { contains: normalized as const } }]
           : [])
       ];
     }
@@ -172,12 +172,12 @@ export class VehiclesService {
       tenantId,
       ...(allowedTypes ? { type: { in: allowedTypes as never } } : {}),
       OR: [
-        { registrationNo: { contains: q, mode: "insensitive" } },
-        { make: { contains: q, mode: "insensitive" } },
-        { vehicleModel: { contains: q, mode: "insensitive" } },
-        { assetTag: { contains: q, mode: "insensitive" } },
+        { registrationNo: { contains: q } },
+        { make: { contains: q } },
+        { vehicleModel: { contains: q } },
+        { assetTag: { contains: q } },
         ...(normalized
-          ? [{ registrationNo: { contains: normalized, mode: "insensitive" as const } }]
+          ? [{ registrationNo: { contains: normalized as const } }]
           : [])
       ]
     };

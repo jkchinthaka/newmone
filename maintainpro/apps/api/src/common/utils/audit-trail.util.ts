@@ -1,5 +1,6 @@
 import { AuditAction, Prisma } from "@prisma/client";
 
+import { toJsonText } from "./json-text";
 import { requestContext } from "../context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../../modules/auth/auth.types";
@@ -64,16 +65,16 @@ export async function writeAuditTrail(prisma: PrismaService, payload: AuditTrail
       requestPath: ctx?.requestPath ?? undefined,
       actorSnapshot:
         actorId || actorEmail || actorRole
-          ? ({
+          ? toJsonText({
               id: actorId,
               email: actorEmail,
               role: actorRole,
               name: actorEmail
-            } as Prisma.InputJsonValue)
+            }) ?? undefined
           : undefined,
-      metadata: metadata as Prisma.InputJsonValue,
-      beforeData: payload.beforeData,
-      afterData: payload.afterData
+      metadata: toJsonText(metadata) ?? undefined,
+      beforeData: toJsonText(payload.beforeData) ?? undefined,
+      afterData: toJsonText(payload.afterData) ?? undefined
     }
   });
 }

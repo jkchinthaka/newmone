@@ -5,6 +5,7 @@ import { INestApplication, Injectable, Logger, OnModuleInit } from "@nestjs/comm
 import { Prisma, PrismaClient, ReplicationOperation, ReplicationOutbox } from "@prisma/client";
 
 import { requestContext } from "../common/context/request-context";
+import { toJsonText } from "../common/utils/json-text";
 import {
   AUDIT_SECURITY_SKIP_MODELS,
   MODEL_AUDIT_EXTRA_KEYS,
@@ -264,7 +265,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       throw new Error("Backup database is not configured.");
     }
 
-    await this.backupClient.$runCommandRaw({ ping: 1 });
+    await this.backupClient.$queryRaw`SELECT 1`;
   }
 
   $transaction<R>(
@@ -495,7 +496,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         throw new Error("Backup database is not configured for strict_dual_write mode.");
       }
 
-      await applyReplicationEventToBackup(backup, event);
+      await applyReplicationEventToBackup(backup, {
+        modelName: event.modelName,
+        entityId: event.entityId,
+        operation: event.operation as ReplicationOperation,
+        payload: event.payload
+      });
       await this.replicationOutbox.update({
         where: { id: event.id },
         data: {
@@ -679,15 +685,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     for (const entry of entries) {
       if (!entry.entityId) continue;
 
-      let beforeData: Json | undefined;
-      let afterData: Json | undefined;
+      let beforeData: string | undefined;
+      let afterData: string | undefined;
 
       if (entry.action === "UPDATE") {
         const changes = diffRecords(entry.before, entry.after, opts.model);
         if (changes.length === 0) continue;
         // Store the field-level diff in BOTH columns: beforeData holds prev values, afterData holds new
-        beforeData = changes.map((c) => ({ field: c.field, value: c.before })) as unknown as Json;
-        afterData = changes.map((c) => ({ field: c.field, value: c.after })) as unknown as Json;
+        beforeData = toJsonText(changes.map((c) => ({ field: c.field, value: c.before }))) ?? undefined;
+        afterData = toJsonText(changes.map((c) => ({ field: c.field, value: c.after }))) ?? undefined;
       } else if (entry.action === "CREATE") {
         const snapshot: Record<string, unknown> = {};
         const safeAfter = redactForAudit(opts.model, entry.after);
@@ -695,7 +701,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }
-        afterData = snapshot as Json;
+        afterData = toJsonText(snapshot) ?? undefined;
       } else {
         const snapshot: Record<string, unknown> = {};
         const safeBefore = redactForAudit(opts.model, entry.before);
@@ -703,7 +709,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           if (NOISY_FIELDS.has(k)) continue;
           snapshot[k] = clip(v);
         }
-        beforeData = snapshot as Json;
+        beforeData = toJsonText(snapshot) ?? undefined;
       }
 
       const tenantForRow =
@@ -727,7 +733,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           requestPath,
           actorSnapshot:
             actorId || actorEmail || actorRole
-              ? ({ id: actorId, email: actorEmail, role: actorRole } as Json)
+              ? toJsonText({ id: actorId, email: actorEmail, role: actorRole }) ?? undefined
               : undefined,
           beforeData,
           afterData
