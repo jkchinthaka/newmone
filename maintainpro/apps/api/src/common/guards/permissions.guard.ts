@@ -64,7 +64,24 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "vendor.manage": ["inventory.manage", "work_orders.manage"],
   "contract.manage": ["inventory.manage", "work_orders.manage", "vendor.manage"],
   "cost.view": ["work_orders.manage", "inventory.manage", "cost.adjust"],
-  "cost.adjust": ["work_orders.manage", "inventory.manage"]
+  "cost.adjust": ["work_orders.manage", "inventory.manage"],
+  // Phase 10 — fleet lifecycle; accept legacy fleet.manage / vehicles.operate during rollout
+  "fleet.view": ["fleet.manage", "vehicles.view", "vehicles.operate"],
+  "fleet.vehicle.manage": ["fleet.manage", "vehicles.edit", "vehicles.create"],
+  "fleet.service.manage": ["fleet.manage", "work_orders.manage"],
+  "fleet.inspection.perform": ["fleet.manage", "work_orders.manage"],
+  "fleet.tyre.manage": ["fleet.manage", "fleet.vehicle.manage"],
+  "fleet.battery.manage": ["fleet.manage", "fleet.vehicle.manage"],
+  "fleet.fuel.record": ["fleet.manage", "fleet.log_fuel_trip"],
+  "fleet.driver.manage": ["fleet.manage", "vehicles.operate"],
+  "fleet.assignment.manage": ["fleet.manage", "fleet.driver.manage"],
+  "fleet.document.manage": ["fleet.manage", "vehicle_documents.manage"],
+  "fleet.accident.manage": ["fleet.manage", "accidents.manage"],
+  "fleet.claim.manage": ["fleet.manage", "insurance_claims.manage"],
+  "fleet.fine.manage": ["fleet.manage", "traffic_fines.manage"],
+  "gate.check": ["gate.out.create", "gate.in.create", "fleet.manage", "vehicles.operate"],
+  "gate.record": ["gate.out.create", "gate.in.create", "fleet.manage"],
+  "gate.override": ["gate.override.approve", "fleet.manage"]
 };
 
 @Injectable()

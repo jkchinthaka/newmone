@@ -194,5 +194,23 @@ export const PERMISSION_CATALOG = [
 
   // Phase 6 — operational scanning
   "operations.scan_lookup",
-  "predictive_insights.view"
+  "predictive_insights.view",
+
+  // Phase 10 — fleet lifecycle: vehicle, tyre, battery, assignment, accident, gate
+  "fleet.view",
+  "fleet.vehicle.manage",
+  "fleet.service.manage",
+  "fleet.inspection.perform",
+  "fleet.tyre.manage",
+  "fleet.battery.manage",
+  "fleet.fuel.record",
+  "fleet.driver.manage",
+  "fleet.assignment.manage",
+  "fleet.document.manage",
+  "fleet.accident.manage",
+  "fleet.claim.manage",
+  "fleet.fine.manage",
+  "gate.check",
+  "gate.record",
+  "gate.override"
 ];

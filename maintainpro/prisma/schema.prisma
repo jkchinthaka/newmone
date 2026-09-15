@@ -143,6 +143,10 @@ model Tenant {
   maintenanceForecasts         MaintenanceForecast[]
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
+  /// Phase 10 — fleet lifecycle: tyres, batteries, driver assignment history
+  vehicleTyres                 VehicleTyre[]
+  vehicleBatteries             VehicleBattery[]
+  vehicleAssignments           VehicleAssignment[]
 }
 
 model AuditLog {
@@ -1087,6 +1091,9 @@ model Vehicle {
   /// FK to Department master — nullable for legacy records
   departmentId              String?              @db.ObjectId
   department                Department?          @relation("VehicleDepartment", fields: [departmentId], references: [id])
+  /// Phase 10 — fleet lifecycle gate block flag (backend-authoritative; gate engine is canonical)
+  gateBlocked               Boolean              @default(false)
+  gateBlockReason           String?
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
 
@@ -1107,6 +1114,10 @@ model Vehicle {
   pmPlans              PmPlan[]
   assetMeters          AssetMeter[]
   inspections          Inspection[]
+  /// Phase 10 — tyres, batteries, and driver assignment history
+  tyres                VehicleTyre[]
+  batteries            VehicleBattery[]
+  assignments          VehicleAssignment[]
 
   @@index([tenantId])
   @@index([status])
@@ -1149,6 +1160,108 @@ enum VehicleServiceStatus {
   ON_SCHEDULE
   DUE_SOON
   OVERDUE
+}
+
+/// Phase 10 — tyre lifecycle condition states
+enum TyreCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  RETREAD
+  DISPOSED
+}
+
+/// Phase 10 — VehicleTyre tracks the full lifecycle of each tyre per wheel position.
+/// isActive=true means the tyre is currently fitted; false means it has been removed/disposed.
+/// Each install creates a new row; moves/rotates deactivate the old row and create a new one.
+model VehicleTyre {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String        @db.ObjectId
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  vehicleId         String        @db.ObjectId
+  vehicle           Vehicle       @relation(fields: [vehicleId], references: [id])
+  serialNumber      String?
+  brand             String?
+  size              String?
+  tyreType          String?
+  wheelPosition     String?
+  installedAt       DateTime?
+  installedMileage  Float?
+  removedAt         DateTime?
+  removedMileage    Float?
+  rotatedAt         DateTime?
+  retreadCount      Int           @default(0)
+  condition         TyreCondition @default(GOOD)
+  isActive          Boolean       @default(true)
+  costSnapshot      Float?
+  warrantyExpiresAt DateTime?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, serialNumber])
+  @@index([tenantId, vehicleId, wheelPosition, isActive])
+}
+
+/// Phase 10 — VehicleBattery tracks battery installs with full lifecycle history.
+/// Each replace deactivates the previous active battery and creates a new row.
+model VehicleBattery {
+  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String    @db.ObjectId
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id])
+  vehicleId               String    @db.ObjectId
+  vehicle                 Vehicle   @relation(fields: [vehicleId], references: [id])
+  serialNumber            String?
+  brand                   String?
+  model                   String?
+  capacityAh              Float?
+  installedAt             DateTime?
+  removedAt               DateTime?
+  warrantyExpiresAt       DateTime?
+  condition               String?
+  failureReason           String?
+  costSnapshot            Float?
+  isActive                Boolean   @default(true)
+  replacementWorkOrderId  String?   @db.ObjectId
+  notes                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, serialNumber])
+  @@index([tenantId, isActive])
+}
+
+/// Phase 10 — VehicleAssignment tracks driver handover history per vehicle.
+/// isCurrent=true for the active assignment; closed via returnAssignment.
+model VehicleAssignment {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String    @db.ObjectId
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  vehicleId         String    @db.ObjectId
+  vehicle           Vehicle   @relation(fields: [vehicleId], references: [id])
+  driverId          String    @db.ObjectId
+  driver            Driver    @relation(fields: [driverId], references: [id])
+  assignedAt        DateTime  @default(now())
+  returnedAt        DateTime?
+  openingMileage    Float?
+  closingMileage    Float?
+  fuelLevelStart    Float?
+  fuelLevelEnd      Float?
+  conditionNotes    String?
+  handoverChecklist Json?
+  assignedById      String?   @db.ObjectId
+  returnedById      String?   @db.ObjectId
+  notes             String?
+  isCurrent         Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, driverId])
+  @@index([tenantId, isCurrent])
 }
 
 enum FuelType {
@@ -1196,6 +1309,8 @@ model Driver {
   gateMovements VehicleGateMovement[]
   accidents     AccidentReport[]
   trafficFines  TrafficFine[]
+  /// Phase 10 — driver assignment history
+  vehicleAssignments VehicleAssignment[]
 
   @@index([tenantId])
   @@index([departmentId])
