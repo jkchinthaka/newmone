@@ -608,6 +608,18 @@ export class WorkOrdersService {
       });
     }
 
+    // Phase 11: inherit domainId from the linked asset when not supplied by the caller.
+    // This ensures work orders are automatically scoped to the asset's maintenance domain
+    // without requiring every client to pass the field explicitly.
+    let resolvedDomainId: string | undefined;
+    if (assetId) {
+      const asset = await this.prisma.asset.findFirst({
+        where: { id: assetId, tenantId },
+        select: { domainId: true }
+      });
+      resolvedDomainId = asset?.domainId ?? undefined;
+    }
+
     let taxonomyFields: {
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;
@@ -666,6 +678,7 @@ export class WorkOrdersService {
           functionalLocationId,
           scheduleId,
           createdById: authoritativeCreatorId,
+          domainId: resolvedDomainId,
           ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate

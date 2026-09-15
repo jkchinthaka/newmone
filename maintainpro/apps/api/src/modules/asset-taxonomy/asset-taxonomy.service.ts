@@ -8,7 +8,17 @@ import { AssetCategory, AuditAction, Prisma } from "@prisma/client";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
-import { DEFAULT_ASSET_DOMAINS, DEFAULT_CATEGORY_EXAMPLES } from "./domain-defaults";
+import {
+  DEFAULT_ASSET_DOMAINS,
+  DEFAULT_ATTRIBUTE_EXAMPLES,
+  DEFAULT_CATEGORY_EXAMPLES
+} from "./domain-defaults";
+import {
+  getAllDomainProfiles,
+  normalizeDomainCode,
+  resolveDomainProfile,
+  type DomainProfileDefaults
+} from "./domain-profiles";
 import type {
   CreateAssetCategoryMasterDto,
   CreateAssetDomainDto,
@@ -51,6 +61,7 @@ export class AssetTaxonomyService {
     let domainsCreated = 0;
     let categoriesCreated = 0;
     let typesCreated = 0;
+    let attributesCreated = 0;
 
     for (const domain of DEFAULT_ASSET_DOMAINS) {
       const existing = await this.prisma.assetDomain.findUnique({
@@ -107,16 +118,50 @@ export class AssetTaxonomyService {
       }
     }
 
+    // Seed illustrative attribute definitions for key types (capacity, refrigerant, hostname)
+    for (const attrEx of DEFAULT_ATTRIBUTE_EXAMPLES) {
+      const domain = await this.prisma.assetDomain.findUnique({
+        where: { tenantId_code: { tenantId: tid, code: attrEx.domainCode } }
+      });
+      if (!domain) continue;
+      const category = await this.prisma.assetCategoryMaster.findFirst({
+        where: { tenantId: tid, domainId: domain.id, code: attrEx.categoryCode }
+      });
+      if (!category) continue;
+      const typeMaster = await this.prisma.assetTypeMaster.findFirst({
+        where: { tenantId: tid, categoryId: category.id, code: attrEx.typeCode }
+      });
+      if (!typeMaster) continue;
+      const existingAttr = await this.prisma.assetAttributeDefinition.findFirst({
+        where: { tenantId: tid, typeMasterId: typeMaster.id, key: attrEx.key }
+      });
+      if (existingAttr) continue;
+      await this.prisma.assetAttributeDefinition.create({
+        data: {
+          tenantId: tid,
+          typeMasterId: typeMaster.id,
+          key: attrEx.key,
+          label: attrEx.label,
+          dataType: attrEx.dataType,
+          unit: attrEx.unit ?? null,
+          options: attrEx.options ?? [],
+          required: false,
+          displayOrder: attrEx.displayOrder
+        }
+      });
+      attributesCreated += 1;
+    }
+
     await writeAuditTrail(this.prisma, {
       entity: "AssetTaxonomy",
       entityId: tid,
       action: AuditAction.CREATE,
       module: "asset-taxonomy",
       actor: asAuditActor(actor),
-      afterData: { domainsCreated, categoriesCreated, typesCreated } as Prisma.InputJsonValue
+      afterData: { domainsCreated, categoriesCreated, typesCreated, attributesCreated } as Prisma.InputJsonValue
     });
 
-    return { domainsCreated, categoriesCreated, typesCreated };
+    return { domainsCreated, categoriesCreated, typesCreated, attributesCreated };
   }
 
   async listDomains(tenantId: string | null, query: TaxonomyListQueryDto = {}) {
@@ -138,7 +183,81 @@ export class AssetTaxonomyService {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       include: { _count: { select: { categories: true, assets: true } } }
     });
-    return { items };
+    // Enrich each domain with resolved profile (Phase 11)
+    const enriched = items.map((domain) => ({
+      ...domain,
+      resolvedProfile: resolveDomainProfile(
+        domain.code,
+        (domain.profile as Partial<DomainProfileDefaults> | null) ?? undefined
+      )
+    }));
+    return { items: enriched };
+  }
+
+  /** Phase 11: returns all static domain profiles merged with any tenant overrides for matching domains. */
+  async listDomainProfiles(tenantId: string | null) {
+    const tid = requireTenantId(tenantId);
+    const staticProfiles = getAllDomainProfiles();
+    // Load tenant domain rows to apply overrides
+    const tenantDomains = await this.prisma.assetDomain.findMany({
+      where: { tenantId: tid, isActive: true },
+      select: { code: true, profile: true }
+    });
+    const overrideMap = new Map(tenantDomains.map((d) => [d.code, d.profile]));
+    const resolved = staticProfiles.map((profile) => {
+      const override = overrideMap.get(profile.code) as Partial<DomainProfileDefaults> | null;
+      return resolveDomainProfile(profile.code, override ?? undefined) ?? profile;
+    });
+    return { items: resolved };
+  }
+
+  /** Phase 11: returns the resolved domain profile for a single code. */
+  async getDomainProfileForCode(tenantId: string | null, code: string) {
+    const tid = requireTenantId(tenantId);
+    const normalized = normalizeDomainCode(code);
+    const tenantDomain = await this.prisma.assetDomain.findUnique({
+      where: { tenantId_code: { tenantId: tid, code: normalized } },
+      select: { profile: true }
+    });
+    const override = (tenantDomain?.profile as Partial<DomainProfileDefaults> | null) ?? undefined;
+    const profile = resolveDomainProfile(normalized, override);
+    if (!profile) {
+      throw new NotFoundException(`No domain profile found for code: ${code}`);
+    }
+    return profile;
+  }
+
+  /** Phase 11: merges partial profile overrides into AssetDomain.profile Json field. Audited. */
+  async updateDomainProfile(
+    tenantId: string | null,
+    domainId: string,
+    profilePartial: Partial<DomainProfileDefaults>,
+    actor?: Actor
+  ) {
+    const tid = requireTenantId(tenantId);
+    const current = await this.requireDomain(tid, domainId);
+    const existing = (current.profile as Partial<DomainProfileDefaults> | null) ?? {};
+    const merged: Partial<DomainProfileDefaults> = { ...existing, ...profilePartial };
+    const updated = await this.prisma.assetDomain.update({
+      where: { id: domainId },
+      data: { profile: merged as Prisma.InputJsonValue }
+    });
+    await writeAuditTrail(this.prisma, {
+      entity: "AssetDomain",
+      entityId: domainId,
+      action: AuditAction.UPDATE,
+      module: "asset-taxonomy",
+      actor: asAuditActor(actor),
+      beforeData: { profile: existing } as Prisma.InputJsonValue,
+      afterData: { profile: merged } as Prisma.InputJsonValue
+    });
+    return {
+      ...updated,
+      resolvedProfile: resolveDomainProfile(
+        updated.code,
+        merged as Partial<DomainProfileDefaults>
+      )
+    };
   }
 
   async createDomain(tenantId: string | null, dto: CreateAssetDomainDto, actor?: Actor) {

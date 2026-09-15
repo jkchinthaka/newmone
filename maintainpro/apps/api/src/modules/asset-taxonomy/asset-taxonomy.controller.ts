@@ -25,6 +25,7 @@ import {
   UpdateAssetTypeMasterDto,
   UpdateAttributeDefinitionDto
 } from "./dto/taxonomy.dto";
+import type { DomainProfileDefaults } from "./domain-profiles";
 
 interface AuthedRequest {
   user?: { sub: string; email?: string; role: string; tenantId?: string | null };
@@ -56,7 +57,23 @@ export class AssetTaxonomyController {
     return { data, message: "Asset taxonomy defaults seeded" };
   }
 
-  @Get("domains")
+  // ── Phase 11: Domain Profile endpoints ──────────────────────────────────────
+
+  @Get("domain-profiles")
+  @Roles(...READ_ROLES)
+  async listDomainProfiles(@Req() req: AuthedRequest) {
+    const data = await this.taxonomy.listDomainProfiles(req.user?.tenantId ?? null);
+    return { data, message: "Domain profiles fetched" };
+  }
+
+  @Get("domain-profiles/:code")
+  @Roles(...READ_ROLES)
+  async getDomainProfile(@Req() req: AuthedRequest, @Param("code") code: string) {
+    const data = await this.taxonomy.getDomainProfileForCode(req.user?.tenantId ?? null, code);
+    return { data, message: "Domain profile fetched" };
+  }
+
+  // ── Domain CRUD ──────────────────────────────────────────────────────────────
   @Roles(...READ_ROLES)
   async listDomains(@Req() req: AuthedRequest, @Query() query: TaxonomyListQueryDto) {
     const data = await this.taxonomy.listDomains(req.user?.tenantId ?? null, query);
@@ -79,6 +96,22 @@ export class AssetTaxonomyController {
   ) {
     const data = await this.taxonomy.updateDomain(req.user?.tenantId ?? null, id, body, req.user);
     return { data, message: "Asset domain updated" };
+  }
+
+  @Patch("domains/:id/profile")
+  @Roles(...WRITE_ROLES)
+  async updateDomainProfile(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Partial<DomainProfileDefaults>
+  ) {
+    const data = await this.taxonomy.updateDomainProfile(
+      req.user?.tenantId ?? null,
+      id,
+      body,
+      req.user
+    );
+    return { data, message: "Domain profile updated" };
   }
 
   @Post("domains/:id/deactivate")
