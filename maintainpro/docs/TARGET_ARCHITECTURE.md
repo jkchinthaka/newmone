@@ -29,6 +29,8 @@ Next.js PWA (primary)     Flutter (thin / sunset)
          Organization UX = Tenant (unchanged backend boundary)
          Site + FunctionalLocation (Phase 3 authoritative spatial master)
          Legacy Property/Building/Floor/Room retained + migration bridge
+         Universal Asset registry (Phase 4) + Domain/Category/Type masters
+         Vehicle.assetId optional link (Phase 10 owns full fleet)
                     ▼
     ┌───────────────┼────────────────┬──────────────┐
  Asset/Fleet     WO / PM / Req    Supply/ERP     Compliance
@@ -38,6 +40,18 @@ Next.js PWA (primary)     Flutter (thin / sunset)
 ```
 
 ---
+
+## Phase status (canonical)
+
+| Phase | Status | Branch tip (when pushed) |
+|-------|--------|--------------------------|
+| 0 Audit | Done | phase-00-audit |
+| 1 Scope | Done | phase-01-scope-cleanup @ d954360 |
+| 2 PWA | Done | phase-02-responsive-pwa @ e18a58c |
+| 3 Org/Locations | Done | phase-03-organization-locations @ b8d53ff |
+| 4 Universal Assets | In progress / this doc line | phase-04-universal-assets |
+| 5–7 | Not started | — |
+| 8–14 | Provisional reference only | Do not merge |
 
 ## Core engines (gap vs target)
 

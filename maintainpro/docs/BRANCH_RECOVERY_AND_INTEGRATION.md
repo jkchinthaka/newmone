@@ -33,13 +33,15 @@ Canonical line (continue here):
 0. Phase 0 — Audit (`maintainpro/phase-00-audit`)
 1. Phase 1 — Scope cleanup (`maintainpro/phase-01-scope-cleanup` @ `d954360`)
 2. Phase 2 — Responsive Web / PWA (`maintainpro/phase-02-responsive-pwa` @ `e18a58c`)
-3. Phase 3 — Organization & Functional Locations (`maintainpro/phase-03-organization-locations`)
-4. Phase 4 — Universal Asset Engine
+3. Phase 3 — Organization & Functional Locations (`maintainpro/phase-03-organization-locations` @ `b8d53ff`)
+4. Phase 4 — Universal Asset Engine (`maintainpro/phase-04-universal-assets` — starts from Phase 3 tip)
 5. Phase 5 — Maintenance Requests & Triage
 6. Phase 6 — Work Order Core
 7. Phase 7 — Approval Engine
 
 Do **not** merge Phase 8–14 directly into `main` before those phases exist.
+
+Phase 4 must not cherry-pick Phase 8–14. Vehicle↔Asset link is preparatory only; Fleet depth remains Phase 10.
 
 ---
 

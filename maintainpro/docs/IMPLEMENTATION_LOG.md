@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-04 | Universal Asset Engine
+- Baseline: Phase 3 tip `b8d53ff9de9d84188edcccd455e435a40828dec5` on `maintainpro/phase-03-organization-locations`
+- Branch: `maintainpro/phase-04-universal-assets`
+- What changed: Configurable Domain/Category/Type + attributes; Asset↔Site/FL; movement history; parent/child; lifecycle retire/dispose; Vehicle.assetId link; data-quality hooks; admin `/admin/asset-masters`; backfill script; QR/bulk compatibility retained
+- Docs: `docs/PHASE_04_UNIVERSAL_ASSETS.md`
+- Phase 8–14 not merged/cherry-picked
+
 ## 2026-09-15 | PHASE-03 | Organization, sites & functional locations
 - Baseline: Phase 2 tip `e18a58c` on `maintainpro/phase-02-responsive-pwa`
 - Branch: `maintainpro/phase-03-organization-locations`
