@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-06 | Work Order Core & Execution
+- Baseline: Phase 5 tip `6b5948032d2226b7938bbac52ea4931db79110d6` on `maintainpro/phase-05-requests-triage`
+- Branch: `maintainpro/phase-06-work-orders`
+- What changed: Canonical WO lifecycle (PLANNED/ASSIGNED/VERIFIED/CLOSED); OVERDUE derived; execution timestamps; hold history; RCA codes; labour entries; status history; concurrency-safe WO numbering; asset/FL requirement; My Jobs UI; verify→VERIFIED + close→CLOSED; Phase 7 approval extension hook
+- Docs: `docs/PHASE_06_WORK_ORDER_CORE.md`
+- Phase 8–14 not merged/cherry-picked
+
 ## 2026-09-15 | PHASE-05 | Maintenance Request & Triage
 - Baseline: Phase 4 tip `a50b6b9624b1a0f281e20095badf453d7ab02fdb` on `maintainpro/phase-04-universal-assets`
 - Branch: `maintainpro/phase-05-requests-triage`

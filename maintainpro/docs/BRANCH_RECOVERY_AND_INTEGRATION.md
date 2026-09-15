@@ -35,11 +35,13 @@ Canonical line (continue here):
 2. Phase 2 — Responsive Web / PWA (`maintainpro/phase-02-responsive-pwa` @ `e18a58c`)
 3. Phase 3 — Organization & Functional Locations (`maintainpro/phase-03-organization-locations` @ `b8d53ff`)
 4. Phase 4 — Universal Asset Engine (`maintainpro/phase-04-universal-assets` @ `a50b6b9624b1a0f281e20095badf453d7ab02fdb`)
-5. Phase 5 — Maintenance Requests & Triage (`maintainpro/phase-05-requests-triage` — starts from Phase 4 tip)
-6. Phase 6 — Work Order Core
+5. Phase 5 — Maintenance Requests & Triage (`maintainpro/phase-05-requests-triage` @ `6b5948032d2226b7938bbac52ea4931db79110d6`)
+6. Phase 6 — Work Order Core (`maintainpro/phase-06-work-orders` — starts from Phase 5 tip)
 7. Phase 7 — Approval Engine
 
 Do **not** merge Phase 8–14 directly into `main` before those phases exist.
+
+Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).
 
 Phase 5 must not cherry-pick Phase 8–14. FacilityIssue remains until proven migration; SupportTicket stays out of MR scope.
 
