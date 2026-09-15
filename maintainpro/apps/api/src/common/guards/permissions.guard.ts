@@ -24,7 +24,17 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "organization.view": ["facilities.view"],
   "organization.manage": ["facilities.manage", "settings.organization.manage"],
   "locations.view": ["facilities.view", "organization.view"],
-  "locations.manage": ["facilities.manage", "organization.manage"]
+  "locations.manage": ["facilities.manage", "organization.manage"],
+  // Phase 5 — MaintenanceRequest permissions accept FacilityIssue equivalents during transition
+  "maintenance_requests.create": ["facility_issues.report", "cleaning.report_issue"],
+  "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report"],
+  "maintenance_requests.view_all": ["facility_issues.view", "facility_issues.manage"],
+  "maintenance_requests.triage": ["facility_issues.manage"],
+  "maintenance_requests.approve": ["facility_issues.manage"],
+  "maintenance_requests.reject": ["facility_issues.manage"],
+  "maintenance_requests.convert": ["facility_issues.manage"],
+  "maintenance_requests.cancel_own": ["facility_issues.report", "maintenance_requests.create"],
+  "maintenance_requests.cancel_any": ["facility_issues.manage"]
 };
 
 @Injectable()

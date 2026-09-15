@@ -29,7 +29,16 @@ describe("Building schema and facility seed alignment", () => {
       "organization.view",
       "organization.manage",
       "locations.view",
-      "locations.manage"
+      "locations.manage",
+      "maintenance_requests.create",
+      "maintenance_requests.view_own",
+      "maintenance_requests.view_all",
+      "maintenance_requests.triage",
+      "maintenance_requests.approve",
+      "maintenance_requests.reject",
+      "maintenance_requests.convert",
+      "maintenance_requests.cancel_own",
+      "maintenance_requests.cancel_any"
     ]);
   });
 

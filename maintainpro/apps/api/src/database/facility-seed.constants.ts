@@ -12,7 +12,16 @@ export const FACILITY_PERMISSION_KEYS = [
   "organization.view",
   "organization.manage",
   "locations.view",
-  "locations.manage"
+  "locations.manage",
+  "maintenance_requests.create",
+  "maintenance_requests.view_own",
+  "maintenance_requests.view_all",
+  "maintenance_requests.triage",
+  "maintenance_requests.approve",
+  "maintenance_requests.reject",
+  "maintenance_requests.convert",
+  "maintenance_requests.cancel_own",
+  "maintenance_requests.cancel_any"
 ] as const;
 
 export type FacilityPermissionKey = (typeof FACILITY_PERMISSION_KEYS)[number];
@@ -38,6 +47,15 @@ export const FACILITY_MANAGER_PERMISSIONS: readonly string[] = [
   "organization.manage",
   "locations.view",
   "locations.manage",
+  "maintenance_requests.create",
+  "maintenance_requests.view_own",
+  "maintenance_requests.view_all",
+  "maintenance_requests.triage",
+  "maintenance_requests.approve",
+  "maintenance_requests.reject",
+  "maintenance_requests.convert",
+  "maintenance_requests.cancel_own",
+  "maintenance_requests.cancel_any",
   "cleaning.report_issue",
   "cleaning.manage"
 ];
@@ -54,6 +72,15 @@ export const BUILDING_SUPERVISOR_PERMISSIONS: readonly string[] = [
   "facility_inspections.manage",
   "organization.view",
   "locations.view",
+  "maintenance_requests.create",
+  "maintenance_requests.view_own",
+  "maintenance_requests.view_all",
+  "maintenance_requests.triage",
+  "maintenance_requests.approve",
+  "maintenance_requests.reject",
+  "maintenance_requests.convert",
+  "maintenance_requests.cancel_own",
+  "maintenance_requests.cancel_any",
   "cleaning.report_issue",
   "cleaning.sign_off",
   "cleaning.manage"

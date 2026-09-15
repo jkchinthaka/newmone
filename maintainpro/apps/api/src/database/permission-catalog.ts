@@ -157,6 +157,8 @@ export const PERMISSION_CATALOG = [
   "traffic_fines.manage",
   "traffic_fines.payment",
 
+  // Phase 5 Maintenance Request permissions live in FACILITY_PERMISSION_KEYS (spread above).
+
   // Phase 5 — intelligence, analytics, dashboards
   "driver_intelligence.view",
   "driver_intelligence.manage",

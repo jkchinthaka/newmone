@@ -71,6 +71,10 @@ model Tenant {
   assetTypeMasters             AssetTypeMaster[]
   assetAttributeDefinitions    AssetAttributeDefinition[]
   assetLocationHistories       AssetLocationHistory[]
+  /// Phase 5 canonical maintenance requests (FacilityIssue retained + bridge)
+  maintenanceRequests          MaintenanceRequest[]
+  maintenanceRequestHistories  MaintenanceRequestHistory[]
+  requestProblemCategories     RequestProblemCategory[]
   jobCodes                     JobCode[]
   departments                  Department[]
   vehicleDocuments             VehicleDocument[]
@@ -322,53 +326,56 @@ model User {
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 
-  assignedWorkOrders          WorkOrder[]             @relation("TechnicianWorkOrders")
-  createdWorkOrders           WorkOrder[]             @relation("CreatorWorkOrders")
-  approvedWorkOrders          WorkOrder[]             @relation("ApprovedWorkOrders")
-  verifiedWorkOrders          WorkOrder[]             @relation("VerifiedWorkOrders")
-  reopenedWorkOrders          WorkOrder[]             @relation("ReopenedWorkOrders")
-  qrVerifiedWorkOrders        WorkOrder[]             @relation("QrVerifiedWorkOrders")
+  assignedWorkOrders          WorkOrder[]                 @relation("TechnicianWorkOrders")
+  createdWorkOrders           WorkOrder[]                 @relation("CreatorWorkOrders")
+  approvedWorkOrders          WorkOrder[]                 @relation("ApprovedWorkOrders")
+  verifiedWorkOrders          WorkOrder[]                 @relation("VerifiedWorkOrders")
+  reopenedWorkOrders          WorkOrder[]                 @relation("ReopenedWorkOrders")
+  qrVerifiedWorkOrders        WorkOrder[]                 @relation("QrVerifiedWorkOrders")
   memberships                 TenantMembership[]
-  sentInvitations             TenantInvitation[]      @relation("TenantInvitedBy")
+  sentInvitations             TenantInvitation[]          @relation("TenantInvitedBy")
   notifications               Notification[]
   auditEvents                 AuditLog[]
   inventoryImportRuns         InventoryImportRun[]
   bulkImportRuns              BulkImportRun[]
   driverProfile               Driver?
-  cleaningVisits              CleaningVisit[]         @relation("CleanerVisits")
-  signedOffVisits             CleaningVisit[]         @relation("SupervisorSignOffs")
-  assignedCleaningLocations   CleaningLocation[]      @relation("AssignedCleaningLocations")
-  reportedIssues              FacilityIssue[]         @relation("ReportedFacilityIssues")
-  resolvedIssues              FacilityIssue[]         @relation("ResolvedFacilityIssues")
-  assignedFacilityIssues      FacilityIssue[]         @relation("AssignedFacilityIssues")
+  cleaningVisits              CleaningVisit[]             @relation("CleanerVisits")
+  signedOffVisits             CleaningVisit[]             @relation("SupervisorSignOffs")
+  assignedCleaningLocations   CleaningLocation[]          @relation("AssignedCleaningLocations")
+  reportedIssues              FacilityIssue[]             @relation("ReportedFacilityIssues")
+  resolvedIssues              FacilityIssue[]             @relation("ResolvedFacilityIssues")
+  assignedFacilityIssues      FacilityIssue[]             @relation("AssignedFacilityIssues")
   copilotConversations        CopilotConversation[]
   copilotMessages             CopilotMessage[]
   copilotExchangeLogs         CopilotExchangeLog[]
-  managedDepartments          Department[]            @relation("DepartmentManager")
-  recordedVehicleMeterLogs    VehicleMeterLog[]       @relation("VehicleMeterRecordedBy")
-  approvedVehicleGateMoves    VehicleGateMovement[]   @relation("VehicleGateApprovedBy")
-  partRequestsRequested       PartRequest[]           @relation("PartRequestRequester")
-  partRequestApprovals        PartRequestApproval[]   @relation("PartRequestApprovalActor")
-  partIssuesIssued            PartIssue[]             @relation("PartIssueIssuer")
-  purchaseOrderApprovals      PurchaseOrderApproval[] @relation("PurchaseOrderApprovalActor")
-  purchaseOrdersCreated       PurchaseOrder[]         @relation("PurchaseOrderCreator")
-  purchaseOrderErpSyncActions PurchaseOrderErpSync[]  @relation("PurchaseOrderErpSyncTrigger")
-  purchaseReceiptsReceived    PurchaseReceipt[]       @relation("PurchaseReceiptReceiver")
-  vehicleDocsUploaded         VehicleDocument[]       @relation("VehicleDocUploader")
-  vehicleDocsVerified         VehicleDocument[]       @relation("VehicleDocVerifier")
-  accidentsReported           AccidentReport[]        @relation("AccidentReporter")
-  accidentEvidenceUploaded    AccidentEvidence[]      @relation("AccidentEvidenceUploader")
-  insuranceClaimsFiled        InsuranceClaim[]        @relation("InsuranceClaimFiler")
-  trafficFinesReported        TrafficFine[]           @relation("TrafficFineReporter")
+  managedDepartments          Department[]                @relation("DepartmentManager")
+  recordedVehicleMeterLogs    VehicleMeterLog[]           @relation("VehicleMeterRecordedBy")
+  approvedVehicleGateMoves    VehicleGateMovement[]       @relation("VehicleGateApprovedBy")
+  partRequestsRequested       PartRequest[]               @relation("PartRequestRequester")
+  partRequestApprovals        PartRequestApproval[]       @relation("PartRequestApprovalActor")
+  partIssuesIssued            PartIssue[]                 @relation("PartIssueIssuer")
+  purchaseOrderApprovals      PurchaseOrderApproval[]     @relation("PurchaseOrderApprovalActor")
+  purchaseOrdersCreated       PurchaseOrder[]             @relation("PurchaseOrderCreator")
+  purchaseOrderErpSyncActions PurchaseOrderErpSync[]      @relation("PurchaseOrderErpSyncTrigger")
+  purchaseReceiptsReceived    PurchaseReceipt[]           @relation("PurchaseReceiptReceiver")
+  vehicleDocsUploaded         VehicleDocument[]           @relation("VehicleDocUploader")
+  vehicleDocsVerified         VehicleDocument[]           @relation("VehicleDocVerifier")
+  accidentsReported           AccidentReport[]            @relation("AccidentReporter")
+  accidentEvidenceUploaded    AccidentEvidence[]          @relation("AccidentEvidenceUploader")
+  insuranceClaimsFiled        InsuranceClaim[]            @relation("InsuranceClaimFiler")
+  trafficFinesReported        TrafficFine[]               @relation("TrafficFineReporter")
   refreshTokens               RefreshToken[]
   passwordResetTokens         PasswordResetToken[]
-  userInvitations             UserInvitation[]        @relation("UserInvitationTarget")
-  sentUserInvitations         UserInvitation[]        @relation("UserInvitationSender")
-  evidenceAttachmentsUploaded EvidenceAttachment[]    @relation("EvidenceUploader")
-  workOrderAssignmentsCreated WorkOrderAssignee[]     @relation("WorkOrderAssigneeAssignedBy")
-  employeeLeaveApprovals      EmployeeLeaveRequest[]  @relation("EmployeeLeaveApprover")
-  linkedWorkforceEmployees    Employee[]              @relation("EmployeeLinkedUser")
-  responsibleAssets           Asset[]                 @relation("AssetResponsiblePerson")
+  userInvitations             UserInvitation[]            @relation("UserInvitationTarget")
+  sentUserInvitations         UserInvitation[]            @relation("UserInvitationSender")
+  evidenceAttachmentsUploaded EvidenceAttachment[]        @relation("EvidenceUploader")
+  workOrderAssignmentsCreated WorkOrderAssignee[]         @relation("WorkOrderAssigneeAssignedBy")
+  employeeLeaveApprovals      EmployeeLeaveRequest[]      @relation("EmployeeLeaveApprover")
+  linkedWorkforceEmployees    Employee[]                  @relation("EmployeeLinkedUser")
+  responsibleAssets           Asset[]                     @relation("AssetResponsiblePerson")
+  reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
+  triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
+  maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
 
   @@index([tenantId])
   @@index([roleId])
@@ -728,6 +735,7 @@ model Department {
   employees           Employee[]           @relation("EmployeeDepartment")
   /// Optional business ownership link for physical locations (not a hierarchy node)
   functionalLocations FunctionalLocation[] @relation("LocationDepartment")
+  maintenanceRequests MaintenanceRequest[] @relation("RequestDepartment")
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -809,6 +817,7 @@ model Asset {
   predictiveLogs       PredictiveLog[]
   locationHistories    AssetLocationHistory[]
   linkedVehicle        Vehicle?
+  maintenanceRequests  MaintenanceRequest[]
 
   @@index([tenantId])
   @@index([status])
@@ -894,8 +903,9 @@ model AssetDomain {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  categories AssetCategoryMaster[]
-  assets     Asset[]
+  categories          AssetCategoryMaster[]
+  assets              Asset[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -1444,6 +1454,13 @@ model WorkOrder {
   accident                    AccidentReport?               @relation(fields: [accidentId], references: [id])
   trafficFineId               String?                       @db.ObjectId
   trafficFine                 TrafficFine?                  @relation(fields: [trafficFineId], references: [id])
+  /// Phase 5: location-only WO support (CORRECTIVE/EMERGENCY may omit asset)
+  siteId                      String?                       @db.ObjectId
+  site                        Site?                         @relation(fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  functionalLocationId        String?                       @db.ObjectId
+  functionalLocation          FunctionalLocation?           @relation(fields: [functionalLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Reverse unique link also on MaintenanceRequest.workOrderId — keep both for query convenience
+  maintenanceRequest          MaintenanceRequest?
   createdAt                   DateTime                      @default(now())
   updatedAt                   DateTime                      @updatedAt
 
@@ -1477,6 +1494,8 @@ model WorkOrder {
   @@index([tenantId, updatedAt])
   @@index([tenantId, isTriage])
   @@index([tenantId, dueDate])
+  @@index([tenantId, siteId])
+  @@index([tenantId, functionalLocationId])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -2994,8 +3013,10 @@ model Site {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  locations FunctionalLocation[]
-  assets    Asset[]
+  locations           FunctionalLocation[]
+  assets              Asset[]
+  workOrders          WorkOrder[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -3028,7 +3049,9 @@ model FunctionalLocation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assets Asset[]
+  assets              Asset[]
+  workOrders          WorkOrder[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@unique([tenantId, siteId, code])
   @@index([tenantId, siteId])
@@ -3181,6 +3204,159 @@ model CleaningChecklist {
   updatedAt   DateTime      @updatedAt
 }
 
+// ============================================================
+// PHASE 5 — Canonical Maintenance Request & Triage
+// FacilityIssue remains for cleaning/facility history; MR is company-wide.
+// ============================================================
+
+enum MaintenanceRequestStatus {
+  NEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  CONVERTED_TO_WO
+}
+
+enum RequestRejectionReasonType {
+  DUPLICATE
+  NOT_MAINTENANCE
+  INVALID_REQUEST
+  ALREADY_RESOLVED
+  INSUFFICIENT_INFORMATION
+  OTHER
+}
+
+/// Tenant-scoped symptom/problem categories (not Phase 6 failure/cause/remedy codes)
+model RequestProblemCategory {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String   @db.ObjectId
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requests MaintenanceRequest[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+}
+
+model MaintenanceRequest {
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String                   @db.ObjectId
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestNumber     String
+  status            MaintenanceRequestStatus @default(NEW)
+  /// Reuse WorkOrder Priority enum — avoid parallel priority enums
+  priority          Priority                 @default(MEDIUM)
+  requestedPriority Priority?
+
+  reportedById     String    @db.ObjectId
+  reportedBy       User      @relation("ReportedMaintenanceRequests", fields: [reportedById], references: [id])
+  reportedAt       DateTime  @default(now())
+  failureNoticedAt DateTime?
+
+  assetId              String?             @db.ObjectId
+  asset                Asset?              @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  siteId               String?             @db.ObjectId
+  site                 Site?               @relation(fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  functionalLocationId String?             @db.ObjectId
+  functionalLocation   FunctionalLocation? @relation(fields: [functionalLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId         String?             @db.ObjectId
+  department           Department?         @relation("RequestDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  domainId             String?             @db.ObjectId
+  domain               AssetDomain?        @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  problemCategoryId    String?                 @db.ObjectId
+  problemCategory      RequestProblemCategory? @relation(fields: [problemCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Free-text category label when master not yet selected
+  problemCategoryLabel String?
+  description          String
+  affectsOperation     Boolean                 @default(false)
+  businessImpact       String?
+  isEmergency          Boolean                 @default(false)
+
+  /// Server-built report-time context — immutable after create (asset may move later)
+  contextSnapshot Json?
+
+  triageNotes      String?
+  publicUpdateNote String?
+  triageOwnerId    String?   @db.ObjectId
+  triageOwner      User?     @relation("TriageOwnerRequests", fields: [triageOwnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedAt       DateTime?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  cancelledAt      DateTime?
+  convertedAt      DateTime?
+
+  rejectionReasonType RequestRejectionReasonType?
+  rejectionReason     String?
+  cancellationReason  String?
+
+  /// Duplicate of another request (same open event) — not the same as repeat failure
+  duplicateOfId String?              @db.ObjectId
+  duplicateOf   MaintenanceRequest?  @relation("RequestDuplicates", fields: [duplicateOfId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  duplicates    MaintenanceRequest[] @relation("RequestDuplicates")
+
+  relatedRequestId String?              @db.ObjectId
+  relatedRequest   MaintenanceRequest?  @relation("RelatedRequests", fields: [relatedRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  relatedFrom      MaintenanceRequest[] @relation("RelatedRequests")
+
+  /// Idempotent conversion: at most one primary WO
+  workOrderId String?    @unique @db.ObjectId
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  /// Client idempotency for offline/PWA create retries
+  idempotencyKey String?
+
+  /// Bridge from FacilityIssue (do not delete FacilityIssue in Phase 5)
+  legacySourceType String?
+  legacySourceId   String?
+
+  history             MaintenanceRequestHistory[]
+  evidenceAttachments EvidenceAttachment[]
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  @@unique([tenantId, requestNumber])
+  @@index([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, siteId, status])
+  @@index([tenantId, assetId, status])
+  @@index([tenantId, functionalLocationId, status])
+  @@index([tenantId, priority, status])
+  @@index([tenantId, reportedById, createdAt])
+  @@index([tenantId, domainId])
+  @@index([tenantId, duplicateOfId])
+  @@index([tenantId, legacySourceType, legacySourceId])
+}
+
+model MaintenanceRequestHistory {
+  id         String                    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String                    @db.ObjectId
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestId  String                    @db.ObjectId
+  request    MaintenanceRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fromStatus MaintenanceRequestStatus?
+  toStatus   MaintenanceRequestStatus?
+  action     String
+  reason     String?
+  /// Safe public metadata only — no secrets
+  metadata   Json?
+  actorId    String?                   @db.ObjectId
+  actor      User?                     @relation("RequestHistoryActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Internal notes stay off requester-visible timeline when isInternal=true
+  isInternal Boolean                   @default(false)
+  createdAt  DateTime                  @default(now())
+
+  @@index([tenantId, requestId, createdAt])
+}
+
 model FacilityIssue {
   id                  String                 @id @default(auto()) @map("_id") @db.ObjectId
   tenantId            String?                @db.ObjectId
@@ -3282,41 +3458,45 @@ enum WorkOrderCompletionCondition {
 }
 
 model EvidenceAttachment {
-  id                 String                     @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId           String?                    @db.ObjectId
-  tenant             Tenant?                    @relation(fields: [tenantId], references: [id])
-  workOrderId        String?                    @db.ObjectId
-  workOrder          WorkOrder?                 @relation(fields: [workOrderId], references: [id])
-  facilityIssueId    String?                    @db.ObjectId
-  facilityIssue      FacilityIssue?             @relation(fields: [facilityIssueId], references: [id])
-  evidenceType       EvidenceType               @default(OTHER_DOCUMENT)
-  fileName           String
-  mimeType           String
-  sizeBytes          Int
-  storageProvider    String
-  storageKey         String
-  status             EvidenceAttachmentStatus   @default(PENDING)
-  verificationStatus EvidenceVerificationStatus @default(PENDING)
-  rejectedReason     String?
-  note               String?
-  isRequired         Boolean                    @default(false)
-  capturedAt         DateTime?
-  source             EvidenceSource             @default(WEB)
-  clientGeneratedId  String?
-  offlineCreatedAt   DateTime?
-  syncedAt           DateTime?
-  syncStatus         EvidenceSyncStatus?
-  syncError          String?
-  deletedAt          DateTime?
-  deletedById        String?                    @db.ObjectId
-  deleteReason       String?
-  uploadedById       String                     @db.ObjectId
-  uploadedBy         User                       @relation("EvidenceUploader", fields: [uploadedById], references: [id])
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
+  id                   String                     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId             String?                    @db.ObjectId
+  tenant               Tenant?                    @relation(fields: [tenantId], references: [id])
+  workOrderId          String?                    @db.ObjectId
+  workOrder            WorkOrder?                 @relation(fields: [workOrderId], references: [id])
+  facilityIssueId      String?                    @db.ObjectId
+  facilityIssue        FacilityIssue?             @relation(fields: [facilityIssueId], references: [id])
+  /// Phase 5: evidence attached to MaintenanceRequest (reuse same secure storage)
+  maintenanceRequestId String?                    @db.ObjectId
+  maintenanceRequest   MaintenanceRequest?        @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  evidenceType         EvidenceType               @default(OTHER_DOCUMENT)
+  fileName             String
+  mimeType             String
+  sizeBytes            Int
+  storageProvider      String
+  storageKey           String
+  status               EvidenceAttachmentStatus   @default(PENDING)
+  verificationStatus   EvidenceVerificationStatus @default(PENDING)
+  rejectedReason       String?
+  note                 String?
+  isRequired           Boolean                    @default(false)
+  capturedAt           DateTime?
+  source               EvidenceSource             @default(WEB)
+  clientGeneratedId    String?
+  offlineCreatedAt     DateTime?
+  syncedAt             DateTime?
+  syncStatus           EvidenceSyncStatus?
+  syncError            String?
+  deletedAt            DateTime?
+  deletedById          String?                    @db.ObjectId
+  deleteReason         String?
+  uploadedById         String                     @db.ObjectId
+  uploadedBy           User                       @relation("EvidenceUploader", fields: [uploadedById], references: [id])
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([tenantId, facilityIssueId])
+  @@index([tenantId, maintenanceRequestId])
   @@index([tenantId, status])
   @@index([tenantId, clientGeneratedId])
 }
