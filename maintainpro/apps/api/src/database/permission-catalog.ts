@@ -216,5 +216,13 @@ export const PERMISSION_CATALOG = [
 
   // Phase 11 — domain coverage: asset taxonomy domain profile read/manage
   "domains.view",
-  "domains.manage"
+  "domains.manage",
+
+  // Phase 12 — admin governance
+  "admin.overview.view",
+  "admin.dataquality.view",
+  "admin.audit.view",
+  "admin.system.view",
+  "admin.users.manage",
+  "admin.organization.manage"
 ];

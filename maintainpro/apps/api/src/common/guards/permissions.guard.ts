@@ -84,7 +84,14 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "gate.override": ["gate.override.approve", "fleet.manage"],
   // Phase 11 — domain profiles; accept assets.manage / organization.manage during rollout
   "domains.view": ["assets.manage", "organization.view", "settings.organization.manage"],
-  "domains.manage": ["assets.manage", "organization.manage", "settings.organization.manage"]
+  "domains.manage": ["assets.manage", "organization.manage", "settings.organization.manage"],
+  // Phase 12 — admin governance; accept existing settings/audit/users permissions during rollout
+  "admin.overview.view": ["settings.view", "settings.manage", "settings.organization.manage"],
+  "admin.dataquality.view": ["settings.view", "settings.manage", "assets.manage"],
+  "admin.audit.view": ["audit.view", "settings.view"],
+  "admin.system.view": ["settings.system.manage", "settings.manage"],
+  "admin.users.manage": ["users.manage", "users.status.manage"],
+  "admin.organization.manage": ["organization.manage", "settings.organization.manage"]
 };
 
 @Injectable()
