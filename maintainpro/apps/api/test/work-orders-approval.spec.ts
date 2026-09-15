@@ -41,6 +41,8 @@ const createPrismaMock = () => ({
     create: jest.fn()
   },
   workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
+  asset: { findFirst: jest.fn().mockResolvedValue({ id: "507f1f77bcf86cd799439012", tenantId: "tenant-a" }) },
+  workOrderStatusHistory: { create: jest.fn().mockResolvedValue({}) },
   evidenceAttachment: {
     findMany: jest.fn().mockResolvedValue([
       { evidenceType: "BEFORE_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" },
@@ -117,6 +119,7 @@ describe("WorkOrdersService approval and audit", () => {
             description: "Replace seal",
             priority: "MEDIUM",
             type: "CORRECTIVE",
+            assetId: "507f1f77bcf86cd799439012",
             createdById: "507f1f77bcf86cd799439011"
           },
           manager

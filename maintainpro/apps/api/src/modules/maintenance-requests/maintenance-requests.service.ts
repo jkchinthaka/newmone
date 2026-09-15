@@ -726,18 +726,22 @@ export class MaintenanceRequestsService {
         priority: current.priority,
         type: current.isEmergency ? WorkOrderType.EMERGENCY : WorkOrderType.CORRECTIVE,
         assetId: current.assetId ?? undefined,
+        siteId: current.siteId ?? undefined,
+        functionalLocationId: current.functionalLocationId ?? undefined,
         createdById: actor.sub,
-        isTriage: false
+        isTriage: false,
+        reportedAt: current.reportedAt?.toISOString?.() ?? undefined,
+        failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined
       },
       actor as never
     );
 
-    // Attach Phase 5 location fields (minimal compatibility before Phase 6)
+    // Ensure Phase 5 location fields remain attached (create already sets them when provided)
     const linked = await this.prisma.workOrder.update({
       where: { id: wo.id },
       data: {
-        siteId: current.siteId,
-        functionalLocationId: current.functionalLocationId
+        siteId: current.siteId ?? wo.siteId,
+        functionalLocationId: current.functionalLocationId ?? wo.functionalLocationId
       }
     });
 

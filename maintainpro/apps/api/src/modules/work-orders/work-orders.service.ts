@@ -139,6 +139,36 @@ export class WorkOrdersService {
     return actor;
   }
 
+  private async appendStatusHistory(
+    tenantId: string | null | undefined,
+    workOrderId: string,
+    input: {
+      fromStatus: WorkOrderStatus | null;
+      toStatus: WorkOrderStatus;
+      action: string;
+      actorId?: string;
+      reason?: string | null;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    try {
+      await this.prisma.workOrderStatusHistory.create({
+        data: {
+          tenantId: tenantId ?? undefined,
+          workOrderId,
+          fromStatus: input.fromStatus ?? undefined,
+          toStatus: input.toStatus,
+          action: input.action,
+          actorId: input.actorId,
+          reason: input.reason?.trim() || undefined,
+          metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined
+        }
+      });
+    } catch {
+      // History must not block primary status transitions
+    }
+  }
+
   private slaHours(priority: Priority): number {
     switch (priority) {
       case Priority.CRITICAL:
@@ -187,18 +217,45 @@ export class WorkOrdersService {
   private async nextWoNumber(actor?: Actor): Promise<string> {
     const year = new Date().getFullYear();
     const tenantId = this.resolveTenantId(actor);
-    const where: Prisma.WorkOrderWhereInput = {
-      createdAt: {
-        gte: new Date(`${year}-01-01T00:00:00.000Z`),
-        lte: new Date(`${year}-12-31T23:59:59.999Z`)
+    const prefix = `WO-${year}-`;
+    const latest = await this.prisma.workOrder.findFirst({
+      where: {
+        tenantId,
+        woNumber: { startsWith: prefix }
+      },
+      orderBy: { woNumber: "desc" },
+      select: { woNumber: true }
+    });
+    let seq = 1;
+    if (latest?.woNumber) {
+      const parsed = Number.parseInt(latest.woNumber.slice(prefix.length), 10);
+      if (Number.isFinite(parsed)) seq = parsed + 1;
+    }
+    return `${prefix}${String(seq).padStart(4, "0")}`;
+  }
+
+  private async createWithNumberRetry(
+    data: Omit<Prisma.WorkOrderUncheckedCreateInput, "woNumber">,
+    actor?: Actor
+  ) {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const woNumber = await this.nextWoNumber(actor);
+      try {
+        return await this.prisma.workOrder.create({
+          data: { ...data, woNumber }
+        });
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
       }
-    };
-
-    where.tenantId = tenantId;
-
-    const count = await this.prisma.workOrder.count({ where });
-    const sequence = String(count + 1).padStart(4, "0");
-    return `WO-${year}-${sequence}`;
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new BadRequestException("Unable to allocate a unique work order number");
   }
 
   findAll(actor?: Actor) {
@@ -285,9 +342,11 @@ export class WorkOrdersService {
       title: string;
       description: string;
       priority: Priority;
-      type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION" | "ACCIDENT_REPAIR";
+      type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION" | "ACCIDENT_REPAIR" | "BREAKDOWN" | "VENDOR_REPAIR" | "EXTERNAL_REPAIR" | "IMPROVEMENT" | "INSPECTION_CORRECTIVE" | "CALIBRATION_CORRECTIVE";
       assetId?: string;
       vehicleId?: string;
+      siteId?: string;
+      functionalLocationId?: string;
       scheduleId?: string;
       createdById: string;
       dueDate?: string;
@@ -298,6 +357,9 @@ export class WorkOrdersService {
       taxonomyIssueId?: string;
       isTriage?: boolean;
       triageReason?: string;
+      reportedAt?: string;
+      failedAt?: string;
+      idempotencyKey?: string;
     },
     actor?: Actor
   ) {
@@ -313,8 +375,13 @@ export class WorkOrdersService {
 
     const assetId = assertValidOptionalObjectId("assetId", data.assetId);
     const vehicleId = assertValidOptionalObjectId("vehicleId", data.vehicleId);
+    const siteId = assertValidOptionalObjectId("siteId", data.siteId);
+    const functionalLocationId = assertValidOptionalObjectId(
+      "functionalLocationId",
+      data.functionalLocationId
+    );
     const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
-    assertWorkOrderAssetRules({ type: data.type, assetId, vehicleId });
+    assertWorkOrderAssetRules({ type: data.type as WorkOrderType, assetId, vehicleId, functionalLocationId });
 
     if (!/^[a-fA-F0-9]{24}$/.test(data.createdById)) {
       throw new BadRequestException("Invalid createdById. Please log in again to refresh your session.");
@@ -364,9 +431,16 @@ export class WorkOrdersService {
     if (vehicleId) {
       await assertTenantEntityExists(this.prisma.vehicle, vehicleId, { tenantId, entityName: "Vehicle" });
     }
+    if (siteId) {
+      await assertTenantEntityExists(this.prisma.site, siteId, { tenantId, entityName: "Site" });
+    }
+    if (functionalLocationId) {
+      await assertTenantEntityExists(this.prisma.functionalLocation, functionalLocationId, {
+        tenantId,
+        entityName: "FunctionalLocation"
+      });
+    }
 
-    const woNumber = await this.nextWoNumber(actor);
-    
     let taxonomyFields: {
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;
@@ -412,16 +486,17 @@ export class WorkOrdersService {
           : WorkOrderApprovalStatus.PENDING;
 
     try {
-      const created = await this.prisma.workOrder.create({
-        data: {
+      const created = await this.createWithNumberRetry(
+        {
           tenantId: tenantId,
-          woNumber,
           title: data.title,
           description: data.description,
           priority: data.priority,
-          type: data.type,
+          type: data.type as WorkOrderType,
           assetId,
           vehicleId,
+          siteId,
+          functionalLocationId,
           scheduleId,
           createdById: authoritativeCreatorId,
           ...taxonomyFields,
@@ -431,6 +506,9 @@ export class WorkOrdersService {
             : data.dueDate
               ? new Date(data.dueDate)
               : undefined,
+          reportedAt: data.reportedAt ? new Date(data.reportedAt) : new Date(),
+          failedAt: data.failedAt ? new Date(data.failedAt) : undefined,
+          lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
@@ -438,7 +516,16 @@ export class WorkOrdersService {
           qrVerificationStatus: requiresQrVerification(data.type as never, assetId, vehicleId)
             ? QrVerificationStatus.PENDING
             : QrVerificationStatus.NOT_REQUIRED
-        }
+        },
+        actor
+      );
+
+      await this.appendStatusHistory(tenantId, created.id, {
+        fromStatus: null,
+        toStatus: created.status,
+        action: "CREATED",
+        actorId: actorId,
+        metadata: { woNumber: created.woNumber }
       });
 
       await this.recordAudit({
@@ -591,7 +678,13 @@ export class WorkOrdersService {
 
     const updated = await this.prisma.workOrder.update({
       where: { id },
-      data: { technicianId }
+      data: {
+        technicianId,
+        status:
+          current.status === WorkOrderStatus.OPEN || current.status === WorkOrderStatus.PLANNED
+            ? WorkOrderStatus.ASSIGNED
+            : current.status
+      }
     });
 
     // Canonical assignee model: sync WorkOrderAssignee from legacy technicianId when a linked employee exists.
@@ -972,7 +1065,9 @@ export class WorkOrdersService {
     }
 
     const completedDate =
-      targetStatus === WorkOrderStatus.COMPLETED ? new Date() : current.completedDate;
+      targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED || targetStatus === WorkOrderStatus.COMPLETED
+        ? current.completedDate ?? new Date()
+        : current.completedDate;
 
     const verificationStatus =
       targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED &&
@@ -980,12 +1075,40 @@ export class WorkOrdersService {
         ? WorkOrderVerificationStatus.PENDING
         : current.verificationStatus;
 
+    // Idempotent timestamp capture — do not overwrite if already set
+    const repairStartedAt =
+      targetStatus === WorkOrderStatus.IN_PROGRESS
+        ? current.repairStartedAt ?? startDate ?? new Date()
+        : current.repairStartedAt;
+    const repairCompletedAt =
+      targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+        ? current.repairCompletedAt ?? new Date()
+        : current.repairCompletedAt;
+    const heldAt =
+      targetStatus === WorkOrderStatus.ON_HOLD ? current.heldAt ?? new Date() : current.heldAt;
+    const resumedAt =
+      current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
+        ? new Date()
+        : current.resumedAt;
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
         status: targetStatus,
         startDate,
         slaDeadline,
+        repairStartedAt,
+        repairCompletedAt,
+        heldAt,
+        resumedAt,
+        holdNotes:
+          targetStatus === WorkOrderStatus.ON_HOLD
+            ? data.delayReason?.trim() || current.holdNotes
+            : current.holdNotes,
+        holdReasonCode:
+          targetStatus === WorkOrderStatus.ON_HOLD
+            ? current.holdReasonCode || "OTHER"
+            : current.holdReasonCode,
         actualCost: data.actualCost ?? current.actualCost,
         actualHours: data.actualHours ?? current.actualHours,
         delayReason: data.delayReason?.trim() || current.delayReason,
@@ -1011,6 +1134,14 @@ export class WorkOrdersService {
         completedDate,
         slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
       }
+    });
+
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: targetStatus,
+      action: "STATUS_CHANGE",
+      actorId: actor?.sub,
+      reason: data.delayReason || data.cancelReason || data.completionNote || data.emergencyCloseReason
     });
 
     const auditEvent =
@@ -1127,7 +1258,7 @@ export class WorkOrdersService {
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
-        status: WorkOrderStatus.COMPLETED,
+        status: WorkOrderStatus.VERIFIED,
         verificationStatus: WorkOrderVerificationStatus.VERIFIED,
         verifiedById: approver.sub,
         verifiedAt: new Date(),
@@ -1135,9 +1266,17 @@ export class WorkOrdersService {
         verificationRejectionReason: null,
         actualCost,
         actualHours,
-        completedDate: new Date(),
+        completedDate: current.completedDate ?? new Date(),
         delayReason: data.delayReason?.trim() || current.delayReason
       }
+    });
+
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: WorkOrderStatus.VERIFIED,
+      action: "VERIFIED",
+      actorId: approver.sub,
+      reason: data.verificationNote
     });
 
     await this.recordAudit({
@@ -1151,8 +1290,42 @@ export class WorkOrdersService {
       afterData: { status: updated.status, verificationStatus: updated.verificationStatus }
     });
 
-    await this.notifyEnterpriseCompleted(updated, actor);
+    return this.findOneWithRelations(id, actor);
+  }
 
+  /** VERIFIED → CLOSED — final historical truth */
+  async closeWorkOrder(id: string, note: string | undefined, actor?: Actor) {
+    if (!canVerifySupervisor(actor?.role as RoleName) && !canDirectlyCloseWorkOrder(actor?.role as RoleName)) {
+      throw new ForbiddenException("Close requires supervisor or admin permission.");
+    }
+    const current = await this.findOne(id, actor);
+    assertAllowedStatusTransition(current.status, WorkOrderStatus.CLOSED);
+    const approver = this.assertActor(actor);
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        status: WorkOrderStatus.CLOSED,
+        closedAt: new Date(),
+        notes: note?.trim() || current.notes
+      }
+    });
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: WorkOrderStatus.CLOSED,
+      action: "CLOSED",
+      actorId: approver.sub,
+      reason: note
+    });
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: note ?? "Work order closed",
+      metadata: { event: "work_order_closed", woNumber: updated.woNumber },
+      beforeData: { status: current.status },
+      afterData: { status: updated.status, closedAt: updated.closedAt }
+    });
     return this.findOneWithRelations(id, actor);
   }
 
@@ -1197,24 +1370,34 @@ export class WorkOrdersService {
 
     const trimmedReason = assertReasonProvided("Reopen reason", reason);
     const current = await this.findOne(id, actor);
-    if (!TERMINAL_WORK_ORDER_STATUSES.has(current.status)) {
-      throw new BadRequestException("Only completed or cancelled work orders can be reopened.");
+    const reopenable = new Set<WorkOrderStatus>([
+      WorkOrderStatus.COMPLETED,
+      WorkOrderStatus.CLOSED,
+      WorkOrderStatus.CANCELLED,
+      WorkOrderStatus.VERIFIED
+    ]);
+    if (!reopenable.has(current.status) && !TERMINAL_WORK_ORDER_STATUSES.has(current.status)) {
+      throw new BadRequestException(
+        "Only verified, closed, completed, or cancelled work orders can be reopened."
+      );
     }
 
     const approver = this.assertActor(actor);
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
-        status: WorkOrderStatus.OPEN,
+        status: WorkOrderStatus.IN_PROGRESS,
         completedDate: null,
-        verificationStatus: WorkOrderVerificationStatus.NOT_REQUIRED,
+        closedAt: null,
+        verificationStatus: WorkOrderVerificationStatus.PENDING,
         verifiedById: null,
         verifiedAt: null,
         verificationNote: null,
         verificationRejectionReason: null,
         reopenReason: trimmedReason,
         reopenedAt: new Date(),
-        reopenedById: approver.sub
+        reopenedById: approver.sub,
+        correctionReason: trimmedReason
       }
     });
 

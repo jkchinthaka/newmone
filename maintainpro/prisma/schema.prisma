@@ -75,6 +75,10 @@ model Tenant {
   maintenanceRequests          MaintenanceRequest[]
   maintenanceRequestHistories  MaintenanceRequestHistory[]
   requestProblemCategories     RequestProblemCategory[]
+  maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
+  workOrderHoldHistories       WorkOrderHoldHistory[]
+  workOrderLabourEntries       WorkOrderLabourEntry[]
+  workOrderStatusHistories     WorkOrderStatusHistory[]
   jobCodes                     JobCode[]
   departments                  Department[]
   vehicleDocuments             VehicleDocument[]
@@ -736,6 +740,7 @@ model Department {
   /// Optional business ownership link for physical locations (not a hierarchy node)
   functionalLocations FunctionalLocation[] @relation("LocationDepartment")
   maintenanceRequests MaintenanceRequest[] @relation("RequestDepartment")
+  workOrders          WorkOrder[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -906,6 +911,7 @@ model AssetDomain {
   categories          AssetCategoryMaster[]
   assets              Asset[]
   maintenanceRequests MaintenanceRequest[]
+  workOrders          WorkOrder[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -1459,10 +1465,64 @@ model WorkOrder {
   site                        Site?                         @relation(fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   functionalLocationId        String?                       @db.ObjectId
   functionalLocation          FunctionalLocation?           @relation(fields: [functionalLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId                String?                       @db.ObjectId
+  department                  Department?                   @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  domainId                    String?                       @db.ObjectId
+  domain                      AssetDomain?                  @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Reverse unique link also on MaintenanceRequest.workOrderId — keep both for query convenience
   maintenanceRequest          MaintenanceRequest?
-  createdAt                   DateTime                      @default(now())
-  updatedAt                   DateTime                      @updatedAt
+
+  // Phase 6 — operational timestamps (do not derive KPIs solely from updatedAt)
+  failedAt                 DateTime?
+  reportedAt               DateTime?
+  acknowledgedAt           DateTime?
+  technicianArrivedAt      DateTime?
+  repairStartedAt          DateTime?
+  repairCompletedAt        DateTime?
+  productionResumedAt      DateTime?
+  closedAt                 DateTime?
+  estimatedDurationMinutes Int?
+
+  // Phase 6 — hold (current state; history in WorkOrderHoldHistory)
+  holdReasonCode   String?
+  holdNotes        String?
+  heldAt           DateTime?
+  expectedResumeAt DateTime?
+  resumedAt        DateTime?
+
+  // Phase 6 — downtime (optional by domain; not forced on every WO)
+  affectsOperation   Boolean   @default(false)
+  downtimeApplicable Boolean   @default(false)
+  downtimeStartedAt  DateTime?
+  downtimeEndedAt    DateTime?
+  downtimeReason     String?
+
+  // Phase 6 — RCA (technician analysis; distinct from requester Problem Category)
+  failureCodeId       String?                  @db.ObjectId
+  failureCode         MaintenanceAnalysisCode? @relation("WoFailureCode", fields: [failureCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  causeCodeId         String?                  @db.ObjectId
+  causeCode           MaintenanceAnalysisCode? @relation("WoCauseCode", fields: [causeCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  remedyCodeId        String?                  @db.ObjectId
+  remedyCode          MaintenanceAnalysisCode? @relation("WoRemedyCode", fields: [remedyCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  failureCodeSnapshot String?
+  causeCodeSnapshot   String?
+  remedyCodeSnapshot  String?
+
+  // Phase 6 — maintenance-level safety metadata (not full EHS)
+  riskLevel           String?
+  ppeRequired         String[]
+  lotoRequired        Boolean  @default(false)
+  hotWorkRequired     Boolean  @default(false)
+  workingAtHeight     Boolean  @default(false)
+  electricalIsolation Boolean  @default(false)
+  confinedSpace       Boolean  @default(false)
+  permitReference     String?
+
+  correctionReason   String?
+  lastIdempotencyKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   maintenanceLogs     MaintenanceLog[]
   parts               WorkOrderPart[]
@@ -1472,6 +1532,9 @@ model WorkOrder {
   evidenceAttachments EvidenceAttachment[]
   assignees           WorkOrderAssignee[]
   vendorRepairCase    VendorRepairCase?
+  holdHistory         WorkOrderHoldHistory[]
+  labourEntries       WorkOrderLabourEntry[]
+  statusHistory       WorkOrderStatusHistory[]
 
   taxonomyCategoryId   String?            @db.ObjectId
   taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1496,6 +1559,9 @@ model WorkOrder {
   @@index([tenantId, dueDate])
   @@index([tenantId, siteId])
   @@index([tenantId, functionalLocationId])
+  @@index([tenantId, assetId, status])
+  @@index([tenantId, completedDate])
+  @@index([tenantId, closedAt])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -1510,6 +1576,7 @@ model WorkOrder {
   @@index([taxonomyTypeId])
   @@index([taxonomyIssueId])
   @@index([isTriage])
+  @@index([tenantId, lastIdempotencyKey])
 }
 
 enum WorkOrderTaxonomyLevel {
@@ -1573,12 +1640,19 @@ enum Priority {
 
 enum WorkOrderStatus {
   OPEN
+  PLANNED
+  ASSIGNED
   IN_PROGRESS
   ON_HOLD
+  /// Technician finished work (Phase 6 "Completed" step). Kept name for compatibility.
   TECHNICIAN_COMPLETED
   REWORK_REQUIRED
+  /// Legacy terminal synonym of CLOSED — retained for historical rows.
   COMPLETED
+  VERIFIED
+  CLOSED
   CANCELLED
+  /// Legacy status retained for historical rows; OVERDUE is derived going forward.
   OVERDUE
 }
 
@@ -1629,6 +1703,11 @@ enum WorkOrderType {
   INSTALLATION
   ACCIDENT_REPAIR
   VENDOR_REPAIR
+  BREAKDOWN
+  INSPECTION_CORRECTIVE
+  CALIBRATION_CORRECTIVE
+  IMPROVEMENT
+  EXTERNAL_REPAIR
   PLANTING
   HARVESTING
   SPRAYING
@@ -1724,6 +1803,94 @@ model WorkOrderAssignee {
   @@index([employeeId])
   @@index([workOrderId])
   @@index([assignmentStatus])
+}
+
+enum MaintenanceAnalysisCodeKind {
+  FAILURE
+  CAUSE
+  REMEDY
+}
+
+/// Configurable Failure / Cause / Remedy codes (technician RCA — not requester Problem Category)
+model MaintenanceAnalysisCode {
+  id          String                      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String                      @db.ObjectId
+  tenant      Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind        MaintenanceAnalysisCodeKind
+  code        String
+  name        String
+  description String?
+  sortOrder   Int                         @default(0)
+  isActive    Boolean                     @default(true)
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+
+  failureWorkOrders WorkOrder[] @relation("WoFailureCode")
+  causeWorkOrders   WorkOrder[] @relation("WoCauseCode")
+  remedyWorkOrders  WorkOrder[] @relation("WoRemedyCode")
+
+  @@unique([tenantId, kind, code])
+  @@index([tenantId, kind, isActive])
+}
+
+/// Preserve every hold episode — do not overwrite prior hold history
+model WorkOrderHoldHistory {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String?   @db.ObjectId
+  tenant           Tenant?   @relation(fields: [tenantId], references: [id])
+  workOrderId      String    @db.ObjectId
+  workOrder        WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  holdReasonCode   String
+  notes            String?
+  heldAt           DateTime
+  expectedResumeAt DateTime?
+  resumedAt        DateTime?
+  heldById         String?   @db.ObjectId
+  resumedById      String?   @db.ObjectId
+  durationMinutes  Int?
+  createdAt        DateTime  @default(now())
+
+  @@index([tenantId, workOrderId])
+  @@index([workOrderId, heldAt])
+}
+
+model WorkOrderLabourEntry {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String?   @db.ObjectId
+  tenant             Tenant?   @relation(fields: [tenantId], references: [id])
+  workOrderId        String    @db.ObjectId
+  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  technicianUserId   String?   @db.ObjectId
+  employeeId         String?   @db.ObjectId
+  startedAt          DateTime
+  endedAt            DateTime?
+  /// Snapshot duration — do not recompute from changing master data later
+  durationMinutes    Int?
+  notes              String?
+  labourRateSnapshot Float?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, workOrderId])
+  @@index([workOrderId, startedAt])
+}
+
+model WorkOrderStatusHistory {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String?          @db.ObjectId
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id])
+  workOrderId String           @db.ObjectId
+  workOrder   WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  fromStatus  WorkOrderStatus?
+  toStatus    WorkOrderStatus
+  action      String
+  reason      String?
+  actorId     String?          @db.ObjectId
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([tenantId, workOrderId])
+  @@index([workOrderId, createdAt])
 }
 
 model EmployeeRosterEntry {

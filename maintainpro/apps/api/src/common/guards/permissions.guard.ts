@@ -34,7 +34,19 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "maintenance_requests.reject": ["facility_issues.manage"],
   "maintenance_requests.convert": ["facility_issues.manage"],
   "maintenance_requests.cancel_own": ["facility_issues.report", "maintenance_requests.create"],
-  "maintenance_requests.cancel_any": ["facility_issues.manage"]
+  "maintenance_requests.cancel_any": ["facility_issues.manage"],
+  // Phase 6 — granular WO actions accept existing manage / update_status during rollout
+  "work_orders.plan": ["work_orders.manage"],
+  "work_orders.assign": ["work_orders.manage"],
+  "work_orders.start": ["work_orders.manage", "work_orders.update_status"],
+  "work_orders.hold": ["work_orders.manage", "work_orders.update_status"],
+  "work_orders.resume": ["work_orders.manage", "work_orders.update_status"],
+  "work_orders.complete": ["work_orders.manage", "work_orders.update_status"],
+  "work_orders.verify": ["work_orders.manage"],
+  "work_orders.close": ["work_orders.manage"],
+  "work_orders.cancel": ["work_orders.manage", "work_orders.update_status"],
+  "work_orders.reopen": ["work_orders.manage"],
+  "work_orders.correct": ["work_orders.manage"]
 };
 
 @Injectable()
