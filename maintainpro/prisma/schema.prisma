@@ -79,6 +79,12 @@ model Tenant {
   workOrderHoldHistories       WorkOrderHoldHistory[]
   workOrderLabourEntries       WorkOrderLabourEntry[]
   workOrderStatusHistories     WorkOrderStatusHistory[]
+  /// Phase 7 configurable approval engine (procurement Part/PO approvals remain separate)
+  approvalRules                ApprovalRule[]
+  approvalRuleLevels           ApprovalRuleLevel[]
+  approvalRequests             ApprovalRequest[]
+  approvalSteps                ApprovalStep[]
+  approvalDecisions            ApprovalDecision[]
   jobCodes                     JobCode[]
   departments                  Department[]
   vehicleDocuments             VehicleDocument[]
@@ -380,6 +386,15 @@ model User {
   reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
   triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
   maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
+  /// Phase 7 approval engine actors
+  approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
+  approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
+  approvalRuleLevelUsers      ApprovalRuleLevel[]         @relation("ApprovalRuleLevelUser")
+  approvalRuleLevelBackups    ApprovalRuleLevel[]         @relation("ApprovalRuleLevelBackup")
+  approvalRequestsRequested   ApprovalRequest[]           @relation("ApprovalRequestRequester")
+  approvalStepsAssigned       ApprovalStep[]              @relation("ApprovalStepAssignee")
+  approvalStepsBackup         ApprovalStep[]              @relation("ApprovalStepBackup")
+  approvalDecisionsActed      ApprovalDecision[]          @relation("ApprovalDecisionActor")
 
   @@index([tenantId])
   @@index([roleId])
@@ -2941,6 +2956,13 @@ enum NotificationType {
   REPEAT_FAILURE
   DATA_QUALITY_EXCEPTION
   QA_PENDING
+  APPROVAL_REQUIRED
+  APPROVAL_ASSIGNED
+  APPROVAL_OVERDUE
+  APPROVAL_ESCALATED
+  APPROVAL_APPROVED
+  APPROVAL_REJECTED
+  APPROVAL_EMERGENCY_OVERRIDE
 }
 
 enum NotificationPriority {
@@ -5720,4 +5742,200 @@ model BudgetCommitment {
   @@unique([tenantId, sourceType, sourceId])
   @@index([tenantId, period, status])
   @@index([tenantId, departmentId, period])
+}
+
+// =============================================================================
+// Phase 7 — Configurable Approval & Control Engine
+// Procurement PartRequestApproval / PurchaseOrderApproval remain domain-separate.
+// Rule versions are immutable snapshots; edits create a new version row.
+// Missing approver resolution never auto-approves.
+// =============================================================================
+
+enum ApprovalProcessType {
+  CRITICAL_WORK_ORDER
+  HIGH_COST_WORK_ORDER
+  VENDOR_REPAIR
+  ASSET_RETIREMENT
+  WORK_ORDER_REOPEN
+  CLOSED_RECORD_CORRECTION
+  GATE_OVERRIDE
+  COMPLIANCE_EXCEPTION
+  BUDGET_EXCEPTION
+}
+
+enum ApprovalTrigger {
+  BEFORE_CREATE
+  BEFORE_PLAN
+  BEFORE_START
+  BEFORE_ASSIGN_VENDOR
+  BEFORE_REOPEN
+  BEFORE_CORRECTION
+  BEFORE_RETIRE
+  BEFORE_GATE_OVERRIDE
+  ON_EXCEPTION
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  /// Action allowed under emergency override; post-review still required
+  EMERGENCY_OVERRIDE_PENDING_REVIEW
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+  ESCALATED
+}
+
+enum ApprovalDecisionOutcome {
+  APPROVED
+  REJECTED
+}
+
+/// Versioned rule definition. Never mutate in place once referenced by requests —
+/// deactivate and create version+1 so historical decisions stay tied to original logic.
+model ApprovalRule {
+  id                       String              @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                 String              @db.ObjectId
+  tenant                   Tenant              @relation(fields: [tenantId], references: [id])
+  name                     String
+  processType              ApprovalProcessType
+  trigger                  ApprovalTrigger
+  /// Structured conditions only — never executable code. Shape: [{ field, operator, value }]
+  conditions               Json                @default("[]")
+  siteId                   String?             @db.ObjectId
+  departmentId             String?             @db.ObjectId
+  domainId                 String?             @db.ObjectId
+  priorityScope            String[]            @default([])
+  workTypeScope            String[]            @default([])
+  amountThreshold          Float?
+  amountField              String?
+  slaHours                 Int?
+  escalateToBackup         Boolean             @default(true)
+  emergencyOverrideAllowed Boolean             @default(false)
+  effectiveFrom            DateTime            @default(now())
+  effectiveTo              DateTime?
+  version                  Int                 @default(1)
+  /// Same logical rule family across versions (first version id or shared key)
+  ruleFamilyKey            String
+  isActive                 Boolean             @default(true)
+  createdById              String              @db.ObjectId
+  createdBy                User                @relation("ApprovalRuleCreatedBy", fields: [createdById], references: [id])
+  updatedById              String?             @db.ObjectId
+  updatedBy                User?               @relation("ApprovalRuleUpdatedBy", fields: [updatedById], references: [id])
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  levels   ApprovalRuleLevel[]
+  requests ApprovalRequest[]
+
+  @@index([tenantId, processType, isActive])
+  @@index([tenantId, ruleFamilyKey, version])
+  @@index([tenantId, effectiveFrom, effectiveTo])
+  @@index([tenantId, isActive, processType])
+}
+
+model ApprovalRuleLevel {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String       @db.ObjectId
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  ruleId         String       @db.ObjectId
+  rule           ApprovalRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  level          Int
+  approverRole   RoleName?
+  approverUserId String?      @db.ObjectId
+  approverUser   User?        @relation("ApprovalRuleLevelUser", fields: [approverUserId], references: [id])
+  backupUserId   String?      @db.ObjectId
+  backupUser     User?        @relation("ApprovalRuleLevelBackup", fields: [backupUserId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([ruleId, level])
+  @@index([tenantId, ruleId])
+}
+
+model ApprovalRequest {
+  id                      String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String                @db.ObjectId
+  tenant                  Tenant                @relation(fields: [tenantId], references: [id])
+  processType             ApprovalProcessType
+  subjectEntityType       String
+  subjectEntityId         String
+  triggeredRuleId         String                @db.ObjectId
+  triggeredRule           ApprovalRule          @relation(fields: [triggeredRuleId], references: [id])
+  triggeredRuleVersion    Int
+  /// Immutable snapshot of rule + levels + conditions at request creation
+  ruleSnapshot            Json
+  sourceContext           Json?
+  requesterId             String                @db.ObjectId
+  requester               User                  @relation("ApprovalRequestRequester", fields: [requesterId], references: [id])
+  requestedAt             DateTime              @default(now())
+  status                  ApprovalRequestStatus @default(PENDING)
+  completedAt             DateTime?
+  cancellationReason      String?
+  emergencyOverrideAt     DateTime?
+  emergencyOverrideById   String?               @db.ObjectId
+  emergencyOverrideReason String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  steps     ApprovalStep[]
+  decisions ApprovalDecision[]
+
+  @@index([tenantId, status, requestedAt])
+  @@index([tenantId, processType, status])
+  @@index([tenantId, subjectEntityType, subjectEntityId])
+  @@index([tenantId, requesterId, status])
+}
+
+model ApprovalStep {
+  id                 String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String             @db.ObjectId
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  approvalRequestId  String             @db.ObjectId
+  approvalRequest    ApprovalRequest    @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  level              Int
+  approverRole       RoleName?
+  assignedApproverId String?            @db.ObjectId
+  assignedApprover   User?              @relation("ApprovalStepAssignee", fields: [assignedApproverId], references: [id])
+  backupApproverId   String?            @db.ObjectId
+  backupApprover     User?              @relation("ApprovalStepBackup", fields: [backupApproverId], references: [id])
+  status             ApprovalStepStatus @default(PENDING)
+  dueAt              DateTime?
+  actedAt            DateTime?
+  escalatedAt        DateTime?
+  escalationState    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  decisions ApprovalDecision[]
+
+  @@unique([approvalRequestId, level])
+  @@index([tenantId, assignedApproverId, status])
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, backupApproverId, status])
+}
+
+model ApprovalDecision {
+  id                String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String                  @db.ObjectId
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id])
+  approvalRequestId String                  @db.ObjectId
+  approvalRequest   ApprovalRequest         @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  approvalStepId    String                  @db.ObjectId
+  approvalStep      ApprovalStep            @relation(fields: [approvalStepId], references: [id], onDelete: Cascade)
+  actorId           String                  @db.ObjectId
+  actor             User                    @relation("ApprovalDecisionActor", fields: [actorId], references: [id])
+  decision          ApprovalDecisionOutcome
+  reason            String?
+  decidedAt         DateTime                @default(now())
+  createdAt         DateTime                @default(now())
+
+  @@index([tenantId, approvalRequestId, decidedAt])
+  @@index([tenantId, actorId, decidedAt])
 }

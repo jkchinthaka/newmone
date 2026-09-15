@@ -46,7 +46,13 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "work_orders.close": ["work_orders.manage"],
   "work_orders.cancel": ["work_orders.manage", "work_orders.update_status"],
   "work_orders.reopen": ["work_orders.manage"],
-  "work_orders.correct": ["work_orders.manage"]
+  "work_orders.correct": ["work_orders.manage"],
+  // Phase 7 — approval engine; manage aliases for admin rollout
+  "approvals.view": ["approvals.decide", "approvals.rule.manage", "work_orders.manage"],
+  "approvals.view_all": ["approvals.rule.manage"],
+  "approvals.decide": ["approvals.rule.manage", "work_orders.manage"],
+  "approvals.rule.manage": ["settings.organization.manage"],
+  "approvals.override.emergency": ["approvals.rule.manage", "work_orders.manage"]
 };
 
 @Injectable()
