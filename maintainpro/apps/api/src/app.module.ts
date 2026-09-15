@@ -78,6 +78,7 @@ import { PlanningModule } from "./modules/planning/planning.module";
 import { MaintenanceSupplyModule } from "./modules/maintenance-supply/maintenance-supply.module";
 import { FleetLifecycleModule } from "./modules/fleet-lifecycle/fleet-lifecycle.module";
 import { AdminGovernanceModule } from "./modules/admin-governance/admin-governance.module";
+import { ReportingKpisModule } from "./modules/reporting-kpis/reporting-kpis.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "./modules/workforce/workforce.module";
@@ -175,6 +176,7 @@ normalizeDatabaseEnvironment();
     OperationsModule,
     SettingsModule,
     ReportsModule,
+    ReportingKpisModule,
     FraudControlModule,
     ManagementIntelligenceModule,
     UtilitiesModule,

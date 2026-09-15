@@ -224,5 +224,12 @@ export const PERMISSION_CATALOG = [
   "admin.audit.view",
   "admin.system.view",
   "admin.users.manage",
-  "admin.organization.manage"
+  "admin.organization.manage",
+
+  // Phase 13 — Reporting KPIs and role home
+  // Granular report-domain permissions; all alias to reports.view for rollout.
+  "reports.view.maintenance",
+  "reports.view.cost",
+  "reports.view.fleet",
+  "reports.view.compliance"
 ];

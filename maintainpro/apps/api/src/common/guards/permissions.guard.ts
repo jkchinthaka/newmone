@@ -91,7 +91,12 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "admin.audit.view": ["audit.view", "settings.view"],
   "admin.system.view": ["settings.system.manage", "settings.manage"],
   "admin.users.manage": ["users.manage", "users.status.manage"],
-  "admin.organization.manage": ["organization.manage", "settings.organization.manage"]
+  "admin.organization.manage": ["organization.manage", "settings.organization.manage"],
+  // Phase 13 — granular report-domain permissions alias to reports.view during rollout
+  "reports.view.maintenance": ["reports.view", "reports.performance.view", "reports.operations.view"],
+  "reports.view.cost": ["reports.view", "reports.financials.view", "cost.view"],
+  "reports.view.fleet": ["reports.view", "reports.vehicle_cost.view", "reports.fuel.view"],
+  "reports.view.compliance": ["reports.view", "reports.assets.view", "compliance.view"]
 };
 
 @Injectable()
