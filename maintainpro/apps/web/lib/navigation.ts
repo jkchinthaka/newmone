@@ -317,6 +317,19 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "exact"
   },
   {
+    id: "approvals",
+    label: "Approvals",
+    href: "/approvals",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
+    requiredPermissions: ["approvals.view"],
+    category: "primary",
+    description: "Pending approval inbox",
+    mobilePriority: true,
+    badgeKey: "triage",
+    activeMatch: "startsWith"
+  },
+  {
     id: "preventive-maintenance",
     label: "Preventive Maintenance",
     href: "/maintenance/forecast",

@@ -91,6 +91,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/roles"
     },
     {
+      id: "approvals",
+      title: "Approval Matrix",
+      description: "Configurable multi-level approval rules for maintenance controls.",
+      status: "available",
+      statusLabel: "Control",
+      href: "/admin/approvals"
+    },
+    {
       id: "invitations-onboarding",
       title: "Invitations",
       description: "Review and create user invitations for onboarding.",
