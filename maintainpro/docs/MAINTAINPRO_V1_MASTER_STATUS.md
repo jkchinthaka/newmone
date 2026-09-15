@@ -31,6 +31,7 @@
 
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
 **Phase 15A baseline remote tip:** `0a6a96d98eee8e6a84a08ab6222eddf17b05a479`  
+**Phase 15A final remote tip:** `f6f5c7172afde88bc3e4116d649831f7a4f18e62`  
 **Phase 15 source HEAD (product):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
 
 ---
@@ -621,6 +622,7 @@ Operator staging UAT + restore drill + Bileeta validation + migration dry-run â€
 
 #### Git
 * Branch: `maintainpro/phase-15-sqlserver-migration`
+* Phase 15A final remote tip: `f6f5c7172afde88bc3e4116d649831f7a4f18e62`
 * Push: `origin/maintainpro/phase-15-sqlserver-migration`
 
 #### Readiness
