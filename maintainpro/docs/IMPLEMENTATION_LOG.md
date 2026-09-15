@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-07 | Configurable Approval & Control Engine
+- Baseline: Phase 6 tip `bb48180af64f9d5bae066f9c6428911450989585` on `maintainpro/phase-06-work-orders`
+- Branch: `maintainpro/phase-07-approval-engine`
+- What changed: ApprovalRule/Request/Step/Decision models; structured conditions; multi-level resolution; versioning; SLA/escalation; emergency override; WO create/start/reopen + asset retirement integration; Admin matrix + Approvals inbox; Gate hook for Phase 10; Part/PO approvals kept separate
+- Docs: `docs/PHASE_07_APPROVAL_ENGINE.md`
+- Phase 8–14 not merged/cherry-picked
+
 ## 2026-09-15 | PHASE-06 | Work Order Core & Execution
 - Baseline: Phase 5 tip `6b5948032d2226b7938bbac52ea4931db79110d6` on `maintainpro/phase-05-requests-triage`
 - Branch: `maintainpro/phase-06-work-orders`

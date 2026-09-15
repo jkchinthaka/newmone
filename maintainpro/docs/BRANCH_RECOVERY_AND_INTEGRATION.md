@@ -36,10 +36,12 @@ Canonical line (continue here):
 3. Phase 3 — Organization & Functional Locations (`maintainpro/phase-03-organization-locations` @ `b8d53ff`)
 4. Phase 4 — Universal Asset Engine (`maintainpro/phase-04-universal-assets` @ `a50b6b9624b1a0f281e20095badf453d7ab02fdb`)
 5. Phase 5 — Maintenance Requests & Triage (`maintainpro/phase-05-requests-triage` @ `6b5948032d2226b7938bbac52ea4931db79110d6`)
-6. Phase 6 — Work Order Core (`maintainpro/phase-06-work-orders` — starts from Phase 5 tip)
-7. Phase 7 — Approval Engine
+6. Phase 6 — Work Order Core (`maintainpro/phase-06-work-orders` @ `bb48180af64f9d5bae066f9c6428911450989585`)
+7. Phase 7 — Approval Engine (`maintainpro/phase-07-approval-engine` — starts from Phase 6 tip)
 
 Do **not** merge Phase 8–14 directly into `main` before those phases exist.
+
+Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).
 
