@@ -44,6 +44,8 @@ Do **not** merge Phase 8–14 directly into `main` before those phases exist.
 
 Phase 8 historical branch `maintainpro/phase-08-maintenance-planning` @ `844f176` remains untouched. Canonical planning lives on `integration-v1`.
 
+Phase 9 historical branch `maintainpro/phase-09-parts-erp-vendors` @ `1562147` remains untouched. Canonical parts/ERP/vendors live on `integration-v1` (baseline `9d18b59`). Supplier is the Vendor entity; no competing Vendor model.
+
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
 Phase 6 must not cherry-pick Phase 8–14. OVERDUE is derived; TECHNICIAN_COMPLETED remains the tech-completion step (UI: Completed).

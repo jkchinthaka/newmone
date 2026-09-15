@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-09 | Parts, ERP mapping, costs, vendors & contracts
+- Baseline: Phase 8 tip `9d18b598ab4acd31856c35a30a02757434a76c08` on `maintainpro/integration-v1`
+- Historical reference: `origin/maintainpro/phase-09-parts-erp-vendors` @ `1562147` (not rewritten)
+- What changed: SparePart classification/ERP fields; PartIssue tool return + unit cost snapshot; WorkOrder executionMode/vendorSupplier/costSnapshot; VendorContact/Contract + ComplianceRequirement bridge; RepairWarranty; MaintenanceSupply module/API; `/maintenance-supply` UI
+- Docs: `docs/PHASE_09_PARTS_ERP_VENDORS.md`
+- Phase 10+ not started; historical Phase 9 branch untouched
+
 ## 2026-09-15 | PHASE-08 | Canonical Maintenance Planning Integration
 - Baseline: Phase 7 tip `b871a8da7d2b5f8782f39ff6e9719622ae55aa25`
 - Branch: `maintainpro/integration-v1`
