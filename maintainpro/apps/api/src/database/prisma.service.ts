@@ -78,6 +78,113 @@ const MUTATION_ACTIONS = new Set<Prisma.PrismaAction>([
 
 type Json = Prisma.InputJsonValue;
 
+const JSON_TEXT_FIELD_NAMES = new Set([
+  "metadata",
+  "metadataSafe",
+  "payload",
+  "actorSnapshot",
+  "beforeData",
+  "afterData",
+  "resultJson",
+  "raw",
+  "value",
+  "customAttributes",
+  "customFields",
+  "profile",
+  "conditions",
+  "answers",
+  "lineItems",
+  "options",
+  "images",
+  "documents",
+  "attachments",
+  "photos",
+  "evidenceUrls",
+  "documentUrls",
+  "beforePhotos",
+  "afterPhotos",
+  "ppeRequired",
+  "skills",
+  "workCategories",
+  "skillTags",
+  "requiredSkills",
+  "allowedRoles",
+  "aliases",
+  "keywords",
+  "commonMistakes",
+  "sinhalaKeywords",
+  "departmentHints",
+  "serviceCategories",
+  "certifications",
+  "reasonCodes",
+  "priorityScope",
+  "workTypeScope",
+  "linkedChangeRequests",
+  "linkedQaIssues",
+  "linkedTickets",
+  "handoverChecklist",
+  "mappingSnapshot",
+  "stagingRecords",
+  "sheetsDetected",
+  "warehousesDetected",
+  "normalizedData",
+  "rawData",
+  "errors",
+  "warnings",
+  "requestPayload",
+  "responsePayload",
+  "contextSnapshot",
+  "criteriaSnapshot",
+  "ruleSnapshot",
+  "sourceContext",
+  "templateSnapshot",
+  "triggerSummary",
+  "dryRunSummary",
+  "applySummary",
+  "sourceMetadata",
+  "entityTypes",
+  "summary",
+  "shortageParts",
+  "selectedUsers",
+  "selectedRoles",
+  "selectedModules",
+  "blockers",
+  "attachmentMetadata",
+  "actions",
+  "reasons",
+  "factors",
+  "items",
+  "checklistItems",
+  "dailyChecklist",
+  "gpsPolygon"
+]);
+
+/** Serialize known JSON-text columns only — never touch relation graphs. */
+function serializeJsonTextArgs<T>(value: T, parentKey?: string): T {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+  if (value instanceof Date) return value;
+
+  if (parentKey && JSON_TEXT_FIELD_NAMES.has(parentKey)) {
+    if (typeof value === "string") return value;
+    return toJsonText(value) as unknown as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((v) => serializeJsonTextArgs(v)) as unknown as T;
+  }
+
+  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+    return value;
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = serializeJsonTextArgs(v, k);
+  }
+  return out as T;
+}
+
 interface ReplicationCandidate {
   modelName: string;
   entityId: string;
@@ -207,6 +314,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    this.installJsonTextMiddleware();
     this.installReplicationMiddleware();
     this.installAuditMiddleware();
 
@@ -297,6 +405,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
   private shouldCaptureReplication(): boolean {
     return this.replicationConfig.enabled && this.replicationConfig.mode !== "disabled";
+  }
+
+  /** Phase 15: stringify plain objects/arrays written into NVARCHAR JSON-text columns. */
+  private installJsonTextMiddleware(): void {
+    this.$use(async (params, next) => {
+      if (params.args && MUTATION_ACTIONS.has(params.action)) {
+        params.args = serializeJsonTextArgs(params.args);
+      }
+      return next(params);
+    });
   }
 
   private installReplicationMiddleware(): void {

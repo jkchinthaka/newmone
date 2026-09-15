@@ -199,3 +199,15 @@ The following items **must** be resolved before production cutover:
 - `docs/remediation/GO_LIVE_GATES.md` — gate definitions
 - `docs/remediation/PRODUCTION_DEPLOYMENT_RUNBOOK.md` — deployment steps
 - `docs/remediation/PRODUCTION_ROLLBACK_RUNBOOK.md` — rollback procedure
+
+---
+
+## Phase 15 addendum (2026-09-15)
+
+Database platform engineering migration to **Microsoft SQL Server** is in progress on `maintainpro/phase-15-sqlserver-migration`.
+
+- Schema validates / client generates under Prisma 5.22
+- Live migrate deploy, data apply, and SQL backup/restore drill: **NOT EXECUTED**
+- Verdict remains **READY FOR STAGING UAT** for the Mongo `integration-v1` candidate
+- **Ready for Production Cutover to SQL Server: NO**
+- **Main merge: NO**

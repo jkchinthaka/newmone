@@ -2361,3 +2361,11 @@ Record each completed task with:
   - Backfill apply remains off by default; manual review required for ambiguous matches
   - WO aging limited to linked work orders with due dates (no platform-wide WO SLA engine yet)
 - Recommended next task: **OPS-003** duplicate issue detection
+
+## 2026-09-15 — Phase 15 SQL Server migration (engineering)
+
+- Branch: `maintainpro/phase-15-sqlserver-migration` from `integration-v1` @ `c54d7824`
+- Prisma kept at 5.22.0; datasource `sqlserver`; ObjectIds removed; junctions; Json/enums as String
+- Initial migration `20260915120000_phase15_sqlserver_init`; mongo?sql script dry-run default
+- Live SQL apply / backup-restore NOT EXECUTED (no local SQL Server/Docker)
+- Docs: PHASE_15 audit + migration + runbooks; master status updated

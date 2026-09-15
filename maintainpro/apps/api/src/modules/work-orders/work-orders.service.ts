@@ -21,7 +21,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
-import { stringArrayToText } from "../../common/utils/json-text";
+import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
   assertTenantEntitiesExist,
@@ -1617,8 +1617,8 @@ export class WorkOrdersService {
           processType,
           priority: current.priority,
           workType: current.type,
-          estimatedCost: current.estimatedCost,
-          actualCost: current.actualCost,
+          estimatedCost: current.estimatedCost != null ? Number(current.estimatedCost) : null,
+          actualCost: current.actualCost != null ? Number(current.actualCost) : null,
           siteId: current.siteId,
           departmentId: current.departmentId,
           domainId: current.domainId,
@@ -1901,7 +1901,7 @@ export class WorkOrdersService {
       throw new NotFoundException("Spare part not found");
     }
 
-    const unitCostSnapshot = data.unitCost ?? part.unitCost;
+    const unitCostSnapshot = Number(data.unitCost ?? part.unitCost);
     if (!Number.isFinite(unitCostSnapshot) || unitCostSnapshot <= 0) {
       throw new BadRequestException("Unit cost must be greater than 0");
     }
@@ -2538,7 +2538,7 @@ export class WorkOrdersService {
     return this.prisma.workOrder.update({
       where: { id },
       data: {
-        attachments: [...current.attachments, attachmentUrl]
+        attachments: stringArrayToText([...toStringArray(current.attachments), attachmentUrl])
       }
     });
   }

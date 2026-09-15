@@ -1,10 +1,12 @@
 # MaintainPro V1 — Master Scope & Implementation Status
 
 **Last updated:** 2026-09-15  
-**Canonical branch:** `maintainpro/integration-v1`  
-**Canonical remote tip (Phase 14 product):** `520189e35fc56688e33125e2d9f24d739b60b548`  
-**Master status SoT:** this file — always prefer `git rev-parse origin/maintainpro/integration-v1` for absolute HEAD  
-**Production readiness verdict:** READY FOR STAGING UAT  
+**Canonical product branch (Phases 0–14):** `maintainpro/integration-v1`  
+**Canonical remote tip (Phase 14 product + master SoT):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`  
+**Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
+**Primary database target (engineering):** Microsoft SQL Server — **cutover not production-validated**  
+**MongoDB:** retained as migration **source** (not deleted)  
+**Production readiness verdict:** READY FOR STAGING UAT (Mongo integration-v1); SQL Server staging UAT **pending live instance**  
 **Main merge recommendation:** NO
 
 > **If Cursor chat context is lost, read this file FIRST before any further implementation.**  
@@ -14,25 +16,22 @@
 
 ## 15. Current Next Action
 
-**Current canonical phase:** Phase 14 complete (hardening + go-live docs)
+**Current canonical phase:** Phase 15 engineering on `maintainpro/phase-15-sqlserver-migration` (schema + tooling complete; live SQL apply pending)
 
-**Next required action (operator / staging — not automatic Phase 15):**
+**Next required action:**
 
-1. Run staging UAT using `docs/UAT_RUNBOOK.md`
-2. Execute backup + restore drill (currently OPEN BLOCKER)
-3. Validate live/staging Bileeta ERP credentials (currently OPEN BLOCKER)
-4. Dry-run then apply migration runbook on target Mongo (`docs/MIGRATION_RUNBOOK.md`)
-5. Clear go-live blockers in `docs/GO_LIVE_CHECKLIST.md` / `docs/PRODUCTION_READINESS_REPORT.md`
-6. Only then open PR from `maintainpro/integration-v1` → `main` after CI green + sign-off
+1. Provision SQL Server + create `MaintainProDev`
+2. Set `DATABASE_URL=sqlserver://...` and run `npm run db:migrate:deploy`
+3. Dry-run then `--apply` `scripts/migrate-mongo-to-sqlserver.ts` on disposable DB
+4. Fill `docs/SQLSERVER_DATA_RECONCILIATION.md` counts; run backup/restore drill per `docs/SQLSERVER_BACKUP_RESTORE_RUNBOOK.md`
+5. Staging UAT on SQL Server; keep Mongo snapshot frozen for rollback
+6. Do **NOT** production cutover or merge to `main` without sign-off
 
-**Do NOT start a new product phase automatically.**  
+**Do NOT start another product phase automatically.**  
 **Do NOT merge to `main` automatically.**
 
-**Required branch for any further integration work:**  
-`maintainpro/integration-v1`
-
-**Required tip to continue from:**  
-`520189e35fc56688e33125e2d9f24d739b60b548` (Phase 14 final) or later `origin/maintainpro/integration-v1` HEAD (includes this master status document)
+**Phase 15 source HEAD:** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`  
+**Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`
 
 ---
 
@@ -249,6 +248,7 @@ Do not merge to `main` until final CI/UAT/readiness checks pass.
 | 12 | Admin / Governance | `maintainpro/integration-v1` | `3694173d…` | `15e5f67a60586543da453a82533a7b559b9072be` | COMPLETE | 186 / 1507 | Historical ref `df16071…` |
 | 13 | UX / KPI / Reports | `maintainpro/integration-v1` | `15e5f67a…` | `dacae29be806ed627babfb485f139f199828ef6f` | COMPLETE | 187 / 1603 | Historical ref `4a8499c…` |
 | 14 | Production Hardening | `maintainpro/integration-v1` | `dacae29b…` | `520189e35fc56688e33125e2d9f24d739b60b548` | COMPLETE | 189 / 1684 | Historical ref `ce38e89…`; READY FOR STAGING UAT |
+| 15 | MongoDB → SQL Server | `maintainpro/phase-15-sqlserver-migration` | `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1` | _(update after push)_ | IN PROGRESS / ENGINEERING | schema validate PASS; live apply pending | Prisma 5.22; no Prisma 6/7 upgrade |
 
 ---
 
@@ -574,6 +574,54 @@ YES for **staging UAT** — NOT production-ready; main merge NO
 
 #### Next Phase
 Operator staging UAT + restore drill + Bileeta validation + migration dry-run — then PR to `main` only after sign-off.
+
+---
+
+### Phase 15 — MongoDB → Microsoft SQL Server Migration
+
+#### Baseline
+* Source branch: `maintainpro/integration-v1`
+* Source SHA: `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
+* Phase branch: `maintainpro/phase-15-sqlserver-migration`
+* Prisma: `5.22.0` (no major upgrade)
+
+#### Completed (engineering)
+* Full Mongo compatibility audit
+* Schema converted to `provider = "sqlserver"`
+* ObjectId/`_id`/`auto()` removed; `NVarChar(36)` + `cuid()`
+* RolePermission, UserSkill, and related junctions
+* Json + scalar lists → `NVarChar(Max)` JSON text (Prisma 5 SQL Server has no Json/enums)
+* Enums → String + `prisma-enums.ts` client shim
+* All FK cascades softened to NoAction
+* Selected money fields → `Decimal(18,2)`
+* Initial migration SQL reviewed (`20260915120000_phase15_sqlserver_init`)
+* `migrate-mongo-to-sqlserver.ts` (dry-run default)
+* App adaptations: RolePermission, insensitive removal, SQL backup ping, env provider
+* Runbooks: migration, reconciliation, backup/restore, cutover rollback
+
+#### Database
+* Models added: RolePermission, UserSkill, JobCodeRequiredPart, PmPlanRequiredPart, TraceabilitySprayLink, VendorContractAsset, VendorContractSite
+* Legacy PostgreSQL migrations archived under `prisma/migrations_legacy_postgresql/`
+* Mongo source **not** deleted
+
+#### Tests / gates
+* `prisma validate` PASS (with sqlserver URL)
+* `prisma generate` PASS + enum patch
+* Live `migrate deploy` / data apply / backup restore: **NOT EXECUTED** (no SQL Server/Docker on host)
+
+#### Known Limitations
+* SQL Server instance required for apply + UAT
+* Full API typecheck/regression still has Decimal/enum-cast follow-ups
+* Production cutover not performed
+
+#### Readiness
+* SQL Server engineering readiness: YES (schema + tooling)
+* Ready for Staging UAT on SQL Server: NO until instance + migrate apply
+* Ready for Production Cutover: NO
+* Main merge: NO
+
+#### Next Phase
+Provision SQL Server → migrate deploy → dry-run/apply data → reconcile → SQL UAT. Do not auto-start Phase 16.
 
 ---
 
