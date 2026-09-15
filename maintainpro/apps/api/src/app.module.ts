@@ -75,6 +75,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { PlanningModule } from "./modules/planning/planning.module";
+import { MaintenanceSupplyModule } from "./modules/maintenance-supply/maintenance-supply.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "./modules/workforce/workforce.module";
@@ -150,6 +151,7 @@ normalizeDatabaseEnvironment();
     WorkOrdersModule,
     WorkOrderTaxonomyModule,
     PlanningModule,
+    MaintenanceSupplyModule,
     ApprovalsModule,
     WorkforceModule,
     PeopleModule,

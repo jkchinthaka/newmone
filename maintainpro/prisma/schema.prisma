@@ -130,6 +130,10 @@ model Tenant {
   vendorRepairCases            VendorRepairCase[]
   vendorQuotations             VendorQuotation[]
   vendorInvoices               VendorInvoice[]
+  /// Phase 9 — WO cost snapshots, vendor contracts, repair warranties
+  workOrderCostSnapshots       WorkOrderCostSnapshot[]
+  vendorContracts              VendorContract[]
+  repairWarranties             RepairWarranty[]
   workOrderTaxonomies          WorkOrderTaxonomy[]
   businessExceptions           BusinessException[]
   partCompatibilities          PartCompatibility[]
@@ -1472,6 +1476,10 @@ model WorkOrder {
   completedDate               DateTime?
   estimatedCost               Float?
   actualCost                  Float?
+  /// INTERNAL | EXTERNAL | MIXED — who executes the work.
+  executionMode               WorkOrderExecutionMode        @default(INTERNAL)
+  vendorSupplierId            String?                       @db.ObjectId
+  vendorSupplier              Supplier?                     @relation("WorkOrderVendorSupplier", fields: [vendorSupplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   estimatedHours              Float?
   actualHours                 Float?
   slaDeadline                 DateTime?
@@ -1567,6 +1575,8 @@ model WorkOrder {
   holdHistory         WorkOrderHoldHistory[]
   labourEntries       WorkOrderLabourEntry[]
   statusHistory       WorkOrderStatusHistory[]
+  costSnapshot        WorkOrderCostSnapshot?
+  repairWarranties    RepairWarranty[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.ObjectId
@@ -1603,6 +1613,8 @@ model WorkOrder {
   @@index([tenantId, closedAt])
   @@index([tenantId, pmPlanId])
   @@index([tenantId, pmOccurrenceKey])
+  @@index([tenantId, vendorSupplierId])
+  @@index([tenantId, executionMode])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -1979,36 +1991,46 @@ model EmployeeLeaveRequest {
 }
 
 model SparePart {
-  id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId          String?   @db.ObjectId
-  tenant            Tenant?   @relation(fields: [tenantId], references: [id])
-  partNumber        String    @unique
-  name              String
-  description       String?
-  category          String
-  unit              String    @default("pcs")
+  id                  String                  @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String?                 @db.ObjectId
+  tenant              Tenant?                 @relation(fields: [tenantId], references: [id])
+  partNumber          String                  @unique
+  name                String
+  description         String?
+  category            String
+  /// SPARE_PART | CONSUMABLE | TOOL — maintenance classification (not Bileeta item master).
+  classification      SparePartClassification @default(SPARE_PART)
+  /// Official ERP/Bileeta item code when mapped; MaintainPro never owns purchasing stock truth.
+  erpCode             String?
+  /// Maintenance-friendly alias for technicians.
+  maintenanceAlias    String?
+  maintenanceCategory String?
+  unit                String                  @default("pcs")
   /// ON_HAND (denormalized default-warehouse / company total for current single-warehouse tenants).
-  quantityInStock   Int       @default(0)
+  quantityInStock     Int                     @default(0)
   /// RESERVED units held for approved work-order demand.
-  reservedQuantity  Int       @default(0)
+  reservedQuantity    Int                     @default(0)
   /// AVAILABLE = ON_HAND - RESERVED. Maintained atomically by InventoryTransactionEngine.
-  availableQuantity Int       @default(0)
-  minimumStock      Int       @default(0)
-  reorderPoint      Int       @default(0)
-  maximumStock      Int       @default(0)
-  unitCost          Float
-  location          String?
-  supplierId        String?   @db.ObjectId
-  supplier          Supplier? @relation(fields: [supplierId], references: [id])
-  images            String[]
-  isActive          Boolean   @default(true)
-  leadTimeDays      Int?
+  availableQuantity   Int                     @default(0)
+  /// Reference/available stock hint from ERP sync — not authoritative purchasing stock.
+  referenceStock      Int?
+  minimumStock        Int                     @default(0)
+  reorderPoint        Int                     @default(0)
+  maximumStock        Int                     @default(0)
+  unitCost            Float
+  location            String?
+  supplierId          String?                 @db.ObjectId
+  supplier            Supplier?               @relation(fields: [supplierId], references: [id])
+  images              String[]
+  isActive            Boolean                 @default(true)
+  leadTimeDays        Int?
   /// CRITICAL | NORMAL. Consumables may omit serial/warranty tracking.
-  criticality       String?
-  warrantyDays      Int?
-  warrantyMileage   Float?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  criticality         String?
+  criticalSpare       Boolean                 @default(false)
+  warrantyDays        Int?
+  warrantyMileage     Float?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   stockMovements             StockMovement[]
   workOrderParts             WorkOrderPart[]
@@ -2023,19 +2045,31 @@ model SparePart {
   @@index([tenantId])
   @@index([supplierId])
   @@index([tenantId, isActive])
+  @@index([tenantId, classification])
+  @@index([tenantId, erpCode])
+  @@index([tenantId, criticalSpare])
+}
+
+enum SparePartClassification {
+  SPARE_PART
+  CONSUMABLE
+  TOOL
 }
 
 /// Tenant warehouse / store. Existing SparePart.location remains a display hint.
 model Warehouse {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId  String   @db.ObjectId
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  code      String
-  name      String
-  isDefault Boolean  @default(false)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String    @db.ObjectId
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  code               String
+  name               String
+  /// Official Bileeta/ERP warehouse code when mapped.
+  erpWarehouseCode   String?
+  lastErpValidatedAt DateTime?
+  isDefault          Boolean   @default(false)
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   balances   WarehouseItemBalance[]
   movements  StockMovement[]
@@ -2044,6 +2078,7 @@ model Warehouse {
   @@unique([tenantId, code])
   @@index([tenantId, isDefault])
   @@index([tenantId, isActive])
+  @@index([tenantId, erpWarehouseCode])
 }
 
 /// Authoritative per-warehouse stock. Unique identity: tenant + warehouse + item.
@@ -2401,6 +2436,11 @@ model Supplier {
   vendorRepairCases VendorRepairCase[]
   vendorQuotations  VendorQuotation[]
   vendorInvoices    VendorInvoice[]
+  /// Phase 9 — Supplier is the Vendor entity (no competing Vendor model).
+  contracts         VendorContract[]
+  contacts          VendorContact[]
+  repairWarranties  RepairWarranty[]
+  vendorWorkOrders  WorkOrder[]        @relation("WorkOrderVendorSupplier")
 
   @@unique([tenantId, vendorCode])
   @@index([tenantId])
@@ -2710,25 +2750,36 @@ model PartRequestApproval {
 }
 
 model PartIssue {
-  id            String      @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId      String?     @db.ObjectId
-  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
-  partRequestId String      @db.ObjectId
-  partRequest   PartRequest @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
-  workOrderId   String      @db.ObjectId
-  workOrder     WorkOrder   @relation(fields: [workOrderId], references: [id])
-  partId        String      @db.ObjectId
-  part          SparePart   @relation(fields: [partId], references: [id])
-  issuedById    String      @db.ObjectId
-  issuedBy      User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
-  quantity      Int
-  notes         String?
-  createdAt     DateTime    @default(now())
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String?     @db.ObjectId
+  tenant            Tenant?     @relation(fields: [tenantId], references: [id])
+  partRequestId     String      @db.ObjectId
+  partRequest       PartRequest @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  workOrderId       String      @db.ObjectId
+  workOrder         WorkOrder   @relation(fields: [workOrderId], references: [id])
+  partId            String      @db.ObjectId
+  part              SparePart   @relation(fields: [partId], references: [id])
+  issuedById        String      @db.ObjectId
+  issuedBy          User        @relation("PartIssueIssuer", fields: [issuedById], references: [id])
+  quantity          Int
+  /// Snapshot unit cost at issue time — historical WO cost must stay stable.
+  unitCostSnapshot  Float?
+  notes             String?
+  /// TOOL issues expect return; quantityReturned tracks returns.
+  expectsReturn     Boolean     @default(false)
+  quantityReturned  Int         @default(0)
+  returnedAt        DateTime?
+  returnedById      String?     @db.ObjectId
+  returnNotes       String?
+  erpIssueReference String?
+  warehouseId       String?     @db.ObjectId
+  createdAt         DateTime    @default(now())
 
   @@index([tenantId])
   @@index([partRequestId])
   @@index([workOrderId])
   @@index([partId])
+  @@index([tenantId, expectsReturn, returnedAt])
 }
 
 model PurchaseReceipt {
@@ -5609,22 +5660,25 @@ model BusinessException {
 
 /// Vehicle make/model/type compatibility for a spare part. UNKNOWN is not treated as incompatible.
 model PartCompatibility {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId     String    @db.ObjectId
-  tenant       Tenant    @relation(fields: [tenantId], references: [id])
-  partId       String    @db.ObjectId
-  part         SparePart @relation(fields: [partId], references: [id])
-  vehicleType  String?
-  make         String?
-  vehicleModel String?
-  engineCode   String?
-  assetId      String?   @db.ObjectId
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String    @db.ObjectId
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  partId            String    @db.ObjectId
+  part              SparePart @relation(fields: [partId], references: [id])
+  vehicleType       String?
+  make              String?
+  vehicleModel      String?
+  engineCode        String?
+  assetId           String?   @db.ObjectId
+  /// Optional link to Phase 4 asset type master (vehicle fields retained).
+  assetTypeMasterId String?   @db.ObjectId
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([tenantId, partId])
   @@index([tenantId, make, vehicleModel])
+  @@index([tenantId, assetTypeMasterId])
 }
 
 /// Installed part / warranty tracking. Serial optional — consumables may omit it.
@@ -6405,4 +6459,124 @@ model InspectionFinding {
 
   @@index([tenantId, inspectionId])
   @@index([tenantId, maintenanceRequestId])
+}
+
+enum WorkOrderExecutionMode {
+  INTERNAL
+  EXTERNAL
+  MIXED
+}
+
+/// Frozen WO cost breakdown. Historical totals must not change if live unit costs move.
+model WorkOrderCostSnapshot {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  workOrderId         String    @unique @db.ObjectId
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id])
+  partsCost           Float     @default(0)
+  internalLabourCost  Float     @default(0)
+  externalServiceCost Float     @default(0)
+  transportCost       Float     @default(0)
+  otherCost           Float     @default(0)
+  totalCost           Float     @default(0)
+  currency            String    @default("LKR")
+  snappedAt           DateTime  @default(now())
+  snappedById         String?   @db.ObjectId
+  notes               String?
+  lineItems           Json?
+
+  @@index([tenantId, snappedAt])
+}
+
+model VendorContact {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId   String   @db.ObjectId
+  supplierId String   @db.ObjectId
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  name       String
+  role       String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, supplierId])
+}
+
+enum VendorContractType {
+  AMC
+  SERVICE
+  REPAIR_WARRANTY
+  OTHER
+}
+
+enum VendorContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+}
+
+/// AMC / service contract / repair warranty — MaintainPro maintenance context (not Bileeta finance).
+model VendorContract {
+  id                      String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId                String               @db.ObjectId
+  tenant                  Tenant               @relation(fields: [tenantId], references: [id])
+  supplierId              String               @db.ObjectId
+  supplier                Supplier             @relation(fields: [supplierId], references: [id])
+  contractNo              String
+  contractType            VendorContractType   @default(AMC)
+  status                  VendorContractStatus @default(DRAFT)
+  title                   String
+  coverage                String?
+  slaSummary              String?
+  visitCount              Int?
+  assetIds                String[]             @db.ObjectId
+  siteIds                 String[]
+  startDate               DateTime
+  endDate                 DateTime
+  valueReference          Float?
+  currency                String               @default("LKR")
+  documentUrls            String[]
+  reminderDays            Int                  @default(30)
+  /// Optional bridge to Phase 8 ComplianceRequirement for expiry reminders.
+  complianceRequirementId String?              @db.ObjectId
+  notes                   String?
+  isActive                Boolean              @default(true)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  @@unique([tenantId, contractNo])
+  @@index([tenantId, status])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, endDate])
+  @@index([tenantId, complianceRequirementId])
+}
+
+/// Repair / warranty coverage linked to a work order (MaintainPro maintenance context).
+model RepairWarranty {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId     String    @db.ObjectId
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  workOrderId  String    @db.ObjectId
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id])
+  supplierId   String?   @db.ObjectId
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  coverage     String?
+  reference    String?
+  documentUrls String[]
+  isActive     Boolean   @default(true)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId, workOrderId])
+  @@index([tenantId, endDate])
+  @@index([tenantId, supplierId])
 }

@@ -55,7 +55,16 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "approvals.override.emergency": ["approvals.rule.manage", "work_orders.manage"],
   // Phase 8 — planning / PM engine; accept work_orders.manage during rollout
   "planning.view": ["planning.manage", "work_orders.manage", "work_orders.plan"],
-  "planning.manage": ["work_orders.manage", "work_orders.plan"]
+  "planning.manage": ["work_orders.manage", "work_orders.plan"],
+  // Phase 9 — parts / ERP / vendor / cost; accept inventory & WO manage during rollout
+  "parts.view": ["inventory.manage", "parts.issue", "parts.return"],
+  "parts.issue": ["inventory.manage", "inventory.stock_issue", "part_requests.issue"],
+  "parts.return": ["inventory.manage", "inventory.stock_issue", "parts.issue"],
+  "erp.mapping.manage": ["inventory.manage", "erp.manage"],
+  "vendor.manage": ["inventory.manage", "work_orders.manage"],
+  "contract.manage": ["inventory.manage", "work_orders.manage", "vendor.manage"],
+  "cost.view": ["work_orders.manage", "inventory.manage", "cost.adjust"],
+  "cost.adjust": ["work_orders.manage", "inventory.manage"]
 };
 
 @Injectable()
