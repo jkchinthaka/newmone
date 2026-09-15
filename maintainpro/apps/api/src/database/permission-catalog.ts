@@ -212,5 +212,9 @@ export const PERMISSION_CATALOG = [
   "fleet.fine.manage",
   "gate.check",
   "gate.record",
-  "gate.override"
+  "gate.override",
+
+  // Phase 11 — domain coverage: asset taxonomy domain profile read/manage
+  "domains.view",
+  "domains.manage"
 ];

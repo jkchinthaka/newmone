@@ -942,6 +942,8 @@ model AssetDomain {
   description String?
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
+  /// Phase 11 tenant overrides for domain profile defaults (merged with static DomainProfileDefaults)
+  profile     Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
