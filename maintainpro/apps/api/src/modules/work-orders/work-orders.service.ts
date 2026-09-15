@@ -1,7 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
+  ApprovalProcessType,
+  ApprovalRequestStatus,
   ApprovalStage,
+  ApprovalTrigger,
   AuditAction,
   NotificationPriority,
   NotificationType,
@@ -62,6 +65,7 @@ import {
 } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
@@ -69,7 +73,9 @@ import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 
-type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
+type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
+  permissions?: string[];
+};
 
 @Injectable()
 export class WorkOrdersService {
@@ -79,6 +85,7 @@ export class WorkOrdersService {
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
+    @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService
   ) {
@@ -212,6 +219,166 @@ export class WorkOrdersService {
     if (workOrder.approvalStatus === WorkOrderApprovalStatus.PENDING) {
       throw new BadRequestException("Work order requires manager approval before execution");
     }
+  }
+
+  /**
+   * Phase 7 — evaluate configurable rules. Missing approver fails safely (no silent auto-approve).
+   * Emergency override may allow start while leaving post-review pending.
+   */
+  private async enforceConfigurableApproval(input: {
+    actor?: Actor;
+    workOrder: {
+      id: string;
+      priority: Priority;
+      type: WorkOrderType;
+      estimatedCost?: number | null;
+      actualCost?: number | null;
+      siteId?: string | null;
+      departmentId?: string | null;
+      domainId?: string | null;
+      status?: WorkOrderStatus;
+      approvalStatus?: WorkOrderApprovalStatus;
+    };
+    processType: ApprovalProcessType;
+    trigger: ApprovalTrigger;
+    blockMessage: string;
+    allowEmergencyProceed?: boolean;
+    sourceContext?: Prisma.InputJsonValue;
+  }) {
+    if (!this.approvalsService || !input.actor?.sub) return;
+
+    const result = await this.approvalsService.ensureApprovalRequired({
+      actor: input.actor,
+      processType: input.processType,
+      trigger: input.trigger,
+      subjectEntityType: "WorkOrder",
+      subjectEntityId: input.workOrder.id,
+      context: {
+        processType: input.processType,
+        priority: input.workOrder.priority,
+        workType: input.workOrder.type,
+        estimatedCost: input.workOrder.estimatedCost,
+        actualCost: input.workOrder.actualCost,
+        siteId: input.workOrder.siteId,
+        departmentId: input.workOrder.departmentId,
+        domainId: input.workOrder.domainId,
+        status: input.workOrder.status,
+        executionType:
+          input.workOrder.type === WorkOrderType.VENDOR_REPAIR ||
+          input.workOrder.type === WorkOrderType.EXTERNAL_REPAIR
+            ? "EXTERNAL"
+            : "INTERNAL"
+      },
+      sourceContext: input.sourceContext
+    });
+
+    if (result.configError) {
+      throw new BadRequestException(result.configError);
+    }
+
+    if (!result.required) return;
+
+    if (
+      result.status === ApprovalRequestStatus.EMERGENCY_OVERRIDE_PENDING_REVIEW &&
+      input.allowEmergencyProceed
+    ) {
+      return;
+    }
+
+    if (
+      result.status === ApprovalRequestStatus.PENDING ||
+      result.status === ApprovalRequestStatus.EMERGENCY_OVERRIDE_PENDING_REVIEW
+    ) {
+      if (input.workOrder.approvalStatus !== WorkOrderApprovalStatus.PENDING) {
+        await this.prisma.workOrder.update({
+          where: { id: input.workOrder.id },
+          data: { approvalStatus: WorkOrderApprovalStatus.PENDING }
+        });
+      }
+      throw new BadRequestException({
+        message: input.blockMessage,
+        code: "APPROVAL_REQUIRED",
+        approvalRequestId: result.approvalRequestId,
+        processType: input.processType
+      });
+    }
+  }
+
+  private async syncCreateTimeApprovals<T extends {
+    id: string;
+    priority: Priority;
+    type: WorkOrderType;
+    estimatedCost?: number | null;
+    siteId?: string | null;
+    departmentId?: string | null;
+    domainId?: string | null;
+    status: WorkOrderStatus;
+    approvalStatus: WorkOrderApprovalStatus;
+  }>(created: T, actor?: Actor): Promise<T> {
+    if (!this.approvalsService || !actor?.sub) return created;
+
+    const checks: Array<{ processType: ApprovalProcessType; trigger: ApprovalTrigger }> = [];
+    if (created.priority === Priority.CRITICAL) {
+      checks.push({
+        processType: ApprovalProcessType.CRITICAL_WORK_ORDER,
+        trigger: ApprovalTrigger.BEFORE_START
+      });
+    }
+    if (created.estimatedCost != null) {
+      checks.push({
+        processType: ApprovalProcessType.HIGH_COST_WORK_ORDER,
+        trigger: ApprovalTrigger.BEFORE_START
+      });
+    }
+    if (
+      created.type === WorkOrderType.VENDOR_REPAIR ||
+      created.type === WorkOrderType.EXTERNAL_REPAIR
+    ) {
+      checks.push({
+        processType: ApprovalProcessType.VENDOR_REPAIR,
+        trigger: ApprovalTrigger.BEFORE_ASSIGN_VENDOR
+      });
+    }
+
+    let approvalStatus = created.approvalStatus;
+    for (const check of checks) {
+      const result = await this.approvalsService.ensureApprovalRequired({
+        actor,
+        processType: check.processType,
+        trigger: check.trigger,
+        subjectEntityType: "WorkOrder",
+        subjectEntityId: created.id,
+        context: {
+          processType: check.processType,
+          priority: created.priority,
+          workType: created.type,
+          estimatedCost: created.estimatedCost,
+          siteId: created.siteId,
+          departmentId: created.departmentId,
+          domainId: created.domainId,
+          executionType:
+            created.type === WorkOrderType.VENDOR_REPAIR ||
+            created.type === WorkOrderType.EXTERNAL_REPAIR
+              ? "EXTERNAL"
+              : "INTERNAL"
+        }
+      });
+      if (result.configError) {
+        throw new BadRequestException(result.configError);
+      }
+      if (result.required && result.status === ApprovalRequestStatus.PENDING) {
+        approvalStatus = WorkOrderApprovalStatus.PENDING;
+      }
+    }
+
+    if (approvalStatus !== created.approvalStatus) {
+      await this.prisma.workOrder.update({
+        where: { id: created.id },
+        data: { approvalStatus, approvedAt: null, approvedById: null }
+      });
+      return { ...created, approvalStatus };
+    }
+    return created;
   }
 
   private async nextWoNumber(actor?: Actor): Promise<string> {
@@ -550,7 +717,7 @@ export class WorkOrdersService {
         }
       });
 
-      return created;
+      return this.syncCreateTimeApprovals(created, actor);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create work order";
       throw new BadRequestException(`Failed to create work order: ${message}`);
@@ -936,6 +1103,38 @@ export class WorkOrdersService {
     assertRoleCanSetStatus(actor?.role as RoleName | undefined, current.status, targetStatus, {
       emergencyCloseReason: data.emergencyCloseReason
     });
+
+    if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
+      await this.enforceConfigurableApproval({
+        actor,
+        workOrder: current,
+        processType: ApprovalProcessType.CRITICAL_WORK_ORDER,
+        trigger: ApprovalTrigger.BEFORE_START,
+        blockMessage: "Critical work order requires approval before start",
+        allowEmergencyProceed: true
+      });
+      await this.enforceConfigurableApproval({
+        actor,
+        workOrder: current,
+        processType: ApprovalProcessType.HIGH_COST_WORK_ORDER,
+        trigger: ApprovalTrigger.BEFORE_START,
+        blockMessage: "High-cost work order requires approval before start",
+        allowEmergencyProceed: true
+      });
+      if (
+        current.type === WorkOrderType.VENDOR_REPAIR ||
+        current.type === WorkOrderType.EXTERNAL_REPAIR
+      ) {
+        await this.enforceConfigurableApproval({
+          actor,
+          workOrder: current,
+          processType: ApprovalProcessType.VENDOR_REPAIR,
+          trigger: ApprovalTrigger.BEFORE_ASSIGN_VENDOR,
+          blockMessage: "Vendor/external repair requires approval before start",
+          allowEmergencyProceed: true
+        });
+      }
+    }
 
     if (
       targetStatus === WorkOrderStatus.IN_PROGRESS ||
@@ -1380,6 +1579,57 @@ export class WorkOrdersService {
       throw new BadRequestException(
         "Only verified, closed, completed, or cancelled work orders can be reopened."
       );
+    }
+
+    // Cancelled/closed reopen must not casually bypass Phase 7 controls when rules exist.
+    const processType =
+      current.status === WorkOrderStatus.CANCELLED ||
+      current.status === WorkOrderStatus.CLOSED ||
+      current.status === WorkOrderStatus.COMPLETED
+        ? ApprovalProcessType.WORK_ORDER_REOPEN
+        : ApprovalProcessType.CLOSED_RECORD_CORRECTION;
+
+    if (this.approvalsService && actor?.sub) {
+      const ensure = await this.approvalsService.ensureApprovalRequired({
+        actor,
+        processType,
+        trigger:
+          processType === ApprovalProcessType.WORK_ORDER_REOPEN
+            ? ApprovalTrigger.BEFORE_REOPEN
+            : ApprovalTrigger.BEFORE_CORRECTION,
+        subjectEntityType: "WorkOrder",
+        subjectEntityId: id,
+        context: {
+          processType,
+          priority: current.priority,
+          workType: current.type,
+          estimatedCost: current.estimatedCost,
+          actualCost: current.actualCost,
+          siteId: current.siteId,
+          departmentId: current.departmentId,
+          domainId: current.domainId,
+          status: current.status
+        },
+        sourceContext: {
+          reason: trimmedReason,
+          previousStatus: current.status
+        }
+      });
+
+      if (ensure.configError) {
+        throw new BadRequestException(ensure.configError);
+      }
+
+      if (ensure.required && ensure.status !== ApprovalRequestStatus.APPROVED) {
+        throw new BadRequestException({
+          message:
+            "Reopening this work order requires approval. It will reopen when the approval completes.",
+          code: "APPROVAL_REQUIRED",
+          approvalRequestId: ensure.approvalRequestId,
+          processType,
+          previousStatus: current.status
+        });
+      }
     }
 
     const approver = this.assertActor(actor);

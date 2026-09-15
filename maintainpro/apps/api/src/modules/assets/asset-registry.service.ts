@@ -1,5 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
+  ApprovalProcessType,
+  ApprovalRequestStatus,
+  ApprovalTrigger,
   AssetCriticality,
   AssetStatus,
   AuditAction,
@@ -9,11 +12,22 @@ import {
 import { formatLocationPathLabel, buildLocationPath } from "../organization/location-hierarchy";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
+import { ApprovalsService } from "../approvals/approvals.service";
 import { assertNoAssetHierarchyCycle } from "./asset-hierarchy";
 import { validateCustomAttributes } from "../asset-taxonomy/attribute-validation";
 import { mapLegacyAssetCategory } from "../asset-taxonomy/legacy-category-map";
 
-const OPEN_WORK_ORDER_STATUSES = ["OPEN", "IN_PROGRESS", "ON_HOLD", "OVERDUE"] as const;
+const OPEN_WORK_ORDER_STATUSES = [
+  "OPEN",
+  "PLANNED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
+  "VERIFIED",
+  "OVERDUE"
+] as const;
 const TERMINAL_STATUSES: AssetStatus[] = [AssetStatus.RETIRED, AssetStatus.DISPOSED];
 
 export type MoveAssetInput = {
@@ -35,7 +49,10 @@ export type DisposeAssetInput = {
 
 @Injectable()
 export class AssetRegistryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly approvalsService?: ApprovalsService
+  ) {}
 
   async resolveLocationPath(tenantId: string, functionalLocationId: string | null | undefined) {
     if (!functionalLocationId) return null;
@@ -344,7 +361,8 @@ export class AssetRegistryService {
     tenantId: string | null | undefined,
     assetId: string,
     actorId: string,
-    input: RetireAssetInput
+    input: RetireAssetInput,
+    actor?: { sub: string; role?: string; tenantId?: string | null; permissions?: string[] }
   ) {
     const tid = requireTenantId(tenantId);
     const reason = input.reason?.trim();
@@ -356,6 +374,7 @@ export class AssetRegistryService {
       throw new BadRequestException("Disposed assets cannot be retired");
     }
 
+    // Technical integrity checks cannot be bypassed by approval success alone.
     const openWorkOrders = await this.prisma.workOrder.count({
       where: { assetId, status: { in: [...OPEN_WORK_ORDER_STATUSES] } }
     });
@@ -374,6 +393,36 @@ export class AssetRegistryService {
     });
     if (activeChildren > 0) {
       throw new BadRequestException("Cannot retire parent while active child assets remain");
+    }
+
+    if (this.approvalsService && actor?.sub) {
+      const ensure = await this.approvalsService.ensureApprovalRequired({
+        actor,
+        processType: ApprovalProcessType.ASSET_RETIREMENT,
+        trigger: ApprovalTrigger.BEFORE_RETIRE,
+        subjectEntityType: "Asset",
+        subjectEntityId: assetId,
+        context: {
+          processType: ApprovalProcessType.ASSET_RETIREMENT,
+          siteId: asset.siteId,
+          departmentId: asset.departmentId,
+          domainId: asset.domainId,
+          status: asset.status
+        },
+        sourceContext: { reason, retiredAt: input.retiredAt ?? null }
+      });
+      if (ensure.configError) {
+        throw new BadRequestException(ensure.configError);
+      }
+      if (ensure.required && ensure.status !== ApprovalRequestStatus.APPROVED) {
+        throw new BadRequestException({
+          message:
+            "Asset retirement requires approval. Retirement completes when the approval is granted.",
+          code: "APPROVAL_REQUIRED",
+          approvalRequestId: ensure.approvalRequestId,
+          processType: ApprovalProcessType.ASSET_RETIREMENT
+        });
+      }
     }
 
     const updated = await this.prisma.asset.update({

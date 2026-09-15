@@ -205,7 +205,8 @@ export class AssetsController {
       id,
       req.user?.tenantId ?? null,
       req.user!.sub,
-      body
+      body,
+      req.user
     );
     return { data, message: "Asset retired" };
   }

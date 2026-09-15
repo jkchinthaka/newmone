@@ -97,7 +97,7 @@ export function assertValidHoldReason(code: string, notes?: string | null) {
   }
 }
 
-/** Phase 7 approval hooks — no-op until rules exist */
+/** Phase 7 approval hooks — wired to ApprovalsService via WorkOrdersService.enforceConfigurableApproval */
 export type WorkOrderApprovalHookContext = {
   workOrderId: string;
   action: "START" | "REOPEN" | "CLOSE_CORRECTION" | "HIGH_COST" | "VENDOR";
@@ -108,6 +108,6 @@ export function workOrderApprovalExtensionPoint(_ctx: WorkOrderApprovalHookConte
   required: boolean;
   reason?: string;
 } {
-  // Phase 7 wires real ApprovalRule evaluation here.
+  // Prefer ApprovalsService.ensureApprovalRequired at call sites; this stub remains for docs/tests.
   return { required: false };
 }

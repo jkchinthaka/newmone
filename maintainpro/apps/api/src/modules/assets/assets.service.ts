@@ -804,9 +804,10 @@ export class AssetsService {
     id: string,
     tenantId: string | null | undefined,
     actorId: string,
-    input: { reason: string; retiredAt?: string }
+    input: { reason: string; retiredAt?: string },
+    actor?: { sub: string; role?: string; tenantId?: string | null; permissions?: string[] }
   ) {
-    await this.registry.retire(tenantId, id, actorId, input);
+    await this.registry.retire(tenantId, id, actorId, input, actor);
     return this.findOne(id, tenantId);
   }
 
