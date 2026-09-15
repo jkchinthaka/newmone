@@ -5,6 +5,14 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-08 | Canonical Maintenance Planning Integration
+- Baseline: Phase 7 tip `b871a8da7d2b5f8782f39ff6e9719622ae55aa25`
+- Branch: `maintainpro/integration-v1`
+- Historical reference: `origin/maintainpro/phase-08-maintenance-planning` @ `844f176` (not rewritten)
+- What changed: Ported PM/trigger/meter/checklist/inspection/calibration/compliance onto Site/FL/WO/Approval; WO generation via Phase 6 service; occurrence idempotency; legacy meter dry-run migration; `/maintenance/plans` UI
+- Docs: `docs/PHASE_08_MAINTENANCE_PLANNING.md`
+- Phase 9 not started; historical Phase 8 untouched
+
 ## 2026-09-15 | PHASE-07 | Configurable Approval & Control Engine
 - Baseline: Phase 6 tip `bb48180af64f9d5bae066f9c6428911450989585` on `maintainpro/phase-06-work-orders`
 - Branch: `maintainpro/phase-07-approval-engine`

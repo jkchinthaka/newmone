@@ -37,9 +37,12 @@ Canonical line (continue here):
 4. Phase 4 — Universal Asset Engine (`maintainpro/phase-04-universal-assets` @ `a50b6b9624b1a0f281e20095badf453d7ab02fdb`)
 5. Phase 5 — Maintenance Requests & Triage (`maintainpro/phase-05-requests-triage` @ `6b5948032d2226b7938bbac52ea4931db79110d6`)
 6. Phase 6 — Work Order Core (`maintainpro/phase-06-work-orders` @ `bb48180af64f9d5bae066f9c6428911450989585`)
-7. Phase 7 — Approval Engine (`maintainpro/phase-07-approval-engine` — starts from Phase 6 tip)
+7. Phase 7 — Approval Engine (`maintainpro/phase-07-approval-engine` @ `b871a8da7d2b5f8782f39ff6e9719622ae55aa25`)
+8. Phase 8+ — Canonical integration on `maintainpro/integration-v1` (starts from Phase 7 tip; historical Phase 8–14 are reference only)
 
 Do **not** merge Phase 8–14 directly into `main` before those phases exist.
+
+Phase 8 historical branch `maintainpro/phase-08-maintenance-planning` @ `844f176` remains untouched. Canonical planning lives on `integration-v1`.
 
 Phase 7 must not cherry-pick Phase 8–14. Procurement Part/PO approvals stay domain-separate. Gate uses hook only until Phase 10.
 
