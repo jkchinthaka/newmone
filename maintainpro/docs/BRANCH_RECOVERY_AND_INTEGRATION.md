@@ -28,12 +28,12 @@ Phases **2–7 have not been implemented** as the required sequential foundation
 
 ## Mandatory execution order (now)
 
-Continue from completed Phase 2 tip when Phase 2 is done; otherwise from Phase 1:
+Canonical line (continue here):
 
 0. Phase 0 — Audit (`maintainpro/phase-00-audit`)
 1. Phase 1 — Scope cleanup (`maintainpro/phase-01-scope-cleanup` @ `d954360`)
-2. Phase 2 — Responsive Web / PWA (`maintainpro/phase-02-responsive-pwa`)
-3. Phase 3 — Organization & Functional Locations
+2. Phase 2 — Responsive Web / PWA (`maintainpro/phase-02-responsive-pwa` @ `e18a58c`)
+3. Phase 3 — Organization & Functional Locations (`maintainpro/phase-03-organization-locations`)
 4. Phase 4 — Universal Asset Engine
 5. Phase 5 — Maintenance Requests & Triage
 6. Phase 6 — Work Order Core

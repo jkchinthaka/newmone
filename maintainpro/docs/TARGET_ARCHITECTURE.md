@@ -26,8 +26,9 @@ Next.js PWA (primary)     Flutter (thin / sunset)
                     ▼
          Tenant (isolation + optional billing)
                     ▼
-         Organization UX = Tenant
-         Site UX = Property (+ Building/Floor/Room)
+         Organization UX = Tenant (unchanged backend boundary)
+         Site + FunctionalLocation (Phase 3 authoritative spatial master)
+         Legacy Property/Building/Floor/Room retained + migration bridge
                     ▼
     ┌───────────────┼────────────────┬──────────────┐
  Asset/Fleet     WO / PM / Req    Supply/ERP     Compliance
@@ -40,10 +41,10 @@ Next.js PWA (primary)     Flutter (thin / sunset)
 
 ## Core engines (gap vs target)
 
-| Engine | Status on main | Notes |
-|--------|----------------|-------|
-| Organization / Site | PARTIAL | Property hierarchy EXISTS; naming REFACTOR |
-| Asset | EXISTS / NEEDS REFACTOR | Unify with Vehicle |
+| Engine | Status | Notes |
+|--------|--------|-------|
+| Organization / Site | **EXISTS (Phase 3)** | Site + FunctionalLocation; Tenant = Organization UX; legacy facilities bridged |
+| Asset | EXISTS / NEEDS REFACTOR | Unify with Vehicle; attach `functionalLocationId` in Phase 4 |
 | Requests | PARTIAL / DUPLICATED | FacilityIssue→WO; demo PendingRequest |
 | Work Orders | EXISTS | Rich lifecycle |
 | Approval | PARTIAL | WO/PR/PO stages; no configurable builder |

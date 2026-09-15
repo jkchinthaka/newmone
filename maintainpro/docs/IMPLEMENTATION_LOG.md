@@ -5,6 +5,13 @@ Record each completed task with:
 
 ---
 
+## 2026-09-15 | PHASE-03 | Organization, sites & functional locations
+- Baseline: Phase 2 tip `e18a58c` on `maintainpro/phase-02-responsive-pwa`
+- Branch: `maintainpro/phase-03-organization-locations`
+- What changed: Site + FunctionalLocation models; organization API; legacy facility migration bridge; Admin `/admin/organization` UI; Tenant remains backend org boundary (UI: Organization); no Asset redesign
+- Docs: `docs/PHASE_03_ORGANIZATION_LOCATIONS.md`
+- Phase 8–14 not merged/cherry-picked
+
 ## 2026-09-14 | PHASE-02 | Responsive web + PWA foundation
 - Baseline: Phase 1 tip `d954360` on `maintainpro/phase-01-scope-cleanup`
 - Branch: `maintainpro/phase-02-responsive-pwa`
