@@ -81,6 +81,8 @@ export const PERMISSION_CATALOG = [
   "work_orders.cancel",
   "work_orders.reopen",
   "work_orders.correct",
+  "planning.view",
+  "planning.manage",
   "approvals.view",
   "approvals.view_all",
   "approvals.decide",

@@ -74,6 +74,7 @@ import { TripsModule } from "./modules/trips/trips.module";
 import { UsersModule } from "./modules/users/users.module";
 import { UtilitiesModule } from "./modules/utilities/utilities.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
+import { PlanningModule } from "./modules/planning/planning.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
 import { WorkforceModule } from "./modules/workforce/workforce.module";
@@ -148,6 +149,7 @@ normalizeDatabaseEnvironment();
     JobCodesModule,
     WorkOrdersModule,
     WorkOrderTaxonomyModule,
+    PlanningModule,
     ApprovalsModule,
     WorkforceModule,
     PeopleModule,

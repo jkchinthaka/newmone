@@ -52,7 +52,10 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "approvals.view_all": ["approvals.rule.manage"],
   "approvals.decide": ["approvals.rule.manage", "work_orders.manage"],
   "approvals.rule.manage": ["settings.organization.manage"],
-  "approvals.override.emergency": ["approvals.rule.manage", "work_orders.manage"]
+  "approvals.override.emergency": ["approvals.rule.manage", "work_orders.manage"],
+  // Phase 8 — planning / PM engine; accept work_orders.manage during rollout
+  "planning.view": ["planning.manage", "work_orders.manage", "work_orders.plan"],
+  "planning.manage": ["work_orders.manage", "work_orders.plan"]
 };
 
 @Injectable()
