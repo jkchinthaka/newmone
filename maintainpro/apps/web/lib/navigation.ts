@@ -306,6 +306,17 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "my-jobs",
+    label: "My Jobs",
+    href: "/work-orders/my",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
+    category: "primary",
+    description: "Technician assigned work queue",
+    mobilePriority: true,
+    activeMatch: "exact"
+  },
+  {
     id: "preventive-maintenance",
     label: "Preventive Maintenance",
     href: "/maintenance/forecast",

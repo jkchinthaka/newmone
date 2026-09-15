@@ -2,10 +2,14 @@ export const WORK_ORDER_APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] 
 
 export const WORK_ORDER_STATUSES = [
   "OPEN",
+  "PLANNED",
+  "ASSIGNED",
   "IN_PROGRESS",
   "ON_HOLD",
   "TECHNICIAN_COMPLETED",
   "REWORK_REQUIRED",
+  "VERIFIED",
+  "CLOSED",
   "COMPLETED",
   "CANCELLED",
   "OVERDUE"
@@ -179,10 +183,14 @@ export interface WorkOrdersApiResponse {
 
 export const STATUS_ORDER: WorkOrderStatus[] = [
   "OPEN",
+  "PLANNED",
+  "ASSIGNED",
   "IN_PROGRESS",
   "ON_HOLD",
   "TECHNICIAN_COMPLETED",
   "REWORK_REQUIRED",
+  "VERIFIED",
+  "CLOSED",
   "COMPLETED",
   "CANCELLED",
   "OVERDUE"
