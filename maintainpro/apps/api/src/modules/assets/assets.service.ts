@@ -27,6 +27,7 @@ import type {
 } from "./dto/assets.dto";
 import { PrismaService } from "../../database/prisma.service";
 import { normalizeDepartmentName } from "../departments/department-master-list";
+import { AssetRegistryService } from "./asset-registry.service";
 
 interface AssetDocumentRecord {
   id: string;
@@ -75,7 +76,8 @@ export class AssetsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(QrCodeService) private readonly qrCodeService: QrCodeService
+    @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
+    @Inject(AssetRegistryService) private readonly registry: AssetRegistryService
   ) {}
 
   async findAll(tenantId: string | null | undefined, query: AssetListQueryDto) {
@@ -92,6 +94,11 @@ export class AssetsService {
         take: limit,
         orderBy,
         include: {
+          domain: { select: { id: true, code: true, name: true } },
+          categoryMaster: { select: { id: true, code: true, name: true } },
+          typeMaster: { select: { id: true, code: true, name: true } },
+          site: { select: { id: true, code: true, name: true } },
+          functionalLocation: { select: { id: true, code: true, name: true } },
           workOrders: {
             where: {
               status: {
@@ -270,6 +277,15 @@ export class AssetsService {
         tenantId: requireTenantId(tenantId)
       },
       include: {
+        domain: { select: { id: true, code: true, name: true, isActive: true } },
+        categoryMaster: { select: { id: true, code: true, name: true, isActive: true } },
+        typeMaster: { select: { id: true, code: true, name: true, isActive: true } },
+        site: { select: { id: true, code: true, name: true, isActive: true } },
+        functionalLocation: {
+          select: { id: true, code: true, name: true, isActive: true, siteId: true }
+        },
+        parentAsset: { select: { id: true, assetTag: true, name: true } },
+        linkedVehicle: { select: { id: true, registrationNo: true, assetId: true } },
         maintenanceLogs: {
           orderBy: {
             performedAt: "desc"
@@ -313,7 +329,9 @@ export class AssetsService {
         _count: {
           select: {
             maintenanceLogs: true,
-            workOrders: true
+            workOrders: true,
+            childAssets: true,
+            locationHistories: true
           }
         }
       }
@@ -358,6 +376,16 @@ export class AssetsService {
     ]);
 
     const documents = this.parseDocuments(asset.documents, asset.id);
+    const locationPath = await this.registry.resolveLocationPath(
+      requireTenantId(tenantId),
+      asset.functionalLocationId
+    );
+    const childAssets = await this.prisma.asset.findMany({
+      where: { tenantId: requireTenantId(tenantId), parentAssetId: id },
+      select: { id: true, assetTag: true, name: true, status: true, condition: true },
+      orderBy: { assetTag: "asc" },
+      take: 50
+    });
 
     return {
       ...asset,
@@ -365,6 +393,10 @@ export class AssetsService {
       isArchived: Boolean(asset.archivedAt),
       openWorkOrders,
       totalMaintenanceCost: maintenanceCost._sum.cost,
+      locationPath,
+      childAssets,
+      legacyCategory: asset.category,
+      legacyLocationText: asset.location,
       activity: activity.map((event) => ({
         id: event.id,
         action: event.action,
@@ -381,12 +413,44 @@ export class AssetsService {
 
   async create(tenantId: string | null | undefined, actorId: string, data: CreateAssetDto) {
     await this.ensureUniqueAssetTag(data.assetTag);
+    const tid = requireTenantId(tenantId);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
+    const taxonomy = await this.registry.validateTaxonomy(tid, {
+      domainId: data.domainId,
+      categoryMasterId: data.categoryMasterId,
+      typeMasterId: data.typeMasterId
+    });
+    await this.registry.validateSiteAndLocation(tid, data.siteId, data.functionalLocationId);
+    if (data.parentAssetId) {
+      const parent = await this.prisma.asset.findFirst({
+        where: { id: data.parentAssetId, tenantId: tid }
+      });
+      if (!parent) throw new BadRequestException("Parent asset not found for this organization");
+    }
+    const customAttributes = await this.registry.validateAndNormalizeAttributes(
+      tid,
+      taxonomy.typeMasterId,
+      data.customAttributes,
+      { allowPartial: data.status === AssetStatus.DRAFT }
+    );
 
     const created = await this.prisma.asset.create({
       data: {
         ...this.buildAssetCreateInput(tenantId, data),
-        ...departmentFields
+        ...departmentFields,
+        domainId: taxonomy.domainId,
+        categoryMasterId: taxonomy.categoryMasterId,
+        typeMasterId: taxonomy.typeMasterId,
+        siteId: data.siteId ?? null,
+        functionalLocationId: data.functionalLocationId ?? null,
+        parentAssetId: data.parentAssetId ?? null,
+        responsiblePersonId: data.responsiblePersonId ?? null,
+        criticalityLevel: data.criticalityLevel ?? null,
+        customAttributes: (customAttributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        commissionedAt: this.toNullableDate(data.commissionedAt) ?? null,
+        category: data.category ?? AssetCategory.OTHER,
+        isActive:
+          data.status === AssetStatus.RETIRED || data.status === AssetStatus.DISPOSED ? false : true
       }
     });
 
@@ -424,13 +488,54 @@ export class AssetsService {
     }
 
     this.validateStatusTransition(current.status, data.status, data.disposalReason ?? current.disposalReason ?? undefined);
+    const tid = requireTenantId(tenantId);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
+    const taxonomy = await this.registry.validateTaxonomy(tid, {
+      domainId: data.domainId ?? current.domainId,
+      categoryMasterId: data.categoryMasterId ?? current.categoryMasterId,
+      typeMasterId: data.typeMasterId ?? current.typeMasterId,
+      requireActive: false
+    });
+    const nextSiteId = data.siteId !== undefined ? data.siteId : current.siteId;
+    const nextLocationId =
+      data.functionalLocationId !== undefined ? data.functionalLocationId : current.functionalLocationId;
+    // Location changes via update are blocked when both coords change — use move() for history
+    if (
+      (data.siteId !== undefined && data.siteId !== current.siteId) ||
+      (data.functionalLocationId !== undefined &&
+        data.functionalLocationId !== current.functionalLocationId)
+    ) {
+      throw new BadRequestException(
+        "Use POST /assets/:id/move to change site/functional location (movement history required)"
+      );
+    }
+    await this.registry.validateSiteAndLocation(tid, nextSiteId, nextLocationId, {
+      requireActive: false
+    });
+    if (data.parentAssetId !== undefined) {
+      await this.registry.setParent(tenantId, id, actorId, data.parentAssetId ?? null);
+    }
+    const customAttributes = await this.registry.validateAndNormalizeAttributes(
+      tid,
+      taxonomy.typeMasterId,
+      data.customAttributes ?? (current.customAttributes as Record<string, unknown> | null),
+      { allowPartial: true }
+    );
 
     const updated = await this.prisma.asset.update({
       where: { id },
       data: {
         ...this.buildAssetMutationInput(data),
-        ...departmentFields
+        ...departmentFields,
+        domainId: taxonomy.domainId,
+        categoryMasterId: taxonomy.categoryMasterId,
+        typeMasterId: taxonomy.typeMasterId,
+        responsiblePersonId:
+          data.responsiblePersonId !== undefined ? data.responsiblePersonId : undefined,
+        criticalityLevel: data.criticalityLevel !== undefined ? data.criticalityLevel : undefined,
+        customAttributes: data.customAttributes !== undefined ? (customAttributes as Prisma.InputJsonValue | null) : undefined,
+        commissionedAt:
+          data.commissionedAt !== undefined ? this.toNullableDate(data.commissionedAt) : undefined
       }
     });
 
@@ -576,6 +681,23 @@ export class AssetsService {
       throw new BadRequestException("Bulk category assignment requires a category");
     }
 
+    if (
+      body.action === "ASSIGN_SITE_LOCATION" &&
+      (!body.siteId || !body.functionalLocationId || !body.moveReason?.trim())
+    ) {
+      throw new BadRequestException(
+        "Bulk site/location assignment requires siteId, functionalLocationId, and moveReason"
+      );
+    }
+
+    if (body.action === "ASSIGN_CRITICALITY" && !body.criticalityLevel) {
+      throw new BadRequestException("Bulk criticality update requires criticalityLevel");
+    }
+
+    if (body.action === "ASSIGN_DEPARTMENT" && !body.departmentId) {
+      throw new BadRequestException("Bulk department assignment requires departmentId");
+    }
+
     const results = [];
 
     for (const id of ids) {
@@ -607,6 +729,35 @@ export class AssetsService {
         continue;
       }
 
+      if (body.action === "ASSIGN_SITE_LOCATION") {
+        results.push(
+          await this.moveAsset(id, tenantId, actorId, {
+            toSiteId: body.siteId!,
+            toFunctionalLocationId: body.functionalLocationId!,
+            reason: body.moveReason!
+          })
+        );
+        continue;
+      }
+
+      if (body.action === "ASSIGN_CRITICALITY") {
+        results.push(
+          await this.update(id, tenantId, actorId, {
+            criticalityLevel: body.criticalityLevel
+          })
+        );
+        continue;
+      }
+
+      if (body.action === "ASSIGN_DEPARTMENT") {
+        results.push(
+          await this.update(id, tenantId, actorId, {
+            departmentId: body.departmentId
+          })
+        );
+        continue;
+      }
+
       results.push(
         await this.updateStatus(id, tenantId, actorId, {
           status: body.status!,
@@ -619,6 +770,72 @@ export class AssetsService {
       count: results.length,
       items: results
     };
+  }
+
+  async moveAsset(
+    id: string,
+    tenantId: string | null | undefined,
+    actorId: string,
+    input: { toSiteId: string; toFunctionalLocationId: string; reason: string; effectiveAt?: string }
+  ) {
+    const result = await this.registry.moveAsset(tenantId, id, actorId, input);
+    return this.findOne(result.asset.id, tenantId);
+  }
+
+  async listMovementHistory(id: string, tenantId: string | null | undefined) {
+    return this.registry.listMovementHistory(tenantId, id);
+  }
+
+  async setParentAsset(
+    id: string,
+    tenantId: string | null | undefined,
+    actorId: string,
+    parentAssetId: string | null
+  ) {
+    await this.registry.setParent(tenantId, id, actorId, parentAssetId);
+    return this.findOne(id, tenantId);
+  }
+
+  async listChildAssets(id: string, tenantId: string | null | undefined) {
+    return this.registry.listChildren(tenantId, id);
+  }
+
+  async retireAsset(
+    id: string,
+    tenantId: string | null | undefined,
+    actorId: string,
+    input: { reason: string; retiredAt?: string }
+  ) {
+    await this.registry.retire(tenantId, id, actorId, input);
+    return this.findOne(id, tenantId);
+  }
+
+  async disposeAsset(
+    id: string,
+    tenantId: string | null | undefined,
+    actorId: string,
+    input: { reason: string; disposalDate?: string }
+  ) {
+    await this.registry.dispose(tenantId, id, actorId, input);
+    return this.findOne(id, tenantId);
+  }
+
+  async linkVehicleToAsset(
+    assetId: string,
+    tenantId: string | null | undefined,
+    actorId: string,
+    vehicleId: string
+  ) {
+    await this.registry.linkVehicle(tenantId, vehicleId, assetId, actorId);
+    return this.findOne(assetId, tenantId);
+  }
+
+  async dataQualityHooks(tenantId: string | null | undefined) {
+    return this.registry.dataQualityReport(tenantId);
+  }
+
+  async backfillLegacyCategories(tenantId: string | null | undefined, dryRun = true) {
+    return this.registry.backfillLegacyCategories(tenantId, { dryRun });
   }
 
   async getQrCode(id: string, tenantId?: string | null) {
@@ -1026,6 +1243,14 @@ export class AssetsService {
       | "location"
       | "department"
       | "departmentId"
+      | "siteId"
+      | "functionalLocationId"
+      | "domainId"
+      | "categoryMasterId"
+      | "typeMasterId"
+      | "criticalityLevel"
+      | "parentAssetId"
+      | "isActive"
       | "supplier"
       | "ownerName"
       | "includeArchived"
@@ -1064,6 +1289,14 @@ export class AssetsService {
     } else if (query.departmentId) {
       where.departmentId = query.departmentId;
     }
+    if (query.siteId) where.siteId = query.siteId;
+    if (query.functionalLocationId) where.functionalLocationId = query.functionalLocationId;
+    if (query.domainId) where.domainId = query.domainId;
+    if (query.categoryMasterId) where.categoryMasterId = query.categoryMasterId;
+    if (query.typeMasterId) where.typeMasterId = query.typeMasterId;
+    if (query.criticalityLevel) where.criticalityLevel = query.criticalityLevel;
+    if (query.parentAssetId) where.parentAssetId = query.parentAssetId;
+    if (typeof query.isActive === "boolean") where.isActive = query.isActive;
     if (query.supplier) {
       where.supplier = { contains: query.supplier, mode: "insensitive" };
     }
@@ -1141,7 +1374,7 @@ export class AssetsService {
       tenantId: requireTenantId(tenantId),
       assetTag: data.assetTag.trim(),
       name: data.name.trim(),
-      category: data.category,
+      category: data.category ?? AssetCategory.OTHER,
       condition: data.condition ?? AssetCondition.GOOD,
       status: data.status ?? AssetStatus.ACTIVE,
       description: this.toNullableString(data.description) ?? null,

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { AssetCategory, AssetCondition, AssetStatus } from "@prisma/client";
+import { AssetCategory, AssetCondition, AssetCriticality, AssetStatus } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
@@ -10,6 +10,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -27,7 +28,8 @@ const assetSortFields = [
   "status",
   "condition",
   "nextServiceDate",
-  "purchaseDate"
+  "purchaseDate",
+  "criticalityLevel"
 ] as const;
 
 function toOptionalBoolean(value: unknown) {
@@ -83,6 +85,47 @@ export class AssetListQueryDto {
   @IsOptional()
   @IsString()
   departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  siteId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  functionalLocationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  domainId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryMasterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  typeMasterId?: string;
+
+  @ApiPropertyOptional({ enum: AssetCriticality })
+  @IsOptional()
+  @IsEnum(AssetCriticality)
+  criticalityLevel?: AssetCriticality;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  parentAssetId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  isActive?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -150,9 +193,60 @@ export class CreateAssetDto {
   @MaxLength(1000)
   description?: string;
 
-  @ApiProperty({ enum: AssetCategory })
+  @ApiPropertyOptional({ enum: AssetCategory, description: "Legacy enum — prefer categoryMasterId" })
+  @IsOptional()
   @IsEnum(AssetCategory)
-  category!: AssetCategory;
+  category?: AssetCategory;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  domainId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  categoryMasterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  typeMasterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  siteId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  functionalLocationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  parentAssetId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  responsiblePersonId?: string;
+
+  @ApiPropertyOptional({ enum: AssetCriticality })
+  @IsOptional()
+  @IsEnum(AssetCriticality)
+  criticalityLevel?: AssetCriticality;
+
+  @ApiPropertyOptional({ description: "Validated type-specific attributes" })
+  @IsOptional()
+  @IsObject()
+  customAttributes?: Record<string, unknown>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  commissionedAt?: string;
 
   @ApiPropertyOptional({ enum: AssetCondition })
   @IsOptional()
@@ -300,9 +394,37 @@ export class BulkAssetActionDto {
   @IsString({ each: true })
   ids!: string[];
 
-  @ApiProperty({ enum: ["UPDATE_STATUS", "ARCHIVE", "RESTORE", "ASSIGN_LOCATION", "ASSIGN_CATEGORY"] })
-  @IsIn(["UPDATE_STATUS", "ARCHIVE", "RESTORE", "ASSIGN_LOCATION", "ASSIGN_CATEGORY"])
-  action!: "UPDATE_STATUS" | "ARCHIVE" | "RESTORE" | "ASSIGN_LOCATION" | "ASSIGN_CATEGORY";
+  @ApiProperty({
+    enum: [
+      "UPDATE_STATUS",
+      "ARCHIVE",
+      "RESTORE",
+      "ASSIGN_LOCATION",
+      "ASSIGN_CATEGORY",
+      "ASSIGN_SITE_LOCATION",
+      "ASSIGN_CRITICALITY",
+      "ASSIGN_DEPARTMENT"
+    ]
+  })
+  @IsIn([
+    "UPDATE_STATUS",
+    "ARCHIVE",
+    "RESTORE",
+    "ASSIGN_LOCATION",
+    "ASSIGN_CATEGORY",
+    "ASSIGN_SITE_LOCATION",
+    "ASSIGN_CRITICALITY",
+    "ASSIGN_DEPARTMENT"
+  ])
+  action!:
+    | "UPDATE_STATUS"
+    | "ARCHIVE"
+    | "RESTORE"
+    | "ASSIGN_LOCATION"
+    | "ASSIGN_CATEGORY"
+    | "ASSIGN_SITE_LOCATION"
+    | "ASSIGN_CRITICALITY"
+    | "ASSIGN_DEPARTMENT";
 
   @ApiPropertyOptional({ enum: AssetStatus })
   @IsOptional()
@@ -315,7 +437,7 @@ export class BulkAssetActionDto {
   @MaxLength(400)
   disposalReason?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Legacy free-text location (compatibility)" })
   @IsOptional()
   @IsString()
   @MaxLength(160)
@@ -325,6 +447,32 @@ export class BulkAssetActionDto {
   @IsOptional()
   @IsEnum(AssetCategory)
   category?: AssetCategory;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  siteId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  functionalLocationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  moveReason?: string;
+
+  @ApiPropertyOptional({ enum: AssetCriticality })
+  @IsOptional()
+  @IsEnum(AssetCriticality)
+  criticalityLevel?: AssetCriticality;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
 }
 
 export class BulkImportAssetItemDto extends CreateAssetDto {}
@@ -352,6 +500,66 @@ export class AssetExportQueryDto extends AssetListQueryDto {
   @IsOptional()
   @IsString()
   visibleColumns?: string;
+}
+
+export class MoveAssetDto {
+  @ApiProperty()
+  @IsString()
+  toSiteId!: string;
+
+  @ApiProperty()
+  @IsString()
+  toFunctionalLocationId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  effectiveAt?: string;
+}
+
+export class RetireAssetDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  retiredAt?: string;
+}
+
+export class DisposeAssetDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  disposalDate?: string;
+}
+
+export class SetParentAssetDto {
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  parentAssetId?: string | null;
+}
+
+export class LinkVehicleDto {
+  @ApiProperty()
+  @IsString()
+  vehicleId!: string;
 }
 
 export class QrCodeDownloadQueryDto {
