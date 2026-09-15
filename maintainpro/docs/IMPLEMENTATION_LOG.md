@@ -5,7 +5,25 @@ Record each completed task with:
 
 ---
 
-## 2026-09-15 | PHASE-10 | Fleet Lifecycle — Tyres, Batteries, Assignments, Gate Engine
+## 2026-09-15 | PHASE-11 | Company-wide Domain Coverage
+- Baseline (clean HEAD): `3e96648e504409ae4fb6af7fbb1d5a5bfeee2e8f` on `maintainpro/integration-v1` (Phase 10 tip)
+- Historical reference: `origin/maintainpro/phase-11-domain-coverage` @ `e0899df` (REFERENCE ONLY; `_p11_extract/` removed after integration)
+- Architecture: `DomainProfile` is configuration metadata keyed by `AssetDomain.code` — NOT a separate Nest engine. Folded into existing `AssetTaxonomyModule`.
+- What changed:
+  - Schema: added `profile Json?` on `AssetDomain` (tenant overrides)
+  - New `domain-profiles.ts`: 24 static profiles (all V1 domains + HVAC_REFRIGERATION legacy) + helpers: `resolveDomainProfile`, `normalizeDomainCode`, `assertSharedEngineReuse`, `isKpiApplicable`, `isDowntimeApplicableDefault`
+  - `domain-defaults.ts`: added HVAC, REFRIGERATION, PLUMBING to `DEFAULT_ASSET_DOMAINS`; expanded `DEFAULT_CATEGORY_EXAMPLES` (Fire Extinguisher, IT Laptop, Plumbing Fixture, External Road/Drain, Cold Room under REFRIGERATION); added `DEFAULT_ATTRIBUTE_EXAMPLES` (capacity, refrigerant, hostname attribute defs seeded for Generator/Cold Room/IT Laptop)
+  - `asset-taxonomy.service.ts`: `listDomainProfiles`, `getDomainProfileForCode`, `updateDomainProfile`; enriched `listDomains` with `resolvedProfile`; seeded attribute definitions in `seedDefaults`
+  - `asset-taxonomy.controller.ts`: 3 new endpoints (`GET domain-profiles`, `GET domain-profiles/:code`, `PATCH domains/:id/profile`)
+  - `work-orders.service.ts`: `create()` inherits `domainId` from linked asset when not supplied
+  - `permission-catalog.ts`: 2 new Phase 11 keys (`domains.view`, `domains.manage`)
+  - `permissions.guard.ts`: aliases for `domains.*` → `assets.manage` / `organization.manage`
+  - Web: `asset-taxonomy-api.ts` — `DomainProfileSummary` type + 3 API helpers; `admin/asset-masters/page.tsx` — domain profile summary panel (KPIs, downtime flag, location-only flag, scope notes)
+  - Docs: `docs/PHASE_11_DOMAIN_COVERAGE.md`
+- Tests: `apps/api/test/domain-coverage-phase11.spec.ts` (33 cases; static-only, no DB required)
+- Remaining risks: `prisma validate` + `prisma generate` required; seed new domains in existing tenants via `POST /asset-taxonomy/seed-defaults`; verify Phase 6 WO asset-rules tests still pass
+
+
 - Baseline (clean HEAD): `465c73d3616480eb796ebc382b2840cc84331b77` on `maintainpro/integration-v1` (Phase 9 tip)
 - Historical reference: `origin/maintainpro/phase-10-*` @ `96fbe49` (not rewritten; `_p10_extract/` removed after integration)
 - What changed:
