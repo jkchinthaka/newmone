@@ -37,7 +37,15 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "organization",
       title: "Organization",
-      description: "Organization, sites, departments, and functional locations.",
+      description: "Organization, sites, and functional location hierarchy.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/admin/organization"
+    },
+    {
+      id: "departments",
+      title: "Departments",
+      description: "Business department master (separate from physical locations).",
       status: "available",
       statusLabel: "Master data",
       href: "/master-data/departments"
