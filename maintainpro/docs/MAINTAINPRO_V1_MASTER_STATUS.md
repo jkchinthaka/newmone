@@ -2,7 +2,8 @@
 
 **Last updated:** 2026-09-15  
 **Canonical branch:** `maintainpro/integration-v1`  
-**Canonical remote tip:** `520189e35fc56688e33125e2d9f24d739b60b548`  
+**Canonical remote tip (Phase 14 product):** `520189e35fc56688e33125e2d9f24d739b60b548`  
+**Master status SoT:** this file — always prefer `git rev-parse origin/maintainpro/integration-v1` for absolute HEAD  
 **Production readiness verdict:** READY FOR STAGING UAT  
 **Main merge recommendation:** NO
 
@@ -31,7 +32,7 @@
 `maintainpro/integration-v1`
 
 **Required tip to continue from:**  
-`520189e35fc56688e33125e2d9f24d739b60b548`
+`520189e35fc56688e33125e2d9f24d739b60b548` (Phase 14 final) or later `origin/maintainpro/integration-v1` HEAD (includes this master status document)
 
 ---
 
