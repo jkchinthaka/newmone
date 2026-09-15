@@ -135,6 +135,27 @@ export async function updateSite(
   return response.data.data;
 }
 
+export async function listLocations(params: {
+  siteId?: string;
+  parentId?: string;
+  q?: string;
+  includeInactive?: boolean;
+  page?: number;
+  limit?: number;
+} = {}): Promise<OrgLocation[]> {
+  const response = await apiClient.get<ApiEnvelope<OrgLocation[]>>("/organization/locations", {
+    params: {
+      siteId: params.siteId,
+      parentId: params.parentId,
+      q: params.q?.trim() || undefined,
+      includeInactive: params.includeInactive ? "true" : undefined,
+      page: params.page,
+      limit: params.limit ?? 200
+    }
+  });
+  return response.data.data ?? [];
+}
+
 export async function fetchLocationTree(
   siteId: string,
   includeInactive = false

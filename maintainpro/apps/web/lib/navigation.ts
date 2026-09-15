@@ -184,6 +184,8 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/action-center",
   "/workspace",
   "/dashboard",
+  "/requests",
+  "/requests/new",
   "/qr/report-issue",
   "/work-orders",
   "/maintenance/job-codes",
@@ -282,11 +284,11 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     id: "requests",
     label: "Requests",
-    href: "/qr/report-issue",
+    href: "/requests",
     icon: "AlertTriangle",
     allowedRoles: REQUEST_ROLES,
     category: "primary",
-    description: "Report a Maintenance Request",
+    description: "Report and triage Maintenance Requests",
     mobilePriority: true,
     activeMatch: "startsWith"
   },
@@ -651,7 +653,7 @@ export function getMobileBottomNavItems(
   const hasAssets = visible.some((item) => item.id === "assets");
   const hasSettings = visible.some((item) => item.id === "settings");
   const homeHref = visible.find((item) => item.id === "home")?.href ?? "/action-center";
-  const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/qr/report-issue";
+  const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/requests";
 
   const items: MobileBottomNavItem[] = [
     { id: "home", label: "Home", href: homeHref, icon: "Home" }

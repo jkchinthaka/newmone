@@ -23,6 +23,11 @@ const REPORT_MODULE_LABELS: Record<string, string> = {
 const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   "/work-orders": [{ label: "Work Orders" }],
   "/assets": [{ label: "Assets" }],
+  "/requests": [{ label: "Requests" }],
+  "/requests/new": [
+    { label: "Requests", href: "/requests" },
+    { label: "Report Issue" }
+  ],
   "/inventory": [{ label: "Inventory" }],
   "/inventory/movements": [
     { label: "Inventory", href: "/inventory" },
@@ -131,6 +136,13 @@ type RoutePattern = {
 };
 
 const DYNAMIC_ROUTE_PATTERNS: RoutePattern[] = [
+  {
+    pattern: /^\/requests\/([^/]+)\/?$/,
+    build: ([, id]) => [
+      { label: "Requests", href: "/requests" },
+      { label: id === "new" ? "Report Issue" : "Request Detail" }
+    ]
+  },
   {
     pattern: /^\/fg\/records\/([^/]+)\/?$/,
     build: ([, id]) => [

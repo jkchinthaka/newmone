@@ -26,6 +26,7 @@ export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/notifications",
   "/settings",
   "/qr/report-issue",
+  "/requests",
   "/maintenance/forecast"
 ]);
 
@@ -59,7 +60,7 @@ export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
   FINANCE_APPROVER: ["/action-center", "/reports"],
   FINANCE: ["/action-center", "/reports"],
   VENDOR: ["/action-center"],
-  REQUESTER: ["/action-center", "/qr/report-issue"],
+  REQUESTER: ["/action-center", "/requests"],
   VIEWER: ["/action-center", "/reports"],
   AUDITOR: ["/action-center", "/reports"],
   FLEET_MANAGER: ["/action-center", "/fleet"],
