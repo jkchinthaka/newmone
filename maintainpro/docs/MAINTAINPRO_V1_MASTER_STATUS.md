@@ -31,7 +31,7 @@
 **Do NOT merge to `main` automatically.**
 
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
-**Phase 15 final remote tip:** `7270c9dd4519b7d03e67411d091ffaa16eaef720`  
+**Phase 15 final remote tip:** `c9ce0b6c0875760b07b84fb5da86603270f12a03`  
 **Phase 15 source HEAD:** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
 
 ---
@@ -249,7 +249,7 @@ Do not merge to `main` until final CI/UAT/readiness checks pass.
 | 12 | Admin / Governance | `maintainpro/integration-v1` | `3694173d…` | `15e5f67a60586543da453a82533a7b559b9072be` | COMPLETE | 186 / 1507 | Historical ref `df16071…` |
 | 13 | UX / KPI / Reports | `maintainpro/integration-v1` | `15e5f67a…` | `dacae29be806ed627babfb485f139f199828ef6f` | COMPLETE | 187 / 1603 | Historical ref `4a8499c…` |
 | 14 | Production Hardening | `maintainpro/integration-v1` | `dacae29b…` | `520189e35fc56688e33125e2d9f24d739b60b548` | COMPLETE | 189 / 1684 | Historical ref `ce38e89…`; READY FOR STAGING UAT |
-| 15 | MongoDB → SQL Server | `maintainpro/phase-15-sqlserver-migration` | `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1` | `7270c9dd4519b7d03e67411d091ffaa16eaef720` | ENGINEERING COMPLETE | 190 suites / 1706 tests; schema validate PASS | Live SQL apply / backup-restore NOT EXECUTED |
+| 15 | MongoDB → SQL Server | `maintainpro/phase-15-sqlserver-migration` | `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1` | `c9ce0b6c0875760b07b84fb5da86603270f12a03` | ENGINEERING COMPLETE | 190 suites / 1706 tests; schema validate PASS | Live SQL apply / backup-restore NOT EXECUTED |
 
 ---
 
@@ -617,7 +617,7 @@ Operator staging UAT + restore drill + Bileeta validation + migration dry-run �
 
 #### Git
 * Branch: `maintainpro/phase-15-sqlserver-migration`
-* Final remote tip: `7270c9dd4519b7d03e67411d091ffaa16eaef720`
+* Final remote tip: `c9ce0b6c0875760b07b84fb5da86603270f12a03`
 * Push: `origin/maintainpro/phase-15-sqlserver-migration`
 
 #### Readiness
