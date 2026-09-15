@@ -25,7 +25,11 @@ describe("Building schema and facility seed alignment", () => {
       "facility_issues.report",
       "facility_issues.manage",
       "facility_inspections.view",
-      "facility_inspections.manage"
+      "facility_inspections.manage",
+      "organization.view",
+      "organization.manage",
+      "locations.view",
+      "locations.manage"
     ]);
   });
 
@@ -40,11 +44,14 @@ describe("Building schema and facility seed alignment", () => {
         "facility_issues.report",
         "facility_issues.manage",
         "facility_inspections.view",
-        "facility_inspections.manage"
+        "facility_inspections.manage",
+        "organization.view",
+        "locations.view"
       ])
     );
     expect(FACILITY_MANAGER_PERMISSIONS).toContain("facilities.manage");
     expect(BUILDING_SUPERVISOR_PERMISSIONS).not.toContain("facilities.manage");
+    expect(BUILDING_SUPERVISOR_PERMISSIONS).not.toContain("organization.manage");
     expect(BUILDING_SUPERVISOR_PERMISSIONS).not.toContain("users.view");
   });
 

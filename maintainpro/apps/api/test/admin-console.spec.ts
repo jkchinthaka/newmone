@@ -49,6 +49,9 @@ describe("admin console foundation", () => {
     expect(overview?.status).toBe("available");
     expect(overview?.href).toBe("/admin");
 
+    const organization = sections.find((section) => section.id === "organization");
+    expect(organization?.href).toBe("/admin/organization");
+
     const systemHealth = sections.find((section) => section.id === "technical");
     expect(systemHealth?.href).toBe("/system-health");
     expect(systemHealth?.technicalOnly).toBe(true);
