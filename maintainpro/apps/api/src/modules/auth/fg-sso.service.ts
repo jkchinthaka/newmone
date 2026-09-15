@@ -9,6 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import { createHash, randomUUID } from "crypto";
 
 import { PrismaService } from "../../database/prisma.service";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import {
   FG_PERMISSION_KEYS,
   FG_SSO_AUDIENCE_DEFAULT,
@@ -113,9 +114,7 @@ export class FgSsoService {
       throw new UnauthorizedException("User account is locked");
     }
 
-    const permissionKeys = new Set(
-      (user.role?.permissionLinks ?? []).map((link) => link.permission.key).filter(Boolean)
-    );
+    const permissionKeys = new Set(rolePermissionKeys(user.role));
     const isSuperAdmin = user.role?.name === "SUPER_ADMIN";
     if (!isSuperAdmin && !permissionKeys.has("fg.access")) {
       throw new ForbiddenException("Missing required permission: fg.access");
@@ -194,7 +193,7 @@ export class FgSsoService {
     if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       throw new UnauthorizedException("User account is locked");
     }
-    const keys = new Set((user.role?.permissionLinks ?? []).map((link) => link.permission.key));
+    const keys = new Set(rolePermissionKeys(user.role));
     if (user.role?.name !== "SUPER_ADMIN" && !keys.has("fg.access")) {
       throw new ForbiddenException("Missing required permission: fg.access");
     }

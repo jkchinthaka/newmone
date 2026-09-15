@@ -4,6 +4,7 @@ import { AuditAction, RoleName } from "@prisma/client";
 import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { PERMISSION_CATALOG } from "../../database/permission-catalog";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -160,7 +161,7 @@ export class AdminRolesService {
     },
     isSuperAdmin: boolean
   ): AdminRoleReviewRow {
-    const permissionKeys = role.permissionLinks.map((link) => link.permission.key).sort();
+    const permissionKeys = rolePermissionKeys(role).sort();
 
     return {
       id: role.id,

@@ -15,6 +15,7 @@ import {
 
 import { QaIssuesService } from "../src/modules/qa/qa-issues.service";
 import { QA_CATEGORY_CATALOG } from "../src/modules/qa/qa.constants";
+import { expectAuditEvent } from "./helpers/audit-json";
 
 const mockCtx: {
   actorId: string;
@@ -170,13 +171,7 @@ describe("QaIssuesService (UAT-025)", () => {
       reason: "Developer started work"
     });
 
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "qa_issue_status_changed" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("qa_issue_status_changed"));
   });
 
   it("severity change requires reason", async () => {
@@ -224,13 +219,7 @@ describe("QaIssuesService (UAT-025)", () => {
       notes: "Still failing on mobile"
     });
 
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "qa_issue_reopened" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("qa_issue_reopened"));
   });
 
   it("accepted risk requires manager or admin approval", async () => {
@@ -265,13 +254,7 @@ describe("QaIssuesService (UAT-025)", () => {
     });
 
     expect(result.status).toBe(QaIssueStatus.ACCEPTED_RISK);
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "qa_issue_risk_accepted" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("qa_issue_risk_accepted"));
   });
 
   it("blocks unauthorized user from viewing sensitive security issue", async () => {
@@ -305,13 +288,7 @@ describe("QaIssuesService (UAT-025)", () => {
 
     expect(report.verdict).toBeDefined();
     expect(report.exportedAt).toBeDefined();
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "qa_report_exported" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("qa_report_exported"));
   });
 
   it("dashboard returns tenant counts for QA managers", async () => {

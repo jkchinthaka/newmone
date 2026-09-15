@@ -4,6 +4,7 @@ import { RoleName } from "@prisma/client";
 import { SuperAdminGuard } from "../src/common/guards/super-admin.guard";
 import { requestContext } from "../src/common/context/request-context";
 import { UsersService } from "../src/modules/users/users.service";
+import { auditMetadataEvent } from "./helpers/audit-json";
 
 const actor = { sub: "super-1", email: "super@test.local", role: RoleName.SUPER_ADMIN, tenantId: "tenant-a" };
 const ctx = {
@@ -140,7 +141,7 @@ describe("Admin Console user mutations (SUPER_ADMIN)", () => {
 
     expect(result.email).toBe("new.user@test.local");
     expect(prisma.tenantMembership.create).toHaveBeenCalled();
-    expect(auditEntries.some((e) => e.metadata?.event === "USER_CREATED")).toBe(true);
+    expect(auditEntries.some((e) => auditMetadataEvent(e.metadata) === "USER_CREATED")).toBe(true);
     // Never leak password/hash in the audit trail.
     expect(JSON.stringify(auditEntries)).not.toMatch(/Str0ng!Passw0rd/);
   });
@@ -176,7 +177,7 @@ describe("Admin Console user mutations (SUPER_ADMIN)", () => {
 
     await requestContext.run(ctx, () => service.updateForAdminConsole("target-1", { roleId: "role-super" } as any, actor));
 
-    expect(auditEntries.some((e) => e.metadata?.event === "USER_ROLE_CHANGED")).toBe(true);
+    expect(auditEntries.some((e) => auditMetadataEvent(e.metadata) === "USER_ROLE_CHANGED")).toBe(true);
   });
 
   it("updates email and writes USER_EMAIL_CHANGED audit", async () => {
@@ -185,7 +186,7 @@ describe("Admin Console user mutations (SUPER_ADMIN)", () => {
 
     await requestContext.run(ctx, () => service.updateForAdminConsole("target-1", { email: "changed@test.local" } as any, actor));
 
-    expect(auditEntries.some((e) => e.metadata?.event === "USER_EMAIL_CHANGED")).toBe(true);
+    expect(auditEntries.some((e) => auditMetadataEvent(e.metadata) === "USER_EMAIL_CHANGED")).toBe(true);
   });
 
   it("blocks demoting the last active SUPER_ADMIN away from SUPER_ADMIN", async () => {
@@ -220,7 +221,7 @@ describe("Admin Console user mutations (SUPER_ADMIN)", () => {
     const auditJson = JSON.stringify(auditEntries);
     expect(auditJson).not.toMatch(/N3w!Passw0rd/);
     expect(auditJson).not.toMatch(/passwordHash/i);
-    expect(auditEntries.some((e) => e.metadata?.event === "USER_PASSWORD_RESET")).toBe(true);
+    expect(auditEntries.some((e) => auditMetadataEvent(e.metadata) === "USER_PASSWORD_RESET")).toBe(true);
   });
 
   it("generates a temporary password when none is supplied for a reset", async () => {

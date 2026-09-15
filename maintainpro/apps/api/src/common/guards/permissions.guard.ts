@@ -9,6 +9,7 @@ import {
 import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
+import { rolePermissionKeys } from "../utils/role-permissions.util";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 
 type RequestUser = {
@@ -157,7 +158,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     return this.assertHasPermissions(
-      this.toPermissionSet(dbUser.role.permissionLinks.map((link) => link.permission.key)),
+      this.toPermissionSet(rolePermissionKeys(dbUser.role)),
       requiredPermissions
     );
   }

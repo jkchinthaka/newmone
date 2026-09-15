@@ -155,10 +155,10 @@ export class TraceabilityService {
             select: { ph: true, organicMatterPct: true, recommendation: true }
           })
         : Promise.resolve(null),
-      record.sprayLinks.length
+      (record.sprayLinks ?? []).length
         ? this.prisma.sprayLog.findMany({
             where: {
-              id: { in: record.sprayLinks.map((link) => link.sprayLogId) },
+              id: { in: (record.sprayLinks ?? []).map((link) => link.sprayLogId) },
               tenantId: recordTenantId
             },
             select: { date: true, chemicalName: true, chemicalType: true, priorHarvestDays: true, complianceFlag: true }

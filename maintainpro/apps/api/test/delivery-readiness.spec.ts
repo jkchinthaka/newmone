@@ -8,6 +8,7 @@ import {
 
 import { DeliveryReadinessService } from "../src/modules/delivery-readiness/delivery-readiness.service";
 import { DELIVERY_CATEGORY_CATALOG } from "../src/modules/delivery-readiness/delivery.constants";
+import { expectAuditEvent } from "./helpers/audit-json";
 
 const mockCtx: {
   actorId: string;
@@ -150,13 +151,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     const updated = await service.completeItem("item-1", { notes: "Verified in staging" });
 
     expect(updated.status).toBe(DeliveryItemStatus.PASS);
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_item_passed" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_item_passed"));
   });
 
   it("updates checklist item to FAIL", async () => {
@@ -170,13 +165,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     });
 
     expect(updated.status).toBe(DeliveryItemStatus.FAIL);
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_item_failed" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_item_failed"));
   });
 
   it("blocks final ready when critical item failed", async () => {
@@ -220,13 +209,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     });
 
     expect(updated.status).toBe(DeliveryItemStatus.ACCEPTED_RISK);
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_risk_accepted" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_risk_accepted"));
   });
 
   it("sign-off creates record when no blockers", async () => {
@@ -243,13 +226,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     const record = await service.signOff({ notes: "Client accepted handover pack." });
 
     expect(record.id).toBe("sign-1");
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_signoff_created" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_signoff_created"));
   });
 
   it("blocks sign-off when critical blockers remain", async () => {
@@ -285,13 +262,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
 
     expect(report.verdict).toBeDefined();
     expect(report.summary).toBeDefined();
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_verdict_generated" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_verdict_generated"));
   });
 
   it("blocks unauthorized user", async () => {
@@ -316,13 +287,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     const exported = await service.exportReport();
 
     expect(exported.exportedAt).toBeDefined();
-    expect(prisma.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          metadata: expect.objectContaining({ event: "delivery_report_exported" })
-        })
-      })
-    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expectAuditEvent("delivery_report_exported"));
   });
 
   it("returns not found for missing checklist", async () => {

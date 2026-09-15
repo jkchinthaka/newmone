@@ -2,6 +2,7 @@ import { RoleName } from "@prisma/client";
 
 import { requestContext } from "../src/common/context/request-context";
 import { AdminAccessController } from "../src/modules/admin/admin-access.controller";
+import { auditJsonField, auditMetadataEvent } from "./helpers/audit-json";
 
 const actor = { sub: "super-1", email: "super@test.local", role: RoleName.SUPER_ADMIN, tenantId: "tenant-a" };
 
@@ -50,8 +51,8 @@ describe("Admin Console role permission matrix", () => {
     expect(rolesService.update).toHaveBeenCalledWith("role-manager", { permissionIds: ["perm-a", "perm-b"] });
     expect(result.data.permissionCount).toBe(2);
     expect(auditEntries).toHaveLength(1);
-    expect(auditEntries[0].metadata.event).toBe("ROLE_PERMISSIONS_UPDATED");
-    expect(auditEntries[0].beforeData).toEqual({ permissionIds: ["perm-old"] });
-    expect(auditEntries[0].afterData).toEqual({ permissionIds: ["perm-a", "perm-b"] });
+    expect(auditMetadataEvent(auditEntries[0].metadata)).toBe("ROLE_PERMISSIONS_UPDATED");
+    expect(auditJsonField(auditEntries[0].beforeData, {})).toEqual({ permissionIds: ["perm-old"] });
+    expect(auditJsonField(auditEntries[0].afterData, {})).toEqual({ permissionIds: ["perm-a", "perm-b"] });
   });
 });
