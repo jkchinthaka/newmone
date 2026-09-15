@@ -22,7 +22,8 @@ import {
   updateAssetDomain,
   type AssetCategoryMaster,
   type AssetDomain,
-  type AssetTypeMaster
+  type AssetTypeMaster,
+  type DomainProfileSummary
 } from "@/lib/asset-taxonomy-api";
 
 export default function AssetMastersAdminPage() {
@@ -79,6 +80,9 @@ export default function AssetMastersAdminPage() {
     return <ErrorState title="Access denied" description="Admin role required for asset masters." />;
   }
 
+  const selectedDomain = domains.find((d) => d.id === selectedDomainId) ?? null;
+  const profile: DomainProfileSummary | null = selectedDomain?.resolvedProfile ?? null;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <PageBreadcrumbs />
@@ -111,6 +115,55 @@ export default function AssetMastersAdminPage() {
         <div className="flex items-center gap-2 text-slate-500">
           <Loader2 className="animate-spin" size={16} /> Loading masters…
         </div>
+      ) : null}
+
+      {/* Phase 11: Domain profile summary panel */}
+      {profile && selectedDomain ? (
+        <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <h2 className="mb-2 text-sm font-semibold text-blue-800">
+            Domain Profile — {selectedDomain.name}
+          </h2>
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
+                KPI Keys
+              </span>
+              <span className="text-slate-700">{profile.kpiKeys.join(", ") || "—"}</span>
+            </div>
+            <div>
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
+                Downtime Applicable
+              </span>
+              <span className="text-slate-700">
+                {profile.downtimeApplicableDefault ? "Yes" : "No"}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
+                Location-only Work
+              </span>
+              <span className="text-slate-700">
+                {profile.allowsLocationOnlyWork ? "Allowed" : "Asset required"}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
+                Meters / Calibration
+              </span>
+              <span className="text-slate-700">
+                {[
+                  profile.metersApplicableDefault ? "Meters" : null,
+                  profile.calibrationApplicableDefault ? "Calibration" : null
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "—"}
+              </span>
+            </div>
+          </div>
+          {profile.scopeNotes ? (
+            <p className="mt-2 text-xs text-slate-600 italic">{profile.scopeNotes}</p>
+          ) : null}
+        </section>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -294,3 +347,5 @@ export default function AssetMastersAdminPage() {
     </div>
   );
 }
+
+

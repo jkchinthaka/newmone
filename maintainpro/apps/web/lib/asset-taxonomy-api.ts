@@ -7,6 +7,8 @@ export type AssetDomain = {
   description?: string | null;
   sortOrder: number;
   isActive: boolean;
+  profile?: Record<string, unknown> | null;
+  resolvedProfile?: DomainProfileSummary | null;
   _count?: { categories: number; assets: number };
 };
 
@@ -33,6 +35,23 @@ export type AssetTypeMaster = {
     domainId: string;
     domain?: { id: string; code: string; name: string };
   };
+};
+
+/** Subset of DomainProfileDefaults exposed in web types (Phase 11) */
+export type DomainProfileSummary = {
+  code: string;
+  label: string;
+  iconHint?: string;
+  allowsLocationOnlyWork: boolean;
+  downtimeApplicableDefault: boolean;
+  metersApplicableDefault: boolean;
+  calibrationApplicableDefault: boolean;
+  kpiKeys: string[];
+  suggestedComplianceTypes: string[];
+  vendorServiceCategories: string[];
+  requiredClosureFields: string[];
+  scopeNotes?: string;
+  enabledByDefault: boolean;
 };
 
 function unwrap<T>(payload: unknown): T {
@@ -101,4 +120,24 @@ export async function createAssetType(body: {
 }) {
   const res = await apiClient.post("/asset-taxonomy/types", body);
   return unwrap<AssetTypeMaster>(res.data);
+}
+
+// ── Phase 11: Domain Profile helpers ────────────────────────────────────────
+
+export async function listDomainProfiles() {
+  const res = await apiClient.get("/asset-taxonomy/domain-profiles");
+  return unwrap<{ items: DomainProfileSummary[] }>(res.data);
+}
+
+export async function getDomainProfile(code: string) {
+  const res = await apiClient.get(`/asset-taxonomy/domain-profiles/${code}`);
+  return unwrap<DomainProfileSummary>(res.data);
+}
+
+export async function updateDomainProfile(
+  domainId: string,
+  partial: Partial<DomainProfileSummary>
+) {
+  const res = await apiClient.patch(`/asset-taxonomy/domains/${domainId}/profile`, partial);
+  return unwrap<AssetDomain>(res.data);
 }
