@@ -4,9 +4,9 @@
 **Canonical product branch (Phases 0–14):** `maintainpro/integration-v1`  
 **Canonical remote tip (Phase 14 product + master SoT):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`  
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
-**Primary database target (engineering):** Microsoft SQL Server — **cutover not production-validated**  
-**MongoDB:** retained as migration **source** (not deleted)  
-**Production readiness verdict:** READY FOR STAGING UAT (Mongo integration-v1); SQL Server staging UAT **pending live instance**  
+**Primary database target (engineering):** Microsoft SQL Server — **live rehearsal completed on disposable `MaintainProDev`; cutover not production-validated**  
+**MongoDB:** retained as migration **source** (not deleted; fixture + production paths preserved)  
+**Production readiness verdict:** READY FOR STAGING UAT (Mongo integration-v1); SQL Server staging UAT **READY TO START** (disposable rehearsal PASS; production dump + HTTP UAT still required)  
 **Main merge recommendation:** NO
 
 > **If Cursor chat context is lost, read this file FIRST before any further implementation.**  
@@ -16,23 +16,22 @@
 
 ## 15. Current Next Action
 
-**Current canonical phase:** Phase 15 engineering on `maintainpro/phase-15-sqlserver-migration` (schema + tooling complete; live SQL apply pending)
+**Current canonical phase:** Phase 15A complete on `maintainpro/phase-15-sqlserver-migration` (live disposable SQL validation + migration rehearsal)
 
 **Next required action:**
 
-1. Provision SQL Server + create `MaintainProDev`
-2. Set `DATABASE_URL=sqlserver://...` and run `npm run db:migrate:deploy`
-3. Dry-run then `--apply` `scripts/migrate-mongo-to-sqlserver.ts` on disposable DB
-4. Fill `docs/SQLSERVER_DATA_RECONCILIATION.md` counts; run backup/restore drill per `docs/SQLSERVER_BACKUP_RESTORE_RUNBOOK.md`
-5. Staging UAT on SQL Server; keep Mongo snapshot frozen for rollback
-6. Do **NOT** production cutover or merge to `main` without sign-off
+1. Run SQL Server **staging UAT** against a non-production staging instance with a real Mongo snapshot (not only the fixture)
+2. Complete HTTP login / full workflow smoke with production-like bcrypt credentials
+3. Operator sign-off on reconciliation + backup/restore against staging
+4. Keep Mongo snapshot frozen for rollback until cutover acceptance
+5. Do **NOT** production cutover or merge to `main` without sign-off
 
 **Do NOT start another product phase automatically.**  
 **Do NOT merge to `main` automatically.**
 
 **Phase 15 branch:** `maintainpro/phase-15-sqlserver-migration`  
-**Phase 15 final remote tip:** `c9ce0b6c0875760b07b84fb5da86603270f12a03`  
-**Phase 15 source HEAD:** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
+**Phase 15A baseline remote tip:** `0a6a96d98eee8e6a84a08ab6222eddf17b05a479`  
+**Phase 15 source HEAD (product):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
 
 ---
 
@@ -249,7 +248,7 @@ Do not merge to `main` until final CI/UAT/readiness checks pass.
 | 12 | Admin / Governance | `maintainpro/integration-v1` | `3694173d…` | `15e5f67a60586543da453a82533a7b559b9072be` | COMPLETE | 186 / 1507 | Historical ref `df16071…` |
 | 13 | UX / KPI / Reports | `maintainpro/integration-v1` | `15e5f67a…` | `dacae29be806ed627babfb485f139f199828ef6f` | COMPLETE | 187 / 1603 | Historical ref `4a8499c…` |
 | 14 | Production Hardening | `maintainpro/integration-v1` | `dacae29b…` | `520189e35fc56688e33125e2d9f24d739b60b548` | COMPLETE | 189 / 1684 | Historical ref `ce38e89…`; READY FOR STAGING UAT |
-| 15 | MongoDB → SQL Server | `maintainpro/phase-15-sqlserver-migration` | `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1` | `c9ce0b6c0875760b07b84fb5da86603270f12a03` | ENGINEERING COMPLETE | 190 suites / 1706 tests; schema validate PASS | Live SQL apply / backup-restore NOT EXECUTED |
+| 15 | MongoDB → SQL Server | `maintainpro/phase-15-sqlserver-migration` | `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1` | `0a6a96d98eee8e6a84a08ab6222eddf17b05a479` (+15A commits) | 15A REHEARSAL PASS | 191 suites / 1713 tests; migrate deploy + apply + restore PASS | Staging UAT next; prod cutover NO |
 
 ---
 
@@ -584,50 +583,57 @@ Operator staging UAT + restore drill + Bileeta validation + migration dry-run �
 * Source branch: `maintainpro/integration-v1`
 * Source SHA: `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`
 * Phase branch: `maintainpro/phase-15-sqlserver-migration`
+* Phase 15A baseline remote tip: `0a6a96d98eee8e6a84a08ab6222eddf17b05a479`
 * Prisma: `5.22.0` (no major upgrade)
 
-#### Completed (engineering)
+#### Completed (engineering + Phase 15A live rehearsal)
 * Full Mongo compatibility audit
 * Schema converted to `provider = "sqlserver"`
 * ObjectId/`_id`/`auto()` removed; `NVarChar(36)` + `cuid()`
-* RolePermission, UserSkill, and related junctions
-* Json + scalar lists → `NVarChar(Max)` JSON text (Prisma 5 SQL Server has no Json/enums)
+* RolePermission, UserSkill, and related junctions with compound upserts
+* Json + scalar lists → `NVarChar(Max)` JSON text
 * Enums → String + `prisma-enums.ts` client shim
 * All FK cascades softened to NoAction
 * Selected money fields → `Decimal(18,2)`
-* Initial migration SQL reviewed (`20260915120000_phase15_sqlserver_init`)
-* `migrate-mongo-to-sqlserver.ts` (dry-run default)
-* App adaptations: RolePermission, insensitive removal, SQL backup ping, env provider
-* Runbooks: migration, reconciliation, backup/restore, cutover rollback
+* Initial migration deployed to disposable `MaintainProDev` (185 tables / 379 FKs / 1011 indexes)
+* Pipeline hardened: ObjectId/Date/Decimal/JSON/junction/collection mapping + dry-run quality gate
+* Dry-run / apply / second-apply idempotency: `criticalFailures=0`
+* Reconciliation filled: `docs/SQLSERVER_DATA_RECONCILIATION.md`
+* Backup → restore to `MaintainProDev_Drill` executed (marker proof)
+* Prisma SQL data-plane smoke: 17/17 PASS
+* Jest: 191 suites passed / 1713 tests passed (10 skipped)
 
 #### Database
 * Models added: RolePermission, UserSkill, JobCodeRequiredPart, PmPlanRequiredPart, TraceabilitySprayLink, VendorContractAsset, VendorContractSite
 * Legacy PostgreSQL migrations archived under `prisma/migrations_legacy_postgresql/`
 * Mongo source **not** deleted
+* Disposable SQL: `MaintainProDev` + drill restore DB; app login `maintainpro_app` (credentials local only)
 
 #### Tests / gates
-* `prisma validate` PASS (with sqlserver URL)
-* `prisma generate` PASS + enum patch
-* Live `migrate deploy` / data apply / backup restore: **NOT EXECUTED** (no SQL Server/Docker on host)
+* `prisma validate` / `generate` / `migrate deploy` PASS on SQL Server 2022 Developer
+* Live data apply + idempotency + backup/restore: **EXECUTED** (fixture Mongo → disposable SQL)
+* HTTP full-workflow login smoke: deferred (fixture passwords ≠ bcrypt) — required on staging UAT
 
-#### Known Limitations
-* SQL Server instance required for apply + UAT
-* Full API typecheck/regression still has Decimal/enum-cast follow-ups
-* Production cutover not performed
+#### Known Limitations / Blockers for cutover
+* Staging UAT with real Mongo snapshot not yet run
+* Full HTTP RBAC role matrix against SQL not yet signed off
+* Production cutover not performed; Mongo remains rollback source
 
 #### Git
 * Branch: `maintainpro/phase-15-sqlserver-migration`
-* Final remote tip: `c9ce0b6c0875760b07b84fb5da86603270f12a03`
 * Push: `origin/maintainpro/phase-15-sqlserver-migration`
 
 #### Readiness
-* SQL Server engineering readiness: YES (schema + tooling + regression)
-* Ready for Staging UAT on SQL Server: NO until instance + migrate apply + restore drill
+* Schema conversion: COMPLETE
+* Migration rehearsal (disposable): PASS
+* Reconciliation (fixture): PASS
+* Backup/restore drill: PASS (executed)
+* SQL Server staging UAT readiness: YES (start staging UAT)
 * Ready for Production Cutover: NO
 * Main merge: NO
 
 #### Next Phase
-Provision SQL Server → migrate deploy → dry-run/apply data → reconcile → SQL UAT. Do not auto-start Phase 16.
+SQL Server staging UAT + real snapshot reconciliation → cutover decision. Do not auto-start Phase 16.
 
 ---
 
