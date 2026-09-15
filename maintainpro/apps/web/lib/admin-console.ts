@@ -43,6 +43,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/organization"
     },
     {
+      id: "asset-masters",
+      title: "Asset Masters",
+      description: "Domains, categories, types, and attribute definitions for the universal asset registry.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/admin/asset-masters"
+    },
+    {
       id: "departments",
       title: "Departments",
       description: "Business department master (separate from physical locations).",
@@ -52,8 +60,8 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "assets-master",
-      title: "Assets & Master Data",
-      description: "Assets, categories, bulk import, and related masters.",
+      title: "Assets registry",
+      description: "Universal asset list, QR, bulk import, and lifecycle.",
       status: "available",
       statusLabel: "Assets",
       href: "/assets"
