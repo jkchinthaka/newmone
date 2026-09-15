@@ -449,7 +449,9 @@ export class NotificationsService {
     };
 
     const validTypes = Object.values(NotificationType);
-    merged.mutedTypes = (merged.mutedTypes ?? []).filter((type) => validTypes.includes(type));
+    merged.mutedTypes = (merged.mutedTypes ?? []).filter((type) =>
+      (validTypes as readonly string[]).includes(type as string)
+    );
 
     return merged;
   }
@@ -460,7 +462,7 @@ export class NotificationsService {
       ...current,
       ...data,
       mutedTypes: (data.mutedTypes ?? current.mutedTypes).filter((type) =>
-        Object.values(NotificationType).includes(type)
+        (Object.values(NotificationType) as readonly string[]).includes(type as string)
       )
     };
 
@@ -844,9 +846,9 @@ export class NotificationsService {
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    const valid = new Set(Object.values(NotificationType));
+    const valid = new Set<string>(Object.values(NotificationType) as string[]);
 
-    return values.filter((item): item is NotificationType => valid.has(item as NotificationType));
+    return values.filter((item): item is NotificationType => valid.has(item));
   }
 
   private parsePriorities(raw?: string) {
@@ -858,11 +860,9 @@ export class NotificationsService {
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    const valid = new Set(Object.values(NotificationPriority));
+    const valid = new Set<string>(Object.values(NotificationPriority) as string[]);
 
-    return values.filter(
-      (item): item is NotificationPriority => valid.has(item as NotificationPriority)
-    );
+    return values.filter((item): item is NotificationPriority => valid.has(item));
   }
 
   private defaultPriorityForType(type: NotificationType): NotificationPriority {

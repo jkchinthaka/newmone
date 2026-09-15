@@ -15,6 +15,7 @@ import {
   WorkOrderExecutionMode
 } from "@prisma/client";
 
+import { stringArrayToText } from "../../common/utils/json-text";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -387,12 +388,16 @@ export class MaintenanceSupplyService {
           coverage: input.coverage,
           slaSummary: input.slaSummary,
           visitCount: input.visitCount,
-          assetIds: input.assetIds ?? [],
-          siteIds: input.siteIds ?? [],
+          contractAssets: {
+            create: (input.assetIds ?? []).map((assetId) => ({ assetId }))
+          },
+          contractSites: {
+            create: (input.siteIds ?? []).map((siteId) => ({ siteId }))
+          },
           startDate: input.startDate,
           endDate: input.endDate,
           valueReference: input.valueReference,
-          documentUrls: input.documentUrls ?? [],
+          documentUrls: stringArrayToText(input.documentUrls ?? []),
           reminderDays,
           complianceRequirementId: compliance.id,
           notes: input.notes

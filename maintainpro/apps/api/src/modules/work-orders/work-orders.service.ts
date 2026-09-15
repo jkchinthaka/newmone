@@ -21,6 +21,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { stringArrayToText } from "../../common/utils/json-text";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
   assertTenantEntitiesExist,
@@ -882,8 +883,8 @@ export class WorkOrdersService {
           canReceiveWorkOrders: true,
           canLogin: true,
           active: true,
-          skills: [],
-          workCategories: ["CORRECTIVE"]
+          skills: stringArrayToText([]),
+          workCategories: stringArrayToText(["CORRECTIVE"])
         }
       });
     }

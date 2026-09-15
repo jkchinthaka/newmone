@@ -1,6 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
 import { ApprovalProcessType, ApprovalTrigger, Priority, WorkOrderType } from "@prisma/client";
 
+import { toStringArray } from "../../common/utils/json-text";
+
 /** Structured condition fields — TS-only (not Prisma model columns; Json on ApprovalRule.conditions). */
 export enum ApprovalConditionField {
   PRIORITY = "PRIORITY",
@@ -145,8 +147,8 @@ export function ruleScopeMatches(
     siteId?: string | null;
     departmentId?: string | null;
     domainId?: string | null;
-    priorityScope?: string[];
-    workTypeScope?: string[];
+    priorityScope?: string[] | string | null;
+    workTypeScope?: string[] | string | null;
     amountThreshold?: number | null;
     amountField?: string | null;
   },
@@ -155,11 +157,13 @@ export function ruleScopeMatches(
   if (rule.siteId && rule.siteId !== ctx.siteId) return false;
   if (rule.departmentId && rule.departmentId !== ctx.departmentId) return false;
   if (rule.domainId && rule.domainId !== ctx.domainId) return false;
-  if (rule.priorityScope?.length) {
-    if (!ctx.priority || !rule.priorityScope.includes(String(ctx.priority))) return false;
+  const priorityScope = toStringArray(rule.priorityScope);
+  const workTypeScope = toStringArray(rule.workTypeScope);
+  if (priorityScope.length) {
+    if (!ctx.priority || !priorityScope.includes(String(ctx.priority))) return false;
   }
-  if (rule.workTypeScope?.length) {
-    if (!ctx.workType || !rule.workTypeScope.includes(String(ctx.workType))) return false;
+  if (workTypeScope.length) {
+    if (!ctx.workType || !workTypeScope.includes(String(ctx.workType))) return false;
   }
   if (rule.amountThreshold != null && Number.isFinite(rule.amountThreshold)) {
     const field = (rule.amountField || "estimatedCost").toLowerCase();

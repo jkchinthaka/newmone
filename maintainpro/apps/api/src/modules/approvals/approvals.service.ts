@@ -17,6 +17,7 @@ import {
   RoleName
 } from "@prisma/client";
 
+import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import {
@@ -36,7 +37,7 @@ type Actor = {
 
 export type RuleLevelInput = {
   level: number;
-  approverRole?: RoleName | null;
+  approverRole?: RoleName | string | null;
   approverUserId?: string | null;
   backupUserId?: string | null;
 };
@@ -178,8 +179,8 @@ export class ApprovalsService {
         siteId: input.siteId ?? undefined,
         departmentId: input.departmentId ?? undefined,
         domainId: input.domainId ?? undefined,
-        priorityScope: input.priorityScope ?? [],
-        workTypeScope: input.workTypeScope ?? [],
+        priorityScope: stringArrayToText(input.priorityScope ?? []),
+        workTypeScope: stringArrayToText(input.workTypeScope ?? []),
         amountThreshold: input.amountThreshold ?? undefined,
         amountField: input.amountField ?? undefined,
         slaHours: input.slaHours ?? undefined,
@@ -260,8 +261,8 @@ export class ApprovalsService {
           siteId: input.siteId ?? undefined,
           departmentId: input.departmentId ?? undefined,
           domainId: input.domainId ?? undefined,
-          priorityScope: input.priorityScope ?? [],
-          workTypeScope: input.workTypeScope ?? [],
+          priorityScope: stringArrayToText(input.priorityScope ?? []),
+          workTypeScope: stringArrayToText(input.workTypeScope ?? []),
           amountThreshold: input.amountThreshold ?? undefined,
           amountField: input.amountField ?? undefined,
           slaHours: input.slaHours ?? undefined,
@@ -341,7 +342,7 @@ export class ApprovalsService {
     workTypeScope?: string[];
     amountThreshold?: number | null;
     amountField?: string | null;
-    levels?: Array<{ level: number; approverRole?: RoleName | null; approverUserId?: string | null }>;
+    levels?: Array<{ level: number; approverRole?: RoleName | string | null; approverUserId?: string | null }>;
     effectiveFrom?: Date | string | null;
     conditions?: unknown;
   }) {
@@ -352,8 +353,8 @@ export class ApprovalsService {
         siteId: rule.siteId ?? null,
         departmentId: rule.departmentId ?? null,
         domainId: rule.domainId ?? null,
-        priorityScope: rule.priorityScope ?? [],
-        workTypeScope: rule.workTypeScope ?? [],
+        priorityScope: toStringArray(rule.priorityScope),
+        workTypeScope: toStringArray(rule.workTypeScope),
         amountThreshold: rule.amountThreshold ?? null,
         amountField: rule.amountField ?? null
       },
@@ -423,7 +424,7 @@ export class ApprovalsService {
       slaHours: number | null;
       levels: Array<{
         level: number;
-        approverRole: RoleName | null;
+        approverRole: RoleName | string | null;
         approverUserId: string | null;
         backupUserId: string | null;
       }>;
@@ -432,7 +433,7 @@ export class ApprovalsService {
   ): Promise<{
     levels: Array<{
       level: number;
-      approverRole: RoleName | null;
+      approverRole: RoleName | string | null;
       assignedApproverId: string | null;
       backupApproverId: string | null;
     }>;
@@ -440,7 +441,7 @@ export class ApprovalsService {
   }> {
     const resolved: Array<{
       level: number;
-      approverRole: RoleName | null;
+      approverRole: RoleName | string | null;
       assignedApproverId: string | null;
       backupApproverId: string | null;
     }> = [];
@@ -608,8 +609,8 @@ export class ApprovalsService {
       siteId: rule.siteId,
       departmentId: rule.departmentId,
       domainId: rule.domainId,
-      priorityScope: rule.priorityScope,
-      workTypeScope: rule.workTypeScope,
+      priorityScope: toStringArray(rule.priorityScope),
+      workTypeScope: toStringArray(rule.workTypeScope),
       slaHours: rule.slaHours,
       emergencyOverrideAllowed: rule.emergencyOverrideAllowed,
       levels: resolution.levels

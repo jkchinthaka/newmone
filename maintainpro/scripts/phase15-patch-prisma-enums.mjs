@@ -1,6 +1,9 @@
 /**
  * After `prisma generate`, inject Phase 15 TypeScript enums into the generated client
  * so existing `import { RoleName } from "@prisma/client"` keeps working.
+ *
+ * SQL Server stores former Prisma enums as strings — union types include `(string & {})`
+ * so DB reads and string literals assign without per-call-site casts.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -13,13 +16,17 @@ const clientDir = path.join(root, "node_modules", ".prisma", "client");
 const src = fs.readFileSync(enumsTs, "utf8");
 const enumNames = [...src.matchAll(/export enum (\w+)/g)].map((m) => m[1]);
 
-// Emit CommonJS enums module
+function parseEnumMembers(name) {
+  const body = src.match(new RegExp(`export enum ${name} \\{([^}]+)\\}`))?.[1] || "";
+  return [...body.matchAll(/(\w+)\s*=\s*"([^"]+)"/g)].map(([, k, v]) => [k, v]);
+}
+
+// Emit CommonJS const-object enums
 const jsLines = ["'use strict';", "/** Phase 15 enum shim — do not edit; regenerated */", ""];
 for (const name of enumNames) {
-  const body = src.match(new RegExp(`export enum ${name} \\{([^}]+)\\}`))?.[1] || "";
-  const members = [...body.matchAll(/(\w+)\s*=\s*"([^"]+)"/g)];
+  const members = parseEnumMembers(name);
   jsLines.push(`exports.${name} = {`);
-  for (const [, k, v] of members) {
+  for (const [k, v] of members) {
     jsLines.push(`  ${k}: "${v}",`);
   }
   jsLines.push(`};`);
@@ -27,16 +34,18 @@ for (const name of enumNames) {
 }
 fs.writeFileSync(path.join(clientDir, "maintainpro-enums.js"), jsLines.join("\n"));
 
-const dtsLines = ["/** Phase 15 enum shim */", ""];
+const dtsLines = ["/** Phase 15 enum shim — open string unions for SQL Server */", ""];
 for (const name of enumNames) {
-  const body = src.match(new RegExp(`export enum ${name} \\{([^}]+)\\}`))?.[1] || "";
-  const members = [...body.matchAll(/(\w+)\s*=\s*"([^"]+)"/g)];
-  dtsLines.push(`export declare enum ${name} {`);
-  for (const [, k, v] of members) {
-    dtsLines.push(`  ${k} = "${v}",`);
+  const members = parseEnumMembers(name);
+  dtsLines.push(`export declare const ${name}: {`);
+  for (const [k, v] of members) {
+    dtsLines.push(`  readonly ${k}: "${v}";`);
   }
-  dtsLines.push(`}`);
-  dtsLines.push("");
+  dtsLines.push(`};`);
+  dtsLines.push(
+    `export type ${name} = typeof ${name}[keyof typeof ${name}] | (string & {});`,
+    ""
+  );
 }
 fs.writeFileSync(path.join(clientDir, "maintainpro-enums.d.ts"), dtsLines.join("\n"));
 
@@ -64,4 +73,4 @@ for (const f of ["index.d.ts", "default.d.ts", "edge.d.ts"]) {
   patchFile(f, marker, "", appendDts);
 }
 
-console.log(`Patched Prisma client with ${enumNames.length} enums`);
+console.log(`Patched Prisma client with ${enumNames.length} open enum unions`);

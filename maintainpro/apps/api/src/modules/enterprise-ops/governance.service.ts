@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { toStringArray } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import {
@@ -166,8 +167,10 @@ export class GovernanceService {
       .map((employee) => {
         const skillMatch =
           keywords.length === 0 ||
-          employee.skills.some((skill) => keywords.some((keyword) => skill.toLowerCase().includes(keyword))) ||
-          employee.workCategories.some((category) =>
+          toStringArray(employee.skills).some((skill: string) =>
+            keywords.some((keyword) => skill.toLowerCase().includes(keyword))
+          ) ||
+          toStringArray(employee.workCategories).some((category: string) =>
             keywords.some((keyword) => category.toLowerCase().includes(keyword))
           );
         const onLeave = employee.employeeLeaveRequests.length > 0;

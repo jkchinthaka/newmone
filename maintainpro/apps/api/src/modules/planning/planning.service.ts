@@ -133,7 +133,9 @@ export class PlanningService {
         location: input.location,
         teamId: input.teamId,
         estimatedDurationMinutes: input.estimatedDurationMinutes,
-        requiredPartIds: input.requiredPartIds ?? [],
+        requiredParts: {
+          create: (input.requiredPartIds ?? []).map((sparePartId) => ({ sparePartId }))
+        },
         checklistTemplateId: input.checklistTemplateId,
         gracePeriodDays: input.gracePeriodDays ?? 0,
         siteId: input.siteId,

@@ -11,8 +11,10 @@ import {
   RoleName,
   TripStatus,
   VehicleMeterReadingType,
+  VehicleOwnershipType,
   VehicleServiceStatus,
   VehicleStatus,
+  VehicleType,
   WorkOrderStatus,
   WorkOrderType
 } from "@prisma/client";
@@ -120,7 +122,7 @@ export class VehiclesService {
         { make: { contains: q } },
         { assetTag: { contains: q } },
         ...(flex
-          ? [{ registrationNo: { contains: normalized as const } }]
+          ? [{ registrationNo: { contains: normalized } }]
           : [])
       ];
     }
@@ -177,7 +179,7 @@ export class VehiclesService {
         { vehicleModel: { contains: q } },
         { assetTag: { contains: q } },
         ...(normalized
-          ? [{ registrationNo: { contains: normalized as const } }]
+          ? [{ registrationNo: { contains: normalized } }]
           : [])
       ]
     };
@@ -459,10 +461,10 @@ export class VehiclesService {
     description?: string;
     location?: string;
     year: number;
-    type: "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
-    ownershipType?: "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
-    fuelType: "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
-    serviceStatus?: "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
+    type: VehicleType;
+    ownershipType?: VehicleOwnershipType;
+    fuelType: string;
+    serviceStatus?: VehicleServiceStatus;
     fuelCapacity?: number;
     currentMileage?: number;
     serviceIntervalDays?: number;

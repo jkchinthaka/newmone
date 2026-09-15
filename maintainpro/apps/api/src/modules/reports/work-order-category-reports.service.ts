@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma, WorkOrderStatus } from "@prisma/client";
+import { Prisma, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -30,7 +30,7 @@ export class WorkOrderCategoryReportsService {
     if (query.typeId) where.taxonomyTypeId = query.typeId;
     if (query.issueId) where.taxonomyIssueId = query.issueId;
     if (query.status && query.status !== "ALL") where.status = query.status as WorkOrderStatus;
-    if (query.priority && query.priority !== "ALL") where.priority = query.priority as Prisma.EnumPriorityFilter;
+    if (query.priority && query.priority !== "ALL") where.priority = query.priority as Priority;
     if (query.departmentId) where.asset = { departmentId: query.departmentId };
     if (query.branchId) where.assignees = { some: { employee: { branchName: query.branchId } } };
     if (query.dateFrom || query.dateTo) {

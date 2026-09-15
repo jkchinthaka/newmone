@@ -56,7 +56,7 @@ export interface ReportQuery {
 interface ReportActor {
   sub: string;
   email: string;
-  role: RoleName;
+  role: RoleName | string;
   permissions?: string[];
   tenantId?: string | null;
 }
@@ -1939,7 +1939,10 @@ export class ReportsService {
     };
     const andFilters: Array<Record<string, unknown>> = [];
 
-    if (query.status && Object.values(WorkOrderStatus).includes(query.status as WorkOrderStatus)) {
+    if (
+      query.status &&
+      (Object.values(WorkOrderStatus) as readonly string[]).includes(query.status)
+    ) {
       where.status = query.status;
     }
     if (query.userId) where.technicianId = query.userId;
@@ -1958,9 +1961,9 @@ export class ReportsService {
       const search = query.search.trim();
       andFilters.push({
         OR: [
-          { woNumber: { contains: search as const } },
-          { title: { contains: search as const } },
-          { description: { contains: search as const } }
+          { woNumber: { contains: search } },
+          { title: { contains: search } },
+          { description: { contains: search } }
         ]
       });
     }
@@ -1979,10 +1982,10 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { assetTag: { contains: search as const } },
-        { name: { contains: search as const } },
-        { location: { contains: search as const } },
-        { serialNumber: { contains: search as const } }
+        { assetTag: { contains: search } },
+        { name: { contains: search } },
+        { location: { contains: search } },
+        { serialNumber: { contains: search } }
       ];
     }
     return where;
@@ -1998,9 +2001,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { registrationNo: { contains: search as const } },
-        { vehicleModel: { contains: search as const } },
-        { make: { contains: search as const } }
+        { registrationNo: { contains: search } },
+        { vehicleModel: { contains: search } },
+        { make: { contains: search } }
       ];
     }
     return where;
@@ -2014,9 +2017,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { partNumber: { contains: search as const } },
-        { name: { contains: search as const } },
-        { category: { contains: search as const } }
+        { partNumber: { contains: search } },
+        { name: { contains: search } },
+        { category: { contains: search } }
       ];
     }
     return where;
@@ -2083,12 +2086,17 @@ export class ReportsService {
       createdAt: { gte: range.start, lte: range.end }
     };
     if (query.userId) where.actorId = query.userId;
-    if (query.status && Object.values(AuditAction).includes(query.status as AuditAction)) where.action = query.status;
+    if (
+      query.status &&
+      (Object.values(AuditAction) as readonly string[]).includes(query.status)
+    ) {
+      where.action = query.status;
+    }
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { entity: { contains: search as const } },
-        { entityId: { contains: search as const } }
+        { entity: { contains: search } },
+        { entityId: { contains: search } }
       ];
     }
     return where;
@@ -2102,9 +2110,9 @@ export class ReportsService {
     if (query.search?.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { firstName: { contains: search as const } },
-        { lastName: { contains: search as const } },
-        { email: { contains: search as const } }
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } }
       ];
     }
     return where;
@@ -2202,8 +2210,9 @@ export class ReportsService {
           ...(tenantId ? { tenantId } : {}),
           date: { gte: range.start, lte: range.end },
           category:
-            query.category && Object.values(ExpenseCategory).includes(query.category as ExpenseCategory)
-              ? (query.category as ExpenseCategory)
+            query.category &&
+            (Object.values(ExpenseCategory) as readonly string[]).includes(query.category)
+              ? query.category
               : undefined
         })
       })

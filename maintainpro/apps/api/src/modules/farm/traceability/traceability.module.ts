@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
 
+import { stringArrayToText } from "../../../common/utils/json-text";
 import { Public } from "../../../common/decorators/public.decorator";
 import { Roles } from "../../../common/decorators/roles.decorator";
 import { SkipTenantContext } from "../../../common/decorators/skip-tenant-context.decorator";
@@ -105,13 +106,16 @@ export class TraceabilityService {
         cropCycleId: input.cropCycleId,
         fieldId: input.fieldId,
         harvestRecordId: input.harvestRecordId,
-        sprayLogIds: input.sprayLogIds ?? [],
+        sprayLinks: {
+          create: (input.sprayLogIds ?? []).map((sprayLogId) => ({ sprayLogId }))
+        },
         soilTestId: input.soilTestId,
         harvestDate: new Date(input.harvestDate),
         buyerName: input.buyerName,
-        certifications: input.certifications ?? [],
+        certifications: stringArrayToText(input.certifications ?? []),
         publicUrl
-      }
+      },
+      include: { sprayLinks: true }
     });
   }
 
@@ -123,7 +127,10 @@ export class TraceabilityService {
    * public projection can never traverse into another tenant's data.
    */
   async public(batchCode: string) {
-    const record = await this.prisma.traceabilityRecord.findFirst({ where: { batchCode } });
+    const record = await this.prisma.traceabilityRecord.findFirst({
+      where: { batchCode },
+      include: { sprayLinks: true }
+    });
     if (!record) throw new NotFoundException("Batch not found");
 
     const recordTenantId = record.tenantId;
@@ -148,9 +155,12 @@ export class TraceabilityService {
             select: { ph: true, organicMatterPct: true, recommendation: true }
           })
         : Promise.resolve(null),
-      record.sprayLogIds.length
+      record.sprayLinks.length
         ? this.prisma.sprayLog.findMany({
-            where: { id: { in: record.sprayLogIds }, tenantId: recordTenantId },
+            where: {
+              id: { in: record.sprayLinks.map((link) => link.sprayLogId) },
+              tenantId: recordTenantId
+            },
             select: { date: true, chemicalName: true, chemicalType: true, priorHarvestDays: true, complianceFlag: true }
           })
         : Promise.resolve([])

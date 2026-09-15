@@ -755,9 +755,13 @@ export class CleaningService {
       include: { checklist: true, location: true, cleaner: { select: PUBLIC_USER_SUMMARY_SELECT } }
     });
 
+    const visitWithRelations = updated as typeof updated & {
+      cleaner: { firstName: string; lastName: string };
+      location: { name: string };
+    };
     await this.notifySupervisors(updated.tenantId, {
       title: "Cleaning visit submitted",
-      message: `${updated.cleaner.firstName} ${updated.cleaner.lastName} submitted a visit at ${updated.location.name}`,
+      message: `${visitWithRelations.cleaner.firstName} ${visitWithRelations.cleaner.lastName} submitted a visit at ${visitWithRelations.location.name}`,
       type: NotificationType.CLEANING_VISIT_SUBMITTED,
       referenceId: updated.id,
       referenceType: "CleaningVisit"
@@ -2402,7 +2406,7 @@ export class CleaningService {
       return false;
     }
 
-    return Object.values(CleaningVisitStatus).includes(value as CleaningVisitStatus);
+    return (Object.values(CleaningVisitStatus) as readonly string[]).includes(value);
   }
 
   private isIssueStatus(value: unknown): value is FacilityIssueStatus {
@@ -2410,7 +2414,7 @@ export class CleaningService {
       return false;
     }
 
-    return Object.values(FacilityIssueStatus).includes(value as FacilityIssueStatus);
+    return (Object.values(FacilityIssueStatus) as readonly string[]).includes(value);
   }
 
   private async recordAudit(input: {

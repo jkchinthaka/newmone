@@ -17,7 +17,9 @@ import { randomBytes } from "node:crypto";
 import { requestContext } from "../../common/context/request-context";
 import { createPaginationMeta } from "../../common/utils/pagination-meta";
 import { clampPage, clampPageSize } from "../../common/utils/pagination.util";
+import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { syncUserSkills, syncUserSkillsTx } from "../../common/utils/user-skills.util";
 import { isAssignableWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import {
@@ -167,8 +169,8 @@ export class PeopleService {
       branchName: employee!.branchName,
       departmentId: employee!.departmentId,
       designation: employee!.designation,
-      skills: employee!.skills,
-      workCategories: employee!.workCategories ?? [],
+      skills: toStringArray(employee!.skills),
+      workCategories: toStringArray(employee!.workCategories),
       shift: employee!.shift,
       availabilityStatus: employee!.availabilityStatus,
       canReceiveWorkOrders: employee!.canReceiveWorkOrders,
@@ -372,7 +374,6 @@ export class PeopleService {
             roleId: role.id,
             departmentId: dto.departmentId || null,
             designation,
-            skills: dto.skills ?? [],
             dailyCapacityHours: dto.dailyCapacityHours ?? 8,
             branchScope: dto.branchScope?.trim() || dto.branchName?.trim() || null,
             mustChangePassword,
@@ -396,6 +397,7 @@ export class PeopleService {
 
         userId = user.id;
         linkedUserId = user.id;
+        await syncUserSkillsTx(tx, user.id, dto.skills ?? []);
 
         await writeAuditTrail(this.prisma, {
           entity: "User",
@@ -416,8 +418,8 @@ export class PeopleService {
           branchName: dto.branchName?.trim() || null,
           departmentId: dto.departmentId || null,
           designation,
-          skills: dto.skills ?? [],
-          workCategories: dto.workCategories ?? [],
+          skills: stringArrayToText(dto.skills ?? []),
+          workCategories: stringArrayToText(dto.workCategories ?? []),
           shift: dto.shift?.trim() || null,
           availabilityStatus: parseAvailability(dto.availabilityStatus),
           canReceiveWorkOrders: dto.canReceiveWorkOrders ?? isTechnician,
@@ -642,8 +644,10 @@ export class PeopleService {
     const updated = await this.prisma.employee.update({
       where: { id: employeeId },
       data: {
-        ...(dto.skills !== undefined ? { skills: dto.skills } : {}),
-        ...(dto.workCategories !== undefined ? { workCategories: dto.workCategories } : {}),
+        ...(dto.skills !== undefined ? { skills: stringArrayToText(dto.skills) } : {}),
+        ...(dto.workCategories !== undefined
+          ? { workCategories: stringArrayToText(dto.workCategories) }
+          : {}),
         ...(dto.dailyCapacityHours !== undefined ? { dailyCapacityHours: dto.dailyCapacityHours } : {}),
         ...(dto.shift !== undefined ? { shift: dto.shift.trim() || null } : {}),
         ...(dto.canReceiveWorkOrders !== undefined ? { canReceiveWorkOrders: dto.canReceiveWorkOrders } : {}),
@@ -713,7 +717,6 @@ export class PeopleService {
         roleId: role.id,
         departmentId: dto.departmentId ?? employee.departmentId,
         designation: employee.designation,
-        skills: employee.skills,
         dailyCapacityHours: employee.dailyCapacityHours,
         branchScope: dto.branchScope?.trim() || employee.branchName,
         mustChangePassword,
@@ -721,6 +724,7 @@ export class PeopleService {
         isActive: true
       }
     });
+    await syncUserSkills(this.prisma, user.id, toStringArray(employee.skills));
 
     if (tenantId) {
       await this.prisma.tenantMembership.create({

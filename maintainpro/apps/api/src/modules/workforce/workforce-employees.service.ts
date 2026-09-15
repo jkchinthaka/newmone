@@ -11,6 +11,8 @@ import {
   isAssignableWorkforceDesignation,
   matchesWorkforceDesignation
 } from "../../common/utils/workforce-designation";
+import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
+import { syncUserSkills } from "../../common/utils/user-skills.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { CreateWorkforceEmployeeDto, UpdateWorkforceEmployeeDto } from "./dto/workforce-employee.dto";
 
@@ -242,10 +244,10 @@ export class WorkforceEmployeesService {
           departmentId: input.departmentId || null,
           designation,
           dailyCapacityHours,
-          skills: input.skills ?? [],
           isActive: input.active !== false
         }
       });
+      await syncUserSkills(this.prisma, user.id, input.skills ?? []);
 
       if (tenantId) {
         await this.prisma.tenantMembership.create({
@@ -274,7 +276,7 @@ export class WorkforceEmployeesService {
         branchName: input.branchName?.trim() || null,
         departmentId: input.departmentId || null,
         designation,
-        skills: input.skills ?? [],
+        skills: stringArrayToText(input.skills ?? []),
         dailyCapacityHours,
         active: input.active !== false,
         canLogin,
@@ -326,7 +328,7 @@ export class WorkforceEmployeesService {
     if (input.phone !== undefined) data.phone = input.phone.trim() || null;
     if (input.branchName !== undefined) data.branchName = input.branchName.trim() || null;
     if (input.departmentId !== undefined) data.departmentId = input.departmentId || null;
-    if (input.skills !== undefined) data.skills = input.skills;
+    if (input.skills !== undefined) data.skills = stringArrayToText(input.skills);
     if (input.active !== undefined) data.active = input.active;
 
     const nextCanLogin = input.canLogin !== undefined ? input.canLogin : existing.canLogin;
@@ -380,10 +382,12 @@ export class WorkforceEmployeesService {
           designation,
           dailyCapacityHours:
             (data.dailyCapacityHours as number | undefined) ?? existing.dailyCapacityHours,
-          skills: (data.skills as string[] | undefined) ?? existing.skills,
           isActive: (data.active as boolean | undefined) ?? existing.active
         }
       });
+      const nextSkills =
+        input.skills ?? toStringArray((data.skills as string | undefined) ?? existing.skills);
+      await syncUserSkills(this.prisma, user.id, nextSkills);
 
       if (tenantId) {
         await this.prisma.tenantMembership.create({
