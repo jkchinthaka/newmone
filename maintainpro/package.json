@@ -26,6 +26,7 @@
     "render:deploy:dry": "node scripts/render-deploy.mjs --dry-run",
     "deploy:check": "npm run typecheck && npm run render:build && npm run vercel:build",
     "audit:tenant": "node scripts/audit-tenant-queries.mjs",
+    "test:mp003-two-tenant-acceptance": "node scripts/mp003-two-tenant-acceptance.mjs",
     "audit:rbac": "node scripts/audit-rbac.mjs --check",
     "audit:rbac:report": "node scripts/audit-rbac.mjs",
     "lint": "npm run lint --workspace @maintainpro/api && npm run lint --workspace @maintainpro/web",
