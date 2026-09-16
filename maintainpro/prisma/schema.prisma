@@ -653,9 +653,17 @@ model Department {
 
 model Asset {
   id               String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String?     @db.NVarChar(36)
-  tenant           Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetTag         String      @unique
+  /// MP-003: required, not optional — every Asset belongs to exactly one tenant (no code
+  /// path ever created one with tenantId: null; 0 null-tenant rows found in preflight).
+  /// Required so the @@unique([tenantId, assetTag]) below is airtight: SQL Server treats
+  /// NULL as never-equal-to-NULL in unique constraints, so a nullable tenantId would let
+  /// multiple untenanted rows share the same assetTag without a constraint violation.
+  tenantId         String      @db.NVarChar(36)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped, not platform-global — see @@unique([tenantId, assetTag]) below.
+  /// Bounded: a composite index key of unbounded NVARCHAR(1000) + tenantId would itself risk
+  /// the SQL Server 1700-byte nonclustered index key limit (see the Vehicle fields above).
+  assetTag         String      @db.NVarChar(64)
   name             String
   description      String?
   /// Legacy fixed enum — retained for compatibility; prefer categoryMasterId
@@ -732,6 +740,7 @@ model Asset {
   inspections          Inspection[]
   calibrationRecords   CalibrationRecord[]
 
+  @@unique([tenantId, assetTag])
   @@index([tenantId])
   @@index([status])
   @@index([category])
@@ -865,11 +874,14 @@ model AssetLocationHistory {
 
 model Vehicle {
   id                        String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId                  String?     @db.NVarChar(36)
-  tenant                    Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: required — see Asset.tenantId comment for the same rationale (0 null-tenant
+  /// rows in preflight; required for @@unique([tenantId, registrationNo]) to be airtight).
+  tenantId                  String      @db.NVarChar(36)
+  tenant                    Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Bounded to real-world plate lengths (SQL Server nonclustered index keys cap at 1700 bytes;
   /// unbounded nvarchar(1000) here would be 2000 bytes and risk "index entry too long" at insert time).
-  registrationNo            String      @unique @db.NVarChar(64)
+  /// MP-003: tenant-scoped, not platform-global — see @@unique([tenantId, registrationNo]) below.
+  registrationNo            String      @db.NVarChar(64)
   assetTag                  String?     @db.NVarChar(64)
   /// Phase 4: Vehicle becomes Asset extension — optional link; full Fleet in Phase 10
   /// `@unique` is required here by Prisma itself (a one-to-one `@relation` FK must be unique) —
@@ -894,8 +906,17 @@ model Vehicle {
   serviceStatus             String      @default("") @db.NVarChar(64)
   color                     String?
   /// VINs are 17 chars under ISO 3779 (older/legacy formats can be shorter); 32 leaves slack for
-  /// legacy data. Not `@unique` for the same nullable-unique reason as assetId above — see the
-  /// migration-only filtered index in 20260916120000_sqlserver_filtered_unique_indexes.
+  /// legacy data.
+  /// MP-003 (2026-09-17): TENANT-SCOPED, not platform-global. Reverses the 2026-09-16 session's
+  /// framing of VIN as "a real-world globally-unique identifier" — that was an assumption about
+  /// the physical world, not evidence from this codebase. The only place VIN uniqueness is
+  /// actually validated is vehicle-master-import.ts's bulk-import duplicate check, which builds
+  /// its "existing VIN" set exclusively from `prisma.vehicle.findMany({ where: { tenantId } })` —
+  /// i.e. the application has only ever enforced VIN uniqueness per tenant, never across tenants.
+  /// No other code path (no DTO field, no direct CRUD validation) touches VIN at all. Enforced via
+  /// a migration-only filtered composite index (Prisma has no partial-unique syntax, prisma#3387):
+  /// `CREATE UNIQUE NONCLUSTERED INDEX ... ON Vehicle(tenantId, vin) WHERE vin IS NOT NULL` — see
+  /// 20260917120000_mp003_tenant_scoped_business_keys.
   vin                       String?     @db.NVarChar(32)
   engineNo                  String?
   vendorName                String?
@@ -954,6 +975,7 @@ model Vehicle {
   batteries            VehicleBattery[]
   assignments          VehicleAssignment[]
 
+  @@unique([tenantId, registrationNo])
   @@index([tenantId])
   @@index([status])
   @@index([driverId])
@@ -1061,11 +1083,14 @@ model VehicleAssignment {
 
 model Driver {
   id                        String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId                  String?     @db.NVarChar(36)
-  tenant                    Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId                  String      @db.NVarChar(36)
+  tenant                    Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   userId                    String      @unique @db.NVarChar(36)
   user                      User        @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  licenseNumber             String      @unique
+  /// MP-003: tenant-scoped — see @@unique([tenantId, licenseNumber]) below. Bounded for the
+  /// same composite-index-key-size reason as Asset.assetTag above.
+  licenseNumber             String      @db.NVarChar(64)
   licenseClass              String
   licenseExpiry             DateTime
   isAvailable               Boolean     @default(true)
@@ -1089,6 +1114,7 @@ model Driver {
   /// Phase 10 — driver assignment history
   vehicleAssignments VehicleAssignment[]
 
+  @@unique([tenantId, licenseNumber])
   @@index([tenantId])
   @@index([departmentId])
 }
@@ -1280,9 +1306,17 @@ model MaintenanceLog {
 
 model WorkOrder {
   id                          String               @id @default(cuid()) @db.NVarChar(36)
-  tenantId                    String?              @db.NVarChar(36)
-  tenant                      Tenant?              @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  woNumber                    String               @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId                    String               @db.NVarChar(36)
+  tenant                      Tenant               @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, woNumber]) below. WorkOrdersService.nextWoNumber()
+  /// already generates "WO-<year>-NNNN" scoped to the current tenant only (it queries the latest
+  /// woNumber WHERE tenantId = <actor's tenant>), so under the old global constraint two different
+  /// tenants' first work orders of a year would both compute "WO-2026-0001" and the second tenant's
+  /// create would fail (and exhaust createWithNumberRetry's 8 attempts, since retrying recomputes the
+  /// same already-taken number every time) — a real latent bug, just never observed because only one
+  /// tenant existed in seeded data. This constraint makes that generation scheme actually correct.
+  woNumber                    String               @db.NVarChar(64)
   title                       String
   description                 String
   priority                    String               @default("") @db.NVarChar(64)
@@ -1448,6 +1482,7 @@ model WorkOrder {
   triageClassifiedAt   DateTime?
   triageClassifiedById String?            @db.NVarChar(36)
 
+  @@unique([tenantId, woNumber])
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -1723,9 +1758,18 @@ model EmployeeLeaveRequest {
 
 model SparePart {
   id                  String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId            String?   @db.NVarChar(36)
-  tenant              Tenant?   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partNumber          String    @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, partNumber]) below. InventoryService.createPart()
+  /// already ran a { tenantId, partNumber } duplicate check with the message "Part number must be
+  /// unique within tenant context" before this migration — the DB constraint was stricter (global)
+  /// than the application's own documented intent, so a second tenant reusing a part number already
+  /// used by another tenant would pass that app-level check and then fail with a raw, unhandled
+  /// Prisma unique-constraint error at the create() call. ERP matching (erp-excel-import.service.ts,
+  /// erp-stock-sync.service.ts) already scopes every SparePart lookup by tenantId before building its
+  /// in-memory part-number maps, so no ERP call site required changes for this migration.
+  partNumber          String    @db.NVarChar(64)
   name                String
   description         String?
   category            String
@@ -1773,6 +1817,7 @@ model SparePart {
   installedParts             InstalledPart[]
   procurementRecommendations ProcurementRecommendation[]
 
+  @@unique([tenantId, partNumber])
   @@index([tenantId])
   @@index([supplierId])
   @@index([tenantId, isActive])
@@ -2456,9 +2501,11 @@ model PurchaseReceiptIdempotency {
 
 model UtilityMeter {
   id          String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId    String?  @db.NVarChar(36)
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  meterNumber String   @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, meterNumber]) below.
+  meterNumber String   @db.NVarChar(64)
   type        String   @db.NVarChar(64)
   location    String
   description String?
@@ -2470,6 +2517,7 @@ model UtilityMeter {
   readings MeterReading[]
   bills    UtilityBill[]
 
+  @@unique([tenantId, meterNumber])
   @@index([tenantId])
 }
 
@@ -2782,6 +2830,18 @@ model CleaningLocation {
   building                String?
   floor                   String?
   description             String?
+  /// MP-003 (2026-09-17): KEPT GLOBAL — deliberately not tenant-scoped, unlike the other
+  /// business keys touched in this migration. Evidence: (1) the value is a cryptographically
+  /// random `randomUUID()` (cleaning.service.ts), not a human-entered code, so cross-tenant
+  /// collision risk is already negligible; (2) CleaningService.scanVisit() resolves a scanned
+  /// physical QR sticker with `findUnique({ where: { qrCode } })` alone — by design, the
+  /// scanning device has no tenant context up front, that's the whole point of scanning — and
+  /// only AFTER that global lookup does it explicitly re-check
+  /// `location.tenantId !== scopedTenantId` and fail closed (commented "Fail-closed: the
+  /// scanned location must belong to the cleaner's tenant"). That is: tenant isolation for QR
+  /// scanning is intentionally enforced at the application layer, not the uniqueness
+  /// constraint. Making qrCode tenant-scoped would break `findUnique({ where: { qrCode } })`
+  /// (Prisma would no longer treat it as a unique selector) for no isolation benefit.
   qrCode                  String   @unique
   qrCodeUrl               String?  @db.NVarChar(Max)
   scheduleCron            String?
@@ -3506,9 +3566,11 @@ model VehicleDocument {
 
 model AccidentReport {
   id                  String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId            String?  @db.NVarChar(36)
-  tenant              Tenant?  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  reportNumber        String   @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId            String   @db.NVarChar(36)
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, reportNumber]) below.
+  reportNumber        String   @db.NVarChar(64)
   vehicleId           String   @db.NVarChar(36)
   vehicle             Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   driverId            String?  @db.NVarChar(36)
@@ -3534,6 +3596,7 @@ model AccidentReport {
   workOrders      WorkOrder[]
   insuranceClaims InsuranceClaim[]
 
+  @@unique([tenantId, reportNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([driverId])
@@ -3558,9 +3621,11 @@ model AccidentEvidence {
 
 model InsuranceClaim {
   id             String          @id @default(cuid()) @db.NVarChar(36)
-  tenantId       String?         @db.NVarChar(36)
-  tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  claimNumber    String          @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId       String          @db.NVarChar(36)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, claimNumber]) below.
+  claimNumber    String          @db.NVarChar(64)
   vehicleId      String          @db.NVarChar(36)
   vehicle        Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   accidentId     String?         @db.NVarChar(36)
@@ -3579,6 +3644,7 @@ model InsuranceClaim {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
+  @@unique([tenantId, claimNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([accidentId])
@@ -3587,9 +3653,14 @@ model InsuranceClaim {
 
 model TrafficFine {
   id               String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String?     @db.NVarChar(36)
-  tenant           Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fineNumber       String      @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId         String      @db.NVarChar(36)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, fineNumber]) below. fineNumber here is
+  /// MaintainPro's own internal generated reference (FIN-<year>-NNNNN, see nextFineNumber()),
+  /// not the government/traffic-authority citation number — that external identifier isn't
+  /// modeled as its own field, so no separate global-vs-tenant question applies to it.
+  fineNumber       String      @db.NVarChar(64)
   vehicleId        String      @db.NVarChar(36)
   vehicle          Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   driverId         String?     @db.NVarChar(36)
@@ -3615,6 +3686,7 @@ model TrafficFine {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
+  @@unique([tenantId, fineNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([driverId])
