@@ -144,7 +144,7 @@ export class AssetTaxonomyService {
           label: attrEx.label,
           dataType: attrEx.dataType,
           unit: attrEx.unit ?? null,
-          options: attrEx.options ?? [],
+          options: JSON.stringify(attrEx.options ?? []),
           required: false,
           displayOrder: attrEx.displayOrder
         }
