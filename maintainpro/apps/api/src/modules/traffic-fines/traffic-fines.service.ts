@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
+import { stringArrayToText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { VehicleDocumentsService } from "../vehicle-documents/vehicle-documents.service";
 import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
@@ -47,10 +48,14 @@ export class TrafficFinesService {
     private readonly vehicleDocuments: VehicleDocumentsService
   ) {}
 
-  private async nextFineNumber(): Promise<string> {
+  /** MP-003: tenant-scoped count — see AccidentsService.nextReportNumber() for why. */
+  private async nextFineNumber(tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.trafficFine.count({
-      where: { createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) } }
+      where: {
+        tenantId,
+        createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) }
+      }
     });
     return `FIN-${year}-${String(count + 1).padStart(5, "0")}`;
   }
@@ -138,28 +143,48 @@ export class TrafficFinesService {
       }
     }
 
-    const fineNumber = await this.nextFineNumber();
-    const created = await this.prisma.trafficFine.create({
-      data: {
-        tenantId: vehicle.tenantId,
-        fineNumber,
-        vehicleId: vehicle.id,
-        driverId: input.driverId,
-        reportedById: a.sub,
-        fineDate,
-        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-        description: input.offense,
-        violationCode: input.violationCode,
-        location: input.location,
-        fineAmount: input.fineAmount,
-        issuingAuthority: input.issuingAuthority,
-        responsibility,
-        documentRelated,
-        evidenceUrls: input.evidenceUrls ?? [],
-        notes: input.notes,
-        paymentStatus: FinePaymentStatus.PENDING
+    // Retry on tenant-scoped fineNumber collision — see AccidentsService.create().
+    let created: Awaited<ReturnType<typeof this.prisma.trafficFine.create>> | undefined;
+    let fineNumber = "";
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      fineNumber = await this.nextFineNumber(vehicle.tenantId);
+      try {
+        created = await this.prisma.trafficFine.create({
+          data: {
+            tenantId: vehicle.tenantId,
+            fineNumber,
+            vehicleId: vehicle.id,
+            driverId: input.driverId,
+            reportedById: a.sub,
+            fineDate,
+            dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+            description: input.offense,
+            violationCode: input.violationCode,
+            location: input.location,
+            fineAmount: input.fineAmount,
+            issuingAuthority: input.issuingAuthority,
+            responsibility,
+            documentRelated,
+            evidenceUrls: stringArrayToText(input.evidenceUrls),
+            notes: input.notes,
+            paymentStatus: FinePaymentStatus.PENDING
+          }
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
       }
-    });
+    }
+    if (!created) {
+      throw lastError instanceof Error
+        ? lastError
+        : new BadRequestException("Unable to allocate a unique fine number");
+    }
 
     await recordPhase4Audit(this.prisma, {
       entity: "TrafficFine",

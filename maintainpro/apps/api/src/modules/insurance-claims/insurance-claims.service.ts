@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AuditAction, InsuranceClaimStatus, Prisma } from "@prisma/client";
 
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
+import { stringArrayToText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
 
@@ -19,10 +20,14 @@ export interface CreateInsuranceClaimInput {
 export class InsuranceClaimsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async nextClaimNumber(): Promise<string> {
+  /** MP-003: tenant-scoped count — see AccidentsService.nextReportNumber() for why. */
+  private async nextClaimNumber(tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.insuranceClaim.count({
-      where: { createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) } }
+      where: {
+        tenantId,
+        createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) }
+      }
     });
     return `INS-${year}-${String(count + 1).padStart(5, "0")}`;
   }
@@ -81,22 +86,42 @@ export class InsuranceClaimsService {
       });
     }
 
-    const claimNumber = await this.nextClaimNumber();
-    const created = await this.prisma.insuranceClaim.create({
-      data: {
-        tenantId: vehicle.tenantId,
-        claimNumber,
-        vehicleId: vehicle.id,
-        accidentId: input.accidentId,
-        policyNumber: input.policyNumber,
-        insurerName: input.insurerName,
-        claimAmount: input.claimAmount,
-        status: InsuranceClaimStatus.DRAFT,
-        documents: input.documents ?? [],
-        notes: input.notes,
-        filedById: a.sub
+    // Retry on tenant-scoped claimNumber collision — see AccidentsService.create().
+    let created: Awaited<ReturnType<typeof this.prisma.insuranceClaim.create>> | undefined;
+    let claimNumber = "";
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      claimNumber = await this.nextClaimNumber(vehicle.tenantId);
+      try {
+        created = await this.prisma.insuranceClaim.create({
+          data: {
+            tenantId: vehicle.tenantId,
+            claimNumber,
+            vehicleId: vehicle.id,
+            accidentId: input.accidentId,
+            policyNumber: input.policyNumber,
+            insurerName: input.insurerName,
+            claimAmount: input.claimAmount,
+            status: InsuranceClaimStatus.DRAFT,
+            documents: stringArrayToText(input.documents),
+            notes: input.notes,
+            filedById: a.sub
+          }
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
       }
-    });
+    }
+    if (!created) {
+      throw lastError instanceof Error
+        ? lastError
+        : new BadRequestException("Unable to allocate a unique claim number");
+    }
     await recordPhase4Audit(this.prisma, {
       entity: "InsuranceClaim",
       entityId: created.id,
@@ -142,7 +167,14 @@ export class InsuranceClaimsService {
   async update(id: string, body: { policyNumber?: string; insurerName?: string; documents?: string[]; notes?: string }, actor: Phase4Actor) {
     const a = assertActor(actor);
     const existing = await this.assertAccess(id, a);
-    const updated = await this.prisma.insuranceClaim.update({ where: { id }, data: body });
+    const { documents, ...rest } = body;
+    const updated = await this.prisma.insuranceClaim.update({
+      where: { id },
+      data: {
+        ...rest,
+        documents: documents !== undefined ? stringArrayToText(documents) : undefined
+      }
+    });
     await recordPhase4Audit(this.prisma, {
       entity: "InsuranceClaim",
       entityId: id,

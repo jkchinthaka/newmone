@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -101,10 +102,12 @@ export class WorkOrderActivityService {
 
   async getActivityTimeline(workOrderId: string, actor?: Actor) {
     const tenantId = this.resolveTenantId(actor);
-    const where: { id: string; tenantId?: string | null } = { id: workOrderId };
+    // MP-003: WorkOrder.tenantId is now required — see evidence.service.ts's
+    // findTenantScopedWorkOrder for the same pattern and rationale.
+    const where: Prisma.WorkOrderWhereInput = { id: workOrderId };
 
     if (tenantId !== undefined) {
-      where.tenantId = tenantId;
+      where.tenantId = tenantId ?? "__mp003_no_tenant_match__";
     }
 
     const workOrder = await this.prisma.workOrder.findFirst({

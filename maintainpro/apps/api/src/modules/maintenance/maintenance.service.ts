@@ -15,6 +15,15 @@ const MAX_LOG_PAGE_SIZE = 100;
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
+/**
+ * MP-003: Asset/Vehicle/WorkOrder.tenantId are now required columns — see
+ * driver-intelligence.service.ts for full rationale on this sentinel pattern.
+ */
+const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
+function tenantFilterValue(tenantId: string | null): string {
+  return tenantId ?? NO_TENANT_MATCH;
+}
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -34,9 +43,10 @@ export class MaintenanceService {
     if (tenantId === undefined) {
       return {};
     }
+    const tid = tenantFilterValue(tenantId);
 
     return {
-      OR: [{ asset: { tenantId } }, { vehicle: { tenantId } }]
+      OR: [{ asset: { tenantId: tid } }, { vehicle: { tenantId: tid } }]
     };
   }
 
@@ -44,9 +54,10 @@ export class MaintenanceService {
     if (tenantId === undefined) {
       return {};
     }
+    const tid = tenantFilterValue(tenantId);
 
     return {
-      OR: [{ workOrder: { tenantId } }, { asset: { tenantId } }, { vehicle: { tenantId } }]
+      OR: [{ workOrder: { tenantId: tid } }, { asset: { tenantId: tid } }, { vehicle: { tenantId: tid } }]
     };
   }
 
@@ -108,14 +119,18 @@ export class MaintenanceService {
       }
 
       if (data.assetId) {
-        const asset = await this.prisma.asset.findFirst({ where: { id: data.assetId, tenantId } });
+        const asset = await this.prisma.asset.findFirst({
+          where: { id: data.assetId, tenantId: tenantFilterValue(tenantId) }
+        });
         if (!asset) {
           throw new NotFoundException("Asset not found in tenant context");
         }
       }
 
       if (data.vehicleId) {
-        const vehicle = await this.prisma.vehicle.findFirst({ where: { id: data.vehicleId, tenantId } });
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: { id: data.vehicleId, tenantId: tenantFilterValue(tenantId) }
+        });
         if (!vehicle) {
           throw new NotFoundException("Vehicle not found in tenant context");
         }
@@ -225,21 +240,27 @@ export class MaintenanceService {
       }
 
       if (data.assetId) {
-        const asset = await this.prisma.asset.findFirst({ where: { id: data.assetId, tenantId } });
+        const asset = await this.prisma.asset.findFirst({
+          where: { id: data.assetId, tenantId: tenantFilterValue(tenantId) }
+        });
         if (!asset) {
           throw new NotFoundException("Asset not found in tenant context");
         }
       }
 
       if (data.vehicleId) {
-        const vehicle = await this.prisma.vehicle.findFirst({ where: { id: data.vehicleId, tenantId } });
+        const vehicle = await this.prisma.vehicle.findFirst({
+          where: { id: data.vehicleId, tenantId: tenantFilterValue(tenantId) }
+        });
         if (!vehicle) {
           throw new NotFoundException("Vehicle not found in tenant context");
         }
       }
 
       if (data.workOrderId) {
-        const workOrder = await this.prisma.workOrder.findFirst({ where: { id: data.workOrderId, tenantId } });
+        const workOrder = await this.prisma.workOrder.findFirst({
+          where: { id: data.workOrderId, tenantId: tenantFilterValue(tenantId) }
+        });
         if (!workOrder) {
           throw new NotFoundException("Work order not found in tenant context");
         }
@@ -293,7 +314,7 @@ export class MaintenanceService {
 
     const vehicles = await this.prisma.vehicle.findMany({
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
         nextServiceMileage: {
           not: null
         }
@@ -356,7 +377,7 @@ export class MaintenanceService {
     const groupedCorrective = await this.prisma.workOrder.groupBy({
       by: ["assetId"],
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
         type: "CORRECTIVE",
         createdAt: {
           gte: since
@@ -384,7 +405,7 @@ export class MaintenanceService {
 
     const fuelLogs = await this.prisma.fuelLog.findMany({
       where: {
-        ...(tenantId !== undefined ? { vehicle: { tenantId } } : {})
+        ...(tenantId !== undefined ? { vehicle: { tenantId: tenantFilterValue(tenantId) } } : {})
       },
       orderBy: { date: "desc" },
       take: 120
@@ -429,7 +450,9 @@ export class MaintenanceService {
     }
 
     if (tenantId !== undefined) {
-      const asset = await this.prisma.asset.findFirst({ where: { id: referenceId, tenantId } });
+      const asset = await this.prisma.asset.findFirst({
+        where: { id: referenceId, tenantId: tenantFilterValue(tenantId) }
+      });
       if (!asset) {
         throw new NotFoundException("Predictive alert target not found in tenant context");
       }

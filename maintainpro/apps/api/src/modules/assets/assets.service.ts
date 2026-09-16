@@ -413,8 +413,8 @@ export class AssetsService {
   }
 
   async create(tenantId: string | null | undefined, actorId: string, data: CreateAssetDto) {
-    await this.ensureUniqueAssetTag(data.assetTag);
     const tid = requireTenantId(tenantId);
+    await this.ensureUniqueAssetTag(tid, data.assetTag);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
     const taxonomy = await this.registry.validateTaxonomy(tid, {
       domainId: data.domainId,
@@ -483,13 +483,13 @@ export class AssetsService {
     data: UpdateAssetDto
   ) {
     const current = await this.findOne(id, tenantId);
+    const tid = requireTenantId(tenantId);
 
     if (data.assetTag && data.assetTag !== current.assetTag) {
-      await this.ensureUniqueAssetTag(data.assetTag, id);
+      await this.ensureUniqueAssetTag(tid, data.assetTag, id);
     }
 
     this.validateStatusTransition(current.status, data.status, data.disposalReason ?? current.disposalReason ?? undefined);
-    const tid = requireTenantId(tenantId);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
     const taxonomy = await this.registry.validateTaxonomy(tid, {
       domainId: data.domainId ?? current.domainId,
@@ -1167,21 +1167,20 @@ export class AssetsService {
     actorId: string,
     items: BulkImportAssetItemDto[]
   ) {
+    const tid = requireTenantId(tenantId);
     const created = [];
     const updated = [];
 
     for (const item of items) {
+      // MP-003: assetTag is tenant-scoped (@@unique([tenantId, assetTag])) — a different
+      // tenant using the same tag is expected and no longer a conflict, so the lookup itself
+      // (via the compound selector) is the isolation boundary; no separate cross-tenant
+      // "already exists for another tenant" check is needed anymore.
       const existing = await this.prisma.asset.findUnique({
-        where: { assetTag: item.assetTag.trim() }
+        where: { tenantId_assetTag: { tenantId: tid, assetTag: item.assetTag.trim() } }
       });
 
       if (existing) {
-        if (tenantId && existing.tenantId && existing.tenantId !== tenantId) {
-          throw new BadRequestException(
-            `Asset tag ${item.assetTag.trim()} already exists for another tenant`
-          );
-        }
-
         const before = await this.findOne(existing.id, tenantId);
         const departmentFields = await this.resolveDepartmentFields(tenantId, item);
         const next = await this.prisma.asset.update({
@@ -1417,13 +1416,14 @@ export class AssetsService {
     };
   }
 
-  private async ensureUniqueAssetTag(assetTag: string, excludeId?: string) {
+  /** MP-003: assetTag is tenant-scoped — see @@unique([tenantId, assetTag]). */
+  private async ensureUniqueAssetTag(tenantId: string, assetTag: string, excludeId?: string) {
     const existing = await this.prisma.asset.findUnique({
-      where: { assetTag: assetTag.trim() }
+      where: { tenantId_assetTag: { tenantId, assetTag: assetTag.trim() } }
     });
 
     if (existing && existing.id !== excludeId) {
-      throw new BadRequestException("Asset tag must be unique across the system");
+      throw new BadRequestException("Asset tag must be unique within your organization");
     }
   }
 

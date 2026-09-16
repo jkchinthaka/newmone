@@ -16,6 +16,7 @@ import {
   WorkOrderStatus
 } from "@prisma/client";
 
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -1035,20 +1036,44 @@ export class PredictiveAiService {
     }
 
     const dueDate = dto.dueDate ? this.parseDateOrThrow(dto.dueDate, "dueDate") : undefined;
+    // MP-003: this create previously omitted tenantId entirely — under the old nullable
+    // schema that silently created an untenanted WorkOrder; now a required field, so a real
+    // tenantId must be resolved (and Prisma itself now enforces this at the type level).
+    const tenantId = requireTenantId(currentActor.tenantId);
 
-    const created = await this.prisma.workOrder.create({
-      data: {
-        woNumber: await this.nextWorkOrderNumber(),
-        title,
-        description,
-        priority: dto.priority ?? Priority.MEDIUM,
-        type: dto.type ?? "CORRECTIVE",
-        assetId: dto.assetId,
-        vehicleId: dto.vehicleId,
-        createdById: currentActor.sub,
-        dueDate
+    let created: Awaited<ReturnType<typeof this.prisma.workOrder.create>> | undefined;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const woNumber = await this.nextWorkOrderNumber(tenantId);
+      try {
+        created = await this.prisma.workOrder.create({
+          data: {
+            tenantId,
+            woNumber,
+            title,
+            description,
+            priority: dto.priority ?? Priority.MEDIUM,
+            type: dto.type ?? "CORRECTIVE",
+            assetId: dto.assetId,
+            vehicleId: dto.vehicleId,
+            createdById: currentActor.sub,
+            dueDate
+          }
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
       }
-    });
+    }
+    if (!created) {
+      throw lastError instanceof Error
+        ? lastError
+        : new BadRequestException("Unable to allocate a unique work order number");
+    }
 
     return created;
   }
@@ -2046,10 +2071,17 @@ export class PredictiveAiService {
     return updated;
   }
 
-  private async nextWorkOrderNumber(): Promise<string> {
+  /**
+   * MP-003: WorkOrder.woNumber is tenant-scoped (@@unique([tenantId, woNumber])). This is a
+   * separate generator from WorkOrdersService.nextWoNumber() (pre-existing duplication, not
+   * introduced by this migration) used only by the Copilot "create work order" action; scoped
+   * the count by tenant for the same reason as the other generators fixed in this migration.
+   */
+  private async nextWorkOrderNumber(tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.workOrder.count({
       where: {
+        tenantId,
         createdAt: {
           gte: new Date(`${year}-01-01T00:00:00.000Z`),
           lte: new Date(`${year}-12-31T23:59:59.999Z`)

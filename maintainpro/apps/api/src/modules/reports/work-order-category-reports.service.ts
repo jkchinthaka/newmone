@@ -25,7 +25,9 @@ export class WorkOrderCategoryReportsService {
 
   private buildWhere(actor: Actor, query: CategoryReportQuery): Prisma.WorkOrderWhereInput {
     const where: Prisma.WorkOrderWhereInput = {};
-    if (actor.tenantId !== undefined) where.tenantId = actor.tenantId;
+    // MP-003: WorkOrder.tenantId is now required — a null actor.tenantId (authenticated actor
+    // with no tenant membership) must still resolve to "no match", not an unfiltered query.
+    if (actor.tenantId !== undefined) where.tenantId = actor.tenantId ?? "__mp003_no_tenant_match__";
     if (query.categoryId) where.taxonomyCategoryId = query.categoryId;
     if (query.typeId) where.taxonomyTypeId = query.typeId;
     if (query.issueId) where.taxonomyIssueId = query.issueId;

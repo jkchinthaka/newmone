@@ -1256,7 +1256,7 @@ async function main() {
 
   for (let i = 0; i < assetTags.length; i += 1) {
     const asset = await prisma.asset.upsert({
-      where: { assetTag: assetTags[i] },
+      where: { tenantId_assetTag: { tenantId: tenant.id, assetTag: assetTags[i] } },
       update: {
         tenantId: tenant.id,
         name: `Sample Asset ${i + 1}`,
@@ -1285,7 +1285,7 @@ async function main() {
   for (let i = 1; i <= 5; i += 1) {
     const vin = `VINSEED${i.toString().padStart(10, "0")}`;
     const vehicle = await prisma.vehicle.upsert({
-      where: { registrationNo: `MH-01-AB-10${i}` },
+      where: { tenantId_registrationNo: { tenantId: tenant.id, registrationNo: `MH-01-AB-10${i}` } },
       update: {
         tenantId: tenant.id,
         make: "Toyota",
@@ -1318,7 +1318,7 @@ async function main() {
 
   for (let i = 1; i <= 10; i += 1) {
     await prisma.sparePart.upsert({
-      where: { partNumber: `SP-${2000 + i}` },
+      where: { tenantId_partNumber: { tenantId: tenant.id, partNumber: `SP-${2000 + i}` } },
       update: {
         tenantId: tenant.id,
         name: `Spare Part ${i}`,
@@ -1355,7 +1355,7 @@ async function main() {
     const woNumber = `WO-${new Date().getFullYear()}-${String(i + 1).padStart(4, "0")}`;
 
     await prisma.workOrder.upsert({
-      where: { woNumber },
+      where: { tenantId_woNumber: { tenantId: tenant.id, woNumber } },
       update: {
         tenantId: tenant.id,
         title: `Sample Work Order ${i + 1}`,
@@ -1395,7 +1395,7 @@ async function main() {
 
   for (const meterDef of meterDefinitions) {
     const meter = await prisma.utilityMeter.upsert({
-      where: { meterNumber: meterDef.meterNumber },
+      where: { tenantId_meterNumber: { tenantId: tenant.id, meterNumber: meterDef.meterNumber } },
       update: {
         tenantId: tenant.id,
         type: meterDef.type,

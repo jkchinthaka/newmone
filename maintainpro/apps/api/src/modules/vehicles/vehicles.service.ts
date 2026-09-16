@@ -1859,7 +1859,9 @@ export class VehiclesService {
     const criticalOrders = await this.prisma.workOrder.findMany({
       where: {
         vehicleId,
-        tenantId,
+        // MP-003: WorkOrder.tenantId is now required; a null/undefined tenantId here must
+        // still resolve to "no match" rather than an unfiltered query or a type error.
+        tenantId: tenantId ?? "__mp003_no_tenant_match__",
         status: { in: openStatuses },
         OR: [
           { priority: Priority.CRITICAL },

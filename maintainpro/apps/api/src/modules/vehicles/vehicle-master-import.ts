@@ -899,7 +899,7 @@ export async function applyVehicleMasterImport(
     }
 
     const existing = await prisma.vehicle.findUnique({
-      where: { registrationNo: row.registrationNo },
+      where: { tenantId_registrationNo: { tenantId, registrationNo: row.registrationNo } },
       select: {
         id: true,
         make: true,

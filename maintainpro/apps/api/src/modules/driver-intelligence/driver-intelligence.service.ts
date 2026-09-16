@@ -27,6 +27,19 @@ const DEFAULT_LOOKBACK_DAYS = 365;
 const DEFAULT_PAGE_SIZE = 20;
 const DEFAULT_BEST_DRIVER_LIMIT = 10;
 
+/**
+ * MP-003: Driver/Vehicle/WorkOrder/AccidentReport/TrafficFine/InsuranceClaim.tenantId are now
+ * required (non-null) columns, so a Prisma `tenantId` where-filter can no longer accept `null`.
+ * resolveTenantId(actor) still legitimately returns `null` for an authenticated actor with no
+ * tenant membership — that case must still resolve to "matches nothing" (fail closed), not "no
+ * filter at all". No real tenantId is ever this value (cuids never equal it), so substituting it
+ * for `null` preserves the exact prior behavior while satisfying the new non-nullable type.
+ */
+const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
+function tenantFilterValue(tenantId: string | null): string {
+  return tenantId ?? NO_TENANT_MATCH;
+}
+
 const driverInclude = {
   user: {
     select: {
@@ -318,7 +331,7 @@ export class DriverIntelligenceService {
   ) {
     const tenantId = resolveTenantId(actor);
     const where: Prisma.DriverWhereInput = {
-      ...(tenantId !== undefined ? { tenantId } : {}),
+      ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
       ...(query.driverId ? { id: query.driverId } : {}),
       ...(query.departmentId ? { departmentId: query.departmentId } : {}),
       ...(query.vehicleId ? { vehicles: { some: { id: query.vehicleId } } } : {})
@@ -411,7 +424,7 @@ export class DriverIntelligenceService {
       await Promise.all([
         this.prisma.accidentReport.findMany({
           where: {
-            ...(tenantId !== undefined ? { tenantId } : {}),
+            ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
             driverId: driver.id,
             occurredAt: { gte: range.start, lte: range.end }
           },
@@ -430,7 +443,7 @@ export class DriverIntelligenceService {
         assignedVehicleIds.length > 0
           ? this.prisma.accidentReport.findMany({
               where: {
-                ...(tenantId !== undefined ? { tenantId } : {}),
+                ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
                 vehicleId: { in: assignedVehicleIds },
                 responsibility: AccidentResponsibility.VEHICLE_DEFECT,
                 occurredAt: { gte: range.start, lte: range.end }
@@ -448,7 +461,7 @@ export class DriverIntelligenceService {
           : Promise.resolve([]),
         this.prisma.trafficFine.findMany({
           where: {
-            ...(tenantId !== undefined ? { tenantId } : {}),
+            ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
             driverId: driver.id,
             fineDate: { gte: range.start, lte: range.end }
           },
@@ -469,7 +482,7 @@ export class DriverIntelligenceService {
         assignedVehicleIds.length > 0
           ? this.prisma.trafficFine.findMany({
               where: {
-                ...(tenantId !== undefined ? { tenantId } : {}),
+                ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
                 vehicleId: { in: assignedVehicleIds },
                 responsibility: FineResponsibility.VEHICLE_DEFECT,
                 fineDate: { gte: range.start, lte: range.end }
@@ -491,7 +504,7 @@ export class DriverIntelligenceService {
           where: {
             driverId: driver.id,
             startTime: { gte: range.start, lte: range.end },
-            ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+            ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
           },
           select: {
             id: true,
@@ -507,7 +520,7 @@ export class DriverIntelligenceService {
           where: {
             driverId: driver.id,
             date: { gte: range.start, lte: range.end },
-            ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+            ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
           },
           orderBy: [{ vehicleId: "asc" }, { mileageAtFuel: "asc" }, { date: "asc" }],
           select: {
@@ -526,7 +539,7 @@ export class DriverIntelligenceService {
               where: {
                 vehicleId: { in: assignedVehicleIds },
                 date: { gte: range.start, lte: range.end },
-                ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+                ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
               },
               orderBy: [{ vehicleId: "asc" }, { mileageAtFuel: "asc" }, { date: "asc" }],
               select: {
@@ -544,7 +557,7 @@ export class DriverIntelligenceService {
         assignedVehicleIds.length > 0
           ? this.prisma.workOrder.findMany({
               where: {
-                ...(tenantId !== undefined ? { tenantId } : {}),
+                ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
                 vehicleId: { in: assignedVehicleIds },
                 createdAt: { gte: range.start, lte: range.end }
               },
@@ -568,7 +581,7 @@ export class DriverIntelligenceService {
               where: {
                 vehicleId: { in: assignedVehicleIds },
                 performedAt: { gte: range.start, lte: range.end },
-                ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+                ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
               },
               select: {
                 id: true,
@@ -1030,13 +1043,13 @@ export class DriverIntelligenceService {
         where: {
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           date: { gte: range.start, lte: range.end },
-          ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+          ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
         },
         select: { vehicleId: true, date: true, totalCost: true, liters: true }
       }),
       this.prisma.workOrder.findMany({
         where: {
-          ...(tenantId !== undefined ? { tenantId } : {}),
+          ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           createdAt: { gte: range.start, lte: range.end }
         },
@@ -1046,13 +1059,13 @@ export class DriverIntelligenceService {
         where: {
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           performedAt: { gte: range.start, lte: range.end },
-          ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+          ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
         },
         select: { vehicleId: true, performedAt: true, cost: true, workOrderId: true }
       }),
       this.prisma.accidentReport.findMany({
         where: {
-          ...(tenantId !== undefined ? { tenantId } : {}),
+          ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           occurredAt: { gte: range.start, lte: range.end }
         },
@@ -1060,7 +1073,7 @@ export class DriverIntelligenceService {
       }),
       this.prisma.trafficFine.findMany({
         where: {
-          ...(tenantId !== undefined ? { tenantId } : {}),
+          ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           fineDate: { gte: range.start, lte: range.end }
         },
@@ -1068,7 +1081,7 @@ export class DriverIntelligenceService {
       }),
       this.prisma.insuranceClaim.findMany({
         where: {
-          ...(tenantId !== undefined ? { tenantId } : {}),
+          ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {}),
           ...(vehicleFilter ? { vehicleId: vehicleFilter } : {}),
           createdAt: { gte: range.start, lte: range.end }
         },
@@ -1187,7 +1200,7 @@ export class DriverIntelligenceService {
     if (tenantId === undefined) {
       return undefined;
     }
-    return { tenantId };
+    return { tenantId: tenantFilterValue(tenantId) };
   }
 
   private displayName(driver: DriverRecord) {
