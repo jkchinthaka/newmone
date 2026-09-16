@@ -694,7 +694,8 @@ model Asset {
   archivedAt       DateTime?
   images           String      @default("[]") @db.NVarChar(Max)
   documents        String      @default("[]") @db.NVarChar(Max)
-  qrCodeUrl        String?
+  /// Data-URI QR images can be several KB of base64; unbounded like the Mongo original.
+  qrCodeUrl        String?  @db.NVarChar(Max)
 
   /// Phase 4 universal registry links
   domainId             String?              @db.NVarChar(36)
@@ -866,9 +867,20 @@ model Vehicle {
   id                        String      @id @default(cuid()) @db.NVarChar(36)
   tenantId                  String?     @db.NVarChar(36)
   tenant                    Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  registrationNo            String      @unique
-  assetTag                  String?
+  /// Bounded to real-world plate lengths (SQL Server nonclustered index keys cap at 1700 bytes;
+  /// unbounded nvarchar(1000) here would be 2000 bytes and risk "index entry too long" at insert time).
+  registrationNo            String      @unique @db.NVarChar(64)
+  assetTag                  String?     @db.NVarChar(64)
   /// Phase 4: Vehicle becomes Asset extension — optional link; full Fleet in Phase 10
+  /// `@unique` is required here by Prisma itself (a one-to-one `@relation` FK must be unique) —
+  /// it cannot be dropped. On SQL Server, though, the plain UNIQUE constraint Prisma would normally
+  /// generate from this attribute allows only ONE NULL total on a nullable column (unlike
+  /// Postgres/Mongo, which allow many), so seeding more than one vehicle without an asset link fails.
+  /// Prisma 5 has no syntax for a filtered/partial unique index (prisma/prisma#3387), so migration
+  /// 20260916120000_sqlserver_filtered_unique_indexes DROPs the plain constraint Prisma's initial
+  /// migration created and replaces it with `CREATE UNIQUE NONCLUSTERED INDEX ... WHERE [assetId]
+  /// IS NOT NULL`. If a future `prisma migrate dev` schema diff proposes recreating a plain unique
+  /// constraint on this column, discard/edit that generated migration — do not apply it as-is.
   assetId                   String?     @unique @db.NVarChar(36)
   asset                     Asset?      @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   make                      String
@@ -881,7 +893,10 @@ model Vehicle {
   status                    String      @default("") @db.NVarChar(64)
   serviceStatus             String      @default("") @db.NVarChar(64)
   color                     String?
-  vin                       String?     @unique
+  /// VINs are 17 chars under ISO 3779 (older/legacy formats can be shorter); 32 leaves slack for
+  /// legacy data. Not `@unique` for the same nullable-unique reason as assetId above — see the
+  /// migration-only filtered index in 20260916120000_sqlserver_filtered_unique_indexes.
+  vin                       String?     @db.NVarChar(32)
   engineNo                  String?
   vendorName                String?
   costCenter                String?
@@ -2768,7 +2783,7 @@ model CleaningLocation {
   floor                   String?
   description             String?
   qrCode                  String   @unique
-  qrCodeUrl               String?
+  qrCodeUrl               String?  @db.NVarChar(Max)
   scheduleCron            String?
   shiftWindow             String?
   cleaningFrequency       Int      @default(1)
@@ -3185,7 +3200,7 @@ model LivestockAnimal {
   purchasePriceLkr Float?
   weightKg         Float?
   status           String    @default("") @db.NVarChar(64)
-  qrCodeUrl        String?
+  qrCodeUrl        String?  @db.NVarChar(Max)
   archivedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -3360,7 +3375,7 @@ model FarmWorker {
   dailyWageLkr Float?
   skillTags    String    @default("[]") @db.NVarChar(Max)
   status       String    @default("") @db.NVarChar(64)
-  qrCodeUrl    String?
+  qrCodeUrl    String?  @db.NVarChar(Max)
   archivedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -3446,7 +3461,7 @@ model TraceabilityRecord {
   harvestDate     DateTime
   buyerName       String?
   certifications  String                  @default("[]") @db.NVarChar(Max)
-  qrCodeUrl       String?
+  qrCodeUrl       String?  @db.NVarChar(Max)
   publicUrl       String?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
