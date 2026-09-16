@@ -14,6 +14,7 @@ import ExcelJS from "exceljs";
 
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { normalizeRegistrationNo } from "../../common/utils/vehicle-registration";
+import { parseJsonText } from "../../common/utils/json-text";
 
 export const VEHICLE_MASTER_SHEET = "Vehicle_Master_Import";
 export const VEHICLE_IMPORT_SOURCE = "IT_MANAGER_VEHICLE_MASTER";
@@ -786,14 +787,11 @@ function mergeNonBlank<T>(incoming: T | null | undefined, existing: T | null | u
 }
 
 function mergeCustomFields(
-  existing: Prisma.JsonValue | null | undefined,
+  existing: string | null | undefined,
   incoming: Record<string, unknown>
-): Prisma.InputJsonValue {
-  const base =
-    existing && typeof existing === "object" && !Array.isArray(existing)
-      ? { ...(existing as Record<string, unknown>) }
-      : {};
-  return {
+): string {
+  const base = parseJsonText<Record<string, unknown>>(existing, {});
+  const merged = {
     ...base,
     ...incoming,
     import: {
@@ -820,7 +818,8 @@ function mergeCustomFields(
       ...((base.legacy as object) || {}),
       ...(incoming.legacy as object)
     }
-  } as Prisma.InputJsonValue;
+  };
+  return JSON.stringify(merged);
 }
 
 export async function applyVehicleMasterImport(
@@ -892,7 +891,7 @@ export async function applyVehicleMasterImport(
           insuranceExpiry: row.insuranceExpiry ?? undefined,
           roadTaxExpiry: row.roadTaxExpiry ?? undefined,
           vendorName: row.vendorName ?? undefined,
-          customFields: row.customFields as Prisma.InputJsonValue
+          customFields: JSON.stringify(row.customFields ?? {})
         }
       });
       created++;

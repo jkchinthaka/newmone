@@ -528,14 +528,14 @@ export class VehiclesService {
           : undefined,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: {
+        customFields: JSON.stringify({
           ...(data.customFields ?? {}),
           search: {
             ...((data.customFields?.search as object) || {}),
             normalizedRegistration: normalizeRegistrationNo(data.registrationNo)
           }
-        },
-        images: []
+        }),
+        images: "[]"
       }
     });
   }
@@ -618,7 +618,7 @@ export class VehiclesService {
         ownershipType: data.ownershipType,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: data.customFields as Prisma.InputJsonValue | undefined
+        customFields: data.customFields !== undefined ? JSON.stringify(data.customFields) : undefined
       }
     });
   }

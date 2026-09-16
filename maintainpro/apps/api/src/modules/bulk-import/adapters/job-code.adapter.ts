@@ -84,7 +84,7 @@ export class JobCodeBulkImportAdapter implements BulkImportAdapter {
         category: (data.category as string | null) ?? undefined,
         estimatedHours: (data.estimatedHours as number | undefined) ?? undefined,
         description: (data.description as string | null) ?? undefined,
-        requiredSkills: [],
+        requiredSkills: "[]",
         requiredParts: { create: [] }
       },
       select: { id: true }

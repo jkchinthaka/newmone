@@ -151,7 +151,7 @@ export class VehicleBulkImportAdapter implements BulkImportAdapter {
         costCenter: (data.costCenter as string | null) ?? undefined,
         vendorName: (data.vendorName as string | null) ?? undefined,
         description: (data.description as string | null) ?? undefined,
-        images: []
+        images: "[]"
       },
       select: { id: true }
     });

@@ -16,6 +16,7 @@ import QRCode from "qrcode";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { parseJsonText, stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import type {
   AssetExportQueryDto,
   AssetListQueryDto,
@@ -375,7 +376,7 @@ export class AssetsService {
       })
     ]);
 
-    const documents = this.parseDocuments(asset.documents, asset.id);
+    const documents = this.parseDocuments(toStringArray(asset.documents), asset.id);
     const locationPath = await this.registry.resolveLocationPath(
       requireTenantId(tenantId),
       asset.functionalLocationId
@@ -446,7 +447,7 @@ export class AssetsService {
         parentAssetId: data.parentAssetId ?? null,
         responsiblePersonId: data.responsiblePersonId ?? null,
         criticalityLevel: data.criticalityLevel ?? null,
-        customAttributes: (customAttributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        customAttributes: customAttributes ? JSON.stringify(customAttributes) : undefined,
         commissionedAt: this.toNullableDate(data.commissionedAt) ?? null,
         category: data.category ?? AssetCategory.OTHER,
         isActive:
@@ -518,7 +519,8 @@ export class AssetsService {
     const customAttributes = await this.registry.validateAndNormalizeAttributes(
       tid,
       taxonomy.typeMasterId,
-      data.customAttributes ?? (current.customAttributes as Record<string, unknown> | null),
+      data.customAttributes ??
+        parseJsonText<Record<string, unknown> | null>(current.customAttributes as string | null, null),
       { allowPartial: true }
     );
 
@@ -533,7 +535,12 @@ export class AssetsService {
         responsiblePersonId:
           data.responsiblePersonId !== undefined ? data.responsiblePersonId : undefined,
         criticalityLevel: data.criticalityLevel !== undefined ? data.criticalityLevel : undefined,
-        customAttributes: data.customAttributes !== undefined ? (customAttributes as Prisma.InputJsonValue | null) : undefined,
+        customAttributes:
+          data.customAttributes !== undefined
+            ? customAttributes
+              ? JSON.stringify(customAttributes)
+              : null
+            : undefined,
         commissionedAt:
           data.commissionedAt !== undefined ? this.toNullableDate(data.commissionedAt) : undefined
       }
@@ -598,7 +605,7 @@ export class AssetsService {
     await this.ensureNoOpenWorkOrders(id);
 
     if (permanent) {
-      await this.cleanupDocumentFiles(this.parseDocuments(currentRecord.documents, id));
+      await this.cleanupDocumentFiles(this.parseDocuments(toStringArray(currentRecord.documents), id));
       await this.prisma.asset.delete({ where: { id } });
       await this.recordAudit({
         tenantId: current.tenantId,
@@ -1068,7 +1075,7 @@ export class AssetsService {
     const updated = await this.prisma.asset.update({
       where: { id },
       data: {
-        documents: [...currentRecord.documents, JSON.stringify(documentRecord)]
+        documents: stringArrayToText([...toStringArray(currentRecord.documents), JSON.stringify(documentRecord)])
       }
     });
 
@@ -1081,12 +1088,12 @@ export class AssetsService {
       afterData: updated
     });
 
-    return this.parseDocuments(updated.documents, id);
+    return this.parseDocuments(toStringArray(updated.documents), id);
   }
 
   async downloadDocument(id: string, tenantId: string | null | undefined, documentId: string) {
     const asset = await this.requireAssetRecord(id, tenantId);
-    const document = this.parseDocuments(asset.documents, id).find((item) => item.id === documentId);
+    const document = this.parseDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
@@ -1117,7 +1124,7 @@ export class AssetsService {
   ) {
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const parsedDocuments = this.parseDocuments(currentRecord.documents, id);
+    const parsedDocuments = this.parseDocuments(toStringArray(currentRecord.documents), id);
     const document = parsedDocuments.find((item) => item.id === documentId);
 
     if (!document) {
@@ -1135,9 +1142,11 @@ export class AssetsService {
     const updated = await this.prisma.asset.update({
       where: { id },
       data: {
-        documents: parsedDocuments
-          .filter((item) => item.id !== documentId)
-          .map((item) => JSON.stringify(this.toDocumentStorageRecord(item)))
+        documents: stringArrayToText(
+          parsedDocuments
+            .filter((item) => item.id !== documentId)
+            .map((item) => JSON.stringify(this.toDocumentStorageRecord(item)))
+        )
       }
     });
 
@@ -1150,7 +1159,7 @@ export class AssetsService {
       afterData: updated
     });
 
-    return this.parseDocuments(updated.documents, id);
+    return this.parseDocuments(toStringArray(updated.documents), id);
   }
 
   async bulkImport(
@@ -1333,10 +1342,16 @@ export class AssetsService {
     const sortBy = query.sortBy ?? "updatedAt";
     const sortOrder = query.sortOrder ?? "desc";
 
-    return [
-      { [sortBy]: sortOrder } as Prisma.AssetOrderByWithRelationInput,
-      { updatedAt: "desc" as const }
-    ];
+    const primary = { [sortBy]: sortOrder } as Prisma.AssetOrderByWithRelationInput;
+
+    // SQL Server rejects an ORDER BY list that repeats the same column
+    // ("A column has been specified more than once in the order by list").
+    // Only add the updatedAt tiebreaker when it is not already the primary sort key.
+    if (sortBy === "updatedAt") {
+      return [primary];
+    }
+
+    return [primary, { updatedAt: "desc" as const }];
   }
 
   private buildAssetMutationInput(data: Partial<CreateAssetDto>): AssetMutationInput {
@@ -1397,8 +1412,8 @@ export class AssetsService {
       disposalDate: this.toNullableDate(data.disposalDate) ?? null,
       disposalReason: this.toNullableString(data.disposalReason) ?? null,
       archivedAt: null,
-      images: [],
-      documents: []
+      images: "[]",
+      documents: "[]"
     };
   }
 
@@ -1534,7 +1549,7 @@ export class AssetsService {
       };
     }>
   ) {
-    const documents = this.parseDocuments(asset.documents, asset.id);
+    const documents = this.parseDocuments(toStringArray(asset.documents), asset.id);
 
     return {
       ...asset,
