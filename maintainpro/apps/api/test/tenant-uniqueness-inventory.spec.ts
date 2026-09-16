@@ -21,7 +21,15 @@ describe("MP-003: tenant uniqueness inventory (no schema mutation)", () => {
 
     const vehicle = modelBlock("Vehicle");
     expect(vehicle).toMatch(/registrationNo\s+String\s+@unique/);
-    expect(vehicle).toMatch(/vin\s+String\?\s+@unique/);
+    // vin no longer carries Prisma's `@unique` attribute (SQL Server nullable-unique fix —
+    // a plain UNIQUE constraint on a nullable column allows only one NULL row; see
+    // prisma/migrations/20260916120000_sqlserver_filtered_unique_indexes_and_bounds).
+    // Uniqueness for non-null VINs is still enforced globally, just via a migration-only
+    // filtered index rather than a schema-declared `@unique`. VIN is also a real-world
+    // globally-unique identifier (ISO 3779), unlike registrationNo/assetTag/partNumber
+    // below, so global scope here is intentional, not merely undecided.
+    expect(vehicle).toMatch(/vin\s+String\?\s+@db\.NVarChar\(32\)/);
+    expect(vehicle).not.toMatch(/vin\s+String\?\s+@unique/);
     expect(vehicle).not.toMatch(/@@unique\(\[tenantId,\s*registrationNo\]\)/);
 
     const sparePart = modelBlock("SparePart");
