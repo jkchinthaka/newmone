@@ -2,10 +2,10 @@ import { MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/c
 import { BullModule } from "@nestjs/bull";
 import { ConfigModule } from "@nestjs/config";
 import { ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 
-import { RequestContextMiddleware } from "./common/context/request-context.middleware";
+import { RequestContextInterceptor } from "./common/context/request-context.interceptor";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { HttpThrottlerGuard } from "./common/guards/http-throttler.guard";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
@@ -226,13 +226,20 @@ normalizeDatabaseEnvironment();
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard
+    },
+    // Runs after all guards (JwtAuthGuard -> TenantContextGuard -> RolesGuard ->
+    // PermissionsGuard) so it sees the fully resolved req.user / req.tenantId —
+    // see RequestContextInterceptor for why this cannot be middleware.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestContextInterceptor
     }
   ]
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(RequestIdMiddleware, TenantContextMiddleware, RequestContextMiddleware)
+      .apply(RequestIdMiddleware, TenantContextMiddleware)
       .forRoutes({ path: "*", method: RequestMethod.ALL });
   }
 }
