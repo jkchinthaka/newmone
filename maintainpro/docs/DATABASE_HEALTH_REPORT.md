@@ -1,15 +1,15 @@
 # Database Health Report
 
-**Branch:** `maintainpro/phase-15-sqlserver-migration`  
-**Audit date:** 2026-09-17  
-**HEAD at audit start:** `cfef2526`  
-**Schema:** Prisma 5.22 + SQL Server
+**Branch:** `maintainpro/final-enterprise-closure`  
+**Audit date:** 2026-09-17 (final closure refresh)  
+**Schema:** Prisma 5.22 + Microsoft SQL Server
 
 ## Schema Overview
 
 - Modular monolith CMMS/EAM/Fleet schema
-- Provider: SQL Server (`sqlserver`)
-- IDs: cuid `@db.NVarChar(36)` — business numbers are separate fields
+- Provider: SQL Server (`sqlserver`) — **application primary**
+- Mongo remains migration-source / reconcile tooling only until signed cutover
+- IDs: cuid `@db.NVarChar(36)`
 - FK delete behavior: **NoAction only** (0 Cascade relations in Prisma)
 
 ## Model Count
@@ -20,23 +20,21 @@
 | FK onDelete Cascade | 0 |
 | FK onDelete NoAction | ~439 |
 
-## FK Count / Cascades
+## Fresh empty-database proof (2026-09-17)
 
-All Prisma relations use `onDelete: NoAction`. Operational rows (WO, Request, Audit, MeterReading, Downtime, Permit) are **not** deleted via cascade when masters are removed.
-
-### Cascade table
-
-| Pattern | Count | Risk |
-|---------|------:|------|
-| ON DELETE CASCADE | 0 | None |
-| ON DELETE NO ACTION | All mapped FKs | Preferred — orphans blocked at delete time |
-| ON DELETE SET NULL | 0 in Prisma | — |
+| Step | Result |
+|------|--------|
+| Create `MaintainProEmptyProof` | PASSED |
+| `prisma migrate deploy` (12 migrations from zero) | PASSED |
+| Seed | PASSED |
+| Idempotent seed re-run | PASSED |
+| Backup/restore drill (`npm run db:sqlserver:drill`) | PASSED (WITH MOVE) |
 
 ## Unique Constraints
 
-Strong tenant-aware uniques include: assetTag, registrationNo, woNumber, requestNumber, partNumber, vendorCode, permitNumber, generationKey, etc. (see MP-003 comments in schema).
+Tenant-aware uniques include assetTag, registrationNo, woNumber, requestNumber, partNumber, vendorCode (filtered unique), permitNumber, generationKey, etc.
 
-Added: `@@unique([tenantId, id])` on Asset, Vehicle, WorkOrder, AssetMeter, WorkflowVersion, OrganizationUnit for integrity/trigger support.
+`@@unique([tenantId, id])` on Asset, Vehicle, WorkOrder, AssetMeter, WorkflowVersion, OrganizationUnit for trigger support.
 
 ## Tenant Isolation
 
@@ -44,75 +42,41 @@ Added: `@@unique([tenantId, id])` on Asset, Vehicle, WorkOrder, AssetMeter, Work
 |-------|--------|
 | Column `tenantId` on business tables | Present on core models |
 | App `assertTenantEntityExists` | Present + tests |
-| DB triggers cross-tenant FK | **Added** in `20260917240000` |
-| PartRequest.tenantId | **Hardened to required** + backfill |
-| Supplier.tenantId nullable | **MEDIUM** — legacy; portal/app still scopes |
-| Composite Prisma FK (tenantId, assetId) | Not used (Prisma limitation with required tenant + optional asset) |
+| DB triggers cross-tenant FK | `20260917240000` |
+| PartRequest.tenantId | Required |
+| Supplier.tenantId | **Required** (`20260917250000`; quarantine tenant for unresolved legacy) |
+| VendorPortalAccess tenant match | Trigger `trg_VendorPortalAccess_tenant` |
 
-## Orphan Risks
-
-| Risk | Mitigation |
-|------|------------|
-| MeterCorrection without meter | FK + orphan delete in migration |
-| WO.workflowVersionId dangling | FK + nullify invalid before add |
-| PartRequest without tenant | Backfill from WO; delete remainder |
-
-## Data Integrity Risks
+## Data Integrity Risks (final)
 
 | ID | Severity | Finding | Status |
 |----|----------|---------|--------|
-| DI-1 | CRITICAL | Cross-tenant WO→Asset possible at DB | **FIXED** — triggers |
+| DI-1 | CRITICAL | Cross-tenant WO→Asset | **FIXED** — triggers |
 | DI-2 | CRITICAL | MeterCorrection no FK | **FIXED** |
 | DI-3 | HIGH | Float money on parts/vendor/claims | **FIXED** → Decimal(18,2) |
 | DI-4 | HIGH | PartRequest.tenantId nullable | **FIXED** |
-| DI-5 | HIGH | Reporting views multi-tenant exposure | **MITIGATED** — tenantId NOT NULL + Power BI must filter; RLS external |
-| DI-6 | MEDIUM | Branch only as string `branchScope` | **MITIGATED** — OrganizationUnit model |
-| DI-7 | MEDIUM | No WorkflowInstance table | Documented — WO+StatusHistory sufficient |
-| DI-8 | MEDIUM | Farm/utility Float money | Deferred (non-core) |
-| DI-9 | MEDIUM | Soft delete only on EvidenceAttachment | Documented retirement/status pattern |
-| DI-10 | LOW | Hierarchy cycles app-only for Asset | Acceptable with app tests; OrgUnit has trigger |
+| DI-5 | HIGH | Reporting multi-tenant exposure | **MITIGATED** — tenantId on views; Power BI RLS EXTERNAL |
+| DI-6 | MEDIUM | Branch string scopes | **MITIGATED** — OrganizationUnit |
+| DI-7 | MEDIUM | No WorkflowInstance table | Documented — WO+StatusHistory |
+| DI-8 | MEDIUM | Farm/utility Float money | **FIXED** in `20260917250000` |
+| DI-9 | MEDIUM | Soft delete inconsistency | Documented retirement/status pattern |
+| DI-10 | MEDIUM | Asset hierarchy cycles app-only | **FIXED** — `trg_Asset_no_hierarchy_cycle` |
 
-## Performance Risks
+**CRITICAL = 0 · HIGH = 0 · remaining MEDIUM are documented non-blocking or mitigated.**
 
-| Area | Notes |
-|------|-------|
-| Indexes | Strong tenant+status/dueDate coverage; added technician+status, workflowVersionId |
-| N+1 | Domain services vary — not exhaustively profiled this pass |
-| Reporting views | Simple projections; filter by tenantId in consumer |
+## Money / Decimal
 
-## Migration Risks
+Operational money fields use `Decimal(18,2)` (rates may use 18,4). Remaining Float fields are sensors/measurements (odometer, GPS, capacity), not currency.
 
-| Migration | Notes |
-|-----------|-------|
-| `20260917240000` | Forward-only; Float→Decimal; destructive only for null-tenant PartRequest orphans and invalid FKs |
-| Historical applied migrations | Not rewritten |
+## Organization / Asset / Vehicle
 
-## Reporting Layer
+Recursive `OrganizationUnit` with cycle protection; Asset parent hierarchy with DB cycle + cross-tenant triggers; Vehicle shares maintenance WO architecture.
 
-- Views: `vw_rpt_dim_date`, `vw_rpt_dim_branch_site` (now joins OrgUnit), `vw_rpt_fact_maintenance`, `vw_rpt_fact_downtime`
-- Security model: **service account + mandatory tenant filter in Power BI** (no SQL RLS yet — EXTERNAL/ops)
-- KPI formulas: `docs/KPI_DEFINITIONS.md` / reporting-kpis module
+## Workflow / Approval / Inventory / Vendor / Safety / Audit / Reporting
 
-## Fixes Applied
+See `docs/DATABASE_MAPPING_AUDIT.md` and `docs/DATA_MODEL.md` ERDs. Reporting views `vw_rpt_*` include tenantId.
 
-1. OrganizationUnit + CustomFieldValue models  
-2. Tenant consistency triggers  
-3. AuditLog / ConfigChangeHistory immutability triggers  
-4. MeterCorrection → AssetMeter FK  
-5. WorkOrder → WorkflowVersion FK  
-6. PartRequest.tenantId NOT NULL + Decimal costs  
-7. Money Decimal conversions (asset/vehicle/vendor/insurance/fines/budget)  
-8. `(tenantId,id)` unique indexes  
-9. Reporting view tenant predicates + OrgUnit dim  
-10. `database-integrity.spec.ts`
+## Remaining external database risks
 
-## Remaining External Dependencies
-
-- Production Power BI RLS / dataset gateway configuration  
-- Live SQL Server role grants denying AuditLog DELETE to app users (trigger is app-DB safety net)  
-- Bileeta live credentials (integration, not schema)
-
-## Production-readiness verdict (database)
-
-**Database architecture is enterprise-usable with CRITICAL/HIGH integrity gaps closed in this pass.**  
-Do **not** claim “production ready” for Power BI multi-tenant RLS until ops configures dataset filters/RLS. Core OLTP integrity is substantially stronger after `20260917240000`.
+- Live staging Mongo↔SQL reconciliation against production snapshot (tooling complete: `npm run db:reconcile`)
+- Power BI production RLS configuration (views + docs complete)

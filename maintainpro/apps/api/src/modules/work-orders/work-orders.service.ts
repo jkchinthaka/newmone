@@ -179,7 +179,7 @@ export class WorkOrdersService {
           action: input.action,
           actorId: input.actorId,
           reason: input.reason?.trim() || undefined,
-          metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined
+          metadata: input.metadata != null ? JSON.stringify(input.metadata) : undefined
         }
       });
     } catch {

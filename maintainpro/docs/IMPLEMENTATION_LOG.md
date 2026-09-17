@@ -2369,3 +2369,21 @@ Record each completed task with:
 - Initial migration `20260915120000_phase15_sqlserver_init`; mongo?sql script dry-run default
 - Live SQL apply / backup-restore NOT EXECUTED (no local SQL Server/Docker)
 - Docs: PHASE_15 audit + migration + runbooks; master status updated
+
+## 2026-09-17 | FINAL-ENTERPRISE-CLOSURE | SQL Server closure + integrity + tooling
+
+- Branch: `maintainpro/final-enterprise-closure` (base main + merged phase-15 / `86319b31`)
+- Date: 2026-09-17
+- Area: Database integrity, SQL Server deploy alignment, closure tooling, docs/matrix
+- Changes:
+  - Migration `20260917250000_final_closure_supplier_money_asset_cycle`: Supplier.tenantId NOT NULL (+ quarantine), remaining money Float→Decimal, `trg_Asset_no_hierarchy_cycle`, `trg_VendorPortalAccess_tenant`
+  - docker-compose / docker-compose.dev: SQL Server primary; Mongo retained for FG/migration-source
+  - `db:push` refused; scripts `erp:check`, `db:reconcile`, `db:sqlserver:drill`
+  - CI `sqlserver-migration-gate.yml`; api-url fail-closed; entity-id validation; Supplier service requires tenant
+  - Docs: DATABASE_HEALTH_REPORT, DATABASE_MAPPING_AUDIT, PRODUCTION_TODO, matrix, CLAUDE.md
+- Migrations: `20260917250000` applied on MaintainProDev; empty proof DB `MaintainProEmptyProof` migrate+seed PASSED (12 migrations)
+- Tests: `npm run typecheck` PASSED; `npm run lint` PASSED; `npm run test` PASSED (201 suites / 1772 passed); unicode+integrity PASSED; web build PASSED; API `tsc -p tsconfig.build.json` PASSED after prisma regenerate
+- Tooling: reconcile PASSED (fixture); erp:check EXTERNAL (no creds); sqlserver drill PASSED
+- External limitations: live Bileeta, Entra, SMTP/SMS, Power BI RLS, human UAT, irreversible cutover
+- Commit SHA: (pending this commit)
+

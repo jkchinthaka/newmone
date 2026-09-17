@@ -42,7 +42,7 @@ Status legend: **VERIFIED** | **PARTIAL** | **MISSING** | **EXTERNAL_DEPENDENCY*
 | 33 | ERP sync architecture | Retry/idempotency | VERIFIED | ErpSyncProvider |  |  |
 | 34 | ERP exception center | /erp/exceptions | VERIFIED | getExceptions | erp-exceptions |  |
 | 35 | Asset lifecycle EAM | Statuses+registry | VERIFIED | assets |  |  |
-| 36 | Asset hierarchy | Cycle prevention | VERIFIED | asset-hierarchy.ts | universal-assets |  |
+| 36 | Asset hierarchy | Cycle prevention | VERIFIED | asset-hierarchy.ts + trg_Asset_no_hierarchy_cycle | universal-assets |  |
 | 37 | Asset history | Profile timeline | VERIFIED | asset profile |  |  |
 | 38 | Lifecycle cost | Reports+DSS | VERIFIED | reports,config-simulator |  |  |
 | 39 | Repair vs replace DSS | Evidence API | VERIFIED | config-simulator |  |  |
@@ -177,6 +177,18 @@ Status legend: **VERIFIED** | **PARTIAL** | **MISSING** | **EXTERNAL_DEPENDENCY*
 
 ## External dependencies (narrow)
 
-- Production Bileeta ERP API credentials/contracts (adapters/mocks/exception center **implemented**)
+- Production Bileeta ERP API credentials/contracts (adapters/mocks/exception center **implemented**; `npm run erp:check`)
 - Production Microsoft Entra tenant registration (SSO adapter **implemented** in-code)
 - Production SMTP/SMS provider credentials (notification dispatchers **implemented**)
+- Power BI production dataset + tenant RLS (views/docs **implemented**; RLS wiring EXTERNAL)
+- Human Gate-1 UAT sign-off (`docs/UAT_RUNBOOK.md` — NOT EXECUTED by engineering agent)
+- Irreversible production cutover / DNS (runbooks only; not agent-executed)
+
+## Final closure evidence (2026-09-17)
+
+- Empty DB migrate+seed: PASSED (`MaintainProEmptyProof`, 12 migrations)
+- Upgrade migrate on MaintainProDev: PASSED (`20260917250000`)
+- API tests: 201 suites / 1772 passed
+- `npm run db:reconcile` (fixture): PASSED
+- `npm run db:sqlserver:drill`: PASSED
+- `npm run erp:check`: EXTERNAL (no live credentials)

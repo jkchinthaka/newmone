@@ -1,0 +1,9 @@
+{
+  "description": "Sample Mongo→SQL reconcile fixture for tooling tests (not live staging data).",
+  "models": [
+    { "model": "Tenant", "mongoCount": 1, "sqlCount": 1 },
+    { "model": "Asset", "mongoCount": 10, "sqlCount": 10 },
+    { "model": "WorkOrder", "mongoCount": 25, "sqlCount": 25 },
+    { "model": "Supplier", "mongoCount": 3, "sqlCount": 3 }
+  ]
+}

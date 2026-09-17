@@ -14,22 +14,22 @@ services:
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
-      DATABASE_PROVIDER: mongodb
-      PRIMARY_DATABASE_URL: ${PRIMARY_DATABASE_URL:-mongodb://${MONGO_APP_USERNAME:-maintainpro_app}:${MONGO_APP_PASSWORD:-maintainpro_password}@mongo:27017/nelna?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0}
-      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-mongodb://${MONGO_APP_USERNAME:-maintainpro_app}:${MONGO_APP_PASSWORD:-maintainpro_password}@mongo:27017/${MONGO_INITDB_DATABASE:-bileeta_db}?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0}
-      DATABASE_URL: ${PRIMARY_DATABASE_URL:-mongodb://${MONGO_APP_USERNAME:-maintainpro_app}:${MONGO_APP_PASSWORD:-maintainpro_password}@mongo:27017/nelna?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0}
-      MONGODB_URI: ${PRIMARY_DATABASE_URL:-mongodb://${MONGO_APP_USERNAME:-maintainpro_app}:${MONGO_APP_PASSWORD:-maintainpro_password}@mongo:27017/nelna?authSource=${MONGO_INITDB_DATABASE:-bileeta_db}&replicaSet=rs0}
-      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-nelna}
-      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-bileeta_db}
-      MONGO_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-nelna}
-      MONGO_SYNC_ON_STARTUP: ${MONGO_SYNC_ON_STARTUP:-false}
-      DATABASE_REPLICATION_ENABLED: ${DATABASE_REPLICATION_ENABLED:-true}
-      DATABASE_REPLICATION_MODE: ${DATABASE_REPLICATION_MODE:-async_outbox}
+      DATABASE_PROVIDER: sqlserver
+      DATABASE_URL: ${DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainPro;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
+      PRIMARY_DATABASE_URL: ${PRIMARY_DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainPro;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
+      MONGODB_URI: ${MONGO_MIGRATION_SOURCE_URL:-}
+      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-MaintainPro}
+      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-}
+      MONGO_DATABASE_NAME: ${MONGO_DATABASE_NAME:-}
+      MONGO_SYNC_ON_STARTUP: "false"
+      DATABASE_REPLICATION_ENABLED: ${DATABASE_REPLICATION_ENABLED:-false}
+      DATABASE_REPLICATION_MODE: ${DATABASE_REPLICATION_MODE:-disabled}
       DATABASE_REPLICATION_RETRY_ATTEMPTS: ${DATABASE_REPLICATION_RETRY_ATTEMPTS:-5}
       DATABASE_REPLICATION_RETRY_DELAY_MS: ${DATABASE_REPLICATION_RETRY_DELAY_MS:-5000}
       DATABASE_REPLICATION_BATCH_SIZE: ${DATABASE_REPLICATION_BATCH_SIZE:-100}
       BACKUP_DATABASE_REQUIRED_FOR_READINESS: ${BACKUP_DATABASE_REQUIRED_FOR_READINESS:-false}
-      BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE: ${BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE:-true}
+      BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE: ${BACKUP_DATABASE_REQUIRED_FOR_STRICT_MODE:-false}
       RAPIDAPI_GOOGLE_MAP_PLACES_KEY: ${RAPIDAPI_GOOGLE_MAP_PLACES_KEY:-}
       REDIS_URL: redis://redis:6379
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
@@ -47,7 +47,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-maintainpro-files}
     depends_on:
-      mongo:
+      sqlserver:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -130,6 +130,34 @@ services:
     stop_grace_period: 20s
     restart: unless-stopped
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-MaintainPro_Dev_Passw0rd!}
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_HOST_PORT:-1433}:1433"
+    volumes:
+      - maintainpro-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"IF DB_ID('MaintainPro') IS NULL CREATE DATABASE MaintainPro; SELECT 1\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # Migration-source / FG Digital Recording dependency (not MaintainPro API primary).
   mongo:
     image: mongo:7
     environment:
@@ -138,7 +166,7 @@ services:
       MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-bileeta_db}
       MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-maintainpro_app}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-maintainpro_password}
-      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-nelna}
+      PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-MaintainPro}
       BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-bileeta_db}
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
@@ -435,6 +463,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  maintainpro-sqlserver-data:
   maintainpro-mongo-data:
   maintainpro-redis-data:
   maintainpro-minio-data:

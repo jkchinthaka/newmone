@@ -545,8 +545,8 @@ model Plan {
   description   String?
   isActive      Boolean        @default(true)
   currency      String         @default("USD")
-  priceMonthly  Float          @default(0)
-  priceYearly   Float          @default(0)
+  priceMonthly  Decimal          @db.Decimal(18, 2)          @default(0)
+  priceYearly   Decimal          @db.Decimal(18, 2)          @default(0)
   metadata      String?        @db.NVarChar(Max)
   entitlements  Entitlement[]
   subscriptions Subscription[]
@@ -589,7 +589,7 @@ model Entitlement {
   enabled     Boolean  @default(true)
   limitValue  Int?
   unit        String?
-  overageRate Float?
+  overageRate Decimal? @db.Decimal(18, 4)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -645,8 +645,8 @@ model StripeInvoice {
   subscription     Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   stripeInvoiceId  String        @unique
   invoiceNumber    String?
-  amountDue        Float         @default(0)
-  amountPaid       Float         @default(0)
+  amountDue        Decimal         @db.Decimal(18, 2)         @default(0)
+  amountPaid       Decimal         @db.Decimal(18, 2)         @default(0)
   currency         String        @default("usd")
   status           String
   hostedInvoiceUrl String?
@@ -1060,7 +1060,7 @@ model VehicleTyre {
   retreadCount      Int       @default(0)
   condition         String    @default("") @db.NVarChar(64)
   isActive          Boolean   @default(true)
-  costSnapshot      Float?
+  costSnapshot      Decimal?    @db.Decimal(18, 2)
   warrantyExpiresAt DateTime?
   notes             String?
   createdAt         DateTime  @default(now())
@@ -1088,7 +1088,7 @@ model VehicleBattery {
   warrantyExpiresAt      DateTime?
   condition              String?
   failureReason          String?
-  costSnapshot           Float?
+  costSnapshot           Decimal?    @db.Decimal(18, 2)
   isActive               Boolean   @default(true)
   replacementWorkOrderId String?   @db.NVarChar(36)
   notes                  String?
@@ -1288,7 +1288,7 @@ model MaintenanceSchedule {
   /// ACTUAL_COMPLETION (default) or FIXED_SCHEDULE. Documented in BUSINESS_DECISIONS_REQUIRED.md.
   advancePolicy        String?
   isActive             Boolean   @default(true)
-  estimatedCost        Float?
+  estimatedCost        Decimal?             @db.Decimal(18, 2)
   estimatedHours       Float?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -2194,8 +2194,9 @@ model WorkOrderPart {
 
 model Supplier {
   id                String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId          String?  @db.NVarChar(36)
-  tenant            Tenant?  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Required tenant ownership — backfilled in 20260917250000 where evidence exists
+  tenantId          String   @db.NVarChar(36)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vendorCode        String?
   name              String
   contactName       String?
@@ -2623,10 +2624,10 @@ model UtilityBill {
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
   totalConsumption   Float
-  ratePerUnit        Float
-  baseCharge         Float?
-  taxAmount          Float?
-  totalAmount        Float
+  ratePerUnit        Decimal       @db.Decimal(18, 4)
+  baseCharge         Decimal?      @db.Decimal(18, 2)
+  taxAmount          Decimal?      @db.Decimal(18, 2)
+  totalAmount        Decimal       @db.Decimal(18, 2)
   dueDate            DateTime?
   paidDate           DateTime?
   status             String       @default("") @db.NVarChar(64)
@@ -3728,13 +3729,13 @@ model CropCycle {
   actualHarvestDate   DateTime?
   expectedYieldKg     Float?
   actualYieldKg       Float?
-  seedCostLkr         Float?    @default(0)
-  fertilizerCostLkr   Float?    @default(0)
-  pesticideCostLkr    Float?    @default(0)
-  laborCostLkr        Float?    @default(0)
-  irrigationCostLkr   Float?    @default(0)
-  otherCostLkr        Float?    @default(0)
-  revenueLkr          Float?    @default(0)
+  seedCostLkr         Decimal?    @default(0) @db.Decimal(18, 2)
+  fertilizerCostLkr   Decimal?    @default(0) @db.Decimal(18, 2)
+  pesticideCostLkr    Decimal?    @default(0) @db.Decimal(18, 2)
+  laborCostLkr        Decimal?    @default(0) @db.Decimal(18, 2)
+  irrigationCostLkr   Decimal?    @default(0) @db.Decimal(18, 2)
+  otherCostLkr        Decimal?    @default(0) @db.Decimal(18, 2)
+  revenueLkr          Decimal?    @default(0) @db.Decimal(18, 2)
   status              String    @default("") @db.NVarChar(64)
   notes               String?
   archivedAt          DateTime?
@@ -3761,8 +3762,8 @@ model HarvestRecord {
   storageLocation String?
   batchCode       String?
   harvestedById   String?   @db.NVarChar(36)
-  pricePerKgLkr   Float?
-  totalValueLkr   Float?
+  pricePerKgLkr   Decimal? @db.Decimal(18, 2)
+  totalValueLkr   Decimal? @db.Decimal(18, 2)
   buyerName       String?
   photos          String    @default("[]") @db.NVarChar(Max)
   notes           String?
@@ -3783,7 +3784,7 @@ model LivestockAnimal {
   gender           String    @db.NVarChar(64)
   dateOfBirth      DateTime?
   purchaseDate     DateTime?
-  purchasePriceLkr Float?
+  purchasePriceLkr Decimal? @db.Decimal(18, 2)
   weightKg         Float?
   status           String    @default("") @db.NVarChar(64)
   qrCodeUrl        String?  @db.NVarChar(Max)
@@ -3811,7 +3812,7 @@ model AnimalHealthRecord {
   vetName      String?
   medicineName String?
   dosage       String?
-  costLkr      Float?
+  costLkr      Decimal? @db.Decimal(18, 2)
   nextDueDate  DateTime?
   notes        String?
   createdAt    DateTime        @default(now())
@@ -3848,7 +3849,7 @@ model FeedingLog {
   groupLabel String?
   feedType   String
   quantityKg Float
-  costLkr    Float?
+  costLkr    Decimal? @db.Decimal(18, 2)
   fedById    String?          @db.NVarChar(36)
   date       DateTime
   notes      String?
@@ -3871,7 +3872,7 @@ model IrrigationLog {
   method          String    @db.NVarChar(64)
   pumpAssetId     String?   @db.NVarChar(36)
   operatorId      String?   @db.NVarChar(36)
-  costLkr         Float?
+  costLkr         Decimal? @db.Decimal(18, 2)
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -3894,7 +3895,7 @@ model SprayLog {
   dosagePerHectare   Float?
   totalQuantityUsed  Float?
   unit               String
-  costLkr            Float?
+  costLkr            Decimal? @db.Decimal(18, 2)
   operatorId         String?    @db.NVarChar(36)
   equipmentAssetId   String?    @db.NVarChar(36)
   weatherAtTime      String?
@@ -3958,7 +3959,7 @@ model FarmWorker {
   phone        String?
   address      String?
   workerType   String    @db.NVarChar(64)
-  dailyWageLkr Float?
+  dailyWageLkr Decimal? @db.Decimal(18, 2)
   skillTags    String    @default("[]") @db.NVarChar(Max)
   status       String    @default("") @db.NVarChar(64)
   qrCodeUrl    String?  @db.NVarChar(Max)
@@ -3983,7 +3984,7 @@ model AttendanceLog {
   checkOutTime DateTime?
   hoursWorked  Float?
   taskArea     String?
-  wageLkr      Float?
+  wageLkr      Decimal? @db.Decimal(18, 2)
   markedById   String?    @db.NVarChar(36)
   notes        String?
   createdAt    DateTime   @default(now())
@@ -3999,7 +4000,7 @@ model FarmExpense {
   date          DateTime
   category      String   @db.NVarChar(64)
   description   String
-  amountLkr     Float
+  amountLkr     Decimal  @db.Decimal(18, 2)
   cropCycleId   String?  @db.NVarChar(36)
   fieldId       String?  @db.NVarChar(36)
   referenceId   String?
@@ -4021,8 +4022,8 @@ model FarmIncome {
   source        String   @db.NVarChar(64)
   cropType      String?
   quantityKg    Float?
-  pricePerKgLkr Float?
-  totalLkr      Float
+  pricePerKgLkr Decimal? @db.Decimal(18, 2)
+  totalLkr      Decimal  @db.Decimal(18, 2)
   buyerName     String?
   invoiceUrl    String?
   cropCycleId   String?  @db.NVarChar(36)
@@ -4505,7 +4506,7 @@ model ChangeRequest {
   impactLevel       String   @default("") @db.NVarChar(64)
   status            String   @default("") @db.NVarChar(64)
   estimatedEffort   String?
-  estimatedCost     Float?
+  estimatedCost     Decimal? @db.Decimal(18, 2)
   approvedByUserId  String?  @db.NVarChar(36)
   approvalNote      String?
   rejectionReason   String?
@@ -4856,7 +4857,7 @@ model ErpImportRow {
   quantity           Int?
   requestedQuantity  Int?
   requester          String?
-  cost               Float?
+  cost               Decimal? @db.Decimal(18, 2)
   batch              String?
   lot                String?
   orderNo            String?

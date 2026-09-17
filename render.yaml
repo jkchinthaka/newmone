@@ -22,17 +22,18 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_PROVIDER
-        value: mongodb
+        value: sqlserver
       - key: PRIMARY_DATABASE_NAME
-        value: maintainpro_staging
+        value: MaintainProStaging
       - key: BACKUP_DATABASE_NAME
-        value: bileeta_db
+        sync: false
       - key: DATABASE_SERVER_SELECTION_TIMEOUT_MS
         value: "5000"
       - key: DATABASE_CONNECT_TIMEOUT_MS
         value: "5000"
+      # Mongo retained only for migration-source / dual-write tooling until cutover sign-off.
       - key: MONGO_DATABASE_NAME
-        value: maintainpro_staging
+        sync: false
       - key: MONGODB_URI
         sync: false
       - key: MONGO_SYNC_ON_STARTUP

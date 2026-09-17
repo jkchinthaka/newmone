@@ -19,7 +19,7 @@ const VENDOR_MANAGE_ROLES = new Set<RoleName>([
 export class SuppliersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private scopeByTenant(actor?: Actor): { tenantId?: string | null } {
+  private scopeByTenant(actor?: Actor): { tenantId?: string } {
     if (!actor) {
       return {};
     }
@@ -28,7 +28,11 @@ export class SuppliersService {
       return {};
     }
 
-    return { tenantId: actor.tenantId ?? null };
+    if (!actor.tenantId) {
+      throw new ForbiddenException("Tenant context is required for supplier access.");
+    }
+
+    return { tenantId: actor.tenantId };
   }
 
   private assertCanManage(actor?: Actor) {
@@ -79,7 +83,10 @@ export class SuppliersService {
   ) {
     this.assertCanManage(actor);
     const tenantScope = this.scopeByTenant(actor);
-    const tenantId = tenantScope.tenantId ?? data.tenantId ?? null;
+    const tenantId = tenantScope.tenantId ?? data.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException("tenantId is required when creating a supplier/vendor.");
+    }
 
     const supplier = await this.prisma.supplier.create({
       data: {

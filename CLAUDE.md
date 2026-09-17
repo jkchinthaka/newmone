@@ -15,9 +15,9 @@ maintainpro/
 ├── packages/
 │   ├── shared-types/   # types shared between api and web
 │   └── ui-components/  # shared React components
-├── prisma/schema.prisma  # single Prisma schema (MongoDB) for the whole platform
+├── prisma/schema.prisma  # single Prisma schema (SQL Server primary) for the whole platform
 ├── docker-compose.yml / docker-compose.dev.yml
-└── .github/workflows/    # ci.yml, docker-build-check.yml, develop-staging-deploy.yml
+└── .github/workflows/    # ci.yml, docker-build-check.yml, sqlserver-migration-gate.yml, …
 ```
 
 ## Commands (run from `maintainpro/`)
@@ -27,7 +27,8 @@ Setup:
 ```bash
 cp .env.example .env
 npm install
-npm run db:generate     # generate Prisma client (required before building/running api)
+npm run db:generate        # generate Prisma client (required before building/running api)
+npm run db:migrate:deploy  # SQL Server: apply migrations (never db:push in prod/staging)
 ```
 
 Dev servers:

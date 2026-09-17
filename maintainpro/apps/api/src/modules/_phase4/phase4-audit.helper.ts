@@ -59,6 +59,7 @@ export function assertActor(actor: Phase4Actor | undefined): Phase4Actor {
   return actor;
 }
 
+/** Stable entity ids: Prisma cuid / UUID-like / legacy Mongo ObjectId. */
 export function isValidObjectId(value: string): boolean {
-  return /^[a-fA-F0-9]{24}$/.test(value);
+  return /^(?:[a-fA-F0-9]{24}|[a-zA-Z0-9_-]{8,64})$/.test(value);
 }

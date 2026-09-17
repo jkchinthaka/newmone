@@ -1,0 +1,80 @@
+name: SQL Server Migration Gate
+
+on:
+  pull_request:
+    paths:
+      - "maintainpro/prisma/**"
+      - "maintainpro/apps/api/**"
+      - "maintainpro/package.json"
+      - ".github/workflows/sqlserver-migration-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  fresh-sqlserver-migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: "MaintainPro_CI_Passw0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P MaintainPro_CI_Passw0rd! -Q \"SELECT 1\" || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
+    defaults:
+      run:
+        working-directory: maintainpro
+    env:
+      DATABASE_PROVIDER: sqlserver
+      DATABASE_URL: "sqlserver://localhost:1433;database=MaintainProCI;user=sa;password=MaintainPro_CI_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true"
+      JWT_SECRET: ci-jwt-secret-not-for-production-use-32chars
+      JWT_ACCESS_SECRET: ci-access-secret-not-for-production-32c
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-for-production-32
+      CORS_ORIGIN: http://localhost:3001
+      FRONTEND_URL: http://localhost:3001
+      MAINTAINPRO_SEED_PASSWORD: CiSeedPassw0rd!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: maintainpro/package-lock.json
+      - name: Wait for SQL Server
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2022-latest | head -n1) \
+              /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'MaintainPro_CI_Passw0rd!' -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server ready"
+              break
+            fi
+            echo "waiting ($i)…"
+            sleep 5
+          done
+      - name: Create CI database
+        run: |
+          docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2022-latest | head -n1) \
+            /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'MaintainPro_CI_Passw0rd!' \
+            -Q "IF DB_ID('MaintainProCI') IS NULL CREATE DATABASE MaintainProCI;"
+      - name: Install
+        run: npm ci
+      - name: Prisma generate
+        run: npm run db:generate
+      - name: Migrate deploy (empty DB)
+        run: npm run db:migrate:deploy
+      - name: Seed
+        run: npm run db:seed
+      - name: Idempotent seed re-run
+        run: npm run db:seed
+      - name: API typecheck
+        run: npm run typecheck --workspace @maintainpro/api
+      - name: Focused integrity tests
+        run: |
+          cd apps/api
+          npx jest --config ./jest.config.cjs test/database-integrity.spec.ts test/tenant-fk-validation.spec.ts --runInBand
