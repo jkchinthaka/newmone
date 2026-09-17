@@ -4,6 +4,7 @@ import { MaintenanceRequestStatus } from "@prisma/client";
 const ACTIVE_STATUSES: MaintenanceRequestStatus[] = [
   MaintenanceRequestStatus.NEW,
   MaintenanceRequestStatus.UNDER_REVIEW,
+  MaintenanceRequestStatus.NEEDS_INFORMATION,
   MaintenanceRequestStatus.APPROVED
 ];
 
@@ -16,15 +17,26 @@ export function assertValidTransition(
   to: MaintenanceRequestStatus
 ) {
   const allowed: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
-    NEW: [MaintenanceRequestStatus.UNDER_REVIEW, MaintenanceRequestStatus.CANCELLED],
+    NEW: [
+      MaintenanceRequestStatus.UNDER_REVIEW,
+      MaintenanceRequestStatus.CANCELLED,
+      MaintenanceRequestStatus.CLOSED
+    ],
     UNDER_REVIEW: [
+      MaintenanceRequestStatus.NEEDS_INFORMATION,
       MaintenanceRequestStatus.APPROVED,
-      MaintenanceRequestStatus.REJECTED,
+      MaintenanceRequestStatus.CLOSED,
       MaintenanceRequestStatus.CANCELLED
     ],
-    APPROVED: [MaintenanceRequestStatus.CONVERTED_TO_WO],
+    NEEDS_INFORMATION: [
+      MaintenanceRequestStatus.UNDER_REVIEW,
+      MaintenanceRequestStatus.CANCELLED,
+      MaintenanceRequestStatus.CLOSED
+    ],
+    APPROVED: [MaintenanceRequestStatus.CONVERTED_TO_WO, MaintenanceRequestStatus.CANCELLED],
     REJECTED: [],
     CANCELLED: [],
+    CLOSED: [],
     CONVERTED_TO_WO: []
   };
 
@@ -51,10 +63,27 @@ export function humanRequestStatus(status: MaintenanceRequestStatus): string {
   const labels: Record<MaintenanceRequestStatus, string> = {
     NEW: "New",
     UNDER_REVIEW: "Under Review",
-    APPROVED: "Approved",
-    REJECTED: "Rejected",
+    NEEDS_INFORMATION: "Needs Information",
+    APPROVED: "Accepted",
+    REJECTED: "Rejected (legacy)",
     CANCELLED: "Cancelled",
+    CLOSED: "Closed",
     CONVERTED_TO_WO: "Converted to Work Order"
   };
   return labels[status] ?? status;
+}
+
+export function mapRejectionTypeToResolution(reasonType: string | null | undefined): string {
+  switch (reasonType) {
+    case "DUPLICATE":
+      return "DUPLICATE";
+    case "NOT_MAINTENANCE":
+      return "NOT_MAINTENANCE";
+    case "INVALID_REQUEST":
+      return "INVALID";
+    case "ALREADY_RESOLVED":
+      return "RESOLVED_WITHOUT_WO";
+    default:
+      return "INVALID";
+  }
 }

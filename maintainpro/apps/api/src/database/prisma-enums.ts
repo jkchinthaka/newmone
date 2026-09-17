@@ -735,10 +735,21 @@ export enum CleaningVisitMethod {
 export enum MaintenanceRequestStatus {
   NEW = "NEW",
   UNDER_REVIEW = "UNDER_REVIEW",
+  NEEDS_INFORMATION = "NEEDS_INFORMATION",
   APPROVED = "APPROVED",
+  /** @deprecated Prefer CLOSED + resolutionCode for non-WO closures */
   REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
+  CLOSED = "CLOSED",
   CONVERTED_TO_WO = "CONVERTED_TO_WO",
+}
+
+export enum MaintenanceRequestResolution {
+  RESOLVED_WITHOUT_WO = "RESOLVED_WITHOUT_WO",
+  DUPLICATE = "DUPLICATE",
+  NOT_MAINTENANCE = "NOT_MAINTENANCE",
+  INVALID = "INVALID",
+  CANCELLED = "CANCELLED",
 }
 
 export enum RequestRejectionReasonType {

@@ -33,7 +33,8 @@ import {
   assertValidTransition,
   DEFAULT_PROBLEM_CATEGORIES,
   humanRequestStatus,
-  isActiveRequestStatus
+  isActiveRequestStatus,
+  mapRejectionTypeToResolution
 } from "./request-lifecycle";
 
 type Actor = {
@@ -463,7 +464,7 @@ export class MaintenanceRequestsService {
     this.assertApprove(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
-    assertValidTransition(current.status, MaintenanceRequestStatus.REJECTED);
+    assertValidTransition(current.status, MaintenanceRequestStatus.CLOSED);
 
     if (
       dto.reasonType === RequestRejectionReasonType.OTHER &&
@@ -477,17 +478,18 @@ export class MaintenanceRequestsService {
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
-        status: MaintenanceRequestStatus.REJECTED,
+        status: MaintenanceRequestStatus.CLOSED,
         rejectedAt: new Date(),
         rejectionReasonType: dto.reasonType,
-        rejectionReason: reason
+        rejectionReason: reason,
+        resolutionCode: mapRejectionTypeToResolution(dto.reasonType)
       }
     });
 
     await this.appendHistory(tid, id, {
       fromStatus: current.status,
-      toStatus: MaintenanceRequestStatus.REJECTED,
-      action: "REJECTED",
+      toStatus: MaintenanceRequestStatus.CLOSED,
+      action: "CLOSED",
       actorId: actor.sub,
       reason,
       isInternal: false
@@ -499,7 +501,11 @@ export class MaintenanceRequestsService {
       module: "maintenance-requests",
       actor: actor as never,
       reason,
-      afterData: { status: updated.status, rejectionReasonType: dto.reasonType } as never
+      afterData: {
+        status: updated.status,
+        resolutionCode: updated.resolutionCode,
+        rejectionReasonType: dto.reasonType
+      } as never
     });
 
     return this.findOne(tid, id, actor, { forceAll: true });
@@ -567,22 +573,23 @@ export class MaintenanceRequestsService {
       throw new BadRequestException("Cannot mark a request as duplicate of itself");
     }
     const canonical = await this.requireRequest(tid, dto.canonicalRequestId);
-    assertValidTransition(current.status, MaintenanceRequestStatus.REJECTED);
+    assertValidTransition(current.status, MaintenanceRequestStatus.CLOSED);
 
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
-        status: MaintenanceRequestStatus.REJECTED,
+        status: MaintenanceRequestStatus.CLOSED,
         rejectedAt: new Date(),
         rejectionReasonType: RequestRejectionReasonType.DUPLICATE,
         rejectionReason: dto.reason.trim(),
+        resolutionCode: "DUPLICATE",
         duplicateOfId: canonical.id
       }
     });
 
     await this.appendHistory(tid, id, {
       fromStatus: current.status,
-      toStatus: MaintenanceRequestStatus.REJECTED,
+      toStatus: MaintenanceRequestStatus.CLOSED,
       action: "MARKED_DUPLICATE",
       actorId: actor.sub,
       reason: dto.reason.trim(),

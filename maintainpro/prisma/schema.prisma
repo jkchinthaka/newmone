@@ -3100,6 +3100,8 @@ model MaintenanceRequest {
 
   rejectionReasonType String? @db.NVarChar(64)
   rejectionReason     String?
+  /// Canonical non-WO closure outcome (separate from status). Used with CLOSED.
+  resolutionCode      String? @db.NVarChar(64)
   cancellationReason  String?
 
   /// Duplicate of another request (same open event) — not the same as repeat failure
