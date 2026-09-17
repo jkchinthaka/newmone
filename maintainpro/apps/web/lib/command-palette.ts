@@ -75,12 +75,16 @@ export function buildEntityJumpCommands(
   const hrefs = new Set(items.map((item) => item.href.split("?")[0]));
   const extras: CommandPaletteItem[] = [];
 
-  if (hrefs.has("/work-orders") && /^(wo[-/\s]?\d|\d{3,})/i.test(trimmed)) {
+  if (
+    (hrefs.has("/work-orders") || hrefs.has("/maintenance/jobs")) &&
+    /^(wo[-/\s]?\d|\d{3,})/i.test(trimmed)
+  ) {
+    const base = hrefs.has("/maintenance/jobs") ? "/maintenance/jobs" : "/work-orders";
     extras.push({
       id: `entity-work-orders-${trimmed.toLowerCase()}`,
       label: `Search work orders for “${trimmed}”`,
       description: "Open the work order queue with this search",
-      href: `/work-orders?q=${encodeURIComponent(trimmed)}`,
+      href: `${base}?q=${encodeURIComponent(trimmed)}`,
       category: "Search",
       keywords: ["work order", "wo", "search"]
     });

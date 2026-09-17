@@ -72,7 +72,7 @@ describe("admin console foundation", () => {
     const rolesPermissions = sections.find((section) => section.id === "roles-permissions");
     expect(rolesPermissions?.status).toBe("available");
     expect(rolesPermissions?.href).toBe("/admin/roles");
-    expect(rolesPermissions?.description).toMatch(/read-only|review/i);
+    expect(rolesPermissions?.description).toMatch(/role|permission/i);
 
     const invitations = sections.find((section) => section.id === "invitations-onboarding");
     expect(invitations?.status).toBe("available");

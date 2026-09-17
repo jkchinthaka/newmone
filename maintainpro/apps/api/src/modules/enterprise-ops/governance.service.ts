@@ -277,17 +277,18 @@ export class GovernanceService {
       configured && typeof configured.value === "object" && configured.value && "amount" in configured.value
         ? Number((configured.value as { amount?: number }).amount)
         : null;
+    const committedTotal = Number(committed._sum.amount ?? 0);
     const decision = canCommitBudget({
       tenantId,
       budgetAmount: Number.isFinite(budgetAmount) ? budgetAmount : null,
-      committed: committed._sum.amount ?? 0,
+      committed: committedTotal,
       requested: 0,
       policy
     });
     return {
       period: yearMonth,
       budgetAmount: Number.isFinite(budgetAmount) ? budgetAmount : null,
-      committed: committed._sum.amount ?? 0,
+      committed: committedTotal,
       coverage: budgetAmount == null ? "INSUFFICIENT_DATA" : "COMPLETE",
       decision
     };

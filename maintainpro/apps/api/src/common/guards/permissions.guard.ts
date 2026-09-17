@@ -50,6 +50,10 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "work_orders.correct": ["work_orders.manage"],
   "warranty.view": ["work_orders.manage", "assets.view", "vehicles.view", "admin.audit.view"],
   "warranty.manage": ["work_orders.manage", "admin.organization.manage"],
+  "reliability.view": ["work_orders.manage", "assets.view", "admin.audit.view"],
+  "reliability.manage": ["work_orders.manage", "admin.organization.manage"],
+  "safety.permit.view": ["work_orders.manage", "assets.view", "admin.audit.view"],
+  "safety.permit.manage": ["work_orders.manage", "admin.organization.manage"],
   "maintenance.templates.manage": ["admin.organization.manage", "planning.manage"],
   "admin.features.manage": ["admin.organization.manage", "settings.organization.manage"],
   // Phase 7 — approval engine; manage aliases for admin rollout
@@ -67,6 +71,7 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "parts.return": ["inventory.manage", "inventory.stock_issue", "parts.issue"],
   "erp.mapping.manage": ["inventory.manage", "erp.manage"],
   "vendor.manage": ["inventory.manage", "work_orders.manage"],
+  "vendor.portal": ["vendor.manage", "work_orders.view"],
   "contract.manage": ["inventory.manage", "work_orders.manage", "vendor.manage"],
   "cost.view": ["work_orders.manage", "inventory.manage", "cost.adjust"],
   "cost.adjust": ["work_orders.manage", "inventory.manage"],

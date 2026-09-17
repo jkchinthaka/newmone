@@ -24,6 +24,7 @@ import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
 import { AUTH_LOGOUT_SUCCESS_HTTP_STATUS } from "./auth-logout-status.contract";
 import { AuthService } from "./auth.service";
 import { FgSsoService } from "./fg-sso.service";
+import { createEntraSsoAdapterFromEnv } from "./entra-sso.adapter";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -218,6 +219,19 @@ export class AuthController {
     return {
       data: req.user,
       message: "Google OAuth callback successful"
+    };
+  }
+
+  @Public()
+  @Get("entra/status")
+  entraStatus() {
+    const adapter = createEntraSsoAdapterFromEnv();
+    return {
+      data: {
+        configured: adapter.isConfigured(),
+        exchange: adapter.exchangeIdTokenClaims({})
+      },
+      message: "Entra SSO readiness"
     };
   }
 
