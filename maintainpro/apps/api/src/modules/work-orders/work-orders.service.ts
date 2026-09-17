@@ -76,6 +76,8 @@ import { assertValidHoldReason } from "./work-order-lifecycle";
 import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
+import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-templates.service";
+import { WarrantiesService } from "../warranties/warranties.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -90,6 +92,8 @@ export class WorkOrdersService {
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
     @Optional() private readonly maintenanceConfig?: MaintenanceConfigService,
+    @Optional() private readonly maintenanceTemplates?: MaintenanceTemplatesService,
+    @Optional() private readonly warranties?: WarrantiesService,
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService
@@ -538,6 +542,8 @@ export class WorkOrdersService {
       /** MACHINERY | SERVICE | VEHICLE — optional; inferred when omitted */
       jobDomain?: string;
       domainId?: string;
+      /** Apply versioned MaintenanceTemplate — snapshot frozen on the WO */
+      maintenanceTemplateId?: string;
     },
     actor?: Actor
   ) {
@@ -684,13 +690,58 @@ export class WorkOrdersService {
           ? WorkOrderApprovalStatus.APPROVED
           : WorkOrderApprovalStatus.PENDING;
 
+    let templateFields: {
+      maintenanceTemplateId?: string;
+      maintenanceTemplateVersion?: number;
+      maintenanceTemplateSnapshot?: string;
+      estimatedHours?: number;
+      priority?: Priority;
+      executionMode?: string;
+      riskLevel?: string;
+      lotoRequired?: boolean;
+      permitReference?: string;
+    } = {};
+
+    if (data.maintenanceTemplateId && this.maintenanceTemplates) {
+      const template = await this.maintenanceTemplates.resolveActiveTemplate(
+        tenantId,
+        data.maintenanceTemplateId
+      );
+      if (!template) {
+        throw new BadRequestException("Active maintenance template not found");
+      }
+      const snapshot = this.maintenanceTemplates.buildSnapshot(template);
+      templateFields = {
+        maintenanceTemplateId: template.id,
+        maintenanceTemplateVersion: template.version,
+        maintenanceTemplateSnapshot: JSON.stringify(snapshot),
+        estimatedHours: template.estimatedHours ?? undefined,
+        priority: (template.defaultPriority as Priority) || data.priority,
+        executionMode: template.defaultExecutionMode ?? undefined,
+        permitReference: template.permitRequirement ?? undefined,
+        lotoRequired: JSON.stringify(snapshot.safetyRequirements || []).includes("LOTO")
+      };
+    }
+
+    let underWarranty = false;
+    if (this.warranties) {
+      const subjects: Array<{ subjectType: string; subjectId: string }> = [];
+      if (assetId) {
+        subjects.push({ subjectType: "ASSET", subjectId: assetId });
+        subjects.push({ subjectType: "MACHINE", subjectId: assetId });
+      }
+      if (vehicleId) subjects.push({ subjectType: "VEHICLE", subjectId: vehicleId });
+      const active = await this.warranties.findActiveForSubjects(tenantId, subjects);
+      underWarranty = active.length > 0;
+    }
+
     try {
       const created = await this.createWithNumberRetry(
         {
           tenantId: tenantId,
           title: data.title,
           description: data.description,
-          priority: data.priority,
+          priority: templateFields.priority ?? data.priority,
           type: data.type as WorkOrderType,
           assetId,
           vehicleId,
@@ -716,7 +767,15 @@ export class WorkOrdersService {
             approvalStatus === WorkOrderApprovalStatus.APPROVED && actor?.sub ? actor.sub : undefined,
           qrVerificationStatus: requiresQrVerification(data.type as never, assetId, vehicleId)
             ? QrVerificationStatus.PENDING
-            : QrVerificationStatus.NOT_REQUIRED
+            : QrVerificationStatus.NOT_REQUIRED,
+          maintenanceTemplateId: templateFields.maintenanceTemplateId,
+          maintenanceTemplateVersion: templateFields.maintenanceTemplateVersion,
+          maintenanceTemplateSnapshot: templateFields.maintenanceTemplateSnapshot,
+          estimatedHours: templateFields.estimatedHours,
+          executionMode: templateFields.executionMode || undefined,
+          permitReference: templateFields.permitReference,
+          lotoRequired: templateFields.lotoRequired ?? false,
+          underWarranty
         },
         actor
       );

@@ -139,6 +139,30 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/checklist-templates"
     },
     {
+      id: "maintenance-templates",
+      title: "Maintenance Templates",
+      description: "Versioned job templates with frozen work-order snapshots.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/maintenance-templates"
+    },
+    {
+      id: "feature-flags",
+      title: "Feature Flags",
+      description: "Enable or disable tenant modules and capabilities.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/feature-flags"
+    },
+    {
+      id: "warranties",
+      title: "Warranties & Claims",
+      description: "Coverage and recovery claim workflow.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/warranties"
+    },
+    {
       id: "approvals",
       title: "Approval Rules",
       description: "Configurable multi-level approval policies.",

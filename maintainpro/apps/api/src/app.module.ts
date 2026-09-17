@@ -79,6 +79,7 @@ import { MaintenanceSupplyModule } from "./modules/maintenance-supply/maintenanc
 import { FleetLifecycleModule } from "./modules/fleet-lifecycle/fleet-lifecycle.module";
 import { AdminGovernanceModule } from "./modules/admin-governance/admin-governance.module";
 import { MaintenanceConfigModule } from "./modules/maintenance-config/maintenance-config.module";
+import { WarrantiesModule } from "./modules/warranties/warranties.module";
 import { ReportingKpisModule } from "./modules/reporting-kpis/reporting-kpis.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
@@ -159,6 +160,7 @@ normalizeDatabaseEnvironment();
     FleetLifecycleModule,
     AdminGovernanceModule,
     MaintenanceConfigModule,
+    WarrantiesModule,
     ApprovalsModule,
     WorkforceModule,
     PeopleModule,

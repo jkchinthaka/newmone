@@ -20,6 +20,7 @@ import { WorkOrdersService } from "./work-orders.service";
 
 import { InventoryModule } from "../inventory/inventory.module";
 import { MaintenanceConfigModule } from "../maintenance-config/maintenance-config.module";
+import { WarrantiesModule } from "../warranties/warranties.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MaintenanceConfigModule } from "../maintenance-config/maintenance-confi
     InventoryModule,
     ApprovalsModule,
     MaintenanceConfigModule,
+    WarrantiesModule,
     forwardRef(() => EnterpriseOpsModule)
   ],
   controllers: [WorkOrdersController],

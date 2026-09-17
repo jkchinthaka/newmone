@@ -1,60 +1,47 @@
 # Enterprise Maintenance Implementation Ledger
 
 Branch: `maintainpro/phase-15-sqlserver-migration`  
-Updated: 2026-09-17
+Updated: 2026-09-17 (continuation)
 
-## Auth (P0)
+## Remaining-work matrix (audit)
+
+| Feature | DB | Backend | Admin | Ops UI | RBAC | Tenant | History | Tests | Status |
+|---------|----|---------|-------|--------|------|--------|---------|-------|--------|
+| Compact JWT / session | — | Y | — | Y | Y | Y | — | Y | IMPLEMENTED |
+| Unified jobDomain engine | Y | Y | Y | Y | Y | Y | Y | Y | IMPLEMENTED |
+| Job categories / Priority SLA / codes / reasons / config history | Y | Y | Y | Y | Y | Y | Y | Y | IMPLEMENTED |
+| Checklist templates + WO snapshot | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
+| Feature flags / module control | Y | Y | Y | Nav filter | Y | Y | Y | Y | IMPLEMENTED |
+| MaintenanceTemplate + WO snapshot | Y | Y | Y | PARTIAL (create path) | Y | Y | Y | Y | IMPLEMENTED |
+| Warranty + recovery claims | Y | Y | Y | Y | Y | Y | Y | Y | IMPLEMENTED |
+| Failure/RCA/CAPA workflow | PARTIAL | PARTIAL | PARTIAL | N | — | — | PARTIAL | N | PARTIAL |
+| Asset criticality engine | N | N | N | N | — | — | N | N | NOT_IMPLEMENTED |
+| Downtime segments | PARTIAL | PARTIAL | N | N | — | — | PARTIAL | N | PARTIAL |
+| Condition-based maintenance | PARTIAL | PARTIAL | N | N | — | — | N | N | PARTIAL |
+| Safety / Permit / LOTO | PARTIAL | N | N | N | — | — | N | N | PARTIAL |
+| Parts reserve / ERP handoff | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | PARTIAL | PARTIAL | PARTIAL |
+| Vendor portal | N | N | N | N | — | — | N | N | NOT_IMPLEMENTED |
+| Offline PWA | N | N | N | N | — | — | N | N | DEFERRED |
+| Advanced analytics | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | — | PARTIAL | PARTIAL |
+
+## This continuation
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Compact browser JWT (no permission arrays in cookies) | IMPLEMENTED | `dc841dc6`; `auth.types.ts` claims = sub/email/role/tenantId |
-| DB-authoritative PermissionsGuard | IMPLEMENTED | Unchanged; JWT perms ignored |
+| `TenantFeatureFlag` + Admin UI + `/auth/me.enabledFeatures` + nav filter | IMPLEMENTED | Migration `20260917193000` |
+| `MaintenanceTemplate` version/revise + WO snapshot fields | IMPLEMENTED | Create WO accepts `maintenanceTemplateId` |
+| `EntityWarranty` + `WarrantyClaim` lifecycle | IMPLEMENTED | Admin `/admin/warranties` |
+| ConfigChangeHistory for flags/templates/warranty | IMPLEMENTED | |
 
-## Unified job engine
+## Commits
 
-| Item | Status | Notes |
-|------|--------|-------|
-| jobDomain MACHINERY/SERVICE/VEHICLE | IMPLEMENTED | Schema + create/list/convert + domain UI lanes |
-| Shared WO lifecycle | IMPLEMENTED | Existing Phase 6 engine |
-| Domain-filtered nav/dashboard | IMPLEMENTED | `/maintenance/jobs/*` |
+- `85c0806d` prior mission end (continuation start)
+- _(this batch)_ feat(admin): tenant feature flags, maintenance templates, warranty claims
 
-## Admin configuration
+## Validation
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Job categories (MAIN/SUB by domain) | IMPLEMENTED | `MaintenanceJobCategory` + admin UI |
-| Priority SLA rules | IMPLEMENTED | `PrioritySlaRule` + editable admin UI |
-| SLA rules wired into WO deadline calc | IMPLEMENTED | `WorkOrdersService.slaHours` → `resolveCompletionHours` |
-| Fault / cause / remedy code CRUD | IMPLEMENTED | `MaintenanceAnalysisCode` + `/admin/fault-codes` |
-| Hold / delay reason masters | IMPLEMENTED | `MaintenanceReasonCode` + `/admin/reason-codes`; WO hold uses DB |
-| Config change history | IMPLEMENTED | `ConfigChangeHistory` + `/admin/config-history` |
-| Feature flags per tenant | PARTIAL | AppSetting toggles; no FeatureFlag model |
-| Work template snapshot on WO | PARTIAL | ChecklistExecution now written; JobCode still not linked |
-| Checklist template versioning + Admin UI | IMPLEMENTED | revise bumps version; `/admin/checklist-templates` |
-| Dynamic forms | ARCHITECTURE READY | ChecklistTemplateItem types |
-| Warranty lifecycle admin | DEFERRED | Models/fleet exist; full recovery workflow later |
-| Vendor portal | DEFERRED | Restricted access design later |
-| Offline PWA sync | DEFERRED | |
-
-## History / audit
-
-| Item | Status |
-|------|--------|
-| WorkOrderStatusHistory | IMPLEMENTED |
-| AuditLog admin | IMPLEMENTED |
-| ConfigChangeHistory | IMPLEMENTED |
-
-## Commits (this mission)
-
-- `ee10fdd9` feat(db): jobDomain + maintenance config models
-- `3f8f7dd3` feat(maintenance): unify machinery/service/vehicle jobs
-- `53e3faed` feat(web): maintenance + advanced admin navigation
-- `8f6b64c0` feat(admin): config history, reason/fault codes, SLA-driven WO deadlines
-- `e7199095` feat(planning): checklist template revise + WO execution snapshots
-
-## Validation (latest)
-
-- `typecheck` (api + web) — pass
-- focused tests: `maintenance-config-sla`, `planning-phase08` — pass
-- `/health` — healthy (SQL Server connected)
-- remote HEAD — `e7199095`
+- migrate `20260917193000_feature_flags_templates_warranty` — applied
+- seed ×2 — pass (templates created then skipped)
+- typecheck api+web — pass
+- `enterprise-features-templates-warranty.spec.ts` — pass
+- `maintenance-config-sla.spec.ts` — pass

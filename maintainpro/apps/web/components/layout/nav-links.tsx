@@ -288,9 +288,10 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
     () =>
       getNavigationGroups(roleName, {
         fullNavigation,
-        permissions: user.permissions
+        permissions: user.permissions,
+        enabledFeatures: user.enabledFeatures
       }),
-    [fullNavigation, roleName, user.permissions]
+    [fullNavigation, roleName, user.permissions, user.enabledFeatures]
   );
 
   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);

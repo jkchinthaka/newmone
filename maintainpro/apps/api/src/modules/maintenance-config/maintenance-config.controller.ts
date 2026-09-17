@@ -18,6 +18,8 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import type { JwtPayload } from "../auth/auth.types";
 import { MaintenanceConfigService } from "./maintenance-config.service";
+import { MaintenanceTemplatesService } from "./maintenance-templates.service";
+import { TenantFeaturesService } from "./tenant-features.service";
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -26,7 +28,11 @@ type AuthedRequest = { user: JwtPayload };
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("admin/maintenance-config")
 export class MaintenanceConfigController {
-  constructor(private readonly config: MaintenanceConfigService) {}
+  constructor(
+    private readonly config: MaintenanceConfigService,
+    private readonly features: TenantFeaturesService,
+    private readonly templates: MaintenanceTemplatesService
+  ) {}
 
   @Get("overview")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
@@ -200,5 +206,95 @@ export class MaintenanceConfigController {
   integrationsStatus() {
     const data = this.config.integrationsStatus();
     return { data, message: "Integration readiness" };
+  }
+
+  @Get("feature-flags")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("admin.overview.view")
+  async listFeatureFlags(@Req() req: AuthedRequest) {
+    const data = await this.features.listForTenant(req.user);
+    return { data, message: "Tenant feature flags" };
+  }
+
+  @Post("feature-flags")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("admin.features.manage")
+  async upsertFeatureFlag(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      code: string;
+      enabled: boolean;
+      name?: string;
+      description?: string;
+      effectiveFrom?: string;
+      effectiveTo?: string | null;
+      configJson?: unknown;
+      reason?: string;
+    }
+  ) {
+    if (!body.code?.trim() || typeof body.enabled !== "boolean") {
+      throw new BadRequestException("code and enabled are required");
+    }
+    const data = await this.features.upsert(req.user, body);
+    return { data, message: "Feature flag saved" };
+  }
+
+  @Get("maintenance-templates")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
+  @Permissions("planning.view")
+  async listTemplates(
+    @Req() req: AuthedRequest,
+    @Query("jobDomain") jobDomain?: string,
+    @Query("activeOnly") activeOnly?: string
+  ) {
+    const data = await this.templates.list(req.user, {
+      jobDomain,
+      activeOnly: activeOnly === "false" ? false : true
+    });
+    return { data, message: "Maintenance templates" };
+  }
+
+  @Post("maintenance-templates")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("maintenance.templates.manage")
+  async createTemplate(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    const data = await this.templates.create(req.user, body as never);
+    return { data, message: "Maintenance template created" };
+  }
+
+  @Post("maintenance-templates/seed-defaults")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("maintenance.templates.manage")
+  async seedTemplates(@Req() req: AuthedRequest) {
+    const data = await this.templates.seedDefaults(req.user);
+    return { data, message: "Default maintenance templates seeded" };
+  }
+
+  @Post("maintenance-templates/:id/revise")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("maintenance.templates.manage")
+  async reviseTemplate(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const data = await this.templates.revise(req.user, id, body as never);
+    return { data, message: "Maintenance template revised" };
+  }
+
+  @Post("maintenance-templates/:id/active")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("maintenance.templates.manage")
+  async setTemplateActive(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { active: boolean; reason?: string }
+  ) {
+    if (typeof body.active !== "boolean") {
+      throw new BadRequestException("active is required");
+    }
+    const data = await this.templates.setActive(req.user, id, body.active, body.reason);
+    return { data, message: "Maintenance template status updated" };
   }
 }

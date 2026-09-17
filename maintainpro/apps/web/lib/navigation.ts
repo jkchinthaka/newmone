@@ -43,6 +43,8 @@ export interface NavigationItem {
   icon: string;
   allowedRoles: readonly string[];
   requiredPermissions?: readonly string[];
+  /** When set, item is hidden unless this tenant feature code is enabled */
+  requiredFeature?: string;
   category: NavCategory;
   description?: string;
   legacy?: boolean;
@@ -234,6 +236,9 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin/reason-codes",
   "/admin/config-history",
   "/admin/checklist-templates",
+  "/admin/maintenance-templates",
+  "/admin/feature-flags",
+  "/admin/warranties",
   "/admin/integrations",
   "/admin/security",
   "/admin/users",
@@ -507,6 +512,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/fleet",
     icon: "Truck",
     allowedRoles: FLEET_NAV_ROLES,
+    requiredFeature: "FLEET",
     category: "compliance",
     description: "Vehicles, gate, and fleet operations",
     activeMatch: "startsWith"
@@ -516,6 +522,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: "Gate",
     href: "/fleet/gate",
     icon: "ShieldAlert",
+    requiredFeature: "GATE",
     allowedRoles: mergeRoles(FLEET_ROLES, SECURITY_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES),
     category: "compliance",
     description: "Gate-out eligibility and overrides",
@@ -527,6 +534,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/fleet/tyres",
     icon: "Gauge",
     allowedRoles: FLEET_NAV_ROLES,
+    requiredFeature: "TYRES",
     category: "compliance",
     description: "Tyre fitment and history",
     activeMatch: "startsWith"
@@ -632,6 +640,9 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/reason-codes": ["/admin"],
   "/admin/config-history": ["/admin"],
   "/admin/checklist-templates": ["/admin"],
+  "/admin/maintenance-templates": ["/admin"],
+  "/admin/feature-flags": ["/admin"],
+  "/admin/warranties": ["/admin"],
   "/admin/integrations": ["/admin"],
   "/admin/security": ["/admin"],
   "/admin/approvals": ["/admin"],
@@ -692,7 +703,8 @@ export function normalizeNavigationRole(roleName: string | null | undefined): st
 export function isNavigationItemVisible(
   item: NavigationItem,
   roleName: string | null | undefined,
-  permissions: readonly string[] = []
+  permissions: readonly string[] = [],
+  enabledFeatures?: readonly string[] | null
 ): boolean {
   const normalized = normalizeNavigationRole(roleName);
 
@@ -702,6 +714,12 @@ export function isNavigationItemVisible(
 
   if (!item.allowedRoles.includes(normalized)) {
     return false;
+  }
+
+  if (item.requiredFeature && enabledFeatures != null && enabledFeatures.length > 0) {
+    if (!enabledFeatures.includes(item.requiredFeature)) {
+      return false;
+    }
   }
 
   if (item.requiredPermissions?.length) {
@@ -735,17 +753,22 @@ export function getDefaultFavoriteNavIds(roleName: string | null | undefined): s
 
 export function getVisibleNavigationItems(
   roleName: string | null | undefined,
-  options?: { fullNavigation?: boolean; permissions?: readonly string[] }
+  options?: {
+    fullNavigation?: boolean;
+    permissions?: readonly string[];
+    enabledFeatures?: readonly string[];
+  }
 ): NavigationItem[] {
   const normalized = normalizeNavigationRole(roleName);
   const permissions = options?.permissions ?? [];
+  const enabledFeatures = options?.enabledFeatures;
 
   const visible = NAVIGATION_ITEMS.filter((item) => {
     const baseHref = item.href.split("?")[0];
     if (!EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
-    return isNavigationItemVisible(item, roleName, permissions);
+    return isNavigationItemVisible(item, roleName, permissions, enabledFeatures);
   });
 
   if (visible.length > 0) {
@@ -758,7 +781,11 @@ export function getVisibleNavigationItems(
 
 export function getNavigationGroups(
   roleName: string | null | undefined,
-  options?: { fullNavigation?: boolean; permissions?: readonly string[] }
+  options?: {
+    fullNavigation?: boolean;
+    permissions?: readonly string[];
+    enabledFeatures?: readonly string[];
+  }
 ): NavigationGroup[] {
   const visibleItems = getVisibleNavigationItems(roleName, options);
 

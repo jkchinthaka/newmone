@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -18,6 +19,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
+import { TenantFeaturesService } from "../maintenance-config/tenant-features.service";
 import { recordAuthSecurityEvent } from "./auth-security-event.util";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -34,7 +36,8 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService
+    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService,
+    @Optional() private readonly tenantFeatures?: TenantFeaturesService
   ) {}
 
   private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
@@ -794,11 +797,21 @@ export class AuthService {
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
+    let enabledFeatures: string[] = [];
+    if (resolvedTenantId && this.tenantFeatures) {
+      try {
+        enabledFeatures = await this.tenantFeatures.enabledCodes(resolvedTenantId);
+      } catch {
+        enabledFeatures = [];
+      }
+    }
+
     return {
       data: {
         ...this.toPublicUser(user),
         permissions: permissionKeys,
-        tenantId: resolvedTenantId
+        tenantId: resolvedTenantId,
+        enabledFeatures
       },
       message: "Profile fetched"
     };

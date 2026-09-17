@@ -270,6 +270,7 @@ export class WorkOrdersController {
       triageReason?: string;
       jobDomain?: string;
       domainId?: string;
+      maintenanceTemplateId?: string;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);

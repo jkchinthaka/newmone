@@ -17,6 +17,8 @@ import * as bcrypt from "bcryptjs";
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
 import { AssetTaxonomyService } from "../modules/asset-taxonomy/asset-taxonomy.service";
 import { MaintenanceConfigService } from "../modules/maintenance-config/maintenance-config.service";
+import { MaintenanceTemplatesService } from "../modules/maintenance-config/maintenance-templates.service";
+import { TenantFeaturesService } from "../modules/maintenance-config/tenant-features.service";
 import {
   normalizeWorkforceOnlyLinkedUserIds,
   upsertLinkedWorkforceEmployee,
@@ -1545,6 +1547,18 @@ async function main() {
     role: "SUPER_ADMIN"
   });
   console.log(`Maintenance job categories seeded: created=${catSeed.created}`);
+
+  const features = new TenantFeaturesService(prisma as never);
+  await features.ensureDefaults(tenant.id, superAdmin.id);
+  console.log("Tenant feature flags ensured");
+
+  const templates = new MaintenanceTemplatesService(prisma as never);
+  const templateSeed = await templates.seedDefaults({
+    sub: superAdmin.id,
+    tenantId: tenant.id,
+    role: "SUPER_ADMIN"
+  });
+  console.log(`Maintenance templates seeded: ${JSON.stringify(templateSeed)}`);
 
   console.log("Seed complete");
 }

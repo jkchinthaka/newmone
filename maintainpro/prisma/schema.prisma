@@ -78,6 +78,10 @@ model Tenant {
   prioritySlaRules             PrioritySlaRule[]
   maintenanceReasonCodes       MaintenanceReasonCode[]
   configChangeHistories        ConfigChangeHistory[]
+  tenantFeatureFlags           TenantFeatureFlag[]
+  maintenanceTemplates         MaintenanceTemplate[]
+  entityWarranties             EntityWarranty[]
+  warrantyClaims               WarrantyClaim[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -366,6 +370,12 @@ model User {
   triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
   maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
   configChangeHistories       ConfigChangeHistory[]       @relation("ConfigChangeActor")
+  tenantFeatureFlagsUpdated   TenantFeatureFlag[]         @relation("TenantFeatureFlagUpdatedBy")
+  maintenanceTemplatesCreated MaintenanceTemplate[]       @relation("MaintenanceTemplateCreatedBy")
+  maintenanceTemplatesUpdated MaintenanceTemplate[]       @relation("MaintenanceTemplateUpdatedBy")
+  entityWarrantiesCreated     EntityWarranty[]            @relation("EntityWarrantyCreatedBy")
+  warrantyClaimsCreated       WarrantyClaim[]             @relation("WarrantyClaimCreatedBy")
+  warrantyClaimsUpdated       WarrantyClaim[]             @relation("WarrantyClaimUpdatedBy")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -1398,6 +1408,12 @@ model WorkOrder {
   domain                      AssetDomain?         @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// MACHINERY | SERVICE | VEHICLE — first-class ops lane on the unified WO engine
   jobDomain                   String?              @db.NVarChar(32)
+  /// Versioned maintenance template applied at create (immutable snapshot below)
+  maintenanceTemplateId       String?              @db.NVarChar(36)
+  maintenanceTemplate         MaintenanceTemplate? @relation(fields: [maintenanceTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceTemplateVersion  Int?
+  maintenanceTemplateSnapshot String?              @db.NVarChar(Max)
+  underWarranty               Boolean              @default(false)
   /// Reverse unique link also on MaintenanceRequest.workOrderId — keep both for query convenience
   maintenanceRequest          MaintenanceRequest?
 
@@ -1466,6 +1482,7 @@ model WorkOrder {
   statusHistory       WorkOrderStatusHistory[]
   costSnapshot        WorkOrderCostSnapshot?
   repairWarranties    RepairWarranty[]
+  warrantyClaims      WarrantyClaim[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.NVarChar(36)
@@ -1507,6 +1524,7 @@ model WorkOrder {
   @@index([tenantId, executionMode])
   @@index([tenantId, jobDomain])
   @@index([tenantId, jobDomain, status])
+  @@index([tenantId, maintenanceTemplateId])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -3145,6 +3163,136 @@ model ConfigChangeHistory {
 
   @@index([tenantId, entityType, entityId, createdAt])
   @@index([tenantId, createdAt])
+}
+
+/// Tenant-scoped module/feature switches. UI may hide modules; backend still enforces.
+model TenantFeatureFlag {
+  id            String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String    @db.NVarChar(36)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code          String    @db.NVarChar(64)
+  name          String    @db.NVarChar(200)
+  description   String?
+  enabled       Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  /// Safe typed JSON payload only — never executable scripts
+  configJson    String?   @db.NVarChar(Max)
+  updatedById   String?   @db.NVarChar(36)
+  updatedBy     User?     @relation("TenantFeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, enabled])
+}
+
+/// Versioned reusable maintenance work template (not the same as ChecklistTemplate).
+model MaintenanceTemplate {
+  id                    String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId              String    @db.NVarChar(36)
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                  String    @db.NVarChar(64)
+  name                  String    @db.NVarChar(200)
+  description           String?
+  /// MACHINERY | SERVICE | VEHICLE
+  jobDomain             String    @db.NVarChar(32)
+  jobType               String?   @db.NVarChar(64)
+  categoryCode          String?   @db.NVarChar(64)
+  subcategoryCode       String?   @db.NVarChar(64)
+  defaultPriority       String    @default("MEDIUM") @db.NVarChar(32)
+  estimatedHours        Float?
+  estimatedDowntimeMin  Int?
+  defaultExecutionMode  String?   @db.NVarChar(32)
+  requiredSkillsJson    String    @default("[]") @db.NVarChar(Max)
+  defaultPartsJson      String    @default("[]") @db.NVarChar(Max)
+  safetyRequirementsJson String   @default("[]") @db.NVarChar(Max)
+  permitRequirement     String?   @db.NVarChar(64)
+  checklistTemplateId   String?   @db.NVarChar(36)
+  checklistTemplate     ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  signOffRequirementsJson String  @default("[]") @db.NVarChar(Max)
+  instructions          String?   @db.NVarChar(Max)
+  documentsJson         String    @default("[]") @db.NVarChar(Max)
+  version               Int       @default(1)
+  effectiveFrom         DateTime  @default(now())
+  effectiveTo           DateTime?
+  active                Boolean   @default(true)
+  createdById           String?   @db.NVarChar(36)
+  createdBy             User?     @relation("MaintenanceTemplateCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById           String?   @db.NVarChar(36)
+  updatedBy             User?     @relation("MaintenanceTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workOrders            WorkOrder[]
+
+  @@unique([tenantId, code, version])
+  @@index([tenantId, jobDomain, active])
+  @@index([tenantId, code, active])
+}
+
+/// Warranty covering an asset, vehicle, part, tyre, battery, or vendor repair subject.
+model EntityWarranty {
+  id              String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String    @db.NVarChar(36)
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// ASSET | VEHICLE | MACHINE | TYRE | BATTERY | SPARE_PART | SERIALIZED_COMPONENT | VENDOR_REPAIR
+  subjectType     String    @db.NVarChar(32)
+  subjectId       String    @db.NVarChar(36)
+  provider        String    @db.NVarChar(200)
+  reference       String?   @db.NVarChar(128)
+  coverageType    String?   @db.NVarChar(64)
+  coverageNotes   String?   @db.NVarChar(Max)
+  startDate       DateTime
+  endDate         DateTime
+  mileageLimit    Int?
+  hourLimit       Float?
+  documentUrlsJson String   @default("[]") @db.NVarChar(Max)
+  /// ACTIVE | EXPIRED | VOID | CLAIMED
+  status          String    @default("ACTIVE") @db.NVarChar(32)
+  /// WARN | APPROVAL_REQUIRED | RESTRICT_EXTERNAL | VENDOR_RETURN
+  policyAction    String    @default("WARN") @db.NVarChar(32)
+  createdById     String?   @db.NVarChar(36)
+  createdBy       User?     @relation("EntityWarrantyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  claims          WarrantyClaim[]
+
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, status, endDate])
+  @@index([tenantId, endDate])
+}
+
+/// Warranty claim / recovery workflow.
+model WarrantyClaim {
+  id               String         @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String         @db.NVarChar(36)
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warrantyId       String         @db.NVarChar(36)
+  warranty         EntityWarranty @relation(fields: [warrantyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId      String?        @db.NVarChar(36)
+  workOrder        WorkOrder?     @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  claimNumber      String         @db.NVarChar(64)
+  /// ELIGIBLE | PREPARED | SUBMITTED | ACCEPTED | REJECTED | RECOVERED | CLOSED
+  status           String         @default("ELIGIBLE") @db.NVarChar(32)
+  claimAmount      Decimal?       @db.Decimal(18, 2)
+  approvedAmount   Decimal?       @db.Decimal(18, 2)
+  recoveredAmount  Decimal?       @db.Decimal(18, 2)
+  currency         String         @default("LKR") @db.NVarChar(8)
+  submittedAt      DateTime?
+  responseAt       DateTime?
+  documentUrlsJson String         @default("[]") @db.NVarChar(Max)
+  notes            String?        @db.NVarChar(Max)
+  createdById      String?        @db.NVarChar(36)
+  createdBy        User?          @relation("WarrantyClaimCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById      String?        @db.NVarChar(36)
+  updatedBy        User?          @relation("WarrantyClaimUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([tenantId, claimNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, warrantyId])
+  @@index([tenantId, workOrderId])
 }
 
 model MaintenanceRequestHistory {
@@ -5052,6 +5200,7 @@ model ChecklistTemplate {
   items               ChecklistTemplateItem[]
   pmPlans             PmPlan[]
   inspectionTemplates InspectionTemplate[]
+  maintenanceTemplates MaintenanceTemplate[]
 
   @@unique([tenantId, code, version])
   @@index([tenantId, isActive])

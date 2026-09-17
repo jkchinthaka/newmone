@@ -36,6 +36,21 @@ const SECTIONS = [
     description: "Versioned checklists with frozen snapshots on work orders."
   },
   {
+    href: "/admin/maintenance-templates",
+    title: "Maintenance Templates",
+    description: "Reusable job templates with immutable WO snapshots."
+  },
+  {
+    href: "/admin/feature-flags",
+    title: "Feature Flags",
+    description: "Tenant module switches for Machinery, Fleet, Safety, and more."
+  },
+  {
+    href: "/admin/warranties",
+    title: "Warranties & Claims",
+    description: "Coverage records and recovery claim workflow."
+  },
+  {
     href: "/admin/approvals",
     title: "Approval Rules",
     description: "Request, high-cost, external repair, and overrides."
