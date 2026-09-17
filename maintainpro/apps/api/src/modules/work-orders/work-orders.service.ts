@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalProcessType,
@@ -28,6 +28,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
 import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   assertAllowedStatusTransition,
@@ -831,6 +832,7 @@ export class WorkOrdersService {
       estimatedCost: number;
       estimatedHours: number;
       overrideReason?: string;
+      expectedVersion?: number;
     }>,
     actor?: Actor
   ) {
@@ -856,8 +858,19 @@ export class WorkOrdersService {
       throw new BadRequestException("Planned end must not be earlier than planned start");
     }
 
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
+    assertVersionMatch(
+      (existing as { version?: number }).version,
+      data.expectedVersion,
+      "Work order"
+    );
+
+    const versionWhere =
+      data.expectedVersion != null
+        ? { id, version: data.expectedVersion }
+        : { id };
+
+    const updatedCount = await this.prisma.workOrder.updateMany({
+      where: versionWhere,
       data: {
         title: data.title,
         description: data.description,
@@ -868,10 +881,16 @@ export class WorkOrdersService {
         plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : undefined,
         plannedEndAt: data.plannedEndAt ? new Date(data.plannedEndAt) : undefined,
         estimatedCost: data.estimatedCost,
-        estimatedHours: data.estimatedHours
+        estimatedHours: data.estimatedHours,
+        version: { increment: 1 }
       }
     });
 
+    if (updatedCount.count !== 1) {
+      throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+    }
+
+    const updated = await this.findOne(id, actor);
     if (data.plannedStartAt || data.plannedEndAt || data.expectedCompletionDate) {
       await this.recordAudit({
         entity: "WorkOrder",

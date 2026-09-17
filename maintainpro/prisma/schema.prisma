@@ -116,6 +116,7 @@ model Tenant {
   approvalDecisions            ApprovalDecision[]
   /// Phase 8 planning / meters / inspection / calibration / compliance
   pmPlans                      PmPlan[]
+  pmOccurrences                PmOccurrence[]
   assetMeters                  AssetMeter[]
   checklistTemplates           ChecklistTemplate[]
   inspectionTemplates          InspectionTemplate[]
@@ -770,6 +771,8 @@ model Asset {
   /// Validated type-specific attributes (server validates against AssetAttributeDefinition)
   customAttributes     String?              @db.NVarChar(Max)
   isActive             Boolean              @default(true)
+  /// Optimistic concurrency for concurrent updates
+  version              Int                  @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1506,6 +1509,8 @@ model WorkOrder {
 
   correctionReason   String?
   lastIdempotencyKey String?
+  /// Optimistic concurrency for status/plan concurrent updates
+  version            Int     @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1537,6 +1542,7 @@ model WorkOrder {
   pmPlanRevision  Int?
   pmTriggerSource String?
   pmOccurrenceKey String?
+  pmOccurrences   PmOccurrence[]
 
   taxonomyCategoryId   String?            @db.NVarChar(36)
   taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3118,6 +3124,8 @@ model MaintenanceRequest {
 
   history             MaintenanceRequestHistory[]
   evidenceAttachments EvidenceAttachment[]
+  /// Optimistic concurrency for triage/conversion concurrent updates
+  version             Int                         @default(1)
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -5345,6 +5353,7 @@ model PmPlan {
   triggers    PmTrigger[]
   workOrders  WorkOrder[]
   generations PmAutoGeneration[]
+  occurrences PmOccurrence[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -5354,6 +5363,36 @@ model PmPlan {
   @@index([checklistTemplateId])
   @@index([tenantId, siteId])
   @@index([tenantId, functionalLocationId])
+}
+
+/// One scheduled PM occurrence (distinct from PmPlan and from WorkOrder).
+/// Completion of the occurrence advances plan baseline only when the governed WO reaches the configured verification/close point.
+model PmOccurrence {
+  id              String     @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String     @db.NVarChar(36)
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planId          String     @db.NVarChar(36)
+  plan            PmPlan     @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planRevision    Int?
+  /// SCHEDULED | GENERATED | DEFERRED | SKIPPED | COMPLETED | MISSED
+  status          String     @default("SCHEDULED") @db.NVarChar(32)
+  dueAt           DateTime?
+  dueMeterValue   Float?
+  graceEndsAt     DateTime?
+  generationKey   String     @db.NVarChar(128)
+  workOrderId     String?    @db.NVarChar(36)
+  workOrder       WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deferredReason  String?
+  skippedReason   String?
+  completedAt     DateTime?
+  missedAt        DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([tenantId, planId, generationKey])
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, planId, status])
+  @@index([workOrderId])
 }
 
 model PmPlanRevision {
