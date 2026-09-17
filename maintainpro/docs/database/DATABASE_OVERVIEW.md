@@ -29,7 +29,7 @@ This folder documents MaintainPro’s SQL Server data model so developers and DB
 | Requests | MaintenanceRequest (+ History) | Canonical request capture |
 | Work | WorkOrder (+ Status/Hold/Labour history) | Canonical execution |
 | PM | PmPlan, PmPlanRevision, PmTrigger, **PmOccurrence**, PmAutoGeneration | Plan ≠ Occurrence ≠ WO |
-| Inventory | SparePart, WarehouseItemBalance, StockMovement | Ledger-driven; no direct qty edit |
+| Inventory | SparePart, WarehouseItemBalance, StockMovement, **StockCountSession/Line** | Ledger-driven; count posts via adjustments only |
 | Fleet | Vehicle (+ Asset link), Gate, Accident, Claim, Fine | Shared WO engine |
 | Safety | WorkPermit, LotoRecord | Start/close gates |
 | Reliability | DowntimeSegment, RcaCase, CapaAction | Policy-driven |

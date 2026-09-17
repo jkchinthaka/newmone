@@ -14,6 +14,7 @@ import { InventoryService } from "./inventory.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
 import { InventoryDailyService } from "./inventory-daily.service";
+import { StockCountService } from "./stock-count.service";
 
 @Module({
   imports: [NotificationsModule],
@@ -23,6 +24,7 @@ import { InventoryDailyService } from "./inventory-daily.service";
     InventoryTransactionEngine,
     InventoryExcelImportService,
     InventoryDailyService,
+    StockCountService,
     ErpSyncProviderService,
     DisabledInventoryErpAdapter,
     InventoryErpAdapterService,
@@ -35,6 +37,7 @@ import { InventoryDailyService } from "./inventory-daily.service";
     InventoryTransactionEngine,
     InventoryExcelImportService,
     InventoryDailyService,
+    StockCountService,
     ErpSyncProviderService,
     InventoryErpAdapterService,
     ErpStockSyncService,

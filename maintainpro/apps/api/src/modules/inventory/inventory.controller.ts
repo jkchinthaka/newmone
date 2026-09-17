@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UploadedFile,
@@ -28,6 +29,7 @@ import { InventoryService } from "./inventory.service";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
 import { InventoryDailyService } from "./inventory-daily.service";
+import { StockCountService } from "./stock-count.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { ERP_EXCEL_MAX_BYTES } from "./erp-excel-stock.parser";
 import {
@@ -64,6 +66,7 @@ export class InventoryController {
     private readonly erpStockSyncService: ErpStockSyncService,
     private readonly excelImportService: InventoryExcelImportService,
     private readonly dailyService: InventoryDailyService,
+    private readonly stockCountService: StockCountService,
     private readonly erpExcelImportService: ErpExcelImportService
   ) {}
 
@@ -472,6 +475,73 @@ export class InventoryController {
   ) {
     const data = await this.dailyService.report({ preset, from, to, warehouseId, partId, category }, req.user);
     return { data, message: "Daily inventory fetched" };
+  }
+
+  @Get("stock-counts")
+  @Roles(...INVENTORY_READ_ROLES)
+  @Permissions("inventory.manage")
+  async listStockCounts(
+    @Req() req: AuthedRequest,
+    @Query("status") status?: string,
+    @Query("warehouseId") warehouseId?: string,
+    @Query("take") take?: string
+  ) {
+    const data = await this.stockCountService.list(req.user, {
+      status,
+      warehouseId,
+      take: take ? Number(take) : undefined
+    });
+    return { data, message: "Stock count sessions fetched" };
+  }
+
+  @Get("stock-counts/:id")
+  @Roles(...INVENTORY_READ_ROLES)
+  @Permissions("inventory.manage")
+  async getStockCount(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.stockCountService.get(req.user, id);
+    return { data, message: "Stock count session fetched" };
+  }
+
+  @Post("stock-counts")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("inventory.manage")
+  async createStockCount(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      warehouseId: string;
+      countType?: "CYCLE" | "ANNUAL" | "SPOT";
+      blindCount?: boolean;
+      notes?: string;
+      seedFromBalances?: boolean;
+    }
+  ) {
+    const data = await this.stockCountService.create(req.user, body);
+    return { data, message: "Stock count session created" };
+  }
+
+  @Post("stock-counts/:id/transition")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("inventory.manage")
+  async transitionStockCount(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { status: string; reason?: string }
+  ) {
+    const data = await this.stockCountService.transition(req.user, id, body.status, body.reason);
+    return { data, message: "Stock count status updated" };
+  }
+
+  @Put("stock-counts/:id/lines")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("inventory.manage")
+  async upsertStockCountLine(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { partId: string; countedQuantity: number; notes?: string }
+  ) {
+    const data = await this.stockCountService.upsertLine(req.user, id, body);
+    return { data, message: "Stock count line saved" };
   }
 
   @Post("transfers")

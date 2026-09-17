@@ -173,6 +173,7 @@ model Tenant {
   maintenanceForecasts         MaintenanceForecast[]
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
+  stockCountSessions           StockCountSession[]
   /// Phase 10 — fleet lifecycle: tyres, batteries, driver assignment history
   vehicleTyres                 VehicleTyre[]
   vehicleBatteries             VehicleBattery[]
@@ -1899,6 +1900,7 @@ model SparePart {
   compatibilities            PartCompatibility[]
   installedParts             InstalledPart[]
   procurementRecommendations ProcurementRecommendation[]
+  stockCountLines            StockCountLine[]
 
   @@unique([tenantId, partNumber])
   @@index([tenantId])
@@ -1927,6 +1929,7 @@ model Warehouse {
   balances   WarehouseItemBalance[]
   movements  StockMovement[]
   importRows ErpImportRow[]
+  stockCountSessions StockCountSession[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isDefault])
@@ -2027,6 +2030,54 @@ model InventoryIdempotency {
   @@unique([tenantId, key])
   @@index([tenantId, partId])
   @@index([tenantId, operation, createdAt])
+}
+
+/// First-class stock count session. Posting creates ledger adjustments; never overwrites balances directly.
+model StockCountSession {
+  id              String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String   @db.NVarChar(36)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId     String   @db.NVarChar(36)
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CYCLE | ANNUAL | SPOT
+  countType       String   @default("CYCLE") @db.NVarChar(32)
+  /// DRAFT | OPEN | COUNTING | REVIEW | APPROVED | POSTED | CANCELLED
+  status          String   @default("DRAFT") @db.NVarChar(32)
+  blindCount      Boolean  @default(false)
+  notes           String?  @db.NVarChar(Max)
+  createdById     String?  @db.NVarChar(36)
+  approvedById    String?  @db.NVarChar(36)
+  postedById      String?  @db.NVarChar(36)
+  approvedAt      DateTime?
+  postedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lines           StockCountLine[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, warehouseId, status])
+}
+
+model StockCountLine {
+  id               String           @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String           @db.NVarChar(36)
+  sessionId        String           @db.NVarChar(36)
+  session          StockCountSession @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partId           String           @db.NVarChar(36)
+  part             SparePart        @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expectedQuantity Int              @default(0)
+  countedQuantity  Int?
+  variance         Int?
+  notes            String?
+  adjustmentMovementId String?      @db.NVarChar(36)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([sessionId, partId])
+  @@index([tenantId, sessionId])
+  @@index([tenantId, partId])
 }
 
 /// Durable ERP Excel (or future file) stock import run — tenant-scoped idempotency by file SHA-256.
