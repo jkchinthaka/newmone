@@ -1,7 +1,7 @@
 # Enterprise Maintenance Implementation Ledger
 
 Branch: `maintainpro/phase-15-sqlserver-migration`  
-Updated: 2026-09-17 (CBM + LOTO batch)
+Updated: 2026-09-17 (ERP exception center)
 
 ## Remaining-work matrix (audit)
 
@@ -12,33 +12,31 @@ Updated: 2026-09-17 (CBM + LOTO batch)
 | Job categories / Priority SLA / codes / reasons / config history | Y | Y | Y | Y | Y | Y | Y | Y | IMPLEMENTED |
 | Checklist templates + WO snapshot | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Feature flags / module control | Y | Y | Y | Nav filter | Y | Y | Y | Y | IMPLEMENTED |
-| MaintenanceTemplate + WO snapshot | Y | Y | Y | PARTIAL (create path) | Y | Y | Y | Y | IMPLEMENTED |
+| MaintenanceTemplate + WO snapshot | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Warranty + recovery claims | Y | Y | Y | Y | Y | Y | Y | Y | IMPLEMENTED |
 | Failure/RCA/CAPA workflow | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Asset criticality engine | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Downtime segments | Y | Y | — | API | Y | Y | Y | Y | IMPLEMENTED |
 | Condition-based maintenance | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Safety / Permit / LOTO | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
-| Parts reserve / ERP handoff | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | PARTIAL | Y (concurrency) | PARTIAL |
+| Parts reserve / ERP handoff | PARTIAL | Y (adapter+retry) | — | Exception center | Y | Y | PARTIAL | Y | PARTIAL |
 | Vendor portal | N | N | N | N | — | — | N | N | NOT_IMPLEMENTED |
 | Offline PWA | N | N | N | N | — | — | N | N | DEFERRED |
 | Advanced analytics | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | — | PARTIAL | PARTIAL |
 
-## This continuation
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Downtime / RCA / Permit (`7d2d6d1d`) | IMPLEMENTED | |
-| `ConditionMonitoringRule` + `ConditionEvent` + meter hook | IMPLEMENTED | Deduped OPEN events; Admin UI |
-| `LotoRecord` + start gate + isolator≠verifier SoD | IMPLEMENTED | Wired on WO `IN_PROGRESS` |
-
-## Commits
+## Commits (this continuation)
 
 - `7d2d6d1d` downtime / RCA / permits
-- This batch: CBM + LOTO (pending push)
+- `d82540e1` CBM + LOTO
+- ERP exception center (pending)
 
 ## Validation
 
-- migrate `20260917210000_cbm_loto` — applied
-- `reliability-downtime-rca-permits.spec.ts` — 9/9 pass
-- typecheck api — pass
+- migrate CBM/LOTO — applied
+- reliability tests 9/9; erp-exceptions 2/2
+- typecheck api — pass (prior batches)
+- remote prior HEAD — `d82540e1`
+
+## External dependencies
+
+- Live Bileeta ERP API credentials/contracts — **BLOCKED BY EXTERNAL DEPENDENCY** (mock + file import + exception center available)

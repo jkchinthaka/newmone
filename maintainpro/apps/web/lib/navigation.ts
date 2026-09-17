@@ -252,6 +252,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin/bulk-imports",
   "/approvals",
   "/erp",
+  "/erp/exceptions",
   "/system-health",
   "/settings",
   "/notifications",
