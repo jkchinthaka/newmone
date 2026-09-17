@@ -9,6 +9,9 @@ export const ASSET_OR_VEHICLE_REQUIRED_TYPES = new Set<WorkOrderType>([
   WorkOrderType.ACCIDENT_REPAIR
 ]);
 
+/** Accept Prisma cuid / UUID-style ids (SQL Server NVarChar(36)). Legacy Mongo ObjectIds still pass. */
+const ENTITY_ID_PATTERN = /^(?:[a-fA-F0-9]{24}|[a-zA-Z0-9_-]{8,64})$/;
+
 export function normalizeOptionalObjectId(value?: string | null): string | undefined {
   const trimmed = (value ?? "").trim();
   return trimmed.length > 0 ? trimmed : undefined;
@@ -20,9 +23,9 @@ export function assertValidOptionalObjectId(field: string, value?: string | null
     return undefined;
   }
 
-  if (!/^[a-fA-F0-9]{24}$/.test(normalized)) {
+  if (!ENTITY_ID_PATTERN.test(normalized)) {
     throw new BadRequestException(
-      `Invalid ${field}: "${normalized}". Expected a 24-character hex ObjectId, or leave the field empty.`
+      `Invalid ${field}: "${normalized}". Expected a stable entity id (cuid/UUID/legacy ObjectId), or leave the field empty.`
     );
   }
 

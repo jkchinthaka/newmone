@@ -56,6 +56,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Note SQL Server migration gate
+        run: echo "Fresh SQL Server migrate+seed is enforced by workflow sqlserver-migration-gate.yml on prisma/api path changes."
+
       - name: Secret and configuration safety
         run: npm run validate:secret-safety
 

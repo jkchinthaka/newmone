@@ -4,7 +4,7 @@ import { MAX_EXPORT_ROWS, MAX_REPORT_RANGE_DAYS } from "./report-currency.util";
 import { resolveBusinessDateRange } from "./report-timezone.util";
 import type { ReportExportFormat, ReportModuleKey, ReportQuery } from "./reports.service";
 
-const OBJECT_ID = /^[a-f\d]{24}$/i;
+const ENTITY_ID = /^(?:[a-f\d]{24}|[a-zA-Z0-9_-]{8,64})$/;
 const SORT_DIRECTIONS = new Set(["asc", "desc"]);
 const EXPORT_FORMATS = new Set(["csv", "xlsx", "pdf"]);
 const MODULES = new Set([
@@ -37,8 +37,8 @@ const SORT_ALLOWLIST = new Set([
 function optionalObjectId(value: unknown, field: string): string | undefined {
   if (value == null || value === "") return undefined;
   const raw = String(value).trim();
-  if (!OBJECT_ID.test(raw)) {
-    throw new BadRequestException(`${field} must be a valid ObjectId.`);
+  if (!ENTITY_ID.test(raw)) {
+    throw new BadRequestException(`${field} must be a valid entity id.`);
   }
   return raw;
 }
@@ -53,8 +53,8 @@ function parseDepartmentIds(raw: unknown, single?: unknown): string[] {
     throw new BadRequestException("departmentIds cannot exceed 50 values.");
   }
   for (const id of unique) {
-    if (!OBJECT_ID.test(id)) {
-      throw new BadRequestException("departmentIds must contain valid ObjectId values.");
+    if (!ENTITY_ID.test(id)) {
+      throw new BadRequestException("departmentIds must contain valid entity id values.");
     }
   }
   return unique;
