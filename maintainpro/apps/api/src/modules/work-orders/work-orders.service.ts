@@ -72,8 +72,10 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { assertValidHoldReason } from "./work-order-lifecycle";
 import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
+import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -87,6 +89,7 @@ export class WorkOrdersService {
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
+    @Optional() private readonly maintenanceConfig?: MaintenanceConfigService,
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService
@@ -178,7 +181,10 @@ export class WorkOrdersService {
     }
   }
 
-  private slaHours(priority: Priority): number {
+  private async slaHours(tenantId: string, priority: Priority): Promise<number> {
+    if (this.maintenanceConfig) {
+      return this.maintenanceConfig.resolveCompletionHours(tenantId, priority);
+    }
     switch (priority) {
       case Priority.CRITICAL:
         return 4;
@@ -1111,6 +1117,7 @@ export class WorkOrdersService {
       actualCost?: number;
       actualHours?: number;
       delayReason?: string;
+      holdReasonCode?: string;
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
@@ -1122,6 +1129,7 @@ export class WorkOrdersService {
     actor?: Actor
   ) {
     const current = await this.findOne(id, actor);
+    const tenantId = this.resolveTenantId(actor);
     const targetStatus =
       data.status === WorkOrderStatus.COMPLETED && TECHNICIAN_EXECUTION_ROLES.has(actor?.role as RoleName)
         ? WorkOrderStatus.TECHNICIAN_COMPLETED
@@ -1174,6 +1182,12 @@ export class WorkOrdersService {
 
     if (targetStatus === WorkOrderStatus.ON_HOLD) {
       assertReasonProvided("Hold reason", data.delayReason);
+      const holdCode = (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString();
+      if (this.maintenanceConfig) {
+        await this.maintenanceConfig.assertHoldReason(tenantId, holdCode, data.delayReason);
+      } else {
+        assertValidHoldReason(holdCode, data.delayReason);
+      }
     }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
@@ -1288,7 +1302,8 @@ export class WorkOrdersService {
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS && !current.startDate) {
       startDate = new Date();
-      slaDeadline = new Date(startDate.getTime() + this.slaHours(current.priority) * 60 * 60 * 1000);
+      const hours = await this.slaHours(tenantId, current.priority as Priority);
+      slaDeadline = new Date(startDate.getTime() + hours * 60 * 60 * 1000);
     }
 
     const completedDate =
@@ -1334,8 +1349,13 @@ export class WorkOrdersService {
             : current.holdNotes,
         holdReasonCode:
           targetStatus === WorkOrderStatus.ON_HOLD
-            ? current.holdReasonCode || "OTHER"
+            ? (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString().toUpperCase()
             : current.holdReasonCode,
+        acknowledgedAt:
+          (targetStatus === WorkOrderStatus.ASSIGNED || targetStatus === WorkOrderStatus.IN_PROGRESS) &&
+          !current.acknowledgedAt
+            ? new Date()
+            : current.acknowledgedAt,
         actualCost: data.actualCost ?? current.actualCost,
         actualHours: data.actualHours ?? current.actualHours,
         delayReason: data.delayReason?.trim() || current.delayReason,

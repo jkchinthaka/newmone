@@ -107,6 +107,30 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/priority-sla"
     },
     {
+      id: "fault-codes",
+      title: "Fault / Cause / Remedy",
+      description: "Admin-managed failure, cause, and remedy codes.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/fault-codes"
+    },
+    {
+      id: "reason-codes",
+      title: "Hold / Delay Reasons",
+      description: "Structured pause reasons for work orders.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/reason-codes"
+    },
+    {
+      id: "config-history",
+      title: "Configuration History",
+      description: "Versioned before/after trail for policy and master-data changes.",
+      status: "available",
+      statusLabel: "Governance",
+      href: "/admin/config-history"
+    },
+    {
       id: "approvals",
       title: "Approval Rules",
       description: "Configurable multi-level approval policies.",

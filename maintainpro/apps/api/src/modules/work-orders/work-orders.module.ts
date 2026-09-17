@@ -19,6 +19,7 @@ import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
 import { InventoryModule } from "../inventory/inventory.module";
+import { MaintenanceConfigModule } from "../maintenance-config/maintenance-config.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { InventoryModule } from "../inventory/inventory.module";
     WorkOrderTaxonomyModule,
     InventoryModule,
     ApprovalsModule,
+    MaintenanceConfigModule,
     forwardRef(() => EnterpriseOpsModule)
   ],
   controllers: [WorkOrdersController],

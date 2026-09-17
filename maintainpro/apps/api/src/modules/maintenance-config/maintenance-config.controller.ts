@@ -110,6 +110,7 @@ export class MaintenanceConfigController {
       escalateOnBreach?: boolean;
       notifyOnBreach?: boolean;
       active?: boolean;
+      reason?: string;
     }
   ) {
     if (!body.priority?.trim()) {
@@ -117,6 +118,80 @@ export class MaintenanceConfigController {
     }
     const data = await this.config.upsertPrioritySla(req.user, body);
     return { data, message: "Priority SLA rule saved" };
+  }
+
+  @Get("analysis-codes")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "MAINTENANCE_SUPERVISOR", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  @Permissions("work_orders.complete")
+  async listAnalysisCodes(@Req() req: AuthedRequest, @Query("kind") kind?: string) {
+    const data = await this.config.listAnalysisCodes(req.user, kind);
+    return { data, message: "Analysis codes" };
+  }
+
+  @Post("analysis-codes")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("admin.organization.manage")
+  async upsertAnalysisCode(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      kind: string;
+      code: string;
+      name: string;
+      description?: string;
+      sortOrder?: number;
+      isActive?: boolean;
+      reason?: string;
+    }
+  ) {
+    const data = await this.config.upsertAnalysisCode(req.user, body);
+    return { data, message: "Analysis code saved" };
+  }
+
+  @Get("reason-codes")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "MAINTENANCE_SUPERVISOR", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  @Permissions("work_orders.hold")
+  async listReasonCodes(@Req() req: AuthedRequest, @Query("kind") kind?: string) {
+    const data = await this.config.listReasonCodes(req.user, kind);
+    return { data, message: "Reason codes" };
+  }
+
+  @Post("reason-codes")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("admin.organization.manage")
+  async upsertReasonCode(
+    @Req() req: AuthedRequest,
+    @Body()
+    body: {
+      kind: string;
+      code: string;
+      name: string;
+      description?: string;
+      requiresNotes?: boolean;
+      sortOrder?: number;
+      active?: boolean;
+      reason?: string;
+    }
+  ) {
+    const data = await this.config.upsertReasonCode(req.user, body);
+    return { data, message: "Reason code saved" };
+  }
+
+  @Get("config-history")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "AUDITOR")
+  @Permissions("admin.audit.view")
+  async configHistory(
+    @Req() req: AuthedRequest,
+    @Query("entityType") entityType?: string,
+    @Query("entityId") entityId?: string,
+    @Query("limit") limit?: string
+  ) {
+    const data = await this.config.listConfigHistory(req.user, {
+      entityType,
+      entityId,
+      limit: limit ? Number(limit) : undefined
+    });
+    return { data, message: "Configuration change history" };
   }
 
   @Get("integrations-status")

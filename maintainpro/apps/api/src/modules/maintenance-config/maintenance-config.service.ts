@@ -5,6 +5,13 @@ import { JOB_DOMAINS, parseJobDomain, type JobDomain } from "../../common/utils/
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import {
+  assertValidHoldReason,
+  DEFAULT_CAUSE_CODES,
+  DEFAULT_FAILURE_CODES,
+  DEFAULT_REMEDY_CODES,
+  HOLD_REASON_CODES
+} from "../work-orders/work-order-lifecycle";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role">;
 
@@ -235,7 +242,7 @@ export class MaintenanceConfigService {
       if (!parent) throw new BadRequestException("Parent category not found");
     }
 
-    return this.prisma.maintenanceJobCategory.create({
+    const created = await this.prisma.maintenanceJobCategory.create({
       data: {
         tenantId,
         jobDomain,
@@ -246,6 +253,17 @@ export class MaintenanceConfigService {
         sortOrder: input.sortOrder ?? 0
       }
     });
+
+    await this.recordConfigChange(actor, {
+      entityType: "MaintenanceJobCategory",
+      entityId: created.id,
+      action: "CREATE",
+      reason: "Job category created",
+      beforeJson: null,
+      afterJson: created
+    });
+
+    return created;
   }
 
   async updateJobCategory(
@@ -265,6 +283,15 @@ export class MaintenanceConfigService {
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
         ...(input.parentId !== undefined ? { parentId: input.parentId } : {})
       }
+    }).then(async (updated) => {
+      await this.recordConfigChange(actor, {
+        entityType: "MaintenanceJobCategory",
+        entityId: id,
+        action: "UPDATE",
+        beforeJson: existing,
+        afterJson: updated
+      });
+      return updated;
     });
   }
 
@@ -342,6 +369,8 @@ export class MaintenanceConfigService {
       });
     }
 
+    await this.seedAnalysisAndReasonDefaults(actor);
+
     return { domains: [...JOB_DOMAINS], created, skipped };
   }
 
@@ -370,6 +399,7 @@ export class MaintenanceConfigService {
       escalateOnBreach?: boolean;
       notifyOnBreach?: boolean;
       active?: boolean;
+      reason?: string;
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
@@ -379,7 +409,11 @@ export class MaintenanceConfigService {
       throw new BadRequestException("Invalid priority");
     }
 
-    return this.prisma.prioritySlaRule.upsert({
+    const before = await this.prisma.prioritySlaRule.findUnique({
+      where: { tenantId_priority: { tenantId, priority } }
+    });
+
+    const saved = await this.prisma.prioritySlaRule.upsert({
       where: { tenantId_priority: { tenantId, priority } },
       update: {
         responseMinutes: input.responseMinutes ?? undefined,
@@ -396,6 +430,358 @@ export class MaintenanceConfigService {
         escalateOnBreach: input.escalateOnBreach ?? true,
         notifyOnBreach: input.notifyOnBreach ?? true,
         active: input.active ?? true
+      }
+    });
+
+    await this.recordConfigChange(actor, {
+      entityType: "PrioritySlaRule",
+      entityId: saved.id,
+      action: before ? "UPDATE" : "CREATE",
+      reason: input.reason ?? "Priority SLA configuration change",
+      beforeJson: before,
+      afterJson: saved
+    });
+
+    return saved;
+  }
+
+  /**
+   * Resolve completion SLA hours from Admin PrioritySlaRule.
+   * Falls back to software defaults when no active rule exists.
+   */
+  async resolveCompletionHours(tenantId: string, priority: string): Promise<number> {
+    const normalized = priority.trim().toUpperCase();
+    const rule = await this.prisma.prioritySlaRule.findFirst({
+      where: { tenantId, priority: normalized, active: true }
+    });
+    if (rule?.completionMinutes != null && rule.completionMinutes > 0) {
+      return rule.completionMinutes / 60;
+    }
+    switch (normalized) {
+      case "CRITICAL":
+        return 4;
+      case "HIGH":
+        return 24;
+      case "MEDIUM":
+        return 72;
+      case "LOW":
+      default:
+        return 168;
+    }
+  }
+
+  async resolveResponseMinutes(tenantId: string, priority: string): Promise<number | null> {
+    const rule = await this.prisma.prioritySlaRule.findFirst({
+      where: { tenantId, priority: priority.trim().toUpperCase(), active: true }
+    });
+    return rule?.responseMinutes ?? null;
+  }
+
+  async listAnalysisCodes(actor: Actor, kind?: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const count = await this.prisma.maintenanceAnalysisCode.count({ where: { tenantId } });
+    if (count === 0) {
+      await this.seedAnalysisAndReasonDefaults(actor);
+    }
+    return this.prisma.maintenanceAnalysisCode.findMany({
+      where: {
+        tenantId,
+        ...(kind ? { kind: kind.trim().toUpperCase() } : {})
+      },
+      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }]
+    });
+  }
+
+  async upsertAnalysisCode(
+    actor: Actor,
+    input: {
+      kind: string;
+      code: string;
+      name: string;
+      description?: string;
+      sortOrder?: number;
+      isActive?: boolean;
+      reason?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const kind = input.kind.trim().toUpperCase();
+    const code = input.code.trim().toUpperCase();
+    if (!["FAILURE", "CAUSE", "REMEDY"].includes(kind)) {
+      throw new BadRequestException("kind must be FAILURE, CAUSE, or REMEDY");
+    }
+    if (!code || !input.name?.trim()) {
+      throw new BadRequestException("code and name are required");
+    }
+
+    const before = await this.prisma.maintenanceAnalysisCode.findUnique({
+      where: { tenantId_kind_code: { tenantId, kind, code } }
+    });
+
+    const saved = await this.prisma.maintenanceAnalysisCode.upsert({
+      where: { tenantId_kind_code: { tenantId, kind, code } },
+      update: {
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        sortOrder: input.sortOrder ?? 0,
+        isActive: input.isActive ?? true
+      },
+      create: {
+        tenantId,
+        kind,
+        code,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        sortOrder: input.sortOrder ?? 0,
+        isActive: input.isActive ?? true
+      }
+    });
+
+    await this.recordConfigChange(actor, {
+      entityType: "MaintenanceAnalysisCode",
+      entityId: saved.id,
+      action: before ? "UPDATE" : "CREATE",
+      reason: input.reason ?? "Analysis code configuration change",
+      beforeJson: before,
+      afterJson: saved
+    });
+
+    return saved;
+  }
+
+  async listReasonCodes(actor: Actor, kind?: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const count = await this.prisma.maintenanceReasonCode.count({ where: { tenantId } });
+    if (count === 0) {
+      await this.seedAnalysisAndReasonDefaults(actor);
+    }
+    return this.prisma.maintenanceReasonCode.findMany({
+      where: {
+        tenantId,
+        ...(kind ? { kind: kind.trim().toUpperCase() } : {})
+      },
+      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { name: "asc" }]
+    });
+  }
+
+  async upsertReasonCode(
+    actor: Actor,
+    input: {
+      kind: string;
+      code: string;
+      name: string;
+      description?: string;
+      requiresNotes?: boolean;
+      sortOrder?: number;
+      active?: boolean;
+      reason?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const kind = input.kind.trim().toUpperCase();
+    const code = input.code.trim().toUpperCase();
+    if (!["HOLD", "DELAY"].includes(kind)) {
+      throw new BadRequestException("kind must be HOLD or DELAY");
+    }
+    if (!code || !input.name?.trim()) {
+      throw new BadRequestException("code and name are required");
+    }
+
+    const before = await this.prisma.maintenanceReasonCode.findUnique({
+      where: { tenantId_kind_code: { tenantId, kind, code } }
+    });
+
+    const saved = await this.prisma.maintenanceReasonCode.upsert({
+      where: { tenantId_kind_code: { tenantId, kind, code } },
+      update: {
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        requiresNotes: input.requiresNotes ?? false,
+        sortOrder: input.sortOrder ?? 0,
+        active: input.active ?? true
+      },
+      create: {
+        tenantId,
+        kind,
+        code,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        requiresNotes: input.requiresNotes ?? false,
+        sortOrder: input.sortOrder ?? 0,
+        active: input.active ?? true
+      }
+    });
+
+    await this.recordConfigChange(actor, {
+      entityType: "MaintenanceReasonCode",
+      entityId: saved.id,
+      action: before ? "UPDATE" : "CREATE",
+      reason: input.reason ?? "Reason code configuration change",
+      beforeJson: before,
+      afterJson: saved
+    });
+
+    return saved;
+  }
+
+  async assertHoldReason(tenantId: string, code: string, notes?: string | null) {
+    const normalized = code.trim().toUpperCase();
+    const row = await this.prisma.maintenanceReasonCode.findFirst({
+      where: { tenantId, kind: "HOLD", code: normalized, active: true }
+    });
+    if (!row) {
+      // Fallback to software defaults if tenant has not seeded masters yet
+      assertValidHoldReason(normalized, notes);
+      return;
+    }
+    if (row.requiresNotes && (!notes || notes.trim().length < 3)) {
+      throw new BadRequestException(`Hold notes are required when reason is ${row.code}`);
+    }
+  }
+
+  async listConfigHistory(
+    actor: Actor,
+    query: { entityType?: string; entityId?: string; limit?: number } = {}
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.configChangeHistory.findMany({
+      where: {
+        tenantId,
+        ...(query.entityType ? { entityType: query.entityType } : {}),
+        ...(query.entityId ? { entityId: query.entityId } : {})
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(query.limit ?? 50, 200),
+      include: {
+        actor: { select: { id: true, email: true, firstName: true, lastName: true } }
+      }
+    });
+  }
+
+  async seedAnalysisAndReasonDefaults(actor: Actor) {
+    const tenantId = requireTenantId(actor.tenantId);
+
+    const seedKind = async (
+      kind: string,
+      items: ReadonlyArray<{ code: string; name: string }>
+    ) => {
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        await this.prisma.maintenanceAnalysisCode.upsert({
+          where: {
+            tenantId_kind_code: { tenantId, kind, code: item.code }
+          },
+          update: { name: item.name, isActive: true, sortOrder: (i + 1) * 10 },
+          create: {
+            tenantId,
+            kind,
+            code: item.code,
+            name: item.name,
+            sortOrder: (i + 1) * 10
+          }
+        });
+      }
+    };
+
+    await seedKind("FAILURE", DEFAULT_FAILURE_CODES);
+    await seedKind("CAUSE", DEFAULT_CAUSE_CODES);
+    await seedKind("REMEDY", DEFAULT_REMEDY_CODES);
+
+    const holdLabels: Record<string, string> = {
+      WAITING_PARTS: "Waiting for Parts",
+      WAITING_VENDOR: "Waiting for Vendor",
+      WAITING_PRODUCTION: "Waiting for Production",
+      WAITING_APPROVAL: "Waiting for Approval",
+      WAITING_TOOL: "Waiting for Tool",
+      WAITING_ACCESS: "Waiting for Access",
+      SAFETY_HOLD: "Safety Hold",
+      OTHER: "Other"
+    };
+
+    for (let i = 0; i < HOLD_REASON_CODES.length; i += 1) {
+      const code = HOLD_REASON_CODES[i];
+      await this.prisma.maintenanceReasonCode.upsert({
+        where: { tenantId_kind_code: { tenantId, kind: "HOLD", code } },
+        update: {
+          name: holdLabels[code] ?? code,
+          requiresNotes: code === "OTHER",
+          active: true,
+          sortOrder: (i + 1) * 10
+        },
+        create: {
+          tenantId,
+          kind: "HOLD",
+          code,
+          name: holdLabels[code] ?? code,
+          requiresNotes: code === "OTHER",
+          sortOrder: (i + 1) * 10
+        }
+      });
+    }
+
+    const delayDefaults = [
+      { code: "WAITING_PARTS", name: "Waiting for Parts" },
+      { code: "WAITING_APPROVAL", name: "Waiting for Approval" },
+      { code: "WAITING_VENDOR", name: "Waiting for Vendor" },
+      { code: "ASSET_IN_USE", name: "Asset In Use" },
+      { code: "TECHNICIAN_UNAVAILABLE", name: "Technician Unavailable" },
+      { code: "OPERATIONAL_CONSTRAINT", name: "Operational Constraint" },
+      { code: "OTHER", name: "Other" }
+    ];
+    for (let i = 0; i < delayDefaults.length; i += 1) {
+      const item = delayDefaults[i];
+      await this.prisma.maintenanceReasonCode.upsert({
+        where: { tenantId_kind_code: { tenantId, kind: "DELAY", code: item.code } },
+        update: {
+          name: item.name,
+          requiresNotes: item.code === "OTHER",
+          active: true,
+          sortOrder: (i + 1) * 10
+        },
+        create: {
+          tenantId,
+          kind: "DELAY",
+          code: item.code,
+          name: item.name,
+          requiresNotes: item.code === "OTHER",
+          sortOrder: (i + 1) * 10
+        }
+      });
+    }
+
+    return { ok: true };
+  }
+
+  private async recordConfigChange(
+    actor: Actor,
+    input: {
+      entityType: string;
+      entityId: string;
+      action: string;
+      reason?: string;
+      beforeJson?: unknown;
+      afterJson?: unknown;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const priorCount = await this.prisma.configChangeHistory.count({
+      where: {
+        tenantId,
+        entityType: input.entityType,
+        entityId: input.entityId
+      }
+    });
+    await this.prisma.configChangeHistory.create({
+      data: {
+        tenantId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        action: input.action,
+        reason: input.reason ?? null,
+        beforeJson: input.beforeJson != null ? JSON.stringify(input.beforeJson) : null,
+        afterJson: input.afterJson != null ? JSON.stringify(input.afterJson) : null,
+        version: priorCount + 1,
+        actorId: actor.sub ?? null
       }
     });
   }

@@ -76,6 +76,8 @@ model Tenant {
   maintenanceRequestHistories  MaintenanceRequestHistory[]
   maintenanceJobCategories     MaintenanceJobCategory[]
   prioritySlaRules             PrioritySlaRule[]
+  maintenanceReasonCodes       MaintenanceReasonCode[]
+  configChangeHistories        ConfigChangeHistory[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -363,6 +365,7 @@ model User {
   reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
   triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
   maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
+  configChangeHistories       ConfigChangeHistory[]       @relation("ConfigChangeActor")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -3101,6 +3104,47 @@ model PrioritySlaRule {
 
   @@unique([tenantId, priority])
   @@index([tenantId, active])
+}
+
+/// Admin-configurable hold / delay reason codes (replaces hardcoded-only lists).
+model MaintenanceReasonCode {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// HOLD | DELAY
+  kind        String   @db.NVarChar(16)
+  code        String   @db.NVarChar(64)
+  name        String   @db.NVarChar(200)
+  description String?
+  requiresNotes Boolean @default(false)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, kind, code])
+  @@index([tenantId, kind, active])
+}
+
+/// Append-only history for Admin master-data and policy configuration changes.
+model ConfigChangeHistory {
+  id           String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String   @db.NVarChar(36)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// e.g. PrioritySlaRule, MaintenanceJobCategory, MaintenanceAnalysisCode
+  entityType   String   @db.NVarChar(64)
+  entityId     String   @db.NVarChar(36)
+  action       String   @db.NVarChar(32)
+  reason       String?
+  beforeJson   String?  @db.NVarChar(Max)
+  afterJson    String?  @db.NVarChar(Max)
+  version      Int      @default(1)
+  actorId      String?  @db.NVarChar(36)
+  actor        User?    @relation("ConfigChangeActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model MaintenanceRequestHistory {
