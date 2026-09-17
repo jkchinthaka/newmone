@@ -74,6 +74,8 @@ model Tenant {
   /// Phase 5 canonical maintenance requests (FacilityIssue retained + bridge)
   maintenanceRequests          MaintenanceRequest[]
   maintenanceRequestHistories  MaintenanceRequestHistory[]
+  maintenanceJobCategories     MaintenanceJobCategory[]
+  prioritySlaRules             PrioritySlaRule[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -1391,6 +1393,8 @@ model WorkOrder {
   department                  Department?          @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   domainId                    String?              @db.NVarChar(36)
   domain                      AssetDomain?         @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE — first-class ops lane on the unified WO engine
+  jobDomain                   String?              @db.NVarChar(32)
   /// Reverse unique link also on MaintenanceRequest.workOrderId — keep both for query convenience
   maintenanceRequest          MaintenanceRequest?
 
@@ -1498,6 +1502,8 @@ model WorkOrder {
   @@index([tenantId, pmOccurrenceKey])
   @@index([tenantId, vendorSupplierId])
   @@index([tenantId, executionMode])
+  @@index([tenantId, jobDomain])
+  @@index([tenantId, jobDomain, status])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -2987,6 +2993,8 @@ model MaintenanceRequest {
   department           Department?         @relation("RequestDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   domainId             String?             @db.NVarChar(36)
   domain               AssetDomain?        @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE — inherited by converted work orders
+  jobDomain            String?             @db.NVarChar(32)
 
   problemCategoryId    String?                 @db.NVarChar(36)
   problemCategory      RequestProblemCategory? @relation(fields: [problemCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3048,8 +3056,51 @@ model MaintenanceRequest {
   @@index([tenantId, priority, status])
   @@index([tenantId, reportedById, createdAt])
   @@index([tenantId, domainId])
+  @@index([tenantId, jobDomain])
   @@index([tenantId, duplicateOfId])
   @@index([tenantId, legacySourceType, legacySourceId])
+}
+
+/// Admin-configurable main/sub job categories by operational job domain.
+model MaintenanceJobCategory {
+  id        String                  @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String                  @db.NVarChar(36)
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE
+  jobDomain String                  @db.NVarChar(32)
+  /// MAIN | SUB
+  level     String                  @db.NVarChar(16)
+  parentId  String?                 @db.NVarChar(36)
+  parent    MaintenanceJobCategory? @relation("JobCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  MaintenanceJobCategory[] @relation("JobCategoryTree")
+  code      String                  @db.NVarChar(64)
+  name      String                  @db.NVarChar(200)
+  active    Boolean                 @default(true)
+  sortOrder Int                     @default(0)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  @@unique([tenantId, jobDomain, code])
+  @@index([tenantId, jobDomain, level, active])
+  @@index([tenantId, parentId])
+}
+
+/// Admin-configurable priority response / completion targets (minutes).
+model PrioritySlaRule {
+  id                 String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId           String   @db.NVarChar(36)
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  priority           String   @db.NVarChar(32)
+  responseMinutes    Int?
+  completionMinutes  Int?
+  escalateOnBreach   Boolean  @default(true)
+  notifyOnBreach     Boolean  @default(true)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, priority])
+  @@index([tenantId, active])
 }
 
 model MaintenanceRequestHistory {
