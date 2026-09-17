@@ -129,6 +129,31 @@ export async function getDailyInventory(params?: { preset?: string; warehouseId?
   return unwrap(response.data, { rows: [], totals: {} });
 }
 
+export async function listStockCounts(params?: { status?: string; warehouseId?: string }) {
+  const response = await apiClient.get("/inventory/stock-counts", { params });
+  return unwrap(response.data, []);
+}
+
+export async function getStockCount(id: string) {
+  const response = await apiClient.get(`/inventory/stock-counts/${id}`);
+  return unwrap(response.data, null);
+}
+
+export async function createStockCount(payload: {
+  warehouseId: string;
+  countType?: "CYCLE" | "ANNUAL" | "SPOT";
+  blindCount?: boolean;
+  notes?: string;
+}) {
+  const response = await apiClient.post("/inventory/stock-counts", payload);
+  return unwrap(response.data, null);
+}
+
+export async function transitionStockCount(id: string, status: string, reason?: string) {
+  const response = await apiClient.post(`/inventory/stock-counts/${id}/transition`, { status, reason });
+  return unwrap(response.data, null);
+}
+
 export async function previewInventoryImport(file: File) {
   const form = new FormData();
   form.append("file", file);

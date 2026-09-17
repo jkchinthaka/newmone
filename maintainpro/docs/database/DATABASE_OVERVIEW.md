@@ -45,9 +45,9 @@ This folder documents MaintainPro’s SQL Server data model so developers and DB
 - Asset hierarchy + OrgUnit: DB cycle triggers
 - Supplier.tenantId required
 
-## Related catalogs (to expand)
+## Related catalogs
 
-- `DATA_DICTIONARY.md` — table-level purpose (seeded overview; expand continuously)
+- `DATA_DICTIONARY.md` — table-level purpose
 - `STATUS_CATALOG.md` — lifecycle enums vs derived states
 - `LEGACY_DISPOSITION.md` — FacilityIssue, Farm, Cleaning, Billing soft-retired paths
 

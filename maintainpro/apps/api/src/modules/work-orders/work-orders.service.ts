@@ -1723,7 +1723,66 @@ export class WorkOrdersService {
       beforeData: { status: current.status },
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
+    await this.completePmOccurrenceForClosedWorkOrder(current);
     return this.findOneWithRelations(id, actor);
+  }
+
+  /**
+   * Governed PM baseline advance: occurrence completes only when the WO is CLOSED
+   * (not when the WO was merely generated).
+   */
+  private async completePmOccurrenceForClosedWorkOrder(workOrder: {
+    id: string;
+    tenantId: string;
+    pmPlanId?: string | null;
+    pmOccurrenceKey?: string | null;
+  }) {
+    if (!workOrder.pmPlanId) return;
+    try {
+      const occurrence = await this.prisma.pmOccurrence.findFirst({
+        where: {
+          tenantId: workOrder.tenantId,
+          workOrderId: workOrder.id,
+          status: { not: "COMPLETED" }
+        }
+      });
+      const now = new Date();
+      if (occurrence) {
+        await this.prisma.pmOccurrence.update({
+          where: { id: occurrence.id },
+          data: { status: "COMPLETED", completedAt: now }
+        });
+      } else if (workOrder.pmOccurrenceKey) {
+        await this.prisma.pmOccurrence.upsert({
+          where: {
+            tenantId_planId_generationKey: {
+              tenantId: workOrder.tenantId,
+              planId: workOrder.pmPlanId,
+              generationKey: workOrder.pmOccurrenceKey
+            }
+          },
+          create: {
+            tenantId: workOrder.tenantId,
+            planId: workOrder.pmPlanId,
+            status: "COMPLETED",
+            generationKey: workOrder.pmOccurrenceKey,
+            workOrderId: workOrder.id,
+            completedAt: now
+          },
+          update: {
+            status: "COMPLETED",
+            workOrderId: workOrder.id,
+            completedAt: now
+          }
+        });
+      }
+      await this.prisma.pmPlan.update({
+        where: { id: workOrder.pmPlanId },
+        data: { lastCompletionAt: now }
+      });
+    } catch {
+      // Baseline advance must not block WO close; Technical Admin can reconcile.
+    }
   }
 
   async rejectSupervisor(id: string, reason: string, actor?: Actor) {

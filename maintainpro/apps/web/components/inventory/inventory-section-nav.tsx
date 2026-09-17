@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/inventory", label: "Dashboard" },
   { href: "/inventory/movements", label: "Movements" },
   { href: "/inventory/daily", label: "Daily Inventory" },
+  { href: "/inventory/stock-counts", label: "Stock Counts" },
   { href: "/inventory/import", label: "ERP / Excel Import" }
 ] as const;
 

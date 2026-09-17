@@ -214,6 +214,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/inventory",
   "/inventory/movements",
   "/inventory/daily",
+  "/inventory/stock-counts",
   "/inventory/import",
   "/inventory/erp-import",
   "/inventory/warranty",
