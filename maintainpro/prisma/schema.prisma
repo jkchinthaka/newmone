@@ -82,6 +82,11 @@ model Tenant {
   maintenanceTemplates         MaintenanceTemplate[]
   entityWarranties             EntityWarranty[]
   warrantyClaims               WarrantyClaim[]
+  downtimeSegments             DowntimeSegment[]
+  rcaCases                     RcaCase[]
+  capaActions                  CapaAction[]
+  workPermits                  WorkPermit[]
+  reliabilityPolicies          ReliabilityPolicy[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -376,6 +381,12 @@ model User {
   entityWarrantiesCreated     EntityWarranty[]            @relation("EntityWarrantyCreatedBy")
   warrantyClaimsCreated       WarrantyClaim[]             @relation("WarrantyClaimCreatedBy")
   warrantyClaimsUpdated       WarrantyClaim[]             @relation("WarrantyClaimUpdatedBy")
+  downtimeSegmentsOpened      DowntimeSegment[]           @relation("DowntimeOpenedBy")
+  downtimeSegmentsClosed      DowntimeSegment[]           @relation("DowntimeClosedBy")
+  rcaCasesOwned               RcaCase[]                   @relation("RcaCaseOwner")
+  capaActionsOwned            CapaAction[]                @relation("CapaActionOwner")
+  workPermitsIssued           WorkPermit[]                @relation("WorkPermitIssuedBy")
+  workPermitsApproved         WorkPermit[]                @relation("WorkPermitApprovedBy")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -1441,6 +1452,8 @@ model WorkOrder {
   downtimeStartedAt  DateTime?
   downtimeEndedAt    DateTime?
   downtimeReason     String?
+  /// Candidate flag from configurable repeat-failure detection (not automatic blame)
+  repeatFailureCandidate Boolean @default(false)
 
   // Phase 6 — RCA (technician analysis; distinct from requester Problem Category)
   failureCodeId       String?                  @db.NVarChar(36)
@@ -1483,6 +1496,9 @@ model WorkOrder {
   costSnapshot        WorkOrderCostSnapshot?
   repairWarranties    RepairWarranty[]
   warrantyClaims      WarrantyClaim[]
+  downtimeSegments    DowntimeSegment[]
+  rcaCases            RcaCase[]
+  workPermits         WorkPermit[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.NVarChar(36)
@@ -3293,6 +3309,141 @@ model WarrantyClaim {
   @@index([tenantId, status])
   @@index([tenantId, warrantyId])
   @@index([tenantId, workOrderId])
+}
+
+/// Multiple downtime periods per work order (active repair vs waiting parts/vendor/etc.).
+model DowntimeSegment {
+  id                   String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId             String    @db.NVarChar(36)
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId          String    @db.NVarChar(36)
+  workOrder            WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId              String?   @db.NVarChar(36)
+  /// ACTIVE_REPAIR | WAITING_PARTS | WAITING_VENDOR | WAITING_APPROVAL | WAITING_TECHNICIAN | AWAITING_SHUTDOWN | TESTING | OPERATIONAL_DELAY | OTHER
+  category             String    @db.NVarChar(32)
+  planned              Boolean   @default(false)
+  reasonCode           String?   @db.NVarChar(64)
+  reasonNotes          String?
+  startedAt            DateTime
+  endedAt              DateTime?
+  productionAffected   Boolean   @default(false)
+  estimatedLostHours   Float?
+  estimatedLostUnits   Float?
+  openedById           String?   @db.NVarChar(36)
+  openedBy             User?     @relation("DowntimeOpenedBy", fields: [openedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  closedById           String?   @db.NVarChar(36)
+  closedBy             User?     @relation("DowntimeClosedBy", fields: [closedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([tenantId, workOrderId, startedAt])
+  @@index([tenantId, assetId, startedAt])
+  @@index([tenantId, category, endedAt])
+}
+
+/// Root Cause Analysis case — does not auto-blame people/vendors.
+model RcaCase {
+  id                String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId          String    @db.NVarChar(36)
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId       String?   @db.NVarChar(36)
+  workOrder         WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId           String?   @db.NVarChar(36)
+  vehicleId         String?   @db.NVarChar(36)
+  /// OPEN | IN_REVIEW | COMPLETED | CLOSED
+  status            String    @default("OPEN") @db.NVarChar(32)
+  problemStatement  String    @db.NVarChar(Max)
+  evidenceJson      String    @default("[]") @db.NVarChar(Max)
+  fiveWhyJson       String    @default("[]") @db.NVarChar(Max)
+  failureCode       String?   @db.NVarChar(64)
+  causeCode         String?   @db.NVarChar(64)
+  rootCause         String?   @db.NVarChar(Max)
+  repeatCandidate   Boolean   @default(false)
+  repeatWindowDays  Int?
+  similarWoCount    Int       @default(0)
+  ownerId           String?   @db.NVarChar(36)
+  owner             User?     @relation("RcaCaseOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  capaActions       CapaAction[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, workOrderId])
+  @@index([tenantId, assetId, createdAt])
+  @@index([tenantId, repeatCandidate])
+}
+
+/// Corrective / Preventive Action linked to an RCA.
+model CapaAction {
+  id               String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String   @db.NVarChar(36)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rcaCaseId        String   @db.NVarChar(36)
+  rcaCase          RcaCase  @relation(fields: [rcaCaseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CORRECTIVE | PREVENTIVE
+  kind             String   @db.NVarChar(16)
+  description      String   @db.NVarChar(Max)
+  /// OPEN | IN_PROGRESS | VERIFIED | CLOSED | CANCELLED
+  status           String   @default("OPEN") @db.NVarChar(32)
+  ownerId          String?  @db.NVarChar(36)
+  owner            User?    @relation("CapaActionOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dueDate          DateTime?
+  verifiedAt       DateTime?
+  verificationNote String?
+  closedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, rcaCaseId])
+  @@index([tenantId, status, dueDate])
+}
+
+/// Permit-to-Work linked to a work order (admin-configurable types).
+model WorkPermit {
+  id            String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String    @db.NVarChar(36)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId   String    @db.NVarChar(36)
+  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  permitNumber  String    @db.NVarChar(64)
+  /// ELECTRICAL | HOT_WORK | CONFINED_SPACE | WORKING_AT_HEIGHT | HIGH_RISK_MACHINERY | OTHER
+  permitType    String    @db.NVarChar(32)
+  /// DRAFT | APPROVED | ACTIVE | SUSPENDED | CLOSED | EXPIRED
+  status        String    @default("DRAFT") @db.NVarChar(32)
+  hazardsJson   String    @default("[]") @db.NVarChar(Max)
+  ppeJson       String    @default("[]") @db.NVarChar(Max)
+  validFrom     DateTime?
+  validTo       DateTime?
+  issuedById    String?   @db.NVarChar(36)
+  issuedBy      User?     @relation("WorkPermitIssuedBy", fields: [issuedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById  String?   @db.NVarChar(36)
+  approvedBy    User?     @relation("WorkPermitApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, permitNumber])
+  @@index([tenantId, workOrderId, status])
+  @@index([tenantId, permitType, status])
+  @@index([tenantId, validTo])
+}
+
+/// Tenant reliability / safety start-gate policy (Admin configurable).
+model ReliabilityPolicy {
+  id                              String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId                        String   @unique @db.NVarChar(36)
+  tenant                          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  repeatWindowDays                Int      @default(90)
+  matchSameFaultCode              Boolean  @default(true)
+  matchSameAsset                  Boolean  @default(true)
+  requireRcaOnRepeat              Boolean  @default(false)
+  /// When true, WO start is blocked unless an ACTIVE/APPROVED non-expired permit exists for critical assets
+  requirePermitForCriticalAssets  Boolean  @default(true)
+  /// CSV of Asset.criticalityLevel values that require a permit before start
+  permitRequiredCriticalities     String   @default("CRITICAL,HIGH") @db.NVarChar(128)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 }
 
 model MaintenanceRequestHistory {

@@ -51,6 +51,16 @@ const SECTIONS = [
     description: "Coverage records and recovery claim workflow."
   },
   {
+    href: "/admin/reliability",
+    title: "Reliability & Safety Policy",
+    description: "Repeat failure, asset criticality, RCA/CAPA, permit start gates."
+  },
+  {
+    href: "/admin/work-permits",
+    title: "Permit-to-Work",
+    description: "Issue and approve permits required before critical work starts."
+  },
+  {
     href: "/admin/approvals",
     title: "Approval Rules",
     description: "Request, high-cost, external repair, and overrides."
