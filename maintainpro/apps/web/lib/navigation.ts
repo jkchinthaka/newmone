@@ -251,6 +251,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin/approvals",
   "/admin/bulk-imports",
   "/approvals",
+  "/vendor-portal",
   "/erp",
   "/erp/exceptions",
   "/system-health",
@@ -890,12 +891,18 @@ export function getMobileBottomNavItems(
   options?: { permissions?: readonly string[] }
 ): MobileBottomNavItem[] {
   const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
-  const hasWorkOrders = visible.some((item) => item.id === "work-orders");
+  const hasWorkOrders = visible.some(
+    (item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs"
+  );
   const hasRequests = visible.some((item) => item.id === "requests");
   const hasAssets = visible.some((item) => item.id === "assets");
   const hasSettings = visible.some((item) => item.id === "settings");
   const homeHref = visible.find((item) => item.id === "home")?.href ?? "/action-center";
   const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/requests";
+  const jobsHref =
+    visible.find((item) => item.id === "all-jobs")?.href ??
+    visible.find((item) => item.id === "my-jobs")?.href ??
+    "/maintenance/jobs";
 
   const items: MobileBottomNavItem[] = [
     { id: "home", label: "Home", href: homeHref, icon: "Home" }
@@ -905,7 +912,7 @@ export function getMobileBottomNavItems(
   if (hasRequests && !hasWorkOrders) {
     items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
   } else if (hasWorkOrders) {
-    items.push({ id: "work-orders", label: "Work Orders", href: "/work-orders", icon: "ClipboardList" });
+    items.push({ id: "work-orders", label: "Work Orders", href: jobsHref, icon: "ClipboardList" });
   } else if (hasAssets) {
     items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
   }

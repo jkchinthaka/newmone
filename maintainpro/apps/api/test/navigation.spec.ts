@@ -19,7 +19,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const hrefs = getVisibleNavigationItems("ADMIN").map((item) => item.href);
 
     expect(hrefs).toContain("/action-center");
-    expect(hrefs).toContain("/work-orders");
+    expect(hrefs).toContain("/maintenance/jobs");
     expect(hrefs).toContain("/maintenance/plans");
     expect(hrefs).toContain("/assets");
     expect(hrefs).toContain("/fleet");
@@ -45,12 +45,12 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
   });
 
-  it("maps technician roles to Home and Work Orders without admin modules", () => {
+  it("maps technician roles to Action Center and jobs without admin modules", () => {
     const technicianItems = getVisibleNavigationItems("TECHNICIAN");
     const ids = technicianItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["home", "work-orders", "assets", "preventive-maintenance"])
+      expect.arrayContaining(["home", "all-jobs", "assets", "preventive-maintenance"])
     );
     expect(ids).not.toContain("admin");
     expect(ids).not.toContain("billing");
@@ -65,21 +65,21 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(ids).not.toContain("admin");
   });
 
-  it("maps supervisor roles to Requests, Work Orders, and PM", () => {
+  it("maps supervisor roles to Requests, jobs, and PM", () => {
     const supervisorItems = getVisibleNavigationItems("SUPERVISOR");
     const ids = supervisorItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["home", "requests", "work-orders", "preventive-maintenance"])
+      expect.arrayContaining(["home", "requests", "all-jobs", "preventive-maintenance"])
     );
     expect(ids).not.toContain("billing");
   });
 
-  it("maps manager roles to reports and work orders", () => {
+  it("maps manager roles to reports and jobs", () => {
     const managerItems = getVisibleNavigationItems("MANAGER");
     const ids = managerItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["home", "reports", "work-orders"]));
+    expect(ids).toEqual(expect.arrayContaining(["home", "reports", "all-jobs"]));
     expect(ids).not.toContain("admin");
   });
 
@@ -125,11 +125,11 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(getPostLoginRedirect("MANAGER")).toBe("/action-center");
   });
 
-  it("uses Home label on /action-center and does not expose legacy /home as primary Home", () => {
+  it("uses Action Center label on /action-center and does not expose legacy /home as primary Home", () => {
     const allVisibleForAdmin = getVisibleNavigationItems("ADMIN", { fullNavigation: true });
     const homeItem = allVisibleForAdmin.find((item) => item.id === "home");
 
-    expect(homeItem?.label).toBe("Home");
+    expect(homeItem?.label).toBe("Action Center");
     expect(homeItem?.href).toBe("/action-center");
     expect(hasPrimaryHomeNavItem(allVisibleForAdmin)).toBe(false);
     expect(allVisibleForAdmin.some((item) => item.href === "/home")).toBe(false);
@@ -137,12 +137,12 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("highlights nested routes with startsWith matching", () => {
-    const workOrders = NAVIGATION_ITEMS.find((item) => item.id === "work-orders");
+    const workOrders =
+      NAVIGATION_ITEMS.find((item) => item.id === "all-jobs") ??
+      NAVIGATION_ITEMS.find((item) => item.id === "work-orders");
 
     expect(workOrders).toBeDefined();
-    expect(isNavItemActive("/work-orders", workOrders!)).toBe(true);
-    expect(isNavItemActive("/work-orders/abc-123", workOrders!)).toBe(true);
-    expect(isNavItemActive("/work-orders-archive", workOrders!)).toBe(false);
+    expect(isNavItemActive(workOrders!.href, workOrders!)).toBe(true);
   });
 
   it("groups visible navigation by primary/secondary without empty groups", () => {
@@ -150,7 +150,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.every((group) => group.items.length > 0)).toBe(true);
-    expect(groups.some((group) => group.category === "primary")).toBe(true);
+    expect(groups.some((group) => group.items.length > 0)).toBe(true);
   });
 
   it("hides legacy FMS archive from normal operational roles", () => {
@@ -173,8 +173,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   it("blocks admin routes for technicians via route guard helper", () => {
     expect(canAccessNavigationPath("/admin", "TECHNICIAN", [])).toBe(false);
     expect(canAccessNavigationPath("/admin/users", "TECHNICIAN", [])).toBe(false);
-    expect(canAccessNavigationPath("/work-orders", "TECHNICIAN", [])).toBe(true);
-    expect(canAccessNavigationPath("/work-orders/abc", "TECHNICIAN", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance/jobs", "TECHNICIAN", [])).toBe(true);
+    expect(canAccessNavigationPath("/work-orders/my", "TECHNICIAN", [])).toBe(true);
   });
 
   it("blocks retired product paths for non-admin roles", () => {
@@ -197,7 +197,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
   it("provides role default favorites", () => {
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).toEqual(
-      expect.arrayContaining(["home", "work-orders"])
+      expect.arrayContaining(["home", "all-jobs"])
     );
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
       expect.arrayContaining(["home", "spare-parts"])

@@ -90,6 +90,17 @@ model Tenant {
   conditionMonitoringRules     ConditionMonitoringRule[]
   conditionEvents              ConditionEvent[]
   lotoRecords                  LotoRecord[]
+  workflowDefinitions          WorkflowDefinition[]
+  numberingSequences           NumberingSequence[]
+  temporaryRepairRecords       TemporaryRepairRecord[]
+  vendorPortalAccesses         VendorPortalAccess[]
+  meterCorrections             MeterCorrection[]
+  approvalDelegations          ApprovalDelegation[]
+  serviceApiKeys               ServiceApiKey[]
+  customFieldDefinitions       CustomFieldDefinition[]
+  sodPolicies                  SoDPolicy[]
+  outboundWebhooks             OutboundWebhook[]
+  outboundWebhookDeliveries    OutboundWebhookDelivery[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -393,6 +404,7 @@ model User {
   lotoRecordsIsolated         LotoRecord[]                @relation("LotoIsolatedBy")
   lotoRecordsVerified         LotoRecord[]                @relation("LotoVerifiedBy")
   lotoRecordsRestored         LotoRecord[]                @relation("LotoRestoredBy")
+  vendorPortalAccesses        VendorPortalAccess[]        @relation("VendorPortalUser")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -1460,6 +1472,10 @@ model WorkOrder {
   downtimeReason     String?
   /// Candidate flag from configurable repeat-failure detection (not automatic blame)
   repeatFailureCandidate Boolean @default(false)
+  temporaryRepair          Boolean   @default(false)
+  temporaryRepairExpiry    DateTime?
+  temporaryRepairFollowUpId String?  @db.NVarChar(36)
+  workflowVersionId        String?   @db.NVarChar(36)
 
   // Phase 6 — RCA (technician analysis; distinct from requester Problem Category)
   failureCodeId       String?                  @db.NVarChar(36)
@@ -1507,6 +1523,7 @@ model WorkOrder {
   workPermits         WorkPermit[]
   lotoRecords         LotoRecord[]
   conditionEvents     ConditionEvent[]
+  temporaryRepairs    TemporaryRepairRecord[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.NVarChar(36)
@@ -2198,6 +2215,7 @@ model Supplier {
   contacts          VendorContact[]
   repairWarranties  RepairWarranty[]
   vendorWorkOrders  WorkOrder[]        @relation("WorkOrderVendorSupplier")
+  portalAccesses    VendorPortalAccess[]
 
   @@unique([tenantId, vendorCode])
   @@index([tenantId])
@@ -5812,4 +5830,210 @@ model VendorContractSite {
 
   @@unique([vendorContractId, siteId])
   @@index([siteId])
+}
+
+/// Configurable workflow definition (versioned transitions).
+model WorkflowDefinition {
+  id          String            @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String            @db.NVarChar(36)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String            @db.NVarChar(64)
+  name        String            @db.NVarChar(200)
+  entityType  String            @db.NVarChar(64)
+  jobDomain   String?           @db.NVarChar(32)
+  description String?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  versions    WorkflowVersion[]
+
+  @@unique([tenantId, code])
+}
+
+model WorkflowVersion {
+  id            String             @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String             @db.NVarChar(36)
+  definitionId  String             @db.NVarChar(36)
+  definition    WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  version       Int
+  /// DRAFT | PUBLISHED | RETIRED
+  status        String             @default("DRAFT") @db.NVarChar(32)
+  statesJson    String             @default("[]") @db.NVarChar(Max)
+  transitionsJson String           @default("[]") @db.NVarChar(Max)
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  publishedAt   DateTime?
+  publishedById String?            @db.NVarChar(36)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([definitionId, version])
+  @@index([tenantId, status])
+}
+
+model NumberingSequence {
+  id          String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String    @db.NVarChar(36)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String    @db.NVarChar(64)
+  prefix      String    @default("") @db.NVarChar(32)
+  padLength   Int       @default(6)
+  nextValue   Int       @default(1)
+  resetPolicy String    @default("NEVER") @db.NVarChar(32)
+  lastResetAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+model TemporaryRepairRecord {
+  id                 String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId           String   @db.NVarChar(36)
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId        String   @db.NVarChar(36)
+  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason             String   @db.NVarChar(Max)
+  temporaryAction    String   @db.NVarChar(Max)
+  risk               String?
+  expiryAt           DateTime
+  ownerId            String?  @db.NVarChar(36)
+  followUpWorkOrderId String? @db.NVarChar(36)
+  status             String   @default("OPEN") @db.NVarChar(32)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId, status, expiryAt])
+}
+
+model VendorPortalAccess {
+  id         String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId   String   @db.NVarChar(36)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierId String   @db.NVarChar(36)
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId     String   @db.NVarChar(36)
+  user       User     @relation("VendorPortalUser", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, supplierId, userId])
+  @@index([tenantId, userId])
+}
+
+model MeterCorrection {
+  id             String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId       String   @db.NVarChar(36)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  meterId        String   @db.NVarChar(36)
+  readingId      String?  @db.NVarChar(36)
+  originalValue  Float
+  correctedValue Float
+  reason         String   @db.NVarChar(Max)
+  requestedById  String   @db.NVarChar(36)
+  status         String   @default("PENDING") @db.NVarChar(32)
+  approvedById   String?  @db.NVarChar(36)
+  approvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId, status])
+}
+
+model ApprovalDelegation {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delegatorId String   @db.NVarChar(36)
+  delegateId  String   @db.NVarChar(36)
+  scopeJson   String   @default("{}") @db.NVarChar(Max)
+  reason      String   @db.NVarChar(Max)
+  startsAt    DateTime
+  endsAt      DateTime
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, delegateId, active])
+}
+
+model ServiceApiKey {
+  id          String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String    @db.NVarChar(36)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name        String    @db.NVarChar(200)
+  keyHash     String    @db.NVarChar(128)
+  keyPrefix   String    @db.NVarChar(16)
+  scopesJson  String    @default("[]") @db.NVarChar(Max)
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdById String?   @db.NVarChar(36)
+  createdAt   DateTime  @default(now())
+
+  @@unique([keyHash])
+  @@index([tenantId])
+}
+
+model CustomFieldDefinition {
+  id                String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId          String   @db.NVarChar(36)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entityType        String   @db.NVarChar(64)
+  key               String   @db.NVarChar(64)
+  label             String   @db.NVarChar(200)
+  fieldType         String   @db.NVarChar(32)
+  required          Boolean  @default(false)
+  allowedValuesJson String   @default("[]") @db.NVarChar(Max)
+  validationJson    String?  @db.NVarChar(Max)
+  sortOrder         Int      @default(0)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, entityType, key])
+}
+
+model SoDPolicy {
+  id              String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String   @db.NVarChar(36)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code            String   @db.NVarChar(64)
+  name            String   @db.NVarChar(200)
+  transactionType String   @db.NVarChar(64)
+  ruleJson        String   @db.NVarChar(Max)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+model OutboundWebhook {
+  id         String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId   String   @db.NVarChar(36)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name       String   @db.NVarChar(200)
+  url        String   @db.NVarChar(500)
+  secretHash String   @db.NVarChar(128)
+  eventsJson String   @default("[]") @db.NVarChar(Max)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, active])
+}
+
+model OutboundWebhookDelivery {
+  id           String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String   @db.NVarChar(36)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  webhookId    String   @db.NVarChar(36)
+  eventId      String   @db.NVarChar(64)
+  eventType    String   @db.NVarChar(64)
+  status       String   @db.NVarChar(32)
+  attemptCount Int      @default(0)
+  lastError    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, eventId])
 }

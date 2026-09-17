@@ -71,6 +71,7 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "parts.return": ["inventory.manage", "inventory.stock_issue", "parts.issue"],
   "erp.mapping.manage": ["inventory.manage", "erp.manage"],
   "vendor.manage": ["inventory.manage", "work_orders.manage"],
+  "vendor.portal": ["vendor.manage", "work_orders.view"],
   "contract.manage": ["inventory.manage", "work_orders.manage", "vendor.manage"],
   "cost.view": ["work_orders.manage", "inventory.manage", "cost.adjust"],
   "cost.adjust": ["work_orders.manage", "inventory.manage"],
