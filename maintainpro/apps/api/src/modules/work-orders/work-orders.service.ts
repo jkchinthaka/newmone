@@ -28,6 +28,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   assertAllowedStatusTransition,
   assertReasonProvided,
@@ -528,6 +529,9 @@ export class WorkOrdersService {
       reportedAt?: string;
       failedAt?: string;
       idempotencyKey?: string;
+      /** MACHINERY | SERVICE | VEHICLE — optional; inferred when omitted */
+      jobDomain?: string;
+      domainId?: string;
     },
     actor?: Actor
   ) {
@@ -612,14 +616,23 @@ export class WorkOrdersService {
     // Phase 11: inherit domainId from the linked asset when not supplied by the caller.
     // This ensures work orders are automatically scoped to the asset's maintenance domain
     // without requiring every client to pass the field explicitly.
-    let resolvedDomainId: string | undefined;
+    let resolvedDomainId: string | undefined = data.domainId?.trim() || undefined;
+    let assetDomainCode: string | null | undefined;
     if (assetId) {
       const asset = await this.prisma.asset.findFirst({
         where: { id: assetId, tenantId },
-        select: { domainId: true }
+        select: { domainId: true, domain: { select: { code: true } } }
       });
-      resolvedDomainId = asset?.domainId ?? undefined;
+      resolvedDomainId = resolvedDomainId ?? asset?.domainId ?? undefined;
+      assetDomainCode = asset?.domain?.code;
     }
+
+    const resolvedJobDomain = resolveJobDomain({
+      jobDomain: data.jobDomain,
+      vehicleId,
+      assetId,
+      assetDomainCode
+    });
 
     let taxonomyFields: {
       taxonomyCategoryId?: string;
@@ -680,6 +693,7 @@ export class WorkOrdersService {
           scheduleId,
           createdById: authoritativeCreatorId,
           domainId: resolvedDomainId,
+          jobDomain: resolvedJobDomain,
           ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate

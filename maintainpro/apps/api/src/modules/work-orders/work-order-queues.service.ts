@@ -81,6 +81,9 @@ export type WorkOrderQueueQuery = {
   overdueOnly?: string | boolean;
   highRiskOnly?: string | boolean;
   myAssignedOnly?: string | boolean;
+  /** MACHINERY | SERVICE | VEHICLE */
+  jobDomain?: string;
+  domainId?: string;
   page?: string | number;
   pageSize?: string | number;
   sortBy?: string;
@@ -1157,6 +1160,8 @@ export class WorkOrderQueuesService {
     if (query.taxonomyIssueId) where.taxonomyIssueId = query.taxonomyIssueId;
     if (query.triageOnly === true || query.triageOnly === "true") where.isTriage = true;
     if (query.type) where.type = query.type as WorkOrderType;
+    if (query.jobDomain) where.jobDomain = query.jobDomain.trim().toUpperCase();
+    if (query.domainId) where.domainId = query.domainId;
 
     const searchTerm = (query.search ?? query.query)?.trim();
     if (searchTerm && searchTerm.length >= 2) {

@@ -268,6 +268,8 @@ export class WorkOrdersController {
       taxonomyIssueId?: string;
       isTriage?: boolean;
       triageReason?: string;
+      jobDomain?: string;
+      domainId?: string;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);
