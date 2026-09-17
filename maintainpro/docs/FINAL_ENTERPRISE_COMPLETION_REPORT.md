@@ -14,12 +14,11 @@ MaintainPro final enterprise closure is complete for all repository-controlled e
 
 ## C. Final HEAD
 
-See PR / `git rev-parse HEAD` after push (includes merge of phase-15 + `86319b31` integrity hardening + final closure commit).
+`9ac1da245eeb248f7902611e1d7c536ee7c2d675`
 
 ## D. PR
 
-Opened to `main` — **do not auto-merge**. URL returned in agent summary after `gh pr create`.
-
+https://github.com/jkchinthaka/newmone/pull/37 — **do not auto-merge**.
 ## E. Architecture
 
 - NestJS API + Next.js web + Flutter mobile
