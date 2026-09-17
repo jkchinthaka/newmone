@@ -49,6 +49,10 @@ export class ReliabilityController {
         body.requirePermitForCriticalAssets != null
           ? Boolean(body.requirePermitForCriticalAssets)
           : undefined,
+      requireLotoWhenPermitRequires:
+        body.requireLotoWhenPermitRequires != null
+          ? Boolean(body.requireLotoWhenPermitRequires)
+          : undefined,
       permitRequiredCriticalities: Array.isArray(body.permitRequiredCriticalities)
         ? body.permitRequiredCriticalities.map(String)
         : typeof body.permitRequiredCriticalities === "string"
@@ -266,5 +270,107 @@ export class ReliabilityController {
       reason: body.reason ? String(body.reason) : undefined
     });
     return { data, message: "Asset criticality updated" };
+  }
+
+  @Get("condition-rules")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
+  @Permissions("reliability.view")
+  async listConditionRules(@Req() req: AuthedRequest) {
+    const data = await this.reliability.listConditionRules(req.user);
+    return { data, message: "Condition monitoring rules" };
+  }
+
+  @Post("condition-rules")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Permissions("reliability.manage")
+  async upsertConditionRule(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    if (!body.code || !body.name || !body.measurementType) {
+      throw new BadRequestException("code, name, measurementType are required");
+    }
+    const data = await this.reliability.upsertConditionRule(req.user, {
+      code: String(body.code),
+      name: String(body.name),
+      measurementType: String(body.measurementType),
+      assetId: body.assetId ? String(body.assetId) : undefined,
+      meterId: body.meterId ? String(body.meterId) : undefined,
+      upperWarning: body.upperWarning != null ? Number(body.upperWarning) : null,
+      upperCritical: body.upperCritical != null ? Number(body.upperCritical) : null,
+      lowerWarning: body.lowerWarning != null ? Number(body.lowerWarning) : null,
+      lowerCritical: body.lowerCritical != null ? Number(body.lowerCritical) : null,
+      consecutiveBreaches: body.consecutiveBreaches != null ? Number(body.consecutiveBreaches) : undefined,
+      actionOnWarning: body.actionOnWarning ? String(body.actionOnWarning) : undefined,
+      actionOnCritical: body.actionOnCritical ? String(body.actionOnCritical) : undefined,
+      active: body.active != null ? Boolean(body.active) : undefined,
+      reason: body.reason ? String(body.reason) : undefined
+    });
+    return { data, message: "Condition rule saved" };
+  }
+
+  @Get("condition-events")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "AUDITOR")
+  @Permissions("reliability.view")
+  async listConditionEvents(
+    @Req() req: AuthedRequest,
+    @Query("status") status?: string,
+    @Query("severity") severity?: string
+  ) {
+    const data = await this.reliability.listConditionEvents(req.user, { status, severity });
+    return { data, message: "Condition events" };
+  }
+
+  @Patch("condition-events/:id")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
+  @Permissions("reliability.manage")
+  async resolveConditionEvent(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const data = await this.reliability.resolveConditionEvent(
+      req.user,
+      id,
+      body.status ? String(body.status) : "RESOLVED"
+    );
+    return { data, message: "Condition event updated" };
+  }
+
+  @Get("loto")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC", "AUDITOR")
+  @Permissions("safety.permit.view")
+  async listLoto(@Req() req: AuthedRequest, @Query("workOrderId") workOrderId?: string) {
+    const data = await this.reliability.listLoto(req.user, workOrderId);
+    return { data, message: "LOTO records" };
+  }
+
+  @Post("loto")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
+  @Permissions("safety.permit.manage")
+  async createLoto(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    if (!body.workOrderId) throw new BadRequestException("workOrderId is required");
+    const data = await this.reliability.createLoto(req.user, {
+      workOrderId: String(body.workOrderId),
+      workPermitId: body.workPermitId ? String(body.workPermitId) : undefined,
+      energySources: Array.isArray(body.energySources) ? body.energySources.map(String) : undefined,
+      isolationPoints: Array.isArray(body.isolationPoints) ? body.isolationPoints.map(String) : undefined,
+      lockTagIds: Array.isArray(body.lockTagIds) ? body.lockTagIds.map(String) : undefined,
+      notes: body.notes ? String(body.notes) : undefined
+    });
+    return { data, message: "LOTO record created" };
+  }
+
+  @Patch("loto/:id/status")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
+  @Permissions("safety.permit.manage")
+  async transitionLoto(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    if (!body.status) throw new BadRequestException("status is required");
+    const data = await this.reliability.transitionLoto(req.user, id, {
+      status: String(body.status),
+      notes: body.notes != null ? String(body.notes) : undefined
+    });
+    return { data, message: "LOTO status updated" };
   }
 }

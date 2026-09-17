@@ -242,3 +242,92 @@ describe("reliability policy history", () => {
     );
   });
 });
+
+describe("condition monitoring evaluation", () => {
+  const tenantId = "tenant-1";
+
+  it("creates open event on upper critical breach and dedupes", async () => {
+    const create = jest.fn().mockResolvedValue({ id: "evt-1" });
+    const update = jest.fn();
+    const prisma = {
+      conditionMonitoringRule: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "rule-1",
+            name: "Bearing temp",
+            measurementType: "TEMPERATURE",
+            meterId: null,
+            assetId: null,
+            upperWarning: 70,
+            upperCritical: 90,
+            lowerWarning: null,
+            lowerCritical: null,
+            consecutiveBreaches: 1
+          }
+        ])
+      },
+      conditionEvent: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create,
+        update
+      }
+    } as never;
+
+    const service = new ReliabilityService(prisma);
+    const result = await service.evaluateMeterReading({
+      tenantId,
+      meterId: "m-1",
+      assetId: "a-1",
+      meterType: "TEMPERATURE",
+      value: 95
+    });
+    expect(result.triggered).toHaveLength(1);
+    expect(create).toHaveBeenCalled();
+  });
+});
+
+describe("LOTO start gate and SoD", () => {
+  const tenantId = "tenant-1";
+  const actor = { sub: "tech-1", tenantId, role: "TECHNICIAN" };
+
+  it("blocks start when LOTO required and not verified", async () => {
+    const prisma = {
+      reliabilityPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          tenantId,
+          requireLotoWhenPermitRequires: true
+        })
+      },
+      workOrder: {
+        findFirst: jest.fn().mockResolvedValue({
+          maintenanceTemplateSnapshot: JSON.stringify({ safetyRequirements: ["LOTO"] }),
+          lotoRequired: true
+        })
+      },
+      lotoRecord: { findFirst: jest.fn().mockResolvedValue(null) },
+      workPermit: { findMany: jest.fn().mockResolvedValue([]) }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.assertLotoReadyForStart({ tenantId, workOrderId: "wo-1" })
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: "SAFETY_BLOCK" }) });
+  });
+
+  it("blocks self-verification of LOTO", async () => {
+    const prisma = {
+      lotoRecord: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "loto-1",
+          tenantId,
+          status: "ISOLATED",
+          isolatedById: "tech-1"
+        }),
+        update: jest.fn()
+      }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.transitionLoto(actor, "loto-1", { status: "VERIFIED" })
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: "SOD_VIOLATION" }) });
+  });
+});

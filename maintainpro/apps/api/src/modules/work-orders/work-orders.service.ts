@@ -1243,6 +1243,11 @@ export class WorkOrdersService {
           assetId: current.assetId,
           allowEmergencyOverride: emergencyOverride
         });
+        await this.reliability.assertLotoReadyForStart({
+          tenantId,
+          workOrderId: id,
+          allowEmergencyOverride: emergencyOverride
+        });
         if (emergencyOverride) {
           await this.recordAudit({
             entity: "WorkOrder",

@@ -87,6 +87,9 @@ model Tenant {
   capaActions                  CapaAction[]
   workPermits                  WorkPermit[]
   reliabilityPolicies          ReliabilityPolicy[]
+  conditionMonitoringRules     ConditionMonitoringRule[]
+  conditionEvents              ConditionEvent[]
+  lotoRecords                  LotoRecord[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -387,6 +390,9 @@ model User {
   capaActionsOwned            CapaAction[]                @relation("CapaActionOwner")
   workPermitsIssued           WorkPermit[]                @relation("WorkPermitIssuedBy")
   workPermitsApproved         WorkPermit[]                @relation("WorkPermitApprovedBy")
+  lotoRecordsIsolated         LotoRecord[]                @relation("LotoIsolatedBy")
+  lotoRecordsVerified         LotoRecord[]                @relation("LotoVerifiedBy")
+  lotoRecordsRestored         LotoRecord[]                @relation("LotoRestoredBy")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -1499,6 +1505,8 @@ model WorkOrder {
   downtimeSegments    DowntimeSegment[]
   rcaCases            RcaCase[]
   workPermits         WorkPermit[]
+  lotoRecords         LotoRecord[]
+  conditionEvents     ConditionEvent[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.NVarChar(36)
@@ -3422,6 +3430,7 @@ model WorkPermit {
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  lotoRecords   LotoRecord[]
 
   @@unique([tenantId, permitNumber])
   @@index([tenantId, workOrderId, status])
@@ -3442,8 +3451,103 @@ model ReliabilityPolicy {
   requirePermitForCriticalAssets  Boolean  @default(true)
   /// CSV of Asset.criticalityLevel values that require a permit before start
   permitRequiredCriticalities     String   @default("CRITICAL,HIGH") @db.NVarChar(128)
+  /// When true, WO start blocked if template/permit requires LOTO and no COMPLETE isolation exists
+  requireLotoWhenPermitRequires   Boolean  @default(true)
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt
+}
+
+/// Configurable condition thresholds for meters (CBM).
+model ConditionMonitoringRule {
+  id                  String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                String    @db.NVarChar(64)
+  name                String    @db.NVarChar(200)
+  /// TEMPERATURE | VIBRATION | PRESSURE | VOLTAGE | CURRENT | OIL | GENERIC | meterType match
+  measurementType     String    @db.NVarChar(64)
+  assetId             String?   @db.NVarChar(36)
+  meterId             String?   @db.NVarChar(36)
+  upperWarning        Float?
+  upperCritical       Float?
+  lowerWarning        Float?
+  lowerCritical       Float?
+  consecutiveBreaches Int       @default(1)
+  /// ALERT | CREATE_REQUEST | CREATE_WO
+  actionOnWarning     String    @default("ALERT") @db.NVarChar(32)
+  actionOnCritical    String    @default("CREATE_REQUEST") @db.NVarChar(32)
+  active              Boolean   @default(true)
+  effectiveFrom       DateTime  @default(now())
+  effectiveTo         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  events              ConditionEvent[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, measurementType, active])
+  @@index([tenantId, assetId, active])
+  @@index([tenantId, meterId, active])
+}
+
+/// Deduplicated condition breach events (open until resolved).
+model ConditionEvent {
+  id              String                   @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String                   @db.NVarChar(36)
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ruleId          String                   @db.NVarChar(36)
+  rule            ConditionMonitoringRule  @relation(fields: [ruleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId         String?                  @db.NVarChar(36)
+  meterId         String?                  @db.NVarChar(36)
+  workOrderId     String?                  @db.NVarChar(36)
+  workOrder       WorkOrder?               @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// WARNING | CRITICAL
+  severity        String                   @db.NVarChar(16)
+  readingValue    Float
+  thresholdValue  Float?
+  /// OPEN | ACKNOWLEDGED | RESOLVED | SUPPRESSED
+  status          String                   @default("OPEN") @db.NVarChar(32)
+  breachCount     Int                      @default(1)
+  message         String                   @db.NVarChar(Max)
+  dedupeKey       String                   @db.NVarChar(128)
+  resolvedAt      DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, status, severity])
+  @@index([tenantId, ruleId, status])
+  @@index([tenantId, assetId, status])
+}
+
+/// LOTO isolation record linked to a work order / permit.
+model LotoRecord {
+  id              String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String    @db.NVarChar(36)
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId     String    @db.NVarChar(36)
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workPermitId    String?   @db.NVarChar(36)
+  workPermit      WorkPermit? @relation(fields: [workPermitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// DRAFT | ISOLATED | VERIFIED | RESTORED | CANCELLED
+  status          String    @default("DRAFT") @db.NVarChar(32)
+  energySourcesJson String  @default("[]") @db.NVarChar(Max)
+  isolationPointsJson String @default("[]") @db.NVarChar(Max)
+  lockTagIdsJson  String    @default("[]") @db.NVarChar(Max)
+  isolatedById    String?   @db.NVarChar(36)
+  isolatedBy      User?     @relation("LotoIsolatedBy", fields: [isolatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedById    String?   @db.NVarChar(36)
+  verifiedBy      User?     @relation("LotoVerifiedBy", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  restoredById    String?   @db.NVarChar(36)
+  restoredBy      User?     @relation("LotoRestoredBy", fields: [restoredById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isolatedAt      DateTime?
+  verifiedAt      DateTime?
+  restoredAt      DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, workOrderId, status])
+  @@index([tenantId, status])
 }
 
 model MaintenanceRequestHistory {

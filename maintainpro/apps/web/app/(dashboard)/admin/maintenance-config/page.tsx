@@ -61,6 +61,11 @@ const SECTIONS = [
     description: "Issue and approve permits required before critical work starts."
   },
   {
+    href: "/admin/condition-monitoring",
+    title: "Condition Monitoring",
+    description: "CBM threshold rules and open breach events."
+  },
+  {
     href: "/admin/approvals",
     title: "Approval Rules",
     description: "Request, high-cost, external repair, and overrides."

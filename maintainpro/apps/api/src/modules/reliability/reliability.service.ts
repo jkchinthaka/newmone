@@ -66,7 +66,8 @@ export class ReliabilityService {
         matchSameAsset: true,
         requireRcaOnRepeat: false,
         requirePermitForCriticalAssets: true,
-        permitRequiredCriticalities: DEFAULT_CRITICALITIES.join(",")
+        permitRequiredCriticalities: DEFAULT_CRITICALITIES.join(","),
+        requireLotoWhenPermitRequires: true
       }
     });
   }
@@ -85,6 +86,7 @@ export class ReliabilityService {
       requireRcaOnRepeat?: boolean;
       requirePermitForCriticalAssets?: boolean;
       permitRequiredCriticalities?: string[];
+      requireLotoWhenPermitRequires?: boolean;
       reason?: string;
     }
   ) {
@@ -106,6 +108,9 @@ export class ReliabilityService {
         ...(input.requireRcaOnRepeat != null ? { requireRcaOnRepeat: input.requireRcaOnRepeat } : {}),
         ...(input.requirePermitForCriticalAssets != null
           ? { requirePermitForCriticalAssets: input.requirePermitForCriticalAssets }
+          : {}),
+        ...(input.requireLotoWhenPermitRequires != null
+          ? { requireLotoWhenPermitRequires: input.requireLotoWhenPermitRequires }
           : {}),
         permitRequiredCriticalities: criticalities.join(",") || DEFAULT_CRITICALITIES.join(",")
       }
@@ -686,11 +691,364 @@ export class ReliabilityService {
         downtimeApplicable: true,
         downtimeStartedAt: true,
         failureCodeSnapshot: true,
-        causeCodeSnapshot: true
+        causeCodeSnapshot: true,
+        maintenanceTemplateSnapshot: true,
+        lotoRequired: true
       }
     });
     if (!wo) throw new NotFoundException("Work order not found");
     return wo;
+  }
+
+  /**
+   * Blocks start when LOTO is required (template safety or ELECTRICAL/HIGH_RISK permit)
+   * and no VERIFIED isolation record exists.
+   */
+  async assertLotoReadyForStart(input: {
+    tenantId: string;
+    workOrderId: string;
+    allowEmergencyOverride?: boolean;
+  }): Promise<{ required: boolean; reasons: string[] }> {
+    const policy = await this.getOrCreatePolicy(input.tenantId);
+    if (!policy.requireLotoWhenPermitRequires) {
+      return { required: false, reasons: [] };
+    }
+
+    const wo = await this.prisma.workOrder.findFirst({
+      where: { id: input.workOrderId, tenantId: input.tenantId },
+      select: { maintenanceTemplateSnapshot: true, lotoRequired: true }
+    });
+
+    let requiresLoto = Boolean(wo?.lotoRequired);
+    if (!requiresLoto && wo?.maintenanceTemplateSnapshot) {
+      try {
+        const snap = JSON.parse(wo.maintenanceTemplateSnapshot) as { safetyRequirements?: string[] };
+        requiresLoto = (snap.safetyRequirements ?? []).some((s) => String(s).toUpperCase().includes("LOTO"));
+      } catch {
+        requiresLoto = false;
+      }
+    }
+
+    if (!requiresLoto) {
+      const permits = await this.prisma.workPermit.findMany({
+        where: {
+          tenantId: input.tenantId,
+          workOrderId: input.workOrderId,
+          status: { in: ["APPROVED", "ACTIVE"] },
+          permitType: { in: ["ELECTRICAL", "HIGH_RISK_MACHINERY", "CONFINED_SPACE"] }
+        },
+        select: { id: true }
+      });
+      requiresLoto = permits.length > 0;
+    }
+
+    if (!requiresLoto) {
+      return { required: false, reasons: [] };
+    }
+
+    const verified = await this.prisma.lotoRecord.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        workOrderId: input.workOrderId,
+        status: "VERIFIED"
+      }
+    });
+
+    if (verified) {
+      return { required: true, reasons: [] };
+    }
+
+    const reasons = ["LOTO isolation must be verified before starting this work order"];
+    if (input.allowEmergencyOverride) {
+      return { required: true, reasons: [...reasons, "Emergency override accepted"] };
+    }
+
+    throw new BadRequestException({
+      code: "SAFETY_BLOCK",
+      message: "Cannot start work — LOTO requirements incomplete",
+      reasons
+    });
+  }
+
+  // ── Condition monitoring (CBM) ─────────────────────────────────────
+
+  async listConditionRules(actor: Actor) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.conditionMonitoringRule.findMany({
+      where: { tenantId },
+      orderBy: { code: "asc" }
+    });
+  }
+
+  async upsertConditionRule(
+    actor: Actor,
+    input: {
+      code: string;
+      name: string;
+      measurementType: string;
+      assetId?: string;
+      meterId?: string;
+      upperWarning?: number | null;
+      upperCritical?: number | null;
+      lowerWarning?: number | null;
+      lowerCritical?: number | null;
+      consecutiveBreaches?: number;
+      actionOnWarning?: string;
+      actionOnCritical?: string;
+      active?: boolean;
+      reason?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const code = input.code.trim().toUpperCase();
+    if (!code || !input.name?.trim()) throw new BadRequestException("code and name are required");
+
+    const data = {
+      name: input.name.trim(),
+      measurementType: input.measurementType.trim().toUpperCase(),
+      assetId: input.assetId ?? null,
+      meterId: input.meterId ?? null,
+      upperWarning: input.upperWarning ?? null,
+      upperCritical: input.upperCritical ?? null,
+      lowerWarning: input.lowerWarning ?? null,
+      lowerCritical: input.lowerCritical ?? null,
+      consecutiveBreaches: input.consecutiveBreaches ?? 1,
+      actionOnWarning: (input.actionOnWarning ?? "ALERT").toUpperCase(),
+      actionOnCritical: (input.actionOnCritical ?? "CREATE_REQUEST").toUpperCase(),
+      active: input.active ?? true
+    };
+
+    const saved = await this.prisma.conditionMonitoringRule.upsert({
+      where: { tenantId_code: { tenantId, code } },
+      create: { tenantId, code, ...data },
+      update: data
+    });
+
+    await this.recordHistory(actor, {
+      entityType: "ConditionMonitoringRule",
+      entityId: saved.id,
+      action: "UPSERT",
+      afterJson: saved,
+      reason: input.reason ?? "Condition rule saved"
+    });
+
+    return saved;
+  }
+
+  async listConditionEvents(actor: Actor, query: { status?: string; severity?: string } = {}) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.conditionEvent.findMany({
+      where: {
+        tenantId,
+        ...(query.status ? { status: query.status.toUpperCase() } : {}),
+        ...(query.severity ? { severity: query.severity.toUpperCase() } : {})
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: { rule: { select: { code: true, name: true } } }
+    });
+  }
+
+  async evaluateMeterReading(input: {
+    tenantId: string;
+    meterId: string;
+    assetId?: string | null;
+    meterType: string;
+    value: number;
+  }) {
+    const now = new Date();
+    const rules = await this.prisma.conditionMonitoringRule.findMany({
+      where: {
+        tenantId: input.tenantId,
+        active: true,
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }]
+      }
+    });
+
+    const applicable = rules.filter((rule) => {
+      if (rule.meterId && rule.meterId === input.meterId) return true;
+      if (rule.meterId) return false;
+      const typeOk =
+        rule.measurementType === "GENERIC" ||
+        rule.measurementType === input.meterType.toUpperCase();
+      if (!typeOk) return false;
+      if (rule.assetId && rule.assetId !== input.assetId) return false;
+      return true;
+    });
+
+    const triggered: Array<{ ruleId: string; severity: string; message: string }> = [];
+
+    for (const rule of applicable) {
+      let severity: "WARNING" | "CRITICAL" | null = null;
+      let threshold: number | null = null;
+
+      if (rule.upperCritical != null && input.value >= rule.upperCritical) {
+        severity = "CRITICAL";
+        threshold = rule.upperCritical;
+      } else if (rule.lowerCritical != null && input.value <= rule.lowerCritical) {
+        severity = "CRITICAL";
+        threshold = rule.lowerCritical;
+      } else if (rule.upperWarning != null && input.value >= rule.upperWarning) {
+        severity = "WARNING";
+        threshold = rule.upperWarning;
+      } else if (rule.lowerWarning != null && input.value <= rule.lowerWarning) {
+        severity = "WARNING";
+        threshold = rule.lowerWarning;
+      }
+
+      if (!severity) continue;
+
+      const dedupeKey = `${rule.id}:${input.meterId}:${severity}:OPEN`;
+      const existing = await this.prisma.conditionEvent.findUnique({
+        where: { tenantId_dedupeKey: { tenantId: input.tenantId, dedupeKey } }
+      });
+
+      if (existing && existing.status === "OPEN") {
+        await this.prisma.conditionEvent.update({
+          where: { id: existing.id },
+          data: {
+            breachCount: { increment: 1 },
+            readingValue: input.value,
+            thresholdValue: threshold
+          }
+        });
+        if (existing.breachCount + 1 < (rule.consecutiveBreaches || 1)) {
+          continue;
+        }
+      } else if (!existing) {
+        const message = `${rule.name}: ${severity} breach value=${input.value} threshold=${threshold}`;
+        await this.prisma.conditionEvent.create({
+          data: {
+            tenantId: input.tenantId,
+            ruleId: rule.id,
+            assetId: input.assetId ?? rule.assetId,
+            meterId: input.meterId,
+            severity,
+            readingValue: input.value,
+            thresholdValue: threshold,
+            status: "OPEN",
+            breachCount: 1,
+            message,
+            dedupeKey
+          }
+        });
+        if ((rule.consecutiveBreaches || 1) > 1) {
+          continue;
+        }
+      }
+
+      triggered.push({
+        ruleId: rule.id,
+        severity,
+        message: `${rule.name}: ${severity} (${input.value})`
+      });
+    }
+
+    return { triggered, ruleCount: applicable.length };
+  }
+
+  async resolveConditionEvent(actor: Actor, id: string, status: string = "RESOLVED") {
+    const tenantId = requireTenantId(actor.tenantId);
+    const event = await this.prisma.conditionEvent.findFirst({ where: { id, tenantId } });
+    if (!event) throw new NotFoundException("Condition event not found");
+    const next = status.toUpperCase();
+    if (!["ACKNOWLEDGED", "RESOLVED", "SUPPRESSED"].includes(next)) {
+      throw new BadRequestException("Invalid status");
+    }
+    return this.prisma.conditionEvent.update({
+      where: { id },
+      data: {
+        status: next,
+        ...(next === "RESOLVED" || next === "SUPPRESSED" ? { resolvedAt: new Date() } : {})
+      }
+    });
+  }
+
+  // ── LOTO ───────────────────────────────────────────────────────────
+
+  async listLoto(actor: Actor, workOrderId?: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.lotoRecord.findMany({
+      where: {
+        tenantId,
+        ...(workOrderId ? { workOrderId } : {})
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  async createLoto(
+    actor: Actor,
+    input: {
+      workOrderId: string;
+      workPermitId?: string;
+      energySources?: string[];
+      isolationPoints?: string[];
+      lockTagIds?: string[];
+      notes?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    await this.assertWorkOrder(tenantId, input.workOrderId);
+    return this.prisma.lotoRecord.create({
+      data: {
+        tenantId,
+        workOrderId: input.workOrderId,
+        workPermitId: input.workPermitId ?? null,
+        energySourcesJson: JSON.stringify(input.energySources ?? []),
+        isolationPointsJson: JSON.stringify(input.isolationPoints ?? []),
+        lockTagIdsJson: JSON.stringify(input.lockTagIds ?? []),
+        notes: input.notes?.trim() || null,
+        status: "DRAFT"
+      }
+    });
+  }
+
+  async transitionLoto(
+    actor: Actor,
+    id: string,
+    input: { status: string; notes?: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const existing = await this.prisma.lotoRecord.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException("LOTO record not found");
+
+    const next = input.status.trim().toUpperCase();
+    const allowed: Record<string, string[]> = {
+      DRAFT: ["ISOLATED", "CANCELLED"],
+      ISOLATED: ["VERIFIED", "CANCELLED"],
+      VERIFIED: ["RESTORED"],
+      RESTORED: [],
+      CANCELLED: []
+    };
+    if (!(allowed[existing.status] ?? []).includes(next)) {
+      throw new BadRequestException(`Invalid LOTO transition ${existing.status} → ${next}`);
+    }
+
+    if (next === "VERIFIED" && existing.isolatedById === actor.sub) {
+      throw new BadRequestException({
+        code: "SOD_VIOLATION",
+        message: "Isolating person cannot verify their own LOTO"
+      });
+    }
+
+    return this.prisma.lotoRecord.update({
+      where: { id },
+      data: {
+        status: next,
+        ...(input.notes != null ? { notes: input.notes } : {}),
+        ...(next === "ISOLATED"
+          ? { isolatedById: actor.sub, isolatedAt: new Date() }
+          : {}),
+        ...(next === "VERIFIED"
+          ? { verifiedById: actor.sub, verifiedAt: new Date() }
+          : {}),
+        ...(next === "RESTORED"
+          ? { restoredById: actor.sub, restoredAt: new Date() }
+          : {})
+      }
+    });
   }
 
   private async recordHistory(

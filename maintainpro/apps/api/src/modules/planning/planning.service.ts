@@ -24,6 +24,7 @@ import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { MaintenanceRequestsService } from "../maintenance-requests/maintenance-requests.service";
+import { ReliabilityService } from "../reliability/reliability.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import { evaluateComplianceStatus } from "./compliance-status";
 import { validateAssetMeterReading } from "./meter-validation";
@@ -63,7 +64,8 @@ export class PlanningService {
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional()
     @Inject(MaintenanceRequestsService)
-    private readonly maintenanceRequestsService?: MaintenanceRequestsService
+    private readonly maintenanceRequestsService?: MaintenanceRequestsService,
+    @Optional() private readonly reliability?: ReliabilityService
   ) {}
 
   // ----- PM Plans -----
@@ -580,7 +582,19 @@ export class PlanningService {
       }
     });
 
-    return { reading, validation };
+    let conditionEvaluation: { triggered: Array<{ ruleId: string; severity: string; message: string }>; ruleCount: number } | null =
+      null;
+    if (this.reliability) {
+      conditionEvaluation = await this.reliability.evaluateMeterReading({
+        tenantId,
+        meterId,
+        assetId: meter.assetId,
+        meterType: meter.meterType,
+        value: input.value
+      });
+    }
+
+    return { reading, validation, conditionEvaluation };
   }
 
   // ----- Checklist templates -----

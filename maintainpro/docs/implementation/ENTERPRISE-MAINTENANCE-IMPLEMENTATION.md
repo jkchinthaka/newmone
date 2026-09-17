@@ -1,7 +1,7 @@
 # Enterprise Maintenance Implementation Ledger
 
 Branch: `maintainpro/phase-15-sqlserver-migration`  
-Updated: 2026-09-17 (downtime / RCA / permits batch)
+Updated: 2026-09-17 (CBM + LOTO batch)
 
 ## Remaining-work matrix (audit)
 
@@ -17,9 +17,9 @@ Updated: 2026-09-17 (downtime / RCA / permits batch)
 | Failure/RCA/CAPA workflow | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Asset criticality engine | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
 | Downtime segments | Y | Y | — | API | Y | Y | Y | Y | IMPLEMENTED |
-| Condition-based maintenance | PARTIAL | PARTIAL | N | N | — | — | N | N | PARTIAL |
-| Safety / Permit / LOTO | PARTIAL | Permit Y / LOTO N | Y | PARTIAL | Y | Y | Y | Y | PARTIAL |
-| Parts reserve / ERP handoff | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | PARTIAL | PARTIAL | PARTIAL |
+| Condition-based maintenance | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
+| Safety / Permit / LOTO | Y | Y | Y | PARTIAL | Y | Y | Y | Y | IMPLEMENTED |
+| Parts reserve / ERP handoff | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | PARTIAL | Y (concurrency) | PARTIAL |
 | Vendor portal | N | N | N | N | — | — | N | N | NOT_IMPLEMENTED |
 | Offline PWA | N | N | N | N | — | — | N | N | DEFERRED |
 | Advanced analytics | PARTIAL | PARTIAL | N | PARTIAL | Y | Y | — | PARTIAL | PARTIAL |
@@ -28,18 +28,17 @@ Updated: 2026-09-17 (downtime / RCA / permits batch)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| `DowntimeSegment` multi-period downtime | IMPLEMENTED | Open/close; category hours summary |
-| `RcaCase` + `CapaAction` + repeat-failure flag | IMPLEMENTED | Configurable window via `ReliabilityPolicy` |
-| `WorkPermit` + start gate for critical assets | IMPLEMENTED | WO `IN_PROGRESS` blocked with `SAFETY_BLOCK` |
-| Asset criticality admin | IMPLEMENTED | Reuses `Asset.criticalityLevel`; Admin UI |
-| ConfigChangeHistory for policy/criticality | IMPLEMENTED | |
+| Downtime / RCA / Permit (`7d2d6d1d`) | IMPLEMENTED | |
+| `ConditionMonitoringRule` + `ConditionEvent` + meter hook | IMPLEMENTED | Deduped OPEN events; Admin UI |
+| `LotoRecord` + start gate + isolator≠verifier SoD | IMPLEMENTED | Wired on WO `IN_PROGRESS` |
 
 ## Commits
 
-- Prior: `7f593d30` (feature flags / templates / warranty)
-- This batch: downtime / RCA / permits (pending push)
+- `7d2d6d1d` downtime / RCA / permits
+- This batch: CBM + LOTO (pending push)
 
 ## Validation
 
-- migrate `20260917200000_downtime_rca_permits` — pending run
-- tests `reliability-downtime-rca-permits.spec.ts` — pending run
+- migrate `20260917210000_cbm_loto` — applied
+- `reliability-downtime-rca-permits.spec.ts` — 9/9 pass
+- typecheck api — pass
