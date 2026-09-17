@@ -92,6 +92,7 @@ export default function AdminConfigHistoryPage() {
             <option value="MaintenanceJobCategory">Job Category</option>
             <option value="MaintenanceAnalysisCode">Analysis Code</option>
             <option value="MaintenanceReasonCode">Reason Code</option>
+            <option value="ChecklistTemplate">Checklist Template</option>
           </select>
         </div>
       </div>

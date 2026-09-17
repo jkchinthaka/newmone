@@ -455,6 +455,18 @@ export class PlanningService {
       throw error;
     }
 
+    if (plan.checklistTemplateId) {
+      try {
+        await this.startChecklistExecution(actor, {
+          workOrderId: workOrder.id,
+          templateId: plan.checklistTemplateId,
+          notes: `Auto-started from PM plan ${plan.code}`
+        });
+      } catch {
+        // Checklist attach failure must not roll back the WO; ops can start manually.
+      }
+    }
+
     return {
       created: true,
       workOrderId: workOrder.id,
@@ -573,6 +585,22 @@ export class PlanningService {
 
   // ----- Checklist templates -----
 
+  async listChecklistTemplates(actor: Actor, query: { domainKey?: string; activeOnly?: boolean } = {}) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.checklistTemplate.findMany({
+      where: {
+        tenantId,
+        ...(query.domainKey ? { domainKey: query.domainKey } : {}),
+        ...(query.activeOnly === false ? {} : { isActive: true })
+      },
+      orderBy: [{ code: "asc" }, { version: "desc" }],
+      include: {
+        items: { orderBy: { sortOrder: "asc" } },
+        _count: { select: { pmPlans: true, inspectionTemplates: true } }
+      }
+    });
+  }
+
   async createChecklistTemplate(
     actor: Actor,
     input: {
@@ -590,14 +618,19 @@ export class PlanningService {
         unit?: string;
         options?: string[];
       }>;
+      reason?: string;
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    return this.prisma.checklistTemplate.create({
+    if (!input.code?.trim() || !input.name?.trim()) {
+      throw new BadRequestException("code and name are required");
+    }
+
+    const created = await this.prisma.checklistTemplate.create({
       data: {
         tenantId,
-        code: input.code,
-        name: input.name,
+        code: input.code.trim().toUpperCase(),
+        name: input.name.trim(),
         description: input.description,
         domainKey: input.domainKey,
         version: input.version ?? 1,
@@ -611,12 +644,266 @@ export class PlanningService {
                 required: item.required ?? false,
                 sortOrder: item.sortOrder ?? index,
                 unit: item.unit,
-                options: item.options ?? []
+                options: JSON.stringify(item.options ?? [])
               }))
             }
           : undefined
       },
       include: { items: true }
+    });
+
+    await this.recordConfigChange(actor, {
+      entityType: "ChecklistTemplate",
+      entityId: created.id,
+      action: "CREATE",
+      reason: input.reason ?? "Checklist template created",
+      afterJson: { id: created.id, code: created.code, version: created.version, name: created.name }
+    });
+
+    return created;
+  }
+
+  /**
+   * Create a new version of a checklist template. Prior active versions with the same
+   * code are deactivated. Existing ChecklistExecution rows keep their frozen snapshot.
+   */
+  async reviseChecklistTemplate(
+    actor: Actor,
+    templateId: string,
+    input: {
+      name?: string;
+      description?: string;
+      domainKey?: string;
+      items?: Array<{
+        key: string;
+        label: string;
+        type: ChecklistItemType;
+        required?: boolean;
+        sortOrder?: number;
+        unit?: string;
+        options?: string[];
+      }>;
+      changeReason?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const current = await this.prisma.checklistTemplate.findFirst({
+      where: { id: templateId, tenantId },
+      include: { items: { orderBy: { sortOrder: "asc" } } }
+    });
+    if (!current) throw new NotFoundException("Checklist template not found");
+
+    const nextVersion = current.version + 1;
+    const itemsSource =
+      input.items ??
+      current.items.map((item) => ({
+        key: item.key,
+        label: item.label,
+        type: item.type as ChecklistItemType,
+        required: item.required,
+        sortOrder: item.sortOrder,
+        unit: item.unit ?? undefined,
+        options: (() => {
+          try {
+            const parsed = JSON.parse(item.options || "[]");
+            return Array.isArray(parsed) ? parsed.map(String) : [];
+          } catch {
+            return [] as string[];
+          }
+        })()
+      }));
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.checklistTemplate.updateMany({
+        where: { tenantId, code: current.code, isActive: true },
+        data: { isActive: false, effectiveTo: new Date() }
+      });
+
+      return tx.checklistTemplate.create({
+        data: {
+          tenantId,
+          code: current.code,
+          name: input.name?.trim() || current.name,
+          description:
+            input.description !== undefined ? input.description : current.description,
+          domainKey: input.domainKey !== undefined ? input.domainKey : current.domainKey,
+          version: nextVersion,
+          isActive: true,
+          items: {
+            create: itemsSource.map((item, index) => ({
+              tenantId,
+              key: item.key,
+              label: item.label,
+              type: item.type,
+              required: item.required ?? false,
+              sortOrder: item.sortOrder ?? index,
+              unit: item.unit,
+              options: JSON.stringify(item.options ?? [])
+            }))
+          }
+        },
+        include: { items: true }
+      });
+    });
+
+    await this.recordConfigChange(actor, {
+      entityType: "ChecklistTemplate",
+      entityId: created.id,
+      action: "REVISE",
+      reason: input.changeReason ?? `Revised ${current.code} to version ${nextVersion}`,
+      beforeJson: {
+        id: current.id,
+        code: current.code,
+        version: current.version,
+        name: current.name,
+        itemCount: current.items.length
+      },
+      afterJson: {
+        id: created.id,
+        code: created.code,
+        version: created.version,
+        name: created.name,
+        itemCount: created.items.length
+      }
+    });
+
+    return created;
+  }
+
+  /**
+   * Start a checklist execution for a work order, freezing the template definition
+   * into templateSnapshot so later template edits cannot mutate historical results.
+   */
+  async startChecklistExecution(
+    actor: Actor,
+    input: { workOrderId: string; templateId: string; notes?: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: input.workOrderId, tenantId },
+      select: { id: true }
+    });
+    if (!workOrder) throw new NotFoundException("Work order not found");
+
+    const existing = await this.prisma.checklistExecution.findFirst({
+      where: {
+        tenantId,
+        workOrderId: workOrder.id,
+        templateId: input.templateId,
+        completedAt: null
+      }
+    });
+    if (existing) return existing;
+
+    const template = await this.prisma.checklistTemplate.findFirst({
+      where: { id: input.templateId, tenantId, isActive: true },
+      include: { items: { orderBy: { sortOrder: "asc" } } }
+    });
+    if (!template) throw new NotFoundException("Active checklist template not found");
+
+    const snapshot = {
+      id: template.id,
+      code: template.code,
+      name: template.name,
+      version: template.version,
+      domainKey: template.domainKey,
+      items: template.items.map((item) => ({
+        key: item.key,
+        label: item.label,
+        type: item.type,
+        required: item.required,
+        sortOrder: item.sortOrder,
+        unit: item.unit,
+        minValue: item.minValue,
+        maxValue: item.maxValue,
+        options: item.options,
+        signatureJustified: item.signatureJustified
+      }))
+    };
+
+    return this.prisma.checklistExecution.create({
+      data: {
+        tenantId,
+        templateId: template.id,
+        templateRevision: template.version,
+        templateSnapshot: JSON.stringify(snapshot),
+        workOrderId: workOrder.id,
+        executedById: actor.sub,
+        notes: input.notes
+      }
+    });
+  }
+
+  async completeChecklistExecution(
+    actor: Actor,
+    executionId: string,
+    input: { answers: unknown; notes?: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const execution = await this.prisma.checklistExecution.findFirst({
+      where: { id: executionId, tenantId }
+    });
+    if (!execution) throw new NotFoundException("Checklist execution not found");
+    if (execution.completedAt) {
+      throw new BadRequestException("Checklist execution is already completed");
+    }
+
+    return this.prisma.checklistExecution.update({
+      where: { id: executionId },
+      data: {
+        answers: JSON.stringify(input.answers ?? {}),
+        notes: input.notes ?? execution.notes,
+        completedAt: new Date(),
+        executedById: actor.sub ?? execution.executedById
+      }
+    });
+  }
+
+  async listChecklistExecutionsForWorkOrder(actor: Actor, workOrderId: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true }
+    });
+    if (!workOrder) throw new NotFoundException("Work order not found");
+
+    return this.prisma.checklistExecution.findMany({
+      where: { tenantId, workOrderId },
+      orderBy: { startedAt: "desc" }
+    });
+  }
+
+  private async recordConfigChange(
+    actor: Actor,
+    input: {
+      entityType: string;
+      entityId: string;
+      action: string;
+      reason?: string;
+      beforeJson?: unknown;
+      afterJson?: unknown;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const priorCount = await this.prisma.configChangeHistory.count({
+      where: {
+        tenantId,
+        entityType: input.entityType,
+        entityId: input.entityId
+      }
+    });
+    await this.prisma.configChangeHistory.create({
+      data: {
+        tenantId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        action: input.action,
+        reason: input.reason,
+        beforeJson: input.beforeJson != null ? JSON.stringify(input.beforeJson) : null,
+        afterJson: input.afterJson != null ? JSON.stringify(input.afterJson) : null,
+        version: priorCount + 1,
+        actorId: actor.sub
+      }
     });
   }
 

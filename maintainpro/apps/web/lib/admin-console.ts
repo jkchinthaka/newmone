@@ -131,6 +131,14 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/admin/config-history"
     },
     {
+      id: "checklist-templates",
+      title: "Checklist Templates",
+      description: "Versioned PM/WO checklists with execution snapshots.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/checklist-templates"
+    },
+    {
       id: "approvals",
       title: "Approval Rules",
       description: "Configurable multi-level approval policies.",

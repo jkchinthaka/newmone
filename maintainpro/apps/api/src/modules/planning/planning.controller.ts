@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
   AssetMeterType,
@@ -159,6 +159,21 @@ export class PlanningController {
     return { data, message: "Meter reading recorded" };
   }
 
+  @Get("checklist-templates")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async listChecklistTemplates(
+    @Req() req: AuthedRequest,
+    @Query("domainKey") domainKey?: string,
+    @Query("activeOnly") activeOnly?: string
+  ) {
+    const data = await this.planning.listChecklistTemplates(req.user, {
+      domainKey,
+      activeOnly: activeOnly === "false" ? false : true
+    });
+    return { data, message: "Checklist templates" };
+  }
+
   @Post("checklist-templates")
   @Roles(...MANAGE_ROLES)
   @Permissions("planning.manage")
@@ -168,6 +183,60 @@ export class PlanningController {
       body as Parameters<PlanningService["createChecklistTemplate"]>[1]
     );
     return { data, message: "Checklist template created" };
+  }
+
+  @Put("checklist-templates/:id/revise")
+  @Roles(...MANAGE_ROLES)
+  @Permissions("planning.manage")
+  async reviseChecklistTemplate(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const data = await this.planning.reviseChecklistTemplate(
+      req.user,
+      id,
+      body as Parameters<PlanningService["reviseChecklistTemplate"]>[2]
+    );
+    return { data, message: "Checklist template revised" };
+  }
+
+  @Post("checklist-executions")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async startChecklistExecution(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    if (!body.workOrderId || !body.templateId) {
+      throw new BadRequestException("workOrderId and templateId are required");
+    }
+    const data = await this.planning.startChecklistExecution(req.user, {
+      workOrderId: String(body.workOrderId),
+      templateId: String(body.templateId),
+      notes: body.notes ? String(body.notes) : undefined
+    });
+    return { data, message: "Checklist execution started" };
+  }
+
+  @Put("checklist-executions/:id/complete")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async completeChecklistExecution(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const data = await this.planning.completeChecklistExecution(req.user, id, {
+      answers: body.answers,
+      notes: body.notes ? String(body.notes) : undefined
+    });
+    return { data, message: "Checklist execution completed" };
+  }
+
+  @Get("work-orders/:workOrderId/checklist-executions")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async listWorkOrderChecklists(@Req() req: AuthedRequest, @Param("workOrderId") workOrderId: string) {
+    const data = await this.planning.listChecklistExecutionsForWorkOrder(req.user, workOrderId);
+    return { data, message: "Work order checklist executions" };
   }
 
   @Post("inspections")

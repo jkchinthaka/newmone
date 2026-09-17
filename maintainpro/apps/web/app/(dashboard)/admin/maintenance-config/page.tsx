@@ -31,6 +31,11 @@ const SECTIONS = [
     description: "Who changed what, when, with before/after versions."
   },
   {
+    href: "/admin/checklist-templates",
+    title: "Checklist Templates",
+    description: "Versioned checklists with frozen snapshots on work orders."
+  },
+  {
     href: "/admin/approvals",
     title: "Approval Rules",
     description: "Request, high-cost, external repair, and overrides."
