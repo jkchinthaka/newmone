@@ -2,6 +2,9 @@ import { apiClient } from "@/lib/api-client";
 
 export interface AdminOverview {
   users: { active: number; inactive: number; total: number };
+  tenants?: { active: number };
+  jobs?: { openCritical: number; overdue: number };
+  pendingApprovals?: number;
   dataQuality: {
     issuesBySeverity: { CRITICAL: number; HIGH: number; WARNING: number; INFO: number };
     totalIssues: number;

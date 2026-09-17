@@ -97,6 +97,7 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
     approvalStatus,
     rejectionReason: typeof candidate.rejectionReason === "string" ? candidate.rejectionReason : null,
     type,
+    jobDomain: typeof candidate.jobDomain === "string" ? candidate.jobDomain : null,
     assetId: typeof candidate.assetId === "string" ? candidate.assetId : null,
     vehicleId: typeof candidate.vehicleId === "string" ? candidate.vehicleId : null,
     scheduleId: typeof candidate.scheduleId === "string" ? candidate.scheduleId : null,
@@ -163,6 +164,7 @@ export async function fetchWorkOrdersPaginated(params: {
   dueDateFrom?: string;
   dueDateTo?: string;
   smartView?: string;
+  jobDomain?: string;
 }): Promise<{
   data: WorkOrder[];
   total: number;
@@ -192,6 +194,7 @@ export async function fetchWorkOrdersPaginated(params: {
   if (params.dueDateFrom) q.set("dueFrom", params.dueDateFrom);
   if (params.dueDateTo) q.set("dueTo", params.dueDateTo);
   if (params.smartView) q.set("smartView", params.smartView);
+  if (params.jobDomain) q.set("jobDomain", params.jobDomain);
 
   const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>(`/work-orders?${q.toString()}`);
   const payload = unwrapData<Record<string, unknown>>(response.data);

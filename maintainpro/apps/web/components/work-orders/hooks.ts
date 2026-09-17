@@ -165,7 +165,8 @@ export function useWorkOrders(filters: WorkOrderFilters) {
         sortBy: filters.sortBy,
         sortDirection: filters.sortDirection,
         dueDateFrom: filters.dueDateFrom,
-        dueDateTo: filters.dueDateTo
+        dueDateTo: filters.dueDateTo,
+        jobDomain: filters.jobDomain
       }),
     retry: (failureCount, error) => {
       if (isDatabaseUnavailableError(error)) {

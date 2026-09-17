@@ -28,95 +28,103 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
   return [
     {
       id: "overview",
-      title: "Overview",
-      description: "Configuration and data-quality health for maintenance operations.",
+      title: "Admin Overview",
+      description: "Users, critical jobs, overdue work, approvals, and data-quality health.",
       status: "available",
       statusLabel: "Operations",
       href: "/admin"
     },
     {
-      id: "organization",
-      title: "Organization",
-      description: "Organization, sites, and functional location hierarchy.",
-      status: "available",
-      statusLabel: "Master data",
-      href: "/admin/organization"
-    },
-    {
-      id: "asset-masters",
-      title: "Asset Masters",
-      description: "Domains, categories, types, and attribute definitions for the universal asset registry.",
-      status: "available",
-      statusLabel: "Master data",
-      href: "/admin/asset-masters"
-    },
-    {
-      id: "departments",
-      title: "Departments",
-      description: "Business department master (separate from physical locations).",
-      status: "available",
-      statusLabel: "Master data",
-      href: "/master-data/departments"
-    },
-    {
-      id: "assets-master",
-      title: "Assets registry",
-      description: "Universal asset list, QR, bulk import, and lifecycle.",
-      status: "available",
-      statusLabel: "Assets",
-      href: "/assets"
-    },
-    {
-      id: "people-access",
-      title: "People & Access",
-      description: "People, technicians, users, roles, and invitations.",
-      status: "available",
-      statusLabel: "Access",
-      href: "/admin/people"
-    },
-    {
       id: "users-access",
       title: "Users",
-      description: "Safe deactivate/reactivate and access review.",
+      description: "Search, invite, disable/enable, and access review.",
       status: "available",
-      statusLabel: "Users",
+      statusLabel: "Access",
       href: "/admin/users"
     },
     {
       id: "roles-permissions",
       title: "Roles & Permissions",
-      description: "Role and permission coverage matrix (read-only review).",
+      description: "Role coverage matrix and permission groupings.",
       status: "available",
       statusLabel: "RBAC",
       href: "/admin/roles"
     },
     {
-      id: "approvals",
-      title: "Approval Matrix",
-      description: "Configurable multi-level approval rules for maintenance controls.",
+      id: "people-access",
+      title: "People & Workforce",
+      description: "People, technicians, and employee mapping.",
       status: "available",
-      statusLabel: "Control",
-      href: "/admin/approvals"
+      statusLabel: "Access",
+      href: "/admin/people"
     },
     {
       id: "invitations-onboarding",
       title: "Invitations",
-      description: "Review and create user invitations for onboarding.",
+      description: "Review and create user invitations.",
       status: "available",
       statusLabel: "Onboarding",
       href: "/admin/invitations"
     },
     {
-      id: "maintenance-setup",
-      title: "Maintenance Setup",
-      description: "Job codes, forecasts, and maintenance catalogs (full setup in later phases).",
+      id: "organization",
+      title: "Organization",
+      description: "Company, sites, and functional location hierarchy.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/admin/organization"
+    },
+    {
+      id: "departments",
+      title: "Departments",
+      description: "Business department master.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/master-data/departments"
+    },
+    {
+      id: "maintenance-config",
+      title: "Maintenance Configuration",
+      description: "Job domains, categories, priorities, and related setup.",
       status: "available",
       statusLabel: "Setup",
-      href: "/maintenance/job-codes"
+      href: "/admin/maintenance-config"
+    },
+    {
+      id: "job-categories",
+      title: "Job Categories",
+      description: "Machinery / Service / Vehicle main and sub categories.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/job-categories"
+    },
+    {
+      id: "priority-sla",
+      title: "Priority / SLA Rules",
+      description: "Response and completion targets by priority.",
+      status: "available",
+      statusLabel: "Setup",
+      href: "/admin/priority-sla"
+    },
+    {
+      id: "approvals",
+      title: "Approval Rules",
+      description: "Configurable multi-level approval policies.",
+      status: "available",
+      statusLabel: "Control",
+      href: "/admin/approvals"
+    },
+    {
+      id: "asset-masters",
+      title: "Asset Configuration",
+      description: "Domains, categories, types, and attribute definitions.",
+      status: "available",
+      statusLabel: "Master data",
+      href: "/admin/asset-masters"
     },
     {
       id: "fleet-setup",
-      title: "Fleet Setup",
+      title: "Fleet Configuration",
       description: "Vehicles, documents, and fleet administration.",
       status: "available",
       statusLabel: "Fleet",
@@ -124,56 +132,72 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "vendors-contracts",
-      title: "Vendors & Contracts",
+      title: "Vendors",
       description: "Suppliers and vendor repair context.",
       status: "available",
       statusLabel: "Vendors",
       href: "/procurement/vendors"
     },
     {
-      id: "erp-parts",
-      title: "ERP & Spare Parts",
-      description: "Bileeta mapping, sync, and reconciliation (MaintainPro does not own stock truth).",
-      status: "available",
-      statusLabel: "ERP",
-      href: "/erp"
-    },
-    {
-      id: "bulk-imports",
-      title: "Bulk Imports",
-      description: "Upload → Validate → Preview → Confirm → Import → Audit.",
-      status: "available",
-      statusLabel: "SUPER_ADMIN",
-      href: "/admin/bulk-imports"
-    },
-    {
-      id: "data-quality",
-      title: "Data Quality",
-      description: "Duplicates, missing fields, stale meters, ERP mapping errors, and open exception findings.",
-      status: "available",
-      statusLabel: "Governance",
-      href: "/admin/data-quality"
-    },
-    {
       id: "notifications",
-      title: "Notifications & Escalations",
+      title: "Notifications",
       description: "Notification inbox and channel readiness.",
       status: "available",
       statusLabel: "Notifications",
       href: "/notifications"
     },
     {
+      id: "integrations",
+      title: "Integrations",
+      description: "ERP, email, SMS, storage, Redis, and queue readiness.",
+      status: "available",
+      statusLabel: "Integrations",
+      href: "/admin/integrations"
+    },
+    {
+      id: "erp-parts",
+      title: "ERP & Spare Parts",
+      description: "Bileeta mapping, sync, and reconciliation.",
+      status: "available",
+      statusLabel: "ERP",
+      href: "/erp"
+    },
+    {
       id: "audit-log",
-      title: "Audit",
-      description: "Filterable read-only audit trail for all platform actions.",
+      title: "Audit Logs",
+      description: "Filterable audit trail for admin and override actions.",
       status: "available",
       statusLabel: "Governance",
       href: "/admin/audit"
     },
     {
+      id: "data-quality",
+      title: "Data Quality",
+      description: "Missing fields, unassigned jobs, overdue work, ERP mapping gaps.",
+      status: "available",
+      statusLabel: "Governance",
+      href: "/admin/data-quality"
+    },
+    {
+      id: "bulk-imports",
+      title: "Import / Export",
+      description: "Upload → Validate → Preview → Confirm → Import → Audit.",
+      status: "available",
+      statusLabel: "SUPER_ADMIN",
+      href: "/admin/bulk-imports"
+    },
+    {
+      id: "security",
+      title: "Security Settings",
+      description: "Access, roles, audit, and session posture.",
+      status: "available",
+      statusLabel: "Security",
+      href: "/admin/security"
+    },
+    {
       id: "technical",
-      title: "Technical Administration",
-      description: "API, DB, queues, storage, ERP, email/SMS, backups, errors, app version.",
+      title: "System Health",
+      description: "API, DB, queues, storage, ERP, email/SMS — no secrets exposed.",
       status: "available",
       statusLabel: "Technical",
       href: "/system-health",

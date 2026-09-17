@@ -10,8 +10,10 @@ import {
   Bell,
   BellRing,
   Bot,
+  Boxes,
   Bug,
   Building2,
+  CalendarClock,
   ChartColumnBig,
   ChevronDown,
   ClipboardCheck,
@@ -24,6 +26,7 @@ import {
   Fuel,
   Gauge,
   HardDrive,
+  Home,
   Layers,
   LayoutDashboard,
   Leaf,
@@ -44,8 +47,11 @@ import {
   Sun,
   Tag,
   Tractor,
+  Truck,
+  UserCircle2,
   Users,
   Wallet,
+  Activity,
   type LucideIcon
 } from "lucide-react";
 
@@ -87,6 +93,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   AlertTriangle,
   Receipt,
   ChartColumnBig,
+  BarChart3: ChartColumnBig,
   Droplets,
   Bot,
   Bug,
@@ -109,7 +116,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Building2,
   Plug,
   Rocket,
-  LifeBuoy
+  LifeBuoy,
+  Home,
+  Boxes,
+  Truck,
+  CalendarClock,
+  UserCircle2,
+  Activity
 };
 
 const GROUP_SURFACE: Record<
