@@ -624,9 +624,34 @@ export class VehiclesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    await this.prisma.vehicle.delete({ where: { id } });
-    return { deleted: true };
+    const vehicle = await this.findOne(id);
+    if (vehicle.status === VehicleStatus.DISPOSED && vehicle.decommissionedAt) {
+      return {
+        deleted: false,
+        retired: true,
+        id,
+        status: vehicle.status,
+        message: "Vehicle already retired/disposed"
+      };
+    }
+
+    const reason = "Retired instead of hard delete — historical fleet record retained";
+    const updated = await this.prisma.vehicle.update({
+      where: { id },
+      data: {
+        status: VehicleStatus.DISPOSED,
+        decommissionedAt: new Date(),
+        decommissionReason: reason
+      }
+    });
+
+    return {
+      deleted: false,
+      retired: true,
+      id: updated.id,
+      status: updated.status,
+      decommissionedAt: updated.decommissionedAt
+    };
   }
 
   async gateOut(

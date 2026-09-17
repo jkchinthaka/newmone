@@ -205,7 +205,7 @@ export function WorkOrderGuidedCreate({ submitting, onSubmit }: Props) {
             </select>
           </label>
           <label className="space-y-1 text-sm text-slate-700">
-            <span className="font-medium">Legacy type</span>
+            <span className="font-medium">Work type</span>
             <select value={type} onChange={(event) => setType(event.target.value as WorkOrderType)} className="w-full rounded-lg border border-slate-300 px-3 py-2">
               {WORK_ORDER_TYPES.map((item) => (
                 <option key={item} value={item}>

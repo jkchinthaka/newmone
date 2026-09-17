@@ -576,13 +576,24 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin",
-    label: "Admin Overview",
+    label: "Administration",
     href: "/admin",
     icon: "ShieldCheck",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Advanced administration control center",
-    activeMatch: "exact"
+    description: "Business administration and configuration",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "system-health",
+    label: "Technical Administration",
+    href: "/system-health",
+    icon: "Activity",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "System health, jobs, integrations, and recovery",
+    badgeKey: "system-health",
+    activeMatch: "startsWith"
   },
   {
     id: "notifications",
@@ -600,17 +611,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "UserCircle2",
     allowedRoles: HOME_ROLES,
     category: "secondary",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "system-health",
-    label: "System Health",
-    href: "/system-health",
-    icon: "Activity",
-    allowedRoles: ADMIN_ROLES,
-    category: "secondary",
-    description: "API, DB, queue, integrations",
-    badgeKey: "system-health",
     activeMatch: "startsWith"
   }
 ];

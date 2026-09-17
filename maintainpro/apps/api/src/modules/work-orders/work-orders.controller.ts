@@ -469,7 +469,7 @@ export class WorkOrdersController {
   @Permissions("work_orders.manage")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.remove(id, req.user);
-    return { data, message: "Work order deleted" };
+    return { data, message: "Work order cancelled (hard delete disabled)" };
   }
 
   @Get(":id/assignees")

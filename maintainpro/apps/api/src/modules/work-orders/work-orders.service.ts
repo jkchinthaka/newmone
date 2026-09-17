@@ -172,7 +172,7 @@ export class WorkOrdersService {
     try {
       await this.prisma.workOrderStatusHistory.create({
         data: {
-          tenantId: tenantId ?? undefined,
+          tenantId: requireTenantId(tenantId),
           workOrderId,
           fromStatus: input.fromStatus ?? undefined,
           toStatus: input.toStatus,
@@ -902,12 +902,45 @@ export class WorkOrdersService {
   async remove(id: string, actor?: Actor) {
     const existing = await this.findOne(id, actor);
 
-    if (existing.status !== WorkOrderStatus.OPEN) {
-      throw new BadRequestException("Work order deletion only allowed when status is OPEN");
+    if (existing.status === WorkOrderStatus.CANCELLED) {
+      return { deleted: false, cancelled: true, id, status: existing.status, message: "Work order already cancelled" };
     }
 
-    await this.prisma.workOrder.delete({ where: { id } });
-    return { deleted: true };
+    if (existing.status !== WorkOrderStatus.OPEN) {
+      throw new BadRequestException(
+        "Only OPEN work orders can be cancelled through this action. Use the governed cancel transition for work already in progress."
+      );
+    }
+
+    const reason = "Cancelled instead of hard delete — historical record retained";
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        status: WorkOrderStatus.CANCELLED,
+        cancelledReason: reason
+      }
+    });
+
+    await this.appendStatusHistory(existing.tenantId, id, {
+      fromStatus: existing.status as WorkOrderStatus,
+      toStatus: WorkOrderStatus.CANCELLED,
+      action: "CANCEL_INSTEAD_OF_DELETE",
+      actorId: actor?.sub,
+      reason
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason,
+      metadata: { event: "work_order_cancelled_instead_of_delete", woNumber: updated.woNumber },
+      beforeData: { status: existing.status },
+      afterData: { status: updated.status }
+    });
+
+    return { deleted: false, cancelled: true, id, status: updated.status };
   }
 
   async assign(id: string, technicianId: string, actor?: Actor) {

@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 
 import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import { AuditAction, Prisma, RoleName } from "@prisma/client";
 import { sanitizeErpErrorMessage } from "../inventory/erp-error-sanitize.util";
@@ -97,14 +98,13 @@ export class ErpDashboardService {
    */
   async getExceptions(query: { status?: string; limit?: number } = {}) {
     if (!this.canView()) throw new ForbiddenException("You do not have permission to view ERP integration");
-    const c = requestContext.get();
-    const tenantId = c?.tenantId ?? undefined;
+    const tenantId = requireTenantId(requestContext.get()?.tenantId);
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
 
     const [failedSyncs, failedImports, openMismatches] = await Promise.all([
       this.prisma.purchaseOrderErpSync.findMany({
         where: {
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
           status: "FAILED"
         },
         orderBy: { createdAt: "desc" },
@@ -126,7 +126,7 @@ export class ErpDashboardService {
       }),
       this.prisma.erpImportBatch.findMany({
         where: {
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
           OR: [{ status: "FAILED" }, { failedRows: { gt: 0 } }]
         },
         orderBy: { createdAt: "desc" },
@@ -143,7 +143,7 @@ export class ErpDashboardService {
       }),
       this.prisma.erpReconciliationMismatch.findMany({
         where: {
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
           status: "OPEN"
         },
         orderBy: { createdAt: "desc" },
@@ -158,7 +158,7 @@ export class ErpDashboardService {
           mismatchType: true,
           fieldName: true
         }
-      }).catch(() => [])
+      })
     ]);
 
     const items = [

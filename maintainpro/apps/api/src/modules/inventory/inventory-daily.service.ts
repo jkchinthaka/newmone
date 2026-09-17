@@ -28,8 +28,26 @@ type DailyBucket = {
   adjustmentOut: number;
   transferIn: number;
   transferOut: number;
+  /** Stock restored by reversing an outbound movement */
+  reversalRestock: number;
+  /** Stock removed by reversing an inbound movement */
+  reversalDeduct: number;
   closing: number;
 };
+
+const INBOUND_TYPES = new Set<MovementType>([
+  MovementType.IN,
+  MovementType.RETURN,
+  MovementType.TRANSFER_IN,
+  MovementType.ADJUSTMENT_IN,
+  MovementType.ADJUSTMENT
+]);
+
+const OUTBOUND_TYPES = new Set<MovementType>([
+  MovementType.OUT,
+  MovementType.TRANSFER_OUT,
+  MovementType.ADJUSTMENT_OUT
+]);
 
 @Injectable()
 export class InventoryDailyService {
@@ -49,7 +67,8 @@ export class InventoryDailyService {
       },
       include: {
         part: { select: { id: true, partNumber: true, name: true, category: true, unit: true } },
-        warehouse: { select: { id: true, code: true, name: true } }
+        warehouse: { select: { id: true, code: true, name: true } },
+        reversalOf: { select: { id: true, type: true, quantity: true } }
       },
       orderBy: { createdAt: "asc" }
     });
@@ -62,7 +81,11 @@ export class InventoryDailyService {
       const identity = `${movement.partId}:${movement.warehouseId ?? "none"}`;
       const prior = running.get(identity) ?? 0;
       const inRange = movement.createdAt >= from;
-      const delta = this.signedDelta(movement.type, movement.quantity);
+      const originalType =
+        movement.type === MovementType.REVERSAL
+          ? (movement.reversalOf?.type as MovementType | undefined) ?? null
+          : null;
+      const delta = this.signedDelta(movement.type, movement.quantity, originalType);
 
       if (inRange) {
         const bucketKey = `${dateKey}:${identity}`;
@@ -78,12 +101,14 @@ export class InventoryDailyService {
           adjustmentOut: 0,
           transferIn: 0,
           transferOut: 0,
+          reversalRestock: 0,
+          reversalDeduct: 0,
           closing: prior,
           partNumber: movement.part.partNumber,
           partName: movement.part.name,
           warehouseCode: movement.warehouse?.code
         };
-        this.applyMovement(existing, movement.type, movement.quantity);
+        this.applyMovement(existing, movement.type, movement.quantity, originalType);
         existing.closing = existing.opening + this.net(existing);
         buckets.set(bucketKey, existing);
       }
@@ -106,18 +131,45 @@ export class InventoryDailyService {
           acc.adjustmentOut += row.adjustmentOut;
           acc.transferIn += row.transferIn;
           acc.transferOut += row.transferOut;
+          acc.reversalRestock += row.reversalRestock;
+          acc.reversalDeduct += row.reversalDeduct;
           return acc;
         },
-        { inbound: 0, outbound: 0, returned: 0, adjustmentIn: 0, adjustmentOut: 0, transferIn: 0, transferOut: 0 }
+        {
+          inbound: 0,
+          outbound: 0,
+          returned: 0,
+          adjustmentIn: 0,
+          adjustmentOut: 0,
+          transferIn: 0,
+          transferOut: 0,
+          reversalRestock: 0,
+          reversalDeduct: 0
+        }
       )
     };
   }
 
   private net(row: DailyBucket): number {
-    return row.inbound + row.returned + row.adjustmentIn + row.transferIn - row.outbound - row.adjustmentOut - row.transferOut;
+    return (
+      row.inbound +
+      row.returned +
+      row.adjustmentIn +
+      row.transferIn +
+      row.reversalRestock -
+      row.outbound -
+      row.adjustmentOut -
+      row.transferOut -
+      row.reversalDeduct
+    );
   }
 
-  private applyMovement(row: DailyBucket, type: MovementType, quantity: number) {
+  private applyMovement(
+    row: DailyBucket,
+    type: MovementType,
+    quantity: number,
+    originalType: MovementType | null
+  ) {
     switch (type) {
       case MovementType.IN:
         row.inbound += quantity;
@@ -143,29 +195,42 @@ export class InventoryDailyService {
       case MovementType.ADJUSTMENT:
         row.adjustmentIn += quantity;
         break;
-      case MovementType.REVERSAL:
-        row.returned += quantity;
+      case MovementType.REVERSAL: {
+        const signed = this.signedDelta(type, quantity, originalType);
+        if (signed > 0) {
+          row.reversalRestock += quantity;
+        } else if (signed < 0) {
+          row.reversalDeduct += quantity;
+        }
         break;
+      }
       default:
         break;
     }
   }
 
-  private signedDelta(type: MovementType, quantity: number): number {
-    if (
-      type === MovementType.IN ||
-      type === MovementType.RETURN ||
-      type === MovementType.TRANSFER_IN ||
-      type === MovementType.ADJUSTMENT_IN ||
-      type === MovementType.ADJUSTMENT
-    ) {
+  /**
+   * REVERSAL applies the opposite signed impact of the original movement type.
+   * reverse IN / RETURN / TRANSFER_IN / ADJUSTMENT_IN → decrease
+   * reverse OUT / TRANSFER_OUT / ADJUSTMENT_OUT → increase
+   */
+  private signedDelta(type: MovementType, quantity: number, originalType: MovementType | null): number {
+    if (type === MovementType.REVERSAL) {
+      if (!originalType) {
+        return 0;
+      }
+      if (INBOUND_TYPES.has(originalType)) {
+        return -quantity;
+      }
+      if (OUTBOUND_TYPES.has(originalType)) {
+        return quantity;
+      }
+      return 0;
+    }
+    if (INBOUND_TYPES.has(type)) {
       return quantity;
     }
-    if (
-      type === MovementType.OUT ||
-      type === MovementType.TRANSFER_OUT ||
-      type === MovementType.ADJUSTMENT_OUT
-    ) {
+    if (OUTBOUND_TYPES.has(type)) {
       return -quantity;
     }
     return 0;

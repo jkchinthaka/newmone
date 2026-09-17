@@ -83,6 +83,8 @@ export type MaintainProPartSnapshot = {
   partNumber: string;
   name: string;
   quantityInStock: number;
+  warehouseId?: string | null;
+  warehouseCode?: string | null;
 };
 
 const PUBLIC_DRY_RUN_KEYS = new Set<string>([
@@ -106,6 +108,13 @@ export function normalizeErpItemCode(value: string | null | undefined): string {
     .toUpperCase();
 }
 
+function balanceKey(partCode: string, warehouseCode: string | null | undefined): string {
+  const wh = String(warehouseCode ?? "")
+    .trim()
+    .toUpperCase();
+  return wh ? `${normalizeErpItemCode(partCode)}::${wh}` : normalizeErpItemCode(partCode);
+}
+
 export function compareStockBalances(input: {
   erpBalances: StockBalanceSnapshot[];
   maintainProParts: MaintainProPartSnapshot[];
@@ -117,38 +126,74 @@ export function compareStockBalances(input: {
   unmatchedMaintainProItems: ErpStockSyncUnmatchedRow[];
   warnings: string[];
 } {
-  const erpByCode = new Map<string, StockBalanceSnapshot>();
+  const erpByExactKey = new Map<string, StockBalanceSnapshot>();
+  const erpByPartCode = new Map<string, StockBalanceSnapshot[]>();
   for (const balance of input.erpBalances) {
     const code = normalizeErpItemCode(balance.partSku);
     if (!code) {
       continue;
     }
-    erpByCode.set(code, balance);
+    erpByExactKey.set(balanceKey(code, balance.warehouseCode), balance);
+    const list = erpByPartCode.get(code) ?? [];
+    list.push(balance);
+    erpByPartCode.set(code, list);
   }
 
-  const maintainProByCode = new Map<string, MaintainProPartSnapshot>();
-  for (const part of input.maintainProParts) {
-    maintainProByCode.set(normalizeErpItemCode(part.partNumber), part);
-  }
-
+  const matchedErpKeys = new Set<string>();
   const matchedRows: ErpStockSyncComparisonRow[] = [];
   const changedRows: ErpStockSyncComparisonRow[] = [];
   const unmatchedMaintainProItems: ErpStockSyncUnmatchedRow[] = [];
   const warnings: string[] = [];
 
+  const warehouseScoped =
+    input.erpBalances.some((b) => Boolean(b.warehouseCode)) ||
+    input.maintainProParts.some((p) => Boolean(p.warehouseCode));
+  if (warehouseScoped) {
+    warnings.push("Preferred comparison identity is Part + Warehouse.");
+  }
+
   for (const part of input.maintainProParts) {
     const code = normalizeErpItemCode(part.partNumber);
-    const erpBalance = erpByCode.get(code);
-    if (!erpBalance) {
+    let erpBalance: StockBalanceSnapshot | undefined;
+    let matchedKey: string | null = null;
+
+    if (part.warehouseCode) {
+      matchedKey = balanceKey(code, part.warehouseCode);
+      erpBalance = erpByExactKey.get(matchedKey);
+    } else {
+      const candidates = erpByPartCode.get(code) ?? [];
+      if (candidates.length === 1) {
+        erpBalance = candidates[0];
+        matchedKey = balanceKey(code, erpBalance.warehouseCode);
+        if (erpBalance.warehouseCode) {
+          warnings.push(
+            `Part ${part.partNumber} matched without warehouse scope; map warehouse balances for authoritative reconciliation.`
+          );
+        }
+      } else if (candidates.length > 1) {
+        unmatchedMaintainProItems.push({
+          itemCode: part.partNumber,
+          quantity: part.quantityInStock,
+          warehouseCode: null,
+          reason: "Multiple ERP warehouse balances exist; MaintainPro warehouse scope is required"
+        });
+        continue;
+      }
+    }
+
+    if (!erpBalance || !matchedKey) {
       unmatchedMaintainProItems.push({
         itemCode: part.partNumber,
         quantity: part.quantityInStock,
-        warehouseCode: null,
-        reason: "No matching Bileeta item code for MaintainPro partNumber"
+        warehouseCode: part.warehouseCode ?? null,
+        reason: warehouseScoped
+          ? "No matching Bileeta item+warehouse for MaintainPro part/warehouse balance"
+          : "No matching Bileeta item code for MaintainPro partNumber"
       });
       continue;
     }
 
+    matchedErpKeys.add(matchedKey);
     const row: ErpStockSyncComparisonRow = {
       partId: part.id,
       partNumber: part.partNumber,
@@ -156,7 +201,7 @@ export function compareStockBalances(input: {
       maintainProQuantity: part.quantityInStock,
       erpQuantity: erpBalance.quantityOnHand,
       delta: erpBalance.quantityOnHand - part.quantityInStock,
-      warehouseCode: erpBalance.warehouseCode ?? null
+      warehouseCode: erpBalance.warehouseCode ?? part.warehouseCode ?? null
     };
     matchedRows.push(row);
     if (row.delta !== 0) {
@@ -165,13 +210,15 @@ export function compareStockBalances(input: {
   }
 
   const unmatchedErpItems: ErpStockSyncUnmatchedRow[] = [];
-  for (const [code, balance] of erpByCode.entries()) {
-    if (!maintainProByCode.has(code)) {
+  for (const [key, balance] of erpByExactKey.entries()) {
+    if (!matchedErpKeys.has(key)) {
       unmatchedErpItems.push({
         itemCode: balance.partSku,
         quantity: balance.quantityOnHand,
         warehouseCode: balance.warehouseCode ?? null,
-        reason: "No matching MaintainPro partNumber for ERP item code"
+        reason: warehouseScoped
+          ? "No matching MaintainPro part+warehouse balance for ERP item"
+          : "No matching MaintainPro partNumber for ERP item code"
       });
     }
   }

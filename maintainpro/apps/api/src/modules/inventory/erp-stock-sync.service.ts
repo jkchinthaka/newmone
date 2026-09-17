@@ -1,5 +1,6 @@
 import { Injectable, Optional } from "@nestjs/common";
 
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
@@ -9,17 +10,12 @@ import {
   compareStockBalances,
   ErpStockSyncApplyResult,
   ErpStockSyncDryRunResult,
-  ErpStockSyncReadiness
+  ErpStockSyncReadiness,
+  MaintainProPartSnapshot
 } from "./erp-stock-sync.mapper";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
-
-/** MP-003: SparePart.tenantId is now required — see driver-intelligence.service.ts for rationale. */
-const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
-function tenantFilterValue(tenantId: string | null): string {
-  return tenantId ?? NO_TENANT_MATCH;
-}
 
 export type ApplyStockSnapshotOptions = {
   /**
@@ -209,7 +205,7 @@ export class ErpStockSyncService {
       };
     }
 
-    const tenantId = this.resolveTenantId(actor);
+    const tenantId = requireTenantId(actor?.tenantId);
     const notesPrefix = options.notesPrefix ?? "ERP stock sync apply";
     let updatedCount = 0;
     let skippedCount = 0;
@@ -220,7 +216,7 @@ export class ErpStockSyncService {
         const part = await this.prisma.sparePart.findFirst({
           where: {
             id: row.partId,
-            ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {})
+            tenantId
           },
           select: { id: true, quantityInStock: true, reservedQuantity: true, availableQuantity: true }
         });
@@ -315,28 +311,52 @@ export class ErpStockSyncService {
     }
   }
 
-  private async loadTenantParts(actor?: Actor) {
-    const tenantId = this.resolveTenantId(actor);
-    return this.prisma.sparePart.findMany({
-      where: {
-        isActive: true,
-        ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {})
-      },
-      select: {
-        id: true,
-        partNumber: true,
-        name: true,
-        quantityInStock: true
-      },
-      orderBy: { partNumber: "asc" }
-    });
-  }
+  private async loadTenantParts(actor?: Actor): Promise<MaintainProPartSnapshot[]> {
+    const tenantId = requireTenantId(actor?.tenantId);
 
-  private resolveTenantId(actor?: Actor): string | null | undefined {
-    if (!actor) {
-      return undefined;
+    const balanceDelegate = (this.prisma as { warehouseItemBalance?: { findMany: Function } }).warehouseItemBalance;
+    if (balanceDelegate?.findMany) {
+      const balances = await this.prisma.warehouseItemBalance.findMany({
+        where: { tenantId },
+        select: {
+          onHand: true,
+          warehouseId: true,
+          warehouse: { select: { id: true, code: true } },
+          part: { select: { id: true, partNumber: true, name: true, isActive: true } }
+        },
+        orderBy: [{ part: { partNumber: "asc" } }, { warehouse: { code: "asc" } }]
+      });
+
+      const fromBalances = balances
+        .filter((row) => row.part.isActive)
+        .map((row) => ({
+          id: row.part.id,
+          partNumber: row.part.partNumber,
+          name: row.part.name,
+          quantityInStock: row.onHand,
+          warehouseId: row.warehouseId,
+          warehouseCode: row.warehouse.code
+        }));
+
+      if (fromBalances.length > 0) {
+        return fromBalances;
+      }
     }
 
-    return actor.tenantId ?? null;
+    // Fallback when warehouse balances are not yet populated — still tenant-scoped.
+    const parts = await this.prisma.sparePart.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, partNumber: true, name: true, quantityInStock: true },
+      orderBy: { partNumber: "asc" }
+    });
+    return parts.map((part) => ({
+      ...part,
+      warehouseId: null,
+      warehouseCode: null
+    }));
+  }
+
+  private resolveTenantId(actor?: Actor): string {
+    return requireTenantId(actor?.tenantId);
   }
 }
