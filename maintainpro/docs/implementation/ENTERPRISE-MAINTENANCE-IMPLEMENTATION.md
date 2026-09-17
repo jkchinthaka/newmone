@@ -36,7 +36,7 @@ Updated: 2026-09-17 (continuation)
 ## Commits
 
 - `85c0806d` prior mission end (continuation start)
-- _(this batch)_ feat(admin): tenant feature flags, maintenance templates, warranty claims
+- `b3d586d8` feat(admin): tenant feature flags, maintenance templates, warranty claims
 
 ## Validation
 
@@ -45,3 +45,4 @@ Updated: 2026-09-17 (continuation)
 - typecheck api+web — pass
 - `enterprise-features-templates-warranty.spec.ts` — pass
 - `maintenance-config-sla.spec.ts` — pass
+- remote HEAD — `b3d586d8`
