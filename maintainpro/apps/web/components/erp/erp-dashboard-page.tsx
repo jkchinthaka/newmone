@@ -35,6 +35,7 @@ export function ErpDashboardPage() {
             ["/erp/mock-sync", "Mock Sync"],
             ["/erp/import", "File Import"],
             ["/erp/reconciliation", "Reconciliation"],
+            ["/erp/exceptions", "Exceptions"],
             ["/erp/access-checklist", "API Checklist"],
             ["/erp/report", "Report"]
           ] as Array<[string, string]>

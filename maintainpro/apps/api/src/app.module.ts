@@ -80,6 +80,12 @@ import { FleetLifecycleModule } from "./modules/fleet-lifecycle/fleet-lifecycle.
 import { AdminGovernanceModule } from "./modules/admin-governance/admin-governance.module";
 import { MaintenanceConfigModule } from "./modules/maintenance-config/maintenance-config.module";
 import { WarrantiesModule } from "./modules/warranties/warranties.module";
+import { ReliabilityModule } from "./modules/reliability/reliability.module";
+import { WorkflowEngineModule } from "./modules/workflow-engine/workflow-engine.module";
+import { JobReadinessModule } from "./modules/job-readiness/job-readiness.module";
+import { VendorPortalModule } from "./modules/vendor-portal/vendor-portal.module";
+import { NumberingModule } from "./modules/numbering/numbering.module";
+import { EnterpriseGovernanceModule } from "./modules/enterprise-governance/enterprise-governance.module";
 import { ReportingKpisModule } from "./modules/reporting-kpis/reporting-kpis.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { WorkOrderTaxonomyModule } from "./modules/work-order-taxonomy/work-order-taxonomy.module";
@@ -161,6 +167,12 @@ normalizeDatabaseEnvironment();
     AdminGovernanceModule,
     MaintenanceConfigModule,
     WarrantiesModule,
+    ReliabilityModule,
+    WorkflowEngineModule,
+    JobReadinessModule,
+    VendorPortalModule,
+    NumberingModule,
+    EnterpriseGovernanceModule,
     ApprovalsModule,
     WorkforceModule,
     PeopleModule,

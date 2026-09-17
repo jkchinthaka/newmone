@@ -78,6 +78,7 @@ import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-templates.service";
 import { WarrantiesService } from "../warranties/warranties.service";
+import { ReliabilityService } from "../reliability/reliability.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -94,6 +95,7 @@ export class WorkOrdersService {
     @Optional() private readonly maintenanceConfig?: MaintenanceConfigService,
     @Optional() private readonly maintenanceTemplates?: MaintenanceTemplatesService,
     @Optional() private readonly warranties?: WarrantiesService,
+    @Optional() private readonly reliability?: ReliabilityService,
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService
@@ -1228,6 +1230,43 @@ export class WorkOrdersService {
           blockMessage: "Vendor/external repair requires approval before start",
           allowEmergencyProceed: true
         });
+      }
+
+      if (this.reliability) {
+        const emergencyOverride = Boolean(
+          (data as { emergencySafetyOverride?: boolean }).emergencySafetyOverride &&
+            data.emergencyCloseReason?.trim()
+        );
+        await this.reliability.assertPermitReadyForStart({
+          tenantId,
+          workOrderId: id,
+          assetId: current.assetId,
+          allowEmergencyOverride: emergencyOverride
+        });
+        await this.reliability.assertLotoReadyForStart({
+          tenantId,
+          workOrderId: id,
+          allowEmergencyOverride: emergencyOverride
+        });
+        if (emergencyOverride) {
+          await this.recordAudit({
+            entity: "WorkOrder",
+            entityId: id,
+            action: AuditAction.UPDATE,
+            actor,
+            reason: data.emergencyCloseReason ?? "Emergency safety override on start",
+            metadata: { event: "permit_start_override", safetyBlock: "PERMIT" }
+          });
+        }
+
+        if (current.assetId || current.failureCodeSnapshot) {
+          await this.reliability.detectRepeatFailure({
+            tenantId,
+            workOrderId: id,
+            assetId: current.assetId,
+            failureCode: current.failureCodeSnapshot
+          });
+        }
       }
     }
 

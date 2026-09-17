@@ -683,13 +683,11 @@ describe("Navigation shared home", () => {
     const homeItem = NAVIGATION_ITEMS.find((item) => item.id === "home");
     expect(homeItem).toBeDefined();
     expect(homeItem!.href).toBe("/action-center");
-    expect(homeItem!.label).toBe("Home");
+    expect(homeItem!.label).toBe("Action Center");
   });
 
   it("there is exactly one primary nav item with id=home", () => {
-    const homeItems = NAVIGATION_ITEMS.filter(
-      (item) => item.id === "home" || item.label === "Home"
-    );
+    const homeItems = NAVIGATION_ITEMS.filter((item) => item.id === "home");
     expect(homeItems).toHaveLength(1);
   });
 

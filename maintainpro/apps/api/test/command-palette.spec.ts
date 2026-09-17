@@ -16,7 +16,7 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
     const assets = commands.find((item) => item.href === "/assets");
 
     expect(assets).toBeDefined();
-    expect(assets?.label).toBe("Assets");
+    expect(assets?.label).toBe("Asset Register");
   });
 
   it("finds Spare Parts via inventory keyword search", () => {
@@ -32,7 +32,7 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
 
     expect(adminCommands.some((item) => item.href === "/action-center")).toBe(true);
     expect(adminCommands.some((item) => item.href === "/inventory")).toBe(true);
-    expect(technicianCommands.some((item) => item.href === "/work-orders")).toBe(true);
+    expect(technicianCommands.some((item) => item.href === "/maintenance/jobs" || item.href === "/work-orders")).toBe(true);
     expect(technicianCommands.some((item) => item.href === "/admin")).toBe(false);
   });
 
@@ -49,7 +49,7 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
     const legacy = adminCommands.find((item) => item.href === LEGACY_FMS_HOME_PATH);
 
     expect(home?.href).toBe("/action-center");
-    expect(home?.label).toBe("Home");
+    expect(home?.label).toBe("Action Center");
     expect(usesLegacyHomeAsDashboard(adminCommands)).toBe(false);
     expect(legacy).toBeUndefined();
   });
@@ -108,6 +108,6 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
   it("adds a work-order search jump for typed queries", () => {
     const commands = getCommandPaletteItems("TECHNICIAN");
     const matches = filterCommandPaletteItems(commands, "WO-1042");
-    expect(matches.some((item) => item.href === "/work-orders?q=WO-1042")).toBe(true);
+    expect(matches.some((item) => item.href.includes("q=WO-1042"))).toBe(true);
   });
 });

@@ -18,6 +18,7 @@ import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartment
 import { AssetTaxonomyService } from "../modules/asset-taxonomy/asset-taxonomy.service";
 import { MaintenanceConfigService } from "../modules/maintenance-config/maintenance-config.service";
 import { MaintenanceTemplatesService } from "../modules/maintenance-config/maintenance-templates.service";
+import { ReliabilityService } from "../modules/reliability/reliability.service";
 import { TenantFeaturesService } from "../modules/maintenance-config/tenant-features.service";
 import {
   normalizeWorkforceOnlyLinkedUserIds,
@@ -1559,6 +1560,10 @@ async function main() {
     role: "SUPER_ADMIN"
   });
   console.log(`Maintenance templates seeded: ${JSON.stringify(templateSeed)}`);
+
+  const reliability = new ReliabilityService(prisma as never);
+  const policy = await reliability.getOrCreatePolicy(tenant.id);
+  console.log(`Reliability policy ensured: id=${policy.id} windowDays=${policy.repeatWindowDays}`);
 
   console.log("Seed complete");
 }

@@ -39,3 +39,10 @@ export async function fetchErpReport() {
   const response = await apiClient.get<{ data: Record<string, unknown> }>("/erp/report");
   return response.data.data;
 }
+
+export async function fetchErpExceptions(limit = 50) {
+  const response = await apiClient.get<{ data: { count: number; items: Array<Record<string, unknown>>; note?: string } }>(
+    `/erp/exceptions?limit=${limit}`
+  );
+  return response.data.data;
+}

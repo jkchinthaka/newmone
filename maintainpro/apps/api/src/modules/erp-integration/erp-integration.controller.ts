@@ -168,6 +168,14 @@ export class ErpIntegrationController {
     return this.checklist.update(id, body).then((data) => ({ data, message: "Checklist item updated" }));
   }
 
+  @Get("exceptions")
+  @Permissions("erp.view")
+  getExceptions(@Query("limit") limit?: string) {
+    return this.dashboard
+      .getExceptions({ limit: limit ? Number(limit) : undefined })
+      .then((data) => ({ data, message: "ERP sync exception center" }));
+  }
+
   @Get("report")
   @Permissions("erp.view")
   getReport() {
