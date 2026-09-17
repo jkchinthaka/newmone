@@ -119,8 +119,8 @@ export class AssetBulkImportAdapter implements BulkImportAdapter {
         supplier: (data.supplier as string | null) ?? undefined,
         ownerName: (data.ownerName as string | null) ?? undefined,
         description: (data.description as string | null) ?? undefined,
-        images: [],
-        documents: []
+        images: "[]",
+        documents: "[]"
       },
       select: { id: true }
     });

@@ -33,10 +33,21 @@ export interface CreateAccidentInput {
 export class AccidentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async nextReportNumber(): Promise<string> {
+  /**
+   * MP-003: reportNumber is tenant-scoped (@@unique([tenantId, reportNumber])), but this
+   * generator previously counted AccidentReport rows platform-wide for the year, so two
+   * different tenants' first report of a year would both compute "ACC-<year>-00001" — only
+   * the first create() would succeed, the second would hit a raw unhandled unique-constraint
+   * error. Scoped the count by tenantId (same fix class as WorkOrder.woNumber /
+   * InsuranceClaim.claimNumber / TrafficFine.fineNumber).
+   */
+  private async nextReportNumber(tenantId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.accidentReport.count({
-      where: { createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) } }
+      where: {
+        tenantId,
+        createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31T23:59:59.999Z`) }
+      }
     });
     return `ACC-${year}-${String(count + 1).padStart(5, "0")}`;
   }
@@ -107,26 +118,47 @@ export class AccidentsService {
       });
     }
 
-    const reportNumber = await this.nextReportNumber();
-    const created = await this.prisma.accidentReport.create({
-      data: {
-        tenantId: vehicle.tenantId,
-        reportNumber,
-        vehicleId: vehicle.id,
-        driverId: input.driverId,
-        reportedById: a.sub,
-        occurredAt: new Date(input.occurredAt),
-        location: input.location,
-        description: input.description,
-        severity: input.severity ?? AccidentSeverity.MINOR,
-        responsibility: input.responsibility ?? (input.driverId ? AccidentResponsibility.DRIVER : AccidentResponsibility.UNDETERMINED),
-        thirdPartyInvolved: input.thirdPartyInvolved ?? false,
-        thirdPartyDetails: input.thirdPartyDetails,
-        policeReportNo: input.policeReportNo,
-        estimatedDamageCost: input.estimatedDamageCost,
-        notes: input.notes
+    // Retry on tenant-scoped reportNumber collision (concurrent creates within the same
+    // tenant can race between count() and create() — same pattern as WorkOrdersService).
+    let created: Awaited<ReturnType<typeof this.prisma.accidentReport.create>> | undefined;
+    let reportNumber = "";
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      reportNumber = await this.nextReportNumber(vehicle.tenantId);
+      try {
+        created = await this.prisma.accidentReport.create({
+          data: {
+            tenantId: vehicle.tenantId,
+            reportNumber,
+            vehicleId: vehicle.id,
+            driverId: input.driverId,
+            reportedById: a.sub,
+            occurredAt: new Date(input.occurredAt),
+            location: input.location,
+            description: input.description,
+            severity: input.severity ?? AccidentSeverity.MINOR,
+            responsibility: input.responsibility ?? (input.driverId ? AccidentResponsibility.DRIVER : AccidentResponsibility.UNDETERMINED),
+            thirdPartyInvolved: input.thirdPartyInvolved ?? false,
+            thirdPartyDetails: input.thirdPartyDetails,
+            policeReportNo: input.policeReportNo,
+            estimatedDamageCost: input.estimatedDamageCost,
+            notes: input.notes
+          }
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
       }
-    });
+    }
+    if (!created) {
+      throw lastError instanceof Error
+        ? lastError
+        : new BadRequestException("Unable to allocate a unique accident report number");
+    }
 
     await recordPhase4Audit(this.prisma, {
       entity: "AccidentReport",

@@ -36,6 +36,14 @@ Platform migration only. Preserve Phase 0–14 business behavior, tenant isolati
 SQL Server instance / Docker daemon were **not available** on the engineering host during this phase.  
 Schema **validates** and client **generates**. Live `migrate deploy` / data apply / backup-restore = **NOT EXECUTED**.
 
+**Update 2026-09-16:** a later session had a reachable native SQL Server instance and executed
+`migrate deploy` + `db:seed` (twice, idempotent) against both the existing dev database and a
+fresh disposable one, fixed several live-only defects found in the process (tenant context
+propagation, nullable unique indexes, oversized/undersized NVARCHAR columns, JSON-as-text
+write-site bugs), and validated login + protected APIs end-to-end. See
+`V1_FINAL_VALIDATION_GATE_STATUS_2026-09-16.md` for full detail. Canonical-role UAT, browser/PWA
+UAT, and production cutover are still not executed.
+
 ## Next operator steps
 
 1. Provision SQL Server + create `MaintainProDev`

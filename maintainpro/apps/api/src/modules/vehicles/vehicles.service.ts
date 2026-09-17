@@ -528,14 +528,14 @@ export class VehiclesService {
           : undefined,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: {
+        customFields: JSON.stringify({
           ...(data.customFields ?? {}),
           search: {
             ...((data.customFields?.search as object) || {}),
             normalizedRegistration: normalizeRegistrationNo(data.registrationNo)
           }
-        },
-        images: []
+        }),
+        images: "[]"
       }
     });
   }
@@ -618,7 +618,7 @@ export class VehiclesService {
         ownershipType: data.ownershipType,
         costCenter: data.costCenter?.trim() || undefined,
         vendorName: data.vendorName?.trim() || undefined,
-        customFields: data.customFields as Prisma.InputJsonValue | undefined
+        customFields: data.customFields !== undefined ? JSON.stringify(data.customFields) : undefined
       }
     });
   }
@@ -1859,7 +1859,9 @@ export class VehiclesService {
     const criticalOrders = await this.prisma.workOrder.findMany({
       where: {
         vehicleId,
-        tenantId,
+        // MP-003: WorkOrder.tenantId is now required; a null/undefined tenantId here must
+        // still resolve to "no match" rather than an unfiltered query or a type error.
+        tenantId: tenantId ?? "__mp003_no_tenant_match__",
         status: { in: openStatuses },
         OR: [
           { priority: Priority.CRITICAL },

@@ -171,7 +171,7 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
   const actor = { sub: "user-1", tenantId: "tenant-1", role: "ADMIN" as const, email: "a@b.c" };
 
   function buildPrisma(overrides: Record<string, any> = {}) {
-    return {
+    const prisma: Record<string, any> = {
       pmPlan: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -214,10 +214,25 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
         update: jest.fn()
       },
       checklistTemplate: {
-        create: jest.fn()
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        updateMany: jest.fn()
+      },
+      checklistExecution: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn()
+      },
+      configChangeHistory: {
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({})
       },
       ...overrides
     };
+    prisma.$transaction = jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    return prisma;
   }
 
   function buildWorkOrders(createImpl?: jest.Mock) {
@@ -405,5 +420,169 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
   it("buildPmGenerationKey is stable per day", () => {
     const key = buildPmGenerationKey("plan-1", new Date("2026-09-14T15:00:00.000Z"));
     expect(key).toBe("plan-1:2026-09-14");
+  });
+
+  it("starts checklist execution with frozen template snapshot", async () => {
+    const prisma = buildPrisma();
+    prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1" });
+    prisma.checklistTemplate.findFirst.mockResolvedValue({
+      id: "tpl-1",
+      code: "GEN-MONTHLY",
+      name: "Generator Monthly",
+      version: 2,
+      domainKey: "MACHINERY",
+      items: [
+        {
+          key: "oil",
+          label: "Oil level",
+          type: "PASS_FAIL",
+          required: true,
+          sortOrder: 0,
+          unit: null,
+          minValue: null,
+          maxValue: null,
+          options: "[]",
+          signatureJustified: false
+        }
+      ]
+    });
+    prisma.checklistExecution.findFirst.mockResolvedValue(null);
+    prisma.checklistExecution.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+      id: "exec-1",
+      ...data
+    }));
+
+    const service = new PlanningService(prisma as any, buildWorkOrders() as any);
+    const exec = await service.startChecklistExecution(actor, {
+      workOrderId: "wo-1",
+      templateId: "tpl-1"
+    });
+
+    expect(exec.templateRevision).toBe(2);
+    const snapshot = JSON.parse(String(exec.templateSnapshot));
+    expect(snapshot.code).toBe("GEN-MONTHLY");
+    expect(snapshot.items).toHaveLength(1);
+    expect(snapshot.items[0].key).toBe("oil");
+  });
+
+  it("revising checklist template does not mutate prior execution snapshot", async () => {
+    const prisma = buildPrisma();
+    const frozenSnapshot = JSON.stringify({
+      code: "GEN-MONTHLY",
+      version: 1,
+      items: [{ key: "oil", label: "Oil level (v1)" }]
+    });
+    prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1" });
+    prisma.checklistExecution.findFirst.mockResolvedValue({
+      id: "exec-old",
+      templateId: "tpl-v1",
+      templateRevision: 1,
+      templateSnapshot: frozenSnapshot,
+      workOrderId: "wo-1",
+      completedAt: null
+    });
+
+    const service = new PlanningService(prisma as any, buildWorkOrders() as any);
+    const existing = await service.startChecklistExecution(actor, {
+      workOrderId: "wo-1",
+      templateId: "tpl-v1"
+    });
+    expect(existing.templateSnapshot).toBe(frozenSnapshot);
+    expect(prisma.checklistExecution.create).not.toHaveBeenCalled();
+
+    prisma.checklistTemplate.findFirst.mockResolvedValue({
+      id: "tpl-v1",
+      tenantId: "tenant-1",
+      code: "GEN-MONTHLY",
+      name: "Generator Monthly",
+      description: null,
+      domainKey: "MACHINERY",
+      version: 1,
+      items: [{ key: "oil", label: "Oil level (v1)", type: "PASS_FAIL", required: true, sortOrder: 0, unit: null, options: "[]" }]
+    });
+    prisma.checklistTemplate.create.mockResolvedValue({
+      id: "tpl-v2",
+      code: "GEN-MONTHLY",
+      name: "Generator Monthly",
+      version: 2,
+      items: [{ key: "oil", label: "Oil level (v2)", type: "PASS_FAIL" }]
+    });
+
+    const revised = await service.reviseChecklistTemplate(actor, "tpl-v1", {
+      items: [
+        {
+          key: "oil",
+          label: "Oil level (v2)",
+          type: "PASS_FAIL" as never,
+          required: true
+        }
+      ],
+      changeReason: "Clarify oil check wording"
+    });
+    expect(revised.version).toBe(2);
+    expect(prisma.configChangeHistory.create).toHaveBeenCalled();
+    // Prior execution snapshot remains the v1 wording when re-read
+    expect(JSON.parse(frozenSnapshot).items[0].label).toBe("Oil level (v1)");
+  });
+
+  it("auto-creates checklist execution when PM plan has checklistTemplateId", async () => {
+    const prisma = buildPrisma();
+    prisma.pmPlan.findFirst.mockResolvedValue({
+      id: "plan-1",
+      tenantId: "tenant-1",
+      code: "PM-001",
+      name: "Compressor service",
+      description: null,
+      status: "ACTIVE",
+      autoCreateWorkOrder: true,
+      gracePeriodDays: 0,
+      combineMode: "EARLIEST",
+      lastCompletionAt: null,
+      lastCompletionMileage: null,
+      lastCompletionHours: null,
+      nextDueAt: new Date("2026-09-01T00:00:00.000Z"),
+      nextDueMeterValue: null,
+      assetId: "asset-1",
+      vehicleId: null,
+      siteId: null,
+      functionalLocationId: null,
+      priority: "MEDIUM",
+      workType: WorkOrderType.PREVENTIVE,
+      currentRevision: 1,
+      estimatedDurationMinutes: 60,
+      checklistTemplateId: "tpl-1",
+      triggers: [{ id: "t1", kind: "CALENDAR", intervalDays: 30, isActive: true }]
+    });
+    prisma.workOrder.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "wo-new" });
+    prisma.pmAutoGeneration.findUnique.mockResolvedValue(null);
+    prisma.pmAutoGeneration.create.mockResolvedValue({ id: "gen-1" });
+    prisma.checklistTemplate.findFirst.mockResolvedValue({
+      id: "tpl-1",
+      code: "COMP-PM",
+      name: "Compressor PM",
+      version: 1,
+      domainKey: "MACHINERY",
+      items: []
+    });
+    prisma.checklistExecution.findFirst.mockResolvedValue(null);
+    prisma.checklistExecution.create.mockResolvedValue({ id: "exec-1" });
+
+    const workOrders = buildWorkOrders();
+    const service = new PlanningService(prisma as any, workOrders as any);
+    const result = await service.autoCreateWorkOrderIfDue(actor, "plan-1", {
+      now: new Date("2026-09-14T00:00:00.000Z")
+    });
+    expect(result.created).toBe(true);
+    expect(prisma.checklistExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          workOrderId: "wo-new",
+          templateId: "tpl-1",
+          templateRevision: 1
+        })
+      })
+    );
   });
 });

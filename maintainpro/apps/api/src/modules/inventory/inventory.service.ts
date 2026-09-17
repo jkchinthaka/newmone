@@ -216,7 +216,7 @@ export class InventoryService {
         availableQuantity: 0,
         location: data.location,
         supplierId: data.supplierId,
-        images: []
+        images: "[]"
       }
     });
 

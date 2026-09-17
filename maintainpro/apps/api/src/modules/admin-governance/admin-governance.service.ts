@@ -150,24 +150,121 @@ export class AdminGovernanceService {
       });
     }
 
+    const openUnassigned = await Promise.resolve()
+      .then(() =>
+        this.prisma.workOrder.count({
+          where: {
+            tenantId,
+            status: { in: OPEN_WO_STATUSES },
+            technicianId: null,
+            assignees: { none: { assignmentStatus: { not: "REMOVED" } } }
+          }
+        })
+      )
+      .catch(() => 0);
+    if (openUnassigned > 0) {
+      issues.push({
+        code: "WO_UNASSIGNED",
+        severity: "HIGH",
+        domain: "maintenance",
+        entityType: "WorkOrder",
+        message: "Open jobs without assignee",
+        suggestedAction: "Assign a lead technician or workforce assignee",
+        count: openUnassigned
+      });
+    }
+
+    const overdueOpen = await Promise.resolve()
+      .then(() =>
+        this.prisma.workOrder.count({
+          where: {
+            tenantId,
+            status: { in: OPEN_WO_STATUSES },
+            dueDate: { lt: new Date() }
+          }
+        })
+      )
+      .catch(() => 0);
+    if (overdueOpen > 0) {
+      issues.push({
+        code: "WO_OVERDUE",
+        severity: "CRITICAL",
+        domain: "maintenance",
+        entityType: "WorkOrder",
+        message: "Open jobs past due date",
+        suggestedAction: "Review overdue work orders and replan or escalate",
+        count: overdueOpen
+      });
+    }
+
+    const assetsNoLocation = await Promise.resolve()
+      .then(() =>
+        this.prisma.asset.count({
+          where: {
+            tenantId,
+            retiredAt: null,
+            siteId: null,
+            functionalLocationId: null
+          }
+        })
+      )
+      .catch(() => 0);
+    if (assetsNoLocation > 0) {
+      issues.push({
+        code: "ASSET_NO_LOCATION",
+        severity: "WARNING",
+        domain: "assets",
+        entityType: "Asset",
+        message: "Assets missing site / functional location",
+        suggestedAction: "Assign location hierarchy on the asset register",
+        count: assetsNoLocation
+      });
+    }
+
     return issues;
   }
 
   async overview(actor: Actor) {
     const tenantId = requireTenantId(actor.tenantId);
 
-    const [activeUsers, inactiveUsers, issues, pendingImports] = await Promise.all([
-      this.prisma.user
-        .count({ where: { isActive: true, memberships: { some: { tenantId } } } })
-        .catch(() => 0),
-      this.prisma.user
-        .count({ where: { isActive: false, memberships: { some: { tenantId } } } })
-        .catch(() => 0),
-      this.dataQualityIssues(actor),
-      this.prisma.bulkImportRun
-        .count({ where: { tenantId, status: { in: ["UPLOADED", "VALIDATED"] } } })
-        .catch(() => 0)
-    ]);
+    const [activeUsers, inactiveUsers, issues, pendingImports, openCriticalJobs, overdueJobs, pendingApprovals] =
+      await Promise.all([
+        this.prisma.user
+          .count({ where: { isActive: true, memberships: { some: { tenantId } } } })
+          .catch(() => 0),
+        this.prisma.user
+          .count({ where: { isActive: false, memberships: { some: { tenantId } } } })
+          .catch(() => 0),
+        this.dataQualityIssues(actor),
+        this.prisma.bulkImportRun
+          .count({ where: { tenantId, status: { in: ["UPLOADED", "VALIDATED"] } } })
+          .catch(() => 0),
+        Promise.resolve()
+          .then(() =>
+            this.prisma.workOrder.count({
+              where: {
+                tenantId,
+                priority: "CRITICAL",
+                status: { in: OPEN_WO_STATUSES }
+              }
+            })
+          )
+          .catch(() => 0),
+        Promise.resolve()
+          .then(() =>
+            this.prisma.workOrder.count({
+              where: {
+                tenantId,
+                status: { in: OPEN_WO_STATUSES },
+                OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: new Date() } }]
+              }
+            })
+          )
+          .catch(() => 0),
+        Promise.resolve()
+          .then(() => this.prisma.approvalRequest.count({ where: { tenantId, status: "PENDING" } }))
+          .catch(() => 0)
+      ]);
 
     const issuesBySeverity = {
       CRITICAL: issues.filter((i) => i.severity === "CRITICAL").length,
@@ -176,8 +273,18 @@ export class AdminGovernanceService {
       INFO: issues.filter((i) => i.severity === "INFO").length
     };
 
+    const activeTenants = await Promise.resolve()
+      .then(() => this.prisma.tenant.count({ where: { isActive: true } }))
+      .catch(() => 0);
+
     return {
       users: { active: activeUsers, inactive: inactiveUsers, total: activeUsers + inactiveUsers },
+      tenants: { active: activeTenants },
+      jobs: {
+        openCritical: openCriticalJobs,
+        overdue: overdueJobs
+      },
+      pendingApprovals,
       dataQuality: { issuesBySeverity, totalIssues: issues.length },
       pendingImports,
       rules: DATA_QUALITY_RULES.length

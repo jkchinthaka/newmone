@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -18,13 +19,14 @@ import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
 import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secrets";
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
+import { TenantFeaturesService } from "../maintenance-config/tenant-features.service";
 import { recordAuthSecurityEvent } from "./auth-security-event.util";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
-import type { AuthTokens, JwtPayload } from "./auth.types";
+import type { AuthTokens, JwtPayload, RefreshTokenPayload } from "./auth.types";
 
 @Injectable()
 export class AuthService {
@@ -34,7 +36,8 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService
+    @Inject(EmailDispatchService) private readonly emailDispatchService: EmailDispatchService,
+    @Optional() private readonly tenantFeatures?: TenantFeaturesService
   ) {}
 
   private toPublicUser<T extends { passwordHash: string }>(user: T): Omit<T, "passwordHash"> {
@@ -82,7 +85,7 @@ export class AuthService {
 
   private async persistRefreshToken(
     refreshToken: string,
-    payload: JwtPayload,
+    payload: RefreshTokenPayload,
     options?: { familyId?: string; replacedTokenHash?: string }
   ): Promise<{ tokenHash: string; familyId: string }> {
     const tokenHash = this.hashToken(refreshToken);
@@ -117,17 +120,26 @@ export class AuthService {
     payload: JwtPayload,
     options?: { familyId?: string; replacedTokenHash?: string }
   ): Promise<AuthTokens> {
+    // Refresh JWT is intentionally a strict subset of the access claims: role/email
+    // are re-resolved from the DB on every refresh (see refresh() below), so the
+    // refresh token only needs to identify the user/tenant and the persisted
+    // RefreshToken row it corresponds to.
+    const refreshPayload: RefreshTokenPayload = {
+      sub: payload.sub,
+      tenantId: payload.tenantId ?? null
+    };
+
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: getAccessJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_ACCESS_EXPIRES", "15m")
     });
 
-    const refreshToken = await this.jwtService.signAsync(payload, {
+    const refreshToken = await this.jwtService.signAsync(refreshPayload, {
       secret: getRefreshJwtSecret(this.configService),
       expiresIn: this.configService.get<string>("JWT_REFRESH_EXPIRES", "7d")
     });
 
-    await this.persistRefreshToken(refreshToken, payload, options);
+    await this.persistRefreshToken(refreshToken, refreshPayload, options);
 
     return { accessToken, refreshToken };
   }
@@ -262,7 +274,6 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
@@ -381,7 +392,6 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      permissions: permissionKeys,
       tenantId: user.tenantId ?? null
     });
 
@@ -427,27 +437,13 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    const decoded = await this.jwtService.verifyAsync<JwtPayload>(dto.refreshToken, {
+    const decoded = await this.jwtService.verifyAsync<RefreshTokenPayload>(dto.refreshToken, {
       secret: getRefreshJwtSecret(this.configService)
     });
 
     const user = await this.prisma.user.findUnique({
       where: { id: decoded.sub },
-      include: {
-        role: {
-          include: {
-            permissionLinks: {
-              select: {
-                permission: {
-                  select: {
-                    key: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+      include: { role: true }
     });
 
     if (!user || !user.isActive) {
@@ -471,14 +467,11 @@ export class AuthService {
       data: { revokedAt: now, lastUsedAt: now }
     });
 
-    const permissionKeys = this.permissionKeysFromRole(user.role);
-
     const tokens = await this.generateTokens(
       {
         sub: user.id,
         email: user.email,
         role: user.role.name as RoleName,
-        permissions: permissionKeys,
         tenantId: user.tenantId ?? null
       },
       { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
@@ -804,11 +797,21 @@ export class AuthService {
 
     const permissionKeys = this.permissionKeysFromRole(user.role);
 
+    let enabledFeatures: string[] = [];
+    if (resolvedTenantId && this.tenantFeatures) {
+      try {
+        enabledFeatures = await this.tenantFeatures.enabledCodes(resolvedTenantId);
+      } catch {
+        enabledFeatures = [];
+      }
+    }
+
     return {
       data: {
         ...this.toPublicUser(user),
         permissions: permissionKeys,
-        tenantId: resolvedTenantId
+        tenantId: resolvedTenantId,
+        enabledFeatures
       },
       message: "Profile fetched"
     };

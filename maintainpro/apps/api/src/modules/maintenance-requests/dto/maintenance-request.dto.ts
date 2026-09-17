@@ -59,6 +59,11 @@ export class MaintenanceRequestListQueryDto {
   @IsString()
   domainId?: string;
 
+  @ApiPropertyOptional({ description: "MACHINERY | SERVICE | VEHICLE" })
+  @IsOptional()
+  @IsString()
+  jobDomain?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -126,6 +131,11 @@ export class CreateMaintenanceRequestDto {
   @IsOptional()
   @IsString()
   domainId?: string;
+
+  @ApiPropertyOptional({ description: "MACHINERY | SERVICE | VEHICLE" })
+  @IsOptional()
+  @IsString()
+  jobDomain?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

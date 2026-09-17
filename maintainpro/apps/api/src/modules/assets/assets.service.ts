@@ -16,6 +16,7 @@ import QRCode from "qrcode";
 
 import { QrCodeService } from "../../common/services/qr-code.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { parseJsonText, stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import type {
   AssetExportQueryDto,
   AssetListQueryDto,
@@ -375,7 +376,7 @@ export class AssetsService {
       })
     ]);
 
-    const documents = this.parseDocuments(asset.documents, asset.id);
+    const documents = this.parseDocuments(toStringArray(asset.documents), asset.id);
     const locationPath = await this.registry.resolveLocationPath(
       requireTenantId(tenantId),
       asset.functionalLocationId
@@ -412,8 +413,8 @@ export class AssetsService {
   }
 
   async create(tenantId: string | null | undefined, actorId: string, data: CreateAssetDto) {
-    await this.ensureUniqueAssetTag(data.assetTag);
     const tid = requireTenantId(tenantId);
+    await this.ensureUniqueAssetTag(tid, data.assetTag);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
     const taxonomy = await this.registry.validateTaxonomy(tid, {
       domainId: data.domainId,
@@ -446,7 +447,7 @@ export class AssetsService {
         parentAssetId: data.parentAssetId ?? null,
         responsiblePersonId: data.responsiblePersonId ?? null,
         criticalityLevel: data.criticalityLevel ?? null,
-        customAttributes: (customAttributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        customAttributes: customAttributes ? JSON.stringify(customAttributes) : undefined,
         commissionedAt: this.toNullableDate(data.commissionedAt) ?? null,
         category: data.category ?? AssetCategory.OTHER,
         isActive:
@@ -482,13 +483,13 @@ export class AssetsService {
     data: UpdateAssetDto
   ) {
     const current = await this.findOne(id, tenantId);
+    const tid = requireTenantId(tenantId);
 
     if (data.assetTag && data.assetTag !== current.assetTag) {
-      await this.ensureUniqueAssetTag(data.assetTag, id);
+      await this.ensureUniqueAssetTag(tid, data.assetTag, id);
     }
 
     this.validateStatusTransition(current.status, data.status, data.disposalReason ?? current.disposalReason ?? undefined);
-    const tid = requireTenantId(tenantId);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
     const taxonomy = await this.registry.validateTaxonomy(tid, {
       domainId: data.domainId ?? current.domainId,
@@ -518,7 +519,8 @@ export class AssetsService {
     const customAttributes = await this.registry.validateAndNormalizeAttributes(
       tid,
       taxonomy.typeMasterId,
-      data.customAttributes ?? (current.customAttributes as Record<string, unknown> | null),
+      data.customAttributes ??
+        parseJsonText<Record<string, unknown> | null>(current.customAttributes as string | null, null),
       { allowPartial: true }
     );
 
@@ -533,7 +535,12 @@ export class AssetsService {
         responsiblePersonId:
           data.responsiblePersonId !== undefined ? data.responsiblePersonId : undefined,
         criticalityLevel: data.criticalityLevel !== undefined ? data.criticalityLevel : undefined,
-        customAttributes: data.customAttributes !== undefined ? (customAttributes as Prisma.InputJsonValue | null) : undefined,
+        customAttributes:
+          data.customAttributes !== undefined
+            ? customAttributes
+              ? JSON.stringify(customAttributes)
+              : null
+            : undefined,
         commissionedAt:
           data.commissionedAt !== undefined ? this.toNullableDate(data.commissionedAt) : undefined
       }
@@ -598,7 +605,7 @@ export class AssetsService {
     await this.ensureNoOpenWorkOrders(id);
 
     if (permanent) {
-      await this.cleanupDocumentFiles(this.parseDocuments(currentRecord.documents, id));
+      await this.cleanupDocumentFiles(this.parseDocuments(toStringArray(currentRecord.documents), id));
       await this.prisma.asset.delete({ where: { id } });
       await this.recordAudit({
         tenantId: current.tenantId,
@@ -1068,7 +1075,7 @@ export class AssetsService {
     const updated = await this.prisma.asset.update({
       where: { id },
       data: {
-        documents: [...currentRecord.documents, JSON.stringify(documentRecord)]
+        documents: stringArrayToText([...toStringArray(currentRecord.documents), JSON.stringify(documentRecord)])
       }
     });
 
@@ -1081,12 +1088,12 @@ export class AssetsService {
       afterData: updated
     });
 
-    return this.parseDocuments(updated.documents, id);
+    return this.parseDocuments(toStringArray(updated.documents), id);
   }
 
   async downloadDocument(id: string, tenantId: string | null | undefined, documentId: string) {
     const asset = await this.requireAssetRecord(id, tenantId);
-    const document = this.parseDocuments(asset.documents, id).find((item) => item.id === documentId);
+    const document = this.parseDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
@@ -1117,7 +1124,7 @@ export class AssetsService {
   ) {
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const parsedDocuments = this.parseDocuments(currentRecord.documents, id);
+    const parsedDocuments = this.parseDocuments(toStringArray(currentRecord.documents), id);
     const document = parsedDocuments.find((item) => item.id === documentId);
 
     if (!document) {
@@ -1135,9 +1142,11 @@ export class AssetsService {
     const updated = await this.prisma.asset.update({
       where: { id },
       data: {
-        documents: parsedDocuments
-          .filter((item) => item.id !== documentId)
-          .map((item) => JSON.stringify(this.toDocumentStorageRecord(item)))
+        documents: stringArrayToText(
+          parsedDocuments
+            .filter((item) => item.id !== documentId)
+            .map((item) => JSON.stringify(this.toDocumentStorageRecord(item)))
+        )
       }
     });
 
@@ -1150,7 +1159,7 @@ export class AssetsService {
       afterData: updated
     });
 
-    return this.parseDocuments(updated.documents, id);
+    return this.parseDocuments(toStringArray(updated.documents), id);
   }
 
   async bulkImport(
@@ -1158,21 +1167,20 @@ export class AssetsService {
     actorId: string,
     items: BulkImportAssetItemDto[]
   ) {
+    const tid = requireTenantId(tenantId);
     const created = [];
     const updated = [];
 
     for (const item of items) {
+      // MP-003: assetTag is tenant-scoped (@@unique([tenantId, assetTag])) — a different
+      // tenant using the same tag is expected and no longer a conflict, so the lookup itself
+      // (via the compound selector) is the isolation boundary; no separate cross-tenant
+      // "already exists for another tenant" check is needed anymore.
       const existing = await this.prisma.asset.findUnique({
-        where: { assetTag: item.assetTag.trim() }
+        where: { tenantId_assetTag: { tenantId: tid, assetTag: item.assetTag.trim() } }
       });
 
       if (existing) {
-        if (tenantId && existing.tenantId && existing.tenantId !== tenantId) {
-          throw new BadRequestException(
-            `Asset tag ${item.assetTag.trim()} already exists for another tenant`
-          );
-        }
-
         const before = await this.findOne(existing.id, tenantId);
         const departmentFields = await this.resolveDepartmentFields(tenantId, item);
         const next = await this.prisma.asset.update({
@@ -1333,10 +1341,16 @@ export class AssetsService {
     const sortBy = query.sortBy ?? "updatedAt";
     const sortOrder = query.sortOrder ?? "desc";
 
-    return [
-      { [sortBy]: sortOrder } as Prisma.AssetOrderByWithRelationInput,
-      { updatedAt: "desc" as const }
-    ];
+    const primary = { [sortBy]: sortOrder } as Prisma.AssetOrderByWithRelationInput;
+
+    // SQL Server rejects an ORDER BY list that repeats the same column
+    // ("A column has been specified more than once in the order by list").
+    // Only add the updatedAt tiebreaker when it is not already the primary sort key.
+    if (sortBy === "updatedAt") {
+      return [primary];
+    }
+
+    return [primary, { updatedAt: "desc" as const }];
   }
 
   private buildAssetMutationInput(data: Partial<CreateAssetDto>): AssetMutationInput {
@@ -1397,18 +1411,19 @@ export class AssetsService {
       disposalDate: this.toNullableDate(data.disposalDate) ?? null,
       disposalReason: this.toNullableString(data.disposalReason) ?? null,
       archivedAt: null,
-      images: [],
-      documents: []
+      images: "[]",
+      documents: "[]"
     };
   }
 
-  private async ensureUniqueAssetTag(assetTag: string, excludeId?: string) {
+  /** MP-003: assetTag is tenant-scoped — see @@unique([tenantId, assetTag]). */
+  private async ensureUniqueAssetTag(tenantId: string, assetTag: string, excludeId?: string) {
     const existing = await this.prisma.asset.findUnique({
-      where: { assetTag: assetTag.trim() }
+      where: { tenantId_assetTag: { tenantId, assetTag: assetTag.trim() } }
     });
 
     if (existing && existing.id !== excludeId) {
-      throw new BadRequestException("Asset tag must be unique across the system");
+      throw new BadRequestException("Asset tag must be unique within your organization");
     }
   }
 
@@ -1534,7 +1549,7 @@ export class AssetsService {
       };
     }>
   ) {
-    const documents = this.parseDocuments(asset.documents, asset.id);
+    const documents = this.parseDocuments(toStringArray(asset.documents), asset.id);
 
     return {
       ...asset,

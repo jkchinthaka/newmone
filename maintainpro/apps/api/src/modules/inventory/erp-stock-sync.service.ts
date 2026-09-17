@@ -15,6 +15,12 @@ import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
 
+/** MP-003: SparePart.tenantId is now required — see driver-intelligence.service.ts for rationale. */
+const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
+function tenantFilterValue(tenantId: string | null): string {
+  return tenantId ?? NO_TENANT_MATCH;
+}
+
 export type ApplyStockSnapshotOptions = {
   /**
    * Normalized ERP balances from a prior dry-run in the same request flow.
@@ -214,7 +220,7 @@ export class ErpStockSyncService {
         const part = await this.prisma.sparePart.findFirst({
           where: {
             id: row.partId,
-            ...(tenantId !== undefined ? { tenantId } : {})
+            ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {})
           },
           select: { id: true, quantityInStock: true, reservedQuantity: true, availableQuantity: true }
         });
@@ -314,7 +320,7 @@ export class ErpStockSyncService {
     return this.prisma.sparePart.findMany({
       where: {
         isActive: true,
-        ...(tenantId !== undefined ? { tenantId } : {})
+        ...(tenantId !== undefined ? { tenantId: tenantFilterValue(tenantId) } : {})
       },
       select: {
         id: true,

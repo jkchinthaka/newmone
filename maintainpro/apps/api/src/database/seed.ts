@@ -16,6 +16,9 @@ import * as bcrypt from "bcryptjs";
 
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
 import { AssetTaxonomyService } from "../modules/asset-taxonomy/asset-taxonomy.service";
+import { MaintenanceConfigService } from "../modules/maintenance-config/maintenance-config.service";
+import { MaintenanceTemplatesService } from "../modules/maintenance-config/maintenance-templates.service";
+import { TenantFeaturesService } from "../modules/maintenance-config/tenant-features.service";
 import {
   normalizeWorkforceOnlyLinkedUserIds,
   upsertLinkedWorkforceEmployee,
@@ -1256,7 +1259,7 @@ async function main() {
 
   for (let i = 0; i < assetTags.length; i += 1) {
     const asset = await prisma.asset.upsert({
-      where: { assetTag: assetTags[i] },
+      where: { tenantId_assetTag: { tenantId: tenant.id, assetTag: assetTags[i] } },
       update: {
         tenantId: tenant.id,
         name: `Sample Asset ${i + 1}`,
@@ -1285,7 +1288,7 @@ async function main() {
   for (let i = 1; i <= 5; i += 1) {
     const vin = `VINSEED${i.toString().padStart(10, "0")}`;
     const vehicle = await prisma.vehicle.upsert({
-      where: { registrationNo: `MH-01-AB-10${i}` },
+      where: { tenantId_registrationNo: { tenantId: tenant.id, registrationNo: `MH-01-AB-10${i}` } },
       update: {
         tenantId: tenant.id,
         make: "Toyota",
@@ -1318,7 +1321,7 @@ async function main() {
 
   for (let i = 1; i <= 10; i += 1) {
     await prisma.sparePart.upsert({
-      where: { partNumber: `SP-${2000 + i}` },
+      where: { tenantId_partNumber: { tenantId: tenant.id, partNumber: `SP-${2000 + i}` } },
       update: {
         tenantId: tenant.id,
         name: `Spare Part ${i}`,
@@ -1353,18 +1356,23 @@ async function main() {
 
   for (let i = 0; i < workOrderStatuses.length; i += 1) {
     const woNumber = `WO-${new Date().getFullYear()}-${String(i + 1).padStart(4, "0")}`;
+    const jobDomains = ["MACHINERY", "SERVICE", "VEHICLE", "MACHINERY", "VEHICLE"] as const;
+    const jobDomain = jobDomains[i];
+    const isVehicle = jobDomain === "VEHICLE";
+    const isService = jobDomain === "SERVICE";
 
     await prisma.workOrder.upsert({
-      where: { woNumber },
+      where: { tenantId_woNumber: { tenantId: tenant.id, woNumber } },
       update: {
         tenantId: tenant.id,
-        title: `Sample Work Order ${i + 1}`,
-        description: `Generated sample work order ${i + 1}`,
+        title: `Sample ${jobDomain} Job ${i + 1}`,
+        description: `Generated sample ${jobDomain.toLowerCase()} work order ${i + 1}`,
         priority: [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL, Priority.MEDIUM][i],
         status: workOrderStatuses[i],
         type: [WorkOrderType.PREVENTIVE, WorkOrderType.CORRECTIVE, WorkOrderType.EMERGENCY, WorkOrderType.INSPECTION, WorkOrderType.INSTALLATION][i],
-        assetId: assetIds[i % assetIds.length],
-        vehicleId: vehicleIds[i % vehicleIds.length],
+        assetId: isVehicle || isService ? null : assetIds[i % assetIds.length],
+        vehicleId: isVehicle ? vehicleIds[i % vehicleIds.length] : null,
+        jobDomain,
         createdById: superAdmin.id,
         notes: "Seeded work order",
         attachments: stringArrayToText([])
@@ -1372,13 +1380,14 @@ async function main() {
       create: {
         tenantId: tenant.id,
         woNumber,
-        title: `Sample Work Order ${i + 1}`,
-        description: `Generated sample work order ${i + 1}`,
+        title: `Sample ${jobDomain} Job ${i + 1}`,
+        description: `Generated sample ${jobDomain.toLowerCase()} work order ${i + 1}`,
         priority: [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL, Priority.MEDIUM][i],
         status: workOrderStatuses[i],
         type: [WorkOrderType.PREVENTIVE, WorkOrderType.CORRECTIVE, WorkOrderType.EMERGENCY, WorkOrderType.INSPECTION, WorkOrderType.INSTALLATION][i],
-        assetId: assetIds[i % assetIds.length],
-        vehicleId: vehicleIds[i % vehicleIds.length],
+        assetId: isVehicle || isService ? null : assetIds[i % assetIds.length],
+        vehicleId: isVehicle ? vehicleIds[i % vehicleIds.length] : null,
+        jobDomain,
         createdById: superAdmin.id,
         notes: "Seeded work order",
         attachments: stringArrayToText([])
@@ -1395,7 +1404,7 @@ async function main() {
 
   for (const meterDef of meterDefinitions) {
     const meter = await prisma.utilityMeter.upsert({
-      where: { meterNumber: meterDef.meterNumber },
+      where: { tenantId_meterNumber: { tenantId: tenant.id, meterNumber: meterDef.meterNumber } },
       update: {
         tenantId: tenant.id,
         type: meterDef.type,
@@ -1529,6 +1538,27 @@ async function main() {
   console.log(
     `Asset taxonomy seed: domains=${taxonomySeed.domainsCreated} categories=${taxonomySeed.categoriesCreated} types=${taxonomySeed.typesCreated}`
   );
+
+  // Seed default job categories + priority SLA
+  const maintenanceConfig = new MaintenanceConfigService(prisma as never);
+  const catSeed = await maintenanceConfig.seedDefaultCategories({
+    sub: superAdmin.id,
+    tenantId: tenant.id,
+    role: "SUPER_ADMIN"
+  });
+  console.log(`Maintenance job categories seeded: created=${catSeed.created}`);
+
+  const features = new TenantFeaturesService(prisma as never);
+  await features.ensureDefaults(tenant.id, superAdmin.id);
+  console.log("Tenant feature flags ensured");
+
+  const templates = new MaintenanceTemplatesService(prisma as never);
+  const templateSeed = await templates.seedDefaults({
+    sub: superAdmin.id,
+    tenantId: tenant.id,
+    role: "SUPER_ADMIN"
+  });
+  console.log(`Maintenance templates seeded: ${JSON.stringify(templateSeed)}`);
 
   console.log("Seed complete");
 }

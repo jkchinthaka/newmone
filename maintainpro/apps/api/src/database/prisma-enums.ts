@@ -299,6 +299,13 @@ export enum Priority {
   CRITICAL = "CRITICAL",
 }
 
+/** Operational job lane for the unified Work Order engine (not AssetDomain taxonomy). */
+export enum JobDomain {
+  MACHINERY = "MACHINERY",
+  SERVICE = "SERVICE",
+  VEHICLE = "VEHICLE",
+}
+
 export enum WorkOrderStatus {
   OPEN = "OPEN",
   PLANNED = "PLANNED",

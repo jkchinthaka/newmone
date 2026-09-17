@@ -28,6 +28,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   assertAllowedStatusTransition,
   assertReasonProvided,
@@ -71,8 +72,12 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { assertValidHoldReason } from "./work-order-lifecycle";
 import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
+import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
+import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-templates.service";
+import { WarrantiesService } from "../warranties/warranties.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -86,6 +91,9 @@ export class WorkOrdersService {
     private readonly workOrderPartsService: WorkOrderPartsService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderAssigneesService: WorkOrderAssigneesService,
+    @Optional() private readonly maintenanceConfig?: MaintenanceConfigService,
+    @Optional() private readonly maintenanceTemplates?: MaintenanceTemplatesService,
+    @Optional() private readonly warranties?: WarrantiesService,
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService
@@ -177,7 +185,10 @@ export class WorkOrdersService {
     }
   }
 
-  private slaHours(priority: Priority): number {
+  private async slaHours(tenantId: string, priority: Priority): Promise<number> {
+    if (this.maintenanceConfig) {
+      return this.maintenanceConfig.resolveCompletionHours(tenantId, priority);
+    }
     switch (priority) {
       case Priority.CRITICAL:
         return 4;
@@ -528,6 +539,11 @@ export class WorkOrdersService {
       reportedAt?: string;
       failedAt?: string;
       idempotencyKey?: string;
+      /** MACHINERY | SERVICE | VEHICLE — optional; inferred when omitted */
+      jobDomain?: string;
+      domainId?: string;
+      /** Apply versioned MaintenanceTemplate — snapshot frozen on the WO */
+      maintenanceTemplateId?: string;
     },
     actor?: Actor
   ) {
@@ -612,14 +628,23 @@ export class WorkOrdersService {
     // Phase 11: inherit domainId from the linked asset when not supplied by the caller.
     // This ensures work orders are automatically scoped to the asset's maintenance domain
     // without requiring every client to pass the field explicitly.
-    let resolvedDomainId: string | undefined;
+    let resolvedDomainId: string | undefined = data.domainId?.trim() || undefined;
+    let assetDomainCode: string | null | undefined;
     if (assetId) {
       const asset = await this.prisma.asset.findFirst({
         where: { id: assetId, tenantId },
-        select: { domainId: true }
+        select: { domainId: true, domain: { select: { code: true } } }
       });
-      resolvedDomainId = asset?.domainId ?? undefined;
+      resolvedDomainId = resolvedDomainId ?? asset?.domainId ?? undefined;
+      assetDomainCode = asset?.domain?.code;
     }
+
+    const resolvedJobDomain = resolveJobDomain({
+      jobDomain: data.jobDomain,
+      vehicleId,
+      assetId,
+      assetDomainCode
+    });
 
     let taxonomyFields: {
       taxonomyCategoryId?: string;
@@ -665,13 +690,58 @@ export class WorkOrdersService {
           ? WorkOrderApprovalStatus.APPROVED
           : WorkOrderApprovalStatus.PENDING;
 
+    let templateFields: {
+      maintenanceTemplateId?: string;
+      maintenanceTemplateVersion?: number;
+      maintenanceTemplateSnapshot?: string;
+      estimatedHours?: number;
+      priority?: Priority;
+      executionMode?: string;
+      riskLevel?: string;
+      lotoRequired?: boolean;
+      permitReference?: string;
+    } = {};
+
+    if (data.maintenanceTemplateId && this.maintenanceTemplates) {
+      const template = await this.maintenanceTemplates.resolveActiveTemplate(
+        tenantId,
+        data.maintenanceTemplateId
+      );
+      if (!template) {
+        throw new BadRequestException("Active maintenance template not found");
+      }
+      const snapshot = this.maintenanceTemplates.buildSnapshot(template);
+      templateFields = {
+        maintenanceTemplateId: template.id,
+        maintenanceTemplateVersion: template.version,
+        maintenanceTemplateSnapshot: JSON.stringify(snapshot),
+        estimatedHours: template.estimatedHours ?? undefined,
+        priority: (template.defaultPriority as Priority) || data.priority,
+        executionMode: template.defaultExecutionMode ?? undefined,
+        permitReference: template.permitRequirement ?? undefined,
+        lotoRequired: JSON.stringify(snapshot.safetyRequirements || []).includes("LOTO")
+      };
+    }
+
+    let underWarranty = false;
+    if (this.warranties) {
+      const subjects: Array<{ subjectType: string; subjectId: string }> = [];
+      if (assetId) {
+        subjects.push({ subjectType: "ASSET", subjectId: assetId });
+        subjects.push({ subjectType: "MACHINE", subjectId: assetId });
+      }
+      if (vehicleId) subjects.push({ subjectType: "VEHICLE", subjectId: vehicleId });
+      const active = await this.warranties.findActiveForSubjects(tenantId, subjects);
+      underWarranty = active.length > 0;
+    }
+
     try {
       const created = await this.createWithNumberRetry(
         {
           tenantId: tenantId,
           title: data.title,
           description: data.description,
-          priority: data.priority,
+          priority: templateFields.priority ?? data.priority,
           type: data.type as WorkOrderType,
           assetId,
           vehicleId,
@@ -680,6 +750,7 @@ export class WorkOrdersService {
           scheduleId,
           createdById: authoritativeCreatorId,
           domainId: resolvedDomainId,
+          jobDomain: resolvedJobDomain,
           ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate
@@ -696,7 +767,15 @@ export class WorkOrdersService {
             approvalStatus === WorkOrderApprovalStatus.APPROVED && actor?.sub ? actor.sub : undefined,
           qrVerificationStatus: requiresQrVerification(data.type as never, assetId, vehicleId)
             ? QrVerificationStatus.PENDING
-            : QrVerificationStatus.NOT_REQUIRED
+            : QrVerificationStatus.NOT_REQUIRED,
+          maintenanceTemplateId: templateFields.maintenanceTemplateId,
+          maintenanceTemplateVersion: templateFields.maintenanceTemplateVersion,
+          maintenanceTemplateSnapshot: templateFields.maintenanceTemplateSnapshot,
+          estimatedHours: templateFields.estimatedHours,
+          executionMode: templateFields.executionMode || undefined,
+          permitReference: templateFields.permitReference,
+          lotoRequired: templateFields.lotoRequired ?? false,
+          underWarranty
         },
         actor
       );
@@ -1097,6 +1176,7 @@ export class WorkOrdersService {
       actualCost?: number;
       actualHours?: number;
       delayReason?: string;
+      holdReasonCode?: string;
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
@@ -1108,6 +1188,7 @@ export class WorkOrdersService {
     actor?: Actor
   ) {
     const current = await this.findOne(id, actor);
+    const tenantId = this.resolveTenantId(actor);
     const targetStatus =
       data.status === WorkOrderStatus.COMPLETED && TECHNICIAN_EXECUTION_ROLES.has(actor?.role as RoleName)
         ? WorkOrderStatus.TECHNICIAN_COMPLETED
@@ -1160,6 +1241,12 @@ export class WorkOrdersService {
 
     if (targetStatus === WorkOrderStatus.ON_HOLD) {
       assertReasonProvided("Hold reason", data.delayReason);
+      const holdCode = (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString();
+      if (this.maintenanceConfig) {
+        await this.maintenanceConfig.assertHoldReason(tenantId, holdCode, data.delayReason);
+      } else {
+        assertValidHoldReason(holdCode, data.delayReason);
+      }
     }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
@@ -1274,7 +1361,8 @@ export class WorkOrdersService {
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS && !current.startDate) {
       startDate = new Date();
-      slaDeadline = new Date(startDate.getTime() + this.slaHours(current.priority) * 60 * 60 * 1000);
+      const hours = await this.slaHours(tenantId, current.priority as Priority);
+      slaDeadline = new Date(startDate.getTime() + hours * 60 * 60 * 1000);
     }
 
     const completedDate =
@@ -1320,8 +1408,13 @@ export class WorkOrdersService {
             : current.holdNotes,
         holdReasonCode:
           targetStatus === WorkOrderStatus.ON_HOLD
-            ? current.holdReasonCode || "OTHER"
+            ? (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString().toUpperCase()
             : current.holdReasonCode,
+        acknowledgedAt:
+          (targetStatus === WorkOrderStatus.ASSIGNED || targetStatus === WorkOrderStatus.IN_PROGRESS) &&
+          !current.acknowledgedAt
+            ? new Date()
+            : current.acknowledgedAt,
         actualCost: data.actualCost ?? current.actualCost,
         actualHours: data.actualHours ?? current.actualHours,
         delayReason: data.delayReason?.trim() || current.delayReason,

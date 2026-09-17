@@ -1,5 +1,77 @@
 # MP-003 — Tenant-scoped business-key uniqueness (migration plan)
 
+**Status:** COMPLETE (2026-09-17)
+**Branch:** `maintainpro/phase-15-sqlserver-migration`
+**Migration:** `prisma/migrations/20260917120000_mp003_tenant_scoped_business_keys/migration.sql`
+**Live acceptance:** `scripts/mp003-two-tenant-acceptance.mjs` (`npm run test:mp003-two-tenant-acceptance`)
+
+> Everything below this line is the **original plan**, written for the pre-Phase-15 MongoDB
+> architecture on branch `fix/live-production-remediation` (Atlas snapshots, Mongo aggregation
+> duplicate-detection, sparse Mongo indexes). It is kept for historical record of the original
+> inventory and reasoning, but the actual execution differs in every implementation detail
+> because the platform migrated to SQL Server in Phase 15 between this plan being written and
+> being executed. **Do not follow the SQL/index syntax below — it is Mongo, not SQL Server.**
+> See the summary immediately below for what was actually done.
+
+## What was actually done (2026-09-17, SQL Server / Phase 15)
+
+**Migrated to `@@unique([tenantId, <key>])`** (9 models), with `tenantId` also made a required
+(NOT NULL) column on all nine — see schema.prisma comments on each field for the specific
+evidence considered per model, and the migration file's header comment for the full rationale:
+
+| Model | Field |
+| --- | --- |
+| `Asset` | `assetTag` |
+| `Vehicle` | `registrationNo` |
+| `Vehicle` | `vin` (nullable — filtered index `WHERE vin IS NOT NULL`, no plain `@unique`; Prisma has no partial-unique syntax) |
+| `Driver` | `licenseNumber` |
+| `WorkOrder` | `woNumber` |
+| `SparePart` | `partNumber` |
+| `UtilityMeter` | `meterNumber` |
+| `AccidentReport` | `reportNumber` |
+| `InsuranceClaim` | `claimNumber` |
+| `TrafficFine` | `fineNumber` |
+
+**Kept global (product decision, with evidence — not left undecided):**
+
+| Model | Field | Why |
+| --- | --- | --- |
+| `CleaningLocation` | `qrCode` | Cryptographically random (`randomUUID()`), resolved by `findUnique({ where: { qrCode } })` alone at scan time (a physical QR sticker scan has no tenant context available by design); `CleaningService.scanVisit()` already enforces isolation at the application layer with an explicit post-lookup `location.tenantId !== scopedTenantId` check. |
+
+**VIN decision reversed from the prior (2026-09-16) session.** That session treated VIN as a
+"real-world globally-unique identifier" and kept it global — that was an assumption about the
+physical world, not evidence from this codebase. This session found the actual evidence:
+`vehicle-master-import.ts`'s VIN duplicate-detection has only ever compared against
+`prisma.vehicle.findMany({ where: { tenantId } })` — i.e. the application has only ever
+validated VIN uniqueness per tenant, never platform-wide. VIN is now tenant-scoped.
+
+**Application code changed:** every `findUnique`/`upsert` bare lookup on a migrated field now
+uses the compound `tenantId_<field>` selector (seed.ts, assets.service.ts,
+vehicle-master-import.ts); `AssetsService.ensureUniqueAssetTag` and its bulk-import duplicate
+check now take a required `tenantId`; four work-order-number generators
+(`AccidentsService.nextReportNumber`, `InsuranceClaimsService.nextClaimNumber`,
+`TrafficFinesService.nextFineNumber`, `PredictiveAiService.nextWorkOrderNumber`) were scoped by
+tenant and given the same retry-on-P2002 concurrency pattern `WorkOrdersService.nextWoNumber`
+already had (they previously counted rows platform-wide, which — like the schema constraint
+itself — was a latent cross-tenant collision bug masked by only ever having one seeded tenant);
+~15 additional call sites across driver-intelligence/evidence/fuel/maintenance/erp-stock-sync/
+work-order-category-reports/work-order-activity services needed a `null`-safe sentinel value
+for `tenantId` filters once the columns became non-nullable (an authenticated actor with no
+tenant membership must still resolve to "no match", not a type error or an unfiltered query).
+
+**Live-verified:** `scripts/mp003-two-tenant-acceptance.mjs` — two throwaway tenants, cross-tenant
+reuse succeeds for every migrated field, same-tenant reuse is rejected (P2002), tenant lookup
+isolation holds, work-order number generation no longer collides across tenants, ERP part-number
+lookup stays tenant-scoped. Run against both the existing dev database and a from-empty
+disposable database (`MaintainProTenantScopeValidation`) — 18/18 checks pass in both.
+
+**Not migrated — awaiting product decision or deliberately out of scope of this batch:** none.
+Every field in the original inventory below was resolved one way or the other.
+
+---
+
+## Original plan (2026-09-15, MongoDB era — historical record only)
+
 **Status:** MIGRATION REQUIRED (no Prisma `@unique` / Mongo index change in this remediation batch)  
 **Branch:** `fix/live-production-remediation`  
 **Rule:** Do not alter live-index semantics until duplicate inventory, backups, and dual-write rollout are approved.

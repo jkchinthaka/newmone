@@ -11,6 +11,17 @@ import {
 
 const prisma = new PrismaClient();
 
+/**
+ * MP-003: Asset/Vehicle/Driver.tenantId are now required columns, so a `where: { tenantId }`
+ * filter can no longer accept `null`. In practice main() only ever calls these functions with a
+ * real tenant.id from `prisma.tenant.findMany()`, but the helpers are typed `string | null` for
+ * generality — substitute a sentinel that can never match a real row rather than loosen the type.
+ */
+const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
+function tenantFilterValue(tenantId: string | null): string {
+  return tenantId ?? NO_TENANT_MATCH;
+}
+
 type TenantTarget = { id: string | null; label: string };
 type TenantMigrationReport = {
   tenantId: string | null;
@@ -81,10 +92,10 @@ async function dedupeDepartments(tenantId: string | null) {
     }
 
     await prisma.$transaction([
-      prisma.asset.updateMany({ where: { tenantId, departmentId: department.id }, data: { departmentId: canonicalId } }),
-      prisma.vehicle.updateMany({ where: { tenantId, departmentId: department.id }, data: { departmentId: canonicalId } }),
+      prisma.asset.updateMany({ where: { tenantId: tenantFilterValue(tenantId), departmentId: department.id }, data: { departmentId: canonicalId } }),
+      prisma.vehicle.updateMany({ where: { tenantId: tenantFilterValue(tenantId), departmentId: department.id }, data: { departmentId: canonicalId } }),
       prisma.user.updateMany({ where: { tenantId, departmentId: department.id }, data: { departmentId: canonicalId } }),
-      prisma.driver.updateMany({ where: { tenantId, departmentId: department.id }, data: { departmentId: canonicalId } }),
+      prisma.driver.updateMany({ where: { tenantId: tenantFilterValue(tenantId), departmentId: department.id }, data: { departmentId: canonicalId } }),
       prisma.department.update({ where: { id: department.id }, data: { isActive: false } })
     ]);
     deactivatedDuplicates += 1;
@@ -101,7 +112,7 @@ async function mapLegacyAssetDepartments(tenantId: string | null) {
   const departmentByName = new Map(departments.map((department) => [normalizeDepartmentName(department.name), department]));
   const assets = await prisma.asset.findMany({
     where: {
-      tenantId,
+      tenantId: tenantFilterValue(tenantId),
       departmentId: null,
       department: { not: null }
     },

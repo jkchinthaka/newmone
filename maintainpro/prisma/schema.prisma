@@ -74,6 +74,14 @@ model Tenant {
   /// Phase 5 canonical maintenance requests (FacilityIssue retained + bridge)
   maintenanceRequests          MaintenanceRequest[]
   maintenanceRequestHistories  MaintenanceRequestHistory[]
+  maintenanceJobCategories     MaintenanceJobCategory[]
+  prioritySlaRules             PrioritySlaRule[]
+  maintenanceReasonCodes       MaintenanceReasonCode[]
+  configChangeHistories        ConfigChangeHistory[]
+  tenantFeatureFlags           TenantFeatureFlag[]
+  maintenanceTemplates         MaintenanceTemplate[]
+  entityWarranties             EntityWarranty[]
+  warrantyClaims               WarrantyClaim[]
   requestProblemCategories     RequestProblemCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -361,6 +369,13 @@ model User {
   reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
   triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
   maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
+  configChangeHistories       ConfigChangeHistory[]       @relation("ConfigChangeActor")
+  tenantFeatureFlagsUpdated   TenantFeatureFlag[]         @relation("TenantFeatureFlagUpdatedBy")
+  maintenanceTemplatesCreated MaintenanceTemplate[]       @relation("MaintenanceTemplateCreatedBy")
+  maintenanceTemplatesUpdated MaintenanceTemplate[]       @relation("MaintenanceTemplateUpdatedBy")
+  entityWarrantiesCreated     EntityWarranty[]            @relation("EntityWarrantyCreatedBy")
+  warrantyClaimsCreated       WarrantyClaim[]             @relation("WarrantyClaimCreatedBy")
+  warrantyClaimsUpdated       WarrantyClaim[]             @relation("WarrantyClaimUpdatedBy")
   /// Phase 7 approval engine actors
   approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
   approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
@@ -653,9 +668,17 @@ model Department {
 
 model Asset {
   id               String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String?     @db.NVarChar(36)
-  tenant           Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetTag         String      @unique
+  /// MP-003: required, not optional — every Asset belongs to exactly one tenant (no code
+  /// path ever created one with tenantId: null; 0 null-tenant rows found in preflight).
+  /// Required so the @@unique([tenantId, assetTag]) below is airtight: SQL Server treats
+  /// NULL as never-equal-to-NULL in unique constraints, so a nullable tenantId would let
+  /// multiple untenanted rows share the same assetTag without a constraint violation.
+  tenantId         String      @db.NVarChar(36)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped, not platform-global — see @@unique([tenantId, assetTag]) below.
+  /// Bounded: a composite index key of unbounded NVARCHAR(1000) + tenantId would itself risk
+  /// the SQL Server 1700-byte nonclustered index key limit (see the Vehicle fields above).
+  assetTag         String      @db.NVarChar(64)
   name             String
   description      String?
   /// Legacy fixed enum — retained for compatibility; prefer categoryMasterId
@@ -694,7 +717,8 @@ model Asset {
   archivedAt       DateTime?
   images           String      @default("[]") @db.NVarChar(Max)
   documents        String      @default("[]") @db.NVarChar(Max)
-  qrCodeUrl        String?
+  /// Data-URI QR images can be several KB of base64; unbounded like the Mongo original.
+  qrCodeUrl        String?  @db.NVarChar(Max)
 
   /// Phase 4 universal registry links
   domainId             String?              @db.NVarChar(36)
@@ -731,6 +755,7 @@ model Asset {
   inspections          Inspection[]
   calibrationRecords   CalibrationRecord[]
 
+  @@unique([tenantId, assetTag])
   @@index([tenantId])
   @@index([status])
   @@index([category])
@@ -864,11 +889,25 @@ model AssetLocationHistory {
 
 model Vehicle {
   id                        String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId                  String?     @db.NVarChar(36)
-  tenant                    Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  registrationNo            String      @unique
-  assetTag                  String?
+  /// MP-003: required — see Asset.tenantId comment for the same rationale (0 null-tenant
+  /// rows in preflight; required for @@unique([tenantId, registrationNo]) to be airtight).
+  tenantId                  String      @db.NVarChar(36)
+  tenant                    Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Bounded to real-world plate lengths (SQL Server nonclustered index keys cap at 1700 bytes;
+  /// unbounded nvarchar(1000) here would be 2000 bytes and risk "index entry too long" at insert time).
+  /// MP-003: tenant-scoped, not platform-global — see @@unique([tenantId, registrationNo]) below.
+  registrationNo            String      @db.NVarChar(64)
+  assetTag                  String?     @db.NVarChar(64)
   /// Phase 4: Vehicle becomes Asset extension — optional link; full Fleet in Phase 10
+  /// `@unique` is required here by Prisma itself (a one-to-one `@relation` FK must be unique) —
+  /// it cannot be dropped. On SQL Server, though, the plain UNIQUE constraint Prisma would normally
+  /// generate from this attribute allows only ONE NULL total on a nullable column (unlike
+  /// Postgres/Mongo, which allow many), so seeding more than one vehicle without an asset link fails.
+  /// Prisma 5 has no syntax for a filtered/partial unique index (prisma/prisma#3387), so migration
+  /// 20260916120000_sqlserver_filtered_unique_indexes DROPs the plain constraint Prisma's initial
+  /// migration created and replaces it with `CREATE UNIQUE NONCLUSTERED INDEX ... WHERE [assetId]
+  /// IS NOT NULL`. If a future `prisma migrate dev` schema diff proposes recreating a plain unique
+  /// constraint on this column, discard/edit that generated migration — do not apply it as-is.
   assetId                   String?     @unique @db.NVarChar(36)
   asset                     Asset?      @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   make                      String
@@ -881,7 +920,19 @@ model Vehicle {
   status                    String      @default("") @db.NVarChar(64)
   serviceStatus             String      @default("") @db.NVarChar(64)
   color                     String?
-  vin                       String?     @unique
+  /// VINs are 17 chars under ISO 3779 (older/legacy formats can be shorter); 32 leaves slack for
+  /// legacy data.
+  /// MP-003 (2026-09-17): TENANT-SCOPED, not platform-global. Reverses the 2026-09-16 session's
+  /// framing of VIN as "a real-world globally-unique identifier" — that was an assumption about
+  /// the physical world, not evidence from this codebase. The only place VIN uniqueness is
+  /// actually validated is vehicle-master-import.ts's bulk-import duplicate check, which builds
+  /// its "existing VIN" set exclusively from `prisma.vehicle.findMany({ where: { tenantId } })` —
+  /// i.e. the application has only ever enforced VIN uniqueness per tenant, never across tenants.
+  /// No other code path (no DTO field, no direct CRUD validation) touches VIN at all. Enforced via
+  /// a migration-only filtered composite index (Prisma has no partial-unique syntax, prisma#3387):
+  /// `CREATE UNIQUE NONCLUSTERED INDEX ... ON Vehicle(tenantId, vin) WHERE vin IS NOT NULL` — see
+  /// 20260917120000_mp003_tenant_scoped_business_keys.
+  vin                       String?     @db.NVarChar(32)
   engineNo                  String?
   vendorName                String?
   costCenter                String?
@@ -939,6 +990,7 @@ model Vehicle {
   batteries            VehicleBattery[]
   assignments          VehicleAssignment[]
 
+  @@unique([tenantId, registrationNo])
   @@index([tenantId])
   @@index([status])
   @@index([driverId])
@@ -1046,11 +1098,14 @@ model VehicleAssignment {
 
 model Driver {
   id                        String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId                  String?     @db.NVarChar(36)
-  tenant                    Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId                  String      @db.NVarChar(36)
+  tenant                    Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   userId                    String      @unique @db.NVarChar(36)
   user                      User        @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  licenseNumber             String      @unique
+  /// MP-003: tenant-scoped — see @@unique([tenantId, licenseNumber]) below. Bounded for the
+  /// same composite-index-key-size reason as Asset.assetTag above.
+  licenseNumber             String      @db.NVarChar(64)
   licenseClass              String
   licenseExpiry             DateTime
   isAvailable               Boolean     @default(true)
@@ -1074,6 +1129,7 @@ model Driver {
   /// Phase 10 — driver assignment history
   vehicleAssignments VehicleAssignment[]
 
+  @@unique([tenantId, licenseNumber])
   @@index([tenantId])
   @@index([departmentId])
 }
@@ -1265,9 +1321,17 @@ model MaintenanceLog {
 
 model WorkOrder {
   id                          String               @id @default(cuid()) @db.NVarChar(36)
-  tenantId                    String?              @db.NVarChar(36)
-  tenant                      Tenant?              @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  woNumber                    String               @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId                    String               @db.NVarChar(36)
+  tenant                      Tenant               @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, woNumber]) below. WorkOrdersService.nextWoNumber()
+  /// already generates "WO-<year>-NNNN" scoped to the current tenant only (it queries the latest
+  /// woNumber WHERE tenantId = <actor's tenant>), so under the old global constraint two different
+  /// tenants' first work orders of a year would both compute "WO-2026-0001" and the second tenant's
+  /// create would fail (and exhaust createWithNumberRetry's 8 attempts, since retrying recomputes the
+  /// same already-taken number every time) — a real latent bug, just never observed because only one
+  /// tenant existed in seeded data. This constraint makes that generation scheme actually correct.
+  woNumber                    String               @db.NVarChar(64)
   title                       String
   description                 String
   priority                    String               @default("") @db.NVarChar(64)
@@ -1342,6 +1406,14 @@ model WorkOrder {
   department                  Department?          @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   domainId                    String?              @db.NVarChar(36)
   domain                      AssetDomain?         @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE — first-class ops lane on the unified WO engine
+  jobDomain                   String?              @db.NVarChar(32)
+  /// Versioned maintenance template applied at create (immutable snapshot below)
+  maintenanceTemplateId       String?              @db.NVarChar(36)
+  maintenanceTemplate         MaintenanceTemplate? @relation(fields: [maintenanceTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceTemplateVersion  Int?
+  maintenanceTemplateSnapshot String?              @db.NVarChar(Max)
+  underWarranty               Boolean              @default(false)
   /// Reverse unique link also on MaintenanceRequest.workOrderId — keep both for query convenience
   maintenanceRequest          MaintenanceRequest?
 
@@ -1410,6 +1482,7 @@ model WorkOrder {
   statusHistory       WorkOrderStatusHistory[]
   costSnapshot        WorkOrderCostSnapshot?
   repairWarranties    RepairWarranty[]
+  warrantyClaims      WarrantyClaim[]
 
   /// Phase 8 PM source traceability
   pmPlanId        String? @db.NVarChar(36)
@@ -1433,6 +1506,7 @@ model WorkOrder {
   triageClassifiedAt   DateTime?
   triageClassifiedById String?            @db.NVarChar(36)
 
+  @@unique([tenantId, woNumber])
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -1448,6 +1522,9 @@ model WorkOrder {
   @@index([tenantId, pmOccurrenceKey])
   @@index([tenantId, vendorSupplierId])
   @@index([tenantId, executionMode])
+  @@index([tenantId, jobDomain])
+  @@index([tenantId, jobDomain, status])
+  @@index([tenantId, maintenanceTemplateId])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -1708,9 +1785,18 @@ model EmployeeLeaveRequest {
 
 model SparePart {
   id                  String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId            String?   @db.NVarChar(36)
-  tenant              Tenant?   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partNumber          String    @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, partNumber]) below. InventoryService.createPart()
+  /// already ran a { tenantId, partNumber } duplicate check with the message "Part number must be
+  /// unique within tenant context" before this migration — the DB constraint was stricter (global)
+  /// than the application's own documented intent, so a second tenant reusing a part number already
+  /// used by another tenant would pass that app-level check and then fail with a raw, unhandled
+  /// Prisma unique-constraint error at the create() call. ERP matching (erp-excel-import.service.ts,
+  /// erp-stock-sync.service.ts) already scopes every SparePart lookup by tenantId before building its
+  /// in-memory part-number maps, so no ERP call site required changes for this migration.
+  partNumber          String    @db.NVarChar(64)
   name                String
   description         String?
   category            String
@@ -1758,6 +1844,7 @@ model SparePart {
   installedParts             InstalledPart[]
   procurementRecommendations ProcurementRecommendation[]
 
+  @@unique([tenantId, partNumber])
   @@index([tenantId])
   @@index([supplierId])
   @@index([tenantId, isActive])
@@ -2441,9 +2528,11 @@ model PurchaseReceiptIdempotency {
 
 model UtilityMeter {
   id          String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId    String?  @db.NVarChar(36)
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  meterNumber String   @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, meterNumber]) below.
+  meterNumber String   @db.NVarChar(64)
   type        String   @db.NVarChar(64)
   location    String
   description String?
@@ -2455,6 +2544,7 @@ model UtilityMeter {
   readings MeterReading[]
   bills    UtilityBill[]
 
+  @@unique([tenantId, meterNumber])
   @@index([tenantId])
 }
 
@@ -2767,8 +2857,20 @@ model CleaningLocation {
   building                String?
   floor                   String?
   description             String?
+  /// MP-003 (2026-09-17): KEPT GLOBAL — deliberately not tenant-scoped, unlike the other
+  /// business keys touched in this migration. Evidence: (1) the value is a cryptographically
+  /// random `randomUUID()` (cleaning.service.ts), not a human-entered code, so cross-tenant
+  /// collision risk is already negligible; (2) CleaningService.scanVisit() resolves a scanned
+  /// physical QR sticker with `findUnique({ where: { qrCode } })` alone — by design, the
+  /// scanning device has no tenant context up front, that's the whole point of scanning — and
+  /// only AFTER that global lookup does it explicitly re-check
+  /// `location.tenantId !== scopedTenantId` and fail closed (commented "Fail-closed: the
+  /// scanned location must belong to the cleaner's tenant"). That is: tenant isolation for QR
+  /// scanning is intentionally enforced at the application layer, not the uniqueness
+  /// constraint. Making qrCode tenant-scoped would break `findUnique({ where: { qrCode } })`
+  /// (Prisma would no longer treat it as a unique selector) for no isolation benefit.
   qrCode                  String   @unique
-  qrCodeUrl               String?
+  qrCodeUrl               String?  @db.NVarChar(Max)
   scheduleCron            String?
   shiftWindow             String?
   cleaningFrequency       Int      @default(1)
@@ -2912,6 +3014,8 @@ model MaintenanceRequest {
   department           Department?         @relation("RequestDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   domainId             String?             @db.NVarChar(36)
   domain               AssetDomain?        @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE — inherited by converted work orders
+  jobDomain            String?             @db.NVarChar(32)
 
   problemCategoryId    String?                 @db.NVarChar(36)
   problemCategory      RequestProblemCategory? @relation(fields: [problemCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2973,8 +3077,222 @@ model MaintenanceRequest {
   @@index([tenantId, priority, status])
   @@index([tenantId, reportedById, createdAt])
   @@index([tenantId, domainId])
+  @@index([tenantId, jobDomain])
   @@index([tenantId, duplicateOfId])
   @@index([tenantId, legacySourceType, legacySourceId])
+}
+
+/// Admin-configurable main/sub job categories by operational job domain.
+model MaintenanceJobCategory {
+  id        String                  @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String                  @db.NVarChar(36)
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MACHINERY | SERVICE | VEHICLE
+  jobDomain String                  @db.NVarChar(32)
+  /// MAIN | SUB
+  level     String                  @db.NVarChar(16)
+  parentId  String?                 @db.NVarChar(36)
+  parent    MaintenanceJobCategory? @relation("JobCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  MaintenanceJobCategory[] @relation("JobCategoryTree")
+  code      String                  @db.NVarChar(64)
+  name      String                  @db.NVarChar(200)
+  active    Boolean                 @default(true)
+  sortOrder Int                     @default(0)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  @@unique([tenantId, jobDomain, code])
+  @@index([tenantId, jobDomain, level, active])
+  @@index([tenantId, parentId])
+}
+
+/// Admin-configurable priority response / completion targets (minutes).
+model PrioritySlaRule {
+  id                 String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId           String   @db.NVarChar(36)
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  priority           String   @db.NVarChar(32)
+  responseMinutes    Int?
+  completionMinutes  Int?
+  escalateOnBreach   Boolean  @default(true)
+  notifyOnBreach     Boolean  @default(true)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, priority])
+  @@index([tenantId, active])
+}
+
+/// Admin-configurable hold / delay reason codes (replaces hardcoded-only lists).
+model MaintenanceReasonCode {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// HOLD | DELAY
+  kind        String   @db.NVarChar(16)
+  code        String   @db.NVarChar(64)
+  name        String   @db.NVarChar(200)
+  description String?
+  requiresNotes Boolean @default(false)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, kind, code])
+  @@index([tenantId, kind, active])
+}
+
+/// Append-only history for Admin master-data and policy configuration changes.
+model ConfigChangeHistory {
+  id           String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String   @db.NVarChar(36)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// e.g. PrioritySlaRule, MaintenanceJobCategory, MaintenanceAnalysisCode
+  entityType   String   @db.NVarChar(64)
+  entityId     String   @db.NVarChar(36)
+  action       String   @db.NVarChar(32)
+  reason       String?
+  beforeJson   String?  @db.NVarChar(Max)
+  afterJson    String?  @db.NVarChar(Max)
+  version      Int      @default(1)
+  actorId      String?  @db.NVarChar(36)
+  actor        User?    @relation("ConfigChangeActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+/// Tenant-scoped module/feature switches. UI may hide modules; backend still enforces.
+model TenantFeatureFlag {
+  id            String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String    @db.NVarChar(36)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code          String    @db.NVarChar(64)
+  name          String    @db.NVarChar(200)
+  description   String?
+  enabled       Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  /// Safe typed JSON payload only — never executable scripts
+  configJson    String?   @db.NVarChar(Max)
+  updatedById   String?   @db.NVarChar(36)
+  updatedBy     User?     @relation("TenantFeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, enabled])
+}
+
+/// Versioned reusable maintenance work template (not the same as ChecklistTemplate).
+model MaintenanceTemplate {
+  id                    String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId              String    @db.NVarChar(36)
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                  String    @db.NVarChar(64)
+  name                  String    @db.NVarChar(200)
+  description           String?
+  /// MACHINERY | SERVICE | VEHICLE
+  jobDomain             String    @db.NVarChar(32)
+  jobType               String?   @db.NVarChar(64)
+  categoryCode          String?   @db.NVarChar(64)
+  subcategoryCode       String?   @db.NVarChar(64)
+  defaultPriority       String    @default("MEDIUM") @db.NVarChar(32)
+  estimatedHours        Float?
+  estimatedDowntimeMin  Int?
+  defaultExecutionMode  String?   @db.NVarChar(32)
+  requiredSkillsJson    String    @default("[]") @db.NVarChar(Max)
+  defaultPartsJson      String    @default("[]") @db.NVarChar(Max)
+  safetyRequirementsJson String   @default("[]") @db.NVarChar(Max)
+  permitRequirement     String?   @db.NVarChar(64)
+  checklistTemplateId   String?   @db.NVarChar(36)
+  checklistTemplate     ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  signOffRequirementsJson String  @default("[]") @db.NVarChar(Max)
+  instructions          String?   @db.NVarChar(Max)
+  documentsJson         String    @default("[]") @db.NVarChar(Max)
+  version               Int       @default(1)
+  effectiveFrom         DateTime  @default(now())
+  effectiveTo           DateTime?
+  active                Boolean   @default(true)
+  createdById           String?   @db.NVarChar(36)
+  createdBy             User?     @relation("MaintenanceTemplateCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById           String?   @db.NVarChar(36)
+  updatedBy             User?     @relation("MaintenanceTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workOrders            WorkOrder[]
+
+  @@unique([tenantId, code, version])
+  @@index([tenantId, jobDomain, active])
+  @@index([tenantId, code, active])
+}
+
+/// Warranty covering an asset, vehicle, part, tyre, battery, or vendor repair subject.
+model EntityWarranty {
+  id              String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String    @db.NVarChar(36)
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// ASSET | VEHICLE | MACHINE | TYRE | BATTERY | SPARE_PART | SERIALIZED_COMPONENT | VENDOR_REPAIR
+  subjectType     String    @db.NVarChar(32)
+  subjectId       String    @db.NVarChar(36)
+  provider        String    @db.NVarChar(200)
+  reference       String?   @db.NVarChar(128)
+  coverageType    String?   @db.NVarChar(64)
+  coverageNotes   String?   @db.NVarChar(Max)
+  startDate       DateTime
+  endDate         DateTime
+  mileageLimit    Int?
+  hourLimit       Float?
+  documentUrlsJson String   @default("[]") @db.NVarChar(Max)
+  /// ACTIVE | EXPIRED | VOID | CLAIMED
+  status          String    @default("ACTIVE") @db.NVarChar(32)
+  /// WARN | APPROVAL_REQUIRED | RESTRICT_EXTERNAL | VENDOR_RETURN
+  policyAction    String    @default("WARN") @db.NVarChar(32)
+  createdById     String?   @db.NVarChar(36)
+  createdBy       User?     @relation("EntityWarrantyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  claims          WarrantyClaim[]
+
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, status, endDate])
+  @@index([tenantId, endDate])
+}
+
+/// Warranty claim / recovery workflow.
+model WarrantyClaim {
+  id               String         @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String         @db.NVarChar(36)
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warrantyId       String         @db.NVarChar(36)
+  warranty         EntityWarranty @relation(fields: [warrantyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId      String?        @db.NVarChar(36)
+  workOrder        WorkOrder?     @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  claimNumber      String         @db.NVarChar(64)
+  /// ELIGIBLE | PREPARED | SUBMITTED | ACCEPTED | REJECTED | RECOVERED | CLOSED
+  status           String         @default("ELIGIBLE") @db.NVarChar(32)
+  claimAmount      Decimal?       @db.Decimal(18, 2)
+  approvedAmount   Decimal?       @db.Decimal(18, 2)
+  recoveredAmount  Decimal?       @db.Decimal(18, 2)
+  currency         String         @default("LKR") @db.NVarChar(8)
+  submittedAt      DateTime?
+  responseAt       DateTime?
+  documentUrlsJson String         @default("[]") @db.NVarChar(Max)
+  notes            String?        @db.NVarChar(Max)
+  createdById      String?        @db.NVarChar(36)
+  createdBy        User?          @relation("WarrantyClaimCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById      String?        @db.NVarChar(36)
+  updatedBy        User?          @relation("WarrantyClaimUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([tenantId, claimNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, warrantyId])
+  @@index([tenantId, workOrderId])
 }
 
 model MaintenanceRequestHistory {
@@ -3185,7 +3503,7 @@ model LivestockAnimal {
   purchasePriceLkr Float?
   weightKg         Float?
   status           String    @default("") @db.NVarChar(64)
-  qrCodeUrl        String?
+  qrCodeUrl        String?  @db.NVarChar(Max)
   archivedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -3360,7 +3678,7 @@ model FarmWorker {
   dailyWageLkr Float?
   skillTags    String    @default("[]") @db.NVarChar(Max)
   status       String    @default("") @db.NVarChar(64)
-  qrCodeUrl    String?
+  qrCodeUrl    String?  @db.NVarChar(Max)
   archivedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -3446,7 +3764,7 @@ model TraceabilityRecord {
   harvestDate     DateTime
   buyerName       String?
   certifications  String                  @default("[]") @db.NVarChar(Max)
-  qrCodeUrl       String?
+  qrCodeUrl       String?  @db.NVarChar(Max)
   publicUrl       String?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
@@ -3491,9 +3809,11 @@ model VehicleDocument {
 
 model AccidentReport {
   id                  String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId            String?  @db.NVarChar(36)
-  tenant              Tenant?  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  reportNumber        String   @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId            String   @db.NVarChar(36)
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, reportNumber]) below.
+  reportNumber        String   @db.NVarChar(64)
   vehicleId           String   @db.NVarChar(36)
   vehicle             Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   driverId            String?  @db.NVarChar(36)
@@ -3519,6 +3839,7 @@ model AccidentReport {
   workOrders      WorkOrder[]
   insuranceClaims InsuranceClaim[]
 
+  @@unique([tenantId, reportNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([driverId])
@@ -3543,9 +3864,11 @@ model AccidentEvidence {
 
 model InsuranceClaim {
   id             String          @id @default(cuid()) @db.NVarChar(36)
-  tenantId       String?         @db.NVarChar(36)
-  tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  claimNumber    String          @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId       String          @db.NVarChar(36)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, claimNumber]) below.
+  claimNumber    String          @db.NVarChar(64)
   vehicleId      String          @db.NVarChar(36)
   vehicle        Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   accidentId     String?         @db.NVarChar(36)
@@ -3564,6 +3887,7 @@ model InsuranceClaim {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
+  @@unique([tenantId, claimNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([accidentId])
@@ -3572,9 +3896,14 @@ model InsuranceClaim {
 
 model TrafficFine {
   id               String      @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String?     @db.NVarChar(36)
-  tenant           Tenant?     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fineNumber       String      @unique
+  /// MP-003: required — see Asset.tenantId comment for rationale.
+  tenantId         String      @db.NVarChar(36)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MP-003: tenant-scoped — see @@unique([tenantId, fineNumber]) below. fineNumber here is
+  /// MaintainPro's own internal generated reference (FIN-<year>-NNNNN, see nextFineNumber()),
+  /// not the government/traffic-authority citation number — that external identifier isn't
+  /// modeled as its own field, so no separate global-vs-tenant question applies to it.
+  fineNumber       String      @db.NVarChar(64)
   vehicleId        String      @db.NVarChar(36)
   vehicle          Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   driverId         String?     @db.NVarChar(36)
@@ -3600,6 +3929,7 @@ model TrafficFine {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
+  @@unique([tenantId, fineNumber])
   @@index([tenantId])
   @@index([vehicleId])
   @@index([driverId])
@@ -4870,6 +5200,7 @@ model ChecklistTemplate {
   items               ChecklistTemplateItem[]
   pmPlans             PmPlan[]
   inspectionTemplates InspectionTemplate[]
+  maintenanceTemplates MaintenanceTemplate[]
 
   @@unique([tenantId, code, version])
   @@index([tenantId, isActive])

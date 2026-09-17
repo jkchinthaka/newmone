@@ -81,6 +81,7 @@ export interface WorkOrder {
   cancelledReason?: string | null;
   reopenReason?: string | null;
   type: WorkOrderType;
+  jobDomain?: string | null;
   assetId?: string | null;
   vehicleId?: string | null;
   scheduleId?: string | null;
@@ -129,6 +130,8 @@ export interface WorkOrderFilters {
   page: number;
   pageSize: number;
   queue: string;
+  /** MACHINERY | SERVICE | VEHICLE */
+  jobDomain?: string;
 }
 
 export interface CreateWorkOrderInput {
@@ -147,6 +150,7 @@ export interface CreateWorkOrderInput {
   taxonomyIssueId?: string;
   isTriage?: boolean;
   triageReason?: string;
+  jobDomain?: string;
 }
 
 export interface UpdateWorkOrderInput {

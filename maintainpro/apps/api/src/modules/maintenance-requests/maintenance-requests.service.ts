@@ -15,6 +15,7 @@ import {
 
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import { PrismaService } from "../../database/prisma.service";
 import { AssetRegistryService } from "../assets/asset-registry.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -99,6 +100,21 @@ export class MaintenanceRequestsService {
     const placement = await this.resolvePlacement(tid, dto);
     const snapshot = await this.buildContextSnapshot(tid, placement);
 
+    let assetDomainCode: string | null | undefined;
+    if (placement.domainId) {
+      const domain = await this.prisma.assetDomain.findFirst({
+        where: { id: placement.domainId, tenantId: tid },
+        select: { code: true }
+      });
+      assetDomainCode = domain?.code;
+    }
+
+    const jobDomain = resolveJobDomain({
+      jobDomain: dto.jobDomain,
+      assetId: placement.assetId,
+      assetDomainCode
+    });
+
     const priority = dto.isEmergency
       ? Priority.HIGH
       : dto.priority ?? Priority.MEDIUM;
@@ -110,6 +126,7 @@ export class MaintenanceRequestsService {
       functionalLocationId: placement.functionalLocationId,
       departmentId: placement.departmentId,
       domainId: placement.domainId,
+      jobDomain,
       problemCategoryId: dto.problemCategoryId ?? null,
       problemCategoryLabel: dto.problemCategoryLabel?.trim() || null,
       description: dto.description.trim(),
@@ -184,6 +201,7 @@ export class MaintenanceRequestsService {
     if (query.functionalLocationId) where.functionalLocationId = query.functionalLocationId;
     if (query.assetId) where.assetId = query.assetId;
     if (query.domainId) where.domainId = query.domainId;
+    if (query.jobDomain) where.jobDomain = query.jobDomain.trim().toUpperCase();
 
     if (query.from || query.to) {
       where.createdAt = {};
@@ -731,7 +749,9 @@ export class MaintenanceRequestsService {
         createdById: actor.sub,
         isTriage: false,
         reportedAt: current.reportedAt?.toISOString?.() ?? undefined,
-        failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined
+        failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined,
+        jobDomain: current.jobDomain ?? undefined,
+        domainId: current.domainId ?? undefined
       },
       actor as never
     );
@@ -741,7 +761,9 @@ export class MaintenanceRequestsService {
       where: { id: wo.id },
       data: {
         siteId: current.siteId ?? wo.siteId,
-        functionalLocationId: current.functionalLocationId ?? wo.functionalLocationId
+        functionalLocationId: current.functionalLocationId ?? wo.functionalLocationId,
+        jobDomain: current.jobDomain ?? wo.jobDomain,
+        domainId: current.domainId ?? wo.domainId
       }
     });
 

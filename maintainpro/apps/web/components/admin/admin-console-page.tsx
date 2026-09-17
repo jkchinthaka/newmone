@@ -60,7 +60,7 @@ function OverviewCard({ label, value, sublabel, variant = "default", href }: Ove
 }
 
 function AdminOverviewSignals({ overview }: { overview: AdminOverview }) {
-  const { users, dataQuality, pendingImports } = overview;
+  const { users, dataQuality, pendingImports, tenants, jobs, pendingApprovals } = overview;
   const dq = dataQuality.issuesBySeverity;
   const criticalOrHigh = dq.CRITICAL + dq.HIGH;
 
@@ -71,6 +71,25 @@ function AdminOverviewSignals({ overview }: { overview: AdminOverview }) {
       </h3>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard label="Active users" value={users.active} sublabel={`${users.inactive} inactive`} />
+        <OverviewCard label="Active tenants" value={tenants?.active ?? 0} />
+        <OverviewCard
+          label="Open critical jobs"
+          value={jobs?.openCritical ?? 0}
+          variant={(jobs?.openCritical ?? 0) > 0 ? "critical" : "default"}
+          href="/maintenance/jobs"
+        />
+        <OverviewCard
+          label="Overdue jobs"
+          value={jobs?.overdue ?? 0}
+          variant={(jobs?.overdue ?? 0) > 0 ? "critical" : "default"}
+          href="/work-orders?smartView=overdue"
+        />
+        <OverviewCard
+          label="Pending approvals"
+          value={pendingApprovals ?? 0}
+          variant={(pendingApprovals ?? 0) > 0 ? "warning" : "default"}
+          href="/approvals"
+        />
         <OverviewCard
           label="DQ issues"
           value={dataQuality.totalIssues}
@@ -79,17 +98,12 @@ function AdminOverviewSignals({ overview }: { overview: AdminOverview }) {
           href="/admin/data-quality"
         />
         <OverviewCard
-          label="Critical findings"
-          value={dq.CRITICAL}
-          variant={dq.CRITICAL > 0 ? "critical" : "default"}
-          href={dq.CRITICAL > 0 ? "/admin/data-quality" : undefined}
-        />
-        <OverviewCard
           label="Pending imports"
           value={pendingImports}
+          href="/admin/bulk-imports"
           variant={pendingImports > 0 ? "warning" : "default"}
-          href={pendingImports > 0 ? "/admin/bulk-imports" : undefined}
         />
+        <OverviewCard label="DQ rules tracked" value={overview.rules} href="/admin/data-quality" />
       </div>
     </section>
   );

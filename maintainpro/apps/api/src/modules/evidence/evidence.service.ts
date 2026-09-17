@@ -766,10 +766,14 @@ export class EvidenceService {
     select?: T
   ) {
     const tenantId = this.resolveTenantId(actor);
-    const where: { id: string; tenantId?: string | null } = { id: workOrderId };
+    // MP-003: WorkOrder.tenantId is now required, so the where-filter value can no longer be
+    // `null` — an actor with no tenant membership (tenantId === null) must still resolve to "no
+    // match" rather than an unfiltered/type-invalid query. See tenantFilterValue() pattern used
+    // elsewhere for this migration (e.g. driver-intelligence.service.ts).
+    const where: Prisma.WorkOrderWhereInput = { id: workOrderId };
 
     if (tenantId !== undefined) {
-      where.tenantId = tenantId;
+      where.tenantId = tenantId ?? "__mp003_no_tenant_match__";
     }
 
     const workOrder = await this.prisma.workOrder.findFirst({

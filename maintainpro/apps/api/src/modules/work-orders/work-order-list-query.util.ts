@@ -48,6 +48,8 @@ export function parseWorkOrderListQuery(raw: Record<string, string | undefined>)
     overdueOnly: raw.overdueOnly,
     highRiskOnly: raw.highRiskOnly,
     myAssignedOnly: raw.myAssignedOnly,
+    jobDomain: raw.jobDomain?.trim().toUpperCase() || undefined,
+    domainId: raw.domainId,
     smartView: raw.smartView
   };
 

@@ -94,7 +94,7 @@ export class SupplierBulkImportAdapter implements BulkImportAdapter {
         address: (data.address as string | null) ?? undefined,
         website: (data.website as string | null) ?? undefined,
         taxNumber: (data.taxNumber as string | null) ?? undefined,
-        serviceCategories: []
+        serviceCategories: "[]"
       },
       select: { id: true }
     });

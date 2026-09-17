@@ -4,6 +4,12 @@ import { PrismaService } from "../../database/prisma.service";
 import type { Phase4Actor } from "../_phase4/phase4-audit.helper";
 import { resolveTenantId } from "../_phase4/phase4-audit.helper";
 
+/** MP-003: Vehicle.tenantId is now required — see driver-intelligence.service.ts for rationale. */
+const NO_TENANT_MATCH = "__mp003_no_tenant_match__";
+function tenantFilterValue(tenantId: string | null): string {
+  return tenantId ?? NO_TENANT_MATCH;
+}
+
 @Injectable()
 export class FuelService {
   constructor(private readonly prisma: PrismaService) {}
@@ -12,7 +18,7 @@ export class FuelService {
     const tenantId = resolveTenantId(actor);
     return this.prisma.fuelLog.findMany({
       where: {
-        ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+        ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
       },
       include: { vehicle: true },
       orderBy: { date: "desc" }
@@ -23,7 +29,7 @@ export class FuelService {
     const tenantId = resolveTenantId(actor);
     const logs = await this.prisma.fuelLog.findMany({
       where: {
-        ...(tenantId !== undefined ? { vehicle: { is: { tenantId } } } : {})
+        ...(tenantId !== undefined ? { vehicle: { is: { tenantId: tenantFilterValue(tenantId) } } } : {})
       },
       include: {
         vehicle: {

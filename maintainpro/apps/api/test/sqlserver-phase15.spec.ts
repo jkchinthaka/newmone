@@ -16,6 +16,7 @@ const migrationSqlPath = path.join(
   "migration.sql"
 );
 const migrateScriptPath = path.join(root, "scripts", "migrate-mongo-to-sqlserver.ts");
+const migratePipelineDir = path.join(root, "scripts", "mongo-to-sqlserver");
 const enumsPath = path.join(root, "apps", "api", "src", "database", "prisma-enums.ts");
 
 describe("Phase 15 — SQL Server schema invariants", () => {
@@ -104,10 +105,22 @@ describe("Phase 15 — enum shim + migration tooling", () => {
   });
 
   it("15. migrate-mongo-to-sqlserver script is dry-run by default", () => {
-    const src = fs.readFileSync(migrateScriptPath, "utf8");
-    expect(src).toMatch(/DRY-RUN|dry-run|apply:\s*argv\.includes\("--apply"\)/);
-    expect(src).toMatch(/DEPENDENCY_ORDER/);
-    expect(src).toMatch(/Preserves Mongo string IDs|preserves/i);
+    // The entrypoint (migrateScriptPath) is a thin re-export that delegates to the
+    // hardened pipeline under scripts/mongo-to-sqlserver/ (see its own docstring) —
+    // so the dependency-ordering and ID-preservation invariants live there, not in
+    // the wrapper file itself. Check both, combined, rather than requiring one file
+    // to contain everything.
+    const entrypointSrc = fs.readFileSync(migrateScriptPath, "utf8");
+    const pipelineSrc = fs
+      .readdirSync(migratePipelineDir)
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => fs.readFileSync(path.join(migratePipelineDir, f), "utf8"))
+      .join("\n");
+    const combined = entrypointSrc + "\n" + pipelineSrc;
+
+    expect(combined).toMatch(/DRY-RUN|dry-run|apply:\s*argv\.includes\("--apply"\)/);
+    expect(combined).toMatch(/DEPENDENCY_ORDER/);
+    expect(combined).toMatch(/Preserves? Mongo string IDs|preserves?/i);
   });
 
   it("16. package.json exposes prisma migrate scripts", () => {

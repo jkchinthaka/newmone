@@ -12,16 +12,17 @@ export interface CurrentUser {
   role: string | null;
   tenantId: string | null;
   permissions: string[];
+  enabledFeatures: string[];
 }
 
 function readStoredUser(): CurrentUser {
   if (typeof window === "undefined") {
-    return { id: null, email: null, role: null, tenantId: null, permissions: [] };
+    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
   }
 
   try {
     const raw = window.localStorage.getItem(USER_KEY);
-    if (!raw) return { id: null, email: null, role: null, tenantId: null, permissions: [] };
+    if (!raw) return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     let role: string | null = null;
@@ -57,15 +58,20 @@ function readStoredUser(): CurrentUser {
 
     const permissions = [...new Set([...directPermissions, ...rolePermissions].map((value) => value.trim()).filter(Boolean))];
 
+    const enabledFeatures = Array.isArray(parsed.enabledFeatures)
+      ? parsed.enabledFeatures.filter((value): value is string => typeof value === "string")
+      : [];
+
     return {
       id: typeof parsed.id === "string" ? parsed.id : null,
       email: typeof parsed.email === "string" ? parsed.email : null,
       role,
       tenantId: typeof parsed.tenantId === "string" ? parsed.tenantId : null,
-      permissions
+      permissions,
+      enabledFeatures
     };
   } catch {
-    return { id: null, email: null, role: null, tenantId: null, permissions: [] };
+    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
   }
 }
 

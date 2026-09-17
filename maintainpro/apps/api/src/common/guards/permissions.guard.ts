@@ -48,6 +48,10 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "work_orders.cancel": ["work_orders.manage", "work_orders.update_status"],
   "work_orders.reopen": ["work_orders.manage"],
   "work_orders.correct": ["work_orders.manage"],
+  "warranty.view": ["work_orders.manage", "assets.view", "vehicles.view", "admin.audit.view"],
+  "warranty.manage": ["work_orders.manage", "admin.organization.manage"],
+  "maintenance.templates.manage": ["admin.organization.manage", "planning.manage"],
+  "admin.features.manage": ["admin.organization.manage", "settings.organization.manage"],
   // Phase 7 — approval engine; manage aliases for admin rollout
   "approvals.view": ["approvals.decide", "approvals.rule.manage", "work_orders.manage"],
   "approvals.view_all": ["approvals.rule.manage"],

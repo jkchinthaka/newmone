@@ -73,7 +73,11 @@ function LoadingSkeleton() {
   );
 }
 
-export default function WorkOrdersPage() {
+type WorkOrdersPageProps = {
+  jobDomain?: string;
+};
+
+export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -92,7 +96,14 @@ export default function WorkOrdersPage() {
   const [rejectReason, setRejectReason] = useState("");
 
   const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
-  const workOrdersQuery = useWorkOrders(filters);
+  const effectiveFilters = jobDomain ? { ...filters, jobDomain } : filters;
+  const workOrdersQuery = useWorkOrders(effectiveFilters);
+
+  useEffect(() => {
+    if (jobDomain && filters.jobDomain !== jobDomain) {
+      updateFilters({ jobDomain, page: 1 });
+    }
+  }, [jobDomain, filters.jobDomain, updateFilters]);
 
   const techniciansQuery = useTechnicians(workOrdersQuery.sourceRows);
 
