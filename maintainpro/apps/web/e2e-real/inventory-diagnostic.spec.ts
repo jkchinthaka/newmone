@@ -20,7 +20,8 @@ async function createGateFixtures(browser: Browser): Promise<{
   partId: string;
   openingQty: number;
 }> {
-  const context = await browser.newContext();
+  const baseURL = (process.env.E2E_BASE_URL || "http://127.0.0.1:18080").trim();
+  const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
   try {
     const login = await loginViaUi(page, "admin-a");
