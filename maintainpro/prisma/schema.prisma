@@ -1372,9 +1372,9 @@ model WorkOrder {
   woNumber                    String               @db.NVarChar(64)
   title                       String
   description                 String
-  priority                    String               @default("") @db.NVarChar(64)
-  status                      String               @default("") @db.NVarChar(64)
-  approvalStatus              String               @default("") @db.NVarChar(64)
+  priority                    String               @default("MEDIUM") @db.NVarChar(64)
+  status                      String               @default("OPEN") @db.NVarChar(64)
+  approvalStatus              String               @default("NOT_REQUIRED") @db.NVarChar(64)
   approvedById                String?              @db.NVarChar(36)
   approvedBy                  User?                @relation("ApprovedWorkOrders", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approvedAt                  DateTime?

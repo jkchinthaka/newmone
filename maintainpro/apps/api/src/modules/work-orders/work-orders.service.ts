@@ -762,6 +762,7 @@ export class WorkOrdersService {
           reportedAt: data.reportedAt ? new Date(data.reportedAt) : new Date(),
           failedAt: data.failedAt ? new Date(data.failedAt) : undefined,
           lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
+          status: WorkOrderStatus.OPEN,
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
@@ -988,14 +989,19 @@ export class WorkOrdersService {
       // Prefer technician/mechanic; allow other non-viewer operational roles already filtered above.
     }
 
+    const normalizedStatus =
+      current.status && String(current.status).trim()
+        ? current.status
+        : WorkOrderStatus.OPEN;
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
         technicianId,
         status:
-          current.status === WorkOrderStatus.OPEN || current.status === WorkOrderStatus.PLANNED
+          normalizedStatus === WorkOrderStatus.OPEN || normalizedStatus === WorkOrderStatus.PLANNED
             ? WorkOrderStatus.ASSIGNED
-            : current.status
+            : normalizedStatus
       }
     });
 

@@ -163,24 +163,27 @@ export function canReopenWorkOrder(role?: RoleName | null): boolean {
 }
 
 export function assertAllowedStatusTransition(from: WorkOrderStatus, to: WorkOrderStatus) {
-  if (from === to) {
+  const normalizedFrom =
+    from && String(from).trim() ? from : WorkOrderStatus.OPEN;
+
+  if (normalizedFrom === to) {
     return;
   }
 
-  if (to === WorkOrderStatus.OPEN && BACKWARD_TO_OPEN_SOURCES.has(from)) {
+  if (to === WorkOrderStatus.OPEN && BACKWARD_TO_OPEN_SOURCES.has(normalizedFrom)) {
     throw new BadRequestException(
       "Work orders cannot move back to Open. Use the controlled reopen action with reason and audit logging."
     );
   }
 
-  if (TERMINAL_WORK_ORDER_STATUSES.has(from) || isTerminalWorkOrderStatus(from)) {
-    throw new BadRequestException(`Cannot change status from ${from.replaceAll("_", " ")}`);
+  if (TERMINAL_WORK_ORDER_STATUSES.has(normalizedFrom) || isTerminalWorkOrderStatus(normalizedFrom)) {
+    throw new BadRequestException(`Cannot change status from ${normalizedFrom.replaceAll("_", " ")}`);
   }
 
-  const allowed = ALLOWED_STATUS_TRANSITIONS[from] ?? [];
+  const allowed = ALLOWED_STATUS_TRANSITIONS[normalizedFrom] ?? [];
   if (!allowed.includes(to)) {
     throw new BadRequestException(
-      `Status transition from ${from.replaceAll("_", " ")} to ${to.replaceAll("_", " ")} is not allowed`
+      `Status transition from ${normalizedFrom.replaceAll("_", " ")} to ${to.replaceAll("_", " ")} is not allowed`
     );
   }
 }
