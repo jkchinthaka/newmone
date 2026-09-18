@@ -329,18 +329,6 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
-      - name: Exact-service restart and dependency recovery rehearsal
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/e2e-logs
-          export OPERATIONS_REHEARSAL=true
-          export E2E_TEST_MODE=true
-          export DATABASE_PROVIDER=sqlserver
-          node scripts/operations/run-operations-rehearsal.mjs 2>&1 | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
-        env:
-          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
-          DATABASE_PROVIDER: sqlserver
-
       - name: Release-candidate auth stability gate
         run: |
           set -euo pipefail
@@ -357,6 +345,35 @@ jobs:
         env:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Exact-service restart and dependency recovery rehearsal
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export OPERATIONS_REHEARSAL=true
+          export E2E_TEST_MODE=true
+          export DATABASE_PROVIDER=sqlserver
+          node scripts/operations/run-operations-rehearsal.mjs 2>&1 | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
+        env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+          DATABASE_PROVIDER: sqlserver
+
+      - name: Settle stack after dependency rehearsal
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            live=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/api/health/live || true)
+            ready=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/api/health/ready || true)
+            login=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/login || true)
+            if [ "$live" = "200" ] && [ "$ready" = "200" ] && [ "$login" = "200" ]; then
+              echo "stack_settled live=$live ready=$ready login=$login"
+              exit 0
+            fi
+            echo "waiting_settle attempt=$i live=$live ready=$ready login=$login"
+            sleep 3
+          done
+          echo "stack_settle_timeout"
+          exit 1
 
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack

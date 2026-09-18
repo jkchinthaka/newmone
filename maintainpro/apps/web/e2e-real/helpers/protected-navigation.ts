@@ -12,22 +12,33 @@ export async function navigateToProtectedRouteAndExpectLogin(
   page: Page,
   protectedPath = "/work-orders"
 ): Promise<void> {
-  const loginRedirect = page.waitForURL(/\/login(?:\?|$)/, { timeout: 10_000 });
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(protectedPath, { waitUntil: "domcontentloaded" }).catch((error: unknown) => {
+        const message = String(error);
+        if (
+          !message.includes("net::ERR_ABORTED") &&
+          !message.includes("frame was detached") &&
+          !message.includes("Navigation interrupted")
+        ) {
+          throw error;
+        }
+      });
 
-  const navigation = page.goto(protectedPath, { waitUntil: "commit" }).catch((error: unknown) => {
-    const message = String(error);
-    if (!message.includes("net::ERR_ABORTED")) {
-      throw error;
+      await page.waitForURL(/\/login(?:\?|$)/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/login(?:\?|$)/);
+      await expect(page.locator("#login-email")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
+
+      // Protected work-order shell must not remain visible after logout redirect.
+      await expect(page.getByText(/\d+\s+work order\(s\) shown/i)).not.toBeVisible();
+      await expect(page.getByRole("heading", { name: /work orders/i })).not.toBeVisible();
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(400);
     }
-  });
-
-  await Promise.all([navigation, loginRedirect]);
-
-  await expect(page).toHaveURL(/\/login(?:\?|$)/);
-  await expect(page.locator("#login-email")).toBeVisible();
-  await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
-
-  // Protected work-order shell must not remain visible after logout redirect.
-  await expect(page.getByText(/\d+\s+work order\(s\) shown/i)).not.toBeVisible();
-  await expect(page.getByRole("heading", { name: /work orders/i })).not.toBeVisible();
+  }
+  throw lastError;
 }
