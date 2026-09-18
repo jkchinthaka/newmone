@@ -41,8 +41,8 @@ function runDocker(args) {
 }
 
 function sqlcmd(query) {
-  // Use container env MSSQL_SA_PASSWORD (compose). Never echo credentials.
-  const script = `set -euo pipefail; /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -h -1 -W -s "|" -b -Q ${JSON.stringify(query)}`;
+  const b64 = Buffer.from(String(query), "utf8").toString("base64");
+  const script = `set -euo pipefail; echo '${b64}' | base64 -d > /tmp/mp-recovery.sql; /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -h -1 -W -s "|" -b -i /tmp/mp-recovery.sql`;
   return runDocker([...composeBase(), "exec", "-T", "sqlserver", "bash", "-lc", script]);
 }
 

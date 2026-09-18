@@ -50,8 +50,9 @@ function saPassword() {
 }
 
 function sqlcmd(query) {
-  // Password is passed inside the container shell via env — not printed.
-  const script = `set -e; /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -b -Q ${JSON.stringify(query)}`;
+  // Avoid JSON/bash escaping pitfalls: pass SQL via base64 into the container.
+  const b64 = Buffer.from(String(query), "utf8").toString("base64");
+  const script = `set -euo pipefail; echo '${b64}' | base64 -d > /tmp/mp-recovery.sql; /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -h -1 -W -b -i /tmp/mp-recovery.sql`;
   return runDocker([...composeBase(), "exec", "-T", "sqlserver", "bash", "-lc", script]);
 }
 
