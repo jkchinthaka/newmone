@@ -1,3 +1,5 @@
+import { ForbiddenException } from "@nestjs/common";
+import { requestContext } from "../src/common/context/request-context";
 import { ErpDashboardService } from "../src/modules/erp-integration/erp-dashboard.service";
 import { sanitizeErpErrorMessage } from "../src/modules/inventory/erp-error-sanitize.util";
 
@@ -8,6 +10,20 @@ describe("ERP exception center", () => {
     expect(cleaned).not.toMatch(/abc\.def\.ghi/);
     expect(cleaned).not.toMatch(/secret123/);
     expect(cleaned).not.toMatch(/https:\/\//);
+  });
+
+  it("requires tenant context (fail-closed)", async () => {
+    const service = new ErpDashboardService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never
+    );
+    Object.defineProperty(service, "canView", { value: () => true });
+    await expect(service.getExceptions({ limit: 10 })).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("aggregates failed syncs without returning payloads", async () => {
@@ -45,7 +61,19 @@ describe("ERP exception center", () => {
     );
     Object.defineProperty(service, "canView", { value: () => true });
 
-    const result = await service.getExceptions({ limit: 10 });
+    const result = await requestContext.run(
+      {
+        actorId: "user-1",
+        actorEmail: "admin@example.com",
+        actorRole: "ADMIN",
+        tenantId: "t1",
+        module: null,
+        ipAddress: null,
+        userAgent: null,
+        requestPath: null
+      },
+      () => service.getExceptions({ limit: 10 })
+    );
     expect(result.count).toBe(1);
     expect(result.items[0].lastError).not.toMatch(/tokensecret/);
     expect(result.items[0]).not.toHaveProperty("requestPayload");

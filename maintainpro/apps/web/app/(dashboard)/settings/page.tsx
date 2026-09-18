@@ -723,12 +723,7 @@ export default function SettingsPage() {
 
   const tabs: Array<{ key: SettingsTab; label: string; icon: JSX.Element; visible: boolean }> = [
     { key: "profile", label: "Profile", icon: <UserRoundCog size={16} />, visible: true },
-    { key: "organization", label: "Organization", icon: <Building2 size={16} />, visible: canViewSettings },
-    { key: "users", label: "Users", icon: <Users size={16} />, visible: canViewUsers },
-    { key: "roles", label: "Roles", icon: <Shield size={16} />, visible: canViewRoles || canViewPermissions },
-    { key: "system", label: "System", icon: <Settings2 size={16} />, visible: canViewSettings },
-    { key: "notifications", label: "Notifications", icon: <Sparkles size={16} />, visible: true },
-    { key: "audit", label: "Audit", icon: <FileClock size={16} />, visible: canViewAudit }
+    { key: "notifications", label: "Preferences", icon: <Sparkles size={16} />, visible: true }
   ];
 
   useEffect(() => {
@@ -740,12 +735,30 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="card bg-gradient-to-r from-indigo-900 via-sky-900 to-cyan-800 text-white">
-        <h2 className="text-2xl font-semibold tracking-tight">Settings Command Center</h2>
+      <section className="card bg-gradient-to-r from-slate-800 via-slate-900 to-cyan-900 text-white">
+        <h2 className="text-2xl font-semibold tracking-tight">My Profile & Preferences</h2>
         <p className="mt-1 text-sm text-slate-200">
-          Configure identity, tenant defaults, automation rules, feature flags, and governance controls.
+          Manage your personal account details and notification preferences. Business and technical administration live under Administration.
         </p>
       </section>
+
+      {isAdminRole ? (
+        <section className="card border border-sky-200 bg-sky-50 text-sm text-slate-800">
+          <p className="font-medium text-sky-950">Looking for organization, users, roles, or system configuration?</p>
+          <p className="mt-1 text-sky-900/80">Those controls moved to Administration so personal settings stay simple.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/admin" className="rounded-lg bg-sky-700 px-3 py-1.5 text-white hover:bg-sky-800">
+              Open Administration
+            </Link>
+            <Link href="/admin/users" className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-sky-900 hover:bg-sky-100">
+              Users & access
+            </Link>
+            <Link href="/system-health" className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-sky-900 hover:bg-sky-100">
+              Technical Administration
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="card overflow-x-auto">
         <div className="flex min-w-max items-center gap-2">

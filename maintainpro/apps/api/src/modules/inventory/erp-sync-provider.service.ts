@@ -153,15 +153,22 @@ export class ErpSyncProviderService {
   }
 
   private isAccepted(body: unknown): boolean {
-    if (!body || typeof body !== "object") {
+    // HTTP 2xx already verified. Empty ACK is accepted; ambiguous payloads fail closed.
+    if (body === null || body === undefined) {
       return true;
+    }
+    if (typeof body !== "object") {
+      return false;
     }
 
     const record = body as Record<string, unknown>;
     if (typeof record.accepted === "boolean") return record.accepted;
     if (typeof record.success === "boolean") return record.success;
     if (typeof record.ok === "boolean") return record.ok;
-    return true;
+    if (record.providerRef != null || record.referenceId != null || record.id != null) {
+      return true;
+    }
+    return false;
   }
 
   private providerRef(body: unknown): string | undefined {

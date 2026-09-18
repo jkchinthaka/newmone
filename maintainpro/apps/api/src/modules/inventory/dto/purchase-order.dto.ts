@@ -13,17 +13,18 @@ import {
   ValidateNested
 } from "class-validator";
 
-const OBJECT_ID = /^([0-9a-fA-F]{24})$/;
+/** SQL Server uses cuid/UUID; legacy Mongo ObjectIds remain valid during migration. */
+const ENTITY_ID = /^(?:[0-9a-fA-F]{24}|[a-zA-Z0-9_-]{8,64})$/;
 
 export class CreatePurchaseOrderLineDto {
   @IsOptional()
   @IsString()
-  @Matches(OBJECT_ID)
+  @Matches(ENTITY_ID)
   partId?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(OBJECT_ID)
+  @Matches(ENTITY_ID)
   partRequestId?: string;
 
   @IsString()
@@ -47,7 +48,7 @@ export class CreatePurchaseOrderDto {
   poNumber!: string;
 
   @IsString()
-  @Matches(OBJECT_ID)
+  @Matches(ENTITY_ID)
   supplierId!: string;
 
   @IsString()
@@ -150,7 +151,7 @@ export class RetryPurchaseOrderSyncDto {
 
 export class CreatePurchaseReceiptLineDto {
   @IsString()
-  @Matches(OBJECT_ID)
+  @Matches(ENTITY_ID)
   purchaseOrderLineId!: string;
 
   @IsNumber()

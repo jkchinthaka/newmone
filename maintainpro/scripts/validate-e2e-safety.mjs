@@ -66,8 +66,8 @@ function main() {
     } else {
       pass("E2E-SAFE-004", "Mongo not publicly published in e2e overlay");
     }
-    if (!text.includes("maintainpro-e2e-mongo-data") || !text.includes("maintainpro-e2e-redis-data")) {
-      fail("E2E-SAFE-005", "E2E volumes must be isolated");
+    if (!text.includes("maintainpro-e2e-sqlserver-data") || !text.includes("maintainpro-e2e-redis-data")) {
+      fail("E2E-SAFE-005", "E2E volumes must be isolated (sqlserver + redis)");
     } else {
       pass("E2E-SAFE-005", "Isolated E2E volumes present");
     }
@@ -86,15 +86,20 @@ function main() {
     } else {
       pass("E2E-SAFE-007", "E2E_TEST_MODE=true in compose");
     }
-    if (text.includes("maintainpro-mongo-data") && !text.includes("maintainpro-e2e-mongo-data")) {
-      fail("E2E-SAFE-008", "Must not reuse production volume name alone");
+    if (text.includes("maintainpro-sqlserver-data") && !text.includes("maintainpro-e2e-sqlserver-data")) {
+      fail("E2E-SAFE-008", "Must not reuse production SQL Server volume name alone");
     } else {
       pass("E2E-SAFE-008", "Production volume names not reused as primary");
     }
     if (!text.includes("docker-entrypoint-e2e.sh") || !text.includes("/e2e-entrypoint.sh")) {
-      fail("E2E-SAFE-015", "Mongo E2E must use keyFile-capable entrypoint (auth+replSet)");
+      fail("E2E-SAFE-015", "Mongo E2E (FG/migration-source) must use keyFile-capable entrypoint");
     } else {
       pass("E2E-SAFE-015", "Mongo E2E keyFile entrypoint wired");
+    }
+    if (!/DATABASE_PROVIDER:\s*sqlserver/.test(text) && !text.includes("DATABASE_PROVIDER: sqlserver")) {
+      fail("E2E-SAFE-021", "E2E API must force DATABASE_PROVIDER=sqlserver");
+    } else {
+      pass("E2E-SAFE-021", "E2E API forced to sqlserver");
     }
   }
 

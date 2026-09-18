@@ -128,11 +128,19 @@ export function assertCanExportReport(actor: ReportActorAccess, module: ReportMo
   assertCanViewReportModule(actor, module);
   const perms = permissionSet(actor);
   const role = String(actor.role);
+  const exportRoles = new Set([
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "FINANCE",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "PROCUREMENT_OFFICER"
+  ]);
   const exportOk =
-    actor.role === "SUPER_ADMIN" ||
+    exportRoles.has(role) ||
     perms.has(REPORT_EXPORT_PERMISSION) ||
-    (perms.has("reports.view") &&
-      ["ADMIN", "MANAGER", "FINANCE", "OPERATIONS_MANAGER", "ASSET_MANAGER", "PROCUREMENT_OFFICER"].includes(role));
+    (perms.has("reports.view") && exportRoles.has(role));
   if (!exportOk) {
     throw new ForbiddenException("Missing reports.export permission.");
   }

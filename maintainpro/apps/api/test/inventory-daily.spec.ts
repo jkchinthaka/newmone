@@ -12,7 +12,8 @@ describe("inventory daily ledger", () => {
             quantity: 10,
             createdAt: new Date("2026-08-17T10:00:00.000Z"),
             part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
-            warehouse: { id: "w1", code: "MAIN", name: "Main" }
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: null
           },
           {
             partId: "p1",
@@ -21,7 +22,8 @@ describe("inventory daily ledger", () => {
             quantity: 3,
             createdAt: new Date("2026-08-18T10:00:00.000Z"),
             part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
-            warehouse: { id: "w1", code: "MAIN", name: "Main" }
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: null
           },
           {
             partId: "p1",
@@ -30,7 +32,8 @@ describe("inventory daily ledger", () => {
             quantity: 1,
             createdAt: new Date("2026-08-18T11:00:00.000Z"),
             part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
-            warehouse: { id: "w1", code: "MAIN", name: "Main" }
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: null
           }
         ])
       }
@@ -46,5 +49,265 @@ describe("inventory daily ledger", () => {
     expect(row.outbound).toBe(3);
     expect(row.returned).toBe(1);
     expect(row.closing).toBe(8);
+  });
+
+  it("applies opposite signed impact for REVERSAL of IN vs OUT (not as Return)", async () => {
+    const prisma = {
+      stockMovement: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "m-in",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "IN",
+            quantity: 10,
+            createdAt: new Date("2026-08-17T10:00:00.000Z"),
+            part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: null
+          },
+          {
+            id: "m-out",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "OUT",
+            quantity: 4,
+            createdAt: new Date("2026-08-18T09:00:00.000Z"),
+            part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: null
+          },
+          {
+            id: "m-rev-out",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 2,
+            createdAt: new Date("2026-08-18T10:00:00.000Z"),
+            part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: { id: "m-out", type: "OUT", quantity: 4 }
+          },
+          {
+            id: "m-rev-in",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T11:00:00.000Z"),
+            part: { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" },
+            warehouse: { id: "w1", code: "MAIN", name: "Main" },
+            reversalOf: { id: "m-in", type: "IN", quantity: 10 }
+          }
+        ])
+      }
+    };
+    const service = new InventoryDailyService(prisma as never);
+    const result = await service.report(
+      { from: "2026-08-18T00:00:00.000Z", to: "2026-08-19T00:00:00.000Z", preset: "custom" },
+      { tenantId: "t1" }
+    );
+    expect(result.rows).toHaveLength(1);
+    const row = result.rows[0];
+    expect(row.opening).toBe(10);
+    expect(row.outbound).toBe(4);
+    expect(row.returned).toBe(0);
+    expect(row.reversalRestock).toBe(2);
+    expect(row.reversalDeduct).toBe(1);
+    // 10 - 4 + 2 - 1 = 7
+    expect(row.closing).toBe(7);
+  });
+
+  it("applies opposite signed impact for REVERSAL of RETURN, TRANSFER_*, and ADJUSTMENT_*", async () => {
+    const part = { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" };
+    const warehouse = { id: "w1", code: "MAIN", name: "Main" };
+    const prisma = {
+      stockMovement: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "m-open",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "IN",
+            quantity: 20,
+            createdAt: new Date("2026-08-17T10:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-ret",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "RETURN",
+            quantity: 2,
+            createdAt: new Date("2026-08-18T08:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-ti",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "TRANSFER_IN",
+            quantity: 3,
+            createdAt: new Date("2026-08-18T08:30:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-to",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "TRANSFER_OUT",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T09:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-ai",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "ADJUSTMENT_IN",
+            quantity: 4,
+            createdAt: new Date("2026-08-18T09:15:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-ao",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "ADJUSTMENT_OUT",
+            quantity: 2,
+            createdAt: new Date("2026-08-18T09:30:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "r-ret",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T10:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: { id: "m-ret", type: "RETURN", quantity: 2 }
+          },
+          {
+            id: "r-ti",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T10:10:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: { id: "m-ti", type: "TRANSFER_IN", quantity: 3 }
+          },
+          {
+            id: "r-to",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T10:20:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: { id: "m-to", type: "TRANSFER_OUT", quantity: 1 }
+          },
+          {
+            id: "r-ai",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 2,
+            createdAt: new Date("2026-08-18T10:30:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: { id: "m-ai", type: "ADJUSTMENT_IN", quantity: 4 }
+          },
+          {
+            id: "r-ao",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 1,
+            createdAt: new Date("2026-08-18T10:40:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: { id: "m-ao", type: "ADJUSTMENT_OUT", quantity: 2 }
+          }
+        ])
+      }
+    };
+    const service = new InventoryDailyService(prisma as never);
+    const result = await service.report(
+      { from: "2026-08-18T00:00:00.000Z", to: "2026-08-19T00:00:00.000Z", preset: "custom" },
+      { tenantId: "t1" }
+    );
+    const row = result.rows[0];
+    expect(row.opening).toBe(20);
+    expect(row.returned).toBe(2);
+    expect(row.transferIn).toBe(3);
+    expect(row.transferOut).toBe(1);
+    expect(row.adjustmentIn).toBe(4);
+    expect(row.adjustmentOut).toBe(2);
+    // reverse RETURN/TRANSFER_IN/ADJUSTMENT_IN => deduct; reverse TRANSFER_OUT/ADJUSTMENT_OUT => restock
+    expect(row.reversalDeduct).toBe(1 + 1 + 2);
+    expect(row.reversalRestock).toBe(1 + 1);
+    // 20 + 2 + 3 - 1 + 4 - 2 - 4 + 2 = 24
+    expect(row.closing).toBe(24);
+  });
+
+  it("ignores REVERSAL without original movement type (fail-safe zero impact)", async () => {
+    const part = { id: "p1", partNumber: "A", name: "A", category: "GEN", unit: "pcs" };
+    const warehouse = { id: "w1", code: "MAIN", name: "Main" };
+    const prisma = {
+      stockMovement: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "m-in",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "IN",
+            quantity: 5,
+            createdAt: new Date("2026-08-17T10:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          },
+          {
+            id: "m-orphan-rev",
+            partId: "p1",
+            warehouseId: "w1",
+            type: "REVERSAL",
+            quantity: 5,
+            createdAt: new Date("2026-08-18T10:00:00.000Z"),
+            part,
+            warehouse,
+            reversalOf: null
+          }
+        ])
+      }
+    };
+    const service = new InventoryDailyService(prisma as never);
+    const result = await service.report(
+      { from: "2026-08-18T00:00:00.000Z", to: "2026-08-19T00:00:00.000Z", preset: "custom" },
+      { tenantId: "t1" }
+    );
+    const row = result.rows[0];
+    expect(row.opening).toBe(5);
+    expect(row.returned).toBe(0);
+    expect(row.reversalDeduct).toBe(0);
+    expect(row.reversalRestock).toBe(0);
+    expect(row.closing).toBe(5);
   });
 });

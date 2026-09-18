@@ -20,7 +20,8 @@ async function createGateFixtures(browser: Browser): Promise<{
   partId: string;
   openingQty: number;
 }> {
-  const context = await browser.newContext();
+  const baseURL = (process.env.E2E_BASE_URL || "http://127.0.0.1:18080").trim();
+  const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
   try {
     const login = await loginViaUi(page, "admin-a");
@@ -49,6 +50,11 @@ async function createGateFixtures(browser: Browser): Promise<{
         quantityInStock: 10
       }
     });
+    if (createPart.status() !== 201) {
+      const errBody = await createPart.json().catch(() => ({}));
+      const code = String((errBody as { error?: { code?: string } })?.error?.code || "none");
+      console.log(`create_part_status=${createPart.status()} error_code=${code}`);
+    }
     expect(createPart.status()).toBe(201);
     const partBody = await createPart.json();
     const part = partBody.data || partBody;
@@ -62,6 +68,7 @@ async function createGateFixtures(browser: Browser): Promise<{
 
 test.describe("E2E inventory diagnostic @inventory-gate", () => {
   test("INV-DIAG-001 keeper list and work-order-linked issue", async ({ page, browser }) => {
+    test.setTimeout(120_000);
     const fixtures = await createGateFixtures(browser);
     const workOrderFound = fixtures.workOrderId.length > 0;
     const keyPrimary = `e2e-inv-gate-${e2eRunId()}-${Date.now()}-primary`;

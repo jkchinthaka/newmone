@@ -28,6 +28,7 @@ import { SupervisorVerificationPanel } from "./supervisor-verification-panel";
 import { WorkOrderVendorRepairPanel } from "./work-order-vendor-repair-panel";
 import { WorkOrderGuidedCreate } from "./work-order-guided-create";
 import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
+import { WorkOrderSafetyPanel } from "./work-order-safety-panel";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -480,6 +481,10 @@ export function WorkOrderEditorModal({
 
               {!isCreateMode && workOrder?.id && activeTab === "parts" ? (
                 <PartRequestsPanel workOrderId={workOrder.id} />
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "safety" ? (
+                <WorkOrderSafetyPanel workOrderId={workOrder.id} />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "evidence" ? (

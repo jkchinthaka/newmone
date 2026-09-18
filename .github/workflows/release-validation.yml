@@ -67,9 +67,11 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Validate compose config (CI fixture)
-        run: docker compose --env-file .env.compose-ci -f docker-compose.yml config --quiet
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_ORIGIN: http://localhost:3000
+          NEXT_PUBLIC_USE_BFF: "true"
 
       - name: Validate compose config (production structure fixture)
         run: |

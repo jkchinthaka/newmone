@@ -116,6 +116,7 @@ model Tenant {
   approvalDecisions            ApprovalDecision[]
   /// Phase 8 planning / meters / inspection / calibration / compliance
   pmPlans                      PmPlan[]
+  pmOccurrences                PmOccurrence[]
   assetMeters                  AssetMeter[]
   checklistTemplates           ChecklistTemplate[]
   inspectionTemplates          InspectionTemplate[]
@@ -172,6 +173,7 @@ model Tenant {
   maintenanceForecasts         MaintenanceForecast[]
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
+  stockCountSessions           StockCountSession[]
   /// Phase 10 — fleet lifecycle: tyres, batteries, driver assignment history
   vehicleTyres                 VehicleTyre[]
   vehicleBatteries             VehicleBattery[]
@@ -770,6 +772,8 @@ model Asset {
   /// Validated type-specific attributes (server validates against AssetAttributeDefinition)
   customAttributes     String?              @db.NVarChar(Max)
   isActive             Boolean              @default(true)
+  /// Optimistic concurrency for concurrent updates
+  version              Int                  @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1368,9 +1372,9 @@ model WorkOrder {
   woNumber                    String               @db.NVarChar(64)
   title                       String
   description                 String
-  priority                    String               @default("") @db.NVarChar(64)
-  status                      String               @default("") @db.NVarChar(64)
-  approvalStatus              String               @default("") @db.NVarChar(64)
+  priority                    String               @default("MEDIUM") @db.NVarChar(64)
+  status                      String               @default("OPEN") @db.NVarChar(64)
+  approvalStatus              String               @default("NOT_REQUIRED") @db.NVarChar(64)
   approvedById                String?              @db.NVarChar(36)
   approvedBy                  User?                @relation("ApprovedWorkOrders", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approvedAt                  DateTime?
@@ -1506,6 +1510,8 @@ model WorkOrder {
 
   correctionReason   String?
   lastIdempotencyKey String?
+  /// Optimistic concurrency for status/plan concurrent updates
+  version            Int     @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1537,6 +1543,7 @@ model WorkOrder {
   pmPlanRevision  Int?
   pmTriggerSource String?
   pmOccurrenceKey String?
+  pmOccurrences   PmOccurrence[]
 
   taxonomyCategoryId   String?            @db.NVarChar(36)
   taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1893,6 +1900,7 @@ model SparePart {
   compatibilities            PartCompatibility[]
   installedParts             InstalledPart[]
   procurementRecommendations ProcurementRecommendation[]
+  stockCountLines            StockCountLine[]
 
   @@unique([tenantId, partNumber])
   @@index([tenantId])
@@ -1921,6 +1929,7 @@ model Warehouse {
   balances   WarehouseItemBalance[]
   movements  StockMovement[]
   importRows ErpImportRow[]
+  stockCountSessions StockCountSession[]
 
   @@unique([tenantId, code])
   @@index([tenantId, isDefault])
@@ -2021,6 +2030,54 @@ model InventoryIdempotency {
   @@unique([tenantId, key])
   @@index([tenantId, partId])
   @@index([tenantId, operation, createdAt])
+}
+
+/// First-class stock count session. Posting creates ledger adjustments; never overwrites balances directly.
+model StockCountSession {
+  id              String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String   @db.NVarChar(36)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId     String   @db.NVarChar(36)
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CYCLE | ANNUAL | SPOT
+  countType       String   @default("CYCLE") @db.NVarChar(32)
+  /// DRAFT | OPEN | COUNTING | REVIEW | APPROVED | POSTED | CANCELLED
+  status          String   @default("DRAFT") @db.NVarChar(32)
+  blindCount      Boolean  @default(false)
+  notes           String?  @db.NVarChar(Max)
+  createdById     String?  @db.NVarChar(36)
+  approvedById    String?  @db.NVarChar(36)
+  postedById      String?  @db.NVarChar(36)
+  approvedAt      DateTime?
+  postedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lines           StockCountLine[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, warehouseId, status])
+}
+
+model StockCountLine {
+  id               String           @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String           @db.NVarChar(36)
+  sessionId        String           @db.NVarChar(36)
+  session          StockCountSession @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partId           String           @db.NVarChar(36)
+  part             SparePart        @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expectedQuantity Int              @default(0)
+  countedQuantity  Int?
+  variance         Int?
+  notes            String?
+  adjustmentMovementId String?      @db.NVarChar(36)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([sessionId, partId])
+  @@index([tenantId, sessionId])
+  @@index([tenantId, partId])
 }
 
 /// Durable ERP Excel (or future file) stock import run — tenant-scoped idempotency by file SHA-256.
@@ -3094,6 +3151,8 @@ model MaintenanceRequest {
 
   rejectionReasonType String? @db.NVarChar(64)
   rejectionReason     String?
+  /// Canonical non-WO closure outcome (separate from status). Used with CLOSED.
+  resolutionCode      String? @db.NVarChar(64)
   cancellationReason  String?
 
   /// Duplicate of another request (same open event) — not the same as repeat failure
@@ -3118,6 +3177,8 @@ model MaintenanceRequest {
 
   history             MaintenanceRequestHistory[]
   evidenceAttachments EvidenceAttachment[]
+  /// Optimistic concurrency for triage/conversion concurrent updates
+  version             Int                         @default(1)
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
@@ -5345,6 +5406,7 @@ model PmPlan {
   triggers    PmTrigger[]
   workOrders  WorkOrder[]
   generations PmAutoGeneration[]
+  occurrences PmOccurrence[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -5354,6 +5416,36 @@ model PmPlan {
   @@index([checklistTemplateId])
   @@index([tenantId, siteId])
   @@index([tenantId, functionalLocationId])
+}
+
+/// One scheduled PM occurrence (distinct from PmPlan and from WorkOrder).
+/// Completion of the occurrence advances plan baseline only when the governed WO reaches the configured verification/close point.
+model PmOccurrence {
+  id              String     @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String     @db.NVarChar(36)
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planId          String     @db.NVarChar(36)
+  plan            PmPlan     @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planRevision    Int?
+  /// SCHEDULED | GENERATED | DEFERRED | SKIPPED | COMPLETED | MISSED
+  status          String     @default("SCHEDULED") @db.NVarChar(32)
+  dueAt           DateTime?
+  dueMeterValue   Float?
+  graceEndsAt     DateTime?
+  generationKey   String     @db.NVarChar(128)
+  workOrderId     String?    @db.NVarChar(36)
+  workOrder       WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deferredReason  String?
+  skippedReason   String?
+  completedAt     DateTime?
+  missedAt        DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([tenantId, planId, generationKey])
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, planId, status])
+  @@index([workOrderId])
 }
 
 model PmPlanRevision {

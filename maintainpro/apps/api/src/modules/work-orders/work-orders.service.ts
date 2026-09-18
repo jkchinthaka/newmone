@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalProcessType,
@@ -28,6 +28,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
 import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   assertAllowedStatusTransition,
@@ -49,6 +50,7 @@ import {
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
 import {
+  assertValidEntityId,
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
   calculateSlaRisk
@@ -172,7 +174,7 @@ export class WorkOrdersService {
     try {
       await this.prisma.workOrderStatusHistory.create({
         data: {
-          tenantId: tenantId ?? undefined,
+          tenantId: requireTenantId(tenantId),
           workOrderId,
           fromStatus: input.fromStatus ?? undefined,
           toStatus: input.toStatus,
@@ -555,9 +557,6 @@ export class WorkOrdersService {
     if (!data.description?.trim()) {
       throw new BadRequestException("Description is required");
     }
-    if (!data.createdById) {
-      throw new BadRequestException("createdById is required");
-    }
 
     const assetId = assertValidOptionalObjectId("assetId", data.assetId);
     const vehicleId = assertValidOptionalObjectId("vehicleId", data.vehicleId);
@@ -569,20 +568,20 @@ export class WorkOrdersService {
     const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
     assertWorkOrderAssetRules({ type: data.type as WorkOrderType, assetId, vehicleId, functionalLocationId });
 
-    if (!/^[a-fA-F0-9]{24}$/.test(data.createdById)) {
-      throw new BadRequestException("Invalid createdById. Please log in again to refresh your session.");
-    }
-
     const tenantId = this.resolveTenantId(actor);
     const actorId = actor?.sub;
     if (!actorId) {
       throw new ForbiddenException("Authenticated actor is required to create a work order.");
     }
 
-    // Attribution: createdById is the authenticated system creator (compatibility: matching client value accepted).
+    // Prefer authenticated actor. Client-supplied createdById is accepted for compatibility.
     // Spoofing another user requires create-on-behalf (admin only) and is audited.
+    const requestedCreatorId = data.createdById
+      ? assertValidEntityId("createdById", data.createdById)
+      : actorId;
+
     let authoritativeCreatorId = actorId;
-    if (data.createdById !== actorId) {
+    if (requestedCreatorId !== actorId) {
       const canCreateOnBehalf =
         actor?.role === RoleName.SUPER_ADMIN || actor?.role === RoleName.ADMIN;
       if (!canCreateOnBehalf) {
@@ -591,7 +590,7 @@ export class WorkOrdersService {
         );
       }
       const onBehalf = await this.prisma.user.findFirst({
-        where: { id: data.createdById, tenantId }
+        where: { id: requestedCreatorId, tenantId }
       });
       if (!onBehalf) {
         throw new BadRequestException("createdById does not match any existing user in your tenant context.");
@@ -763,6 +762,7 @@ export class WorkOrdersService {
           reportedAt: data.reportedAt ? new Date(data.reportedAt) : new Date(),
           failedAt: data.failedAt ? new Date(data.failedAt) : undefined,
           lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
+          status: WorkOrderStatus.OPEN,
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
@@ -831,6 +831,7 @@ export class WorkOrdersService {
       estimatedCost: number;
       estimatedHours: number;
       overrideReason?: string;
+      expectedVersion?: number;
     }>,
     actor?: Actor
   ) {
@@ -856,8 +857,19 @@ export class WorkOrdersService {
       throw new BadRequestException("Planned end must not be earlier than planned start");
     }
 
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
+    assertVersionMatch(
+      (existing as { version?: number }).version,
+      data.expectedVersion,
+      "Work order"
+    );
+
+    const versionWhere =
+      data.expectedVersion != null
+        ? { id, version: data.expectedVersion }
+        : { id };
+
+    const updatedCount = await this.prisma.workOrder.updateMany({
+      where: versionWhere,
       data: {
         title: data.title,
         description: data.description,
@@ -868,10 +880,16 @@ export class WorkOrdersService {
         plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : undefined,
         plannedEndAt: data.plannedEndAt ? new Date(data.plannedEndAt) : undefined,
         estimatedCost: data.estimatedCost,
-        estimatedHours: data.estimatedHours
+        estimatedHours: data.estimatedHours,
+        version: { increment: 1 }
       }
     });
 
+    if (updatedCount.count !== 1) {
+      throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+    }
+
+    const updated = await this.findOne(id, actor);
     if (data.plannedStartAt || data.plannedEndAt || data.expectedCompletionDate) {
       await this.recordAudit({
         entity: "WorkOrder",
@@ -902,12 +920,45 @@ export class WorkOrdersService {
   async remove(id: string, actor?: Actor) {
     const existing = await this.findOne(id, actor);
 
-    if (existing.status !== WorkOrderStatus.OPEN) {
-      throw new BadRequestException("Work order deletion only allowed when status is OPEN");
+    if (existing.status === WorkOrderStatus.CANCELLED) {
+      return { deleted: false, cancelled: true, id, status: existing.status, message: "Work order already cancelled" };
     }
 
-    await this.prisma.workOrder.delete({ where: { id } });
-    return { deleted: true };
+    if (existing.status !== WorkOrderStatus.OPEN) {
+      throw new BadRequestException(
+        "Only OPEN work orders can be cancelled through this action. Use the governed cancel transition for work already in progress."
+      );
+    }
+
+    const reason = "Cancelled instead of hard delete — historical record retained";
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        status: WorkOrderStatus.CANCELLED,
+        cancelledReason: reason
+      }
+    });
+
+    await this.appendStatusHistory(existing.tenantId, id, {
+      fromStatus: existing.status as WorkOrderStatus,
+      toStatus: WorkOrderStatus.CANCELLED,
+      action: "CANCEL_INSTEAD_OF_DELETE",
+      actorId: actor?.sub,
+      reason
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason,
+      metadata: { event: "work_order_cancelled_instead_of_delete", woNumber: updated.woNumber },
+      beforeData: { status: existing.status },
+      afterData: { status: updated.status }
+    });
+
+    return { deleted: false, cancelled: true, id, status: updated.status };
   }
 
   async assign(id: string, technicianId: string, actor?: Actor) {
@@ -938,14 +989,19 @@ export class WorkOrdersService {
       // Prefer technician/mechanic; allow other non-viewer operational roles already filtered above.
     }
 
+    const normalizedStatus =
+      current.status && String(current.status).trim()
+        ? current.status
+        : WorkOrderStatus.OPEN;
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
         technicianId,
         status:
-          current.status === WorkOrderStatus.OPEN || current.status === WorkOrderStatus.PLANNED
+          normalizedStatus === WorkOrderStatus.OPEN || normalizedStatus === WorkOrderStatus.PLANNED
             ? WorkOrderStatus.ASSIGNED
-            : current.status
+            : normalizedStatus
       }
     });
 
@@ -1671,7 +1727,66 @@ export class WorkOrdersService {
       beforeData: { status: current.status },
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
+    await this.completePmOccurrenceForClosedWorkOrder(current);
     return this.findOneWithRelations(id, actor);
+  }
+
+  /**
+   * Governed PM baseline advance: occurrence completes only when the WO is CLOSED
+   * (not when the WO was merely generated).
+   */
+  private async completePmOccurrenceForClosedWorkOrder(workOrder: {
+    id: string;
+    tenantId: string;
+    pmPlanId?: string | null;
+    pmOccurrenceKey?: string | null;
+  }) {
+    if (!workOrder.pmPlanId) return;
+    try {
+      const occurrence = await this.prisma.pmOccurrence.findFirst({
+        where: {
+          tenantId: workOrder.tenantId,
+          workOrderId: workOrder.id,
+          status: { not: "COMPLETED" }
+        }
+      });
+      const now = new Date();
+      if (occurrence) {
+        await this.prisma.pmOccurrence.update({
+          where: { id: occurrence.id },
+          data: { status: "COMPLETED", completedAt: now }
+        });
+      } else if (workOrder.pmOccurrenceKey) {
+        await this.prisma.pmOccurrence.upsert({
+          where: {
+            tenantId_planId_generationKey: {
+              tenantId: workOrder.tenantId,
+              planId: workOrder.pmPlanId,
+              generationKey: workOrder.pmOccurrenceKey
+            }
+          },
+          create: {
+            tenantId: workOrder.tenantId,
+            planId: workOrder.pmPlanId,
+            status: "COMPLETED",
+            generationKey: workOrder.pmOccurrenceKey,
+            workOrderId: workOrder.id,
+            completedAt: now
+          },
+          update: {
+            status: "COMPLETED",
+            workOrderId: workOrder.id,
+            completedAt: now
+          }
+        });
+      }
+      await this.prisma.pmPlan.update({
+        where: { id: workOrder.pmPlanId },
+        data: { lastCompletionAt: now }
+      });
+    } catch {
+      // Baseline advance must not block WO close; Technical Admin can reconcile.
+    }
   }
 
   async rejectSupervisor(id: string, reason: string, actor?: Actor) {

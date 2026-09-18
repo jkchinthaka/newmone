@@ -457,6 +457,37 @@ export class PlanningService {
       throw error;
     }
 
+    // Canonical occurrence row (idempotent on tenant+plan+generationKey).
+    // WO creation does NOT mark the occurrence COMPLETED — only governed WO close/verify does.
+    try {
+      await this.prisma.pmOccurrence.upsert({
+        where: {
+          tenantId_planId_generationKey: {
+            tenantId,
+            planId: plan.id,
+            generationKey
+          }
+        },
+        create: {
+          tenantId,
+          planId: plan.id,
+          planRevision: plan.currentRevision,
+          status: "GENERATED",
+          dueAt: evaluation.dueAt ?? null,
+          generationKey,
+          workOrderId: workOrder.id
+        },
+        update: {
+          status: "GENERATED",
+          workOrderId: workOrder.id,
+          planRevision: plan.currentRevision,
+          dueAt: evaluation.dueAt ?? null
+        }
+      });
+    } catch {
+      // Occurrence write must not roll back an already-created WO; Technical Admin can reconcile.
+    }
+
     if (plan.checklistTemplateId) {
       try {
         await this.startChecklistExecution(actor, {

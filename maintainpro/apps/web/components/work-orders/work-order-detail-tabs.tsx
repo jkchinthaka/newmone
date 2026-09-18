@@ -2,6 +2,7 @@ export type WorkOrderDetailTab =
   | "overview"
   | "assignment"
   | "parts"
+  | "safety"
   | "evidence"
   | "vendor-repair"
   | "history"
@@ -11,6 +12,7 @@ export const WORK_ORDER_DETAIL_TABS: Array<{ id: WorkOrderDetailTab; label: stri
   { id: "overview", label: "Overview" },
   { id: "assignment", label: "Assignment" },
   { id: "parts", label: "Parts" },
+  { id: "safety", label: "Safety" },
   { id: "evidence", label: "Evidence" },
   { id: "vendor-repair", label: "Vendor Repair" },
   { id: "history", label: "History" },

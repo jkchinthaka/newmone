@@ -383,12 +383,12 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     }
   });
 
-  test("E2E-WO-LC-015 final status COMPLETED after supervisor verification", async ({ page }) => {
+  test("E2E-WO-LC-015 final status VERIFIED after supervisor verification", async ({ page }) => {
     await loginViaUi(page, "manager-a");
     const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
     expect(detail.status()).toBe(200);
     const wo = unwrapWorkOrder(await detail.json());
-    expect(wo.status).toBe("COMPLETED");
+    expect(wo.status).toBe("VERIFIED");
   });
 
   test("E2E-WO-LC-016 actual cost and hours persist on GET", async ({ page }) => {
@@ -406,13 +406,13 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     expect(activity.status()).toBe(200);
   });
 
-  test("E2E-WO-LC-018 GET history returns 200 and WO remains COMPLETED", async ({ page }) => {
+  test("E2E-WO-LC-018 GET history returns 200 and WO remains VERIFIED", async ({ page }) => {
     await loginViaUi(page, "manager-a");
     const history = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}/history`);
     expect(history.status()).toBe(200);
     const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
     expect(detail.status()).toBe(200);
-    expect(unwrapWorkOrder(await detail.json()).status).toBe("COMPLETED");
+    expect(unwrapWorkOrder(await detail.json()).status).toBe("VERIFIED");
   });
 
   test("E2E-WO-LC-019 parts inventory linkage covered by stock issue", async ({ page }) => {
@@ -428,21 +428,20 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     expect(rows.length).toBeGreaterThan(0);
   });
 
-  test("E2E-WO-LC-020 list contains completed WO by title match", async ({ page }) => {
+  test("E2E-WO-LC-020 list contains verified WO by title match", async ({ page }) => {
     await loginViaUi(page, "manager-a");
-    // Manager default queue is action-required (excludes COMPLETED). Query completed queue
-    // with title search so list reflection is exact and pagination-safe.
+    // Manager default queue is action-required. Query with title search so list reflection is exact.
     const search = encodeURIComponent(lifecycleTitle);
     const list = await authenticatedGet(
       page,
-      `/api/backend/work-orders?queue=completed&search=${search}&pageSize=50`
+      `/api/backend/work-orders?queue=all&search=${search}&pageSize=50`
     );
     expect(list.status()).toBe(200);
     // BFF envelope: { data: { data: items[], total, page, ... } }
     const items = unwrapListItems(await list.json());
     const found = items.some((wo) => {
       const id = String(wo.id || wo._id || "");
-      return (id === workOrderId || wo.title === lifecycleTitle) && wo.status === "COMPLETED";
+      return (id === workOrderId || wo.title === lifecycleTitle) && wo.status === "VERIFIED";
     });
     expect(found).toBe(true);
   });

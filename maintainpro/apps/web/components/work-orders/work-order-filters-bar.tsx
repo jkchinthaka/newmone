@@ -239,7 +239,7 @@ export function WorkOrderFiltersBar({
               disabled={bulkLoading}
               className="inline-flex items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60"
             >
-              <Trash2 size={12} /> Delete Selected
+              <Trash2 size={12} /> Cancel Selected
             </button>
           </div>
         ) : null}

@@ -40,6 +40,8 @@ function runDocker(args) {
       (r.stderr || r.stdout || "")
         .slice(0, 500)
         .replace(/mongodb:\/\/[^\s]+/gi, "mongodb://REDACTED")
+        .replace(/sqlserver:\/\/[^\s;]+/gi, "sqlserver://REDACTED")
+        .replace(/password=[^;\s]+/gi, "password=REDACTED")
     );
   }
   return r.stdout || "";
@@ -119,14 +121,52 @@ function main() {
   stopRecovery();
   console.log("recovery_api_boot=starting");
 
-  // E2E-only: use disposable mongo root against the fresh restore DB so app-user
-  // role grants cannot block recovery smoke. Never used for production.
-  const user = process.env.MONGO_INITDB_ROOT_USERNAME || "e2e_root_not_prod";
-  const pass = process.env.MONGO_INITDB_ROOT_PASSWORD || "e2e_root_password_not_for_production_use";
-  const authDb = "admin";
-  const backupDb = process.env.BACKUP_DATABASE_NAME || "maintainpro_e2e_backup";
-  const dbUrl = `mongodb://${user}:${pass}@mongo:27017/${target}?authSource=${authDb}&replicaSet=rs0`;
-  const backupUrl = `mongodb://${user}:${pass}@mongo:27017/${backupDb}?authSource=${authDb}&replicaSet=rs0`;
+  const provider = String(process.env.DATABASE_PROVIDER || "").toLowerCase();
+  const useSqlServer = provider === "sqlserver" || String(process.env.RECOVERY_ENGINE || "").toLowerCase() === "sqlserver";
+  const saPassword = process.env.MSSQL_SA_PASSWORD || "E2e_Sql_Sa_Passw0rd!";
+
+  // E2E-only recovery API against the restored database. Never used for production.
+  const dbUrl = useSqlServer
+    ? `sqlserver://sqlserver:1433;database=${target};user=sa;password=${saPassword};schema=dbo;encrypt=true;trustServerCertificate=true`
+    : (() => {
+        const user = process.env.MONGO_INITDB_ROOT_USERNAME || "e2e_root_not_prod";
+        const pass = process.env.MONGO_INITDB_ROOT_PASSWORD || "e2e_root_password_not_for_production_use";
+        const authDb = "admin";
+        return `mongodb://${user}:${pass}@mongo:27017/${target}?authSource=${authDb}&replicaSet=rs0`;
+      })();
+  const backupUrl = useSqlServer
+    ? dbUrl
+    : (() => {
+        const user = process.env.MONGO_INITDB_ROOT_USERNAME || "e2e_root_not_prod";
+        const pass = process.env.MONGO_INITDB_ROOT_PASSWORD || "e2e_root_password_not_for_production_use";
+        const authDb = "admin";
+        const backupDb = process.env.BACKUP_DATABASE_NAME || "maintainpro_e2e_backup";
+        return `mongodb://${user}:${pass}@mongo:27017/${backupDb}?authSource=${authDb}&replicaSet=rs0`;
+      })();
+
+  const envArgs = [
+    "-e",
+    "DATABASE_REPLICATION_MODE=disabled",
+    "-e",
+    "BACKUP_DATABASE_REQUIRED_FOR_READINESS=false",
+    "-e",
+    `PRIMARY_DATABASE_NAME=${target}`,
+    "-e",
+    `PRIMARY_DATABASE_URL=${dbUrl}`,
+    "-e",
+    `DATABASE_URL=${dbUrl}`,
+    "-e",
+    `BACKUP_DATABASE_URL=${backupUrl}`,
+    "-e",
+    "REDIS_KEY_PREFIX=e2e-recovery:",
+    "-e",
+    "APP_SERVICE_NAME=maintainpro-api-recovery"
+  ];
+  if (useSqlServer) {
+    envArgs.push("-e", "DATABASE_PROVIDER=sqlserver");
+  } else {
+    envArgs.push("-e", `MONGODB_URI=${dbUrl}`);
+  }
 
   runDocker(
     composeArgs([
@@ -137,24 +177,7 @@ function main() {
       containerName,
       "-p",
       `127.0.0.1:${port}:3000`,
-      "-e",
-      "DATABASE_REPLICATION_MODE=disabled",
-      "-e",
-      "BACKUP_DATABASE_REQUIRED_FOR_READINESS=false",
-      "-e",
-      `PRIMARY_DATABASE_NAME=${target}`,
-      "-e",
-      `PRIMARY_DATABASE_URL=${dbUrl}`,
-      "-e",
-      `DATABASE_URL=${dbUrl}`,
-      "-e",
-      `MONGODB_URI=${dbUrl}`,
-      "-e",
-      `BACKUP_DATABASE_URL=${backupUrl}`,
-      "-e",
-      "REDIS_KEY_PREFIX=e2e-recovery:",
-      "-e",
-      "APP_SERVICE_NAME=maintainpro-api-recovery",
+      ...envArgs,
       "api"
     ])
   );

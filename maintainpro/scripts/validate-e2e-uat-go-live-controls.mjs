@@ -37,8 +37,10 @@ if (!/MAX_SIGN_OFF_CATEGORIES_PER_USER/.test(s)) fail("UAT-SAFE-008", "sign-off 
 else pass("UAT-SAFE-008", "sign-off category bound");
 if (!/UatEvidenceClass\.SYNTHETIC/.test(s + d)) fail("UAT-SAFE-009", "synthetic evidence class missing");
 else pass("UAT-SAFE-009", "synthetic evidence classed");
-if (!/enum GoLiveDecisionStage/.test(sch)) fail("UAT-SAFE-010", "decision stage enum missing");
-else pass("UAT-SAFE-010", "decision stage enum present");
+// SQL Server stores former Prisma enums as strings; stage remains governed via GoLiveDecisionStage TS enum + decisionStage column.
+if (!/model GoLiveDecision/.test(sch) || !/decisionStage/.test(sch) || !/GoLiveDecisionStage/.test(readFileSync(path.join(root, "apps/api/src/database/prisma-enums.ts"), "utf8"))) {
+  fail("UAT-SAFE-010", "decision stage enum missing");
+} else pass("UAT-SAFE-010", "decision stage enum present");
 if (!/model UatScenarioExecution/.test(sch)) fail("UAT-SAFE-011", "UAT execution model missing");
 else pass("UAT-SAFE-011", "UAT execution model present");
 

@@ -41,6 +41,10 @@ const AUDIT_SKIP_MODELS = new Set<string>([
   "PasswordResetToken",
   "UserInvitation",
   "OperationalAlert",
+  // High-volume inventory ledger helpers — dedicated inventory audits cover business events.
+  "WarehouseItemBalance",
+  "InventoryIdempotency",
+  "InventoryStockIssueIdempotency",
   ...AUDIT_SECURITY_SKIP_MODELS
 ]);
 

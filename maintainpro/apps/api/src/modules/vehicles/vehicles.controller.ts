@@ -116,7 +116,7 @@ export class VehiclesController {
   @Permissions("vehicles.delete")
   async remove(@Param("id") id: string) {
     const data = await this.vehiclesService.remove(id);
-    return { data, message: "Vehicle deleted" };
+    return { data, message: "Vehicle retired (hard delete disabled)" };
   }
 
   @Post(":id/gate-out")

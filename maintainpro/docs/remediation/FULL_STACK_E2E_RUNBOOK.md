@@ -10,8 +10,8 @@
 3. `npm run validate:e2e-safety`
 4. `npm run validate:container-healthchecks`
 5. `docker compose -p $COMPOSE_PROJECT_NAME --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml up -d --build`
-6. Wait until compose reports API/Web/Nginx healthy, then `http://127.0.0.1:18080/api/health`
-7. `npm run e2e:seed`
+6. Wait for SQL Server, migrate from host (`DATABASE_URL=$E2E_DATABASE_URL_HOST DATABASE_PROVIDER=sqlserver npm run db:migrate:deploy`), then confirm `$E2E_BASE_URL/api/health/ready`
+7. `npm run e2e:seed` (Prisma/SQL Server against loopback `E2E_DATABASE_URL_HOST`; Mongo overlay is FG/migration-source only)
 8. Auth-path diagnostic (required before Playwright):
    `docker compose -p $COMPOSE_PROJECT_NAME --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml --profile diagnostics run --rm --no-deps e2e-auth-path-diag`
    (or `npm run e2e:auth-path-diag` when `COMPOSE_PROJECT_NAME` / `E2E_RUN_ID` are already exported)

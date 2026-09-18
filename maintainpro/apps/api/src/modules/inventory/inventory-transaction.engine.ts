@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AuditAction, MovementType, Prisma } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { parseJsonText, toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
@@ -254,7 +255,7 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   async reverse(input: StockOpInput, existingTx?: Prisma.TransactionClient): Promise<StockMutationResult> {
@@ -398,7 +399,7 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   private async runOp(
@@ -412,6 +413,12 @@ export class InventoryTransactionEngine {
     this.assertActor(input.actor);
     assertPositiveQuantity(input.quantity, "Quantity");
     const tenantId = requireTenantId(input.actor?.tenantId);
+
+    // Create default warehouse outside the interactive transaction so cold SQL Server
+    // boots do not burn the whole transaction budget on first warehouse insert.
+    if (!input.warehouseId && !input.warehouseCode?.trim()) {
+      await this.resolveWarehouse(this.prisma, tenantId);
+    }
 
     const work = async (tx: Prisma.TransactionClient) => {
       const replay = await this.beginIdempotency(tx, tenantId, operation, input);
@@ -521,7 +528,11 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+
+    // Prefer sequential Prisma calls over interactive $transaction on SQL Server.
+    // Atomicity comes from: unique idempotency claim + conditional balance UPDATE WHERE.
+    // Interactive transactions have repeatedly timed out past nginx/BFF limits in disposable E2E.
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   private deltaValue(kind: "increment" | "decrement" | undefined, quantity: number): number {
@@ -570,7 +581,7 @@ export class InventoryTransactionEngine {
       warehouseId: string | null;
       movementId: string | null;
       quantity: number;
-      resultJson: Prisma.JsonValue | null;
+      resultJson: string | null;
     },
     operation: string,
     expectedHash: string,
@@ -579,7 +590,7 @@ export class InventoryTransactionEngine {
     if (existing.payloadHash !== expectedHash || existing.operation !== operation) {
       throw new BadRequestException("Idempotency key was already used with a different stock payload for this tenant.");
     }
-    const resultJson = existing.resultJson as StockMutationResult | null;
+    const resultJson = parseJsonText<StockMutationResult | null>(existing.resultJson, null);
     if (resultJson?.part) {
       return { ...resultJson, replayed: true };
     }
@@ -611,6 +622,21 @@ export class InventoryTransactionEngine {
       where: { tenantId_key: { tenantId, key } }
     });
     if (existing) {
+      if (!existing.resultJson) {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          const pending = await tx.inventoryIdempotency.findUnique({
+            where: { tenantId_key: { tenantId, key } }
+          });
+          if (pending?.resultJson) {
+            const part = await this.loadActivePart(tx, tenantId, pending.partId ?? input.partId);
+            return this.replayFromIdempotency(pending, operation, expected, part);
+          }
+        }
+        throw new BadRequestException(
+          "A stock operation with this idempotency key is already in progress. Retry shortly."
+        );
+      }
       const part = await this.loadActivePart(tx, tenantId, existing.partId ?? input.partId);
       return this.replayFromIdempotency(existing, operation, expected, part);
     }
@@ -633,6 +659,21 @@ export class InventoryTransactionEngine {
         });
         if (!raced) {
           throw error;
+        }
+        if (!raced.resultJson) {
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            const pending = await tx.inventoryIdempotency.findUnique({
+              where: { tenantId_key: { tenantId, key } }
+            });
+            if (pending?.resultJson) {
+              const part = await this.loadActivePart(tx, tenantId, pending.partId ?? input.partId);
+              return this.replayFromIdempotency(pending, operation, expected, part);
+            }
+          }
+          throw new BadRequestException(
+            "A stock operation with this idempotency key is already in progress. Retry shortly."
+          );
         }
         const part = await this.loadActivePart(tx, tenantId, raced.partId ?? input.partId);
         return this.replayFromIdempotency(raced, operation, expected, part);
@@ -660,7 +701,7 @@ export class InventoryTransactionEngine {
         warehouseId: result.warehouseId || undefined,
         movementId: movementId || result.movement.id || undefined,
         transferGroupId,
-        resultJson: result as unknown as Prisma.InputJsonValue
+        resultJson: toJsonText(result)
       }
     });
   }
@@ -847,7 +888,7 @@ export class InventoryTransactionEngine {
       entityId: string;
       action: AuditAction;
       reason?: string;
-      metadata?: Prisma.InputJsonValue;
+      metadata?: Record<string, unknown>;
     }
   ) {
     const ctx = requestContext.get();
@@ -868,9 +909,9 @@ export class InventoryTransactionEngine {
         requestPath: ctx?.requestPath ?? undefined,
         actorSnapshot:
           actorId || actorEmail || actorRole
-            ? ({ id: actorId, email: actorEmail, role: actorRole } as Prisma.InputJsonValue)
+            ? toJsonText({ id: actorId, email: actorEmail, role: actorRole })
             : undefined,
-        metadata: payload.metadata
+        metadata: payload.metadata ? toJsonText(payload.metadata) : undefined
       }
     });
   }

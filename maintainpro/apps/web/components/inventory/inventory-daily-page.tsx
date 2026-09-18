@@ -23,6 +23,8 @@ type DailyRow = {
   adjustmentOut: number;
   transferIn: number;
   transferOut: number;
+  reversalRestock: number;
+  reversalDeduct: number;
   closing: number;
 };
 
@@ -56,7 +58,8 @@ export default function InventoryDailyPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Daily Inventory</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Closing = Opening + IN + Returns + Adjustment In − OUT − Transfer Out − Adjustment Out.
+          Closing = Opening + Receipts + Returns + Transfer In + Adjustment In + Reversal Restock − Issues − Transfer Out −
+          Adjustment Out − Reversal Deduct. Reversals are opposite corrections of the original movement — not returns.
         </p>
       </div>
       <InventorySectionNav />
@@ -87,18 +90,22 @@ export default function InventoryDailyPage() {
               <th className="px-3 py-3">Item</th>
               <th className="px-3 py-3">Warehouse</th>
               <th className="px-3 py-3">Opening</th>
-              <th className="px-3 py-3">IN</th>
-              <th className="px-3 py-3">OUT</th>
-              <th className="px-3 py-3">Return</th>
+              <th className="px-3 py-3">Receipts</th>
+              <th className="px-3 py-3">Returns</th>
+              <th className="px-3 py-3">Transfer In</th>
               <th className="px-3 py-3">Adj In</th>
+              <th className="px-3 py-3">Rev Restock</th>
+              <th className="px-3 py-3">Issues</th>
+              <th className="px-3 py-3">Transfer Out</th>
               <th className="px-3 py-3">Adj Out</th>
+              <th className="px-3 py-3">Rev Deduct</th>
               <th className="px-3 py-3">Closing</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-slate-500" colSpan={10}>
+                <td className="px-4 py-8 text-center text-slate-500" colSpan={14}>
                   No ledger activity for this period.
                 </td>
               </tr>
@@ -109,11 +116,15 @@ export default function InventoryDailyPage() {
                   <td className="px-3 py-2">{row.partNumber ? `${row.partNumber} · ${row.partName}` : row.partId}</td>
                   <td className="px-3 py-2">{row.warehouseCode ?? "—"}</td>
                   <td className="px-3 py-2">{row.opening}</td>
-                  <td className="px-3 py-2">{row.inbound + row.transferIn}</td>
-                  <td className="px-3 py-2">{row.outbound}</td>
+                  <td className="px-3 py-2">{row.inbound}</td>
                   <td className="px-3 py-2">{row.returned}</td>
+                  <td className="px-3 py-2">{row.transferIn}</td>
                   <td className="px-3 py-2">{row.adjustmentIn}</td>
+                  <td className="px-3 py-2">{row.reversalRestock ?? 0}</td>
+                  <td className="px-3 py-2">{row.outbound}</td>
+                  <td className="px-3 py-2">{row.transferOut}</td>
                   <td className="px-3 py-2">{row.adjustmentOut}</td>
+                  <td className="px-3 py-2">{row.reversalDeduct ?? 0}</td>
                   <td className="px-3 py-2 font-semibold">{row.closing}</td>
                 </tr>
               ))

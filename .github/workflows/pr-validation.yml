@@ -55,6 +55,11 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_ORIGIN: http://localhost:3000
+          NEXT_PUBLIC_USE_BFF: "true"
 
       - name: Note SQL Server migration gate
         run: echo "Fresh SQL Server migrate+seed is enforced by workflow sqlserver-migration-gate.yml on prisma/api path changes."

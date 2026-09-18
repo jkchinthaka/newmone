@@ -109,6 +109,38 @@ jobs:
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
 
+      - name: Wait for SQL Server and migrate schema
+        run: |
+          set -euo pipefail
+          MSSQL_SA_PASSWORD="$(grep -E '^MSSQL_SA_PASSWORD=' .env.e2e | head -n1 | cut -d= -f2- | tr -d '\r')"
+          E2E_DATABASE_URL_HOST="$(grep -E '^E2E_DATABASE_URL_HOST=' .env.e2e | head -n1 | cut -d= -f2- | tr -d '\r')"
+          if [ -z "$MSSQL_SA_PASSWORD" ] || [ -z "$E2E_DATABASE_URL_HOST" ]; then
+            echo "Missing MSSQL_SA_PASSWORD or E2E_DATABASE_URL_HOST in .env.e2e"
+            exit 1
+          fi
+          for i in $(seq 1 60); do
+            if docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+              -f docker-compose.yml -f docker-compose.e2e.yml \
+              exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" \
+              -Q "IF DB_ID('maintainpro_e2e_primary') IS NULL CREATE DATABASE [maintainpro_e2e_primary]; SELECT 1" \
+              >/dev/null 2>&1; then
+              echo "SQL Server ready"
+              break
+            fi
+            echo "waiting for SQL Server ($i)…"
+            sleep 5
+            if [ "$i" -eq 60 ]; then
+              echo "SQL Server timeout"
+              docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+                -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=100 sqlserver || true
+              exit 1
+            fi
+          done
+          export DATABASE_URL="$E2E_DATABASE_URL_HOST"
+          export DATABASE_PROVIDER=sqlserver
+          npm run db:generate
+          npm run db:migrate:deploy
+
       - name: Wait for health
         run: |
           set -e
@@ -134,16 +166,21 @@ jobs:
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 nginx > artifacts/e2e-logs/nginx-failure.log || true
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
-            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 mongo > artifacts/e2e-logs/mongo-failure.log || true
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=200 sqlserver > artifacts/e2e-logs/sqlserver-failure.log || true
           sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' \
             artifacts/e2e-logs/*.log 2>/dev/null || true
           cat artifacts/e2e-logs/compose-ps.txt || true
+          curl -sS "$E2E_BASE_URL/api/health/ready" > artifacts/e2e-logs/ready-body.json || true
           exit 1
 
       - name: Seed disposable data
         run: |
-          # Host-side seed against loopback-published E2E Mongo only
-          export E2E_DATABASE_URL_HOST="mongodb://e2e_app_not_prod:e2e_app_password_not_for_production_use@127.0.0.1:27019/maintainpro_e2e_primary?authSource=maintainpro_e2e_auth&replicaSet=rs0&directConnection=true"
+          set -euo pipefail
+          E2E_DATABASE_URL_HOST="$(grep -E '^E2E_DATABASE_URL_HOST=' .env.e2e | head -n1 | cut -d= -f2- | tr -d '\r')"
+          export E2E_DATABASE_URL_HOST
+          export DATABASE_URL="$E2E_DATABASE_URL_HOST"
+          export DATABASE_PROVIDER=sqlserver
+          # E2E_RUN_ID / seed password already present from materialize + job env
           node scripts/e2e-seed.mjs
 
       - name: No-mock validation
@@ -252,6 +289,9 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/e2e-logs
           export RECOVERY_REHEARSAL=true
+          export DATABASE_PROVIDER=sqlserver
+          export RECOVERY_ENGINE=sqlserver
+          export RECOVERY_SQLSERVER_HOST=sqlserver
           export RECOVERY_MONGO_HOST=mongo
           export RECOVERY_SOURCE_DATABASE="${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}"
           export RECOVERY_TARGET_DATABASE="maintainpro_restore_${E2E_RUN_ID//[^a-zA-Z0-9_]/_}"
@@ -259,6 +299,9 @@ jobs:
           node scripts/recovery/run-recovery-rehearsal.mjs | tee artifacts/e2e-logs/recovery-rehearsal-gate.txt
         env:
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+          DATABASE_PROVIDER: sqlserver
+          RECOVERY_ENGINE: sqlserver
+          MSSQL_SA_PASSWORD: E2e_Sql_Sa_Passw0rd!
 
       - name: Management information gate
         run: |
@@ -286,16 +329,6 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
-      - name: Exact-service restart and dependency recovery rehearsal
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/e2e-logs
-          export OPERATIONS_REHEARSAL=true
-          export E2E_TEST_MODE=true
-          node scripts/operations/run-operations-rehearsal.mjs | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
-        env:
-          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
-
       - name: Release-candidate auth stability gate
         run: |
           set -euo pipefail
@@ -312,6 +345,35 @@ jobs:
         env:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
+      - name: Exact-service restart and dependency recovery rehearsal
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e2e-logs
+          export OPERATIONS_REHEARSAL=true
+          export E2E_TEST_MODE=true
+          export DATABASE_PROVIDER=sqlserver
+          node scripts/operations/run-operations-rehearsal.mjs 2>&1 | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
+        env:
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+          DATABASE_PROVIDER: sqlserver
+
+      - name: Settle stack after dependency rehearsal
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            live=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/api/health/live || true)
+            ready=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/api/health/ready || true)
+            login=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/login || true)
+            if [ "$live" = "200" ] && [ "$ready" = "200" ] && [ "$login" = "200" ]; then
+              echo "stack_settled live=$live ready=$ready login=$login"
+              exit 0
+            fi
+            echo "waiting_settle attempt=$i live=$live ready=$ready login=$login"
+            sleep 3
+          done
+          echo "stack_settle_timeout"
+          exit 1
 
       - name: Run full-stack Playwright suite
         run: npm run test:e2e:full-stack

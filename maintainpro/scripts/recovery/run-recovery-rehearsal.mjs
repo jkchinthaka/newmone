@@ -47,11 +47,25 @@ function main() {
 
   console.log("recovery_mode=e2e");
   let smokeOut = "";
+  const provider = String(process.env.DATABASE_PROVIDER || "").toLowerCase();
+  const useSqlServer = provider === "sqlserver" || String(process.env.RECOVERY_ENGINE || "").toLowerCase() === "sqlserver";
+  process.env.RECOVERY_SQLSERVER_HOST = process.env.RECOVERY_SQLSERVER_HOST || "sqlserver";
+  process.env.RECOVERY_MONGO_HOST = process.env.RECOVERY_MONGO_HOST || "mongo";
+
   runNode("validate-recovery-target.mjs");
-  runNode("create-mongo-backup.mjs");
-  runNode("verify-mongo-backup.mjs");
-  runNode("restore-mongo-backup.mjs");
-  runNode("verify-restored-data.mjs");
+  if (useSqlServer) {
+    console.log("recovery_engine=sqlserver");
+    runNode("create-sqlserver-backup.mjs");
+    runNode("verify-mongo-backup.mjs"); // generic checksum/corruption checks on archive+manifest
+    runNode("restore-sqlserver-backup.mjs");
+    runNode("verify-restored-sqlserver-data.mjs");
+  } else {
+    console.log("recovery_engine=mongo");
+    runNode("create-mongo-backup.mjs");
+    runNode("verify-mongo-backup.mjs");
+    runNode("restore-mongo-backup.mjs");
+    runNode("verify-restored-data.mjs");
+  }
   smokeOut = runNode("smoke-recovery-api.mjs");
   if (!/recovery_api_health=200/.test(smokeOut) || !/recovery_login=200/.test(smokeOut) || !/application_smoke_status=pass/.test(smokeOut)) {
     throw new Error("recovery API smoke markers missing");

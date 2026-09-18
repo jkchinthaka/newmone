@@ -19,6 +19,15 @@ CMD ["npm", "run", "dev", "--workspace", "@maintainpro/web"]
 
 FROM base AS build
 WORKDIR /workspace
+# Next.js inlines NEXT_PUBLIC_* at build time. CI/image builds must supply values
+# (override via --build-arg in deploy pipelines). No silent production host fallback.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
+ARG NEXT_PUBLIC_API_ORIGIN=http://localhost:3000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN \
+    NEXT_PUBLIC_USE_BFF=true
 RUN npm run build --workspace @maintainpro/shared-types && npm run build --workspace @maintainpro/web
 
 FROM node:20-alpine AS production

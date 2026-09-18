@@ -21,6 +21,8 @@ import {
   getMaintenanceRequest,
   markRequestDuplicate,
   rejectRequest,
+  requestMoreInformation,
+  resumeRequestReview,
   startRequestReview,
   triageRequest,
   type MaintenanceRequestListItem
@@ -86,6 +88,8 @@ export default function RequestDetailPage() {
   const [busy, setBusy] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectType, setRejectType] = useState("INVALID_REQUEST");
+  const [infoQuestion, setInfoQuestion] = useState("");
+  const [resumeNote, setResumeNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [triageNotes, setTriageNotes] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
@@ -347,14 +351,35 @@ export default function RequestDetailPage() {
                     type="button"
                     disabled={busy}
                     className="min-h-11 w-full rounded-lg bg-emerald-600 text-sm text-white"
-                    onClick={() => void run(() => approveRequest(id), "Approved")}
+                    onClick={() => void run(() => approveRequest(id), "Accepted")}
                   >
-                    Approve
+                    Accept (approve)
+                  </button>
+                  <input
+                    className="min-h-11 w-full rounded-lg border px-3 text-sm"
+                    placeholder="Question for requester (needs information)"
+                    value={infoQuestion}
+                    onChange={(e) => setInfoQuestion(e.target.value)}
+                    aria-label="Question for requester"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || infoQuestion.trim().length < 3}
+                    className="min-h-11 w-full rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-950"
+                    onClick={() =>
+                      void run(
+                        () => requestMoreInformation(id, { question: infoQuestion.trim() }),
+                        "Asked for more information"
+                      )
+                    }
+                  >
+                    Ask for more information
                   </button>
                   <select
                     className="min-h-11 w-full rounded-lg border px-3 text-sm"
                     value={rejectType}
                     onChange={(e) => setRejectType(e.target.value)}
+                    aria-label="Closure resolution type"
                   >
                     <option value="DUPLICATE">Duplicate</option>
                     <option value="NOT_MAINTENANCE">Not maintenance</option>
@@ -365,9 +390,10 @@ export default function RequestDetailPage() {
                   </select>
                   <input
                     className="min-h-11 w-full rounded-lg border px-3 text-sm"
-                    placeholder="Rejection reason"
+                    placeholder="Closure reason"
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
+                    aria-label="Closure reason"
                   />
                   <button
                     type="button"
@@ -380,11 +406,39 @@ export default function RequestDetailPage() {
                             reasonType: rejectType,
                             reason: rejectReason.trim() || undefined
                           }),
-                        "Rejected"
+                        "Closed without work order"
                       )
                     }
                   >
-                    Reject
+                    Close without work order
+                  </button>
+                </>
+              ) : null}
+
+              {detail.status === "NEEDS_INFORMATION" ? (
+                <>
+                  <p className="text-sm text-slate-700" role="status">
+                    Waiting for requester information. Resume review when ready.
+                  </p>
+                  <input
+                    className="min-h-11 w-full rounded-lg border px-3 text-sm"
+                    placeholder="Optional note when resuming"
+                    value={resumeNote}
+                    onChange={(e) => setResumeNote(e.target.value)}
+                    aria-label="Resume review note"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="min-h-11 w-full rounded-lg bg-brand-600 text-sm text-white"
+                    onClick={() =>
+                      void run(
+                        () => resumeRequestReview(id, { responseNote: resumeNote.trim() || undefined }),
+                        "Review resumed"
+                      )
+                    }
+                  >
+                    Resume review
                   </button>
                 </>
               ) : null}

@@ -25,11 +25,11 @@ const mw = read("apps/api/src/common/middleware/request-id.middleware.ts");
 check("CORR-001", /MAX_REQUEST_ID_LENGTH\s*=\s*64/.test(mw), "MAX_REQUEST_ID_LENGTH = 64");
 check("CORR-002", /REQUEST_ID_PATTERN\s*=\s*\/\^\[A-Za-z0-9\\\-_\.:\]\+\$\//.test(mw) || /\\-_\\.:/.test(mw) || /:/.test(mw.match(/REQUEST_ID_PATTERN[\s\S]{0,80}/)?.[0] || ""), "colon allowed in request-id pattern");
 
-const ctx = read("apps/api/src/common/context/request-context.middleware.ts");
+const ctx = read("apps/api/src/common/context/request-context.interceptor.ts");
 check(
   "CORR-003",
-  /requestId/.test(ctx) && /req\.requestId|existing\?\.requestId/.test(ctx),
-  "requestContext.middleware preserves requestId"
+  /requestId/.test(ctx) && /existing\?\.requestId|req\.requestId/.test(ctx),
+  "requestContext interceptor preserves requestId"
 );
 
 const nginx = read("infra/nginx/default.conf");

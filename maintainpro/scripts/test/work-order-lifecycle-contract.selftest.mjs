@@ -63,8 +63,9 @@ check(
 
 check(
   "WO-LC-CONTRACT-006",
-  /verifySupervisor[\s\S]*status: WorkOrderStatus\.COMPLETED/.test(service),
-  "verifySupervisor finalizes COMPLETED"
+  /verifySupervisor[\s\S]*status: WorkOrderStatus\.VERIFIED/.test(service) &&
+    /closeWorkOrder[\s\S]*status: WorkOrderStatus\.CLOSED/.test(service),
+  "verifySupervisor sets VERIFIED; closeWorkOrder finalizes CLOSED"
 );
 
 check(

@@ -2362,7 +2362,7 @@ Record each completed task with:
   - WO aging limited to linked work orders with due dates (no platform-wide WO SLA engine yet)
 - Recommended next task: **OPS-003** duplicate issue detection
 
-## 2026-09-15 — Phase 15 SQL Server migration (engineering)
+## 2026-09-15 - Phase 15 SQL Server migration (engineering)
 
 - Branch: `maintainpro/phase-15-sqlserver-migration` from `integration-v1` @ `c54d7824`
 - Prisma kept at 5.22.0; datasource `sqlserver`; ObjectIds removed; junctions; Json/enums as String

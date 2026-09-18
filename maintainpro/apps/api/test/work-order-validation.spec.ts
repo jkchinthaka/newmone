@@ -3,6 +3,7 @@ import { WorkOrderType } from "@prisma/client";
 
 import {
   assertWorkOrderAssetRules,
+  assertValidEntityId,
   assertValidOptionalObjectId,
   calculateSlaRisk
 } from "../src/common/utils/work-order-validation";
@@ -52,6 +53,18 @@ describe("work order validation", () => {
 
   it("normalizes empty asset id to undefined", () => {
     expect(assertValidOptionalObjectId("assetId", "  ")).toBeUndefined();
+  });
+
+  it("accepts cuid and UUID creator ids", () => {
+    expect(assertValidEntityId("createdById", "clxyz0123456789abcdefgh")).toBe("clxyz0123456789abcdefgh");
+    expect(assertValidEntityId("createdById", "550e8400-e29b-41d4-a716-446655440000")).toBe(
+      "550e8400-e29b-41d4-a716-446655440000"
+    );
+    expect(assertValidEntityId("createdById", "507f1f77bcf86cd799439011")).toBe("507f1f77bcf86cd799439011");
+  });
+
+  it("rejects malformed creator ids", () => {
+    expect(() => assertValidEntityId("createdById", "bad id")).toThrow(BadRequestException);
   });
 
   it("calculates overdue SLA risk", () => {

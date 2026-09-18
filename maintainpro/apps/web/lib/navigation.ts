@@ -198,6 +198,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/maintenance/jobs/vehicle",
   "/maintenance/planning",
   "/maintenance/inspections",
+  "/maintenance/reliability",
   "/maintenance/costs",
   "/maintenance/history",
   "/maintenance/job-codes",
@@ -214,6 +215,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/inventory",
   "/inventory/movements",
   "/inventory/daily",
+  "/inventory/stock-counts",
   "/inventory/import",
   "/inventory/erp-import",
   "/inventory/warranty",
@@ -346,12 +348,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "all-jobs",
-    label: "All Jobs",
+    label: "Work Orders",
     href: "/maintenance/jobs",
     icon: "ClipboardList",
     allowedRoles: WO_ROLES,
     category: "operations",
-    description: "All executable maintenance work orders",
+    description: "Executable maintenance work orders",
     badgeKey: "my-tasks",
     mobilePriority: true,
     pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
@@ -415,6 +417,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: WO_ROLES,
     category: "operations",
     description: "Configurable machinery and vehicle inspections",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "reliability",
+    label: "Reliability",
+    href: "/maintenance/reliability",
+    icon: "Activity",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    description: "Downtime, RCA, CAPA, and reliability policy",
     activeMatch: "startsWith"
   },
   {
@@ -576,13 +588,24 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin",
-    label: "Admin Overview",
+    label: "Administration",
     href: "/admin",
     icon: "ShieldCheck",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Advanced administration control center",
-    activeMatch: "exact"
+    description: "Business administration and configuration",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "system-health",
+    label: "Technical Administration",
+    href: "/system-health",
+    icon: "Activity",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "System health, jobs, integrations, and recovery",
+    badgeKey: "system-health",
+    activeMatch: "startsWith"
   },
   {
     id: "notifications",
@@ -600,17 +623,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "UserCircle2",
     allowedRoles: HOME_ROLES,
     category: "secondary",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "system-health",
-    label: "System Health",
-    href: "/system-health",
-    icon: "Activity",
-    allowedRoles: ADMIN_ROLES,
-    category: "secondary",
-    description: "API, DB, queue, integrations",
-    badgeKey: "system-health",
     activeMatch: "startsWith"
   }
 ];
