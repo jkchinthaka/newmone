@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
@@ -102,7 +103,7 @@ export default function AdminMaintenanceConfigPage() {
         {SECTIONS.map((section) => (
           <Link
             key={section.href}
-            href={section.href}
+            href={section.href as Route}
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-brand-300"
           >
             <h2 className="font-semibold">{section.title}</h2>
