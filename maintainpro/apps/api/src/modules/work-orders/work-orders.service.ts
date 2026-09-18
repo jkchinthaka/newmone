@@ -50,6 +50,7 @@ import {
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
 import {
+  assertValidEntityId,
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
   calculateSlaRisk
@@ -556,9 +557,6 @@ export class WorkOrdersService {
     if (!data.description?.trim()) {
       throw new BadRequestException("Description is required");
     }
-    if (!data.createdById) {
-      throw new BadRequestException("createdById is required");
-    }
 
     const assetId = assertValidOptionalObjectId("assetId", data.assetId);
     const vehicleId = assertValidOptionalObjectId("vehicleId", data.vehicleId);
@@ -570,20 +568,20 @@ export class WorkOrdersService {
     const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
     assertWorkOrderAssetRules({ type: data.type as WorkOrderType, assetId, vehicleId, functionalLocationId });
 
-    if (!/^[a-fA-F0-9]{24}$/.test(data.createdById)) {
-      throw new BadRequestException("Invalid createdById. Please log in again to refresh your session.");
-    }
-
     const tenantId = this.resolveTenantId(actor);
     const actorId = actor?.sub;
     if (!actorId) {
       throw new ForbiddenException("Authenticated actor is required to create a work order.");
     }
 
-    // Attribution: createdById is the authenticated system creator (compatibility: matching client value accepted).
+    // Prefer authenticated actor. Client-supplied createdById is accepted for compatibility.
     // Spoofing another user requires create-on-behalf (admin only) and is audited.
+    const requestedCreatorId = data.createdById
+      ? assertValidEntityId("createdById", data.createdById)
+      : actorId;
+
     let authoritativeCreatorId = actorId;
-    if (data.createdById !== actorId) {
+    if (requestedCreatorId !== actorId) {
       const canCreateOnBehalf =
         actor?.role === RoleName.SUPER_ADMIN || actor?.role === RoleName.ADMIN;
       if (!canCreateOnBehalf) {
@@ -592,7 +590,7 @@ export class WorkOrdersService {
         );
       }
       const onBehalf = await this.prisma.user.findFirst({
-        where: { id: data.createdById, tenantId }
+        where: { id: requestedCreatorId, tenantId }
       });
       if (!onBehalf) {
         throw new BadRequestException("createdById does not match any existing user in your tenant context.");

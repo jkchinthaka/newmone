@@ -32,6 +32,19 @@ export function assertValidOptionalObjectId(field: string, value?: string | null
   return normalized;
 }
 
+export function assertValidEntityId(field: string, value?: string | null): string {
+  const normalized = normalizeOptionalObjectId(value);
+  if (!normalized) {
+    throw new BadRequestException(`${field} is required`);
+  }
+  if (!ENTITY_ID_PATTERN.test(normalized)) {
+    throw new BadRequestException(
+      `Invalid ${field}. Please log in again to refresh your session.`
+    );
+  }
+  return normalized;
+}
+
 export function assertWorkOrderAssetRules(input: {
   type: WorkOrderType;
   assetId?: string | null;
