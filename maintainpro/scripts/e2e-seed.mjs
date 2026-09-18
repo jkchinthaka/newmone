@@ -301,6 +301,22 @@ async function main() {
           });
         }
 
+        const defaultWh = await prisma.warehouse.findFirst({
+          where: { tenantId, code: "DEFAULT" }
+        });
+        if (!defaultWh) {
+          await prisma.warehouse.create({
+            data: {
+              id: newId(),
+              tenantId,
+              code: "DEFAULT",
+              name: "Default Warehouse",
+              isDefault: true,
+              isActive: true
+            }
+          });
+        }
+
         return { tenantId, users, assetId: asset.id };
       }
 

@@ -256,8 +256,8 @@ export class InventoryTransactionEngine {
       return work(existingTx);
     }
     return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 15_000,
-      timeout: 30_000
+      maxWait: 20_000,
+      timeout: 60_000
     });
   }
 
@@ -403,8 +403,8 @@ export class InventoryTransactionEngine {
       return work(existingTx);
     }
     return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 15_000,
-      timeout: 30_000
+      maxWait: 20_000,
+      timeout: 60_000
     });
   }
 
@@ -419,6 +419,12 @@ export class InventoryTransactionEngine {
     this.assertActor(input.actor);
     assertPositiveQuantity(input.quantity, "Quantity");
     const tenantId = requireTenantId(input.actor?.tenantId);
+
+    // Create default warehouse outside the interactive transaction so cold SQL Server
+    // boots do not burn the whole transaction budget on first warehouse insert.
+    if (!input.warehouseId && !input.warehouseCode?.trim()) {
+      await this.resolveWarehouse(this.prisma, tenantId);
+    }
 
     const work = async (tx: Prisma.TransactionClient) => {
       const replay = await this.beginIdempotency(tx, tenantId, operation, input);
@@ -529,8 +535,8 @@ export class InventoryTransactionEngine {
       return work(existingTx);
     }
     return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 15_000,
-      timeout: 30_000
+      maxWait: 20_000,
+      timeout: 60_000
     });
   }
 
