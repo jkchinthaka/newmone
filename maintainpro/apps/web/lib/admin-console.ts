@@ -203,14 +203,6 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       href: "/notifications"
     },
     {
-      id: "integrations",
-      title: "Integrations",
-      description: "ERP, email, SMS, storage, Redis, and queue readiness.",
-      status: "available",
-      statusLabel: "Integrations",
-      href: "/admin/integrations"
-    },
-    {
       id: "erp-parts",
       title: "ERP & Spare Parts",
       description: "Bileeta mapping, sync, and reconciliation.",
@@ -249,6 +241,15 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       status: "available",
       statusLabel: "Security",
       href: "/admin/security"
+    },
+    {
+      id: "integrations",
+      title: "Integrations (Technical)",
+      description: "Provider readiness for ERP, email, SMS, storage, and queues — Technical Admin only.",
+      status: "available",
+      statusLabel: "Technical",
+      href: "/system-health",
+      technicalOnly: true
     },
     {
       id: "technical",

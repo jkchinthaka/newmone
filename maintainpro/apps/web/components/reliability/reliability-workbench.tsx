@@ -122,6 +122,38 @@ export function ReliabilityWorkbench() {
     onError: (error) => toast.error(getApiErrorMessage(error, "Create failed"))
   });
 
+  const [capaForm, setCapaForm] = useState({
+    rcaId: "",
+    kind: "CORRECTIVE",
+    description: ""
+  });
+
+  const addCapa = useMutation({
+    mutationFn: async () => {
+      await apiClient.post(`/reliability/rca/${capaForm.rcaId}/capa`, {
+        kind: capaForm.kind,
+        description: capaForm.description
+      });
+    },
+    onSuccess: () => {
+      toast.success("CAPA action added");
+      setCapaForm({ rcaId: "", kind: "CORRECTIVE", description: "" });
+      void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "rca"]) });
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, "Could not add CAPA"))
+  });
+
+  const updateCapa = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      await apiClient.patch(`/reliability/capa/${id}`, { status });
+    },
+    onSuccess: () => {
+      toast.success("CAPA status updated");
+      void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "rca"]) });
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, "Could not update CAPA"))
+  });
+
   if (policyQuery.isLoading) {
     return <LoadingState title="Loading reliability" description="Fetching policy." />;
   }
@@ -379,6 +411,7 @@ export function ReliabilityWorkbench() {
               <div key={row.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{row.status}</span>
+                  <span className="font-mono text-xs text-slate-500">{row.id.slice(0, 8)}</span>
                   {row.repeatCandidate ? (
                     <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                       Repeat candidate ({row.similarWoCount})
@@ -387,16 +420,79 @@ export function ReliabilityWorkbench() {
                 </div>
                 <p className="mt-1 text-slate-700">{row.problemStatement}</p>
                 {(row.capaActions?.length ?? 0) > 0 ? (
-                  <ul className="mt-2 list-disc pl-5 text-slate-600">
+                  <ul className="mt-2 space-y-1 text-slate-600">
                     {row.capaActions!.map((c) => (
-                      <li key={c.id}>
-                        [{c.kind}] {c.status}: {c.description}
+                      <li key={c.id} className="flex flex-wrap items-center gap-2">
+                        <span>
+                          [{c.kind}] {c.status}: {c.description}
+                        </span>
+                        {c.status !== "CLOSED" && c.status !== "CANCELLED" ? (
+                          <button
+                            type="button"
+                            className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50"
+                            disabled={updateCapa.isPending}
+                            onClick={() =>
+                              updateCapa.mutate({
+                                id: c.id,
+                                status: c.status === "OPEN" ? "IN_PROGRESS" : c.status === "IN_PROGRESS" ? "VERIFIED" : "CLOSED"
+                              })
+                            }
+                          >
+                            Advance status
+                          </button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
-                ) : null}
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">No CAPA actions yet.</p>
+                )}
               </div>
             ))}
+          </div>
+          <div className="grid max-w-2xl gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+            <h3 className="text-sm font-semibold text-slate-900">Add CAPA action</h3>
+            <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700">RCA case</span>
+              <select
+                className="w-full rounded border border-slate-300 px-3 py-2"
+                value={capaForm.rcaId}
+                onChange={(e) => setCapaForm((f) => ({ ...f, rcaId: e.target.value }))}
+              >
+                <option value="">Select RCA</option>
+                {(rcaQuery.data ?? []).map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.id.slice(0, 8)} — {row.problemStatement.slice(0, 60)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700">Kind</span>
+              <select
+                className="w-full rounded border border-slate-300 px-3 py-2"
+                value={capaForm.kind}
+                onChange={(e) => setCapaForm((f) => ({ ...f, kind: e.target.value }))}
+              >
+                <option value="CORRECTIVE">Corrective</option>
+                <option value="PREVENTIVE">Preventive</option>
+              </select>
+            </label>
+            <textarea
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              rows={2}
+              placeholder="CAPA description"
+              value={capaForm.description}
+              onChange={(e) => setCapaForm((f) => ({ ...f, description: e.target.value }))}
+            />
+            <button
+              type="button"
+              className="w-fit rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+              disabled={!capaForm.rcaId || !capaForm.description || addCapa.isPending}
+              onClick={() => addCapa.mutate()}
+            >
+              Add CAPA
+            </button>
           </div>
         </div>
       ) : null}

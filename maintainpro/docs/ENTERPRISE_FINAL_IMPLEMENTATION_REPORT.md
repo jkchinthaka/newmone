@@ -1,4 +1,4 @@
-# Enterprise Final Implementation — Progress Report (2026-09-18)
+# Enterprise Final Implementation — Progress Report
 
 ## Delivery
 
@@ -7,21 +7,24 @@
 | Working branch | `maintainpro/enterprise-final-implementation` |
 | Open PR | https://github.com/jkchinthaka/newmone/pull/39 |
 | Starting SHA (main) | `2c29096e` (PR #37 merged) |
-| Merge status | Not merged — waiting for required CI |
+| Merge status | Not merged — waiting for required CI (full-stack-e2e) |
 
-## Code-owned increments
+## Latest code-owned increments
 
-1. **PROC-003/011:** cuid entity IDs; PO create sets `PENDING`; ERP sync promotes blank/PENDING → `ORDERED`.
-2. **SQL Server recovery rehearsal:** bak backup/restore/verify + recovery API smoke.
-3. **Inventory report:** coerce Prisma `Decimal` before `toFixed`.
-4. **Reports export:** ADMIN role fallback when JWT lacks `reports.view`.
-5. **Nav IA:** Work Orders label; Reliability at `/maintenance/reliability`.
-6. **MR needs-information** API + UI; ERP warehouse fail-closed; vehicle retire-not-delete.
-7. **Operations rehearsal:** primary DB outage targets **SQL Server** (not Mongo) when `DATABASE_PROVIDER=sqlserver`.
+1. Operations rehearsal: SQL Server primary outage; longer web/SQL recovery waits; stderr captured in evidence.
+2. ERP live sync: fail-closed on ambiguous accept payloads.
+3. Tenant fail-closed: suppliers + taxonomy usage require tenant.
+4. WO UX: Cancel (retain history), not hard delete copy.
+5. Daily inventory UI: full ledger columns including reversals/transfers.
+6. Stock counts: line entry UI + API client.
+7. CAPA add/advance in Reliability workbench.
+8. Integrations moved under Technical Admin (`/system-health`).
 
-## CI focus
+## CI
 
-Full-stack-e2e last failed at Exact-service restart rehearsal (`reason=mongo_outage`) after management-info + SQL recovery passed. Fix in this commit.
+Repo checks (validate/migrate/docker/release/build) have been green.  
+full-stack-e2e last failed at Exact-service rehearsal (`reason=web_restart`). Fix in flight.  
+Vercel / Workers: EXTERNAL fail.
 
 ## External blockers
 
@@ -29,10 +32,6 @@ Full-stack-e2e last failed at Exact-service restart rehearsal (`reason=mongo_out
 - Power BI production RLS
 - Human UAT / cutover approval
 - Vercel / Cloudflare preview deploy credentials
-
-## Merge policy
-
-Merge only after full-stack-e2e green on merge candidate.
 
 ## Production-readiness verdict (interim)
 

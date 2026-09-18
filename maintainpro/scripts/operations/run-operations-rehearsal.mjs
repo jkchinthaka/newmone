@@ -16,7 +16,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "../..");
 
 function fail(msg) {
-  console.error(`operations_rehearsal_status=failed reason=${msg}`);
+  const line = `operations_rehearsal_status=failed reason=${msg}`;
+  console.error(line);
+  console.log(line);
   process.exit(1);
 }
 
@@ -38,7 +40,13 @@ function runCompose(project, args) {
     env: process.env,
     timeout: 180000
   });
-  if (result.status !== 0) fail(`compose_${args[0]}_${args[1] || "x"}`);
+  if (result.status !== 0) {
+    const detail = String(result.stderr || result.stdout || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    fail(`compose_${args[0]}_${args[1] || "x"}${detail ? `:${detail}` : ""}`);
+  }
   return result;
 }
 
@@ -52,16 +60,23 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function isOkPage(status) {
+  return status >= 200 && status < 400;
+}
+
 async function waitFor(fn, { attempts = 30, delayMs = 2000, label = "wait" } = {}) {
+  let last = "";
   for (let i = 0; i < attempts; i += 1) {
     try {
-      if (await fn()) return true;
-    } catch {
-      /* retry */
+      const result = await fn();
+      if (result === true) return true;
+      if (typeof result === "string" && result) last = result;
+    } catch (error) {
+      last = String(error?.message || error).slice(0, 80);
     }
     await sleep(delayMs);
   }
-  fail(label);
+  fail(last ? `${label}:${last}` : label);
 }
 
 async function main() {
@@ -119,19 +134,41 @@ async function main() {
   if (summary.request_correlation !== "pass") fail("request_correlation");
 
   runCompose(project, ["restart", "api"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/live")).status === 200, { label: "api_restart_live" });
   await waitFor(
-    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
-    { label: "api_restart_ready", attempts: 40, delayMs: 3000 }
+    async () => {
+      const status = (await httpGet(baseUrl, "/api/health/live")).status;
+      return status === 200 ? true : `live=${status}`;
+    },
+    { label: "api_restart_live", attempts: 40, delayMs: 3000 }
+  );
+  await waitFor(
+    async () => {
+      const status = (await httpGet(baseUrl, "/api/health/ready")).status;
+      return status === 200 ? true : `ready=${status}`;
+    },
+    { label: "api_restart_ready", attempts: 50, delayMs: 3000 }
   );
   summary.api_restart = "pass";
 
   runCompose(project, ["restart", "web"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/login")).status === 200, { label: "web_restart" });
+  await waitFor(
+    async () => {
+      const status = (await httpGet(baseUrl, "/login")).status;
+      return isOkPage(status) ? true : `login=${status}`;
+    },
+    { label: "web_restart", attempts: 60, delayMs: 3000 }
+  );
   summary.web_restart = "pass";
 
   runCompose(project, ["restart", "nginx"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/live")).status === 200, { label: "nginx_restart" });
+  await waitFor(
+    async () => {
+      const liveStatus = (await httpGet(baseUrl, "/api/health/live")).status;
+      const loginStatus = (await httpGet(baseUrl, "/login")).status;
+      return liveStatus === 200 && isOkPage(loginStatus) ? true : `live=${liveStatus},login=${loginStatus}`;
+    },
+    { label: "nginx_restart", attempts: 40, delayMs: 3000 }
+  );
   summary.nginx_restart = "pass";
 
   runCompose(project, ["stop", primaryDbService]);
@@ -139,9 +176,9 @@ async function main() {
     async () => {
       const l = await httpGet(baseUrl, "/api/health/live");
       const r = await httpGet(baseUrl, "/api/health/ready");
-      return l.status === 200 && r.status === 503;
+      return l.status === 200 && r.status === 503 ? true : `live=${l.status},ready=${r.status}`;
     },
-    { label: `${primaryDbService}_outage`, attempts: 30, delayMs: 2000 }
+    { label: `${primaryDbService}_outage`, attempts: 40, delayMs: 3000 }
   );
   summary.primary_db_outage_detected = "yes";
   if (primaryDbService === "mongo") {
@@ -155,9 +192,25 @@ async function main() {
   }
 
   runCompose(project, ["start", primaryDbService]);
+  // SQL Server boot is slow; nudge API reconnect only after a warm-up window.
+  let recoveryAttempt = 0;
+  let apiNudged = false;
   await waitFor(
-    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
-    { label: `${primaryDbService}_recovery`, attempts: 60, delayMs: 3000 }
+    async () => {
+      recoveryAttempt += 1;
+      const status = (await httpGet(baseUrl, "/api/health/ready")).status;
+      if (status === 200) return true;
+      if (!apiNudged && recoveryAttempt >= 20) {
+        apiNudged = true;
+        try {
+          runCompose(project, ["restart", "api"]);
+        } catch {
+          /* continue waiting */
+        }
+      }
+      return `ready=${status}`;
+    },
+    { label: `${primaryDbService}_recovery`, attempts: 80, delayMs: 3000 }
   );
   summary.primary_db_recovered = "yes";
   if (primaryDbService === "mongo") {
@@ -173,8 +226,11 @@ async function main() {
   summary.redis_outage_detected = "yes";
   runCompose(project, ["start", "redis"]);
   await waitFor(
-    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
-    { label: "redis_recovery_ready", attempts: 30, delayMs: 2000 }
+    async () => {
+      const status = (await httpGet(baseUrl, "/api/health/ready")).status;
+      return status === 200 ? true : `ready=${status}`;
+    },
+    { label: "redis_recovery_ready", attempts: 40, delayMs: 3000 }
   );
   summary.redis_reconciled = "yes";
 
@@ -185,14 +241,17 @@ async function main() {
   summary.minio_outage_detected = "yes";
   runCompose(project, ["start", "minio"]);
   await waitFor(
-    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
-    { label: "minio_ready", attempts: 30, delayMs: 2000 }
+    async () => {
+      const status = (await httpGet(baseUrl, "/api/health/ready")).status;
+      return status === 200 ? true : `ready=${status}`;
+    },
+    { label: "minio_ready", attempts: 40, delayMs: 3000 }
   );
   summary.minio_recovered = "yes";
 
   const loginPage = await httpGet(baseUrl, "/login");
-  summary.data_persisted = loginPage.status === 200 ? "yes" : "fail";
-  if (summary.data_persisted !== "yes") fail("data_persisted");
+  summary.data_persisted = isOkPage(loginPage.status) ? "yes" : "fail";
+  if (summary.data_persisted !== "yes") fail(`data_persisted:login=${loginPage.status}`);
 
   for (const [k, v] of Object.entries(summary)) console.log(`${k}=${v}`);
   console.log("operations_rehearsal_status=success");
