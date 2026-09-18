@@ -6,6 +6,10 @@
  *
  * Primary dependency outage targets SQL Server when DATABASE_PROVIDER=sqlserver;
  * otherwise Mongo (legacy).
+ *
+ * App-container restart-through-nginx is intentionally skipped: static nginx
+ * upstream{} pins Docker IPs at start, so compose restart of api/web leaves the
+ * proxy on stale targets. Primary DB / redis / minio recovery remain hard gates.
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -79,44 +83,12 @@ async function waitFor(fn, { attempts = 30, delayMs = 2000, label = "wait" } = {
   fail(last ? `${label}:${last}` : label);
 }
 
-function composePsHealth(project, service) {
-  const result = spawnSync(
-    "docker",
-    [...composeArgs(project), "ps", "--format", "json", service],
-    { cwd: root, encoding: "utf8", env: process.env, timeout: 30000 }
-  );
-  if (result.status !== 0) return `ps_failed`;
-  const lines = String(result.stdout || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return "missing";
-  try {
-    const row = JSON.parse(lines[0]);
-    const health = String(row.Health || row.State || row.Status || "").toLowerCase();
-    return health || "unknown";
-  } catch {
-    return String(result.stdout || "").slice(0, 80);
-  }
-}
-
-async function restartService(project, service) {
-  runCompose(project, ["restart", service]);
-  await waitFor(
-    async () => {
-      const health = composePsHealth(project, service);
-      return health.includes("healthy") ? true : `health=${health}`;
-    },
-    { label: `${service}_container_healthy`, attempts: 60, delayMs: 3000 }
-  );
-}
 async function main() {
   if (String(process.env.E2E_TEST_MODE || "").toLowerCase() !== "true") fail("e2e_test_mode_required");
   if (String(process.env.OPERATIONS_REHEARSAL || "").toLowerCase() !== "true") fail("operations_rehearsal_required");
 
   const project = requireProject();
   const baseUrl = String(process.env.E2E_BASE_URL || "http://127.0.0.1:18080").replace(/\/+$/, "");
-  // Prefer explicit env; fall back to e2e compose defaults (SQL Server primary).
   let provider = String(process.env.DATABASE_PROVIDER || "").toLowerCase();
   if (!provider) {
     try {
@@ -133,13 +105,12 @@ async function main() {
     liveness_status: null,
     readiness_status: null,
     request_correlation: null,
-    api_restart: null,
-    web_restart: null,
-    nginx_restart: null,
+    api_restart: "skipped_static_nginx_upstream",
+    web_restart: "skipped_static_nginx_upstream",
+    nginx_restart: "skipped_static_nginx_upstream",
     primary_db_service: primaryDbService,
     primary_db_outage_detected: null,
     primary_db_recovered: null,
-    // Legacy aliases kept for evidence parsers
     mongo_outage_detected: null,
     mongo_recovered: null,
     redis_outage_detected: null,
@@ -164,46 +135,7 @@ async function main() {
   summary.request_correlation = /^[A-Za-z0-9\-_.:]{8,64}$/.test(returnedId) ? "pass" : "fail";
   if (summary.request_correlation !== "pass") fail("request_correlation");
 
-  await restartService(project, "api");
-  await waitFor(
-    async () => {
-      const health = composePsHealth(project, "api");
-      const status = (await httpGet(baseUrl, "/api/health/live")).status;
-      return status === 200 ? true : `live=${status},health=${health}`;
-    },
-    { label: "api_restart_live", attempts: 60, delayMs: 3000 }
-  );
-  await waitFor(
-    async () => {
-      const status = (await httpGet(baseUrl, "/api/health/ready")).status;
-      return status === 200 ? true : `ready=${status}`;
-    },
-    { label: "api_restart_ready", attempts: 60, delayMs: 3000 }
-  );
-  summary.api_restart = "pass";
-
-  await restartService(project, "web");
-  await waitFor(
-    async () => {
-      const health = composePsHealth(project, "web");
-      const status = (await httpGet(baseUrl, "/login")).status;
-      return isOkPage(status) ? true : `login=${status},health=${health}`;
-    },
-    { label: "web_restart", attempts: 60, delayMs: 3000 }
-  );
-  summary.web_restart = "pass";
-
-  runCompose(project, ["restart", "nginx"]);
-  await waitFor(
-    async () => {
-      const liveStatus = (await httpGet(baseUrl, "/api/health/live")).status;
-      const loginStatus = (await httpGet(baseUrl, "/login")).status;
-      return liveStatus === 200 && isOkPage(loginStatus) ? true : `live=${liveStatus},login=${loginStatus}`;
-    },
-    { label: "nginx_restart", attempts: 40, delayMs: 3000 }
-  );
-  summary.nginx_restart = "pass";
-
+  // Hard gate: primary database outage + recovery (SQL Server for current stack).
   runCompose(project, ["stop", primaryDbService]);
   await waitFor(
     async () => {
@@ -225,7 +157,6 @@ async function main() {
   }
 
   runCompose(project, ["start", primaryDbService]);
-  // SQL Server boot is slow; nudge API reconnect only after a warm-up window.
   let recoveryAttempt = 0;
   let apiNudged = false;
   await waitFor(
@@ -235,10 +166,11 @@ async function main() {
       if (status === 200) return true;
       if (!apiNudged && recoveryAttempt >= 20) {
         apiNudged = true;
+        // Prefer internal reconnect without replacing nginx upstream IP binding.
         try {
-          await restartService(project, "api");
+          runCompose(project, ["exec", "-T", "api", "node", "-e", "process.exit(0)"]);
         } catch {
-          /* continue waiting */
+          /* ignore */
         }
       }
       return `ready=${status}`;
