@@ -151,6 +151,15 @@ export function compareStockBalances(input: {
   if (warehouseScoped) {
     warnings.push("Preferred comparison identity is Part + Warehouse.");
   }
+  if (
+    warehouseScoped &&
+    input.maintainProParts.some((p) => !p.warehouseCode) &&
+    input.erpBalances.some((b) => Boolean(b.warehouseCode))
+  ) {
+    warnings.push(
+      "AUTHORITATIVE_APPLY_BLOCK: Some MaintainPro rows lack warehouseCode while ERP snapshot is warehouse-scoped. Resolve mappings before apply."
+    );
+  }
 
   for (const part of input.maintainProParts) {
     const code = normalizeErpItemCode(part.partNumber);

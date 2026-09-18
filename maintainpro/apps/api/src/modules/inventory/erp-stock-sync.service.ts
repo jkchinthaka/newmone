@@ -190,6 +190,26 @@ export class ErpStockSyncService {
     });
     const checkedAt = new Date().toISOString();
 
+    const erpWarehouseScoped = erpBalances.some((b) => Boolean(b.warehouseCode));
+    if (erpWarehouseScoped && comparison.changedRows.some((r) => !r.warehouseCode)) {
+      return {
+        mode: "absolute-snapshot",
+        status: "blocked",
+        appliedAt: checkedAt,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: comparison.summary.changedItems,
+        failedPartNumbers: comparison.changedRows.filter((r) => !r.warehouseCode).map((r) => r.partNumber),
+        warnings: [
+          ...comparison.warnings,
+          "Apply blocked: ERP warehouse-scoped snapshot requires Part + Warehouse identity on every changed row."
+        ],
+        message:
+          "ERP item mapping is incomplete for warehouse scope. Map MaintainPro warehouse balances before applying this snapshot.",
+        snapshotBalanceCount: erpBalances.length
+      };
+    }
+
     if (comparison.summary.changedItems === 0) {
       return {
         mode: "absolute-snapshot",

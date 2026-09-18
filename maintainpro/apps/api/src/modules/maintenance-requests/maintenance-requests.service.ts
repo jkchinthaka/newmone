@@ -455,6 +455,96 @@ export class MaintenanceRequestsService {
     return this.findOne(tid, id, actor, { forceAll: true });
   }
 
+  async requestInformation(
+    tenantId: string | null,
+    id: string,
+    actor: Actor,
+    dto: { question: string; publicNote?: string }
+  ) {
+    this.assertTriage(actor);
+    const tid = requireTenantId(tenantId);
+    const current = await this.requireRequest(tid, id);
+    assertValidTransition(current.status, MaintenanceRequestStatus.NEEDS_INFORMATION);
+    const question = dto.question?.trim();
+    if (!question || question.length < 3) {
+      throw new BadRequestException("A clear question for the requester is required (min 3 characters).");
+    }
+
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: {
+        status: MaintenanceRequestStatus.NEEDS_INFORMATION,
+        publicUpdateNote: dto.publicNote?.trim() || question,
+        triageNotes: current.triageNotes
+          ? `${current.triageNotes}\n[Needs info] ${question}`
+          : `[Needs info] ${question}`,
+        triageOwnerId: actor.sub
+      }
+    });
+
+    await this.appendHistory(tid, id, {
+      fromStatus: current.status,
+      toStatus: MaintenanceRequestStatus.NEEDS_INFORMATION,
+      action: "NEEDS_INFORMATION",
+      actorId: actor.sub,
+      reason: question,
+      isInternal: false
+    });
+    await writeAuditTrail(this.prisma, {
+      entity: "MaintenanceRequest",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      module: "maintenance-requests",
+      actor: actor as never,
+      reason: question,
+      beforeData: { status: current.status } as never,
+      afterData: { status: updated.status } as never
+    });
+
+    return this.findOne(tid, id, actor, { forceAll: true });
+  }
+
+  async resumeReview(tenantId: string | null, id: string, actor: Actor, dto?: { responseNote?: string }) {
+    this.assertTriage(actor);
+    const tid = requireTenantId(tenantId);
+    const current = await this.requireRequest(tid, id);
+    if (current.status !== MaintenanceRequestStatus.NEEDS_INFORMATION) {
+      throw new BadRequestException("Only requests awaiting information can resume review.");
+    }
+    assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
+
+    const note = dto?.responseNote?.trim();
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: {
+        status: MaintenanceRequestStatus.UNDER_REVIEW,
+        publicUpdateNote: note || current.publicUpdateNote,
+        triageOwnerId: actor.sub,
+        reviewedAt: new Date()
+      }
+    });
+
+    await this.appendHistory(tid, id, {
+      fromStatus: current.status,
+      toStatus: MaintenanceRequestStatus.UNDER_REVIEW,
+      action: "RESUME_REVIEW",
+      actorId: actor.sub,
+      reason: note,
+      isInternal: false
+    });
+    await writeAuditTrail(this.prisma, {
+      entity: "MaintenanceRequest",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      module: "maintenance-requests",
+      actor: actor as never,
+      beforeData: { status: current.status } as never,
+      afterData: { status: updated.status } as never
+    });
+
+    return this.findOne(tid, id, actor, { forceAll: true });
+  }
+
   async reject(
     tenantId: string | null,
     id: string,

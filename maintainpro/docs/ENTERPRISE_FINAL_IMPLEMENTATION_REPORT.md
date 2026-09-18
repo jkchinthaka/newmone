@@ -1,89 +1,50 @@
-# MaintainPro Enterprise Final Implementation — Progress Report
+# Enterprise Final Implementation — Progress Report (2026-09-18)
 
-**Branch:** `maintainpro/enterprise-final-implementation`  
-**PR:** https://github.com/jkchinthaka/newmone/pull/39  
-**Started from main:** `2c29096e`  
-**Date:** 2026-09-18
+## Starting context
 
-## Repo-owned CI (latest)
+| Item | Value |
+|------|-------|
+| Default branch | `main` @ `2c29096e` (PR #37 final-enterprise-closure merged) |
+| Working branch | `maintainpro/enterprise-final-implementation` |
+| Open PR | https://github.com/jkchinthaka/newmone/pull/39 |
+| Prior HEAD | `2f879a7e` |
 
-| Check | Status |
+## This increment (code-owned)
+
+1. **E2E-PROC-003 root cause:** `CreatePurchaseOrderDto` rejected cuid supplier/part IDs (`@Matches` Mongo ObjectId only) → HTTP 400. Fixed to accept cuid/UUID/legacy ObjectId.
+2. **MaintenanceRequest needs-information loop:** `POST :id/needs-information` and `POST :id/resume-review` wired to `NEEDS_INFORMATION` ↔ `UNDER_REVIEW`. Close-without-WO remains via reject → `CLOSED` + `resolutionCode`.
+3. **ERP apply fail-closed:** warehouse-scoped ERP snapshots refuse apply when changed rows lack warehouse identity.
+4. **Test:** `purchase-order-entity-id.spec.ts`.
+
+## Already on branch (verified, not re-implemented)
+
+- WO hard delete → cancel-only (`CANCEL_INSTEAD_OF_DELETE`)
+- PmOccurrence upsert on PM auto-generation; completion on WO verify/close
+- Stock count session/line + UI
+- Optimistic concurrency util + WO update expectedVersion
+- Inventory daily + reversal correctness
+- Nav IA / settings-admin split
+- `docs/database/*`
+
+## CI status before this push
+
+| Check | Result |
 |-------|--------|
-| validate-monorepo | PASS (prior tip) |
-| release-validate | PASS (prior tip) |
-| docker-build | PASS (prior tip) |
-| fresh-sqlserver-migrate | PASS (prior tip) |
-| full-stack-e2e | In progress — E2E migrated to SQL Server primary (was 503 on `/api/health/ready` due to Mongo DATABASE_URL) |
-| Vercel preview | FAIL — EXTERNAL |
-| Cloudflare Workers Builds | FAIL — EXTERNAL |
+| PR Validation | PASSED |
+| SQL Server Migration Gate | PASSED |
+| Release Validation | PASSED |
+| Docker Build / Image | PASSED |
+| Full-Stack E2E | FAILED (PROC-003 ObjectId) — fix in this commit |
+| Vercel / Cloudflare Workers | FAILED (external deploy) |
 
-**Merge:** Not merged until required repo-owned checks are green. Vercel/Workers remain external blockers and do not alone block merge if not required.
+## External blockers (not falsely marked complete)
 
-## Latest fix (E2E SQL Server)
+- Live Bileeta / SMTP / SMS / Entra credentials
+- Power BI production RLS
+- Human Gate-1 UAT sign-off
+- Irreversible production cutover
+- Vercel/Cloudflare preview deploy credentials (platform, not app logic)
 
-- `.env.e2e.example` + compose overlay use SQL Server (`maintainpro_e2e_primary`)
-- Host-side `db:migrate:deploy` before readiness wait
-- `e2e-seed.mjs` / `e2e-cleanup.mjs` rewritten for Prisma/SQL Server
-- Guards accept `sqlserver://` disposable hosts
-- FG remains non-blocking for core MaintainPro E2E
-- WO create accepts cuid/UUID `createdById`; E2E payload attaches seeded asset (`limit` query)
-- Inventory stock engine serializes audit/idempotency JSON into SQL Server `NVarChar` columns (fixes 503 on part create)
+## Merge policy
 
-**HEAD tip:** see branch `maintainpro/enterprise-final-implementation`
-
-
-## Completed
-
-### Phase 0
-- Tenant fail-closed (`requireTenantId`) for ERP exceptions / WO history
-- WO remove → CANCELLED; Vehicle remove → DISPOSED
-- Daily Inventory REVERSAL opposite signed impact + expanded tests
-- ERP Part+Warehouse compare; WarehouseItemBalance load
-- Production compose structure fixture vars
-- Text integrity U+FFFD cleanup
-
-### Phase 1
-- Navigation: Administration + Technical Administration + My Profile
-- Settings personal-only with admin deep-links
-
-### Phase 2
-- MR reject/duplicate → CLOSED + `resolutionCode` (migration `20260918020000`)
-- Create WO wizard: Context → Work → Plan → Review
-
-### Phase 3
-- OCC `version` on Asset/WO/MR
-- `PmOccurrence` model + upsert on PM auto-WO
-- WO close → occurrence COMPLETED + `PmPlan.lastCompletionAt`
-
-### Phase 4
-- `StockCountSession` / `StockCountLine` + migration `20260918030000`
-- API + `/inventory/stock-counts` UI; post via ledger only
-
-### Docs
-- `docs/database/DATABASE_OVERVIEW.md`, `DATA_DICTIONARY.md`, `STATUS_CATALOG.md`, `LEGACY_DISPOSITION.md`
-
-### CI hardening
-- NEXT_PUBLIC_* for web CI/Docker builds
-- Phase-15-aware release contract selftests
-- MinIO images from Quay with pinned releases
-
-## Still open
-
-- Background PM Bull/cron scheduler (API on-demand exists)
-- Stock count line-entry UX polish
-- FG container healthy in full-stack E2E
-- Safety/Reliability UI polish (P5)
-- Notifications/Search/Data quality depth (P6)
-- Accessibility audit / human UAT
-
-## External blockers
-
-- Live Bileeta / Entra / SMTP / SMS / Power BI RLS
-- Vercel + Cloudflare Workers deploy config for this monorepo path
-- Human UAT / cutover approval
-
-## Production readiness verdict
-
-**Design finalized ≠ Feature complete ≠ Production ready.**
-
-Current verdict: **NOT PRODUCTION READY** — repository-owned core checks largely green; full-stack E2E and external deploy gates remain open.
+Merge to `main` only when repository-required GitHub checks are green. Do not merge while full-stack-e2e fails. Vercel/Workers may remain external if not required by branch protection (main currently unprotected).

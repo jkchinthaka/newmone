@@ -171,6 +171,35 @@ export class MaintenanceRequestsController {
     return { data, message: "Request approved" };
   }
 
+  @Post(":id/needs-information")
+  @Roles(...TRIAGE_ROLES)
+  @Permissions("maintenance_requests.triage")
+  async needsInformation(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { question: string; publicNote?: string }
+  ) {
+    const data = await this.requests.requestInformation(
+      req.user?.tenantId ?? null,
+      id,
+      req.user!,
+      body
+    );
+    return { data, message: "Requester asked for more information" };
+  }
+
+  @Post(":id/resume-review")
+  @Roles(...TRIAGE_ROLES)
+  @Permissions("maintenance_requests.triage")
+  async resumeReview(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { responseNote?: string }
+  ) {
+    const data = await this.requests.resumeReview(req.user?.tenantId ?? null, id, req.user!, body);
+    return { data, message: "Review resumed" };
+  }
+
   @Post(":id/reject")
   @Roles(...TRIAGE_ROLES)
   @Permissions("maintenance_requests.reject")
@@ -180,7 +209,7 @@ export class MaintenanceRequestsController {
     @Body() body: RejectMaintenanceRequestDto
   ) {
     const data = await this.requests.reject(req.user?.tenantId ?? null, id, req.user!, body);
-    return { data, message: "Request rejected" };
+    return { data, message: "Request closed without work order" };
   }
 
   @Post(":id/cancel")
