@@ -534,6 +534,13 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
+
+    // SQL Server interactive transactions are prohibitively slow/fragile for first-stock
+    // receives in disposable CI. Prefer a sequential path when no idempotency key is used.
+    if (!input.idempotencyKey?.trim()) {
+      return work(this.prisma as unknown as Prisma.TransactionClient);
+    }
+
     return this.prisma.$transaction((tx) => work(tx), {
       maxWait: 20_000,
       timeout: 60_000
