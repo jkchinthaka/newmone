@@ -100,12 +100,35 @@ function composePsHealth(project, service) {
   }
 }
 
+function reloadNginx(project) {
+  const reload = spawnSync(
+    "docker",
+    [...composeArgs(project), "exec", "-T", "nginx", "nginx", "-s", "reload"],
+    { cwd: root, encoding: "utf8", env: process.env, timeout: 30000 }
+  );
+  if (reload.status === 0) return "reloaded";
+  const restart = spawnSync(
+    "docker",
+    [...composeArgs(project), "restart", "nginx"],
+    { cwd: root, encoding: "utf8", env: process.env, timeout: 120000 }
+  );
+  if (restart.status !== 0) {
+    fail("nginx_proxy_refresh");
+  }
+  return "restarted";
+}
+
 async function restartServiceAndRefreshProxy(project, service) {
   runCompose(project, ["restart", service]);
-  await sleep(5000);
-  // Nginx resolves upstreams at start; refresh after container IP changes.
-  runCompose(project, ["restart", "nginx"]);
-  await sleep(3000);
+  await waitFor(
+    async () => {
+      const health = composePsHealth(project, service);
+      return health.includes("healthy") ? true : `health=${health}`;
+    },
+    { label: `${service}_container_healthy`, attempts: 60, delayMs: 3000 }
+  );
+  reloadNginx(project);
+  await sleep(2000);
 }
 
 async function main() {
