@@ -203,7 +203,8 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    # Official images publish to Quay; Docker Hub minio/minio often denies anonymous pulls in CI.
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -223,7 +224,7 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
       - minio
     entrypoint: >-
