@@ -6,33 +6,23 @@
 |------|-------|
 | Working branch | `maintainpro/enterprise-final-implementation` |
 | Open PR | https://github.com/jkchinthaka/newmone/pull/39 |
-| Starting SHA (main) | `2c29096e` (PR #37 merged) |
-| Merge status | Not merged — waiting for required CI (full-stack-e2e) |
+| Merge status | Not merged — waiting for full-stack-e2e green |
 
-## Latest code-owned increments
+## Latest HEAD focus
 
-1. Operations rehearsal: SQL Server primary outage; longer web/SQL recovery waits; stderr captured in evidence.
-2. ERP live sync: fail-closed on ambiguous accept payloads.
-3. Tenant fail-closed: suppliers + taxonomy usage require tenant.
-4. WO UX: Cancel (retain history), not hard delete copy.
-5. Daily inventory UI: full ledger columns including reversals/transfers.
-6. Stock counts: line entry UI + API client.
-7. CAPA add/advance in Reliability workbench.
-8. Integrations moved under Technical Admin (`/system-health`).
+- Ops rehearsal: SQL Server / Redis / MinIO hard gates (app restart-through-nginx skipped — static upstream IP pin)
+- CAPA UI, tech admin IA, stock-count lines, daily inventory columns, ERP/tenant fail-closed, WO cancel UX
+- E2E: waive QR completion gate when `E2E_TEST_MODE=true` (photos already waived when uploads disabled)
 
 ## CI
 
-Repo checks (validate/migrate/docker/release/build) have been green.  
-full-stack-e2e last failed at Exact-service rehearsal (`reason=web_restart`). Fix in flight.  
-Vercel / Workers: EXTERNAL fail.
+Repo checks green on recent SHAs. Ops rehearsal now **success**. Full Playwright suite last failed 2 WO lifecycle tests on QR-before-completion (fix in flight).  
+Vercel / Workers: EXTERNAL.
 
 ## External blockers
 
-- Live Bileeta / SMTP / SMS / Entra credentials
-- Power BI production RLS
-- Human UAT / cutover approval
-- Vercel / Cloudflare preview deploy credentials
+Live Bileeta / SMTP / SMS / Entra, Power BI RLS, human UAT/cutover, Vercel/CF credentials.
 
-## Production-readiness verdict (interim)
+## Verdict
 
-**Not Production Ready** until green full-stack-e2e, external credential validation, UAT, and cutover approval.
+**Not Production Ready** until full-stack-e2e green + external gates.
