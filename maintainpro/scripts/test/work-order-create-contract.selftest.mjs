@@ -25,8 +25,10 @@ const service = readFileSync(
 );
 check(
   "WO-CONTRACT-001",
-  /createdById is required/.test(service),
-  "Service requires createdById"
+  /authoritativeCreatorId/.test(service) &&
+    /Authenticated actor is required to create a work order/.test(service) &&
+    /assertValidEntityId\("createdById"/.test(service),
+  "Service derives creator from authenticated actor (optional compatible createdById)"
 );
 
 const validation = readFileSync(
