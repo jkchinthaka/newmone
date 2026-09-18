@@ -189,7 +189,7 @@ export function WorkOrderCard({
           type="button"
           onClick={() => onDelete(workOrder)}
           className="inline-flex items-center justify-center rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-          aria-label="Delete work order"
+          aria-label="Cancel work order"
         >
           <Trash2 size={12} />
         </button>

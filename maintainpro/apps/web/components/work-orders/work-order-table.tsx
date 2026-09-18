@@ -206,7 +206,7 @@ export function WorkOrderTable({
             onClick={() => onDelete(workOrder)}
             className="inline-flex min-h-11 items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
           >
-            <Trash2 size={12} /> Delete
+            <Trash2 size={12} /> Cancel
           </button>
         </div>
       )}

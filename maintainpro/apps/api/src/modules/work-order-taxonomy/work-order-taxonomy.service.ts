@@ -438,20 +438,24 @@ export class WorkOrderTaxonomyService {
   }
 
   private async usageForNode(id: string, tenantId: string | null) {
+    if (!tenantId) {
+      throw new ForbiddenException("Tenant context is required for taxonomy usage.");
+    }
+    const tenantScope = { tenantId };
     const [categoryCount, typeCount, issueCount, activeCount, completedCount] = await Promise.all([
-      this.prisma.workOrder.count({ where: { tenantId: tenantId ?? undefined, taxonomyCategoryId: id } }),
-      this.prisma.workOrder.count({ where: { tenantId: tenantId ?? undefined, taxonomyTypeId: id } }),
-      this.prisma.workOrder.count({ where: { tenantId: tenantId ?? undefined, taxonomyIssueId: id } }),
+      this.prisma.workOrder.count({ where: { ...tenantScope, taxonomyCategoryId: id } }),
+      this.prisma.workOrder.count({ where: { ...tenantScope, taxonomyTypeId: id } }),
+      this.prisma.workOrder.count({ where: { ...tenantScope, taxonomyIssueId: id } }),
       this.prisma.workOrder.count({
         where: {
-          tenantId: tenantId ?? undefined,
+          ...tenantScope,
           OR: [{ taxonomyCategoryId: id }, { taxonomyTypeId: id }, { taxonomyIssueId: id }],
           status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] }
         }
       }),
       this.prisma.workOrder.count({
         where: {
-          tenantId: tenantId ?? undefined,
+          ...tenantScope,
           OR: [{ taxonomyCategoryId: id }, { taxonomyTypeId: id }, { taxonomyIssueId: id }],
           status: WorkOrderStatus.COMPLETED
         }

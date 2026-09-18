@@ -154,6 +154,14 @@ export async function transitionStockCount(id: string, status: string, reason?: 
   return unwrap(response.data, null);
 }
 
+export async function upsertStockCountLine(
+  id: string,
+  payload: { partId: string; countedQuantity: number; notes?: string }
+) {
+  const response = await apiClient.put(`/inventory/stock-counts/${id}/lines`, payload);
+  return unwrap(response.data, null);
+}
+
 export async function previewInventoryImport(file: File) {
   const form = new FormData();
   form.append("file", file);

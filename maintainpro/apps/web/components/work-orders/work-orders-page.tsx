@@ -181,9 +181,10 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
 
   const handleDelete = async (workOrder: WorkOrder) => {
     const confirmed = await confirm({
-      title: `Delete ${workOrder.woNumber}?`,
-      description: "This work order will be permanently removed. This action cannot be undone.",
-      confirmLabel: "Delete work order",
+      title: `Cancel ${workOrder.woNumber}?`,
+      description:
+        "This cancels the work order and keeps the historical record. It does not permanently delete the work order.",
+      confirmLabel: "Cancel work order",
       cancelLabel: "Keep work order",
       variant: "destructive"
     });
@@ -193,7 +194,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
 
     try {
       await deleteMutation.mutateAsync(workOrder.id);
-      toast.success("Work order deleted");
+      toast.success("Work order cancelled");
       setSelectedIds((current) => current.filter((id) => id !== workOrder.id));
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -250,9 +251,10 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
     }
 
     const confirmed = await confirm({
-      title: `Delete ${selectedIds.length} work orders?`,
-      description: "Selected work orders will be permanently removed. This action cannot be undone.",
-      confirmLabel: "Delete selected",
+      title: `Cancel ${selectedIds.length} work orders?`,
+      description:
+        "Selected work orders will be cancelled and retained historically. They will not be permanently deleted.",
+      confirmLabel: "Cancel selected",
       cancelLabel: "Keep selected",
       variant: "destructive"
     });
@@ -262,7 +264,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
 
     try {
       await bulkDeleteMutation.mutateAsync(selectedIds);
-      toast.success("Selected work orders deleted");
+      toast.success("Selected work orders cancelled");
       setSelectedIds([]);
     } catch (error) {
       toast.error(getErrorMessage(error));

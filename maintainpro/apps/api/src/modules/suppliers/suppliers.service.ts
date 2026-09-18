@@ -19,16 +19,8 @@ const VENDOR_MANAGE_ROLES = new Set<RoleName>([
 export class SuppliersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private scopeByTenant(actor?: Actor): { tenantId?: string } {
-    if (!actor) {
-      return {};
-    }
-
-    if (actor.role === "SUPER_ADMIN" && actor.tenantId === undefined) {
-      return {};
-    }
-
-    if (!actor.tenantId) {
+  private scopeByTenant(actor?: Actor): { tenantId: string } {
+    if (!actor?.tenantId) {
       throw new ForbiddenException("Tenant context is required for supplier access.");
     }
 
