@@ -16,6 +16,7 @@ import {
 
 import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
+import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
@@ -106,11 +107,11 @@ export class InventoryService {
         requestPath: ctx?.requestPath ?? undefined,
         actorSnapshot:
           actorId || actorEmail || actorRole
-            ? ({ id: actorId, email: actorEmail, role: actorRole } as Prisma.InputJsonValue)
+            ? toJsonText({ id: actorId, email: actorEmail, role: actorRole })
             : undefined,
-        metadata: payload.metadata,
-        beforeData: payload.beforeData,
-        afterData: payload.afterData
+        metadata: payload.metadata != null ? toJsonText(payload.metadata) : undefined,
+        beforeData: payload.beforeData != null ? toJsonText(payload.beforeData) : undefined,
+        afterData: payload.afterData != null ? toJsonText(payload.afterData) : undefined
       }
     });
   }

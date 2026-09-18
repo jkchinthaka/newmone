@@ -26,6 +26,10 @@
 - `e2e-seed.mjs` / `e2e-cleanup.mjs` rewritten for Prisma/SQL Server
 - Guards accept `sqlserver://` disposable hosts
 - FG remains non-blocking for core MaintainPro E2E
+- WO create accepts cuid/UUID `createdById`; E2E payload attaches seeded asset (`limit` query)
+- Inventory stock engine serializes audit/idempotency JSON into SQL Server `NVarChar` columns (fixes 503 on part create)
+
+**HEAD tip:** see branch `maintainpro/enterprise-final-implementation`
 
 
 ## Completed

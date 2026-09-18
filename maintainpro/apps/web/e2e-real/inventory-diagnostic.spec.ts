@@ -49,6 +49,11 @@ async function createGateFixtures(browser: Browser): Promise<{
         quantityInStock: 10
       }
     });
+    if (createPart.status() !== 201) {
+      const errBody = await createPart.json().catch(() => ({}));
+      const code = String((errBody as { error?: { code?: string } })?.error?.code || "none");
+      console.log(`create_part_status=${createPart.status()} error_code=${code}`);
+    }
     expect(createPart.status()).toBe(201);
     const partBody = await createPart.json();
     const part = partBody.data || partBody;
