@@ -100,25 +100,7 @@ function composePsHealth(project, service) {
   }
 }
 
-function reloadNginx(project) {
-  const reload = spawnSync(
-    "docker",
-    [...composeArgs(project), "exec", "-T", "nginx", "nginx", "-s", "reload"],
-    { cwd: root, encoding: "utf8", env: process.env, timeout: 30000 }
-  );
-  if (reload.status === 0) return "reloaded";
-  const restart = spawnSync(
-    "docker",
-    [...composeArgs(project), "restart", "nginx"],
-    { cwd: root, encoding: "utf8", env: process.env, timeout: 120000 }
-  );
-  if (restart.status !== 0) {
-    fail("nginx_proxy_refresh");
-  }
-  return "restarted";
-}
-
-async function restartServiceAndRefreshProxy(project, service) {
+async function restartService(project, service) {
   runCompose(project, ["restart", service]);
   await waitFor(
     async () => {
@@ -127,10 +109,7 @@ async function restartServiceAndRefreshProxy(project, service) {
     },
     { label: `${service}_container_healthy`, attempts: 60, delayMs: 3000 }
   );
-  reloadNginx(project);
-  await sleep(2000);
 }
-
 async function main() {
   if (String(process.env.E2E_TEST_MODE || "").toLowerCase() !== "true") fail("e2e_test_mode_required");
   if (String(process.env.OPERATIONS_REHEARSAL || "").toLowerCase() !== "true") fail("operations_rehearsal_required");
@@ -185,7 +164,7 @@ async function main() {
   summary.request_correlation = /^[A-Za-z0-9\-_.:]{8,64}$/.test(returnedId) ? "pass" : "fail";
   if (summary.request_correlation !== "pass") fail("request_correlation");
 
-  await restartServiceAndRefreshProxy(project, "api");
+  await restartService(project, "api");
   await waitFor(
     async () => {
       const health = composePsHealth(project, "api");
@@ -203,7 +182,7 @@ async function main() {
   );
   summary.api_restart = "pass";
 
-  await restartServiceAndRefreshProxy(project, "web");
+  await restartService(project, "web");
   await waitFor(
     async () => {
       const health = composePsHealth(project, "web");
@@ -257,7 +236,7 @@ async function main() {
       if (!apiNudged && recoveryAttempt >= 20) {
         apiNudged = true;
         try {
-          await restartServiceAndRefreshProxy(project, "api");
+          await restartService(project, "api");
         } catch {
           /* continue waiting */
         }
