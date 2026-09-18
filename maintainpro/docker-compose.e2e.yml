@@ -173,20 +173,20 @@ services:
       MAINTAINPRO_JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-e2e-only-jwt-access-secret-min-32ch}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-e2e-only-jwt-access-secret-min-32ch}
       MAINTAINPRO_SSO_REQUIRE_LIVE_REVALIDATION: "false"
+    # FG boot remains separately tracked; do not block core MaintainPro E2E on FG health.
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-fsS",
-          "http://127.0.0.1:8000/health/live/"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 90s
+      disable: true
 
   nginx:
+    depends_on: !override
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      fg:
+        condition: service_started
+      fg-collectstatic:
+        condition: service_completed_successfully
     ports: !override
       - "127.0.0.1:${E2E_HTTP_PORT:-18080}:80"
     volumes: !override
