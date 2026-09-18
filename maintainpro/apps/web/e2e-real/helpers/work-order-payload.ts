@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { e2eRunId } from "./env";
-import { getAuthenticatedUserId } from "./browser-session";
+import { authenticatedGet, getAuthenticatedUserId } from "./browser-session";
 
 export type WorkOrderCreatePayload = {
   title: string;
@@ -10,11 +10,41 @@ export type WorkOrderCreatePayload = {
   createdById: string;
   assetId?: string;
   vehicleId?: string;
+  functionalLocationId?: string;
 };
+
+/**
+ * Resolve a maintainable target for create validation (asset / vehicle / FL).
+ * Prefer seeded E2E assets; never logs identifiers.
+ */
+async function resolveDefaultAssetId(page: Page): Promise<string | undefined> {
+  const runId = e2eRunId();
+  const preferredTag = `E2E-ASSET-${runId}`;
+  const response = await authenticatedGet(
+    page,
+    `/api/backend/assets?page=1&pageSize=20&search=${encodeURIComponent(preferredTag)}`
+  );
+  if (response.status() !== 200) {
+    return undefined;
+  }
+  const body = (await response.json()) as {
+    data?: Array<{ id?: string; assetTag?: string }> | { items?: Array<{ id?: string; assetTag?: string }> };
+  };
+  const rows = Array.isArray(body.data)
+    ? body.data
+    : Array.isArray(body.data?.items)
+      ? body.data.items
+      : [];
+  const preferred = rows.find((row) => row.assetTag === preferredTag && row.id);
+  if (preferred?.id) return preferred.id;
+  const first = rows.find((row) => row.id);
+  return first?.id;
+}
 
 /**
  * Build a valid CORRECTIVE work-order create payload for the current browser session.
  * Resolves createdById from authenticated `/auth/me` — never hardcodes seeded ObjectIds.
+ * Attaches a seeded asset when the API requires asset/vehicle/functional location.
  * Does not log user IDs or the complete payload.
  */
 export async function buildValidWorkOrderPayload(
@@ -29,14 +59,29 @@ export async function buildValidWorkOrderPayload(
     overrides?.title ??
     `E2E CSRF WO ${runFragment}`;
 
+  const assetId =
+    overrides?.assetId ??
+    (overrides?.vehicleId || overrides?.functionalLocationId
+      ? undefined
+      : await resolveDefaultAssetId(page));
+
+  if (!assetId && !overrides?.vehicleId && !overrides?.functionalLocationId) {
+    throw new Error(
+      "E2E work-order payload requires a seeded asset, vehicle, or functional location."
+    );
+  }
+
   return {
     title,
     description: overrides?.description ?? "Created with CSRF via browser session",
     priority: overrides?.priority ?? "MEDIUM",
     type: overrides?.type ?? "CORRECTIVE",
     createdById,
-    ...(overrides?.assetId ? { assetId: overrides.assetId } : {}),
-    ...(overrides?.vehicleId ? { vehicleId: overrides.vehicleId } : {})
+    ...(assetId ? { assetId } : {}),
+    ...(overrides?.vehicleId ? { vehicleId: overrides.vehicleId } : {}),
+    ...(overrides?.functionalLocationId
+      ? { functionalLocationId: overrides.functionalLocationId }
+      : {})
   };
 }
 
