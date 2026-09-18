@@ -20,25 +20,30 @@ export type WorkOrderCreatePayload = {
 async function resolveDefaultAssetId(page: Page): Promise<string | undefined> {
   const runId = e2eRunId();
   const preferredTag = `E2E-ASSET-${runId}`;
-  const response = await authenticatedGet(
-    page,
-    `/api/backend/assets?page=1&pageSize=20&search=${encodeURIComponent(preferredTag)}`
-  );
-  if (response.status() !== 200) {
-    return undefined;
+  const candidates = [
+    `/api/backend/assets?page=1&limit=50&search=${encodeURIComponent(preferredTag)}`,
+    `/api/backend/assets?page=1&limit=50`
+  ];
+
+  for (const path of candidates) {
+    const response = await authenticatedGet(page, path);
+    if (response.status() !== 200) {
+      continue;
+    }
+    const body = (await response.json()) as {
+      data?: Array<{ id?: string; assetTag?: string }> | { items?: Array<{ id?: string; assetTag?: string }> };
+    };
+    const rows = Array.isArray(body.data)
+      ? body.data
+      : Array.isArray(body.data?.items)
+        ? body.data.items
+        : [];
+    const preferred = rows.find((row) => row.assetTag === preferredTag && row.id);
+    if (preferred?.id) return preferred.id;
+    const first = rows.find((row) => row.id);
+    if (first?.id) return first.id;
   }
-  const body = (await response.json()) as {
-    data?: Array<{ id?: string; assetTag?: string }> | { items?: Array<{ id?: string; assetTag?: string }> };
-  };
-  const rows = Array.isArray(body.data)
-    ? body.data
-    : Array.isArray(body.data?.items)
-      ? body.data.items
-      : [];
-  const preferred = rows.find((row) => row.assetTag === preferredTag && row.id);
-  if (preferred?.id) return preferred.id;
-  const first = rows.find((row) => row.id);
-  return first?.id;
+  return undefined;
 }
 
 /**
