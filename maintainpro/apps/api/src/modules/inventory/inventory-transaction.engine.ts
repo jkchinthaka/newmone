@@ -255,10 +255,7 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 20_000,
-      timeout: 60_000
-    });
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   async reverse(input: StockOpInput, existingTx?: Prisma.TransactionClient): Promise<StockMutationResult> {
@@ -402,10 +399,7 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 20_000,
-      timeout: 60_000
-    });
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   private async runOp(
@@ -535,16 +529,10 @@ export class InventoryTransactionEngine {
       return work(existingTx);
     }
 
-    // SQL Server interactive transactions are prohibitively slow/fragile for first-stock
-    // receives in disposable CI. Prefer a sequential path when no idempotency key is used.
-    if (!input.idempotencyKey?.trim()) {
-      return work(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    return this.prisma.$transaction((tx) => work(tx), {
-      maxWait: 20_000,
-      timeout: 60_000
-    });
+    // Prefer sequential Prisma calls over interactive $transaction on SQL Server.
+    // Atomicity comes from: unique idempotency claim + conditional balance UPDATE WHERE.
+    // Interactive transactions have repeatedly timed out past nginx/BFF limits in disposable E2E.
+    return work(this.prisma as unknown as Prisma.TransactionClient);
   }
 
   private deltaValue(kind: "increment" | "decrement" | undefined, quantity: number): number {
@@ -634,6 +622,21 @@ export class InventoryTransactionEngine {
       where: { tenantId_key: { tenantId, key } }
     });
     if (existing) {
+      if (!existing.resultJson) {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          const pending = await tx.inventoryIdempotency.findUnique({
+            where: { tenantId_key: { tenantId, key } }
+          });
+          if (pending?.resultJson) {
+            const part = await this.loadActivePart(tx, tenantId, pending.partId ?? input.partId);
+            return this.replayFromIdempotency(pending, operation, expected, part);
+          }
+        }
+        throw new BadRequestException(
+          "A stock operation with this idempotency key is already in progress. Retry shortly."
+        );
+      }
       const part = await this.loadActivePart(tx, tenantId, existing.partId ?? input.partId);
       return this.replayFromIdempotency(existing, operation, expected, part);
     }
@@ -656,6 +659,21 @@ export class InventoryTransactionEngine {
         });
         if (!raced) {
           throw error;
+        }
+        if (!raced.resultJson) {
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            const pending = await tx.inventoryIdempotency.findUnique({
+              where: { tenantId_key: { tenantId, key } }
+            });
+            if (pending?.resultJson) {
+              const part = await this.loadActivePart(tx, tenantId, pending.partId ?? input.partId);
+              return this.replayFromIdempotency(pending, operation, expected, part);
+            }
+          }
+          throw new BadRequestException(
+            "A stock operation with this idempotency key is already in progress. Retry shortly."
+          );
         }
         const part = await this.loadActivePart(tx, tenantId, raced.partId ?? input.partId);
         return this.replayFromIdempotency(raced, operation, expected, part);

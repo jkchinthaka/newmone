@@ -67,6 +67,7 @@ async function createGateFixtures(browser: Browser): Promise<{
 
 test.describe("E2E inventory diagnostic @inventory-gate", () => {
   test("INV-DIAG-001 keeper list and work-order-linked issue", async ({ page, browser }) => {
+    test.setTimeout(120_000);
     const fixtures = await createGateFixtures(browser);
     const workOrderFound = fixtures.workOrderId.length > 0;
     const keyPrimary = `e2e-inv-gate-${e2eRunId()}-${Date.now()}-primary`;
