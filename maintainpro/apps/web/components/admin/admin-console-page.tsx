@@ -124,7 +124,9 @@ function AdminConsoleAuthorized({
   tenantLoading,
   tenantError
 }: AdminConsoleAuthorizedProps) {
-  const sections = getAdminConsoleSections();
+  const sections = getAdminConsoleSections().filter((section) => !section.technicalOnly);
+  const technicalSections = getAdminConsoleSections().filter((section) => section.technicalOnly);
+  const showTechnical = roleName === "SUPER_ADMIN" || roleName === "ADMIN";
 
   const overviewQuery = useQuery({
     queryKey: ["admin-governance", "overview"],
@@ -185,6 +187,24 @@ function AdminConsoleAuthorized({
           ))}
         </div>
       </section>
+
+      {showTechnical && technicalSections.length > 0 ? (
+        <section aria-labelledby="admin-technical-heading">
+          <div className="mb-3">
+            <h3 id="admin-technical-heading" className="text-sm font-semibold text-slate-900">
+              Technical Administration
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              System health, integrations, jobs, and recovery — separate from business administration.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {technicalSections.map((section) => (
+              <AdminSectionCard key={section.id} section={section} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }
