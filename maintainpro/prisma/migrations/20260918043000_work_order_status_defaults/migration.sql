@@ -1,4 +1,4 @@
-﻿-- Ensure WorkOrder lifecycle fields have real defaults and backfill blank rows.
+-- Ensure WorkOrder lifecycle fields have real defaults and backfill blank rows.
 DECLARE @constraintName NVARCHAR(256);
 
 SELECT @constraintName = dc.name
