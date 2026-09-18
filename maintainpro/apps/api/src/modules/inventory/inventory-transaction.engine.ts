@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AuditAction, MovementType, Prisma } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { parseJsonText, toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
@@ -570,7 +571,7 @@ export class InventoryTransactionEngine {
       warehouseId: string | null;
       movementId: string | null;
       quantity: number;
-      resultJson: Prisma.JsonValue | null;
+      resultJson: string | null;
     },
     operation: string,
     expectedHash: string,
@@ -579,7 +580,7 @@ export class InventoryTransactionEngine {
     if (existing.payloadHash !== expectedHash || existing.operation !== operation) {
       throw new BadRequestException("Idempotency key was already used with a different stock payload for this tenant.");
     }
-    const resultJson = existing.resultJson as StockMutationResult | null;
+    const resultJson = parseJsonText<StockMutationResult | null>(existing.resultJson, null);
     if (resultJson?.part) {
       return { ...resultJson, replayed: true };
     }
@@ -660,7 +661,7 @@ export class InventoryTransactionEngine {
         warehouseId: result.warehouseId || undefined,
         movementId: movementId || result.movement.id || undefined,
         transferGroupId,
-        resultJson: result as unknown as Prisma.InputJsonValue
+        resultJson: toJsonText(result)
       }
     });
   }
@@ -847,7 +848,7 @@ export class InventoryTransactionEngine {
       entityId: string;
       action: AuditAction;
       reason?: string;
-      metadata?: Prisma.InputJsonValue;
+      metadata?: Record<string, unknown>;
     }
   ) {
     const ctx = requestContext.get();
@@ -868,9 +869,9 @@ export class InventoryTransactionEngine {
         requestPath: ctx?.requestPath ?? undefined,
         actorSnapshot:
           actorId || actorEmail || actorRole
-            ? ({ id: actorId, email: actorEmail, role: actorRole } as Prisma.InputJsonValue)
+            ? toJsonText({ id: actorId, email: actorEmail, role: actorRole })
             : undefined,
-        metadata: payload.metadata
+        metadata: payload.metadata ? toJsonText(payload.metadata) : undefined
       }
     });
   }
