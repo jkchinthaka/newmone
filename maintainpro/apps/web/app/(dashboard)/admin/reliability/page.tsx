@@ -16,6 +16,7 @@ type ReliabilityPolicy = {
   matchSameAsset: boolean;
   requireRcaOnRepeat: boolean;
   requirePermitForCriticalAssets: boolean;
+  requireLotoWhenPermitRequires: boolean;
   permitRequiredCriticalities: string;
 };
 
@@ -237,6 +238,19 @@ export default function AdminReliabilityPage() {
               }
             />
             Require work permit before start for critical assets
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              defaultChecked={policy.requireLotoWhenPermitRequires}
+              onChange={(e) =>
+                savePolicy.mutate({
+                  requireLotoWhenPermitRequires: e.target.checked,
+                  reason: "LOTO gate toggled"
+                })
+              }
+            />
+            Require verified LOTO when a permit requires isolation
           </label>
           <label className="block text-sm">
             <span className="text-slate-700">Criticalities requiring permit (CSV)</span>
