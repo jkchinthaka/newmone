@@ -198,6 +198,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/maintenance/jobs/vehicle",
   "/maintenance/planning",
   "/maintenance/inspections",
+  "/maintenance/reliability",
   "/maintenance/costs",
   "/maintenance/history",
   "/maintenance/job-codes",
@@ -347,12 +348,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "all-jobs",
-    label: "All Jobs",
+    label: "Work Orders",
     href: "/maintenance/jobs",
     icon: "ClipboardList",
     allowedRoles: WO_ROLES,
     category: "operations",
-    description: "All executable maintenance work orders",
+    description: "Executable maintenance work orders",
     badgeKey: "my-tasks",
     mobilePriority: true,
     pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
@@ -416,6 +417,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: WO_ROLES,
     category: "operations",
     description: "Configurable machinery and vehicle inspections",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "reliability",
+    label: "Reliability",
+    href: "/maintenance/reliability",
+    icon: "Activity",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "operations",
+    description: "Downtime, RCA, CAPA, and reliability policy",
     activeMatch: "startsWith"
   },
   {

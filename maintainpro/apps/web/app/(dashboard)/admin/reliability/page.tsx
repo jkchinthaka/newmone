@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -41,6 +42,8 @@ type RcaCase = {
 };
 
 export default function AdminReliabilityPage() {
+  const pathname = usePathname();
+  const underMaintenance = pathname?.startsWith("/maintenance/reliability") ?? false;
   const qc = useQueryClient();
   const [tab, setTab] = useState<"policy" | "criticality" | "rca">("policy");
   const [critLevel, setCritLevel] = useState("CRITICAL");
@@ -137,16 +140,25 @@ export default function AdminReliabilityPage() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <PageBreadcrumbs
-        items={[
-          { label: "Admin", href: "/admin" },
-          { label: "Maintenance config", href: "/admin/maintenance-config" },
-          { label: "Reliability & safety" }
-        ]}
+        items={
+          underMaintenance
+            ? [
+                { label: "Maintenance", href: "/maintenance" },
+                { label: "Reliability" }
+              ]
+            : [
+                { label: "Admin", href: "/admin" },
+                { label: "Maintenance config", href: "/admin/maintenance-config" },
+                { label: "Reliability & safety" }
+              ]
+        }
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Reliability &amp; safety</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {underMaintenance ? "Reliability" : "Reliability & safety"}
+        </h1>
         <p className="mt-1 text-sm text-slate-600">
-          Repeat-failure window, asset criticality, RCA/CAPA, and permit start gates.
+          Downtime context, repeat-failure window, asset criticality, RCA/CAPA, and permit start gates.
         </p>
       </div>
 

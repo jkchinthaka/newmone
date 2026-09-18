@@ -40,6 +40,7 @@ import {
 import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
+import { shouldPromotePoStatusToOrdered } from "./purchase-order-status.util";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -846,6 +847,7 @@ export class InventoryService {
           expectedDate: data.expectedDate ? new Date(data.expectedDate) : undefined,
           totalAmount: headerTotal,
           notes: data.notes,
+          status: POStatus.PENDING,
           workflowStatus: PurchaseOrderWorkflowStatus.PENDING_OPERATIONAL,
           requiresFinanceApproval,
           createdById: creator.sub,
@@ -1628,7 +1630,7 @@ export class InventoryService {
       }
     });
 
-    if (order.status === POStatus.PENDING) {
+    if (shouldPromotePoStatusToOrdered(order.status)) {
       await this.prisma.purchaseOrder.update({
         where: { id: order.id },
         data: { status: POStatus.ORDERED, lastModifiedById: actor?.sub }
@@ -1732,7 +1734,7 @@ export class InventoryService {
         }
       });
 
-      if (order.status === POStatus.PENDING) {
+      if (shouldPromotePoStatusToOrdered(order.status)) {
         await this.prisma.purchaseOrder.update({
           where: { id: order.id },
           data: { status: POStatus.ORDERED, lastModifiedById: actor?.sub }

@@ -7,44 +7,43 @@
 | Default branch | `main` @ `2c29096e` (PR #37 final-enterprise-closure merged) |
 | Working branch | `maintainpro/enterprise-final-implementation` |
 | Open PR | https://github.com/jkchinthaka/newmone/pull/39 |
-| Prior HEAD | `2f879a7e` |
+| Prior HEAD | `43b8fa3d` |
 
-## This increment (code-owned)
+## Code-owned increments on PR #39
 
-1. **E2E-PROC-003 root cause:** `CreatePurchaseOrderDto` rejected cuid supplier/part IDs (`@Matches` Mongo ObjectId only) → HTTP 400. Fixed to accept cuid/UUID/legacy ObjectId.
-2. **MaintenanceRequest needs-information loop:** `POST :id/needs-information` and `POST :id/resume-review` wired to `NEEDS_INFORMATION` ↔ `UNDER_REVIEW`. Close-without-WO remains via reject → `CLOSED` + `resolutionCode`.
-3. **ERP apply fail-closed:** warehouse-scoped ERP snapshots refuse apply when changed rows lack warehouse identity.
-4. **Test:** `purchase-order-entity-id.spec.ts`.
+1. **E2E-PROC-003:** `CreatePurchaseOrderDto` accepts cuid/UUID/legacy ObjectId.
+2. **E2E-PROC-011:** PO create now sets `status=PENDING`; successful ERP sync promotes blank/PENDING → `ORDERED` (legacy blank default no longer blocks promotion).
+3. **MaintenanceRequest needs-information:** API + web triage UI.
+4. **ERP apply fail-closed:** warehouse identity required for warehouse-scoped apply.
+5. **WO lifecycle:** create defaults to `OPEN`; hard delete → cancel-only.
+6. **PmOccurrence / OCC / Stock count / Daily reversal:** verified on branch.
+7. **Vehicle remove:** retire/dispose only.
+8. **Settings split:** Profile + Preferences only; Admin / Technical Admin separate.
+9. **Nav IA:** “Work Orders” label; Reliability at `/maintenance/reliability`.
+10. **E2E auth:** retry login on HTTP 409 as well as 429.
 
-## Already on branch (verified, not re-implemented)
-
-- WO hard delete → cancel-only (`CANCEL_INSTEAD_OF_DELETE`)
-- PmOccurrence upsert on PM auto-generation; completion on WO verify/close
-- Stock count session/line + UI
-- Optimistic concurrency util + WO update expectedVersion
-- Inventory daily + reversal correctness
-- Nav IA / settings-admin split
-- `docs/database/*`
-
-## CI status before this push
+## CI (HEAD `43b8fa3d`)
 
 | Check | Result |
 |-------|--------|
-| PR Validation | PASSED |
-| SQL Server Migration Gate | PASSED |
-| Release Validation | PASSED |
-| Docker Build / Image | PASSED |
-| Full-Stack E2E | FAILED (PROC-003 ObjectId) — fix in this commit |
-| Vercel / Cloudflare Workers | FAILED (external deploy) |
+| validate-monorepo | PASSED |
+| fresh-sqlserver-migrate | PASSED |
+| release-validate | PASSED |
+| docker-build / build | PASSED |
+| full-stack-e2e | FAILED — PROC-011 blank PO status (fix in this commit) |
+| Vercel / Workers | FAILED — EXTERNAL |
 
-## External blockers (not falsely marked complete)
+## External blockers
 
 - Live Bileeta / SMTP / SMS / Entra credentials
 - Power BI production RLS
-- Human Gate-1 UAT sign-off
-- Irreversible production cutover
-- Vercel/Cloudflare preview deploy credentials (platform, not app logic)
+- Human UAT / cutover approval
+- Vercel / Cloudflare preview deploy credentials
 
 ## Merge policy
 
-Merge to `main` only when repository-required GitHub checks are green. Do not merge while full-stack-e2e fails. Vercel/Workers may remain external if not required by branch protection (main currently unprotected).
+Merge only after full-stack-e2e green on the merge candidate. Do not treat Vercel/Workers as app-logic blockers when not required by branch protection.
+
+## Production-readiness verdict (interim)
+
+**Not Production Ready** until: green full-stack-e2e, external credential validation, UAT sign-off, cutover approval.

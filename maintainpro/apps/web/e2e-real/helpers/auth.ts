@@ -19,7 +19,7 @@ export async function loginViaUi(page: Page, emailLocal: string) {
     await page.getByRole("button", { name: /sign in/i }).click();
     loginResponse = await loginResponsePromise;
 
-    if (loginResponse.status() === 429) {
+    if (loginResponse.status() === 429 || loginResponse.status() === 409) {
       await page.waitForTimeout(1_500 * (attempt + 1));
       continue;
     }
