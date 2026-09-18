@@ -255,7 +255,10 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+    return this.prisma.$transaction((tx) => work(tx), {
+      maxWait: 15_000,
+      timeout: 30_000
+    });
   }
 
   async reverse(input: StockOpInput, existingTx?: Prisma.TransactionClient): Promise<StockMutationResult> {
@@ -399,7 +402,10 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+    return this.prisma.$transaction((tx) => work(tx), {
+      maxWait: 15_000,
+      timeout: 30_000
+    });
   }
 
   private async runOp(
@@ -522,7 +528,10 @@ export class InventoryTransactionEngine {
     if (existingTx) {
       return work(existingTx);
     }
-    return this.prisma.$transaction((tx) => work(tx));
+    return this.prisma.$transaction((tx) => work(tx), {
+      maxWait: 15_000,
+      timeout: 30_000
+    });
   }
 
   private deltaValue(kind: "increment" | "decrement" | undefined, quantity: number): number {
