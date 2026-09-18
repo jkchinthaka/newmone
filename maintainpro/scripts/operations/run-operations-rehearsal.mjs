@@ -3,9 +3,12 @@
  * Phase 6B isolated operations rehearsal (exact maintainpro-e2e-* project only).
  * Exact-service stop/start only. Never removes volumes. Never reboots host/daemon.
  * Safe stdout only.
+ *
+ * Primary dependency outage targets SQL Server when DATABASE_PROVIDER=sqlserver;
+ * otherwise Mongo (legacy).
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,7 +36,7 @@ function runCompose(project, args) {
     cwd: root,
     encoding: "utf8",
     env: process.env,
-    timeout: 120000
+    timeout: 180000
   });
   if (result.status !== 0) fail(`compose_${args[0]}_${args[1] || "x"}`);
   return result;
@@ -53,7 +56,9 @@ async function waitFor(fn, { attempts = 30, delayMs = 2000, label = "wait" } = {
   for (let i = 0; i < attempts; i += 1) {
     try {
       if (await fn()) return true;
-    } catch { /* retry */ }
+    } catch {
+      /* retry */
+    }
     await sleep(delayMs);
   }
   fail(label);
@@ -65,6 +70,19 @@ async function main() {
 
   const project = requireProject();
   const baseUrl = String(process.env.E2E_BASE_URL || "http://127.0.0.1:18080").replace(/\/+$/, "");
+  // Prefer explicit env; fall back to e2e compose defaults (SQL Server primary).
+  let provider = String(process.env.DATABASE_PROVIDER || "").toLowerCase();
+  if (!provider) {
+    try {
+      const envFile = process.env.MAINTAINPRO_E2E_ENV_FILE || path.join(root, ".env.e2e");
+      const match = /(?:^|\n)\s*DATABASE_PROVIDER\s*=\s*([^\r\n#]+)/i.exec(readFileSync(envFile, "utf8"));
+      provider = String(match?.[1] || "").trim().toLowerCase();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!provider) provider = "sqlserver";
+  const primaryDbService = provider === "sqlserver" ? "sqlserver" : "mongo";
   const summary = {
     liveness_status: null,
     readiness_status: null,
@@ -72,6 +90,10 @@ async function main() {
     api_restart: null,
     web_restart: null,
     nginx_restart: null,
+    primary_db_service: primaryDbService,
+    primary_db_outage_detected: null,
+    primary_db_recovered: null,
+    // Legacy aliases kept for evidence parsers
     mongo_outage_detected: null,
     mongo_recovered: null,
     redis_outage_detected: null,
@@ -98,7 +120,10 @@ async function main() {
 
   runCompose(project, ["restart", "api"]);
   await waitFor(async () => (await httpGet(baseUrl, "/api/health/live")).status === 200, { label: "api_restart_live" });
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200, { label: "api_restart_ready", attempts: 40, delayMs: 3000 });
+  await waitFor(
+    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
+    { label: "api_restart_ready", attempts: 40, delayMs: 3000 }
+  );
   summary.api_restart = "pass";
 
   runCompose(project, ["restart", "web"]);
@@ -109,19 +134,37 @@ async function main() {
   await waitFor(async () => (await httpGet(baseUrl, "/api/health/live")).status === 200, { label: "nginx_restart" });
   summary.nginx_restart = "pass";
 
-  runCompose(project, ["stop", "mongo"]);
-  await waitFor(async () => {
-    const l = await httpGet(baseUrl, "/api/health/live");
-    const r = await httpGet(baseUrl, "/api/health/ready");
-    return l.status === 200 && r.status === 503;
-  }, { label: "mongo_outage", attempts: 20, delayMs: 1500 });
-  summary.mongo_outage_detected = "yes";
-  const mongoErr = await httpGet(baseUrl, "/api/health/ready");
-  if (/mongodb(\+srv)?:\/\//i.test(mongoErr.text) || /password\s*[:=]/i.test(mongoErr.text)) fail("mongo_error_leak");
+  runCompose(project, ["stop", primaryDbService]);
+  await waitFor(
+    async () => {
+      const l = await httpGet(baseUrl, "/api/health/live");
+      const r = await httpGet(baseUrl, "/api/health/ready");
+      return l.status === 200 && r.status === 503;
+    },
+    { label: `${primaryDbService}_outage`, attempts: 30, delayMs: 2000 }
+  );
+  summary.primary_db_outage_detected = "yes";
+  if (primaryDbService === "mongo") {
+    summary.mongo_outage_detected = "yes";
+  } else {
+    summary.mongo_outage_detected = "skipped_sqlserver_primary";
+  }
+  const dbErr = await httpGet(baseUrl, "/api/health/ready");
+  if (/mongodb(\+srv)?:\/\//i.test(dbErr.text) || /sqlserver:\/\//i.test(dbErr.text) || /password\s*[:=]/i.test(dbErr.text)) {
+    fail("db_error_leak");
+  }
 
-  runCompose(project, ["start", "mongo"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200, { label: "mongo_recovery", attempts: 40, delayMs: 3000 });
-  summary.mongo_recovered = "yes";
+  runCompose(project, ["start", primaryDbService]);
+  await waitFor(
+    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
+    { label: `${primaryDbService}_recovery`, attempts: 60, delayMs: 3000 }
+  );
+  summary.primary_db_recovered = "yes";
+  if (primaryDbService === "mongo") {
+    summary.mongo_recovered = "yes";
+  } else {
+    summary.mongo_recovered = "skipped_sqlserver_primary";
+  }
 
   runCompose(project, ["stop", "redis"]);
   await sleep(3000);
@@ -129,7 +172,10 @@ async function main() {
   if (liveRedisDown.status !== 200) fail("redis_outage_liveness");
   summary.redis_outage_detected = "yes";
   runCompose(project, ["start", "redis"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200, { label: "redis_recovery_ready", attempts: 30, delayMs: 2000 });
+  await waitFor(
+    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
+    { label: "redis_recovery_ready", attempts: 30, delayMs: 2000 }
+  );
   summary.redis_reconciled = "yes";
 
   runCompose(project, ["stop", "minio"]);
@@ -138,7 +184,10 @@ async function main() {
   if (liveMinioDown.status !== 200) fail("minio_outage_liveness");
   summary.minio_outage_detected = "yes";
   runCompose(project, ["start", "minio"]);
-  await waitFor(async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200, { label: "minio_ready", attempts: 30, delayMs: 2000 });
+  await waitFor(
+    async () => (await httpGet(baseUrl, "/api/health/ready")).status === 200,
+    { label: "minio_ready", attempts: 30, delayMs: 2000 }
+  );
   summary.minio_recovered = "yes";
 
   const loginPage = await httpGet(baseUrl, "/login");

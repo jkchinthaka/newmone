@@ -335,9 +335,11 @@ jobs:
           mkdir -p artifacts/e2e-logs
           export OPERATIONS_REHEARSAL=true
           export E2E_TEST_MODE=true
+          export DATABASE_PROVIDER=sqlserver
           node scripts/operations/run-operations-rehearsal.mjs | tee artifacts/e2e-logs/operations-rehearsal-gate.txt
         env:
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+          DATABASE_PROVIDER: sqlserver
 
       - name: Release-candidate auth stability gate
         run: |
