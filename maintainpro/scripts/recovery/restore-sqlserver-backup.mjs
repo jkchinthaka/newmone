@@ -90,8 +90,18 @@ async function main() {
   console.log("DR-INTEGRITY-006=PASS");
 
   const containerBak = `/var/opt/mssql/backup/${manifest.backupId}.restore.bak`;
-  runDocker([...composeBase(), "exec", "-T", "sqlserver", "bash", "-lc", "mkdir -p /var/opt/mssql/backup"]);
+  runDocker([...composeBase(), "exec", "-T", "sqlserver", "bash", "-lc", "mkdir -p /var/opt/mssql/backup && chown mssql:mssql /var/opt/mssql/backup || chown 10001:0 /var/opt/mssql/backup || true"]);
   runDocker(["compose", "-p", process.env.COMPOSE_PROJECT_NAME, "cp", archivePath, `sqlserver:${containerBak}`]);
+  // docker cp lands as root; SQL Server process cannot read it until ownership is fixed.
+  runDocker([
+    ...composeBase(),
+    "exec",
+    "-T",
+    "sqlserver",
+    "bash",
+    "-lc",
+    `chown mssql:mssql '${containerBak}' 2>/dev/null || chown 10001:0 '${containerBak}' 2>/dev/null || chmod 644 '${containerBak}'; ls -la '${containerBak}'`
+  ]);
 
   // Refuse overwrite of source; only drop prior restore target with the exact restore prefix.
   if (!targetDb.startsWith("maintainpro_restore_")) throw new Error("invalid_target");
