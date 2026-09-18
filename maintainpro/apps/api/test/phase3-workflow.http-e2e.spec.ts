@@ -14,6 +14,7 @@ import { InventoryService } from "../src/modules/inventory/inventory.service";
 import { ErpStockSyncService } from "../src/modules/inventory/erp-stock-sync.service";
 import { InventoryExcelImportService } from "../src/modules/inventory/inventory-excel-import.service";
 import { InventoryDailyService } from "../src/modules/inventory/inventory-daily.service";
+import { StockCountService } from "../src/modules/inventory/stock-count.service";
 import { ErpExcelImportService } from "../src/modules/inventory/erp-excel-import.service";
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
@@ -182,6 +183,7 @@ const prisma = {
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: InventoryExcelImportService, useValue: excelImportService },
     { provide: InventoryDailyService, useValue: dailyService },
+    { provide: StockCountService, useValue: { list: jest.fn(), get: jest.fn(), create: jest.fn(), transition: jest.fn(), upsertLine: jest.fn(), post: jest.fn() } },
     { provide: ErpExcelImportService, useValue: erpExcelImportService },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
