@@ -289,6 +289,9 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/e2e-logs
           export RECOVERY_REHEARSAL=true
+          export DATABASE_PROVIDER=sqlserver
+          export RECOVERY_ENGINE=sqlserver
+          export RECOVERY_SQLSERVER_HOST=sqlserver
           export RECOVERY_MONGO_HOST=mongo
           export RECOVERY_SOURCE_DATABASE="${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}"
           export RECOVERY_TARGET_DATABASE="maintainpro_restore_${E2E_RUN_ID//[^a-zA-Z0-9_]/_}"
@@ -296,6 +299,9 @@ jobs:
           node scripts/recovery/run-recovery-rehearsal.mjs | tee artifacts/e2e-logs/recovery-rehearsal-gate.txt
         env:
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+          DATABASE_PROVIDER: sqlserver
+          RECOVERY_ENGINE: sqlserver
+          MSSQL_SA_PASSWORD: E2e_Sql_Sa_Passw0rd!
 
       - name: Management information gate
         run: |

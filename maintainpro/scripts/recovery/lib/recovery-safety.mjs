@@ -14,7 +14,7 @@ export const FORBIDDEN_DB_NAMES = new Set([
   "prod"
 ]);
 
-export const ALLOWED_HOSTS = new Set(["mongo", "localhost", "127.0.0.1"]);
+export const ALLOWED_HOSTS = new Set(["mongo", "sqlserver", "localhost", "127.0.0.1"]);
 
 export const CORE_COLLECTIONS = ["Tenant", "User", "Role", "Permission"];
 
