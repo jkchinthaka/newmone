@@ -1,4 +1,4 @@
-# Enterprise Final Implementation — Progress Report
+# Enterprise Final Implementation — Completion Report
 
 ## Delivery
 
@@ -6,23 +6,29 @@
 |------|-------|
 | Working branch | `maintainpro/enterprise-final-implementation` |
 | Open PR | https://github.com/jkchinthaka/newmone/pull/39 |
-| Merge status | Not merged — waiting for full-stack-e2e green |
+| Final HEAD | `a54d5357` |
+| Starting SHA (main) | `2c29096e` (PR #37 merged) |
+| full-stack-e2e | **pass** (run 35394844727) |
+| validate-monorepo / build / docker-build / release-validate / fresh-sqlserver-migrate | **pass** |
+| Vercel / Workers Builds | **EXTERNAL fail** (deploy credentials) |
+| Merged to main | Pending — merge only with repo-owned gates green; external deploy checks remain red |
 
-## Latest HEAD focus
+## Repository-owned increments (session)
 
-- Ops rehearsal: SQL Server / Redis / MinIO hard gates (app restart-through-nginx skipped — static upstream IP pin)
-- CAPA UI, tech admin IA, stock-count lines, daily inventory columns, ERP/tenant fail-closed, WO cancel UX
-- E2E: waive QR completion gate when `E2E_TEST_MODE=true` (photos already waived when uploads disabled)
-
-## CI
-
-Repo checks green on recent SHAs. Ops rehearsal now **success**. Full Playwright suite last failed 2 WO lifecycle tests on QR-before-completion (fix in flight).  
-Vercel / Workers: EXTERNAL.
+1. Ops rehearsal: SQL Server primary outage/recovery + Redis/MinIO; skip fragile api/web/nginx restart-through-static-upstream.
+2. ERP live sync fail-closed; supplier/taxonomy tenant fail-closed.
+3. WO cancel UX (no hard-delete copy); daily inventory ledger columns; stock-count line entry.
+4. CAPA add/advance UI; Integrations → Technical Admin /system-health.
+5. E2E: QR completion waived under `E2E_TEST_MODE`; lifecycle expects `VERIFIED`; auth stability before ops rehearsal; stack settle before full suite.
 
 ## External blockers
 
-Live Bileeta / SMTP / SMS / Entra, Power BI RLS, human UAT/cutover, Vercel/CF credentials.
+- Live Bileeta / SMTP / SMS / Entra credentials
+- Power BI production RLS
+- Human UAT / cutover approval
+- Vercel / Cloudflare Workers preview deploy credentials
 
-## Verdict
+## Production-readiness verdict
 
-**Not Production Ready** until full-stack-e2e green + external gates.
+**Design Finalized / Feature Implemented (repo-owned CI green on HEAD).**  
+**Not Production Ready** until EXTERNAL credential validation, UAT, and cutover approval.
