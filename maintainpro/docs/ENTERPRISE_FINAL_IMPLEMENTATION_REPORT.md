@@ -3,23 +3,30 @@
 **Branch:** `maintainpro/enterprise-final-implementation`  
 **PR:** https://github.com/jkchinthaka/newmone/pull/39  
 **Started from main:** `2c29096e`  
-**Current HEAD:** `9e3d67c5`  
 **Date:** 2026-09-18
 
-## Repo-owned CI (latest HEAD)
+## Repo-owned CI (latest)
 
 | Check | Status |
 |-------|--------|
-| validate-monorepo | PASS |
-| release-validate | PASS (prior HEAD; confirm on tip) |
-| docker-build | PASS |
-| fresh-sqlserver-migrate | PASS |
-| Docker Image CI build | PASS |
-| full-stack-e2e | FAIL — FG Django container unhealthy after MinIO Quay fix |
+| validate-monorepo | PASS (prior tip) |
+| release-validate | PASS (prior tip) |
+| docker-build | PASS (prior tip) |
+| fresh-sqlserver-migrate | PASS (prior tip) |
+| full-stack-e2e | In progress — E2E migrated to SQL Server primary (was 503 on `/api/health/ready` due to Mongo DATABASE_URL) |
 | Vercel preview | FAIL — EXTERNAL |
 | Cloudflare Workers Builds | FAIL — EXTERNAL |
 
-**Merge:** Not merged. Waiting until full-stack-e2e is green or explicitly waived; do not merge while E2E stack cannot start.
+**Merge:** Not merged until required repo-owned checks are green. Vercel/Workers remain external blockers and do not alone block merge if not required.
+
+## Latest fix (E2E SQL Server)
+
+- `.env.e2e.example` + compose overlay use SQL Server (`maintainpro_e2e_primary`)
+- Host-side `db:migrate:deploy` before readiness wait
+- `e2e-seed.mjs` / `e2e-cleanup.mjs` rewritten for Prisma/SQL Server
+- Guards accept `sqlserver://` disposable hosts
+- FG remains non-blocking for core MaintainPro E2E
+
 
 ## Completed
 

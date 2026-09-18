@@ -130,12 +130,57 @@ export function assertE2eBucket() {
   }
 }
 
+export function parseSqlServerUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string" || !rawUrl.trim()) {
+    return null;
+  }
+  const trimmed = rawUrl.trim();
+  if (!/^sqlserver:\/\//i.test(trimmed)) {
+    return null;
+  }
+  try {
+    // Prisma SQL Server URLs use semicolon params: sqlserver://host:1433;database=X;user=sa;password=Y
+    // or authority form: sqlserver://user:pass@host:1433;database=X
+    const withoutScheme = trimmed.replace(/^sqlserver:\/\//i, "");
+    const [authorityAndMaybeDb, ...paramParts] = withoutScheme.split(";");
+    const params = {};
+    for (const part of paramParts) {
+      const eq = part.indexOf("=");
+      if (eq <= 0) continue;
+      params[part.slice(0, eq).trim().toLowerCase()] = part.slice(eq + 1).trim();
+    }
+
+    let host = "unknown";
+    if (authorityAndMaybeDb.includes("@")) {
+      const afterAt = authorityAndMaybeDb.split("@").pop() || "";
+      host = afterAt.split("/")[0] || "unknown";
+    } else {
+      host = authorityAndMaybeDb.split("/")[0] || "unknown";
+    }
+
+    const databaseName = params.database || "";
+    return {
+      protocol: "sqlserver",
+      host,
+      databaseName,
+      hasCredentials: Boolean(params.user || params.password || authorityAndMaybeDb.includes("@"))
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function resolveE2eDatabaseIdentity() {
   const url =
+    (process.env.E2E_DATABASE_URL_HOST || "").trim() ||
     (process.env.PRIMARY_DATABASE_URL || "").trim() ||
     (process.env.DATABASE_URL || "").trim() ||
     (process.env.MONGODB_URI || "").trim();
-  const parsed = parseMongoUrl(url);
+
+  const sqlParsed = parseSqlServerUrl(url);
+  const mongoParsed = sqlParsed ? null : parseMongoUrl(url);
+  const parsed = sqlParsed || mongoParsed;
+
   const explicit =
     (process.env.PRIMARY_DATABASE_NAME || "").trim() ||
     (process.env.MONGO_DATABASE_NAME || "").trim() ||
@@ -147,12 +192,22 @@ export function resolveE2eDatabaseIdentity() {
     !host ||
     host === "unknown" ||
     host.startsWith("mongo") ||
+    host.startsWith("sqlserver") ||
     host.startsWith("127.0.0.1") ||
     host.startsWith("localhost");
   if (!allowedHost) {
     throw new Error("E2E guard failed: database host is not an allowed E2E host.");
   }
-  return { url, databaseName, host: parsed?.host || "unknown", urlPresent: Boolean(url) };
+  if (sqlParsed === null && mongoParsed === null && url) {
+    throw new Error("E2E guard failed: DATABASE_URL must be sqlserver:// or mongodb:// for disposable E2E.");
+  }
+  return {
+    url,
+    databaseName,
+    host: parsed?.host || "unknown",
+    urlPresent: Boolean(url),
+    provider: sqlParsed ? "sqlserver" : "mongodb"
+  };
 }
 
 /**

@@ -244,11 +244,11 @@ export class HealthService {
 
       return {
         key: "primaryDatabase",
-        label: "Primary MongoDB / Prisma",
+        label: "Primary SQL Server / Prisma",
         status: "operational",
         required: true,
         latencyMs: this.elapsedMs(startedAt),
-        message: "Primary database connection and core collections are reachable.",
+        message: "Primary database connection and core tables are reachable.",
         details: {
           databaseName: config.primaryDatabaseName || "unknown",
           sourceOfTruth: true
@@ -260,12 +260,12 @@ export class HealthService {
       );
       return {
         key: "primaryDatabase",
-        label: "Primary MongoDB / Prisma",
+        label: "Primary SQL Server / Prisma",
         status: "degraded",
         required: true,
         latencyMs: this.elapsedMs(startedAt),
         message: this.safeErrorMessage(error),
-        action: "Check PRIMARY_DATABASE_URL/DATABASE_URL, Atlas connectivity, MongoDB replica set health, and run npm run db:seed after restoring the database.",
+        action: "Check PRIMARY_DATABASE_URL/DATABASE_URL, SQL Server connectivity, and run npm run db:migrate:deploy / npm run db:seed after restoring the database.",
         details: {
           databaseName: config.primaryDatabaseName || "unknown",
           sourceOfTruth: true
