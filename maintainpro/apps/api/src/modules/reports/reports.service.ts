@@ -1561,10 +1561,10 @@ export class ReportsService {
         minimumStock: part.minimumStock,
         reorderPoint: part.reorderPoint,
         status: this.stockStatus(part),
-        unitCost: part.unitCost,
-        stockValue: part.quantityInStock * part.unitCost,
+        unitCost: Number(part.unitCost ?? 0),
+        stockValue: Number(part.quantityInStock ?? 0) * Number(part.unitCost ?? 0),
         usedQuantity,
-        linkedCost,
+        linkedCost: Number(linkedCost ?? 0),
         lastMovement: relatedMovements[0]?.createdAt ?? null
       };
     });
@@ -1575,12 +1575,12 @@ export class ReportsService {
     const filteredWorkOrderParts = workOrderParts.filter((item) => rowPartIds.has(item.partId));
     const sortedRows = this.sortRows(rows, query.sortBy ?? "stockValue", query.sortDirection ?? "desc");
     const pageRows = sortedRows.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
-    const stockValue = rows.reduce((sum, item) => sum + item.stockValue, 0);
+    const stockValue = rows.reduce((sum, item) => sum + Number(item.stockValue ?? 0), 0);
     const lowStock = rows.filter((item) => item.status === "LOW" || item.status === "CRITICAL" || item.status === "OUT_OF_STOCK").length;
-    const usageQuantity = filteredMovements.filter((item) => item.type === "OUT").reduce((sum, item) => sum + item.quantity, 0);
+    const usageQuantity = filteredMovements.filter((item) => item.type === "OUT").reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
     const pendingPo = purchaseOrders.filter((item) => ["PENDING", "ORDERED", "PARTIALLY_RECEIVED"].includes(item.status)).length;
-    const stockByCategory = this.countAmountBy(rows, (item) => item.category, (item) => item.stockValue);
-    const supplierPerformance = this.countAmountBy(purchaseOrders, (item) => item.supplier?.name ?? "Unknown Supplier", (item) => item.totalAmount);
+    const stockByCategory = this.countAmountBy(rows, (item) => item.category, (item) => Number(item.stockValue ?? 0));
+    const supplierPerformance = this.countAmountBy(purchaseOrders, (item) => item.supplier?.name ?? "Unknown Supplier", (item) => Number(item.totalAmount ?? 0));
 
     return this.composeReport({
       actor,
@@ -2386,14 +2386,19 @@ export class ReportsService {
     const counts: Record<string, number> = {};
     for (const item of items) {
       const key = keyFn(item) || "Unknown";
-      counts[key] = (counts[key] ?? 0) + amountFn(item);
+      const raw = amountFn(item);
+      const amount = typeof raw === "number" ? raw : Number(raw ?? 0);
+      counts[key] = (counts[key] ?? 0) + (Number.isFinite(amount) ? amount : 0);
     }
     return counts;
   }
 
   private mapToChart(map: Record<string, number>) {
     return Object.entries(map)
-      .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+      .map(([name, value]) => {
+        const numeric = typeof value === "number" ? value : Number(value ?? 0);
+        return { name, value: Number((Number.isFinite(numeric) ? numeric : 0).toFixed(2)) };
+      })
       .sort((leftItem, rightItem) => rightItem.value - leftItem.value);
   }
 
