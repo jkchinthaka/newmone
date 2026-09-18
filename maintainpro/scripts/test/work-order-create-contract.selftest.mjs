@@ -33,10 +33,14 @@ const validation = readFileSync(
   path.join(maintainproRoot, "apps/api/src/common/utils/work-order-validation.ts"),
   "utf8"
 );
+const requiredTypesBlock =
+  validation.match(/ASSET_OR_VEHICLE_REQUIRED_TYPES[\s\S]*?\];/)?.[0] ?? "";
 check(
   "WO-CONTRACT-002",
-  /CORRECTIVE,\s*EMERGENCY/.test(validation) || /General tasks \(CORRECTIVE/.test(validation),
-  "CORRECTIVE may omit asset/vehicle"
+  /ASSET_OR_VEHICLE_REQUIRED_TYPES/.test(validation) &&
+    !/\bCORRECTIVE\b/.test(requiredTypesBlock) &&
+    /functional location/.test(validation),
+  "CORRECTIVE may omit asset/vehicle when functional location is provided"
 );
 
 const webTypes = readFileSync(
