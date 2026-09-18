@@ -6,17 +6,29 @@ const CSRF_COOKIE = "maintainpro_csrf";
 
 export async function loginViaUi(page: Page, emailLocal: string) {
   const email = e2eEmail(emailLocal);
-  await page.goto("/login");
-  await page.locator("#login-email").fill(email);
-  await page.locator("#login-password").fill(e2ePassword());
+  let loginResponse: Awaited<ReturnType<Page["waitForResponse"]>> | undefined;
 
-  const loginResponsePromise = page.waitForResponse(
-    (res) => res.url().includes("/api/backend/auth/login") && res.request().method() === "POST"
-  );
-  await page.getByRole("button", { name: /sign in/i }).click();
-  const loginResponse = await loginResponsePromise;
-  expect(loginResponse.status(), `login failed for persona ${emailLocal}`).toBe(200);
-  const body = await loginResponse.json().catch(() => ({}));
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.goto("/login");
+    await page.locator("#login-email").fill(email);
+    await page.locator("#login-password").fill(e2ePassword());
+
+    const loginResponsePromise = page.waitForResponse(
+      (res) => res.url().includes("/api/backend/auth/login") && res.request().method() === "POST"
+    );
+    await page.getByRole("button", { name: /sign in/i }).click();
+    loginResponse = await loginResponsePromise;
+
+    if (loginResponse.status() === 429) {
+      await page.waitForTimeout(1_500 * (attempt + 1));
+      continue;
+    }
+    break;
+  }
+
+  expect(loginResponse, `login response missing for persona ${emailLocal}`).toBeTruthy();
+  expect(loginResponse!.status(), `login failed for persona ${emailLocal}`).toBe(200);
+  const body = await loginResponse!.json().catch(() => ({}));
   const serialized = JSON.stringify(body);
   expect(serialized).not.toMatch(/"accessToken"\s*:/);
   expect(serialized).not.toMatch(/"refreshToken"\s*:/);
@@ -33,7 +45,7 @@ export async function loginViaUi(page: Page, emailLocal: string) {
     )
     .toBe(true);
 
-  return { email, loginResponse };
+  return { email, loginResponse: loginResponse! };
 }
 
 export async function loginViaApi(request: APIRequestContext, emailLocal: string) {
