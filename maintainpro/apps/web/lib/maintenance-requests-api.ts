@@ -3,8 +3,10 @@ import { apiClient } from "./api-client";
 export type MaintenanceRequestStatus =
   | "NEW"
   | "UNDER_REVIEW"
+  | "NEEDS_INFORMATION"
   | "APPROVED"
   | "REJECTED"
+  | "CLOSED"
   | "CANCELLED"
   | "CONVERTED_TO_WO";
 
@@ -23,6 +25,7 @@ export type MaintenanceRequestListItem = {
   createdAt: string;
   publicUpdateNote?: string | null;
   workOrderId?: string | null;
+  resolutionCode?: string | null;
   asset?: { id: string; assetTag: string; name: string } | null;
   site?: { id: string; code: string; name: string } | null;
   functionalLocation?: { id: string; code: string; name: string } | null;
@@ -77,6 +80,19 @@ export async function triageRequest(id: string, body: Record<string, unknown>) {
 
 export async function approveRequest(id: string) {
   const res = await apiClient.post(`/maintenance-requests/${id}/approve`);
+  return unwrap(res.data);
+}
+
+export async function requestMoreInformation(
+  id: string,
+  body: { question: string; publicNote?: string }
+) {
+  const res = await apiClient.post(`/maintenance-requests/${id}/needs-information`, body);
+  return unwrap(res.data);
+}
+
+export async function resumeRequestReview(id: string, body?: { responseNote?: string }) {
+  const res = await apiClient.post(`/maintenance-requests/${id}/resume-review`, body ?? {});
   return unwrap(res.data);
 }
 
