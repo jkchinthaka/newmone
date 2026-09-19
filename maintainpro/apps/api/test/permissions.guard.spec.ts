@@ -94,6 +94,28 @@ describe("PermissionsGuard", () => {
     );
   });
 
+  it("allows maintenance_requests.create via facility_issues.manage compatibility alias", async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(["maintenance_requests.create"])
+    } as unknown as Reflector;
+
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          activeUser({
+            roleName: "MANAGER",
+            permissions: ["facility_issues.view", "facility_issues.manage"]
+          })
+        )
+      }
+    } as any;
+
+    const guard = new PermissionsGuard(reflector, prisma);
+    await expect(
+      guard.canActivate(buildContext({ sub: "u-1", role: "MANAGER" }))
+    ).resolves.toBe(true);
+  });
+
   it("MP-006: ignores stale JWT permissions and uses DB", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(["vehicles.edit"])

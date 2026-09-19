@@ -26,15 +26,26 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
   "organization.manage": ["facilities.manage", "settings.organization.manage"],
   "locations.view": ["facilities.view", "organization.view"],
   "locations.manage": ["facilities.manage", "organization.manage"],
-  // Phase 5 — MaintenanceRequest permissions accept FacilityIssue equivalents during transition
-  "maintenance_requests.create": ["facility_issues.report", "cleaning.report_issue"],
+  // Phase 5 — MaintenanceRequest permissions accept FacilityIssue equivalents during transition.
+  // Roles that can *manage* facility issues must also be able to *create* requests (MANAGER seed
+  // historically had manage without report, which produced a Roles-pass / Permissions-403 gap).
+  "maintenance_requests.create": [
+    "facility_issues.report",
+    "facility_issues.manage",
+    "cleaning.report_issue",
+    "cleaning.manage"
+  ],
   "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report"],
   "maintenance_requests.view_all": ["facility_issues.view", "facility_issues.manage"],
   "maintenance_requests.triage": ["facility_issues.manage"],
   "maintenance_requests.approve": ["facility_issues.manage"],
   "maintenance_requests.reject": ["facility_issues.manage"],
   "maintenance_requests.convert": ["facility_issues.manage"],
-  "maintenance_requests.cancel_own": ["facility_issues.report", "maintenance_requests.create"],
+  "maintenance_requests.cancel_own": [
+    "facility_issues.report",
+    "facility_issues.manage",
+    "maintenance_requests.create"
+  ],
   "maintenance_requests.cancel_any": ["facility_issues.manage"],
   // Phase 6 — granular WO actions accept existing manage / update_status during rollout
   "work_orders.plan": ["work_orders.manage"],

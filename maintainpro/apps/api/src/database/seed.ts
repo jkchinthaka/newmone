@@ -258,7 +258,17 @@ const rolePermissions: Record<RoleName, string[]> = {
     "predictive_insights.view",
     "facilities.view",
     "facility_issues.view",
-    "facility_issues.manage"
+    "facility_issues.report",
+    "facility_issues.manage",
+    "maintenance_requests.create",
+    "maintenance_requests.view_own",
+    "maintenance_requests.view_all",
+    "maintenance_requests.triage",
+    "maintenance_requests.approve",
+    "maintenance_requests.reject",
+    "maintenance_requests.convert",
+    "maintenance_requests.cancel_own",
+    "maintenance_requests.cancel_any"
   ],
   TECHNICIAN: [
     "dashboard.view",
@@ -352,8 +362,18 @@ const rolePermissions: Record<RoleName, string[]> = {
     "predictive_insights.view",
     "facilities.view",
     "facility_issues.view",
+    "facility_issues.report",
     "facility_issues.manage",
-    "facility_inspections.view"
+    "facility_inspections.view",
+    "maintenance_requests.create",
+    "maintenance_requests.view_own",
+    "maintenance_requests.view_all",
+    "maintenance_requests.triage",
+    "maintenance_requests.approve",
+    "maintenance_requests.reject",
+    "maintenance_requests.convert",
+    "maintenance_requests.cancel_own",
+    "maintenance_requests.cancel_any"
   ],
   SECURITY_OFFICER: [
     "dashboard.view",
