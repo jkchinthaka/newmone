@@ -4,7 +4,7 @@
 
 **Baseline SHA (PR #43 merge):** `ad4ec4e2612a43331ed13cc997ea050dd1cf2e17`
 **Phase 2 merge SHA (PR #44):** `4c784d783e5893fd513dd71674fe32638aa75a6d`
-**Responsive closeout branch:** `maintainpro/responsive-visual-closeout`
+**Responsive closeout merge SHA (PR #45):** `81cd53710179fadf9ea847541ce68c554d77ae4d`
 **Evidence pack:** `docs/qa/`
 **Date:** 2026-09-19
 
@@ -36,7 +36,7 @@
 | Login short height — Sign-in below fold / clipped | `min-h-[100dvh] overflow-y-auto` + form `items-start` on small viewports |
 | Local prod-build smoke blocked by BFF localhost ban under `NODE_ENV=production` | Allow localhost upstream only when HTTP-compat pair is set |
 
-**Audit result:** 57/57 viewport×page checks PASS (0 defects). Web typecheck PASS, web unit tests 51/51 PASS, `next build` PASS, `git diff --check` PASS.
+**Audit result:** 57/57 viewport×page checks PASS (0 defects). Web typecheck PASS, web unit tests 51/51 PASS, `next build` PASS, `git diff --check` PASS. Repo-owned CI on PR #45: validate-monorepo, release-validate, docker-build, full-stack-e2e, build — all PASS. (Vercel/Cloudflare Workers preview deploys failed — external credentials; not merge blockers for this closeout.)
 
 ---
 
