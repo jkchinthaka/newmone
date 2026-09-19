@@ -3164,7 +3164,11 @@ model MaintenanceRequest {
   relatedRequest   MaintenanceRequest?  @relation("RelatedRequests", fields: [relatedRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   relatedFrom      MaintenanceRequest[] @relation("RelatedRequests")
 
-  /// Idempotent conversion: at most one primary WO
+  /// Idempotent conversion: at most one primary WO.
+  /// `@unique` is required for the Prisma 1:1 relation. On SQL Server a plain UNIQUE constraint
+  /// allows only one NULL, which blocks a second unconverted request. Migration
+  /// 20260919140000_request_issue_workorder_filtered_unique replaces it with a filtered unique
+  /// index (`WHERE workOrderId IS NOT NULL`). Do not re-apply a plain unique constraint.
   workOrderId String?    @unique @db.NVarChar(36)
   workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -3687,6 +3691,8 @@ model FacilityIssue {
   closedAt            DateTime?
   resolutionMinutes   Int?
   resolution          String?
+  /// Same SQL Server filtered-unique pattern as MaintenanceRequest.workOrderId —
+  /// see migration 20260919140000_request_issue_workorder_filtered_unique.
   workOrderId         String?              @unique @db.NVarChar(36)
   workOrder           WorkOrder?           @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   evidenceAttachments EvidenceAttachment[]
