@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import {
   useTechnicians,
   useUpdateWorkOrder,
   useUpdateWorkOrderStatus,
+  useWorkOrder,
   useWorkOrderFilters,
   useWorkOrders
 } from "./hooks";
@@ -99,6 +102,12 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
   const effectiveFilters = jobDomain ? { ...filters, jobDomain } : filters;
   const workOrdersQuery = useWorkOrders(effectiveFilters);
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams.get("wo");
+  const deepLinkQuery = useWorkOrder(deepLinkId);
+
   useEffect(() => {
     if (jobDomain && filters.jobDomain !== jobDomain) {
       updateFilters({ jobDomain, page: 1 });
@@ -154,9 +163,36 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
     setEditorState({ open: true, mode: "edit", workOrder });
   };
 
+  const clearDeepLinkParam = () => {
+    if (!searchParams.get("wo")) {
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("wo");
+    const query = params.toString();
+    router.replace((query ? `${pathname}?${query}` : pathname) as Route);
+  };
+
   const closeEditorModal = () => {
     setEditorState((current) => ({ ...current, open: false }));
+    clearDeepLinkParam();
   };
+
+  // Deep link support: /work-orders?wo=<id> opens the editor modal directly,
+  // e.g. from the Request detail page's "Convert to Work Order" link.
+  useEffect(() => {
+    if (deepLinkId && deepLinkQuery.data && editorState.workOrder?.id !== deepLinkId) {
+      setEditorState({ open: true, mode: "edit", workOrder: deepLinkQuery.data });
+    }
+  }, [deepLinkId, deepLinkQuery.data, editorState.workOrder?.id]);
+
+  useEffect(() => {
+    if (deepLinkId && deepLinkQuery.isError) {
+      toast.error("That work order could not be found or you don't have access to it.");
+      clearDeepLinkParam();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, deepLinkQuery.isError]);
 
   const handleStatusChange = async (workOrder: WorkOrder, status: WorkOrderStatus) => {
     if (status === "COMPLETED") {

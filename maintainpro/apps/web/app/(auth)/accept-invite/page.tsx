@@ -66,7 +66,7 @@ function AcceptInviteContent() {
         </p>
       ) : null}
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} method="post" className="mt-6 space-y-4">
         <input
           type="password"
           placeholder="New password"

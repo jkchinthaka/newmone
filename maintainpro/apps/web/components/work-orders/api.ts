@@ -226,6 +226,11 @@ export async function fetchWorkOrders(): Promise<WorkOrder[]> {
   return result.data;
 }
 
+export async function fetchWorkOrderById(id: string): Promise<WorkOrder> {
+  const response = await apiClient.get<ApiEnvelope<WorkOrder>>(`/work-orders/${id}`);
+  return sanitizeWorkOrder(unwrapData(response.data));
+}
+
 export async function createWorkOrder(payload: CreateWorkOrderInput): Promise<WorkOrder> {
   const response = await apiClient.post<ApiEnvelope<WorkOrder>>("/work-orders", payload);
   return sanitizeWorkOrder(unwrapData(response.data));

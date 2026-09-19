@@ -21,12 +21,29 @@ const MANAGER_OVERRIDE_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPER
 
 export const WORKFORCE_EMPLOYEE_MANAGER_ROLES = MANAGER_OVERRIDE_ROLES;
 
+/** Mirrors backend WORKFORCE_EMPLOYEE_READERS in workforce.controller.ts (GET /workforce/employees). */
+const WORKFORCE_EMPLOYEE_READER_ROLES = new Set([...MANAGER_OVERRIDE_ROLES, "ASSET_MANAGER", "MECHANIC"]);
+
+/** Mirrors backend @Roles on GET /work-orders/:id/assignees in work-orders.controller.ts. */
+const WORK_ORDER_ASSIGNEE_READER_ROLES = new Set([
+  ...WORKFORCE_EMPLOYEE_READER_ROLES,
+  "TECHNICIAN"
+]);
+
 export function canManageWorkforceEmployees(role?: string | null): boolean {
   return Boolean(role && MANAGER_OVERRIDE_ROLES.has(role));
 }
 
 export function canOverrideLeaveConflict(role?: string | null): boolean {
   return Boolean(role && MANAGER_OVERRIDE_ROLES.has(role));
+}
+
+export function canViewWorkforceEmployees(role?: string | null): boolean {
+  return Boolean(role && WORKFORCE_EMPLOYEE_READER_ROLES.has(role));
+}
+
+export function canViewWorkOrderAssignees(role?: string | null): boolean {
+  return Boolean(role && WORK_ORDER_ASSIGNEE_READER_ROLES.has(role));
 }
 
 export function toDateTimeLocalValue(iso?: string | null): string {

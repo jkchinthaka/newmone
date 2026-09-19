@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
           Enter your work email. If an account exists, a reset link request will be accepted.
         </p>
 
-        <form className="mt-8 space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-4" method="post" onSubmit={handleSubmit(onSubmit)}>
           <label className="block text-sm text-slate-600" htmlFor="forgot-password-email">
             <span className="mb-2 block font-medium text-slate-700">Work Email</span>
             <input
