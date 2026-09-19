@@ -169,7 +169,8 @@ export class PlanningService {
             tenantId,
             revision: 1,
             effectiveFrom: input.effectiveFrom ?? new Date(),
-            snapshot: input as object,
+            // SQL Server stores JSON as NVarChar — Prisma expects String, not Json object
+            snapshot: JSON.stringify(input),
             changeReason: "INITIAL",
             createdById: actor.sub
           }
@@ -221,7 +222,11 @@ export class PlanningService {
             tenantId,
             revision: nextRevision,
             effectiveFrom: now,
-            snapshot: { ...existing, ...patch } as object,
+            snapshot: JSON.stringify({
+              ...existing,
+              ...patch,
+              triggers: existing.triggers
+            }),
             changeReason: changeReason ?? "REVISION",
             createdById: actor.sub
           }

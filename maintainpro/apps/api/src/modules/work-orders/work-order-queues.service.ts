@@ -312,28 +312,47 @@ export class WorkOrderQueuesService {
       all: { where: {} }
     };
 
-    const queueResults = await Promise.all(
-      accessible.map((key) => {
+    // Run Action Center aggregates in the same parallel wave as queue counts
+    // (previously a second sequential Promise.all after ~15 counts completed).
+    const queueResults = await Promise.all([
+      ...accessible.map((key) => {
         const definition = countDefinitions[key] ?? { where: {} };
-        return this.safeCount(key, warnings, () => this.countScoped(actor, definition.where), definition.severity);
-      })
-    );
-
-    const countByKey = new Map(queueResults.map((entry) => [entry.key, entry.count]));
-
-    // Action Center-specific aggregates, computed independent of role-gated `accessible`
-    // queue keys (every role permitted this endpoint may see its own work order summary).
-    const [highPriorityOpen, openUnassigned] = await Promise.all([
+        return this.safeCount(
+          key,
+          warnings,
+          () => this.countScoped(actor, definition.where),
+          definition.severity
+        );
+      }),
       this.safeAggregateCount("highPriorityOpen", warnings, () =>
         this.countScoped(actor, this.highPriorityOpenWhere())
-      ),
+      ).then((count) => ({ __aggregate: "highPriorityOpen" as const, count })),
       this.safeAggregateCount("openUnassigned", warnings, () =>
         this.countScoped(actor, this.openUnassignedWhere())
-      )
+      ).then((count) => ({ __aggregate: "openUnassigned" as const, count }))
     ]);
 
+    const aggregateEntries = queueResults.filter(
+      (entry): entry is { __aggregate: "highPriorityOpen" | "openUnassigned"; count: number } =>
+        "__aggregate" in entry
+    );
+    const queueOnly = queueResults.filter(
+      (entry): entry is {
+        key: WorkOrderQueueKey;
+        label: string;
+        count: number;
+        severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      } => !("__aggregate" in entry)
+    );
+
+    const countByKey = new Map(queueOnly.map((entry) => [entry.key, entry.count]));
+    const highPriorityOpen =
+      aggregateEntries.find((e) => e.__aggregate === "highPriorityOpen")?.count ?? 0;
+    const openUnassigned =
+      aggregateEntries.find((e) => e.__aggregate === "openUnassigned")?.count ?? 0;
+
     return {
-      queues: queueResults,
+      queues: queueOnly,
       defaultQueue: resolveDefaultQueueForRole(role),
       summary: {
         actionRequired: countByKey.get("action-required") ?? 0,
