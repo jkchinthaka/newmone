@@ -32,17 +32,19 @@ before treating anything not listed there as done.
 
 - `npm run db:migrate:status` found one unapplied migration (`20260918043000_work_order_status_defaults`) against the existing dev DB; ran `npm run db:migrate:deploy` — applied cleanly, zero errors. This *is* effectively the "upgrade from prior schema" gate (spec 24B), run against a real pre-existing database with real data.
 - `npm run db:generate` regenerated the Prisma client successfully.
-- **Fresh-database gate (spec 24A), actually run**: created a brand-new, genuinely empty
-  SQL Server database (`MaintainProFreshTest`, via a sysadmin Windows-auth connection, since
-  the app login itself correctly lacks `CREATE DATABASE`), then ran the exact sequence CI's
-  `sqlserver-migration-gate.yml` runs: `db:migrate:deploy` against it (all 16 migrations
-  applied cleanly, zero errors) → `db:seed` → `db:seed` again to check idempotency. Verified
-  directly in the database (not just by log output) that the second run did not duplicate
-  data: `MaintenanceJobCategory` had 33 rows / 33 distinct codes after both runs combined.
-  Minor observability nit found, not a data bug: the seed script's own log line reports
-  `created=33` on both the first *and* second run (it logs the batch size it processed, not
-  actual inserted-vs-skipped counts) — cosmetic, left as-is. Database dropped and the app
-  login's default database restored to `MaintainProDev` afterward.
+- **Fresh-database gate (spec 24A), actually run**: created brand-new, genuinely empty
+  SQL Server databases (`MaintainProEmptyProof`, `MaintainProEmptyProofDrill`, via a sysadmin
+  Windows-auth connection, since the app login itself correctly lacks `CREATE DATABASE`), then
+  ran the exact sequence CI's `sqlserver-migration-gate.yml` runs: `db:migrate:deploy` against
+  them (migrations applied cleanly, zero errors) → `db:seed` → `db:seed` again to check
+  idempotency. Verified directly in the database (not just by log output) that the second run
+  did not duplicate data: `MaintenanceJobCategory` had 33 rows / 33 distinct codes after both
+  runs combined. Minor observability nit found, not a data bug: the seed script's own log line
+  reports `created=33` on both the first *and* second run (it logs the batch size it processed,
+  not actual inserted-vs-skipped counts) — cosmetic, left as-is. Correction on close-out: these
+  two test databases were left behind after the gate ran (not dropped as originally intended)
+  and were dropped in a final cleanup pass before this report was finalized; the app login's
+  default database was confirmed still `MaintainProDev` throughout.
 - Did **not** perform a backup/restore rehearsal this session — see Section 8.
 
 ## 4. Validation gates run this session
