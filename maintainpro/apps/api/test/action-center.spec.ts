@@ -16,6 +16,7 @@ function baseSnapshot(overrides: Partial<ActionCenterSnapshot> = {}): ActionCent
   return {
     variant: "admin",
     roleName: "ADMIN",
+    permissions: ["inventory.manage", "purchase_orders.view", "reports.view"],
     connections: {
       workOrders: true,
       inventory: true,
@@ -65,7 +66,7 @@ describe("action center role helpers", () => {
   it("scopes work order and inventory sections by variant", () => {
     expect(actionCenterShowsWorkOrders("technician")).toBe(true);
     expect(actionCenterShowsWorkOrders("driver")).toBe(false);
-    expect(actionCenterShowsInventory("inventory")).toBe(true);
+    expect(actionCenterShowsInventory("inventory", "INVENTORY_KEEPER", ["inventory.manage"])).toBe(true);
     expect(actionCenterShowsInventory("technician")).toBe(false);
   });
 

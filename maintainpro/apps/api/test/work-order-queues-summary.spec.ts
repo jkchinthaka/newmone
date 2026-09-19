@@ -30,6 +30,14 @@ describe("WorkOrderQueuesService lightweight summary", () => {
     return { service, prisma };
   }
 
+  function restoreEnv(name: string, value: string | undefined) {
+    if (value === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = value;
+    }
+  }
+
   it("returns 200-shaped summary with zero counts for empty DB", async () => {
     const { service, prisma } = buildService();
     const summary = await service.getQueueSummary(actor);
@@ -59,6 +67,21 @@ describe("WorkOrderQueuesService lightweight summary", () => {
 
     const summary = await service.getQueueSummary(actor);
     expect(summary.queues.find((queue) => queue.key === "open-requests")?.count).toBe(1);
+  });
+
+  it("uses database counts beyond the first 25 rows instead of deriving aggregates from page one", async () => {
+    const { service, prisma } = buildService(({ where }) => {
+      const serialized = JSON.stringify(where);
+      return serialized.includes(`"status":"${WorkOrderStatus.OPEN}"`) && !serialized.includes("approvalStatus")
+        ? 31
+        : 0;
+    });
+
+    const summary = await service.getQueueSummary(actor);
+
+    expect(summary.queues.find((queue) => queue.key === "open-requests")?.count).toBe(31);
+    expect(prisma.workOrder.count).toHaveBeenCalled();
+    expect((prisma.workOrder as { findMany?: unknown }).findMany).toBeUndefined();
   });
 
   it("returns 200 when dueDate is null and overdue query is evaluated", async () => {
@@ -99,8 +122,27 @@ describe("WorkOrderQueuesService lightweight summary", () => {
     expect(summary.summary.actionRequired).toBe(0);
     expect(summary.warnings?.some((warning) => warning.queue === "all")).toBe(true);
 
-    process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS = previousEndpointTimeout;
-    process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS = previousCountTimeout;
+    // The endpoint fallback returns before the deliberately unresolved count
+    // operations finish their own bounded timers. Let those timers drain while
+    // the short test configuration is still active so Jest has no open handles.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
+    restoreEnv("WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS", previousEndpointTimeout);
+    restoreEnv("WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS", previousCountTimeout);
+  });
+
+  it("uses safe defaults for malformed timeout configuration", async () => {
+    const previousEndpointTimeout = process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS;
+    const previousCountTimeout = process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS;
+    process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS = "undefined";
+    process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS = "not-a-number";
+
+    const { service } = buildService();
+    const summary = await service.getQueueSummary(actor);
+
+    expect(summary.warnings ?? []).toHaveLength(0);
+    restoreEnv("WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS", previousEndpointTimeout);
+    restoreEnv("WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS", previousCountTimeout);
   });
 
   it("exposes lightweight diagnostics marker", () => {

@@ -62,11 +62,19 @@ export class WorkOrdersController {
     "MANAGER",
     "OPERATIONS_MANAGER",
     "ASSET_MANAGER",
+    "FLEET_MANAGER",
+    "COMPLIANCE_MANAGER",
+    "FACILITY_MANAGER",
+    "BUILDING_SUPERVISOR",
     "MECHANIC",
     "TECHNICIAN",
     "SUPERVISOR",
     "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
+    "SECURITY_OFFICER",
+    // Action Center (Home) read-only signals: viewers get the same summary counts
+    // as management roles, and finance gets its finance-vendor-pending queue.
+    "VIEWER",
+    "FINANCE"
   )
   async queueSummary(@Req() req: AuthedRequest) {
     const data = await this.workOrderQueuesService.getQueueSummary(req.user);

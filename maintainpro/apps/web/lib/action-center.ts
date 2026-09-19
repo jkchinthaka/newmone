@@ -32,14 +32,21 @@ export type ActionCenterWorkOrderStats = {
   open: number;
   inProgress: number;
   overdue: number;
+  /** HIGH/CRITICAL priority, non-terminal, tenant-wide. Left 0 for technicians (see note in action-center-api.ts). */
   highPriority: number;
+  /** Open jobs assigned to the current actor (technician variant only). */
   assigned?: number;
+  /** Vendor repair invoices submitted/under review — finance variant only. */
+  financeVendorPending?: number;
 };
 
 export type ActionCenterInventoryStats = {
-  lowStockCount: number;
-  criticalCount: number;
-  pendingPurchaseOrders: number;
+  /** null when this role cannot read stock, or the stock request failed. */
+  lowStockCount: number | null;
+  /** null when this role cannot read stock, or the parts request failed. */
+  criticalCount: number | null;
+  /** null when the purchase-orders call failed but parts/low-stock data was still usable. */
+  pendingPurchaseOrders: number | null;
 };
 
 export type ActionCenterSystemHealthStats = {
@@ -59,6 +66,13 @@ export type ActionCenterFacilityIssueStats = {
   critical: number;
 };
 
+/**
+ * Why a snapshot section failed to load, distinguished without exposing raw
+ * error detail: a rendered "not connected" message can then tell a real
+ * permission gap (which retrying will never fix) apart from a transient outage.
+ */
+export type ActionCenterErrorKind = "unauthorized" | "unavailable" | "network" | "server" | "partial" | "unknown";
+
 export type ActionCenterSnapshot = {
   variant: ActionCenterVariant;
   roleName: string | null;
@@ -75,6 +89,14 @@ export type ActionCenterSnapshot = {
     invitations: boolean;
     facilityIssues: boolean;
   };
+  /** Set only for a section that failed to load; a section that never fetches has no entry. */
+  errors?: Partial<{
+    workOrders: ActionCenterErrorKind;
+    inventory: ActionCenterErrorKind;
+    systemHealth: ActionCenterErrorKind;
+    invitations: ActionCenterErrorKind;
+    facilityIssues: ActionCenterErrorKind;
+  }>;
 };
 
 const ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
@@ -95,18 +117,119 @@ export function actionCenterShowsWorkOrders(variant: ActionCenterVariant): boole
   return variant === "admin" || variant === "management" || variant === "technician" || variant === "viewer";
 }
 
-export function actionCenterShowsInventory(variant: ActionCenterVariant): boolean {
-  return variant === "admin" || variant === "inventory" || variant === "management";
+const INVENTORY_STOCK_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "ASSET_MANAGER",
+  "MECHANIC",
+  "INVENTORY_KEEPER",
+  "MANAGER",
+  "OPERATIONS_MANAGER"
+]);
+
+const INVENTORY_PURCHASE_ORDER_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "ASSET_MANAGER",
+  "INVENTORY_KEEPER",
+  "MANAGER",
+  "OPERATIONS_MANAGER",
+  "PROCUREMENT_OFFICER",
+  "FINANCE"
+]);
+
+export type ActionCenterInventoryAccess = { stock: boolean; purchaseOrders: boolean };
+
+/** Mirrors the role AND permission guards on the inventory endpoints. */
+export function resolveActionCenterInventoryAccess(
+  roleName: string | null | undefined,
+  permissions: readonly string[] | undefined
+): ActionCenterInventoryAccess {
+  const role = extractRoleName(roleName);
+  if (!role) return { stock: false, purchaseOrders: false };
+  if (role === "SUPER_ADMIN") return { stock: true, purchaseOrders: true };
+
+  const permissionSet = new Set(permissions ?? []);
+  return {
+    stock: INVENTORY_STOCK_ROLES.has(role) && permissionSet.has("inventory.manage"),
+    purchaseOrders:
+      INVENTORY_PURCHASE_ORDER_ROLES.has(role) && permissionSet.has("purchase_orders.view")
+  };
+}
+
+export function actionCenterShowsInventory(
+  variant: ActionCenterVariant,
+  roleName?: string | null,
+  permissions?: readonly string[]
+): boolean {
+  if (!(variant === "admin" || variant === "inventory" || variant === "management" || variant === "procurement")) {
+    return false;
+  }
+  const access = resolveActionCenterInventoryAccess(roleName, permissions);
+  return access.stock || access.purchaseOrders;
+}
+
+export function actionCenterShowsFinanceSignals(variant: ActionCenterVariant): boolean {
+  return variant === "finance";
+}
+
+const REPORTING_KPI_ROLES = new Set([
+  "SUPER_ADMIN", "ADMIN", "MANAGER", "MAINTENANCE_MANAGER", "OPERATIONS_MANAGER",
+  "ASSET_MANAGER", "FLEET_MANAGER", "SUPERVISOR", "MAINTENANCE_SUPERVISOR", "VIEWER",
+  "AUDITOR", "FINANCE", "FINANCE_APPROVER", "COMPLIANCE_MANAGER"
+]);
+
+/** Mirrors ReportingKpisController.overview's role and reports.view guards. */
+export function actionCenterShowsKpis(
+  roleName: string | null | undefined,
+  permissions: readonly string[] | undefined
+): boolean {
+  const role = extractRoleName(roleName);
+  if (!role || !REPORTING_KPI_ROLES.has(role)) return false;
+  return role === "SUPER_ADMIN" || Boolean(permissions?.includes("reports.view"));
+}
+
+/**
+ * Roles whose backend access covers the canonical /facilities/dashboard summary
+ * (FacilitiesController.FACILITY_READ_ROLES) — the preferred source for general
+ * management-style roles.
+ */
+const FACILITY_DASHBOARD_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "FACILITY_MANAGER",
+  "BUILDING_SUPERVISOR",
+  "SUPERVISOR",
+  "VIEWER"
+]);
+
+/**
+ * Roles whose backend access covers only the legacy /cleaning/issues endpoint
+ * (CleaningController's own @Roles list) and not /facilities/dashboard.
+ */
+const FACILITY_LEGACY_CLEANING_ROLES = new Set(["CLEANER", "ASSET_MANAGER"]);
+
+/**
+ * Resolves which backend endpoint (if any) this role is actually authorized to
+ * call for facility/cleaning issue counts. Replaces the old variant==="management"
+ * check, which showed the section (and triggered a guaranteed 403) for roles like
+ * FLEET_MANAGER, COMPLIANCE_MANAGER, OPERATIONS_MANAGER and SECURITY_OFFICER that
+ * have no backend access to either endpoint.
+ */
+export function resolveFacilityIssuesSource(
+  roleName: string | null | undefined
+): "dashboard" | "cleaning" | "none" {
+  const role = extractRoleName(roleName);
+  if (!role) return "none";
+  if (FACILITY_DASHBOARD_ROLES.has(role)) return "dashboard";
+  if (FACILITY_LEGACY_CLEANING_ROLES.has(role)) return "cleaning";
+  return "none";
 }
 
 export function actionCenterShowsFacilityIssues(variant: ActionCenterVariant, roleName: string | null): boolean {
-  const role = extractRoleName(roleName);
-  return (
-    variant === "cleaner" ||
-    variant === "management" ||
-    role === "FACILITY_MANAGER" ||
-    role === "BUILDING_SUPERVISOR"
-  );
+  void variant; // gating is by real backend-authorized role now, not by variant bucket
+  return resolveFacilityIssuesSource(roleName) !== "none";
 }
 
 export function actionCenterShowsDriverLinks(variant: ActionCenterVariant): boolean {
@@ -121,7 +244,7 @@ export function actionCenterShowsFg(permissions: readonly string[] | undefined, 
 }
 
 export function actionCenterIsReadOnly(variant: ActionCenterVariant): boolean {
-  return variant === "viewer" || variant === "minimal";
+  return variant === "viewer" || variant === "minimal" || variant === "finance";
 }
 
 export function getActionCenterTitle(variant: ActionCenterVariant): string {
@@ -139,6 +262,10 @@ export function getActionCenterTitle(variant: ActionCenterVariant): string {
     case "driver":
       return "Home";
     case "viewer":
+      return "Home";
+    case "finance":
+      return "Home";
+    case "procurement":
       return "Home";
     default:
       return "Home";
@@ -161,6 +288,10 @@ export function getActionCenterDescription(variant: ActionCenterVariant): string
       return "Vehicle and fleet modules available to drivers.";
     case "viewer":
       return "Read-only operational summaries and report links.";
+    case "finance":
+      return "Vendor invoice attention and financial reporting shortcuts. This view is read-only.";
+    case "procurement":
+      return "Procurement, vendor, and inventory attention from live records.";
     default:
       return "Open available modules and report views for your account.";
   }
@@ -190,7 +321,7 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
     sections.push(buildWorkOrdersSection(snapshot));
   }
 
-  if (actionCenterShowsInventory(snapshot.variant)) {
+  if (actionCenterShowsInventory(snapshot.variant, snapshot.roleName, snapshot.permissions)) {
     sections.push(buildInventorySection(snapshot));
   }
 
@@ -200,6 +331,10 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
 
   if (actionCenterShowsFacilityIssues(snapshot.variant, snapshot.roleName)) {
     sections.push(buildFacilitySection(snapshot));
+  }
+
+  if (actionCenterShowsFinanceSignals(snapshot.variant)) {
+    sections.push(buildFinanceSection(snapshot));
   }
 
   if (actionCenterShowsFg(snapshot.permissions, snapshot.roleName)) {
@@ -214,7 +349,8 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
     snapshot.variant === "admin" ||
     snapshot.variant === "viewer" ||
     snapshot.variant === "minimal" ||
-    snapshot.variant === "management"
+    snapshot.variant === "management" ||
+    snapshot.variant === "finance"
   ) {
     sections.push(buildReportsSection(snapshot));
   }
@@ -226,15 +362,79 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
   return sections.filter((section) => section.items.length > 0 || section.emptyTitle);
 }
 
+function matchesActionCenterQuery(item: ActionCenterItem, query: string): boolean {
+  return [item.title, item.description, item.statusLabel, item.metricLabel]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(query));
+}
+
+/**
+ * Filters Action Center sections down to items matching a free-text search query.
+ * A section whose title itself matches keeps all of its items; otherwise only
+ * items whose title/description/status/metric match survive. Sections left with
+ * no items (including "not connected" placeholder sections) are dropped rather
+ * than shown empty.
+ */
+export function filterActionCenterSections(
+  sections: ActionCenterSection[],
+  query: string
+): ActionCenterSection[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) {
+    return sections;
+  }
+
+  return sections
+    .map((section) => {
+      const titleMatches = section.title.toLowerCase().includes(trimmed);
+      const items = titleMatches
+        ? section.items
+        : section.items.filter((item) => matchesActionCenterQuery(item, trimmed));
+      return { ...section, items };
+    })
+    .filter((section) => section.items.length > 0);
+}
+
+/**
+ * Turns a snapshot error kind into empty-state copy that tells a real
+ * permission gap (retrying will never fix it) apart from a transient outage
+ * (retrying might). Falls back to the original always-transient wording when
+ * no error was recorded (e.g. the section was simply never fetched).
+ */
+function describeUnavailable(
+  errorKind: ActionCenterErrorKind | undefined,
+  fallbackTitle: string,
+  fallbackDescription: string
+): { title: string; description: string } {
+  if (errorKind === "unauthorized") {
+    return {
+      title: "Not available to your role",
+      description: "Your account doesn't have access to this data. Contact an administrator if you believe this is wrong."
+    };
+  }
+  if (errorKind === "server" || errorKind === "network") {
+    return {
+      title: "Temporarily unavailable",
+      description: "This data couldn't be loaded right now. It will retry automatically — try refreshing if it persists."
+    };
+  }
+  return { title: fallbackTitle, description: fallbackDescription };
+}
+
 function buildSystemHealthSection(snapshot: ActionCenterSnapshot): ActionCenterSection {
   if (!snapshot.connections.systemHealth || !snapshot.systemHealth) {
+    const state = describeUnavailable(
+      snapshot.errors?.systemHealth,
+      "Not connected yet",
+      "System health data is unavailable right now. Open System Health to retry."
+    );
     return {
       id: "system-health",
       title: "System health",
       description: "Platform readiness checks for administrators.",
       items: [],
-      emptyTitle: "Not connected yet",
-      emptyDescription: "System health data is unavailable right now. Open System Health to retry."
+      emptyTitle: state.title,
+      emptyDescription: state.description
     };
   }
 
@@ -288,13 +488,18 @@ function buildAdminSecuritySection(snapshot: ActionCenterSnapshot): ActionCenter
 
 function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSection {
   if (!snapshot.connections.workOrders || !snapshot.workOrders) {
+    const state = describeUnavailable(
+      snapshot.errors?.workOrders,
+      "Not connected yet",
+      "Work order data is unavailable right now."
+    );
     return {
       id: "work-orders",
       title: snapshot.variant === "technician" ? "My work orders" : "Work order risks",
       description: "Live maintenance queue signals.",
       items: [],
-      emptyTitle: "Not connected yet",
-      emptyDescription: "Work order data is unavailable right now."
+      emptyTitle: state.title,
+      emptyDescription: state.description
     };
   }
 
@@ -408,20 +613,25 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
 function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSection {
   if (!snapshot.connections.inventory || !snapshot.inventory) {
+    const state = describeUnavailable(
+      snapshot.errors?.inventory,
+      "Not connected yet",
+      "Inventory data is unavailable right now."
+    );
     return {
       id: "inventory",
       title: "Inventory & procurement",
       description: "Stock and purchase order attention.",
       items: [],
-      emptyTitle: "Not connected yet",
-      emptyDescription: "Inventory data is unavailable right now."
+      emptyTitle: state.title,
+      emptyDescription: state.description
     };
   }
 
   const stats = snapshot.inventory;
   const items: ActionCenterItem[] = [];
 
-  if (stats.lowStockCount > 0) {
+  if (stats.lowStockCount !== null && stats.lowStockCount > 0) {
     items.push({
       id: "low-stock",
       title: "Low-stock parts",
@@ -433,7 +643,7 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
     });
   }
 
-  if (stats.criticalCount > 0) {
+  if (stats.criticalCount !== null && stats.criticalCount > 0) {
     items.push({
       id: "critical-stock",
       title: "Critical stock levels",
@@ -445,15 +655,24 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
     });
   }
 
-  if (stats.pendingPurchaseOrders > 0) {
+  if (stats.pendingPurchaseOrders !== null && stats.pendingPurchaseOrders > 0) {
     items.push({
       id: "pending-pos",
       title: "Pending purchase orders",
       description: "Open procurement requests awaiting progress.",
       href: "/procurement",
-      tone: stats.pendingPurchaseOrders > 0 ? "warning" : "neutral",
+      tone: "warning",
       metricLabel: "Pending POs",
       metricValue: String(stats.pendingPurchaseOrders)
+    });
+  } else if (stats.pendingPurchaseOrders === null) {
+    items.push({
+      id: "pending-pos-unavailable",
+      title: "Purchase order data unavailable",
+      description: "Low-stock and critical counts above are still live; purchase order status could not be loaded.",
+      href: "/procurement",
+      tone: "neutral",
+      statusLabel: "Degraded"
     });
   }
 
@@ -477,13 +696,18 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
 
 function buildInvitationsSection(snapshot: ActionCenterSnapshot): ActionCenterSection {
   if (!snapshot.connections.invitations || !snapshot.invitations) {
+    const state = describeUnavailable(
+      snapshot.errors?.invitations,
+      "Not connected yet",
+      "Invitation review data is unavailable right now."
+    );
     return {
       id: "invitations",
       title: "Onboarding & invitations",
       description: "Pending invitation review for administrators.",
       items: [],
-      emptyTitle: "Not connected yet",
-      emptyDescription: "Invitation review data is unavailable right now."
+      emptyTitle: state.title,
+      emptyDescription: state.description
     };
   }
 
@@ -556,13 +780,27 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
   };
 
   if (!snapshot.connections.facilityIssues || !snapshot.facilityIssues) {
+    // Hierarchy/reports/aging links always work even when the live issue-count
+    // feed is down, so `items` is never empty here — which means ActionSection's
+    // empty-state (driven by emptyTitle) can never render. Show the degraded
+    // state as a real, visible item instead of a message nobody sees.
+    const errorKind = snapshot.errors?.facilityIssues;
+    const degradedWarning: ActionCenterItem = {
+      id: "facility-issues-unavailable",
+      title: errorKind === "unauthorized" ? "Issue counts not available to your role" : "Issue feed unavailable",
+      description:
+        errorKind === "unauthorized"
+          ? "Your role doesn't have access to live open/critical issue counts. Hierarchy and reports links below still work."
+          : "Live open/critical issue counts could not be loaded right now. Hierarchy and reports links below still work.",
+      href: "/facilities",
+      tone: "warning",
+      statusLabel: "Degraded"
+    };
     return {
       id: "facility",
       title: "Cleaning & facility issues",
       description: "Issue reporting workflows available today via Cleaning Management.",
-      items: [facilityHierarchyLink, facilityReportsLink, facilityAgingLink],
-      emptyTitle: "Issue feed not connected",
-      emptyDescription: "Facility issue data is unavailable right now. You can still open the hierarchy module."
+      items: [facilityHierarchyLink, facilityReportsLink, facilityAgingLink, degradedWarning]
     };
   }
 
@@ -597,6 +835,41 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
     id: "facility",
     title: "Cleaning & facility issues",
     description: "Issue reporting workflows available today via Cleaning Management.",
+    items
+  };
+}
+
+function buildFinanceSection(snapshot: ActionCenterSnapshot): ActionCenterSection {
+  const stats = snapshot.workOrders;
+
+  if (!snapshot.connections.workOrders || !stats) {
+    return {
+      id: "finance",
+      title: "Vendor & finance attention",
+      description: "Vendor repair invoices needing finance review.",
+      items: [],
+      emptyTitle: "Not connected yet",
+      emptyDescription: "Vendor invoice data is unavailable right now."
+    };
+  }
+
+  const pending = stats.financeVendorPending ?? 0;
+  const items: ActionCenterItem[] = [
+    {
+      id: "finance-vendor-pending",
+      title: "Vendor invoices pending",
+      description: "Vendor repair invoices submitted or under review.",
+      href: "/work-orders?queue=finance-vendor-pending",
+      tone: pending > 0 ? "warning" : "success",
+      metricLabel: "Pending",
+      metricValue: String(pending)
+    }
+  ];
+
+  return {
+    id: "finance",
+    title: "Vendor & finance attention",
+    description: "Vendor repair invoices needing finance review. This view is read-only.",
     items
   };
 }
@@ -681,16 +954,29 @@ function buildReportsSection(snapshot: ActionCenterSnapshot): ActionCenterSectio
 }
 
 function buildMinimalSection(): ActionCenterSection {
+  // NOTE: this previously linked to /dashboard, which itself redirects straight
+  // back to /action-center (see apps/web/app/(dashboard)/dashboard/page.tsx) —
+  // a card whose only effect was to reload the page the user was already on.
+  // RoleHomeCards already covers this audience with Report Issue / New Request /
+  // My Requests (the REQUESTER profile, the fallback for any unmapped role), so
+  // this section now offers genuinely different destinations instead.
   return {
     id: "minimal",
     title: "Available modules",
-    description: "Your role has limited specialized signals. Use navigation or the dashboard for module access.",
+    description: "Your role has limited specialized signals. Use the links below or the top navigation for module access.",
     items: [
       {
-        id: "dashboard",
-        title: "Dashboard",
-        description: "Return to the main dashboard overview.",
-        href: "/dashboard",
+        id: "notifications",
+        title: "Notifications",
+        description: "Review recent alerts and updates.",
+        href: "/notifications",
+        tone: "neutral"
+      },
+      {
+        id: "settings",
+        title: "Settings",
+        description: "Account and workspace settings.",
+        href: "/settings",
         tone: "neutral"
       }
     ]
@@ -726,7 +1012,7 @@ export function buildMorningBriefingLines(snapshot: ActionCenterSnapshot): Morni
     }
   }
 
-  if (snapshot.inventory && snapshot.inventory.lowStockCount > 0) {
+  if (snapshot.inventory && snapshot.inventory.lowStockCount !== null && snapshot.inventory.lowStockCount > 0) {
     lines.push({
       id: "inv-low-stock",
       label: "Low-stock parts",

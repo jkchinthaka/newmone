@@ -1,6 +1,7 @@
 import { RoleName, WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
 
 import type { RiskSeverity } from "./maintenance-risk-score";
+import { TERMINAL_WORK_ORDER_STATUSES } from "./work-order-governance";
 
 export const WORK_ORDER_QUEUE_KEYS = [
   "action-required",
@@ -50,16 +51,33 @@ export const OPERATIONAL_QUEUE_KEYS: WorkOrderQueueKey[] = WORK_ORDER_QUEUE_KEYS
   (key) => key !== "completed" && key !== "cancelled" && key !== "all"
 );
 
+/**
+ * Non-terminal statuses where a work order still has an owner actively working it.
+ * Includes PLANNED/ASSIGNED (queued but not yet started) and VERIFIED (supervisor
+ * signed off, awaiting final close) alongside the in-flight execution statuses —
+ * previously missing, which under-counted "assigned" queues for jobs sitting in
+ * PLANNED/ASSIGNED/VERIFIED.
+ */
 export const ACTIVE_OPERATIONAL_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.OPEN,
+  WorkOrderStatus.PLANNED,
+  WorkOrderStatus.ASSIGNED,
   WorkOrderStatus.IN_PROGRESS,
   WorkOrderStatus.ON_HOLD,
   WorkOrderStatus.TECHNICIAN_COMPLETED,
+  WorkOrderStatus.VERIFIED,
   WorkOrderStatus.REWORK_REQUIRED,
   WorkOrderStatus.OVERDUE
 ];
 
-export const TERMINAL_STATUSES: WorkOrderStatus[] = [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED];
+/**
+ * Single source of truth for "this work order's lifecycle has ended" — re-exported
+ * from work-order-governance.ts's canonical set (CLOSED, CANCELLED, legacy COMPLETED)
+ * rather than maintaining a second, narrower list here. Previously this array omitted
+ * CLOSED, which let closed-but-once-overdue work orders keep counting against
+ * overdue/high-risk/action-required/assigned queue totals.
+ */
+export const TERMINAL_STATUSES: WorkOrderStatus[] = [...TERMINAL_WORK_ORDER_STATUSES];
 
 export type WorkOrderActionRequiredType =
   | "approval_required"

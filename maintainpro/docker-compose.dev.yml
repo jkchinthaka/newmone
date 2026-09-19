@@ -12,8 +12,9 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
       DATABASE_PROVIDER: sqlserver
-      DATABASE_URL: ${DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainProDev;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
-      PRIMARY_DATABASE_URL: ${PRIMARY_DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainProDev;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
+      # Host .env uses localhost; containers must use the Compose service name.
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainProDev;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
+      PRIMARY_DATABASE_URL: ${DOCKER_PRIMARY_DATABASE_URL:-sqlserver://sqlserver:1433;database=MaintainProDev;user=sa;password=MaintainPro_Dev_Passw0rd!;schema=dbo;encrypt=true;trustServerCertificate=true}
       BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
       MONGODB_URI: ${MONGO_MIGRATION_SOURCE_URL:-}
       PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:-MaintainProDev}
@@ -67,6 +68,9 @@ services:
       - .env
     environment:
       NODE_ENV: development
+      # Server-side BFF traffic must use the Docker service name. This also
+      # overrides apps/web/.env.local's host-only localhost value.
+      API_INTERNAL_URL: ${DOCKER_API_INTERNAL_URL:-http://api:3000/api}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000/api}
       NEXT_PUBLIC_API_ORIGIN: ${NEXT_PUBLIC_API_ORIGIN:-http://localhost:3000}
     command: npm run dev --workspace @maintainpro/web
