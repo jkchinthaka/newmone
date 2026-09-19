@@ -5,6 +5,32 @@ Session scope: post-PR#39 QA, bug-fixing, and database/local-stack validation pa
 verified in this session versus what remains — see [Section 8](#8-what-this-session-did-not-cover)
 before treating anything not listed there as done.
 
+## 0. Delivery / merge status
+
+| Item | Value |
+|---|---|
+| Open PR (handover implementation) | [#40](https://github.com/jkchinthaka/newmone/pull/40) — **merged to `main`** |
+| Merged at | 2026-09-19T07:57:23Z |
+| PR #40 handover implementation merge SHA | `1c3a91f4a44cac7f8c78039095eb5d65356a703e` |
+| Pre-merge repo-owned required checks | **All passed** before merge (see below) |
+| Post-merge CI on `main` | **Not claimed here** — verify separately after this docs update; do not treat as green until the relevant `main` workflow runs complete |
+
+**Repository-owned required PR checks that passed before PR #40 merge:**
+
+- Full-Stack E2E
+- SQL Server Migration Gate
+- Docker Build Check
+- Docker Image CI
+- PR Validation
+- Release Validation
+
+**External blockers (deploy credentials — not treated as repository-owned merge gates):**
+
+- Vercel preview / production deploy credentials
+- Cloudflare Workers preview / production deploy credentials
+
+(Also still applicable from prior sessions: live Bileeta ERP / SMTP / SMS / Entra credentials, Power BI production RLS, human UAT / cutover approval — see [Section 9](#9-external-blockers-unchanged-from-prior-session).)
+
 ## 1. System summary
 
 - **Stack**: NestJS API (`apps/api`) + Next.js App Router web (`apps/web`), Prisma ORM against
@@ -15,7 +41,10 @@ before treating anything not listed there as done.
 - **Repository**: `jkchinthaka/newmone`, app lives under `maintainpro/`.
 - **Baseline**: started from `main` at merge commit `46ebba02` (PR #39), which is itself
   documented in `docs/ENTERPRISE_FINAL_IMPLEMENTATION_REPORT.md`.
-- **This session's branch**: `maintainpro/final-handover-qa`, commit `5aa9a653`.
+- **Handover implementation branch**: `maintainpro/final-handover-qa` (landed via PR #40).
+- **PR #40 handover implementation merge SHA**: `1c3a91f4a44cac7f8c78039095eb5d65356a703e`
+  (the merge commit that introduced this handover work onto `main` — not a self-referential
+  “final main SHA” for later docs-only follow-ups).
 
 ## 2. Local environment used this session
 
@@ -195,30 +224,36 @@ session:
   from prior sessions and were not re-audited for staleness here.
 - Legacy model disposition audit (FacilityIssue, MaintenanceSchedule, etc.) beyond what's
   already recorded in `docs/database/LEGACY_DISPOSITION.md`.
-- A background-agent static audit for other dead-link-style bugs elsewhere in the app was
-  launched but had not completed by the time this report was written; its findings, if any,
-  should be triaged as a follow-up.
-
-A background agent was in-flight when this document was written, auditing the rest of the
-frontend for the same class of dead-link bug found in item 1 above (`href` pointing at a
-non-existent dynamic route). See PR follow-up commits for its findings, if any were actionable.
+- A background-agent static audit for other dead-link-style bugs elsewhere in the app
+  **completed** after the initial draft of this report. It found **no additional instances** of
+  the same broken pattern (an `href` pointing at a non-existent `/…/[dynamic]` route while the
+  real UI is a list-page modal / query deep-link). No further dead-link fixes of that class were
+  required beyond Bug #1 in Section 6.
 
 ## 9. External blockers (unchanged from prior session)
 
-Per `docs/ENTERPRISE_FINAL_IMPLEMENTATION_REPORT.md`, still applicable:
+Per `docs/ENTERPRISE_FINAL_IMPLEMENTATION_REPORT.md`, still applicable and **explicitly
+external** (not repository-owned merge gates):
 
 - Live Bileeta ERP / SMTP / SMS / Entra credentials
 - Power BI production row-level security
 - Human UAT / business cutover approval
-- Vercel / Cloudflare Workers preview deploy credentials
+- **Vercel** preview / production deploy credentials
+- **Cloudflare Workers** preview / production deploy credentials
+
+Vercel and Cloudflare deploy failures on PR checks must not be read as MaintainPro application
+or CI correctness failures; they remain credential/environment blockers outside this repository’s
+owned validation surface.
 
 ## 10. Verdict
 
-**HANDOVER READY — EXTERNAL PRODUCTION GATES PENDING**, for the specific slice of the system
-this session touched (Request→WO journey and the five fixes in Section 6), layered on top of
-the prior session's PR #39 baseline. This is **not** a claim that the full 32-section
-handover checklist is complete — Section 8 lists what still needs a follow-up pass before
-that claim could honestly be made.
+**HANDOVER IMPLEMENTATION MERGED (PR #40)** — merge SHA
+`1c3a91f4a44cac7f8c78039095eb5d65356a703e` — with all listed repository-owned required PR checks
+green before merge. External production gates (Section 9), including Vercel and Cloudflare
+deploy credentials, remain pending. This is **not** a claim that post-merge CI on `main` has
+finished green — that must be verified separately after each landing on `main`. This is also
+**not** a claim that the full 32-section handover checklist is complete — Section 8 lists what
+still needs a follow-up pass before that claim could honestly be made.
 
 ## 11. Local reference (for whoever continues this)
 
