@@ -11,7 +11,8 @@
 | full-stack-e2e | **pass** (run 35394844727) |
 | validate-monorepo / build / docker-build / release-validate / fresh-sqlserver-migrate | **pass** |
 | Vercel / Workers Builds | **EXTERNAL fail** (deploy credentials) |
-| Merged to main | Pending — merge only with repo-owned gates green; external deploy checks remain red |
+| Merged to main | **Yes** — merge commit `46ebba02` at 2026-09-18T21:28:48Z |
+| Main SHA | `46ebba02ed1d8b3f70563db52f8ea55911f610a6` |
 
 ## Repository-owned increments (session)
 

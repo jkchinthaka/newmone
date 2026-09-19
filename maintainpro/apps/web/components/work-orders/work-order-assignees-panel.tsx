@@ -11,6 +11,8 @@ import {
   ASSIGNABLE_WORKFORCE_DESIGNATIONS,
   canManageWorkforceEmployees,
   canOverrideLeaveConflict,
+  canViewWorkforceEmployees,
+  canViewWorkOrderAssignees,
   dateTimeLocalToIso,
   DESIGNATION_FALLBACK_NOTE,
   formatEmployeeOptionLabel,
@@ -121,7 +123,15 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     parsedEstimatedHours > 0 &&
     (!leaveOverride || (canOverrideLeaveConflict(currentUser.role) && leaveOverrideReason.trim().length > 0));
 
+  const canSeeAssignees = canViewWorkOrderAssignees(currentUser.role);
+  const canSeeEmployees = canViewWorkforceEmployees(currentUser.role);
+
   const loadAssignees = useCallback(async () => {
+    if (!canSeeAssignees) {
+      setAssignees([]);
+      setAssigneesError(null);
+      return;
+    }
     setLoadingAssignees(true);
     setAssigneesError(null);
     try {
@@ -135,9 +145,14 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     } finally {
       setLoadingAssignees(false);
     }
-  }, [workOrderId]);
+  }, [workOrderId, canSeeAssignees]);
 
   const loadEmployees = useCallback(async () => {
+    if (!canSeeEmployees) {
+      setEmployees([]);
+      setEmployeesError(null);
+      return;
+    }
     setLoadingEmployees(true);
     setEmployeesError(null);
     try {
@@ -152,7 +167,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     } finally {
       setLoadingEmployees(false);
     }
-  }, [designationFilter]);
+  }, [designationFilter, canSeeEmployees]);
 
   useEffect(() => {
     void loadAssignees();
@@ -281,7 +296,12 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
         {DESIGNATION_FALLBACK_NOTE}
       </p>
 
-      {loadingAssignees ? (
+      {!canSeeAssignees ? (
+        <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+          Your role does not have permission to view or manage work order assignments. Contact a manager or
+          administrator.
+        </p>
+      ) : loadingAssignees ? (
         <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
           <Loader2 size={14} className="animate-spin" aria-hidden /> Loading assignees...
         </p>
@@ -369,6 +389,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
         </ul>
       )}
 
+      {canSeeAssignees ? (
       <form onSubmit={(event) => void handleAdd(event)} className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
           <span className="font-medium">Filter by designation</span>
@@ -391,7 +412,11 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
 
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
           <span className="font-medium">Employee</span>
-          {loadingEmployees ? (
+          {!canSeeEmployees ? (
+            <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
+              Your role cannot browse the employee list. Ask a manager or administrator to add assignees.
+            </p>
+          ) : loadingEmployees ? (
             <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
               <Loader2 size={14} className="animate-spin" /> Loading employees...
             </p>
@@ -554,6 +579,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
           </button>
         </div>
       </form>
+      ) : null}
     </section>
   );
 }

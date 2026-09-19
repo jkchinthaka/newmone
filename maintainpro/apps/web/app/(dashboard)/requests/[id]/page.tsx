@@ -164,7 +164,7 @@ export default function RequestDetailPage() {
         actions={
           detail.workOrder ? (
             <Link
-              href={`/work-orders/${detail.workOrder.id}` as Route}
+              href={`/work-orders?wo=${detail.workOrder.id}` as Route}
               className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 px-4 text-sm"
             >
               WO {detail.workOrder.woNumber}

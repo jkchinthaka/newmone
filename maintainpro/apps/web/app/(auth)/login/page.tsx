@@ -103,6 +103,7 @@ export default function LoginPage() {
           <form
             aria-busy={busy}
             className="mt-8 space-y-5"
+            method="post"
             noValidate
             onSubmit={handleSubmit(onSubmit)}
           >

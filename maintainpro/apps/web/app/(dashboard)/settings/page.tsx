@@ -789,6 +789,7 @@ export default function SettingsPage() {
           </div>
           <form
             onSubmit={profileForm.handleSubmit((values) => updateProfileMutation.mutate(values))}
+            method="post"
             className="grid gap-3 md:grid-cols-2"
           >
             <label className="space-y-1 text-sm">

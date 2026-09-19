@@ -130,7 +130,7 @@ export function AdminOverridesReportPage() {
                     {row.riskSeverity}
                   </span>
                 </td>
-                <td className="px-3 py-2">{row.workOrderId ? <Link href={`/work-orders/${row.workOrderId}` as Route} className="text-brand-700 hover:underline">View</Link> : "—"}</td>
+                <td className="px-3 py-2">{row.workOrderId ? <Link href={`/work-orders?wo=${row.workOrderId}` as Route} className="text-brand-700 hover:underline">View</Link> : "—"}</td>
               </tr>
             ))}
           </tbody>

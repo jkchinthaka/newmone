@@ -14,6 +14,7 @@ import {
   createWorkOrder,
   deleteWorkOrder,
   fetchTechnicians,
+  fetchWorkOrderById,
   fetchWorkOrdersPaginated,
   rejectWorkOrder,
   updateWorkOrder,
@@ -221,6 +222,20 @@ export function useWorkOrders(filters: WorkOrderFilters) {
       totalPages: query.data?.totalPages ?? 0
     }
   };
+}
+
+export function useWorkOrder(id: string | null) {
+  return useQuery({
+    queryKey: withTenantScope([...WORK_ORDERS_QUERY_KEY, "detail", id]),
+    queryFn: () => fetchWorkOrderById(id as string),
+    enabled: Boolean(id),
+    retry: (failureCount, error) => {
+      if (isDatabaseUnavailableError(error)) {
+        return false;
+      }
+      return failureCount < 1;
+    }
+  });
 }
 
 export function useTechnicians(rows: WorkOrder[]) {

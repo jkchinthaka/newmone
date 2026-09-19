@@ -81,7 +81,7 @@ export function RegisterFormCard() {
             : "Access is by invitation only. If self-registration is disabled, ask your administrator for an invitation link."}
         </p>
 
-        <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 grid gap-4 md:grid-cols-2" method="post" onSubmit={handleSubmit(onSubmit)}>
           <label className="text-sm text-slate-600" htmlFor="register-user-id"><span className="mb-2 block">User ID</span><input {...register("userId")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-user-id" type="text" /></label>
           <label className="text-sm text-slate-600" htmlFor="register-email"><span className="mb-2 block">Email</span><input {...register("email")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-email" type="email" /></label>
           <label className="text-sm text-slate-600" htmlFor="register-first-name"><span className="mb-2 block">First Name</span><input {...register("firstName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-first-name" type="text" /></label>

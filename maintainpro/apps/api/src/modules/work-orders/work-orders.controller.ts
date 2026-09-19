@@ -42,14 +42,14 @@ export class WorkOrdersController {
   ) {}
 
   @Get("governance/parts-exceptions")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "SUPERVISOR")
   async partsGovernanceExceptions(@Req() req: AuthedRequest) {
     const data = await this.workOrderPartsService.getPartsExceptions(req.user);
     return { data, message: "Work order parts exceptions fetched" };
   }
 
   @Get("governance/exceptions")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   async governanceExceptions(@Req() req: AuthedRequest) {
     const data = await this.workOrderGovernanceService.getExceptionSummary(req.user);
     return { data, message: "Work order governance exceptions fetched" };
@@ -278,21 +278,21 @@ export class WorkOrdersController {
   }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.findOne(id, req.user);
     return { data, message: "Work order fetched" };
   }
 
   @Get(":id/history")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
   async workOrderHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderHistoryService.getHistory(id, req.user);
     return { data, message: "Work order history fetched" };
   }
 
   @Get(":id/activity")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
   async activityTimeline(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderActivityService.getActivityTimeline(id, req.user);
     return { data, message: "Work order activity timeline fetched" };
@@ -321,7 +321,17 @@ export class WorkOrdersController {
   }
 
   @Get(":id/evidence")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "FACILITY_MANAGER",
+    "SUPERVISOR"
+  )
   async listEvidence(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.evidenceService.listWorkOrderEvidence(id, req.user);
     return { data, message: "Work order evidence fetched" };
