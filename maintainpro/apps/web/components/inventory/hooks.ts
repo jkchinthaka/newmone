@@ -41,40 +41,52 @@ export function useInventoryOverview() {
   const partsQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.parts),
     queryFn: getInventoryParts,
+    staleTime: 30_000,
     refetchOnWindowFocus: true
   });
 
   const suppliersQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.suppliers),
-    queryFn: getSuppliers
+    queryFn: getSuppliers,
+    staleTime: 60_000
   });
 
   const lowStockQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.lowStock),
     queryFn: getLowStockParts,
+    staleTime: 30_000,
     refetchOnWindowFocus: true
   });
 
   const purchaseOrdersQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.purchaseOrders),
     queryFn: getPurchaseOrders,
+    staleTime: 30_000,
     refetchOnWindowFocus: true
   });
 
+  // Secondary analytics: wait for primary parts payload to avoid cold-route waterfalls
+  const partsReady = partsQuery.isSuccess || partsQuery.isError;
   const usageTrendQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.usageTrend),
-    queryFn: () => getUsageTrend(30)
+    queryFn: () => getUsageTrend(30),
+    staleTime: 60_000,
+    enabled: partsReady
   });
 
   const topUsedQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.topUsed),
-    queryFn: () => getTopUsedParts(5, 30)
+    queryFn: () => getTopUsedParts(5, 30),
+    staleTime: 60_000,
+    enabled: partsReady
   });
 
   const dashboardQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.dashboard),
     queryFn: getInventoryDashboard,
-    refetchOnWindowFocus: true
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    enabled: partsReady
   });
 
   const summary = useMemo(() => {

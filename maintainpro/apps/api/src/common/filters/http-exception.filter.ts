@@ -196,10 +196,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return false;
     }
 
+    // Prisma validation / known request errors are application bugs or client input —
+    // not dependency outages. Only connection/engine reachability failures map to 503.
+    if (exception instanceof Prisma.PrismaClientValidationError) {
+      return false;
+    }
+    if (
+      exception instanceof Prisma.PrismaClientKnownRequestError &&
+      !["P1000", "P1001", "P1002", "P1008", "P1009", "P1010", "P1011", "P1017"].includes(
+        exception.code
+      )
+    ) {
+      return false;
+    }
+
     const message = exception instanceof Error ? exception.message : String(exception ?? "");
     const name = exception instanceof Error ? exception.name : "";
 
-    return /Prisma|Mongo|ReplicaSetNoPrimary|Server selection|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|P1001|P6001/i.test(
+    return /PrismaClientInitializationError|PrismaClientRustPanicError|Mongo|ReplicaSetNoPrimary|Server selection|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|P1001|P6001/i.test(
       `${name} ${message}`
     );
   }
