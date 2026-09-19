@@ -13,7 +13,7 @@ before treating anything not listed there as done.
 | Merged at | 2026-09-19T07:57:23Z |
 | PR #40 handover implementation merge SHA | `1c3a91f4a44cac7f8c78039095eb5d65356a703e` |
 | Pre-merge repo-owned required checks | **All passed** before merge (see below) |
-| Post-merge CI on `main` | **Not claimed here** — verify separately after this docs update; do not treat as green until the relevant `main` workflow runs complete |
+| Post-merge CI on `main` (push trigger, run group starting `35430703...`) | **All passed**: Docker Image CI (3m1s), Docker Build Check (6m22s), PR Validation (6m8s) — verified via `gh run list --branch main` after the merge |
 
 **Repository-owned required PR checks that passed before PR #40 merge:**
 
@@ -248,12 +248,13 @@ owned validation surface.
 ## 10. Verdict
 
 **HANDOVER IMPLEMENTATION MERGED (PR #40)** — merge SHA
-`1c3a91f4a44cac7f8c78039095eb5d65356a703e` — with all listed repository-owned required PR checks
-green before merge. External production gates (Section 9), including Vercel and Cloudflare
-deploy credentials, remain pending. This is **not** a claim that post-merge CI on `main` has
-finished green — that must be verified separately after each landing on `main`. This is also
-**not** a claim that the full 32-section handover checklist is complete — Section 8 lists what
-still needs a follow-up pass before that claim could honestly be made.
+`1c3a91f4a44cac7f8c78039095eb5d65356a703e`, confirmed as `main`'s current HEAD after merge.
+All listed repository-owned required PR checks were green before merge, and post-merge CI on
+`main` (Docker Image CI, Docker Build Check, PR Validation) is confirmed green after merge.
+External production gates (Section 9), including Vercel and Cloudflare deploy credentials,
+remain pending — this is **not** a claim that those are resolved. This is also **not** a claim
+that the full 32-section handover checklist is complete — Section 8 lists what still needs a
+follow-up pass before that claim could honestly be made.
 
 ## 11. Local reference (for whoever continues this)
 
