@@ -88,7 +88,14 @@ export function resolveBffUpstreamApiBase(
   }
 
   if (meta.hostname === "localhost" || meta.hostname === "127.0.0.1") {
-    if (e2eMode || String(env.NODE_ENV || "").trim() === "production") {
+    const allowInsecureHttp =
+      /^(1|true|yes)$/i.test(String(env.ALLOW_INSECURE_HTTP || "").trim());
+    const cookieSecureExplicitFalse =
+      String(env.COOKIE_SECURE || "").trim().toLowerCase() === "false";
+    // Approved local HTTP compatibility mode (COOKIE_SECURE=false + ALLOW_INSECURE_HTTP=true)
+    // may use localhost for next start / operator production-build smoke on a workstation.
+    const httpCompatLocal = allowInsecureHttp && cookieSecureExplicitFalse;
+    if (!httpCompatLocal && (e2eMode || String(env.NODE_ENV || "").trim() === "production")) {
       safeFail("BFF upstream must not use localhost inside container/production runtime.");
     }
   }

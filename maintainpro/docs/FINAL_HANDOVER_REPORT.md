@@ -3,9 +3,40 @@
 **Verdict:** HANDOVER READY — EXTERNAL PRODUCTION GATES PENDING
 
 **Baseline SHA (PR #43 merge):** `ad4ec4e2612a43331ed13cc997ea050dd1cf2e17`
-**Phase 2 branch:** `maintainpro/final-acceptance-phase2`
+**Phase 2 merge SHA (PR #44):** `4c784d783e5893fd513dd71674fe32638aa75a6d`
+**Responsive closeout branch:** `maintainpro/responsive-visual-closeout`
 **Evidence pack:** `docs/qa/`
 **Date:** 2026-09-19
+
+---
+
+## Responsive visual closeout (production build)
+
+**Method:** `next build` + `next start` on `:3011` with approved HTTP compat (`ALLOW_INSECURE_HTTP=true`, `COOKIE_SECURE=false`); authenticated Playwright audit via `scripts/verify-responsive-visual.mjs` + WO editor smoke `scripts/verify-responsive-wo-detail.mjs`.
+
+| Widths / devices | Result |
+|------------------|--------|
+| 1920 desktop | PASS |
+| 1366 laptop | PASS |
+| 768 tablet | PASS |
+| 390 mobile (+ short login 560vh) | PASS |
+
+| Pages / surfaces audited | Result |
+|--------------------------|--------|
+| `/action-center`, `/requests`, `/requests/new`, `/work-orders` | PASS |
+| Work-order editor modal (List Edit / mobile card) | PASS |
+| `/assets`, `/inventory`, `/fleet`, `/fleet/gate` | PASS |
+| `/approvals`, `/admin/work-permits` (safety), `/maintenance/reliability` | PASS |
+| `/reports`, `/admin/users`, `/admin/maintenance-config` | PASS |
+| Login short-viewport Sign-in reachability | PASS |
+
+| Defects found / fixed | Fix |
+|-----------------------|-----|
+| `/assets` @768 — document horizontal overflow from `DataTable` `minWidth: 960px` escaping page scrollWidth | `[contain:paint]` + `min-w-0 max-w-full` on DataTable scroll wrappers; assets registry scroll region |
+| Login short height — Sign-in below fold / clipped | `min-h-[100dvh] overflow-y-auto` + form `items-start` on small viewports |
+| Local prod-build smoke blocked by BFF localhost ban under `NODE_ENV=production` | Allow localhost upstream only when HTTP-compat pair is set |
+
+**Audit result:** 57/57 viewport×page checks PASS (0 defects). Web typecheck PASS, web unit tests 51/51 PASS, `next build` PASS, `git diff --check` PASS.
 
 ---
 
@@ -74,7 +105,7 @@
 | Vercel / Cloudflare Workers cutover | OPERATOR ACTION REQUIRED |
 | Production DNS / TLS | OPERATOR ACTION REQUIRED |
 | Human UAT sign-off | OPERATOR ACTION REQUIRED |
-| Responsive visual pass 1920/1366/tablet/mobile | OPERATOR ACTION REQUIRED |
+| Responsive visual pass 1920/1366/tablet/mobile | **CLOSED (repo)** — see section above |
 | Prod PWA registration on hosted HTTPS | OPERATOR ACTION REQUIRED |
 | Full axe WCAG audit in browser | OPERATOR ACTION REQUIRED (SSR landmarks gap noted) |
 
@@ -94,4 +125,9 @@ node scripts/verify-phase2-upgrade-db.mjs
 node scripts/verify-phase2-security.mjs
 node scripts/verify-phase2-a11y.mjs
 node scripts/verify-final-acceptance-perf.mjs
+
+# Responsive visual (production web on :3011)
+export RESPONSIVE_QA_BASE_URL='http://localhost:3011'
+node scripts/verify-responsive-visual.mjs
+node scripts/verify-responsive-wo-detail.mjs
 ```
