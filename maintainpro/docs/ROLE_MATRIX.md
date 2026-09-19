@@ -2,7 +2,12 @@
 
 MaintainPro uses **role + permission** RBAC. Frontend navigation and dashboards are **UX hints only** — the API enforces access.
 
-## Built-in roles (Prisma `RoleName`)
+## Built-in roles (canonical `RoleName` values)
+
+SQL Server stores `Role.name` as `String` (no Prisma native enum). The authoritative
+catalog is `apps/api/src/database/prisma-enums.ts` → `RoleName` (27 values). Do **not**
+casually add values there or invent parallel schema enums — prefer application mapping
+for aliases and personas.
 
 | Role | Primary purpose | Key permissions / modules |
 |------|-----------------|---------------------------|
@@ -15,13 +20,30 @@ MaintainPro uses **role + permission** RBAC. Frontend navigation and dashboards 
 | DRIVER | Fleet operator | Vehicles, trips, fleet views |
 | CLEANER | Cleaning operations | Cleaning modules, scan/report |
 | VIEWER | Read-only | Reports, dashboard (read) |
-| INVENTORY_KEEPER / STOREKEEPER | Stock control | Inventory, part issue/reserve |
+| INVENTORY_KEEPER | Stock control | Inventory, part issue/reserve |
 | PROCUREMENT_OFFICER | Purchasing | Procurement module |
+| FINANCE | Finance / vendor attention | Reports, finance signals (not requester fallback) |
 | COMPLIANCE_MANAGER | Compliance | Compliance, documents |
+| SUPERVISOR / ASSET_MANAGER / FACILITY_* / FLEET_* / OPERATIONS_MANAGER | Ops oversight | Mapped via dashboard + Action Center variants |
 | FARM_* roles | Farm vertical | Farm module |
-| Legacy aliases | ASSET_MANAGER, SUPERVISOR, etc. | Mapped in guards with aliases |
 
-Full enum: `prisma/schema.prisma` → `RoleName`.
+## Role drift classification (Action Center / dashboard)
+
+These strings appear in UI/API mapping tables but are **not** in the canonical
+`RoleName` catalog. No schema migration is required; normalize via
+`resolveDashboardVariant` / `resolveRoleHome` / Action Center helpers.
+
+| Role string | Classification | Application mapping |
+|-------------|----------------|---------------------|
+| `MAINTENANCE_SUPERVISOR` | Compatibility alias | → SUPERVISOR profile / `management` Action Center variant |
+| `STOREKEEPER` | Compatibility alias | → INVENTORY_KEEPER behavior / `inventory` variant |
+| `FINANCE_APPROVER` | Compatibility alias | → FINANCE / MANAGEMENT_VIEWER read-only finance path |
+| `AUDITOR` | Compatibility alias | → VIEWER / `viewer` variant (read-only) |
+| `REQUESTER` | Display/persona alias (fallback archetype) | Default home profile for unmapped/unknown roles; **not** used for FINANCE or PROCUREMENT_OFFICER |
+| `VENDOR` | Obsolete / external persona placeholder | Resolves to `minimal`; no seeded canonical role |
+
+Regression coverage: `apps/web/lib/__tests__/dashboard-roles.test.ts`,
+`apps/web/lib/__tests__/role-home.test.ts`.
 
 ## SECURITY_OFFICER detail
 
@@ -50,10 +72,10 @@ Full enum: `prisma/schema.prisma` → `RoleName`.
 | Technician / Mechanic | Work order summary + my jobs links | Live APIs |
 | Security Officer | Fleet-oriented briefing | Partial — links to fleet |
 | Cleaner / Driver | Quick links + empty KPI state | Partial |
-| Inventory roles | Inventory summary cards | Live APIs |
-| Viewer / Auditor | Reports summary | Live APIs |
+| Inventory roles (`INVENTORY_KEEPER`; alias `STOREKEEPER`) | Inventory summary cards | Live APIs |
+| Viewer / Auditor alias | Reports summary | Live APIs |
 
-Config: `apps/web/lib/dashboard-roles.ts`, `components/dashboard/role-dashboard.tsx`.
+Config: `apps/web/lib/dashboard-roles.ts`, `apps/web/lib/action-center.ts`, `components/dashboard/role-dashboard.tsx`.
 
 ## Role × module visibility (web nav)
 
@@ -91,10 +113,10 @@ Set password via `MAINTAINPRO_SEED_PASSWORD`. Emails in `apps/api/src/database/s
 
 ## Changing roles safely
 
-1. Update Prisma enum if adding role
-2. Add permissions in seed catalog
+1. Add the value to `RoleName` in `apps/api/src/database/prisma-enums.ts` (canonical catalog)
+2. Seed a `Role` row + permissions in the seed catalog
 3. Map role → permissions in seed
-4. Add navigation `allowedRoles`
-5. Add dashboard variant if needed
-6. Add API `@Roles` / `@Permissions` on new endpoints
-7. Extend tests in `apps/api/test/`
+4. Add navigation `allowedRoles` and Action Center / dashboard buckets
+5. Add API `@Roles` / `@Permissions` on new endpoints
+6. Extend web role-home/dashboard/Action Center tests and API RBAC tests
+7. Prefer compatibility aliases over new catalog entries when the need is only display/persona drift

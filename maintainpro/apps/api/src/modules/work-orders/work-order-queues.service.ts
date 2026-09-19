@@ -117,12 +117,17 @@ const listInclude = {
 
 type WorkOrderRow = Prisma.WorkOrderGetPayload<{ include: typeof listInclude }>;
 
+function readPositiveTimeoutMs(rawValue: string | undefined, fallback: number): number {
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function readQueueCountTimeoutMs() {
-  return Number(process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS ?? 2_500);
+  return readPositiveTimeoutMs(process.env.WORK_ORDER_QUEUE_COUNT_TIMEOUT_MS, 2_500);
 }
 
 function readQueueSummaryEndpointTimeoutMs() {
-  return Number(process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS ?? 8_000);
+  return readPositiveTimeoutMs(process.env.WORK_ORDER_QUEUE_SUMMARY_ENDPOINT_TIMEOUT_MS, 8_000);
 }
 
 export type WorkOrderQueueListItem = WorkOrderRow & {

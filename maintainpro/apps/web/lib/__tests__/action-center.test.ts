@@ -7,6 +7,8 @@ import {
   actionCenterShowsFacilityIssues,
   actionCenterShowsFinanceSignals,
   actionCenterShowsInventory,
+  actionCenterShowsKpis,
+  resolveActionCenterInventoryAccess,
   actionCenterShowsWorkOrders,
   actionCenterShowsInvitations,
   actionCenterIsReadOnly,
@@ -15,6 +17,7 @@ import {
   type ActionCenterSnapshot,
   type ActionCenterVariant
 } from "../action-center";
+import { canRoleFetchNavBadges } from "../use-nav-badges";
 
 function emptySnapshot(overrides: Partial<ActionCenterSnapshot> = {}): ActionCenterSnapshot {
   return {
@@ -90,11 +93,14 @@ test("actionCenterShowsFinanceSignals: finance variant only", () => {
   assert.equal(actionCenterShowsFinanceSignals("management"), false);
 });
 
-test("actionCenterShowsInventory: admin/inventory/management/procurement", () => {
-  for (const v of ["admin", "inventory", "management", "procurement"] as ActionCenterVariant[]) {
-    assert.equal(actionCenterShowsInventory(v), true, v);
-  }
-  assert.equal(actionCenterShowsInventory("finance"), false);
+test("actionCenter inventory access mirrors endpoint role and permission guards", () => {
+  assert.deepEqual(resolveActionCenterInventoryAccess("SUPER_ADMIN", []), { stock: true, purchaseOrders: true });
+  assert.deepEqual(resolveActionCenterInventoryAccess("MANAGER", ["inventory.manage"]), { stock: true, purchaseOrders: false });
+  assert.deepEqual(resolveActionCenterInventoryAccess("PROCUREMENT_OFFICER", ["purchase_orders.view"]), { stock: false, purchaseOrders: true });
+  assert.deepEqual(resolveActionCenterInventoryAccess("OPERATIONS_MANAGER", []), { stock: false, purchaseOrders: false });
+  assert.equal(actionCenterShowsInventory("management", "OPERATIONS_MANAGER", []), false);
+  assert.equal(actionCenterShowsInventory("procurement", "PROCUREMENT_OFFICER", ["purchase_orders.view"]), true);
+  assert.equal(actionCenterShowsInventory("finance", "FINANCE", ["purchase_orders.view"]), false);
 });
 
 test("actionCenterShowsWorkOrders: admin/management/technician/viewer", () => {
@@ -103,6 +109,24 @@ test("actionCenterShowsWorkOrders: admin/management/technician/viewer", () => {
   }
   assert.equal(actionCenterShowsWorkOrders("finance"), false);
   assert.equal(actionCenterShowsWorkOrders("procurement"), false);
+});
+
+test("navigation badges do not fetch the queue summary for backend-ineligible roles", () => {
+  for (const role of ["DRIVER", "CLEANER", "PROCUREMENT_OFFICER", "REQUESTER", null]) {
+    assert.equal(canRoleFetchNavBadges(role), false, String(role));
+  }
+  for (const role of ["ADMIN", "MANAGER", "TECHNICIAN", "FINANCE", "VIEWER"]) {
+    assert.equal(canRoleFetchNavBadges(role), true, role);
+  }
+});
+
+test("Action Center KPI visibility mirrors reporting overview RBAC", () => {
+  assert.equal(actionCenterShowsKpis("ADMIN", ["reports.view"]), true);
+  assert.equal(actionCenterShowsKpis("COMPLIANCE_MANAGER", ["reports.view"]), true);
+  assert.equal(actionCenterShowsKpis("FACILITY_MANAGER", ["reports.view"]), false);
+  assert.equal(actionCenterShowsKpis("BUILDING_SUPERVISOR", []), false);
+  assert.equal(actionCenterShowsKpis("SECURITY_OFFICER", ["reports.view"]), false);
+  assert.equal(actionCenterShowsKpis("MANAGER", []), false);
 });
 
 test("actionCenterShowsInvitations: SUPER_ADMIN/ADMIN only, by real role not variant", () => {
@@ -145,6 +169,7 @@ test("buildActionCenterSections: procurement variant gets inventory but not fina
   const snapshot = emptySnapshot({
     variant: "procurement",
     roleName: "PROCUREMENT_OFFICER",
+    permissions: ["purchase_orders.view"],
     connections: { workOrders: false, inventory: true, systemHealth: false, invitations: false, facilityIssues: false },
     inventory: { lowStockCount: 2, criticalCount: 0, pendingPurchaseOrders: 5 }
   });

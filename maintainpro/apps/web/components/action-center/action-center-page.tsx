@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state
 import { fetchActionCenterSnapshot } from "@/lib/action-center-api";
 import {
   actionCenterIsReadOnly,
+  actionCenterShowsKpis,
   buildActionCenterSections,
   filterActionCenterSections,
   getActionCenterDescription,
@@ -24,10 +25,6 @@ import { useCurrentUser } from "@/lib/use-current-user";
 import { ActionSection } from "./action-section";
 
 const MANAGER_KPI_CODES = ["WO_OVERDUE", "WO_BACKLOG", "PM_COMPLIANCE", "MTTR"];
-
-function isManagerVariant(variant: string): boolean {
-  return ["manager", "management", "admin", "management_viewer"].includes(variant.toLowerCase());
-}
 
 function KpiStrip({ items }: { items: KpiOverviewItem[] }) {
   const shown = items.filter((k) => MANAGER_KPI_CODES.includes(k.code));
@@ -121,7 +118,7 @@ export function ActionCenterPage() {
   const roleName = extractRoleName(user);
   const variant = resolveActionCenterVariant(roleName);
   const readOnly = actionCenterIsReadOnly(variant);
-  const showKpis = isManagerVariant(variant);
+  const showKpis = actionCenterShowsKpis(roleName, user.permissions);
   const [query, setQuery] = useState("");
 
   const query_ = useQuery({

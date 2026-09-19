@@ -13,6 +13,7 @@ import {
   actionCenterShowsFinanceSignals,
   actionCenterShowsInvitations,
   actionCenterShowsInventory,
+  resolveActionCenterInventoryAccess,
   actionCenterShowsSystemHealth,
   actionCenterShowsWorkOrders,
   resolveFacilityIssuesSource,
@@ -125,34 +126,52 @@ export async function fetchActionCenterSnapshot(
     );
   }
 
-  if (actionCenterShowsInventory(variant)) {
+  const inventoryAccess = resolveActionCenterInventoryAccess(roleName, permissions);
+  if (actionCenterShowsInventory(variant, roleName, permissions)) {
     tasks.push(
-      Promise.allSettled([getInventoryParts(), getLowStockParts(), getPurchaseOrders()]).then(
+      Promise.allSettled([
+        inventoryAccess.stock ? getInventoryParts() : Promise.resolve(null),
+        inventoryAccess.stock ? getLowStockParts() : Promise.resolve(null),
+        inventoryAccess.purchaseOrders ? getPurchaseOrders() : Promise.resolve(null)
+      ]).then(
         ([partsResult, lowStockResult, purchaseOrdersResult]) => {
-          if (partsResult.status === "rejected" || lowStockResult.status === "rejected") {
-            // Can't compute low-stock/critical counts without parts + low-stock data —
-            // treat the whole section as unavailable, same as before.
+          const stockOk =
+            inventoryAccess.stock &&
+            partsResult.status === "fulfilled" &&
+            partsResult.value !== null &&
+            lowStockResult.status === "fulfilled" &&
+            lowStockResult.value !== null;
+          const purchaseOrdersOk =
+            inventoryAccess.purchaseOrders &&
+            purchaseOrdersResult.status === "fulfilled" &&
+            purchaseOrdersResult.value !== null;
+
+          if (!stockOk && !purchaseOrdersOk) {
             snapshot.inventory = null;
-            const failure = partsResult.status === "rejected" ? partsResult.reason : (lowStockResult as PromiseRejectedResult).reason;
+            const failure =
+              partsResult.status === "rejected"
+                ? partsResult.reason
+                : lowStockResult.status === "rejected"
+                  ? lowStockResult.reason
+                  : purchaseOrdersResult.status === "rejected"
+                    ? purchaseOrdersResult.reason
+                    : undefined;
             snapshot.errors!.inventory = classifyActionCenterError(failure);
             return;
           }
 
-          const parts = partsResult.value;
-          const lowStock = lowStockResult.value;
-          const purchaseOrdersOk = purchaseOrdersResult.status === "fulfilled";
-          const purchaseOrders = purchaseOrdersOk ? purchaseOrdersResult.value : [];
+          const parts = stockOk ? partsResult.value! : [];
+          const lowStock = stockOk ? lowStockResult.value! : [];
+          const purchaseOrders = purchaseOrdersOk ? purchaseOrdersResult.value! : [];
           const summary = calculateSummary(parts, purchaseOrders);
 
           snapshot.inventory = {
-            lowStockCount: lowStock.length,
-            criticalCount: summary.criticalCount,
-            // One failed purchase-orders call no longer erases valid low-stock/critical
-            // data: pendingPurchaseOrders is null (unknown) rather than a false 0.
+            lowStockCount: stockOk ? lowStock.length : null,
+            criticalCount: stockOk ? summary.criticalCount : null,
             pendingPurchaseOrders: purchaseOrdersOk ? summary.pendingPurchaseOrders : null
           };
           snapshot.connections.inventory = true;
-          if (!purchaseOrdersOk) {
+          if ((inventoryAccess.stock && !stockOk) || (inventoryAccess.purchaseOrders && !purchaseOrdersOk)) {
             snapshot.errors!.inventory = "partial";
           }
         }
