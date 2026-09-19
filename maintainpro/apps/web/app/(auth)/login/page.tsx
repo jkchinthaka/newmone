@@ -86,10 +86,10 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="grid min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6">
+    <main className="grid min-h-[100dvh] overflow-y-auto bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6">
       <AuthMarketingPanel />
 
-      <section className="flex items-center justify-center py-4 lg:py-6">
+      <section className="flex items-start justify-center py-4 sm:items-center lg:min-h-[calc(100dvh-3rem)] lg:py-6">
         <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/92 p-6 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur sm:max-w-xl sm:p-8 xl:p-10">
           <AppBrandLockup centered className="w-full" logoSize="md" showTagline />
 

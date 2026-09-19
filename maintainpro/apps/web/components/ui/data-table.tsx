@@ -153,10 +153,10 @@ export function DataTable<T>({
     );
 
   return (
-    <div className={`overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
-      {/* Desktop table */}
-      <div className="hidden md:block">
-        <div className="overflow-x-auto">
+    <div className={`min-w-0 max-w-full overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
+      {/* Desktop table — contain:paint keeps wide minWidth tables from expanding document scrollWidth */}
+      <div className="hidden min-w-0 md:block">
+        <div className="max-w-full overflow-x-auto [contain:paint]">
           <table
             aria-label={ariaLabel}
             className="w-full text-left text-sm"
