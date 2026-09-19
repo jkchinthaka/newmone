@@ -54,6 +54,8 @@ export type WorkOrderQueueSummary = {
     highRisk: number;
     overdue: number;
     triage: number;
+    highPriorityOpen: number;
+    openUnassigned: number;
   };
   warnings?: Array<{ queue: string; message: string }>;
   lastUpdated: string;

@@ -170,6 +170,10 @@ export type WorkOrderQueueSummaryResponse = {
     highRisk: number;
     overdue: number;
     triage: number;
+    /** Open/non-terminal work orders at HIGH or CRITICAL priority. Powers Action Center. */
+    highPriorityOpen: number;
+    /** Non-terminal, unassigned work orders (OPEN status with no technician/assignee). Powers Action Center. */
+    openUnassigned: number;
   };
   warnings?: WorkOrderQueueSummaryWarning[];
   lastUpdated: string;
@@ -312,6 +316,17 @@ export class WorkOrderQueuesService {
 
     const countByKey = new Map(queueResults.map((entry) => [entry.key, entry.count]));
 
+    // Action Center-specific aggregates, computed independent of role-gated `accessible`
+    // queue keys (every role permitted this endpoint may see its own work order summary).
+    const [highPriorityOpen, openUnassigned] = await Promise.all([
+      this.safeAggregateCount("highPriorityOpen", warnings, () =>
+        this.countScoped(actor, this.highPriorityOpenWhere())
+      ),
+      this.safeAggregateCount("openUnassigned", warnings, () =>
+        this.countScoped(actor, this.openUnassignedWhere())
+      )
+    ]);
+
     return {
       queues: queueResults,
       defaultQueue: resolveDefaultQueueForRole(role),
@@ -323,11 +338,28 @@ export class WorkOrderQueuesService {
         supervisorVerification: countByKey.get("supervisor-verification") ?? 0,
         highRisk: countByKey.get("high-risk") ?? 0,
         overdue: countByKey.get("overdue") ?? 0,
-        triage: countByKey.get("triage") ?? 0
+        triage: countByKey.get("triage") ?? 0,
+        highPriorityOpen,
+        openUnassigned
       },
       ...(warnings.length > 0 ? { warnings } : {}),
       lastUpdated: new Date().toISOString()
     };
+  }
+
+  /** Non-terminal work orders at HIGH or CRITICAL priority. */
+  private highPriorityOpenWhere(): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      priority: { in: [Priority.HIGH, Priority.CRITICAL] }
+    });
+  }
+
+  /** Non-terminal work orders with no technician or assignee yet. */
+  private openUnassignedWhere(): Prisma.WorkOrderWhereInput {
+    return this.mergeWhere(this.nonTerminalWhere(), {
+      technicianId: null,
+      assignees: { none: {} }
+    });
   }
 
   private buildTimeoutFallback(
@@ -490,6 +522,31 @@ export class WorkOrderQueuesService {
     });
   }
 
+  /**
+   * Like safeCount, but for a named aggregate that is not one of the role-gated
+   * WorkOrderQueueKey navigable queues (e.g. Action Center-only summary fields).
+   * Failures degrade to 0 and are recorded as a warning rather than throwing.
+   */
+  private async safeAggregateCount(
+    name: string,
+    warnings: WorkOrderQueueSummaryWarning[],
+    countFn: () => Promise<number>
+  ): Promise<number> {
+    const startedAt = Date.now();
+    try {
+      const count = await this.withTimeout(countFn(), readQueueCountTimeoutMs());
+      this.logger.log(`queue aggregate ${name}=${count} in ${Date.now() - startedAt}ms`);
+      return count;
+    } catch (error) {
+      this.logger.warn(
+        `Queue aggregate failed: ${name}`,
+        error instanceof Error ? error.message : String(error)
+      );
+      warnings.push({ queue: name, message: `${name} aggregate unavailable` });
+      return 0;
+    }
+  }
+
   private async safeCount(
     key: WorkOrderQueueKey,
     warnings: WorkOrderQueueSummaryWarning[],
@@ -624,7 +681,9 @@ export class WorkOrderQueuesService {
         supervisorVerification: 0,
         highRisk: 0,
         overdue: 0,
-        triage: 0
+        triage: 0,
+        highPriorityOpen: 0,
+        openUnassigned: 0
       },
       warnings,
       lastUpdated: new Date().toISOString()

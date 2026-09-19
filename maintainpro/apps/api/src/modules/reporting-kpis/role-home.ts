@@ -7,6 +7,8 @@
  * resolveRoleHome() is the single entry point — it maps platform role names to
  * archetypes. ADMIN/SUPER_ADMIN default to MANAGER (broadest operational view).
  * VIEWER/AUDITOR/FINANCE get a read-only MANAGEMENT_VIEWER archetype.
+ * PROCUREMENT_OFFICER gets a dedicated PROCUREMENT archetype rather than
+ * falling back to REQUESTER.
  *
  * Note on overdue links: /work-orders does not expose a stable ?status=OVERDUE
  * query param (overdue is derived, not a stored status). Links use the base
@@ -29,7 +31,8 @@ export type RoleHomeProfileKey =
   | "SUPERVISOR"
   | "FLEET"
   | "MANAGER"
-  | "MANAGEMENT_VIEWER";
+  | "MANAGEMENT_VIEWER"
+  | "PROCUREMENT";
 
 export type RoleHomeProfile = {
   roleKey: RoleHomeProfileKey;
@@ -265,6 +268,36 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
         description: "Compliance status overview"
       }
     ]
+  },
+  {
+    roleKey: "PROCUREMENT",
+    title: "Procurement Home",
+    cards: [
+      {
+        id: "procurement-queue",
+        title: "Procurement",
+        href: "/procurement",
+        description: "Purchase requests and approvals queue"
+      },
+      {
+        id: "procurement-vendors",
+        title: "Vendors",
+        href: "/procurement/vendors",
+        description: "Vendor records and performance"
+      },
+      {
+        id: "procurement-matching",
+        title: "PO Matching",
+        href: "/procurement/matching",
+        description: "Purchase order / receipt / invoice matching"
+      },
+      {
+        id: "inventory-overview",
+        title: "Inventory",
+        href: "/inventory",
+        description: "Stock levels and low-stock alerts"
+      }
+    ]
   }
 ];
 
@@ -285,6 +318,7 @@ function getProfile(key: RoleHomeProfileKey): RoleHomeProfile {
  *   FLEET_MANAGER / DRIVER / SECURITY_OFFICER      → FLEET
  *   MANAGER / MAINTENANCE_MANAGER / OPERATIONS_MANAGER / ADMIN / SUPER_ADMIN → MANAGER
  *   VIEWER / AUDITOR / FINANCE / FINANCE_APPROVER  → MANAGEMENT_VIEWER
+ *   PROCUREMENT_OFFICER                            → PROCUREMENT
  *   Everything else (REQUESTER, VENDOR, unknown)   → REQUESTER
  *
  * ADMIN and SUPER_ADMIN default to MANAGER for the broadest operational view.
@@ -315,6 +349,9 @@ export function resolveRoleHome(roleName: string | null | undefined): RoleHomePr
   }
   if (["VIEWER", "AUDITOR", "FINANCE", "FINANCE_APPROVER"].includes(role)) {
     return getProfile("MANAGEMENT_VIEWER");
+  }
+  if (["PROCUREMENT_OFFICER"].includes(role)) {
+    return getProfile("PROCUREMENT");
   }
 
   // Default for REQUESTER, VENDOR, unknown roles

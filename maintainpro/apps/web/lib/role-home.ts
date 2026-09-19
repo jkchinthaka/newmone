@@ -22,7 +22,8 @@ export type RoleHomeProfileKey =
   | "SUPERVISOR"
   | "FLEET"
   | "MANAGER"
-  | "MANAGEMENT_VIEWER";
+  | "MANAGEMENT_VIEWER"
+  | "PROCUREMENT";
 
 export type RoleHomeProfile = {
   roleKey: RoleHomeProfileKey;
@@ -97,6 +98,16 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       { id: "fleet-reports", title: "Fleet Reports", href: "/reports", description: "Fleet reports" },
       { id: "compliance-reports", title: "Compliance", href: "/compliance", description: "Compliance status" }
     ]
+  },
+  {
+    roleKey: "PROCUREMENT",
+    title: "Procurement Home",
+    cards: [
+      { id: "procurement-queue", title: "Procurement", href: "/procurement", description: "Purchase requests and approvals queue" },
+      { id: "procurement-vendors", title: "Vendors", href: "/procurement/vendors", description: "Vendor records and performance" },
+      { id: "procurement-matching", title: "PO Matching", href: "/procurement/matching", description: "Purchase order / receipt / invoice matching" },
+      { id: "inventory-overview", title: "Inventory", href: "/inventory", description: "Stock levels and low-stock alerts" }
+    ]
   }
 ];
 
@@ -119,6 +130,25 @@ export function resolveRoleHome(roleName: string | null | undefined): RoleHomePr
   if (["VIEWER", "AUDITOR", "FINANCE", "FINANCE_APPROVER"].includes(role)) {
     return PROFILE_MAP.get("MANAGEMENT_VIEWER")!;
   }
+  if (["PROCUREMENT_OFFICER"].includes(role)) {
+    return PROFILE_MAP.get("PROCUREMENT")!;
+  }
 
   return PROFILE_MAP.get("REQUESTER")!;
+}
+
+/**
+ * Filters a Role Home profile's quick-action cards down to those matching a
+ * free-text search query (matches title or description, case-insensitive).
+ */
+export function filterRoleHomeCards(cards: RoleHomeCard[], query: string): RoleHomeCard[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) {
+    return cards;
+  }
+
+  return cards.filter(
+    (card) =>
+      card.title.toLowerCase().includes(trimmed) || card.description.toLowerCase().includes(trimmed)
+  );
 }
