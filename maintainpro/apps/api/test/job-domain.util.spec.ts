@@ -39,4 +39,16 @@ describe("job-domain.util", () => {
     expect(resolveJobDomain({})).toBe("SERVICE");
     expect(resolveJobDomain({ assetId: "a1", assetDomainCode: "FACILITY_CIVIL" })).toBe("SERVICE");
   });
+
+  it("keeps explicit MACHINERY when create has no asset/vehicle (HCI domain lane)", () => {
+    // Without explicit jobDomain, empty payload would become SERVICE — domain pages must stamp.
+    expect(resolveJobDomain({})).toBe("SERVICE");
+    expect(
+      resolveJobDomain({
+        jobDomain: "MACHINERY",
+        assetId: null,
+        vehicleId: null
+      })
+    ).toBe("MACHINERY");
+  });
 });
