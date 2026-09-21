@@ -1,6 +1,7 @@
 import { Eye, PackageMinus, PackagePlus, Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { firstRenderableImageUrl } from "@/lib/media-urls";
 
 import { formatCurrency, formatDate, getLastMovementDate, getStockStatus, getStockStatusMeta, stockProgress, availableOf } from "./helpers";
 import { InventoryPart } from "./types";
@@ -44,24 +45,28 @@ export function InventoryTable({
       id: "part",
       header: "Part",
       mobileLabel: "Part",
-      cell: (part) => (
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-            {part.images?.[0] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={part.images[0]} alt={part.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
-                {part.partNumber.slice(0, 2)}
-              </div>
-            )}
+      cell: (part) => {
+        const thumbnailUrl = firstRenderableImageUrl(part.images);
+
+        return (
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+              {thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={thumbnailUrl} alt={part.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
+                  {part.partNumber.slice(0, 2)}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">{part.name}</p>
+              <p className="text-xs text-slate-500">{part.partNumber}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-slate-900">{part.name}</p>
-            <p className="text-xs text-slate-500">{part.partNumber}</p>
-          </div>
-        </div>
-      )
+        );
+      }
     },
     {
       id: "category",

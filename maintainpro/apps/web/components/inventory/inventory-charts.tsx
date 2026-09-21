@@ -6,7 +6,11 @@ import { TopUsedPartPoint, UsageTrendPoint } from "./types";
 type InventoryChartsProps = {
   usageTrend: UsageTrendPoint[];
   topUsedParts: TopUsedPartPoint[];
+  /** False when the signed-in role has no inventory.manage grant for /inventory/analytics/*. */
+  analyticsAllowed?: boolean;
 };
+
+const NO_ANALYTICS_ACCESS_MESSAGE = "Your role cannot view inventory analytics";
 
 function EmptyChartState({ title }: { title: string }) {
   return (
@@ -16,7 +20,11 @@ function EmptyChartState({ title }: { title: string }) {
   );
 }
 
-export function InventoryCharts({ usageTrend, topUsedParts }: InventoryChartsProps) {
+export function InventoryCharts({
+  usageTrend,
+  topUsedParts,
+  analyticsAllowed = true
+}: InventoryChartsProps) {
   const usageData = usageTrend.map((point) => ({
     ...point,
     label: formatDate(point.date)
@@ -36,7 +44,9 @@ export function InventoryCharts({ usageTrend, topUsedParts }: InventoryChartsPro
         </div>
 
         {usageData.length === 0 ? (
-          <EmptyChartState title="No movement data yet" />
+          <EmptyChartState
+            title={analyticsAllowed ? "No movement data yet" : NO_ANALYTICS_ACCESS_MESSAGE}
+          />
         ) : (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -69,7 +79,9 @@ export function InventoryCharts({ usageTrend, topUsedParts }: InventoryChartsPro
         </div>
 
         {topData.length === 0 ? (
-          <EmptyChartState title="No top-consumed part data yet" />
+          <EmptyChartState
+            title={analyticsAllowed ? "No top-consumed part data yet" : NO_ANALYTICS_ACCESS_MESSAGE}
+          />
         ) : (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">

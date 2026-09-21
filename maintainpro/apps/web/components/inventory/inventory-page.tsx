@@ -60,6 +60,7 @@ export default function InventoryManagementPage() {
     purchaseOrdersQuery,
     usageTrendQuery,
     topUsedQuery,
+    analyticsAllowed,
     summary,
     insights,
     dashboard
@@ -493,7 +494,11 @@ export default function InventoryManagementPage() {
         onShowPendingPo={() => handleCardSelection("pending")}
       />
 
-      <InventoryCharts usageTrend={usageTrendQuery.data ?? []} topUsedParts={topUsedQuery.data ?? []} />
+      <InventoryCharts
+        usageTrend={usageTrendQuery.data ?? []}
+        topUsedParts={topUsedQuery.data ?? []}
+        analyticsAllowed={analyticsAllowed}
+      />
 
       <InventoryFiltersBar
         filters={filters}

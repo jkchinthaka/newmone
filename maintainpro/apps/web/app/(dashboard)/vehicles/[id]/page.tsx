@@ -13,9 +13,6 @@ import {
   CalendarClock,
   CarFront,
   CircleAlert,
-  CircleCheck,
-  CircleOff,
-  CircleSlash,
   ClipboardList,
   FileCheck2,
   Fuel,
@@ -41,10 +38,15 @@ import {
   VEHICLE_WRITE_ROLES,
   type DashboardRole
 } from "@/lib/user-role";
+import {
+  isVehicleStatus,
+  resolveVehicleStatusMeta,
+  VEHICLE_STATUSES,
+  type VehicleStatus
+} from "@/lib/vehicle-status";
 
 type VehicleType = "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
 type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
-type VehicleStatus = "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
 type DetailTab = "overview" | "maintenance" | "fuel" | "trips";
 
 type ServiceType =
@@ -64,7 +66,8 @@ interface Vehicle {
   year: number;
   type: VehicleType;
   fuelType: FuelType;
-  status: VehicleStatus;
+  /** May be blank/legacy from SQL (`String @default("")`) — never index STATUS_META directly. */
+  status: string;
   currentMileage: number | string;
   color?: string | null;
   nextServiceDate?: string | null;
@@ -135,34 +138,6 @@ interface PaginationState {
   totalPages: number;
   hasNextPage: boolean;
 }
-
-const STATUS_META: Record<VehicleStatus, { label: string; badgeClass: string; icon: LucideIcon }> = {
-  AVAILABLE: {
-    label: "Available",
-    badgeClass: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-    icon: CircleCheck
-  },
-  IN_USE: {
-    label: "In Use",
-    badgeClass: "bg-sky-100 text-sky-700 ring-sky-200",
-    icon: CarFront
-  },
-  UNDER_MAINTENANCE: {
-    label: "Under Maintenance",
-    badgeClass: "bg-amber-100 text-amber-800 ring-amber-200",
-    icon: Wrench
-  },
-  OUT_OF_SERVICE: {
-    label: "Out of Service",
-    badgeClass: "bg-rose-100 text-rose-700 ring-rose-200",
-    icon: CircleOff
-  },
-  DISPOSED: {
-    label: "Disposed",
-    badgeClass: "bg-slate-200 text-slate-700 ring-slate-300",
-    icon: CircleSlash
-  }
-};
 
 const TABS: Array<{ value: DetailTab; label: string; icon: LucideIcon }> = [
   { value: "overview", label: "Overview", icon: ClipboardList },
@@ -627,7 +602,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
     );
   }
 
-  const statusMeta = STATUS_META[vehicle.status];
+  const statusMeta = resolveVehicleStatusMeta(vehicle.status);
   const StatusIcon = statusMeta.icon;
 
   return (
@@ -739,7 +714,12 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                     !canEdit ? "cursor-not-allowed opacity-60" : ""
                   }`}
                 >
-                  {(Object.keys(STATUS_META) as VehicleStatus[]).map((status) => (
+                  {/* Records with an empty/legacy status must not be shown as the first
+                      real option — surface the actual state until someone sets it. */}
+                  {!isVehicleStatus(vehicle.status) ? (
+                    <option value={vehicle.status}>{statusMeta.label}</option>
+                  ) : null}
+                  {VEHICLE_STATUSES.map((status) => (
                     <option key={status} value={status}>
                       {humanizeEnum(status)}
                     </option>
