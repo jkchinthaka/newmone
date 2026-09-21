@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { parseUrlList } from "@/lib/media-urls";
 
 import { InventoryDashboardKpis, InventoryPart, LinkedWorkOrder, PurchaseOrder, StockAdjustmentPayload, StockMovement, SupplierRecord, TopUsedPartPoint, UpdatePartPayload, UsageTrendPoint } from "./types";
 
@@ -15,9 +16,21 @@ function unwrap<T>(payload: Envelope<T> | T | undefined, fallback: T): T {
   return (payload ?? fallback) as T;
 }
 
+/**
+ * `Part.images` arrives as a JSON string from the API (SQL Server column), while
+ * InventoryPart declares `string[]`. Normalize here so the UI never indexes a string.
+ */
+function normalizePart(part: InventoryPart): InventoryPart {
+  return { ...part, images: parseUrlList((part as { images?: unknown }).images) };
+}
+
+function normalizeParts(parts: InventoryPart[]): InventoryPart[] {
+  return Array.isArray(parts) ? parts.map(normalizePart) : [];
+}
+
 export async function getInventoryParts(): Promise<InventoryPart[]> {
   const response = await apiClient.get("/inventory/parts");
-  return unwrap(response.data, [] as InventoryPart[]);
+  return normalizeParts(unwrap(response.data, [] as InventoryPart[]));
 }
 
 export async function getSuppliers(): Promise<SupplierRecord[]> {
@@ -27,7 +40,7 @@ export async function getSuppliers(): Promise<SupplierRecord[]> {
 
 export async function getLowStockParts(): Promise<InventoryPart[]> {
   const response = await apiClient.get("/inventory/low-stock");
-  return unwrap(response.data, [] as InventoryPart[]);
+  return normalizeParts(unwrap(response.data, [] as InventoryPart[]));
 }
 
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
