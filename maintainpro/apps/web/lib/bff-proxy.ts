@@ -23,6 +23,11 @@ import {
 } from "./session-cookies";
 import { applyCanonicalClientIpHeader } from "./canonical-client-ip";
 import { cookiesShouldBeSecure } from "./runtime-security-config";
+import {
+  canSilentlyRefreshSession,
+  isAuthCredentialPath,
+  runExclusiveSilentRefresh
+} from "./bff-silent-refresh";
 
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
@@ -41,15 +46,7 @@ function isMutation(method: string): boolean {
 }
 
 function isAuthTokenPath(pathSegments: string[]): boolean {
-  const path = pathSegments.join("/");
-  return (
-    path === "auth/login" ||
-    path === "auth/register" ||
-    path === "auth/refresh" ||
-    path === "auth/logout" ||
-    path === "auth/logout-all" ||
-    path === "auth/invite/accept"
-  );
+  return isAuthCredentialPath(pathSegments);
 }
 
 /** Paths whose successful responses may rotate BFF session cookies from JSON tokens. */
@@ -112,6 +109,40 @@ function applySessionCookies(
   }
   if (options?.rotateCsrf !== false) {
     response.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieOptions(REFRESH_MAX_AGE));
+  }
+}
+
+async function requestUpstreamTokenRefresh(
+  upstreamBase: string,
+  refreshToken: string,
+  requestId: string
+): Promise<AuthTokenPayload | null> {
+  try {
+    const refreshResponse = await fetch(new URL(joinUpstreamPath(upstreamBase, ["auth", "refresh"])), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Request-Id": requestId
+      },
+      body: JSON.stringify({ refreshToken }),
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000)
+    });
+
+    if (!refreshResponse.ok) {
+      return null;
+    }
+
+    const refreshText = await refreshResponse.text();
+    if (!refreshText) {
+      return null;
+    }
+
+    const tokens = extractAuthTokens(JSON.parse(refreshText));
+    return typeof tokens.accessToken === "string" && tokens.accessToken.trim() ? tokens : null;
+  } catch {
+    // A failed silent refresh is not an error path of its own — the original 401 stands.
+    return null;
   }
 }
 
@@ -302,6 +333,30 @@ export async function proxyBffRequest(
     );
   }
 
+  // Rotate the session once, server side, instead of surfacing an expired-access 401.
+  // Concurrent 401 GETs share one upstream refresh via runExclusiveSilentRefresh.
+  let refreshedTokens: AuthTokenPayload | null = null;
+  if (upstream.status === 401 && canSilentlyRefreshSession(method, pathSegments, session)) {
+    refreshedTokens = await runExclusiveSilentRefresh(() =>
+      requestUpstreamTokenRefresh(upstreamBase, String(session.refreshToken), requestId)
+    );
+
+    if (refreshedTokens) {
+      headers.set("Authorization", `Bearer ${String(refreshedTokens.accessToken)}`);
+      try {
+        upstream = await fetch(upstreamUrl, {
+          method,
+          headers,
+          redirect: "manual",
+          signal: AbortSignal.timeout(60_000)
+        });
+      } catch {
+        // Keep the refreshed cookies; the retry failure is reported by the block below.
+        refreshedTokens = refreshedTokens ?? null;
+      }
+    }
+  }
+
   const responseHeaders = new Headers();
   responseHeaders.set("X-Request-Id", sanitizeRequestId(upstream.headers.get("x-request-id")) || requestId);
   const contentType = upstream.headers.get("content-type");
@@ -361,6 +416,11 @@ export async function proxyBffRequest(
   } else if (shouldSetSession) {
     const rotateCsrf = !(pathSegments[0] === "tenants" && pathSegments[2] === "switch");
     applySessionCookies(response, tokens, { rotateCsrf });
+  } else if (refreshedTokens) {
+    // Persist the silently rotated session. The CSRF token is deliberately left alone:
+    // this path runs on reads that a page may issue alongside in-flight mutations, and
+    // rotating the double-submit token here would invalidate those requests.
+    applySessionCookies(response, refreshedTokens, { rotateCsrf: false });
   }
 
   return response;

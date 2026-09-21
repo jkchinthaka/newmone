@@ -47,6 +47,17 @@ const EVENT_META: Record<
   part_requested: { icon: Package, defaultLabel: "Part requested", iconClassName: "text-orange-600" }
 };
 
+/** Event types come from API payloads, so an unmapped value must not crash the timeline. */
+const UNKNOWN_EVENT_META = {
+  icon: CircleDot,
+  defaultLabel: "Event",
+  iconClassName: "text-slate-500"
+} as const;
+
+function resolveEventMeta(type: EvidenceTimelineEvent["type"]) {
+  return EVENT_META[type] ?? UNKNOWN_EVENT_META;
+}
+
 type EvidenceTimelineProps = {
   events: EvidenceTimelineEvent[];
   title?: string;
@@ -91,7 +102,7 @@ export function EvidenceTimeline({
 
       <ol className="mt-4 space-y-0" aria-label={title}>
         {sorted.map((event, index) => {
-          const meta = EVENT_META[event.type];
+          const meta = resolveEventMeta(event.type);
           const Icon = meta.icon;
           const isLast = index === sorted.length - 1;
 

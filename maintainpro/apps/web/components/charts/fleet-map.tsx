@@ -29,6 +29,8 @@ import {
 
 import { useFleetSocket } from "@/hooks/use-fleet-socket";
 import { apiClient } from "@/lib/api-client";
+import { fitBoundsWhenReady } from "@/lib/leaflet-map-ready";
+import { canReadFleetLiveMap } from "@/lib/user-role";
 
 import "leaflet/dist/leaflet.css";
 
@@ -923,6 +925,16 @@ export function FleetMap() {
   );
 
   const fetchFleetVehicles = useCallback(async () => {
+    // /fleet/live-map is role-restricted (see FLEET_LIVE_MAP_ROLES). Roles that can open
+    // this page without that grant — MANAGER, for one — would otherwise poll it for 403s
+    // and get a generic "unable to load" message that hides the real reason.
+    if (!canReadFleetLiveMap()) {
+      setVehiclesById({});
+      setFleetError("Live vehicle positions are not available for your role.");
+      setFleetLoading(false);
+      return;
+    }
+
     setFleetLoading(true);
 
     try {
@@ -1184,7 +1196,7 @@ out center tags;
         });
 
         if (mapRef.current && points.length > 1) {
-          mapRef.current.fitBounds(points, {
+          fitBoundsWhenReady(mapRef.current, points, {
             padding: [40, 40]
           });
         }
@@ -1259,7 +1271,7 @@ out center tags;
 
   const handleMapReady = useCallback((event: { target: LeafletMap }) => {
     mapRef.current = event.target;
-    mapRef.current.fitBounds(SRI_LANKA_BOUNDS, {
+    fitBoundsWhenReady(mapRef.current, SRI_LANKA_BOUNDS, {
       padding: [24, 24]
     });
 
@@ -1381,7 +1393,8 @@ out center tags;
       setPlaybackIndex(0);
 
       if (mapRef.current && points.length > 1) {
-        mapRef.current.fitBounds(
+        fitBoundsWhenReady(
+          mapRef.current,
           points.map((point: HistoryPoint) => [point.lat, point.lng] as [number, number]),
           { padding: [35, 35] }
         );

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ import {
 import { calculateInsights, calculateSummary, getErrorMessage } from "./helpers";
 import { InventoryDashboardKpis, StockAdjustmentPayload, UpdatePartPayload } from "./types";
 import { withTenantScope } from "@/lib/tenant-query";
+import { canReadInventoryAnalytics } from "@/lib/user-role";
 
 export const inventoryQueryKeys = {
   parts: ["inventory", "parts"] as const,
@@ -67,18 +68,28 @@ export function useInventoryOverview() {
 
   // Secondary analytics: wait for primary parts payload to avoid cold-route waterfalls
   const partsReady = partsQuery.isSuccess || partsQuery.isError;
+
+  // /inventory/analytics/* is guarded by inventory.manage — requesting it with a role
+  // that has no grant only produces 403s (retried by React Query), so gate it here.
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(false);
+  useEffect(() => {
+    setAnalyticsAllowed(canReadInventoryAnalytics());
+  }, []);
+
   const usageTrendQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.usageTrend),
     queryFn: () => getUsageTrend(30),
     staleTime: 60_000,
-    enabled: partsReady
+    enabled: partsReady && analyticsAllowed,
+    retry: false
   });
 
   const topUsedQuery = useQuery({
     queryKey: withTenantScope(inventoryQueryKeys.topUsed),
     queryFn: () => getTopUsedParts(5, 30),
     staleTime: 60_000,
-    enabled: partsReady
+    enabled: partsReady && analyticsAllowed,
+    retry: false
   });
 
   const dashboardQuery = useQuery({
@@ -105,6 +116,7 @@ export function useInventoryOverview() {
     usageTrendQuery,
     topUsedQuery,
     dashboardQuery,
+    analyticsAllowed,
     dashboard: (dashboardQuery.data ?? null) as InventoryDashboardKpis | null,
     summary,
     insights

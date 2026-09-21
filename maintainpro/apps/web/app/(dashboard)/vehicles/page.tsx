@@ -16,8 +16,6 @@ import {
   ChevronRight,
   CircleAlert,
   CircleCheck,
-  CircleOff,
-  CircleSlash,
   Filter,
   Fuel,
   Loader2,
@@ -43,10 +41,15 @@ import {
   VEHICLE_WRITE_ROLES,
   type DashboardRole
 } from "@/lib/user-role";
+import {
+  resolveVehicleStatusMeta,
+  isVehicleStatus,
+  VEHICLE_STATUSES,
+  type VehicleStatus
+} from "@/lib/vehicle-status";
 
 type VehicleType = "CAR" | "MOTORCYCLE" | "TRUCK" | "VAN" | "BUS" | "HEAVY_EQUIPMENT" | "OTHER";
 type FuelType = "PETROL" | "DIESEL" | "ELECTRIC" | "HYBRID" | "CNG" | "LPG" | "UNKNOWN";
-type VehicleStatus = "AVAILABLE" | "IN_USE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED";
 type VehicleOwnershipType = "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
 type VehicleServiceStatus = "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
 type SortBy = "createdAt" | "mileage" | "nextServiceDate" | "year";
@@ -65,7 +68,8 @@ interface Vehicle {
   ownershipType?: VehicleOwnershipType;
   serviceStatus?: VehicleServiceStatus;
   fuelType: FuelType;
-  status: VehicleStatus;
+  /** May be blank/legacy from SQL (`String @default("")`) — resolve via resolveVehicleStatusMeta. */
+  status: string;
   currentMileage: number | string;
   serviceIntervalDays?: number | null;
   serviceIntervalMileage?: number | null;
@@ -126,14 +130,6 @@ const OWNERSHIP_TYPES: VehicleOwnershipType[] = ["OWNED", "LEASED", "RENTED", "T
 
 const SERVICE_STATUS_OPTIONS: VehicleServiceStatus[] = ["ON_SCHEDULE", "DUE_SOON", "OVERDUE"];
 
-const VEHICLE_STATUSES: VehicleStatus[] = [
-  "AVAILABLE",
-  "IN_USE",
-  "UNDER_MAINTENANCE",
-  "OUT_OF_SERVICE",
-  "DISPOSED"
-];
-
 const DEFAULT_SUMMARY: VehicleSummary = {
   totalVehicles: 0,
   vehiclesUnderMaintenance: 0,
@@ -153,34 +149,6 @@ const DEFAULT_PAGINATION: PaginationState = {
 };
 
 const PAGE_SIZE_OPTIONS = [9, 12, 24, 48];
-
-const STATUS_META: Record<VehicleStatus, { label: string; badgeClass: string; icon: LucideIcon }> = {
-  AVAILABLE: {
-    label: "Available",
-    badgeClass: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-    icon: CircleCheck
-  },
-  IN_USE: {
-    label: "In Use",
-    badgeClass: "bg-sky-100 text-sky-700 ring-sky-200",
-    icon: CarFront
-  },
-  UNDER_MAINTENANCE: {
-    label: "Under Maintenance",
-    badgeClass: "bg-amber-100 text-amber-800 ring-amber-200",
-    icon: Wrench
-  },
-  OUT_OF_SERVICE: {
-    label: "Out of Service",
-    badgeClass: "bg-rose-100 text-rose-700 ring-rose-200",
-    icon: CircleOff
-  },
-  DISPOSED: {
-    label: "Disposed",
-    badgeClass: "bg-slate-200 text-slate-700 ring-slate-300",
-    icon: CircleSlash
-  }
-};
 
 const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
   { value: "createdAt", label: "Recently Added" },
@@ -838,7 +806,7 @@ export default function VehiclesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((vehicle) => {
-            const statusMeta = STATUS_META[vehicle.status];
+            const statusMeta = resolveVehicleStatusMeta(vehicle.status);
             const StatusIcon = statusMeta.icon;
             const isPendingStatusUpdate = Boolean(pendingStatusById[vehicle.id]);
 
@@ -1744,7 +1712,9 @@ function vehicleMatchesFilters(vehicle: Vehicle, query: string, statuses: Vehicl
     : vehicle.registrationNo.toLowerCase().includes(query.toLowerCase()) ||
       vehicle.vehicleModel.toLowerCase().includes(query.toLowerCase());
 
-  const statusMatches = statuses.length === 0 || statuses.includes(vehicle.status);
+  const statusMatches =
+    statuses.length === 0 ||
+    (isVehicleStatus(vehicle.status) && statuses.includes(vehicle.status));
 
   return queryMatches && statusMatches;
 }
