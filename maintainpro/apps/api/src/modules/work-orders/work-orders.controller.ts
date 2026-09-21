@@ -266,6 +266,8 @@ export class WorkOrdersController {
       type: "PREVENTIVE" | "CORRECTIVE" | "EMERGENCY" | "INSPECTION" | "INSTALLATION";
       assetId?: string;
       vehicleId?: string;
+      siteId?: string;
+      functionalLocationId?: string;
       scheduleId?: string;
       createdById: string;
       dueDate?: string;

@@ -41,12 +41,14 @@ type WorkOrderCreateFormValue = {
   expectedCompletionDate?: string;
   assetId?: string;
   vehicleId?: string;
+  functionalLocationId?: string;
   scheduleId?: string;
   taxonomyCategoryId?: string;
   taxonomyTypeId?: string;
   taxonomyIssueId?: string;
   isTriage?: boolean;
   triageReason?: string;
+  jobDomain?: string;
 };
 
 type WorkOrderEditFormValue = UpdateWorkOrderInput;
@@ -56,6 +58,8 @@ type WorkOrderEditorModalProps = {
   mode: WorkOrderEditorMode;
   workOrder?: WorkOrder | null;
   submitting: boolean;
+  /** When set (domain job lanes), create form locks that jobDomain. */
+  createJobDomain?: "MACHINERY" | "SERVICE" | "VEHICLE";
   onClose: () => void;
   onCreate: (values: WorkOrderCreateFormValue) => void;
   onEdit: (values: WorkOrderEditFormValue) => void;
@@ -66,6 +70,7 @@ export function WorkOrderEditorModal({
   mode,
   workOrder,
   submitting,
+  createJobDomain,
   onClose,
   onCreate,
   onEdit
@@ -204,11 +209,11 @@ export function WorkOrderEditorModal({
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">
-                  {isCreateMode ? "Create Work Order" : `Work Order ${workOrder?.woNumber ?? ""}`}
+                  {isCreateMode ? "New work order" : `Work Order ${workOrder?.woNumber ?? ""}`}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {isCreateMode
-                    ? "Provide details to create a new work order."
+                    ? "Create an open work order. Planning can continue after creation."
                     : "Review details, assignments, history, and audit events for this job."}
                 </p>
               </div>
@@ -230,8 +235,10 @@ export function WorkOrderEditorModal({
               <div className="px-5 py-4">
                 <WorkOrderGuidedCreate
                   submitting={submitting}
+                  jobDomain={createJobDomain}
+                  onCancel={onClose}
                   onSubmit={(values) => {
-                    if (!values.description.trim()) {
+                    if (!values.description.trim() || submitting) {
                       return;
                     }
 
@@ -248,11 +255,13 @@ export function WorkOrderEditorModal({
                         : undefined,
                       assetId: values.assetId,
                       vehicleId: values.vehicleId,
+                      functionalLocationId: values.functionalLocationId,
                       taxonomyCategoryId: values.isTriage ? undefined : values.taxonomyCategoryId,
                       taxonomyTypeId: values.isTriage ? undefined : values.taxonomyTypeId,
                       taxonomyIssueId: values.isTriage ? undefined : values.taxonomyIssueId,
                       isTriage: values.isTriage,
-                      triageReason: values.isTriage ? values.description : undefined
+                      triageReason: values.isTriage ? values.description : undefined,
+                      jobDomain: values.jobDomain
                     });
                   }}
                 />
