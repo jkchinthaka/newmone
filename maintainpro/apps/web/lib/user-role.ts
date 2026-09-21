@@ -31,6 +31,32 @@ export const VEHICLE_WRITE_ROLES: DashboardRole[] = [
 
 export const VEHICLE_DELETE_ROLES: DashboardRole[] = ["SUPER_ADMIN", "ADMIN"];
 
+/**
+ * Mirrors the API guard on GET /inventory/analytics/* —
+ * `@Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")` + `@Permissions("inventory.manage")`.
+ * Calling those routes without the grant returns 403, so the client must not request them.
+ */
+export const INVENTORY_ANALYTICS_ROLES: DashboardRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "ASSET_MANAGER",
+  "MECHANIC"
+];
+
+export const INVENTORY_MANAGE_PERMISSION = "inventory.manage";
+
+/**
+ * Mirrors @Roles on GET /fleet/live-map. Note the sibling routes /fleet/alerts and
+ * /fleet/geofences additionally allow MANAGER, so a manager can open the fleet page but
+ * cannot read live positions — requesting them anyway only yields 403.
+ */
+export const FLEET_LIVE_MAP_ROLES: DashboardRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "ASSET_MANAGER",
+  "SUPERVISOR"
+];
+
 type StoredUserRole = {
   name?: string | null;
   permissions?: Array<{ key?: string | null } | string>;
@@ -112,4 +138,28 @@ export function getStoredPermissions(): string[] {
 
 export function hasStoredPermission(permissionKey: string): boolean {
   return getStoredPermissions().includes(permissionKey);
+}
+
+/**
+ * Can this session read live fleet positions without being rejected by the API?
+ * Mirrors `@Roles` on GET /fleet/live-map (MANAGER is intentionally excluded).
+ */
+export function canReadFleetLiveMap(): boolean {
+  return FLEET_LIVE_MAP_ROLES.includes(getStoredRole());
+}
+
+/**
+ * Can this session read inventory analytics without being rejected by the API?
+ * Role is authoritative; the permission list is only used when the stored session
+ * actually carries one (the API's PermissionsGuard can still resolve grants from the
+ * DB, so an empty local list must not hide the widgets from an allowed role).
+ */
+export function canReadInventoryAnalytics(): boolean {
+  const role = getStoredRole();
+  if (!INVENTORY_ANALYTICS_ROLES.includes(role)) {
+    return false;
+  }
+
+  const permissions = getStoredPermissions();
+  return permissions.length === 0 || permissions.includes(INVENTORY_MANAGE_PERMISSION);
 }
