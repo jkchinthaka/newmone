@@ -423,6 +423,9 @@ export function WorkOrderEditorModal({
                       </p>
                       <EntityPicker
                         endpoint="/assets"
+                        searchParam="search"
+                        pageSizeParam="limit"
+                        pageSize={20}
                         value={formState.assetId || null}
                         displayField="assetTag"
                         secondaryField="name"

@@ -23,6 +23,13 @@ export interface EntityPickerProps<T extends Record<string, unknown>> {
   idField?: keyof T & string;
   /** Query string parameter for free-text search. Defaults to "q". */
   searchParam?: string;
+  /** Page size sent to the API. Defaults to 20. */
+  pageSize?: number;
+  /**
+   * Query string parameter for page size. Defaults to "pageSize".
+   * Assets use "limit" (AssetListQueryDto).
+   */
+  pageSizeParam?: string;
   /** Extra filter params forwarded to the endpoint. */
   extraParams?: Record<string, string | number | boolean | undefined>;
   placeholder?: string;
@@ -57,6 +64,8 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
     secondaryField,
     idField = "id" as keyof T & string,
     searchParam = "q",
+    pageSize = 20,
+    pageSizeParam = "pageSize",
     extraParams,
     placeholder = "Search...",
     required,
@@ -76,6 +85,8 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
   const { query, setQuery, results, loading, error } = useEntitySearch<T>({
     endpoint,
     searchParam,
+    pageSize,
+    pageSizeParam,
     extraParams
   });
 
