@@ -335,6 +335,9 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
           </span>
           <EntityPicker
             endpoint="/assets"
+            searchParam="search"
+            pageSizeParam="limit"
+            pageSize={20}
             value={assetId || null}
             displayField="name"
             secondaryField="assetTag"
@@ -578,6 +581,9 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
                 <span className="text-sm font-medium text-slate-700">Linked asset (optional)</span>
                 <EntityPicker
                   endpoint="/assets"
+                  searchParam="search"
+                  pageSizeParam="limit"
+                  pageSize={20}
                   value={assetId || null}
                   displayField="name"
                   secondaryField="assetTag"
