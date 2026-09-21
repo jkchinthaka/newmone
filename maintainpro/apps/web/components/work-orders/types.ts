@@ -142,6 +142,8 @@ export interface CreateWorkOrderInput {
   createdById: string;
   assetId?: string;
   vehicleId?: string;
+  siteId?: string;
+  functionalLocationId?: string;
   scheduleId?: string;
   dueDate?: string;
   expectedCompletionDate?: string;

@@ -496,6 +496,11 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         mode={editorState.mode}
         workOrder={editorState.workOrder}
         submitting={createMutation.isPending || updateMutation.isPending}
+        createJobDomain={
+          jobDomain === "MACHINERY" || jobDomain === "SERVICE" || jobDomain === "VEHICLE"
+            ? jobDomain
+            : undefined
+        }
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!currentUserId) {
