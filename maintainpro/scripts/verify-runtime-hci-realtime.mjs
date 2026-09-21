@@ -22,6 +22,7 @@ const ALLOWED_THIRD_PARTY_HOSTS = new Set([
   "overpass-api.de",
   "tile.openstreetmap.org"
 ]);
+const ALLOWED_THIRD_PARTY_SUFFIXES = [".tile.openstreetmap.org"];
 
 function isExtensionNoise(text) {
   return /chrome-extension:\/\/|moz-extension:\/\/|extension:\/\//i.test(String(text || ""));
@@ -39,7 +40,9 @@ function hostnameOf(urlOrText) {
 
 function isAllowedThirdParty(urlOrText) {
   const host = hostnameOf(urlOrText);
-  return Boolean(host && ALLOWED_THIRD_PARTY_HOSTS.has(host));
+  if (!host) return false;
+  if (ALLOWED_THIRD_PARTY_HOSTS.has(host)) return true;
+  return ALLOWED_THIRD_PARTY_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
 /** socket.io v4: namespace connect ack looks like `40/notifications,` or `40/fleet,{...}` */

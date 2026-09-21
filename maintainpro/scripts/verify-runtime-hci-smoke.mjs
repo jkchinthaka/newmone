@@ -29,6 +29,9 @@ const ALLOWED_THIRD_PARTY_HOSTS = new Set([
   "tile.openstreetmap.org"
 ]);
 
+/** Subdomain suffixes (e.g. a.tile.openstreetmap.org, b.tile.openstreetmap.org). */
+const ALLOWED_THIRD_PARTY_SUFFIXES = [".tile.openstreetmap.org"];
+
 function isExtensionNoise(text) {
   return /chrome-extension:\/\/|moz-extension:\/\/|safari-extension:\/\/|extension:\/\//i.test(
     String(text || "")
@@ -53,7 +56,9 @@ function hostnameOf(urlOrText) {
 
 function isAllowedThirdParty(urlOrText) {
   const host = hostnameOf(urlOrText);
-  return Boolean(host && ALLOWED_THIRD_PARTY_HOSTS.has(host));
+  if (!host) return false;
+  if (ALLOWED_THIRD_PARTY_HOSTS.has(host)) return true;
+  return ALLOWED_THIRD_PARTY_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
 function isAppOrigin(url) {
