@@ -499,6 +499,12 @@ describe("Phase 9 MaintenanceSupplyService", () => {
   });
 
   it("creates AMC contract with expiry status and compliance bridge", async () => {
+    // Date-relative fixture: endDate must sit inside the reminder window relative to *now*,
+    // not a hard-coded calendar day (2026-09-20 became EXPIRED after that date — CI flake).
+    const nowMs = Date.now();
+    const startDate = new Date(nowMs - 180 * 24 * 60 * 60 * 1000);
+    const endDate = new Date(nowMs + 6 * 24 * 60 * 60 * 1000);
+
     const prisma = {
       supplier: {
         findFirst: jest.fn().mockResolvedValue({ id: "sup-1", tenantId: "tenant-1", name: "CoolTech" })
@@ -520,8 +526,8 @@ describe("Phase 9 MaintenanceSupplyService", () => {
       supplierId: "sup-1",
       contractNo: "AMC-2026-01",
       title: "HVAC AMC",
-      startDate: new Date("2026-01-01"),
-      endDate: new Date("2026-09-20"),
+      startDate,
+      endDate,
       reminderDays: 30
     });
     expect(contract.status).toBe("EXPIRING");
