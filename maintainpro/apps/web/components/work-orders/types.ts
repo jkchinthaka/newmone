@@ -1,4 +1,4 @@
-export const WORK_ORDER_APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+export const WORK_ORDER_APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED", "NOT_REQUIRED"] as const;
 
 export const WORK_ORDER_STATUSES = [
   "OPEN",

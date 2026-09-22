@@ -12,22 +12,14 @@ import type {
   WorkOrderStatus,
   WorkOrderType
 } from "./types";
+import { WORK_ORDER_STATUSES } from "./types";
 
 interface ApiEnvelope<T> {
   data: T;
   message?: string;
 }
 
-const validStatuses = new Set<WorkOrderStatus>([
-  "OPEN",
-  "IN_PROGRESS",
-  "ON_HOLD",
-  "TECHNICIAN_COMPLETED",
-  "REWORK_REQUIRED",
-  "COMPLETED",
-  "CANCELLED",
-  "OVERDUE"
-]);
+const validStatuses = new Set<WorkOrderStatus>(WORK_ORDER_STATUSES);
 
 const validPriorities = new Set<WorkOrderPriority>(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 const validTypes = new Set<WorkOrderType>([
@@ -38,7 +30,12 @@ const validTypes = new Set<WorkOrderType>([
   "INSTALLATION"
 ]);
 
-const validApprovalStatuses = new Set<WorkOrderApprovalStatus>(["PENDING", "APPROVED", "REJECTED"]);
+const validApprovalStatuses = new Set<WorkOrderApprovalStatus>([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "NOT_REQUIRED"
+]);
 
 function unwrapData<T>(payload: unknown): T {
   if (payload && typeof payload === "object" && "data" in payload) {
@@ -85,7 +82,7 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
     typeof candidate.approvalStatus === "string" &&
     validApprovalStatuses.has(candidate.approvalStatus as WorkOrderApprovalStatus)
       ? (candidate.approvalStatus as WorkOrderApprovalStatus)
-      : "APPROVED";
+      : "NOT_REQUIRED";
 
   return {
     id: String(candidate.id ?? ""),

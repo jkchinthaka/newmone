@@ -843,7 +843,7 @@ export function canAccessNavigationPath(
   }
 
   if (normalizedPath.startsWith("/work-orders")) {
-    return visible.some((item) => item.id === "work-orders");
+    return visible.some((item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs");
   }
 
   if (normalizedPath.startsWith("/admin")) {

@@ -34,19 +34,29 @@ export default function MyJobsPage() {
     try {
       // Prefer my-tasks queue; fall back to list filter
       const response = await apiClient.get("/work-orders/queues/my-tasks", {
-        params: { limit: 50 }
+        params: { pageSize: 50 }
       });
-      const payload = response.data as { data?: { items?: MyJob[] } | MyJob[] };
+      const payload = response.data as {
+        data?: { data?: MyJob[]; items?: MyJob[] } | MyJob[];
+      };
       const raw = payload.data;
-      const list = Array.isArray(raw) ? raw : raw?.items ?? [];
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+          ? raw.data
+          : Array.isArray(raw?.items)
+            ? raw.items
+            : [];
       setItems(list);
     } catch (err) {
       try {
         const fallback = await apiClient.get("/work-orders", {
-          params: { page: 1, pageSize: 50, mine: true }
+          params: { page: 1, pageSize: 50, myAssignedOnly: true }
         });
-        const data = (fallback.data as { data?: MyJob[] }).data ?? [];
-        setItems(Array.isArray(data) ? data : []);
+        const envelope = fallback.data as { data?: MyJob[] | { items?: MyJob[] } };
+        const data = envelope.data;
+        const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        setItems(list);
       } catch (fallbackErr) {
         setError(getApiErrorMessage(fallbackErr ?? err, "Unable to load my jobs."));
       }
