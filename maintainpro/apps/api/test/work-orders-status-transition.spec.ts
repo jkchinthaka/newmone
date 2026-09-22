@@ -14,6 +14,23 @@ const createPrismaMock = () => ({
     findFirst: jest.fn(),
     update: jest.fn()
   },
+  workOrderLabourEntry: {
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn().mockResolvedValue({ id: "labour-1" }),
+    update: jest.fn()
+  },
+  workOrderHoldHistory: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn()
+  },
+  workOrderStatusHistory: {
+    create: jest.fn(),
+    findFirst: jest.fn()
+  },
+  workOrderCostSnapshot: {
+    upsert: jest.fn()
+  },
   workOrderAssignee: {
     count: jest.fn().mockResolvedValue(1)
   },
@@ -34,7 +51,7 @@ describe("WorkOrdersService status transitions", () => {
     id: "wo-1",
     woNumber: "WO-2026-0100",
     approvalStatus: WorkOrderApprovalStatus.APPROVED,
-    status: WorkOrderStatus.OPEN,
+    status: WorkOrderStatus.ASSIGNED,
     priority: "MEDIUM",
     technicianId: "tech-1",
     startDate: null,
@@ -53,10 +70,18 @@ describe("WorkOrdersService status transitions", () => {
     slaDeadline: new Date("2026-06-15T08:00:00.000Z")
   };
 
-  it("starts an approved open work order and persists IN_PROGRESS", async () => {
+  it("starts an assigned approved work order and persists IN_PROGRESS", async () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst
       .mockResolvedValueOnce(approvedOpenWorkOrder)
+      .mockResolvedValueOnce({
+        ...inProgressWorkOrder,
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
+      })
       .mockResolvedValueOnce({
         ...inProgressWorkOrder,
         asset: null,
@@ -89,7 +114,7 @@ describe("WorkOrdersService status transitions", () => {
     expect(updated.status).toBe(WorkOrderStatus.IN_PROGRESS);
   });
 
-  it("blocks start when work order approval is still pending", async () => {
+  it("blocks start when assigned work order approval is still pending", async () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst.mockResolvedValue({
       ...approvedOpenWorkOrder,

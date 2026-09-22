@@ -59,27 +59,14 @@ export const EVIDENCE_REQUIRED_TYPES = new Set<WorkOrderType>([
 ]);
 
 /**
- * Canonical Phase 6 transitions + legacy OVERDUE / COMPLETED compatibility.
+ * Canonical D2 / Phase 6 transitions + legacy OVERDUE / COMPLETED compatibility.
  * Prefer action endpoints (plan/assign/start/hold/complete/verify/close) over raw PATCH.
+ * OPEN must be planned before assignment; assignment before start — no skip jumps.
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
-  [WorkOrderStatus.OPEN]: [
-    WorkOrderStatus.PLANNED,
-    WorkOrderStatus.ASSIGNED,
-    WorkOrderStatus.IN_PROGRESS,
-    WorkOrderStatus.ON_HOLD,
-    WorkOrderStatus.CANCELLED
-  ],
-  [WorkOrderStatus.PLANNED]: [
-    WorkOrderStatus.ASSIGNED,
-    WorkOrderStatus.IN_PROGRESS,
-    WorkOrderStatus.CANCELLED
-  ],
-  [WorkOrderStatus.ASSIGNED]: [
-    WorkOrderStatus.IN_PROGRESS,
-    WorkOrderStatus.ON_HOLD,
-    WorkOrderStatus.CANCELLED
-  ],
+  [WorkOrderStatus.OPEN]: [WorkOrderStatus.PLANNED, WorkOrderStatus.CANCELLED],
+  [WorkOrderStatus.PLANNED]: [WorkOrderStatus.ASSIGNED, WorkOrderStatus.CANCELLED],
+  [WorkOrderStatus.ASSIGNED]: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.CANCELLED],
   [WorkOrderStatus.IN_PROGRESS]: [
     WorkOrderStatus.ON_HOLD,
     WorkOrderStatus.TECHNICIAN_COMPLETED,
@@ -89,9 +76,8 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus
   [WorkOrderStatus.TECHNICIAN_COMPLETED]: [
     WorkOrderStatus.VERIFIED,
     WorkOrderStatus.REWORK_REQUIRED,
-    // Legacy emergency close path (admin) still allowed until CLOSED is used
-    WorkOrderStatus.COMPLETED,
-    WorkOrderStatus.CLOSED
+    // Legacy emergency close (admin + emergencyCloseReason) — not the normal path
+    WorkOrderStatus.COMPLETED
   ],
   [WorkOrderStatus.REWORK_REQUIRED]: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.CANCELLED],
   [WorkOrderStatus.VERIFIED]: [WorkOrderStatus.CLOSED],

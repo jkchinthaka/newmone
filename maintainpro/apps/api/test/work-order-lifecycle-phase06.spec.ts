@@ -75,8 +75,8 @@ describe("Phase 6 work order lifecycle", () => {
     expect(() => assertValidHoldReason("WAITING_PARTS")).not.toThrow();
   });
 
-  it("humanizes technician completed as Completed", () => {
-    expect(humanWorkOrderStatus(WorkOrderStatus.TECHNICIAN_COMPLETED)).toBe("Completed");
+  it("humanizes technician completed as Completed — Awaiting Verification", () => {
+    expect(humanWorkOrderStatus(WorkOrderStatus.TECHNICIAN_COMPLETED)).toBe("Completed — Awaiting Verification");
     expect(humanWorkOrderStatus(WorkOrderStatus.VERIFIED)).toBe("Verified");
   });
 

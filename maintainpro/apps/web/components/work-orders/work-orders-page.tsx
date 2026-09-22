@@ -11,10 +11,16 @@ import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { USER_KEY } from "@/lib/auth-storage";
+import {
+  ALLOWED_STATUS_TRANSITIONS,
+  getValidWorkOrderActions,
+  isAllowedKanbanDrop
+} from "@/lib/work-order-actions";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { getErrorMessage } from "./helpers";
+import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
   useAssignWorkOrder,
   useApproveWorkOrder,
@@ -95,6 +101,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
     workOrder: null
   });
   const [completionTarget, setCompletionTarget] = useState<WorkOrder | null>(null);
+  const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
   const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -196,7 +203,33 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
 
   const handleStatusChange = async (workOrder: WorkOrder, status: WorkOrderStatus) => {
     if (status === "COMPLETED" || status === "TECHNICIAN_COMPLETED") {
+      const allowed = ALLOWED_STATUS_TRANSITIONS[workOrder.status] ?? [];
+      if (status === "TECHNICIAN_COMPLETED" && !allowed.includes("TECHNICIAN_COMPLETED")) {
+        const actionLabels = getValidWorkOrderActions(workOrder.status).map((action) => action.label);
+        toast.error(
+          actionLabels.length > 0
+            ? `Illegal transition. Available actions: ${actionLabels.join(", ")}.`
+            : "Illegal transition. No further lifecycle actions are available."
+        );
+        return;
+      }
       setCompletionTarget(workOrder);
+      return;
+    }
+
+    const allowed = ALLOWED_STATUS_TRANSITIONS[workOrder.status] ?? [];
+    if (!allowed.includes(status)) {
+      const actionLabels = getValidWorkOrderActions(workOrder.status).map((action) => action.label);
+      toast.error(
+        actionLabels.length > 0
+          ? `Illegal transition. Available actions: ${actionLabels.join(", ")}.`
+          : "Illegal transition. No further lifecycle actions are available."
+      );
+      return;
+    }
+
+    if (status === "ON_HOLD") {
+      setHoldTarget(workOrder);
       return;
     }
 
@@ -383,7 +416,13 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
           <KanbanBoard
             groupedWorkOrders={workOrdersQuery.groupedByStatus}
             technicians={technicians}
-            onMoveToStatus={handleStatusChange}
+            onMoveToStatus={(workOrder, status) => {
+              if (!isAllowedKanbanDrop(workOrder.status, status)) {
+                return;
+              }
+
+              void handleStatusChange(workOrder, status);
+            }}
             onStart={(workOrder) => void handleStatusChange(workOrder, "IN_PROGRESS")}
             onHold={(workOrder) => void handleStatusChange(workOrder, "ON_HOLD")}
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
@@ -559,8 +598,6 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
                 // COMPLETED→TECHNICIAN_COMPLETED for tech roles; always send the
                 // canonical tech-complete status so supervisors aren't stuck.
                 status: "TECHNICIAN_COMPLETED",
-                actualCost: payload.actualCost,
-                actualHours: payload.actualHours,
                 delayReason: payload.delayReason,
                 completionNote: payload.completionNote
               }
@@ -568,6 +605,34 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
             .then(() => {
               toast.success("Work order submitted for supervisor verification");
               setCompletionTarget(null);
+            })
+            .catch((error) => {
+              toast.error(getErrorMessage(error));
+            });
+        }}
+      />
+
+      <HoldWorkOrderModal
+        open={Boolean(holdTarget)}
+        workOrder={holdTarget}
+        submitting={statusMutation.isPending}
+        onClose={() => setHoldTarget(null)}
+        onSubmit={(payload) => {
+          if (!holdTarget) {
+            return;
+          }
+
+          statusMutation
+            .mutateAsync({
+              id: holdTarget.id,
+              payload: {
+                status: "ON_HOLD",
+                delayReason: payload.delayReason
+              }
+            })
+            .then(() => {
+              toast.success(`${holdTarget.woNumber} placed on hold`);
+              setHoldTarget(null);
             })
             .catch((error) => {
               toast.error(getErrorMessage(error));

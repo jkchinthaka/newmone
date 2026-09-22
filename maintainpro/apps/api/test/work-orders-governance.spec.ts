@@ -21,6 +21,23 @@ const createPrismaMock = () => ({
     update: jest.fn(),
     delete: jest.fn()
   },
+  workOrderLabourEntry: {
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    update: jest.fn()
+  },
+  workOrderHoldHistory: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn()
+  },
+  workOrderStatusHistory: {
+    create: jest.fn().mockResolvedValue({}),
+    findFirst: jest.fn().mockResolvedValue({ actorId: "tech-1" })
+  },
+  workOrderCostSnapshot: {
+    upsert: jest.fn()
+  },
   user: { findFirst: jest.fn() },
   auditLog: { create: jest.fn() },
   sparePart: { findFirst: jest.fn(), update: jest.fn() },
@@ -72,6 +89,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
 
   const baseWorkOrder = {
     id: "wo-1",
+    tenantId: "tenant-a",
     woNumber: "WO-2026-0001",
     approvalStatus: WorkOrderApprovalStatus.APPROVED,
     priority: "MEDIUM",
@@ -147,7 +165,23 @@ describe("WorkOrdersService governance (UAT-009)", () => {
         ...baseWorkOrder,
         status: WorkOrderStatus.TECHNICIAN_COMPLETED,
         actualCost: 100,
-        actualHours: 2
+        actualHours: 2,
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
+      })
+      .mockResolvedValueOnce({
+        ...baseWorkOrder,
+        status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+        actualCost: 100,
+        actualHours: 2,
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
       });
     prisma.workOrder.update.mockResolvedValue({
       ...baseWorkOrder,
@@ -200,7 +234,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("supervisor verification closes technician-completed jobs", async () => {
+  it("supervisor verification moves technician-completed jobs to VERIFIED", async () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst
       .mockResolvedValueOnce({
@@ -211,12 +245,27 @@ describe("WorkOrdersService governance (UAT-009)", () => {
       })
       .mockResolvedValueOnce({
         ...baseWorkOrder,
-        status: WorkOrderStatus.COMPLETED,
-        verificationStatus: WorkOrderVerificationStatus.VERIFIED
+        status: WorkOrderStatus.VERIFIED,
+        verificationStatus: WorkOrderVerificationStatus.VERIFIED,
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
+      })
+      .mockResolvedValueOnce({
+        ...baseWorkOrder,
+        status: WorkOrderStatus.VERIFIED,
+        verificationStatus: WorkOrderVerificationStatus.VERIFIED,
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
       });
     prisma.workOrder.update.mockResolvedValue({
       ...baseWorkOrder,
-      status: WorkOrderStatus.COMPLETED,
+      status: WorkOrderStatus.VERIFIED,
       verificationStatus: WorkOrderVerificationStatus.VERIFIED
     });
     prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });

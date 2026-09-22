@@ -77,7 +77,7 @@ export function humanWorkOrderStatus(status: WorkOrderStatus): string {
     ASSIGNED: "Assigned",
     IN_PROGRESS: "In Progress",
     ON_HOLD: "On Hold",
-    TECHNICIAN_COMPLETED: "Completed",
+    TECHNICIAN_COMPLETED: "Completed — Awaiting Verification",
     REWORK_REQUIRED: "Return for Correction",
     COMPLETED: "Closed (Legacy)",
     VERIFIED: "Verified",

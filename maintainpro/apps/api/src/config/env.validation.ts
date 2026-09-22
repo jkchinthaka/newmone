@@ -148,6 +148,7 @@ export const envValidationSchema = Joi.object({
   NOTIFICATION_REAL_SENDS_ENABLED: Joi.boolean().default(false),
   NOTIFICATION_UAT_ALLOWED_RECIPIENTS: Joi.string().allow("").default(""),
   FRAUD_CONTROL_ENABLED: Joi.boolean().default(true),
+  E2E_TEST_MODE: Joi.alternatives().try(Joi.boolean(), Joi.string()).default(false),
   APP_VERSION: Joi.string().allow("").default("1.2.0"),
   APP_COMMIT_SHA: Joi.string().allow("").default(""),
   APP_BUILD_TIMESTAMP: Joi.string().allow("").default(""),
@@ -165,6 +166,13 @@ export const envValidationSchema = Joi.object({
     if (nodeEnv === "production" && redisRequiredInProduction && redisUrl.length === 0) {
       return helpers.error("any.invalid", {
         message: "REDIS_URL must be configured in production when REDIS_REQUIRED_IN_PRODUCTION=true"
+      });
+    }
+
+    const e2eMode = /^(1|true|yes)$/i.test(String(value.E2E_TEST_MODE ?? "").trim());
+    if (nodeEnv === "production" && e2eMode) {
+      return helpers.error("any.invalid", {
+        message: "E2E_TEST_MODE cannot be enabled in production (fail closed)"
       });
     }
 
