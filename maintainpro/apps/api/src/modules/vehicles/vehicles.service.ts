@@ -716,8 +716,13 @@ export class VehiclesService {
       VehicleStatus.OUT_OF_SERVICE,
       VehicleStatus.DISPOSED
     ];
-    if (blockedStatuses.includes(vehicle.status)) {
+    const rawStatus = String(vehicle.status ?? "").trim();
+    if (!rawStatus) {
+      blockReasons.push("Vehicle status is not set");
+    } else if (blockedStatuses.includes(vehicle.status)) {
       blockReasons.push(`Vehicle status is ${vehicle.status.replaceAll("_", " ")}`);
+    } else if (vehicle.status !== VehicleStatus.AVAILABLE) {
+      blockReasons.push(`Vehicle status '${rawStatus}' is not eligible for gate-out`);
     }
 
     const serviceEvaluation = this.evaluateServiceWindow(vehicle);

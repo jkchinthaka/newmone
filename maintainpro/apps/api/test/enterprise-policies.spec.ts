@@ -50,6 +50,27 @@ describe("central operational policies", () => {
     expect(override.code).toBe("GATE_OUT_OVERRIDE");
   });
 
+  it("fails closed when vehicle status is blank or unknown", () => {
+    expect(
+      canVehicleGateOut({
+        tenantId: "t1",
+        status: ""
+      }).code
+    ).toBe("VEHICLE_STATUS_NOT_SET");
+    expect(
+      canVehicleGateOut({
+        tenantId: "t1",
+        status: "   "
+      }).code
+    ).toBe("VEHICLE_STATUS_NOT_SET");
+    expect(
+      canVehicleGateOut({
+        tenantId: "t1",
+        status: "WEIRD"
+      }).code
+    ).toBe("VEHICLE_STATUS_UNKNOWN");
+  });
+
   it("enforces work order start/complete/reopen rules", () => {
     expect(
       canWorkOrderStart({

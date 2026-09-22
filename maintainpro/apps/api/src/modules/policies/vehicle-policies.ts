@@ -42,8 +42,15 @@ export function canVehicleGateOut(input: VehicleGateOutInput): PolicyDecision {
     return deny("VEHICLE_INACTIVE", { status: input.status }, "CRITICAL");
   }
 
-  const statusCode = input.status ? BLOCKED_STATUSES[String(input.status)] : undefined;
-  const statusDenial = statusCode ? deny(statusCode, { status: input.status }, "HIGH") : allow();
+  const normalizedStatus = String(input.status ?? "").trim();
+  const blockedCode = normalizedStatus ? BLOCKED_STATUSES[normalizedStatus] : undefined;
+  const statusDenial = !normalizedStatus
+    ? deny("VEHICLE_STATUS_NOT_SET", { status: input.status }, "HIGH")
+    : blockedCode
+      ? deny(blockedCode, { status: input.status }, "HIGH")
+      : normalizedStatus === VehicleStatus.AVAILABLE
+        ? allow()
+        : deny("VEHICLE_STATUS_UNKNOWN", { status: input.status }, "HIGH");
   const maintenanceDenial = input.maintenanceCriticallyOverdue
     ? deny("MAINTENANCE_CRITICALLY_OVERDUE", undefined, "CRITICAL")
     : allow();
