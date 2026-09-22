@@ -441,16 +441,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "exact"
   },
   {
-    id: "parts-requests",
-    label: "Parts & Item Requests",
-    href: "/inventory",
-    icon: "Layers",
-    allowedRoles: PARTS_ROLES,
-    category: "operations",
-    description: "Spare parts usage and reservations",
-    activeMatch: "startsWith"
-  },
-  {
     id: "vendors-external",
     label: "Vendors / External Repairs",
     href: "/procurement/vendors",
@@ -544,17 +534,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     category: "compliance",
     description: "Gate-out eligibility and overrides",
     activeMatch: "exact"
-  },
-  {
-    id: "fleet-tyres",
-    label: "Tyres",
-    href: "/fleet/tyres",
-    icon: "Gauge",
-    allowedRoles: FLEET_NAV_ROLES,
-    requiredFeature: "TYRES",
-    category: "compliance",
-    description: "Tyre fitment and history",
-    activeMatch: "startsWith"
   },
   {
     id: "spare-parts",
