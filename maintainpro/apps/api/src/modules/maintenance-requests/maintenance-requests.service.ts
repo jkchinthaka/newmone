@@ -27,7 +27,13 @@ import type {
   MaintenanceRequestListQueryDto,
   MarkDuplicateDto,
   RejectMaintenanceRequestDto,
+  RequesterRespondDto,
   TriageMaintenanceRequestDto
+} from "./dto/maintenance-request.dto";
+import {
+  PRODUCTION_IMPACT_VALUES,
+  REPORTED_URGENCY_VALUES,
+  SAFETY_IMPACT_VALUES
 } from "./dto/maintenance-request.dto";
 import {
   assertValidTransition,
@@ -89,16 +95,27 @@ export class MaintenanceRequestsService {
     const tid = requireTenantId(tenantId);
     if (!actor.sub) throw new ForbiddenException("Authenticated actor required");
 
-    if (dto.idempotencyKey?.trim()) {
+    const idempotencyKey = dto.idempotencyKey?.trim() || null;
+    if (idempotencyKey) {
       const existing = await this.prisma.maintenanceRequest.findFirst({
-        where: { tenantId: tid, idempotencyKey: dto.idempotencyKey.trim() }
+        where: { tenantId: tid, idempotencyKey }
       });
       if (existing) {
         return this.findOne(tid, existing.id, actor, { forceAll: true });
       }
     }
 
-    const placement = await this.resolvePlacement(tid, dto);
+    const placement = await this.resolvePlacement(tid, {
+      assetId: dto.assetId,
+      vehicleId: dto.vehicleId,
+      siteId: dto.siteId,
+      functionalLocationId: dto.functionalLocationId,
+      departmentId: dto.departmentId,
+      domainId: dto.domainId,
+      targetUnresolved: dto.targetUnresolved === true,
+      approximateLocation: dto.approximateLocation
+    });
+
     const snapshot = await this.buildContextSnapshot(tid, placement);
 
     let assetDomainCode: string | null | undefined;
@@ -110,36 +127,88 @@ export class MaintenanceRequestsService {
       assetDomainCode = domain?.code;
     }
 
-    const jobDomain = resolveJobDomain({
-      jobDomain: dto.jobDomain,
-      assetId: placement.assetId,
-      assetDomainCode
-    });
+    // Do not silently classify unresolved targets as SERVICE.
+    const jobDomain = placement.targetUnresolved
+      ? null
+      : resolveJobDomain({
+          jobDomain: dto.jobDomain,
+          vehicleId: placement.vehicleId,
+          assetId: placement.assetId,
+          assetDomainCode
+        });
 
-    const priority = dto.isEmergency
-      ? Priority.HIGH
-      : dto.priority ?? Priority.MEDIUM;
+    const reportedUrgency = this.normalizeReportedUrgency(dto.reportedUrgency, dto.isEmergency);
+    const safetyImpact = this.normalizeSafetyImpact(dto.safetyImpact);
+    const productionImpact = this.normalizeProductionImpact(
+      dto.productionImpact,
+      dto.affectsOperation
+    );
+    const affectsOperation =
+      productionImpact === "STOPPED" || productionImpact === "REDUCED" || Boolean(dto.affectsOperation);
 
-    const created = await this.createWithNumberRetry(tid, {
-      reportedById: actor.sub,
-      assetId: placement.assetId,
-      siteId: placement.siteId,
-      functionalLocationId: placement.functionalLocationId,
-      departmentId: placement.departmentId,
-      domainId: placement.domainId,
-      jobDomain,
-      problemCategoryId: dto.problemCategoryId ?? null,
-      problemCategoryLabel: dto.problemCategoryLabel?.trim() || null,
+    // Official priority is a triage decision — default MEDIUM until reviewer sets it.
+    const priority = Priority.MEDIUM;
+
+    const originalSubmission = {
+      capturedAt: new Date().toISOString(),
       description: dto.description.trim(),
-      priority,
-      requestedPriority: dto.priority ?? null,
-      affectsOperation: dto.affectsOperation ?? false,
-      businessImpact: dto.businessImpact?.trim() || null,
-      isEmergency: dto.isEmergency ?? false,
-      failureNoticedAt: dto.failureNoticedAt ? new Date(dto.failureNoticedAt) : null,
-      contextSnapshot: snapshot as Prisma.InputJsonValue,
-      idempotencyKey: dto.idempotencyKey?.trim() || null
-    });
+      reportedUrgency,
+      safetyImpact,
+      productionImpact,
+      approximateLocation: placement.approximateLocation,
+      targetUnresolved: placement.targetUnresolved,
+      assetId: placement.assetId,
+      vehicleId: placement.vehicleId,
+      functionalLocationId: placement.functionalLocationId,
+      siteId: placement.siteId,
+      problemCategoryId: dto.problemCategoryId ?? null,
+      problemCategoryLabel: dto.problemCategoryLabel?.trim() || null
+    };
+
+    let created;
+    try {
+      created = await this.createWithNumberRetry(tid, {
+        reportedById: actor.sub,
+        assetId: placement.assetId,
+        vehicleId: placement.vehicleId,
+        siteId: placement.siteId,
+        functionalLocationId: placement.functionalLocationId,
+        departmentId: placement.departmentId,
+        domainId: placement.domainId,
+        jobDomain,
+        targetUnresolved: placement.targetUnresolved,
+        approximateLocation: placement.approximateLocation,
+        problemCategoryId: dto.problemCategoryId ?? null,
+        problemCategoryLabel: dto.problemCategoryLabel?.trim() || null,
+        description: dto.description.trim(),
+        priority,
+        requestedPriority: null,
+        reportedUrgency,
+        safetyImpact,
+        productionImpact,
+        affectsOperation,
+        businessImpact: dto.businessImpact?.trim() || productionImpact,
+        isEmergency: reportedUrgency === "VERY_URGENT" || Boolean(dto.isEmergency),
+        failureNoticedAt: dto.failureNoticedAt ? new Date(dto.failureNoticedAt) : null,
+        contextSnapshot: JSON.stringify(snapshot),
+        originalSubmission: JSON.stringify(originalSubmission),
+        idempotencyKey
+      });
+    } catch (error) {
+      if (
+        idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const raced = await this.prisma.maintenanceRequest.findFirst({
+          where: { tenantId: tid, idempotencyKey }
+        });
+        if (raced) {
+          return this.findOne(tid, raced.id, actor, { forceAll: true });
+        }
+      }
+      throw error;
+    }
 
     await this.appendHistory(tid, created.id, {
       fromStatus: null,
@@ -162,7 +231,6 @@ export class MaintenanceRequestsService {
       await this.attachEvidence(tid, created.id, actor.sub, dto.evidenceIds);
     }
 
-    // Notification fan-out hooks into existing NotificationsService per-user APIs (Phase 12 owns escalation admin).
     void this.notifyNewRequest(tid, created, actor.sub);
 
     return this.findOne(tid, created.id, actor, { forceAll: true });
@@ -190,6 +258,7 @@ export class MaintenanceRequestsService {
         in: [
           MaintenanceRequestStatus.NEW,
           MaintenanceRequestStatus.UNDER_REVIEW,
+          MaintenanceRequestStatus.NEEDS_INFORMATION,
           MaintenanceRequestStatus.APPROVED
         ]
       };
@@ -201,6 +270,7 @@ export class MaintenanceRequestsService {
     if (query.siteId) where.siteId = query.siteId;
     if (query.functionalLocationId) where.functionalLocationId = query.functionalLocationId;
     if (query.assetId) where.assetId = query.assetId;
+    if (query.vehicleId) where.vehicleId = query.vehicleId;
     if (query.domainId) where.domainId = query.domainId;
     if (query.jobDomain) where.jobDomain = query.jobDomain.trim().toUpperCase();
 
@@ -276,7 +346,7 @@ export class MaintenanceRequestsService {
       ? await this.assetRegistry.resolveLocationPath(tid, row.functionalLocationId)
       : null;
 
-    const history = row.history
+    const history = (row.history ?? [])
       .filter((h) => canViewAll || !h.isInternal)
       .map((h) => ({
         id: h.id,
@@ -296,7 +366,8 @@ export class MaintenanceRequestsService {
       ...this.mapListItem(row, actor),
       triageNotes: canViewAll ? row.triageNotes : undefined,
       businessImpact: row.businessImpact,
-      contextSnapshot: row.contextSnapshot,
+      originalSubmission: this.parseJsonField(row.originalSubmission),
+      contextSnapshot: this.parseJsonField(row.contextSnapshot),
       locationPath,
       history,
       workOrder: row.workOrder,
@@ -304,7 +375,9 @@ export class MaintenanceRequestsService {
       duplicateOf: row.duplicateOf,
       rejectionReasonType: row.rejectionReasonType,
       rejectionReason: row.rejectionReason,
-      cancellationReason: row.cancellationReason
+      cancellationReason: row.cancellationReason,
+      reportedById: row.reportedById,
+      resolutionCode: row.resolutionCode
     };
   }
 
@@ -312,6 +385,7 @@ export class MaintenanceRequestsService {
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "start review");
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
     const updated = await this.prisma.maintenanceRequest.update({
@@ -347,6 +421,7 @@ export class MaintenanceRequestsService {
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "triage");
     if (
       current.status !== MaintenanceRequestStatus.NEW &&
       current.status !== MaintenanceRequestStatus.UNDER_REVIEW &&
@@ -355,21 +430,65 @@ export class MaintenanceRequestsService {
       throw new BadRequestException("Request cannot be triaged in its current status");
     }
 
+    if (
+      dto.priority &&
+      dto.priority !== current.priority &&
+      (current.status === MaintenanceRequestStatus.UNDER_REVIEW ||
+        current.status === MaintenanceRequestStatus.APPROVED) &&
+      !dto.reason?.trim()
+    ) {
+      throw new BadRequestException(
+        "A reason is required when changing the official priority after review has started"
+      );
+    }
+
+    const clearingUnresolved = dto.targetUnresolved === false;
     const placement = await this.resolvePlacement(tid, {
-      assetId: dto.assetId ?? current.assetId ?? undefined,
-      siteId: dto.siteId ?? current.siteId ?? undefined,
+      assetId: dto.assetId !== undefined ? dto.assetId : current.assetId ?? undefined,
+      vehicleId: dto.vehicleId !== undefined ? dto.vehicleId : current.vehicleId ?? undefined,
+      siteId: dto.siteId !== undefined ? dto.siteId : current.siteId ?? undefined,
       functionalLocationId:
-        dto.functionalLocationId ?? current.functionalLocationId ?? undefined,
-      domainId: dto.domainId ?? current.domainId ?? undefined
+        dto.functionalLocationId !== undefined
+          ? dto.functionalLocationId
+          : current.functionalLocationId ?? undefined,
+      domainId: dto.domainId !== undefined ? dto.domainId : current.domainId ?? undefined,
+      targetUnresolved:
+        dto.targetUnresolved !== undefined
+          ? dto.targetUnresolved
+          : clearingUnresolved
+            ? false
+            : current.targetUnresolved,
+      approximateLocation: current.approximateLocation ?? undefined,
+      allowKeepUnresolved: true
     });
+
+    let assetDomainCode: string | null | undefined;
+    if (placement.domainId) {
+      const domain = await this.prisma.assetDomain.findFirst({
+        where: { id: placement.domainId, tenantId: tid },
+        select: { code: true }
+      });
+      assetDomainCode = domain?.code;
+    }
+    const jobDomain = placement.targetUnresolved
+      ? null
+      : resolveJobDomain({
+          jobDomain: dto.jobDomain ?? current.jobDomain,
+          vehicleId: placement.vehicleId,
+          assetId: placement.assetId,
+          assetDomainCode
+        });
 
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
         assetId: placement.assetId,
+        vehicleId: placement.vehicleId,
         siteId: placement.siteId,
         functionalLocationId: placement.functionalLocationId,
         domainId: placement.domainId,
+        jobDomain,
+        targetUnresolved: placement.targetUnresolved,
         problemCategoryId:
           dto.problemCategoryId !== undefined ? dto.problemCategoryId : undefined,
         priority: dto.priority ?? undefined,
@@ -393,8 +512,12 @@ export class MaintenanceRequestsService {
       reason: dto.reason,
       metadata: {
         priority: dto.priority,
+        previousPriority: current.priority,
         assetId: placement.assetId,
-        functionalLocationId: placement.functionalLocationId
+        vehicleId: placement.vehicleId,
+        functionalLocationId: placement.functionalLocationId,
+        jobDomain,
+        targetUnresolved: placement.targetUnresolved
       },
       isInternal: true
     });
@@ -409,12 +532,17 @@ export class MaintenanceRequestsService {
       beforeData: {
         priority: current.priority,
         assetId: current.assetId,
-        functionalLocationId: current.functionalLocationId
+        vehicleId: current.vehicleId,
+        functionalLocationId: current.functionalLocationId,
+        targetUnresolved: current.targetUnresolved
       } as never,
       afterData: {
         priority: updated.priority,
         assetId: updated.assetId,
-        functionalLocationId: updated.functionalLocationId
+        vehicleId: updated.vehicleId,
+        functionalLocationId: updated.functionalLocationId,
+        targetUnresolved: updated.targetUnresolved,
+        jobDomain: updated.jobDomain
       } as never
     });
 
@@ -425,14 +553,33 @@ export class MaintenanceRequestsService {
     this.assertApprove(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "accept");
     assertValidTransition(current.status, MaintenanceRequestStatus.APPROVED);
+    this.assertCanonicalTargetResolved(current);
+
+    let assetDomainCode: string | null | undefined;
+    if (current.domainId) {
+      const domain = await this.prisma.assetDomain.findFirst({
+        where: { id: current.domainId, tenantId: tid },
+        select: { code: true }
+      });
+      assetDomainCode = domain?.code;
+    }
+    const jobDomain = resolveJobDomain({
+      jobDomain: current.jobDomain,
+      vehicleId: current.vehicleId,
+      assetId: current.assetId,
+      assetDomainCode
+    });
 
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
         status: MaintenanceRequestStatus.APPROVED,
         approvedAt: new Date(),
-        triageOwnerId: actor.sub
+        triageOwnerId: actor.sub,
+        jobDomain,
+        targetUnresolved: false
       }
     });
 
@@ -441,6 +588,13 @@ export class MaintenanceRequestsService {
       toStatus: MaintenanceRequestStatus.APPROVED,
       action: "APPROVED",
       actorId: actor.sub,
+      metadata: {
+        jobDomain,
+        assetId: current.assetId,
+        vehicleId: current.vehicleId,
+        functionalLocationId: current.functionalLocationId,
+        priority: current.priority
+      },
       isInternal: false
     });
     await writeAuditTrail(this.prisma, {
@@ -449,7 +603,13 @@ export class MaintenanceRequestsService {
       action: AuditAction.UPDATE,
       module: "maintenance-requests",
       actor: actor as never,
-      afterData: { status: updated.status } as never
+      afterData: { status: updated.status, jobDomain } as never
+    });
+
+    void this.notifyRequester(tid, current.reportedById, {
+      title: `Request ${current.requestNumber} accepted`,
+      message: "Your maintenance request was accepted and may be converted to a work order.",
+      dedupeKey: `mr-accepted:${id}`
     });
 
     return this.findOne(tid, id, actor, { forceAll: true });
@@ -501,24 +661,97 @@ export class MaintenanceRequestsService {
       afterData: { status: updated.status } as never
     });
 
+    void this.notifyRequester(tid, current.reportedById, {
+      title: `More information needed for ${current.requestNumber}`,
+      message: question,
+      dedupeKey: `mr-needs-info:${id}:${updated.updatedAt?.toISOString?.() ?? Date.now()}`
+    });
+
     return this.findOne(tid, id, actor, { forceAll: true });
   }
 
-  async resumeReview(tenantId: string | null, id: string, actor: Actor, dto?: { responseNote?: string }) {
+  /**
+   * Requester-authored response to NEEDS_INFORMATION.
+   * Supervisors must not use this path to invent a requester reply.
+   */
+  async respondToInformationRequest(
+    tenantId: string | null,
+    id: string,
+    actor: Actor,
+    dto: RequesterRespondDto
+  ) {
+    const tid = requireTenantId(tenantId);
+    const current = await this.requireRequest(tid, id);
+    if (current.reportedById !== actor.sub) {
+      throw new ForbiddenException("Only the request owner can submit the requester response");
+    }
+    if (current.status !== MaintenanceRequestStatus.NEEDS_INFORMATION) {
+      throw new BadRequestException("Request is not awaiting requester information");
+    }
+    const response = dto.response?.trim();
+    if (!response || response.length < 3) {
+      throw new BadRequestException("A response is required (min 3 characters)");
+    }
+    assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
+
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: {
+        status: MaintenanceRequestStatus.UNDER_REVIEW,
+        publicUpdateNote: response,
+        reviewedAt: new Date()
+      }
+    });
+
+    await this.appendHistory(tid, id, {
+      fromStatus: current.status,
+      toStatus: MaintenanceRequestStatus.UNDER_REVIEW,
+      action: "REQUESTER_RESPONDED",
+      actorId: actor.sub,
+      reason: response,
+      isInternal: false
+    });
+    await writeAuditTrail(this.prisma, {
+      entity: "MaintenanceRequest",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      module: "maintenance-requests",
+      actor: actor as never,
+      reason: response,
+      beforeData: { status: current.status } as never,
+      afterData: { status: updated.status } as never
+    });
+
+    if (dto.evidenceIds?.length) {
+      await this.attachEvidence(tid, id, actor.sub, dto.evidenceIds);
+    }
+
+    if (current.triageOwnerId) {
+      void this.notifyRequester(tid, current.triageOwnerId, {
+        title: `Response received for ${current.requestNumber}`,
+        message: "The requester replied to your information request.",
+        dedupeKey: `mr-requester-responded:${id}:${updated.updatedAt?.toISOString?.() ?? Date.now()}`
+      });
+    }
+
+    return this.findOne(tid, id, actor, { forceAll: true });
+  }
+
+  async resumeReview(tenantId: string | null, id: string, actor: Actor, dto?: { note?: string }) {
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "resume review");
     if (current.status !== MaintenanceRequestStatus.NEEDS_INFORMATION) {
       throw new BadRequestException("Only requests awaiting information can resume review.");
     }
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
-    const note = dto?.responseNote?.trim();
+    const note = dto?.note?.trim();
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
         status: MaintenanceRequestStatus.UNDER_REVIEW,
-        publicUpdateNote: note || current.publicUpdateNote,
         triageOwnerId: actor.sub,
         reviewedAt: new Date()
       }
@@ -530,7 +763,7 @@ export class MaintenanceRequestsService {
       action: "RESUME_REVIEW",
       actorId: actor.sub,
       reason: note,
-      isInternal: false
+      isInternal: true
     });
     await writeAuditTrail(this.prisma, {
       entity: "MaintenanceRequest",
@@ -800,7 +1033,8 @@ export class MaintenanceRequestsService {
   }
 
   /**
-   * Conversion is idempotent: first call creates one WO; retries return the same WO.
+   * Conversion is concurrency-safe: claim the request row inside a transaction,
+   * then create the Work Order in the same transaction so losers never leave orphans.
    */
   async convertToWorkOrder(
     tenantId: string | null,
@@ -811,6 +1045,7 @@ export class MaintenanceRequestsService {
     this.assertConvert(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "convert to work order");
 
     if (current.workOrderId) {
       const existing = await this.prisma.workOrder.findFirst({
@@ -824,78 +1059,137 @@ export class MaintenanceRequestsService {
     }
 
     if (current.status !== MaintenanceRequestStatus.APPROVED) {
-      throw new BadRequestException("Only APPROVED requests can convert to a Work Order");
+      throw new BadRequestException("Only accepted (APPROVED) requests can convert to a Work Order");
     }
-    if (!current.assetId && !current.functionalLocationId) {
-      throw new BadRequestException("Request must have an asset or functional location to convert");
+    this.assertCanonicalTargetResolved(current);
+
+    let assetDomainCode: string | null | undefined;
+    if (current.domainId) {
+      const domain = await this.prisma.assetDomain.findFirst({
+        where: { id: current.domainId, tenantId: tid },
+        select: { code: true }
+      });
+      assetDomainCode = domain?.code;
     }
+    const jobDomain = resolveJobDomain({
+      jobDomain: current.jobDomain,
+      vehicleId: current.vehicleId,
+      assetId: current.assetId,
+      assetDomainCode
+    });
 
     const title =
       dto.title?.trim() ||
       `MR ${current.requestNumber}: ${(current.problemCategoryLabel || "Maintenance").slice(0, 80)}`;
 
-    const wo = await this.workOrders.create(
-      {
-        title,
-        description: current.description,
-        priority: current.priority,
-        type: current.isEmergency ? WorkOrderType.EMERGENCY : WorkOrderType.CORRECTIVE,
-        assetId: current.assetId ?? undefined,
-        siteId: current.siteId ?? undefined,
-        functionalLocationId: current.functionalLocationId ?? undefined,
-        createdById: actor.sub,
-        isTriage: false,
-        reportedAt: current.reportedAt?.toISOString?.() ?? undefined,
-        failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined,
-        jobDomain: current.jobDomain ?? undefined,
-        domainId: current.domainId ?? undefined
-      },
-      actor as never
-    );
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+      const claimed = await tx.maintenanceRequest.updateMany({
+        where: {
+          id,
+          tenantId: tid,
+          status: MaintenanceRequestStatus.APPROVED,
+          workOrderId: null
+        },
+        data: {
+          version: { increment: 1 }
+        }
+      });
 
-    // Ensure Phase 5 location fields remain attached (create already sets them when provided)
-    const linked = await this.prisma.workOrder.update({
-      where: { id: wo.id },
-      data: {
-        siteId: current.siteId ?? wo.siteId,
-        functionalLocationId: current.functionalLocationId ?? wo.functionalLocationId,
-        jobDomain: current.jobDomain ?? wo.jobDomain,
-        domainId: current.domainId ?? wo.domainId
+      if (claimed.count === 0) {
+        const again = await tx.maintenanceRequest.findFirst({
+          where: { id, tenantId: tid }
+        });
+        if (again?.workOrderId) {
+          const existingWo = await tx.workOrder.findFirst({
+            where: { id: again.workOrderId, tenantId: tid }
+          });
+          return { alreadyConverted: true as const, workOrder: existingWo, linked: null };
+        }
+        throw new BadRequestException(
+          "Request could not be claimed for conversion (status changed or already converting)"
+        );
       }
-    });
 
-    try {
-      await this.prisma.maintenanceRequest.update({
+      const wo = await this.workOrders.create(
+        {
+          title,
+          description: current.description,
+          priority: current.priority,
+          type: current.isEmergency ? WorkOrderType.EMERGENCY : WorkOrderType.CORRECTIVE,
+          assetId: current.assetId ?? undefined,
+          vehicleId: current.vehicleId ?? undefined,
+          siteId: current.siteId ?? undefined,
+          functionalLocationId: current.functionalLocationId ?? undefined,
+          createdById: actor.sub,
+          isTriage: false,
+          reportedAt: current.reportedAt?.toISOString?.() ?? undefined,
+          failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined,
+          jobDomain,
+          domainId: current.domainId ?? undefined,
+          idempotencyKey: dto.idempotencyKey?.trim() || `mr-convert:${id}`
+        },
+        actor as never,
+        { tx }
+      );
+
+      const linked = await tx.maintenanceRequest.update({
         where: { id },
         data: {
           status: MaintenanceRequestStatus.CONVERTED_TO_WO,
-          workOrderId: linked.id,
-          convertedAt: new Date()
+          workOrderId: wo.id,
+          convertedAt: new Date(),
+          jobDomain
         }
       });
-    } catch (error) {
-      // Race: another conversion won — return that WO
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        const again = await this.requireRequest(tid, id);
-        return {
-          request: await this.findOne(tid, id, actor, { forceAll: true }),
-          workOrder: again.workOrderId
-            ? await this.prisma.workOrder.findFirst({ where: { id: again.workOrderId } })
-            : linked,
-          alreadyConverted: true
-        };
+
+      await tx.maintenanceRequestHistory.create({
+        data: {
+          tenantId: tid,
+          requestId: id,
+          fromStatus: MaintenanceRequestStatus.APPROVED,
+          toStatus: MaintenanceRequestStatus.CONVERTED_TO_WO,
+          action: "CONVERTED_TO_WO",
+          actorId: actor.sub,
+          metadata: JSON.stringify({
+            workOrderId: wo.id,
+            woNumber: wo.woNumber,
+            jobDomain,
+            vehicleId: current.vehicleId,
+            assetId: current.assetId
+          }),
+          isInternal: false
+        }
+      });
+
+      // Link request evidence to the WO where still unlinked
+      await tx.evidenceAttachment.updateMany({
+        where: {
+          tenantId: tid,
+          maintenanceRequestId: id,
+          workOrderId: null,
+          deletedAt: null
+        },
+        data: { workOrderId: wo.id }
+      });
+
+      return { alreadyConverted: false as const, workOrder: wo, linked };
+      },
+      {
+        // Concurrent converters may wait on the row lock while the winner creates the WO.
+        maxWait: 15_000,
+        timeout: 30_000
       }
-      throw error;
+    );
+
+    if (result.alreadyConverted) {
+      return {
+        request: await this.findOne(tid, id, actor, { forceAll: true }),
+        workOrder: result.workOrder,
+        alreadyConverted: true
+      };
     }
 
-    await this.appendHistory(tid, id, {
-      fromStatus: MaintenanceRequestStatus.APPROVED,
-      toStatus: MaintenanceRequestStatus.CONVERTED_TO_WO,
-      action: "CONVERTED_TO_WO",
-      actorId: actor.sub,
-      metadata: { workOrderId: linked.id, woNumber: linked.woNumber },
-      isInternal: false
-    });
     await writeAuditTrail(this.prisma, {
       entity: "MaintenanceRequest",
       entityId: id,
@@ -904,13 +1198,19 @@ export class MaintenanceRequestsService {
       actor: actor as never,
       afterData: {
         status: MaintenanceRequestStatus.CONVERTED_TO_WO,
-        workOrderId: linked.id
+        workOrderId: result.workOrder?.id
       } as never
+    });
+
+    void this.notifyRequester(tid, current.reportedById, {
+      title: `Request ${current.requestNumber} converted`,
+      message: `Work order ${result.workOrder?.woNumber ?? ""} was created from your request.`,
+      dedupeKey: `mr-converted:${id}`
     });
 
     return {
       request: await this.findOne(tid, id, actor, { forceAll: true }),
-      workOrder: linked,
+      workOrder: result.workOrder,
       alreadyConverted: false
     };
   }
@@ -926,22 +1226,66 @@ export class MaintenanceRequestsService {
     tenantId: string,
     input: {
       assetId?: string | null;
+      vehicleId?: string | null;
       siteId?: string | null;
       functionalLocationId?: string | null;
       departmentId?: string | null;
       domainId?: string | null;
+      targetUnresolved?: boolean;
+      approximateLocation?: string | null;
+      allowKeepUnresolved?: boolean;
     }
   ) {
     let assetId = input.assetId ?? null;
+    let vehicleId = input.vehicleId ?? null;
     let siteId = input.siteId ?? null;
     let functionalLocationId = input.functionalLocationId ?? null;
     let departmentId = input.departmentId ?? null;
     let domainId = input.domainId ?? null;
+    const approximateLocation = input.approximateLocation?.trim() || null;
+    let targetUnresolved = input.targetUnresolved === true;
 
-    if (!assetId && !functionalLocationId) {
-      throw new BadRequestException(
-        "At least one of assetId or functionalLocationId is required"
-      );
+    if (vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: vehicleId, tenantId },
+        select: {
+          id: true,
+          assetId: true,
+          registrationNo: true,
+          assetTag: true,
+          make: true,
+          vehicleModel: true,
+          departmentId: true,
+          tenantId: true
+        }
+      });
+      if (!vehicle) throw new BadRequestException("Vehicle not found for this organization");
+      // Prefer explicit assetId; otherwise inherit Vehicle→Asset extension when present
+      assetId = assetId ?? vehicle.assetId ?? null;
+      departmentId = departmentId ?? vehicle.departmentId ?? null;
+      targetUnresolved = false;
+    }
+
+    if (!assetId && !functionalLocationId && !vehicleId) {
+      if (targetUnresolved || input.allowKeepUnresolved) {
+        if (!siteId) {
+          throw new BadRequestException(
+            "Site is required when the maintenance target is not yet known"
+          );
+        }
+        if (!approximateLocation && targetUnresolved) {
+          throw new BadRequestException(
+            "Approximate area/location is required when the target is not known"
+          );
+        }
+        targetUnresolved = true;
+      } else {
+        throw new BadRequestException(
+          "Select a machine, vehicle, or functional location — or mark the target as not sure"
+        );
+      }
+    } else {
+      targetUnresolved = false;
     }
 
     if (assetId) {
@@ -962,22 +1306,19 @@ export class MaintenanceRequestsService {
       departmentId = departmentId ?? asset.departmentId;
       domainId = domainId ?? asset.domainId;
 
-      // Block contradictions unless FL omitted (derived from asset)
-      if (
-        input.functionalLocationId &&
-        asset.functionalLocationId &&
-        input.functionalLocationId !== asset.functionalLocationId
-      ) {
-        // Allow triage correction: only when explicitly provided AND different — validated same site below
-      }
       if (input.siteId && asset.siteId && input.siteId !== asset.siteId && !input.functionalLocationId) {
         throw new BadRequestException("Site does not match the selected asset placement");
       }
     }
 
-    await this.assetRegistry.validateSiteAndLocation(tenantId, siteId, functionalLocationId, {
-      requireActive: true
-    });
+    if (!targetUnresolved) {
+      await this.assetRegistry.validateSiteAndLocation(tenantId, siteId, functionalLocationId, {
+        requireActive: true
+      });
+    } else if (siteId) {
+      const site = await this.prisma.site.findFirst({ where: { id: siteId, tenantId } });
+      if (!site) throw new BadRequestException("Site not found for this organization");
+    }
 
     if (departmentId) {
       const dept = await this.prisma.department.findFirst({
@@ -992,24 +1333,48 @@ export class MaintenanceRequestsService {
       if (!domain) throw new BadRequestException("Domain not found for this organization");
     }
 
-    return { assetId, siteId, functionalLocationId, departmentId, domainId };
+    return {
+      assetId,
+      vehicleId,
+      siteId,
+      functionalLocationId,
+      departmentId,
+      domainId,
+      targetUnresolved,
+      approximateLocation
+    };
   }
 
   private async buildContextSnapshot(
     tenantId: string,
     placement: {
       assetId: string | null;
+      vehicleId: string | null;
       siteId: string | null;
       functionalLocationId: string | null;
       departmentId: string | null;
       domainId: string | null;
+      targetUnresolved: boolean;
+      approximateLocation: string | null;
     }
   ) {
-    const [asset, site, department, domain, locationPath] = await Promise.all([
+    const [asset, vehicle, site, department, domain, locationPath] = await Promise.all([
       placement.assetId
         ? this.prisma.asset.findFirst({
             where: { id: placement.assetId, tenantId },
-            select: { id: true, assetTag: true, name: true }
+            select: { id: true, assetTag: true, name: true, serialNumber: true }
+          })
+        : null,
+      placement.vehicleId
+        ? this.prisma.vehicle.findFirst({
+            where: { id: placement.vehicleId, tenantId },
+            select: {
+              id: true,
+              registrationNo: true,
+              assetTag: true,
+              make: true,
+              vehicleModel: true
+            }
           })
         : null,
       placement.siteId
@@ -1037,10 +1402,18 @@ export class MaintenanceRequestsService {
       capturedAt: new Date().toISOString(),
       assetTag: asset?.assetTag ?? null,
       assetName: asset?.name ?? null,
+      assetSerial: asset?.serialNumber ?? null,
+      vehicleRegistration: vehicle?.registrationNo ?? null,
+      vehicleCode: vehicle?.assetTag ?? null,
+      vehicleName: vehicle
+        ? `${vehicle.make} ${vehicle.vehicleModel}`.trim()
+        : null,
       siteCode: site?.code ?? null,
       siteName: site?.name ?? null,
       functionalLocationId: placement.functionalLocationId,
       locationPath: locationPath?.path ?? null,
+      approximateLocation: placement.approximateLocation,
+      targetUnresolved: placement.targetUnresolved,
       domainCode: domain?.code ?? null,
       domainName: domain?.name ?? null,
       departmentCode: department?.code ?? null,
@@ -1117,10 +1490,29 @@ export class MaintenanceRequestsService {
         action: input.action,
         actorId: input.actorId,
         reason: input.reason,
-        metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+        metadata:
+          input.metadata != null ? JSON.stringify(input.metadata) : undefined,
         isInternal: input.isInternal ?? false
       }
     });
+  }
+
+  private parseJsonField(value: unknown): Record<string, unknown> | null {
+    if (value == null) return null;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   private async attachEvidence(
@@ -1178,6 +1570,15 @@ export class MaintenanceRequestsService {
   private listInclude() {
     return {
       asset: { select: { id: true, assetTag: true, name: true } },
+      vehicle: {
+        select: {
+          id: true,
+          registrationNo: true,
+          assetTag: true,
+          make: true,
+          vehicleModel: true
+        }
+      },
       site: { select: { id: true, code: true, name: true } },
       functionalLocation: { select: { id: true, code: true, name: true } },
       domain: { select: { id: true, code: true, name: true } },
@@ -1201,7 +1602,21 @@ export class MaintenanceRequestsService {
       createdAt: Date;
       publicUpdateNote: string | null;
       workOrderId: string | null;
+      reportedUrgency?: string | null;
+      safetyImpact?: string | null;
+      productionImpact?: string | null;
+      targetUnresolved?: boolean;
+      approximateLocation?: string | null;
+      jobDomain?: string | null;
+      originalSubmission?: unknown;
       asset?: { id: string; assetTag: string; name: string } | null;
+      vehicle?: {
+        id: string;
+        registrationNo: string;
+        assetTag: string | null;
+        make: string;
+        vehicleModel: string;
+      } | null;
       site?: { id: string; code: string; name: string } | null;
       functionalLocation?: { id: string; code: string; name: string } | null;
       domain?: { id: string; code: string; name: string } | null;
@@ -1225,11 +1640,25 @@ export class MaintenanceRequestsService {
       description: row.description,
       affectsOperation: row.affectsOperation,
       isEmergency: row.isEmergency,
+      reportedUrgency: row.reportedUrgency ?? null,
+      safetyImpact: row.safetyImpact ?? null,
+      productionImpact: row.productionImpact ?? null,
+      targetUnresolved: Boolean(row.targetUnresolved),
+      approximateLocation: row.approximateLocation ?? null,
+      jobDomain: row.jobDomain ?? null,
       reportedAt: row.reportedAt,
       createdAt: row.createdAt,
       publicUpdateNote: row.publicUpdateNote,
       workOrderId: row.workOrderId,
       asset: row.asset ?? null,
+      vehicle: row.vehicle
+        ? {
+            id: row.vehicle.id,
+            registrationNo: row.vehicle.registrationNo,
+            code: row.vehicle.assetTag,
+            name: `${row.vehicle.make} ${row.vehicle.vehicleModel}`.trim()
+          }
+        : null,
       site: row.site ?? null,
       functionalLocation: row.functionalLocation ?? null,
       domain: row.domain ?? null,
@@ -1245,6 +1674,88 @@ export class MaintenanceRequestsService {
         : null,
       isActive: isActiveRequestStatus(row.status)
     };
+  }
+
+  private normalizeReportedUrgency(
+    value: string | null | undefined,
+    isEmergency?: boolean
+  ): string {
+    const normalized = String(value ?? "").trim().toUpperCase();
+    if ((REPORTED_URGENCY_VALUES as readonly string[]).includes(normalized)) {
+      return normalized;
+    }
+    if (isEmergency) return "VERY_URGENT";
+    return "NORMAL";
+  }
+
+  private normalizeSafetyImpact(value: string | null | undefined): string {
+    const normalized = String(value ?? "").trim().toUpperCase();
+    if ((SAFETY_IMPACT_VALUES as readonly string[]).includes(normalized)) {
+      return normalized;
+    }
+    return "NOT_SURE";
+  }
+
+  private normalizeProductionImpact(
+    value: string | null | undefined,
+    affectsOperation?: boolean
+  ): string {
+    const normalized = String(value ?? "").trim().toUpperCase();
+    if ((PRODUCTION_IMPACT_VALUES as readonly string[]).includes(normalized)) {
+      return normalized;
+    }
+    if (affectsOperation) return "STOPPED";
+    return "NOT_SURE";
+  }
+
+  private assertCanonicalTargetResolved(request: {
+    targetUnresolved?: boolean | null;
+    assetId?: string | null;
+    vehicleId?: string | null;
+    functionalLocationId?: string | null;
+  }) {
+    if (request.targetUnresolved) {
+      throw new BadRequestException(
+        "Confirm a canonical machine, vehicle, or functional location before accepting or converting"
+      );
+    }
+    if (!request.assetId && !request.vehicleId && !request.functionalLocationId) {
+      throw new BadRequestException(
+        "A confirmed asset, vehicle, or functional location is required"
+      );
+    }
+  }
+
+  private assertNotSelfGoverned(
+    actor: Actor,
+    request: { reportedById: string; requestNumber?: string },
+    action: string
+  ) {
+    if (request.reportedById === actor.sub) {
+      throw new ForbiddenException(
+        `Segregation of duties: you cannot ${action} a request you reported`
+      );
+    }
+  }
+
+  private async notifyRequester(
+    _tenantId: string,
+    userId: string,
+    input: { title: string; message: string; dedupeKey: string }
+  ) {
+    try {
+      await this.notifications.createNotification({
+        userId,
+        type: "SYSTEM_ALERT" as never,
+        title: input.title,
+        message: input.message,
+        priority: "INFO" as never,
+        referenceType: "MaintenanceRequest",
+        dedupeKey: input.dedupeKey
+      });
+    } catch {
+      // Notification failures must not block primary business transactions
+    }
   }
 
   private hasPermission(actor: Actor, key: string) {

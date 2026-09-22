@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useParams } from "next/navigation";
@@ -22,6 +22,7 @@ import {
   markRequestDuplicate,
   rejectRequest,
   requestMoreInformation,
+  respondToInformationRequest,
   resumeRequestReview,
   startRequestReview,
   triageRequest,
@@ -47,6 +48,12 @@ type Detail = Record<string, unknown> & {
   description: string;
   affectsOperation?: boolean;
   isEmergency?: boolean;
+  reportedUrgency?: string | null;
+  safetyImpact?: string | null;
+  productionImpact?: string | null;
+  targetUnresolved?: boolean;
+  approximateLocation?: string | null;
+  jobDomain?: string | null;
   reportedAt?: string;
   failureNoticedAt?: string | null;
   triageNotes?: string | null;
@@ -54,21 +61,33 @@ type Detail = Record<string, unknown> & {
   workOrderId?: string | null;
   workOrder?: { id: string; woNumber: string; status?: string } | null;
   asset?: { id: string; assetTag: string; name: string } | null;
+  vehicle?: {
+    id: string;
+    registrationNo: string;
+    code?: string | null;
+    name: string;
+  } | null;
   site?: { id: string; code: string; name: string } | null;
   functionalLocation?: { id: string; code: string; name: string } | null;
   domain?: { id: string; code: string; name: string } | null;
   problemCategory?: { name: string } | null;
   problemCategoryLabel?: string | null;
   reportedBy?: { id: string; name: string; email?: string } | null;
+  reportedById?: string;
+  rejectionReason?: string | null;
+  resolutionCode?: string | null;
+  originalSubmission?: Record<string, unknown> | null;
   contextSnapshot?: Record<string, unknown> | null;
   history?: Array<{
     id: string;
     action: string;
     fromStatus?: string | null;
     toStatus?: string | null;
+    toStatusLabel?: string | null;
     reason?: string | null;
     createdAt: string;
     isInternal?: boolean;
+    actorName?: string | null;
     actor?: { name?: string } | null;
   }>;
 };
@@ -78,9 +97,7 @@ export default function RequestDetailPage() {
   const id = params.id;
   const user = useCurrentUser();
   const role = extractRoleName({ role: user.role });
-  const canTriage = role != null && TRIAGE_ROLES.has(role);
-  const isOwner = (detail: Detail | null) =>
-    detail?.reportedBy?.id && user.id && detail.reportedBy.id === user.id;
+  const canTriageRole = role != null && TRIAGE_ROLES.has(role);
 
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,12 +106,20 @@ export default function RequestDetailPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectType, setRejectType] = useState("INVALID_REQUEST");
   const [infoQuestion, setInfoQuestion] = useState("");
-  const [resumeNote, setResumeNote] = useState("");
+  const [requesterResponse, setRequesterResponse] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [triageNotes, setTriageNotes] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
+  const [priorityReason, setPriorityReason] = useState("");
   const [dupes, setDupes] = useState<MaintenanceRequestListItem[]>([]);
   const [canonicalDupId, setCanonicalDupId] = useState("");
+
+  const isOwner = useMemo(() => {
+    if (!detail || !user.id) return false;
+    return detail.reportedById === user.id || detail.reportedBy?.id === user.id;
+  }, [detail, user.id]);
+
+  const canGovern = canTriageRole && !isOwner;
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -104,7 +129,7 @@ export default function RequestDetailPage() {
       setDetail(data);
       setPriority(String(data.priority || "MEDIUM"));
       setTriageNotes(String(data.triageNotes || ""));
-      if (canTriage) {
+      if (canTriageRole) {
         try {
           const d = await fetchDuplicateCandidates(id);
           setDupes(d.items || []);
@@ -117,7 +142,7 @@ export default function RequestDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, canTriage]);
+  }, [id, canTriageRole]);
 
   useEffect(() => {
     void refresh();
@@ -153,7 +178,24 @@ export default function RequestDetailPage() {
   }
 
   const snapshot = detail.contextSnapshot || {};
-  const publicHistory = (detail.history || []).filter((h) => canTriage || !h.isInternal);
+  const original = detail.originalSubmission || {};
+  const publicHistory = (detail.history || []).filter((h) => canGovern || canTriageRole || !h.isInternal);
+  const needsInfoQuestion =
+    [...(detail.history || [])]
+      .reverse()
+      .find((h) => h.action === "NEEDS_INFORMATION")?.reason || detail.publicUpdateNote;
+
+  const targetLabel = detail.vehicle
+    ? `${detail.vehicle.registrationNo}${
+        detail.vehicle.code ? ` — ${detail.vehicle.code}` : ""
+      } — ${detail.vehicle.name}`
+    : detail.asset
+      ? `${detail.asset.assetTag} — ${detail.asset.name}`
+      : detail.functionalLocation
+        ? `${detail.functionalLocation.code} — ${detail.functionalLocation.name}`
+        : detail.targetUnresolved
+          ? `Not sure${detail.approximateLocation ? ` · ${detail.approximateLocation}` : ""}`
+          : "—";
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -176,77 +218,112 @@ export default function RequestDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Original request
+            </h2>
             <div className="flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wide">
-              <span className="rounded bg-slate-100 px-2 py-1">{detail.priority}</span>
               <span className="rounded bg-brand-50 px-2 py-1 text-brand-800">
                 {detail.statusLabel || detail.status}
               </span>
-              {detail.affectsOperation ? (
-                <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">Operation stopped</span>
+              {detail.reportedUrgency ? (
+                <span className="rounded bg-slate-100 px-2 py-1">
+                  Reported: {detail.reportedUrgency.replace("_", " ")}
+                </span>
               ) : null}
-              {detail.isEmergency ? (
-                <span className="rounded bg-red-100 px-2 py-1 text-red-800">Emergency</span>
+              <span className="rounded bg-slate-100 px-2 py-1">Official: {detail.priority}</span>
+              {detail.targetUnresolved ? (
+                <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">Target unresolved</span>
               ) : null}
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{detail.description}</p>
-            {detail.publicUpdateNote ? (
-              <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                Latest update: {detail.publicUpdateNote}
-              </p>
-            ) : null}
-          </section>
-
-          <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-            <h2 className="mb-2 font-semibold">Asset / location</h2>
-            <dl className="grid gap-2 sm:grid-cols-2">
+            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
+              {String(original.description || detail.description)}
+            </p>
+            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">Asset</dt>
-                <dd>
-                  {detail.asset
-                    ? `${detail.asset.name} (${detail.asset.assetTag})`
-                    : String(snapshot.assetName || "—")}
-                </dd>
+                <dt className="text-slate-500">Target</dt>
+                <dd>{targetLabel}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Site</dt>
                 <dd>{detail.site?.name || String(snapshot.siteName || "—")}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Functional location</dt>
-                <dd>
-                  {detail.functionalLocation?.name ||
-                    String(snapshot.functionalLocationName || "—")}
-                </dd>
+                <dt className="text-slate-500">Safety impact</dt>
+                <dd>{detail.safetyImpact || String(original.safetyImpact || "—")}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Location path (at report)</dt>
-                <dd>{String(snapshot.locationPath || "—")}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">Domain</dt>
-                <dd>{detail.domain?.name || String(snapshot.domainName || "—")}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">Category</dt>
-                <dd>
-                  {detail.problemCategory?.name || detail.problemCategoryLabel || "—"}
-                </dd>
+                <dt className="text-slate-500">Production impact</dt>
+                <dd>{detail.productionImpact || String(original.productionImpact || "—")}</dd>
               </div>
             </dl>
           </section>
 
+          {detail.status === "NEEDS_INFORMATION" && isOwner ? (
+            <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+              <h2 className="font-semibold text-amber-950">Question from reviewer</h2>
+              <p className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-slate-800">
+                {needsInfoQuestion || "Please provide more information."}
+              </p>
+              <label className="block text-sm font-medium">
+                Your response *
+                <textarea
+                  className="mt-1 min-h-28 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm"
+                  value={requesterResponse}
+                  onChange={(e) => setRequesterResponse(e.target.value)}
+                  placeholder="Answer the reviewer’s question"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={busy || requesterResponse.trim().length < 3}
+                className="min-h-11 w-full rounded-lg bg-brand-600 text-sm text-white disabled:opacity-40"
+                onClick={() =>
+                  void run(
+                    () =>
+                      respondToInformationRequest(id, {
+                        response: requesterResponse.trim()
+                      }),
+                    "Response submitted"
+                  )
+                }
+              >
+                Submit response
+              </button>
+            </section>
+          ) : null}
+
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-2 font-semibold">Timeline</h2>
+            <h2 className="mb-2 font-semibold">Public updates</h2>
+            {detail.publicUpdateNote ? (
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{detail.publicUpdateNote}</p>
+            ) : (
+              <p className="text-sm text-slate-500">No public updates yet.</p>
+            )}
+            {detail.rejectionReason || detail.resolutionCode ? (
+              <p className="mt-3 text-sm text-slate-700">
+                Resolution: {detail.resolutionCode || "Closed"}
+                {detail.rejectionReason ? ` — ${detail.rejectionReason}` : ""}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-2 font-semibold">Lifecycle timeline</h2>
             <ul className="space-y-2 text-sm">
               {publicHistory.map((h) => (
                 <li key={h.id} className="border-l-2 border-slate-200 pl-3">
                   <div className="font-medium">{h.action}</div>
                   <div className="text-xs text-slate-500">
                     {h.fromStatus ? `${h.fromStatus} → ` : ""}
-                    {h.toStatus || ""} · {new Date(h.createdAt).toLocaleString()}
-                    {h.actor?.name ? ` · ${h.actor.name}` : ""}
+                    {h.toStatusLabel || h.toStatus || ""} ·{" "}
+                    {new Date(h.createdAt).toLocaleString()}
+                    {h.actorName || h.actor?.name
+                      ? ` · ${h.actorName || h.actor?.name}`
+                      : ""}
                   </div>
-                  {h.reason ? <div className="text-slate-600">{h.reason}</div> : null}
+                  {h.reason && !h.isInternal ? (
+                    <div className="text-slate-600">{h.reason}</div>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -260,14 +337,20 @@ export default function RequestDetailPage() {
             <p className="text-slate-500">
               {detail.reportedAt ? new Date(detail.reportedAt).toLocaleString() : "—"}
             </p>
-            {detail.failureNoticedAt ? (
-              <p className="mt-2 text-slate-500">
-                Noticed: {new Date(detail.failureNoticedAt).toLocaleString()}
-              </p>
+            {detail.jobDomain ? (
+              <p className="mt-2 text-slate-600">Job domain: {detail.jobDomain}</p>
+            ) : null}
+            {detail.workOrder ? (
+              <Link
+                href={`/work-orders?wo=${detail.workOrder.id}` as Route}
+                className="mt-3 inline-flex text-brand-700"
+              >
+                View work order {detail.workOrder.woNumber}
+              </Link>
             ) : null}
           </section>
 
-          {isOwner(detail) && ["NEW", "UNDER_REVIEW"].includes(detail.status) ? (
+          {isOwner && detail.status === "NEW" ? (
             <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="font-semibold">Cancel my request</h2>
               <input
@@ -289,9 +372,10 @@ export default function RequestDetailPage() {
             </section>
           ) : null}
 
-          {canTriage ? (
+          {canGovern ? (
             <section className="space-y-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4">
-              <h2 className="font-semibold text-brand-950">Supervisor triage</h2>
+              <h2 className="font-semibold text-brand-950">Triage / review</h2>
+
               {detail.status === "NEW" ? (
                 <button
                   type="button"
@@ -306,7 +390,7 @@ export default function RequestDetailPage() {
               {["UNDER_REVIEW", "APPROVED"].includes(detail.status) ? (
                 <>
                   <label className="block text-sm">
-                    Priority
+                    Official priority
                     <select
                       className="mt-1 min-h-11 w-full rounded-lg border px-3"
                       value={priority}
@@ -318,6 +402,14 @@ export default function RequestDetailPage() {
                       <option value="CRITICAL">CRITICAL</option>
                     </select>
                   </label>
+                  {priority !== detail.priority ? (
+                    <input
+                      className="min-h-11 w-full rounded-lg border px-3 text-sm"
+                      placeholder="Reason for priority change"
+                      value={priorityReason}
+                      onChange={(e) => setPriorityReason(e.target.value)}
+                    />
+                  ) : null}
                   <textarea
                     className="min-h-20 w-full rounded-lg border p-2 text-sm"
                     placeholder="Internal triage notes (not shown to requesters)"
@@ -326,14 +418,22 @@ export default function RequestDetailPage() {
                   />
                   <button
                     type="button"
-                    disabled={busy}
-                    className="min-h-11 w-full rounded-lg border bg-white text-sm"
+                    disabled={
+                      busy ||
+                      (priority !== detail.priority && priorityReason.trim().length < 3)
+                    }
+                    className="min-h-11 w-full rounded-lg border bg-white text-sm disabled:opacity-40"
                     onClick={() =>
                       void run(
                         () =>
                           triageRequest(id, {
                             priority,
                             triageNotes,
+                            reason:
+                              priority !== detail.priority
+                                ? priorityReason.trim()
+                                : undefined,
+                            targetUnresolved: false,
                             isEmergency: detail.isEmergency
                           }),
                         "Triage saved"
@@ -349,18 +449,22 @@ export default function RequestDetailPage() {
                 <>
                   <button
                     type="button"
-                    disabled={busy}
-                    className="min-h-11 w-full rounded-lg bg-emerald-600 text-sm text-white"
+                    disabled={busy || Boolean(detail.targetUnresolved)}
+                    className="min-h-11 w-full rounded-lg bg-emerald-600 text-sm text-white disabled:opacity-40"
                     onClick={() => void run(() => approveRequest(id), "Accepted")}
                   >
-                    Accept (approve)
+                    Accept
                   </button>
+                  {detail.targetUnresolved ? (
+                    <p className="text-xs text-amber-800">
+                      Confirm a machine, vehicle, or location in triage before accepting.
+                    </p>
+                  ) : null}
                   <input
                     className="min-h-11 w-full rounded-lg border px-3 text-sm"
-                    placeholder="Question for requester (needs information)"
+                    placeholder="Question for requester"
                     value={infoQuestion}
                     onChange={(e) => setInfoQuestion(e.target.value)}
-                    aria-label="Question for requester"
                   />
                   <button
                     type="button"
@@ -368,24 +472,25 @@ export default function RequestDetailPage() {
                     className="min-h-11 w-full rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-950"
                     onClick={() =>
                       void run(
-                        () => requestMoreInformation(id, { question: infoQuestion.trim() }),
+                        () =>
+                          requestMoreInformation(id, {
+                            question: infoQuestion.trim()
+                          }),
                         "Asked for more information"
                       )
                     }
                   >
-                    Ask for more information
+                    Request information
                   </button>
                   <select
                     className="min-h-11 w-full rounded-lg border px-3 text-sm"
                     value={rejectType}
                     onChange={(e) => setRejectType(e.target.value)}
-                    aria-label="Closure resolution type"
                   >
                     <option value="DUPLICATE">Duplicate</option>
                     <option value="NOT_MAINTENANCE">Not maintenance</option>
                     <option value="INVALID_REQUEST">Invalid request</option>
-                    <option value="ALREADY_RESOLVED">Already resolved</option>
-                    <option value="INSUFFICIENT_INFORMATION">Insufficient information</option>
+                    <option value="ALREADY_RESOLVED">Resolved without WO</option>
                     <option value="OTHER">Other</option>
                   </select>
                   <input
@@ -393,7 +498,6 @@ export default function RequestDetailPage() {
                     placeholder="Closure reason"
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    aria-label="Closure reason"
                   />
                   <button
                     type="button"
@@ -418,27 +522,17 @@ export default function RequestDetailPage() {
               {detail.status === "NEEDS_INFORMATION" ? (
                 <>
                   <p className="text-sm text-slate-700" role="status">
-                    Waiting for requester information. Resume review when ready.
+                    Waiting for the requester’s response. Do not type a reply on their behalf.
                   </p>
-                  <input
-                    className="min-h-11 w-full rounded-lg border px-3 text-sm"
-                    placeholder="Optional note when resuming"
-                    value={resumeNote}
-                    onChange={(e) => setResumeNote(e.target.value)}
-                    aria-label="Resume review note"
-                  />
                   <button
                     type="button"
                     disabled={busy}
-                    className="min-h-11 w-full rounded-lg bg-brand-600 text-sm text-white"
+                    className="min-h-11 w-full rounded-lg border bg-white text-sm"
                     onClick={() =>
-                      void run(
-                        () => resumeRequestReview(id, { responseNote: resumeNote.trim() || undefined }),
-                        "Review resumed"
-                      )
+                      void run(() => resumeRequestReview(id), "Review resumed (internal)")
                     }
                   >
-                    Resume review
+                    Resume review (internal)
                   </button>
                 </>
               ) : null}
@@ -446,8 +540,8 @@ export default function RequestDetailPage() {
               {detail.status === "APPROVED" ? (
                 <button
                   type="button"
-                  disabled={busy}
-                  className="min-h-11 w-full rounded-lg bg-slate-900 text-sm text-white"
+                  disabled={busy || Boolean(detail.targetUnresolved)}
+                  className="min-h-11 w-full rounded-lg bg-slate-900 text-sm text-white disabled:opacity-40"
                   onClick={() =>
                     void run(async () => {
                       const result = await convertRequestToWorkOrder(id);
@@ -465,41 +559,52 @@ export default function RequestDetailPage() {
                 </button>
               ) : null}
 
-              {dupes.length > 0 && detail.status === "UNDER_REVIEW" ? (
+              {dupes.length > 0 ? (
                 <div className="space-y-2 border-t border-brand-100 pt-3">
-                  <p className="text-xs font-medium uppercase text-slate-500">
-                    Possible duplicates (not auto-rejected)
-                  </p>
-                  {dupes.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      className={`block w-full rounded-lg border px-2 py-2 text-left text-xs ${canonicalDupId === d.id ? "border-brand-500 bg-white" : "bg-white"}`}
-                      onClick={() => setCanonicalDupId(d.id)}
-                    >
-                      {d.requestNumber} · {d.statusLabel} · {d.description.slice(0, 60)}
-                    </button>
-                  ))}
+                  <h3 className="text-sm font-semibold">Possible existing issue</h3>
+                  <ul className="space-y-1 text-xs">
+                    {dupes.map((d) => (
+                      <li key={d.id}>
+                        <Link href={`/requests/${d.id}` as Route} className="text-brand-700">
+                          {d.requestNumber}
+                        </Link>{" "}
+                        · {d.statusLabel}
+                      </li>
+                    ))}
+                  </ul>
+                  <input
+                    className="min-h-11 w-full rounded-lg border px-3 text-sm"
+                    placeholder="Canonical request id"
+                    value={canonicalDupId}
+                    onChange={(e) => setCanonicalDupId(e.target.value)}
+                  />
                   <button
                     type="button"
-                    disabled={busy || !canonicalDupId}
-                    className="min-h-11 w-full rounded-lg border text-sm disabled:opacity-40"
+                    disabled={busy || !canonicalDupId.trim()}
+                    className="min-h-11 w-full rounded-lg border text-sm"
                     onClick={() =>
                       void run(
                         () =>
                           markRequestDuplicate(id, {
-                            canonicalRequestId: canonicalDupId,
-                            reason: "Marked duplicate of active request"
+                            canonicalRequestId: canonicalDupId.trim(),
+                            reason: rejectReason.trim() || "Confirmed duplicate"
                           }),
                         "Marked duplicate"
                       )
                     }
                   >
-                    Mark as duplicate of selected
+                    Close as duplicate
                   </button>
                 </div>
               ) : null}
             </section>
+          ) : null}
+
+          {canTriageRole && isOwner ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              Segregation of duties: you reported this request, so review/accept/convert actions are
+              blocked for you.
+            </p>
           ) : null}
         </div>
       </div>

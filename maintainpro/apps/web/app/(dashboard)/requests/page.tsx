@@ -107,8 +107,9 @@ export default function RequestsPage() {
           <option value="">All statuses</option>
           <option value="NEW">New</option>
           <option value="UNDER_REVIEW">Under Review</option>
+          <option value="NEEDS_INFORMATION">Needs Information</option>
           <option value="APPROVED">Accepted</option>
-          <option value="REJECTED">Rejected</option>
+          <option value="CLOSED">Closed</option>
           <option value="CANCELLED">Cancelled</option>
           <option value="CONVERTED_TO_WO">Converted</option>
         </select>
@@ -137,7 +138,12 @@ export default function RequestsPage() {
               <span className="text-xs font-medium uppercase text-slate-500">{item.priority}</span>
             </div>
             <div className="mt-1 text-sm text-slate-700">
-              {item.asset ? `${item.asset.name} (${item.asset.assetTag})` : item.functionalLocation?.name || "Location"}
+              {item.vehicle
+                ? `${item.vehicle.registrationNo} — ${item.vehicle.name}`
+                : item.asset
+                  ? `${item.asset.name} (${item.asset.assetTag})`
+                  : item.functionalLocation?.name ||
+                    (item.targetUnresolved ? "Target unresolved" : "Location")}
             </div>
             <div className="mt-1 text-xs text-slate-500">
               {item.site?.name}
@@ -174,11 +180,18 @@ export default function RequestsPage() {
                   <div className="line-clamp-1 text-xs text-slate-500">{item.description}</div>
                 </td>
                 <td className="px-4 py-3">
-                  {item.asset ? (
+                  {item.vehicle ? (
+                    <div>
+                      {item.vehicle.registrationNo}
+                      <div className="text-xs text-slate-500">{item.vehicle.name}</div>
+                    </div>
+                  ) : item.asset ? (
                     <div>
                       {item.asset.name}
                       <div className="text-xs text-slate-500">{item.asset.assetTag}</div>
                     </div>
+                  ) : item.targetUnresolved ? (
+                    "Target unresolved"
                   ) : (
                     item.functionalLocation?.name || "—"
                   )}

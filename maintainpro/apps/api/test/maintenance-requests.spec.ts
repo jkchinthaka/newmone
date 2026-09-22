@@ -124,6 +124,10 @@ describe("request lifecycle transitions", () => {
 
   it("humanizes status labels", () => {
     expect(humanRequestStatus(MaintenanceRequestStatus.UNDER_REVIEW)).toBe("Under Review");
+    expect(humanRequestStatus(MaintenanceRequestStatus.APPROVED)).toBe("Accepted");
+    expect(humanRequestStatus(MaintenanceRequestStatus.NEEDS_INFORMATION)).toBe(
+      "Needs Information"
+    );
   });
 });
 
@@ -134,7 +138,8 @@ describe("MaintenanceRequestsService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      updateMany: jest.fn()
     },
     maintenanceRequestHistory: { create: jest.fn(), findMany: jest.fn() },
     requestProblemCategory: {
@@ -143,13 +148,20 @@ describe("MaintenanceRequestsService", () => {
       create: jest.fn()
     },
     asset: { findFirst: jest.fn() },
+    vehicle: { findFirst: jest.fn() },
     site: { findFirst: jest.fn() },
     functionalLocation: { findFirst: jest.fn() },
     department: { findFirst: jest.fn() },
     assetDomain: { findFirst: jest.fn() },
     workOrder: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
-    evidenceAttachment: { updateMany: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
-    user: { findMany: jest.fn() }
+    evidenceAttachment: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn()
+    },
+    user: { findMany: jest.fn() },
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma))
   };
 
   const assetRegistry = {
@@ -167,8 +179,13 @@ describe("MaintenanceRequestsService", () => {
     prisma.maintenanceRequest.findMany.mockReset();
     prisma.maintenanceRequest.create.mockReset();
     prisma.maintenanceRequest.update.mockReset();
+    prisma.maintenanceRequest.updateMany.mockReset();
     prisma.asset.findFirst.mockReset();
+    prisma.vehicle.findFirst.mockReset();
     prisma.site.findFirst.mockReset();
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma)
+    );
     assetRegistry.validateSiteAndLocation.mockResolvedValue(undefined);
     assetRegistry.resolveLocationPath.mockResolvedValue({ path: "Site / Line 1" });
     service = new MaintenanceRequestsService(
@@ -199,6 +216,46 @@ describe("MaintenanceRequestsService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("creates not-sure request with site and approximate location", async () => {
+    prisma.site.findFirst.mockResolvedValue({ id: "site-1", code: "S1", name: "Plant" });
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        detailRow({
+          assetId: null,
+          asset: null,
+          functionalLocationId: null,
+          functionalLocation: null,
+          targetUnresolved: true,
+          approximateLocation: "Near packing bay",
+          jobDomain: null
+        })
+      );
+    prisma.maintenanceRequest.create.mockResolvedValue({
+      id: "mr-1",
+      requestNumber: "MR-2026-00001",
+      status: MaintenanceRequestStatus.NEW
+    });
+    prisma.maintenanceRequestHistory.create.mockResolvedValue({});
+
+    const result = await service.create(tenantA, requester, {
+      targetUnresolved: true,
+      siteId: "site-1",
+      approximateLocation: "Near packing bay",
+      description: "Something is leaking but I am not sure what",
+      reportedUrgency: "URGENT",
+      safetyImpact: "NOT_SURE",
+      productionImpact: "REDUCED"
+    } as never);
+
+    const data = prisma.maintenanceRequest.create.mock.calls[0][0].data;
+    expect(data.targetUnresolved).toBe(true);
+    expect(data.jobDomain).toBeNull();
+    expect(data.priority).toBe(Priority.MEDIUM);
+    expect(data.reportedUrgency).toBe("URGENT");
+    expect(result.statusLabel).toBe("New");
+  });
+
   it("creates asset-only request and snapshots context", async () => {
     stubAsset();
     prisma.maintenanceRequest.findFirst
@@ -213,16 +270,76 @@ describe("MaintenanceRequestsService", () => {
 
     const result = await service.create(tenantA, requester, {
       assetId: "asset-1",
-      description: "Abnormal noise from motor"
+      description: "Abnormal noise from motor",
+      reportedUrgency: "NORMAL",
+      safetyImpact: "NO",
+      productionImpact: "NONE"
     } as never);
 
     expect(prisma.maintenanceRequest.create).toHaveBeenCalled();
     const data = prisma.maintenanceRequest.create.mock.calls[0][0].data;
     expect(data.assetId).toBe("asset-1");
-    expect(data.contextSnapshot.assetTag).toBe("VF-01");
-    expect(data.contextSnapshot.locationPath).toBe("Site / Line 1");
+    const snapshot = JSON.parse(data.contextSnapshot);
+    expect(snapshot.assetTag).toBe("VF-01");
+    expect(snapshot.locationPath).toBe("Site / Line 1");
+    expect(data.priority).toBe(Priority.MEDIUM);
     expect(result.requestNumber).toBe("MR-2026-00001");
     expect(result.statusLabel).toBe("New");
+  });
+
+  it("creates vehicle request with VEHICLE job domain", async () => {
+    prisma.vehicle.findFirst.mockResolvedValue({
+      id: "veh-1",
+      assetId: "asset-v1",
+      registrationNo: "WP CA-1234",
+      assetTag: "VEH-017",
+      make: "Isuzu",
+      vehicleModel: "NPR",
+      departmentId: null,
+      tenantId: tenantA
+    });
+    prisma.asset.findFirst.mockResolvedValue({
+      id: "asset-v1",
+      assetTag: "VEH-017",
+      name: "Isuzu NPR",
+      siteId: "site-1",
+      functionalLocationId: null,
+      departmentId: null,
+      domainId: null,
+      tenantId: tenantA,
+      serialNumber: null
+    });
+    prisma.site.findFirst.mockResolvedValue({ id: "site-1", code: "S1", name: "Plant" });
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        detailRow({
+          vehicleId: "veh-1",
+          vehicle: {
+            id: "veh-1",
+            registrationNo: "WP CA-1234",
+            assetTag: "VEH-017",
+            make: "Isuzu",
+            vehicleModel: "NPR"
+          },
+          jobDomain: "VEHICLE"
+        })
+      );
+    prisma.maintenanceRequest.create.mockResolvedValue({
+      id: "mr-v",
+      requestNumber: "MR-2026-00040",
+      status: MaintenanceRequestStatus.NEW
+    });
+    prisma.maintenanceRequestHistory.create.mockResolvedValue({});
+
+    await service.create(tenantA, requester, {
+      vehicleId: "veh-1",
+      description: "Brake warning light on"
+    } as never);
+
+    const data = prisma.maintenanceRequest.create.mock.calls[0][0].data;
+    expect(data.vehicleId).toBe("veh-1");
+    expect(data.jobDomain).toBe("VEHICLE");
   });
 
   it("creates functional-location-only request", async () => {
@@ -330,6 +447,7 @@ describe("MaintenanceRequestsService", () => {
       status: MaintenanceRequestStatus.NEW,
       workOrderId: null,
       assetId: "asset-1",
+      vehicleId: null,
       functionalLocationId: "fl-1",
       siteId: "site-1",
       description: "Leak",
@@ -337,10 +455,14 @@ describe("MaintenanceRequestsService", () => {
       isEmergency: false,
       problemCategoryLabel: "Leak",
       requestNumber: "MR-2026-00020",
-      reportedById: requester.sub
+      reportedById: requester.sub,
+      targetUnresolved: false,
+      jobDomain: "MACHINERY",
+      domainId: null,
+      reportedAt: new Date(),
+      failureNoticedAt: null
     };
 
-    // startReview: requireRequest + findOne
     prisma.maintenanceRequest.findFirst
       .mockResolvedValueOnce(base)
       .mockResolvedValueOnce(
@@ -356,7 +478,6 @@ describe("MaintenanceRequestsService", () => {
     prisma.maintenanceRequestHistory.create.mockResolvedValue({});
     await service.startReview(tenantA, "mr-2", actor);
 
-    // approve
     prisma.maintenanceRequest.findFirst
       .mockResolvedValueOnce({ ...base, status: MaintenanceRequestStatus.UNDER_REVIEW })
       .mockResolvedValueOnce(
@@ -370,7 +491,6 @@ describe("MaintenanceRequestsService", () => {
 
     const wo = { id: "wo-1", woNumber: "WO-2026-0001", tenantId: tenantA };
     workOrders.create.mockResolvedValue(wo);
-    prisma.workOrder.update.mockResolvedValue(wo);
 
     prisma.maintenanceRequest.findFirst
       .mockResolvedValueOnce({ ...base, status: MaintenanceRequestStatus.APPROVED, workOrderId: null })
@@ -382,6 +502,7 @@ describe("MaintenanceRequestsService", () => {
           workOrder: wo
         })
       );
+    prisma.maintenanceRequest.updateMany.mockResolvedValue({ count: 1 });
     prisma.maintenanceRequest.update.mockResolvedValue({
       ...base,
       status: MaintenanceRequestStatus.CONVERTED_TO_WO,
@@ -391,8 +512,13 @@ describe("MaintenanceRequestsService", () => {
     const first = await service.convertToWorkOrder(tenantA, "mr-2", actor, {});
     expect(first.alreadyConverted).toBe(false);
     expect(workOrders.create).toHaveBeenCalledWith(
-      expect.objectContaining({ type: WorkOrderType.CORRECTIVE, assetId: "asset-1" }),
-      expect.anything()
+      expect.objectContaining({
+        type: WorkOrderType.CORRECTIVE,
+        assetId: "asset-1",
+        jobDomain: "MACHINERY"
+      }),
+      expect.anything(),
+      expect.objectContaining({ tx: expect.anything() })
     );
 
     prisma.maintenanceRequest.findFirst
@@ -416,12 +542,286 @@ describe("MaintenanceRequestsService", () => {
     expect(workOrders.create).toHaveBeenCalledTimes(1);
   });
 
+  it("blocks self-review under segregation of duties", async () => {
+    const selfActor = { ...actor, sub: requester.sub };
+    prisma.maintenanceRequest.findFirst.mockResolvedValue({
+      id: "mr-sod",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.NEW,
+      reportedById: requester.sub,
+      requestNumber: "MR-2026-00090"
+    });
+    await expect(service.startReview(tenantA, "mr-sod", selfActor)).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+  });
+
+  it("blocks self-accept and self-convert", async () => {
+    const selfActor = { ...actor, sub: requester.sub };
+    prisma.maintenanceRequest.findFirst.mockResolvedValue({
+      id: "mr-sod2",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.UNDER_REVIEW,
+      reportedById: requester.sub,
+      requestNumber: "MR-2026-00091",
+      targetUnresolved: false,
+      assetId: "asset-1",
+      vehicleId: null,
+      functionalLocationId: "fl-1"
+    });
+    await expect(service.approve(tenantA, "mr-sod2", selfActor)).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+
+    prisma.maintenanceRequest.findFirst.mockResolvedValue({
+      id: "mr-sod3",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.APPROVED,
+      reportedById: requester.sub,
+      workOrderId: null,
+      requestNumber: "MR-2026-00092",
+      targetUnresolved: false,
+      assetId: "asset-1"
+    });
+    await expect(
+      service.convertToWorkOrder(tenantA, "mr-sod3", selfActor, {})
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("requester response returns NEEDS_INFORMATION to UNDER_REVIEW", async () => {
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce({
+        id: "mr-info",
+        tenantId: tenantA,
+        status: MaintenanceRequestStatus.NEEDS_INFORMATION,
+        reportedById: requester.sub,
+        triageOwnerId: actor.sub,
+        requestNumber: "MR-2026-00050",
+        publicUpdateNote: "What noise?"
+      })
+      .mockResolvedValueOnce(
+        detailRow({
+          id: "mr-info",
+          status: MaintenanceRequestStatus.UNDER_REVIEW,
+          publicUpdateNote: "Loud grinding from gearbox"
+        })
+      );
+    prisma.maintenanceRequest.update.mockResolvedValue({
+      id: "mr-info",
+      status: MaintenanceRequestStatus.UNDER_REVIEW
+    });
+    prisma.maintenanceRequestHistory.create.mockResolvedValue({});
+
+    const result = await service.respondToInformationRequest(tenantA, "mr-info", requester, {
+      response: "Loud grinding from gearbox"
+    });
+    expect(prisma.maintenanceRequestHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "REQUESTER_RESPONDED" })
+      })
+    );
+    expect(result.status).toBe(MaintenanceRequestStatus.UNDER_REVIEW);
+  });
+
+  it("blocks supervisor from submitting requester response", async () => {
+    prisma.maintenanceRequest.findFirst.mockResolvedValue({
+      id: "mr-info2",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.NEEDS_INFORMATION,
+      reportedById: requester.sub
+    });
+    await expect(
+      service.respondToInformationRequest(tenantA, "mr-info2", actor, {
+        response: "pretending to be requester"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("blocks conversion when target unresolved", async () => {
+    prisma.maintenanceRequest.findFirst.mockResolvedValue({
+      id: "mr-unresolved",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.APPROVED,
+      workOrderId: null,
+      reportedById: requester.sub,
+      targetUnresolved: true,
+      assetId: null,
+      vehicleId: null,
+      functionalLocationId: null,
+      requestNumber: "MR-2026-00060"
+    });
+    await expect(
+      service.convertToWorkOrder(tenantA, "mr-unresolved", actor, {})
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("concurrent conversions claim once and create a single WO", async () => {
+    const approved = {
+      id: "mr-race-convert",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.APPROVED,
+      workOrderId: null,
+      assetId: "asset-1",
+      vehicleId: null,
+      functionalLocationId: "fl-1",
+      siteId: "site-1",
+      description: "Race",
+      priority: Priority.MEDIUM,
+      isEmergency: false,
+      problemCategoryLabel: "Leak",
+      requestNumber: "MR-2026-00070",
+      reportedById: requester.sub,
+      targetUnresolved: false,
+      jobDomain: "MACHINERY",
+      domainId: null,
+      reportedAt: new Date(),
+      failureNoticedAt: null
+    };
+    const wo = { id: "wo-race", woNumber: "WO-2026-0099", tenantId: tenantA };
+
+    let claimCount = 0;
+    prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => {
+      const tx = {
+        ...prisma,
+        maintenanceRequest: {
+          ...prisma.maintenanceRequest,
+          updateMany: jest.fn(async () => {
+            claimCount += 1;
+            if (claimCount === 1) return { count: 1 };
+            return { count: 0 };
+          }),
+          findFirst: jest.fn(async () => ({
+            ...approved,
+            workOrderId: claimCount > 1 ? wo.id : null,
+            status:
+              claimCount > 1
+                ? MaintenanceRequestStatus.CONVERTED_TO_WO
+                : MaintenanceRequestStatus.APPROVED
+          })),
+          update: jest.fn(async () => ({
+            ...approved,
+            workOrderId: wo.id,
+            status: MaintenanceRequestStatus.CONVERTED_TO_WO
+          }))
+        },
+        workOrder: {
+          findFirst: jest.fn(async () => wo)
+        },
+        maintenanceRequestHistory: {
+          create: jest.fn().mockResolvedValue({})
+        },
+        evidenceAttachment: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 })
+        }
+      };
+      return fn(tx as never);
+    });
+
+    workOrders.create.mockResolvedValue(wo);
+    prisma.maintenanceRequest.findFirst.mockImplementation(async () =>
+      detailRow({
+        ...approved,
+        status: MaintenanceRequestStatus.CONVERTED_TO_WO,
+        workOrderId: wo.id,
+        workOrder: wo,
+        history: []
+      })
+    );
+    // First lookups before txn still need APPROVED without WO — override with sequence then fall back
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce(approved)
+      .mockResolvedValueOnce(approved)
+      .mockImplementation(async () =>
+        detailRow({
+          ...approved,
+          status: MaintenanceRequestStatus.CONVERTED_TO_WO,
+          workOrderId: wo.id,
+          workOrder: wo,
+          history: []
+        })
+      );
+
+    const [a, b] = await Promise.all([
+      service.convertToWorkOrder(tenantA, "mr-race-convert", actor, {}),
+      service.convertToWorkOrder(tenantA, "mr-race-convert", actor, {})
+    ]);
+
+    expect(workOrders.create).toHaveBeenCalledTimes(1);
+    expect(a.workOrder?.id).toBe(wo.id);
+    expect(b.workOrder?.id).toBe(wo.id);
+    const winners = [a, b].filter((r) => !r.alreadyConverted);
+    const losers = [a, b].filter((r) => r.alreadyConverted);
+    expect(winners.length).toBe(1);
+    expect(losers.length).toBe(1);
+  });
+
+  it("vehicle conversion preserves vehicle identity and VEHICLE domain", async () => {
+    const approved = {
+      id: "mr-veh",
+      tenantId: tenantA,
+      status: MaintenanceRequestStatus.APPROVED,
+      workOrderId: null,
+      assetId: "asset-v1",
+      vehicleId: "veh-1",
+      functionalLocationId: null,
+      siteId: "site-1",
+      description: "Brake issue",
+      priority: Priority.HIGH,
+      isEmergency: false,
+      problemCategoryLabel: "Vehicle",
+      requestNumber: "MR-2026-00080",
+      reportedById: requester.sub,
+      targetUnresolved: false,
+      jobDomain: "VEHICLE",
+      domainId: null,
+      reportedAt: new Date(),
+      failureNoticedAt: null
+    };
+    const wo = {
+      id: "wo-veh",
+      woNumber: "WO-2026-0080",
+      tenantId: tenantA,
+      vehicleId: "veh-1",
+      jobDomain: "VEHICLE",
+      status: "OPEN"
+    };
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce(approved)
+      .mockResolvedValueOnce(
+        detailRow({
+          ...approved,
+          status: MaintenanceRequestStatus.CONVERTED_TO_WO,
+          workOrderId: wo.id,
+          workOrder: wo
+        })
+      );
+    prisma.maintenanceRequest.updateMany.mockResolvedValue({ count: 1 });
+    prisma.maintenanceRequest.update.mockResolvedValue({
+      ...approved,
+      workOrderId: wo.id,
+      status: MaintenanceRequestStatus.CONVERTED_TO_WO
+    });
+    workOrders.create.mockResolvedValue(wo);
+
+    const result = await service.convertToWorkOrder(tenantA, "mr-veh", actor, {});
+    expect(result.alreadyConverted).toBe(false);
+    expect(workOrders.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vehicleId: "veh-1",
+        jobDomain: "VEHICLE"
+      }),
+      expect.anything(),
+      expect.objectContaining({ tx: expect.anything() })
+    );
+  });
+
   it("blocks conversion when not approved", async () => {
     prisma.maintenanceRequest.findFirst.mockResolvedValue({
       id: "mr-3",
       tenantId: tenantA,
       status: MaintenanceRequestStatus.UNDER_REVIEW,
-      workOrderId: null
+      workOrderId: null,
+      reportedById: requester.sub
     });
     await expect(service.convertToWorkOrder(tenantA, "mr-3", actor, {})).rejects.toBeInstanceOf(
       BadRequestException

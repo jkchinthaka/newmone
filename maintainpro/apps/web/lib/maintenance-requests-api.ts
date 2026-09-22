@@ -11,6 +11,9 @@ export type MaintenanceRequestStatus =
   | "CONVERTED_TO_WO";
 
 export type RequestPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type ReportedUrgency = "NORMAL" | "URGENT" | "VERY_URGENT";
+export type SafetyImpact = "NO" | "YES" | "NOT_SURE";
+export type ProductionImpact = "NONE" | "REDUCED" | "STOPPED" | "NOT_SURE";
 
 export type MaintenanceRequestListItem = {
   id: string;
@@ -21,12 +24,24 @@ export type MaintenanceRequestListItem = {
   description: string;
   affectsOperation: boolean;
   isEmergency: boolean;
+  reportedUrgency?: string | null;
+  safetyImpact?: string | null;
+  productionImpact?: string | null;
+  targetUnresolved?: boolean;
+  approximateLocation?: string | null;
+  jobDomain?: string | null;
   reportedAt: string;
   createdAt: string;
   publicUpdateNote?: string | null;
   workOrderId?: string | null;
   resolutionCode?: string | null;
   asset?: { id: string; assetTag: string; name: string } | null;
+  vehicle?: {
+    id: string;
+    registrationNo: string;
+    code?: string | null;
+    name: string;
+  } | null;
   site?: { id: string; code: string; name: string } | null;
   functionalLocation?: { id: string; code: string; name: string } | null;
   domain?: { id: string; code: string; name: string } | null;
@@ -91,7 +106,15 @@ export async function requestMoreInformation(
   return unwrap(res.data);
 }
 
-export async function resumeRequestReview(id: string, body?: { responseNote?: string }) {
+export async function respondToInformationRequest(
+  id: string,
+  body: { response: string; evidenceIds?: string[] }
+) {
+  const res = await apiClient.post(`/maintenance-requests/${id}/respond`, body);
+  return unwrap(res.data);
+}
+
+export async function resumeRequestReview(id: string, body?: { note?: string }) {
   const res = await apiClient.post(`/maintenance-requests/${id}/resume-review`, body ?? {});
   return unwrap(res.data);
 }

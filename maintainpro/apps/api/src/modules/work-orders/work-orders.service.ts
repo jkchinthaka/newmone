@@ -169,10 +169,11 @@ export class WorkOrdersService {
       actorId?: string;
       reason?: string | null;
       metadata?: Record<string, unknown>;
-    }
+    },
+    db: Prisma.TransactionClient | PrismaService = this.prisma
   ) {
     try {
-      await this.prisma.workOrderStatusHistory.create({
+      await db.workOrderStatusHistory.create({
         data: {
           tenantId: requireTenantId(tenantId),
           workOrderId,
@@ -397,11 +398,14 @@ export class WorkOrdersService {
     return created;
   }
 
-  private async nextWoNumber(actor?: Actor): Promise<string> {
+  private async nextWoNumber(
+    actor?: Actor,
+    db: Prisma.TransactionClient | PrismaService = this.prisma
+  ): Promise<string> {
     const year = new Date().getFullYear();
     const tenantId = this.resolveTenantId(actor);
     const prefix = `WO-${year}-`;
-    const latest = await this.prisma.workOrder.findFirst({
+    const latest = await db.workOrder.findFirst({
       where: {
         tenantId,
         woNumber: { startsWith: prefix }
@@ -419,13 +423,14 @@ export class WorkOrdersService {
 
   private async createWithNumberRetry(
     data: Omit<Prisma.WorkOrderUncheckedCreateInput, "woNumber">,
-    actor?: Actor
+    actor?: Actor,
+    db: Prisma.TransactionClient | PrismaService = this.prisma
   ) {
     let lastError: unknown;
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      const woNumber = await this.nextWoNumber(actor);
+      const woNumber = await this.nextWoNumber(actor, db);
       try {
-        return await this.prisma.workOrder.create({
+        return await db.workOrder.create({
           data: { ...data, woNumber }
         });
       } catch (error) {
@@ -549,8 +554,10 @@ export class WorkOrdersService {
       /** Apply versioned MaintenanceTemplate — snapshot frozen on the WO */
       maintenanceTemplateId?: string;
     },
-    actor?: Actor
+    actor?: Actor,
+    options?: { tx?: Prisma.TransactionClient }
   ) {
+    const db = options?.tx ?? this.prisma;
     if (!data.title?.trim()) {
       throw new BadRequestException("Title is required");
     }
@@ -779,27 +786,34 @@ export class WorkOrdersService {
           lotoRequired: templateFields.lotoRequired ?? false,
           underWarranty
         },
-        actor
+        actor,
+        db
       );
 
-      await this.appendStatusHistory(tenantId, created.id, {
-        fromStatus: null,
-        toStatus: created.status,
-        action: "CREATED",
-        actorId: actorId,
-        metadata: { woNumber: created.woNumber }
-      });
+      await this.appendStatusHistory(
+        tenantId,
+        created.id,
+        {
+          fromStatus: null,
+          toStatus: created.status,
+          action: "CREATED",
+          actorId: actorId,
+          metadata: { woNumber: created.woNumber }
+        },
+        db
+      );
 
-      await this.recordAudit({
-        entity: "WorkOrder",
-        entityId: created.id,
-        action: AuditAction.CREATE,
-        actor,
-        reason: "Work order created",
-        metadata: {
-          event: "work_order_created",
-          woNumber: created.woNumber,
-          approvalStatus: created.approvalStatus,
+      if (!options?.tx) {
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: created.id,
+          action: AuditAction.CREATE,
+          actor,
+          reason: "Work order created",
+          metadata: {
+            event: "work_order_created",
+            woNumber: created.woNumber,
+            approvalStatus: created.approvalStatus,
           priority: created.priority,
           type: created.type,
           createdById: authoritativeCreatorId,
@@ -811,6 +825,7 @@ export class WorkOrdersService {
           title: created.title
         }
       });
+      }
 
       return this.syncCreateTimeApprovals(created, actor);
     } catch (error) {
