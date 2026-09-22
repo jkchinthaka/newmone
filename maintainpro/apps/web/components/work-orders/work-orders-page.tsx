@@ -195,7 +195,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
   }, [deepLinkId, deepLinkQuery.isError]);
 
   const handleStatusChange = async (workOrder: WorkOrder, status: WorkOrderStatus) => {
-    if (status === "COMPLETED") {
+    if (status === "COMPLETED" || status === "TECHNICIAN_COMPLETED") {
       setCompletionTarget(workOrder);
       return;
     }
@@ -555,7 +555,10 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
             .mutateAsync({
               id: completionTarget.id,
               payload: {
-                status: "COMPLETED",
+                // Technician completion → supervisor verification. Backend remaps
+                // COMPLETED→TECHNICIAN_COMPLETED for tech roles; always send the
+                // canonical tech-complete status so supervisors aren't stuck.
+                status: "TECHNICIAN_COMPLETED",
                 actualCost: payload.actualCost,
                 actualHours: payload.actualHours,
                 delayReason: payload.delayReason,

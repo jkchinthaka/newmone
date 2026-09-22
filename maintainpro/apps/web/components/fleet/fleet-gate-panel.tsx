@@ -37,9 +37,15 @@ export function FleetGatePanel() {
   const vehiclesQuery = useQuery({
     queryKey: withTenantScope(["fleet-gate", "vehicles"]),
     queryFn: async () => {
-      const response = await apiClient.get<{ data: VehicleRow[] }>("/vehicles", { params: { limit: 100 } });
-      const rows = response.data?.data;
-      return Array.isArray(rows) ? rows : [];
+      const response = await apiClient.get<{
+        data: VehicleRow[] | { items?: VehicleRow[]; pagination?: unknown };
+      }>("/vehicles", { params: { pageSize: 100 } });
+      const payload = response.data?.data;
+      if (Array.isArray(payload)) return payload;
+      if (payload && typeof payload === "object" && Array.isArray(payload.items)) {
+        return payload.items;
+      }
+      return [];
     },
     staleTime: 5_000,
     refetchOnWindowFocus: true,

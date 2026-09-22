@@ -107,7 +107,7 @@ export default function RequestsPage() {
           <option value="">All statuses</option>
           <option value="NEW">New</option>
           <option value="UNDER_REVIEW">Under Review</option>
-          <option value="APPROVED">Approved</option>
+          <option value="APPROVED">Accepted</option>
           <option value="REJECTED">Rejected</option>
           <option value="CANCELLED">Cancelled</option>
           <option value="CONVERTED_TO_WO">Converted</option>

@@ -141,7 +141,9 @@ export async function listLocations(params: {
   q?: string;
   includeInactive?: boolean;
   page?: number;
+  /** @deprecated Prefer pageSize — locations API uses pageSize, not limit. */
   limit?: number;
+  pageSize?: number;
 } = {}): Promise<OrgLocation[]> {
   const response = await apiClient.get<ApiEnvelope<OrgLocation[]>>("/organization/locations", {
     params: {
@@ -150,7 +152,7 @@ export async function listLocations(params: {
       q: params.q?.trim() || undefined,
       includeInactive: params.includeInactive ? "true" : undefined,
       page: params.page,
-      limit: params.limit ?? 200
+      pageSize: params.pageSize ?? params.limit ?? 200
     }
   });
   return response.data.data ?? [];
