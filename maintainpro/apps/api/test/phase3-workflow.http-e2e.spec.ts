@@ -26,6 +26,7 @@ import { WorkOrderHistoryService } from "../src/modules/work-orders/work-order-h
 import { WorkOrderGovernanceService } from "../src/modules/work-orders/work-order-governance.service";
 import { WorkOrderPartsService } from "../src/modules/work-orders/work-order-parts.service";
 import { WorkOrderQueuesService } from "../src/modules/work-orders/work-order-queues.service";
+import { WorkOrderDomainService } from "../src/modules/work-orders/work-order-domain.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { VendorRepairService } from "../src/modules/work-orders/vendor-repair.service";
 
@@ -162,6 +163,11 @@ const workOrderQueuesService = {
   search: jest.fn()
 };
 
+const workOrderDomainService = {
+  updateDomainFields: jest.fn(),
+  assertDomainCloseout: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -179,6 +185,7 @@ const prisma = {
     { provide: WorkOrderPartsService, useValue: workOrderPartsService },
     { provide: VendorRepairService, useValue: vendorRepairService },
     { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
+    { provide: WorkOrderDomainService, useValue: workOrderDomainService },
     { provide: WorkOrderTaxonomyService, useValue: createWorkOrderTaxonomyServiceMock() },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: InventoryExcelImportService, useValue: excelImportService },
