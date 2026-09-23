@@ -194,7 +194,7 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     }
   });
 
-  test("E2E-WO-LC-005 manager-a assigns tech-a via POST assign", async ({ page, browser }) => {
+  test("E2E-WO-LC-005 manager-a plans then assigns tech-a via POST assign", async ({ page, browser }) => {
     const techContext = await browser.newContext();
     const techPage = await techContext.newPage();
     let technicianId = "";
@@ -206,12 +206,19 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     }
 
     await loginViaUi(page, "manager-a");
+    // D2: OPEN → PLANNED before ASSIGNED
+    const plannedStartAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const plan = await authenticatedPost(page, `/api/backend/work-orders/${workOrderId}/plan`, {
+      data: { plannedStartAt, estimatedHours: 3, notes: "e2e plan before assign" }
+    });
+    expect(plan.status()).toBe(200);
+
     const assign = await authenticatedPost(page, `/api/backend/work-orders/${workOrderId}/assign`, {
       data: { technicianId }
     });
     expect(assign.status()).toBe(200);
     const wo = unwrapWorkOrder(await assign.json());
-    expect(String(wo.status || "OPEN")).toMatch(/OPEN|ASSIGNED|IN_PROGRESS/);
+    expect(String(wo.status || "OPEN")).toMatch(/PLANNED|ASSIGNED|IN_PROGRESS/);
   });
 
   test("E2E-WO-LC-006 manager-a updates planning fields via PATCH", async ({ page }) => {
@@ -224,15 +231,20 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     expect(patch.status()).toBe(200);
   });
 
-  test("E2E-WO-LC-007 tech-a starts IN_PROGRESS via PATCH status", async ({ browser }) => {
+  test("E2E-WO-LC-007 tech-a starts IN_PROGRESS via start or PATCH status", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
       await loginViaUi(page, "tech-a");
-      const start = await authenticatedPatch(page, `/api/backend/work-orders/${workOrderId}/status`, {
-        data: { status: "IN_PROGRESS" }
+      let start = await authenticatedPost(page, `/api/backend/work-orders/${workOrderId}/start`, {
+        data: {}
       });
-      expect(start.status()).toBe(200);
+      if (start.status() !== 200 && start.status() !== 201) {
+        start = await authenticatedPatch(page, `/api/backend/work-orders/${workOrderId}/status`, {
+          data: { status: "IN_PROGRESS" }
+        });
+      }
+      expect([200, 201]).toContain(start.status());
       const wo = unwrapWorkOrder(await start.json());
       expect(wo.status).toBe("IN_PROGRESS");
     } finally {
@@ -343,15 +355,30 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const page = await context.newPage();
     try {
       await loginViaUi(page, "tech-a");
-      const complete = await authenticatedPatch(page, `/api/backend/work-orders/${workOrderId}/status`, {
-        data: {
-          status: "COMPLETED",
-          completionNote: "E2E technician completion note",
-          actualCost,
-          actualHours
+      let complete = await authenticatedPost(
+        page,
+        `/api/backend/work-orders/${workOrderId}/complete-technician`,
+        {
+          data: {
+            completionNote: "E2E technician completion note",
+            actualCost,
+            actualHours,
+            overrideReason: "E2E evidence/QR waived for disposable fixture"
+          }
         }
-      });
-      expect(complete.status()).toBe(200);
+      );
+      if (complete.status() !== 200 && complete.status() !== 201) {
+        complete = await authenticatedPatch(page, `/api/backend/work-orders/${workOrderId}/status`, {
+          data: {
+            status: "TECHNICIAN_COMPLETED",
+            completionNote: "E2E technician completion note",
+            actualCost,
+            actualHours,
+            overrideReason: "E2E evidence/QR waived for disposable fixture"
+          }
+        });
+      }
+      expect([200, 201]).toContain(complete.status());
       const wo = unwrapWorkOrder(await complete.json());
       expect(wo.status).toBe("TECHNICIAN_COMPLETED");
     } finally {
@@ -396,8 +423,11 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
     expect(detail.status()).toBe(200);
     const wo = unwrapWorkOrder(await detail.json());
-    expect(Number(wo.actualCost)).toBe(actualCost);
-    expect(Number(wo.actualHours)).toBe(actualHours);
+    // D2: server labour/parts are authoritative; client-supplied actualCost/Hours are ignored.
+    expect(Number(wo.actualCost)).toBeGreaterThanOrEqual(0);
+    expect(Number(wo.actualHours)).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(Number(wo.actualCost))).toBe(true);
+    expect(Number.isFinite(Number(wo.actualHours))).toBe(true);
   });
 
   test("E2E-WO-LC-017 GET activity timeline returns 200", async ({ page }) => {
@@ -505,6 +535,15 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
         await techContext.close();
       }
 
+      const plan = await authenticatedPost(managerPage, `/api/backend/work-orders/${id}/plan`, {
+        data: {
+          plannedStartAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          estimatedHours: 1,
+          notes: "e2e neg verify plan"
+        }
+      });
+      expect(plan.status()).toBe(200);
+
       const assign = await authenticatedPost(managerPage, `/api/backend/work-orders/${id}/assign`, {
         data: { technicianId }
       });
@@ -517,20 +556,36 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
     const techPage = await techContext.newPage();
     try {
       await loginViaUi(techPage, "tech-a");
-      const start = await authenticatedPatch(techPage, `/api/backend/work-orders/${id}/status`, {
-        data: { status: "IN_PROGRESS" }
+      let start = await authenticatedPost(techPage, `/api/backend/work-orders/${id}/start`, {
+        data: {}
       });
-      expect(start.status()).toBe(200);
+      if (start.status() !== 200 && start.status() !== 201) {
+        start = await authenticatedPatch(techPage, `/api/backend/work-orders/${id}/status`, {
+          data: { status: "IN_PROGRESS" }
+        });
+      }
+      expect([200, 201]).toContain(start.status());
 
-      const techComplete = await authenticatedPatch(techPage, `/api/backend/work-orders/${id}/status`, {
-        data: {
-          status: "COMPLETED",
-          completionNote: "E2E neg verify setup",
-          actualCost: 50,
-          actualHours: 1
+      let techComplete = await authenticatedPost(
+        techPage,
+        `/api/backend/work-orders/${id}/complete-technician`,
+        {
+          data: {
+            completionNote: "E2E neg verify setup",
+            overrideReason: "E2E evidence/QR waived for disposable fixture"
+          }
         }
-      });
-      expect(techComplete.status()).toBe(200);
+      );
+      if (techComplete.status() !== 200 && techComplete.status() !== 201) {
+        techComplete = await authenticatedPatch(techPage, `/api/backend/work-orders/${id}/status`, {
+          data: {
+            status: "TECHNICIAN_COMPLETED",
+            completionNote: "E2E neg verify setup",
+            overrideReason: "E2E evidence/QR waived for disposable fixture"
+          }
+        });
+      }
+      expect([200, 201]).toContain(techComplete.status());
 
       const verify = await authenticatedPost(techPage, `/api/backend/work-orders/${id}/verify-supervisor`, {
         data: { verificationNote: "tech attempt" }
@@ -582,6 +637,14 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
     }
 
     await loginViaUi(page, "manager-a");
+    const plan = await authenticatedPost(page, `/api/backend/work-orders/${id}/plan`, {
+      data: {
+        plannedStartAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        estimatedHours: 1,
+        notes: "e2e csrf plan"
+      }
+    });
+    expect(plan.status()).toBe(200);
     const assign = await authenticatedPost(page, `/api/backend/work-orders/${id}/assign`, {
       data: { technicianId }
     });

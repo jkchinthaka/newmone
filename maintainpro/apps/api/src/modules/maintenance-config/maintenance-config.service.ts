@@ -2,6 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { ApprovalRequestStatus, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { JOB_DOMAINS, parseJobDomain, type JobDomain } from "../../common/utils/job-domain.util";
+import {
+  buildAttentionQueues,
+  DASHBOARD_OPEN_STATUSES
+} from "../../common/utils/maintenance-dashboard.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -15,16 +19,7 @@ import {
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role">;
 
-const OPEN_STATUSES: WorkOrderStatus[] = [
-  WorkOrderStatus.OPEN,
-  WorkOrderStatus.PLANNED,
-  WorkOrderStatus.ASSIGNED,
-  WorkOrderStatus.IN_PROGRESS,
-  WorkOrderStatus.ON_HOLD,
-  WorkOrderStatus.TECHNICIAN_COMPLETED,
-  WorkOrderStatus.REWORK_REQUIRED,
-  WorkOrderStatus.OVERDUE
-];
+const OPEN_STATUSES = DASHBOARD_OPEN_STATUSES;
 
 const DEFAULT_CATEGORIES: Array<{
   jobDomain: JobDomain;
@@ -96,9 +91,30 @@ const DEFAULT_PRIORITY_SLA: Array<{
 export class MaintenanceConfigService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * D6 Maintenance Dashboard aggregates — server-side counts only.
+   * Read/decision-support; does not mutate Work Order state.
+   */
   async opsOverview(actor: Actor) {
     const tenantId = requireTenantId(actor.tenantId);
     const now = new Date();
+    const role = String(actor.role ?? "").toUpperCase();
+    const canViewInventory = [
+      "SUPER_ADMIN",
+      "ADMIN",
+      "MANAGER",
+      "OPERATIONS_MANAGER",
+      "INVENTORY_KEEPER",
+      "ASSET_MANAGER"
+    ].includes(role);
+    const canViewApprovals = [
+      "SUPER_ADMIN",
+      "ADMIN",
+      "MANAGER",
+      "OPERATIONS_MANAGER",
+      "SUPERVISOR",
+      "MAINTENANCE_SUPERVISOR"
+    ].includes(role);
 
     const [
       openJobs,
@@ -111,8 +127,13 @@ export class MaintenanceConfigService {
       externalJobs,
       pendingApprovals,
       pmDueSoon,
-      _lowStockPlaceholder,
-      requestsOpen
+      requestsOpen,
+      unplannedJobs,
+      unassignedJobs,
+      inProgressJobs,
+      onHoldJobs,
+      verificationRequired,
+      reworkRequired
     ] = await Promise.all([
       this.prisma.workOrder.count({ where: { tenantId, status: { in: OPEN_STATUSES } } }),
       this.prisma.workOrder.count({
@@ -151,9 +172,11 @@ export class MaintenanceConfigService {
           OR: [{ executionMode: "EXTERNAL" }, { vendorSupplierId: { not: null } }]
         }
       }),
-      this.prisma.approvalRequest.count({
-        where: { tenantId, status: ApprovalRequestStatus.PENDING }
-      }),
+      canViewApprovals
+        ? this.prisma.approvalRequest.count({
+            where: { tenantId, status: ApprovalRequestStatus.PENDING }
+          })
+        : Promise.resolve(null as number | null),
       this.prisma.pmPlan
         .count({
           where: {
@@ -162,25 +185,61 @@ export class MaintenanceConfigService {
           }
         })
         .catch(() => 0),
-      Promise.resolve(0),
       this.prisma.maintenanceRequest.count({
         where: {
           tenantId,
           status: { in: ["NEW", "UNDER_REVIEW", "APPROVED"] }
         }
+      }),
+      // Unplanned = OPEN with no plan linkage (plannedAt null / status still OPEN intake)
+      this.prisma.workOrder.count({
+        where: { tenantId, status: WorkOrderStatus.OPEN }
+      }),
+      this.prisma.workOrder.count({
+        where: {
+          tenantId,
+          status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED] },
+          technicianId: null
+        }
+      }),
+      this.prisma.workOrder.count({
+        where: { tenantId, status: WorkOrderStatus.IN_PROGRESS }
+      }),
+      this.prisma.workOrder.count({
+        where: { tenantId, status: WorkOrderStatus.ON_HOLD }
+      }),
+      this.prisma.workOrder.count({
+        where: { tenantId, status: WorkOrderStatus.TECHNICIAN_COMPLETED }
+      }),
+      this.prisma.workOrder.count({
+        where: { tenantId, status: WorkOrderStatus.REWORK_REQUIRED }
       })
     ]);
 
-    void _lowStockPlaceholder;
-    const parts = await this.prisma.sparePart.findMany({
-      where: { tenantId, isActive: true },
-      select: { id: true, quantityInStock: true, minimumStock: true, reorderPoint: true },
-      take: 500
+    let lowStock: number | null = null;
+    if (canViewInventory) {
+      const parts = await this.prisma.sparePart.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true, quantityInStock: true, minimumStock: true, reorderPoint: true },
+        take: 500
+      });
+      lowStock = parts.filter((p) => {
+        const min = p.reorderPoint ?? p.minimumStock ?? 0;
+        return (p.quantityInStock ?? 0) <= min;
+      }).length;
+    }
+
+    const attentionQueues = buildAttentionQueues({
+      overdue: overdueJobs,
+      unplanned: unplannedJobs,
+      unassigned: unassignedJobs,
+      inProgress: inProgressJobs,
+      onHold: onHoldJobs,
+      verificationRequired,
+      reworkRequired,
+      critical: criticalJobs,
+      requestsOpen
     });
-    const lowStockCount = parts.filter((p) => {
-      const min = p.reorderPoint ?? p.minimumStock ?? 0;
-      return (p.quantityInStock ?? 0) <= min;
-    }).length;
 
     return {
       openJobs,
@@ -193,8 +252,29 @@ export class MaintenanceConfigService {
       externalJobs,
       pendingApprovals,
       pmDueSoon,
-      lowStock: lowStockCount,
+      lowStock,
       requestsOpen,
+      unplannedJobs,
+      unassignedJobs,
+      inProgressJobs,
+      onHoldJobs,
+      verificationRequired,
+      reworkRequired,
+      attentionQueues,
+      availability: {
+        inventory: canViewInventory,
+        approvals: canViewApprovals,
+        mttr: false,
+        mtbf: false,
+        erpExceptions: false,
+        gateBlocks: false
+      },
+      notAvailable: {
+        mttr: "Not Configured",
+        mtbf: "Not Configured",
+        erpExceptions: "Not Available",
+        gateBlocks: "Not Available"
+      },
       generatedAt: now.toISOString()
     };
   }

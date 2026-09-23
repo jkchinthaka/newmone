@@ -72,10 +72,19 @@ describe("central operational policies", () => {
   });
 
   it("enforces work order start/complete/reopen rules", () => {
+    // D2: OPEN cannot jump straight to IN_PROGRESS — invalid transition wins first.
     expect(
       canWorkOrderStart({
         tenantId: "t1",
         fromStatus: WorkOrderStatus.OPEN,
+        assigned: false,
+        approvalStatus: WorkOrderApprovalStatus.APPROVED
+      }).code
+    ).toBe("WO_INVALID_TRANSITION");
+    expect(
+      canWorkOrderStart({
+        tenantId: "t1",
+        fromStatus: WorkOrderStatus.ASSIGNED,
         assigned: false,
         approvalStatus: WorkOrderApprovalStatus.APPROVED
       }).code
