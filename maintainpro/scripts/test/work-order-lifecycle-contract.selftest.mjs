@@ -76,7 +76,12 @@ check(
 
 check(
   "WO-LC-CONTRACT-008",
-  /Storage disabled: photo evidence is waived/.test(evidenceGov),
+  /Fail closed in production: required evidence cannot be waived when storage is unavailable/.test(
+    evidenceGov
+  ) &&
+    /Non-production may proceed with completion note only when storage is explicitly disabled/.test(
+      evidenceGov
+    ),
   "Storage-disabled evidence waiver documented in governance"
 );
 
