@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle2, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { getValidWorkOrderActions } from "@/lib/work-order-actions";
 
 import {
   formatDate,
@@ -10,11 +11,11 @@ import {
   getPriorityClass,
   getStatusClass,
   getTechnicianName,
+  humanWorkOrderStatusLabel,
   isWorkOrderOverdue,
   toTitleCase
 } from "./helpers";
 import {
-  WORK_ORDER_STATUSES,
   type SortDirection,
   type TechnicianOption,
   type WorkOrder,
@@ -90,26 +91,50 @@ export function WorkOrderTable({
       header: "Status",
       mobileLabel: "Status",
       sortable: true,
-      cell: (workOrder) => (
-        <select
-          value={workOrder.status}
-          onChange={(event) => {
-            const nextStatus = event.target.value as WorkOrderStatus;
-            if (nextStatus === "COMPLETED") {
-              onComplete(workOrder);
-              return;
-            }
-            onStatusChange(workOrder, nextStatus);
-          }}
-          className={`rounded-md border border-slate-300 px-2 py-1 text-xs ring-1 ${getStatusClass(workOrder.status)}`}
-        >
-          {WORK_ORDER_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {toTitleCase(status)}
-            </option>
-          ))}
-        </select>
-      )
+      cell: (workOrder) => {
+        const actions = getValidWorkOrderActions(workOrder.status).filter((descriptor) =>
+          new Set(["PLAN", "ASSIGN", "START", "HOLD", "RESUME", "COMPLETE", "VERIFY", "CLOSE"]).has(
+            descriptor.action
+          )
+        );
+
+        return (
+          <div className="space-y-2">
+            <span
+              className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ring-1 ${getStatusClass(workOrder.status)}`}
+            >
+              {humanWorkOrderStatusLabel(workOrder.status)}
+            </span>
+
+            {actions.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {actions.map((descriptor) => (
+                  <button
+                    key={`${workOrder.id}-${descriptor.action}`}
+                    type="button"
+                    onClick={() => {
+                      if (descriptor.action === "COMPLETE") {
+                        onComplete(workOrder);
+                        return;
+                      }
+
+                      if (descriptor.action === "PLAN" && descriptor.targetStatus === workOrder.status) {
+                        onEdit(workOrder);
+                        return;
+                      }
+
+                      onStatusChange(workOrder, descriptor.targetStatus);
+                    }}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    {descriptor.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
+      }
     },
     {
       id: "priority",
@@ -193,21 +218,15 @@ export function WorkOrderTable({
           >
             <Pencil size={12} /> Edit
           </button>
-          <button
-            type="button"
-            onClick={() => onComplete(workOrder)}
-            disabled={workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED"}
-            className="inline-flex min-h-11 items-center gap-1 rounded-md border border-emerald-300 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-          >
-            <CheckCircle2 size={12} /> Complete
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(workOrder)}
-            className="inline-flex min-h-11 items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-          >
-            <Trash2 size={12} /> Cancel
-          </button>
+          {getValidWorkOrderActions(workOrder.status).some((descriptor) => descriptor.action === "CANCEL") ? (
+            <button
+              type="button"
+              onClick={() => onDelete(workOrder)}
+              className="inline-flex min-h-11 items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+            >
+              <Trash2 size={12} /> Cancel
+            </button>
+          ) : null}
         </div>
       )}
       renderLeadingCell={(workOrder) => (

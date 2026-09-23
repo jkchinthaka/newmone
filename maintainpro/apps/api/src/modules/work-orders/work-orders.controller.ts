@@ -484,6 +484,31 @@ export class WorkOrdersController {
     return { data, message: "Work order updated" };
   }
 
+  @Post(":id/plan")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order planned" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("work_orders.plan")
+  async planWork(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      plannedStartAt: string;
+      dueDate?: string;
+      expectedCompletionDate?: string;
+      estimatedHours?: number;
+      estimatedDurationMinutes?: number;
+      notes?: string;
+      delayReason?: string;
+      vendorSupplierId?: string;
+      expectedVersion?: number;
+    }
+  ) {
+    const data = await this.workOrdersService.planWork(id, body, req.user);
+    return { data, message: "Work order planned" };
+  }
+
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN")
   @Permissions("work_orders.manage")
@@ -540,9 +565,16 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Technician assigned" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
-  async assign(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { technicianId: string }) {
-    const data = await this.workOrdersService.assign(id, body.technicianId, req.user);
+  @Permissions("work_orders.assign")
+  async assign(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { technicianId: string; reason?: string; expectedVersion?: number }
+  ) {
+    const data = await this.workOrdersService.assign(id, body.technicianId, req.user, {
+      reason: body.reason,
+      expectedVersion: body.expectedVersion
+    });
     return { data, message: "Work order assigned" };
   }
 
@@ -594,6 +626,9 @@ export class WorkOrdersController {
       actualCost?: number;
       actualHours?: number;
       delayReason?: string;
+      notes?: string;
+      holdReasonCode?: string;
+      expectedResumeAt?: string;
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
@@ -601,10 +636,127 @@ export class WorkOrdersController {
       followUpRequired?: boolean;
       followUpNote?: string;
       overrideReason?: string;
+      expectedVersion?: number;
+      idempotencyKey?: string;
+      failureCode?: string;
+      causeCode?: string;
+      remedyCode?: string;
     }
   ) {
     const data = await this.workOrdersService.updateStatus(id, body as Parameters<WorkOrdersService["updateStatus"]>[1], req.user);
     return { data, message: "Work order status updated" };
+  }
+
+  @Post(":id/start")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order started" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.start")
+  async startWorkOrder(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { expectedVersion?: number; idempotencyKey?: string }
+  ) {
+    const data = await this.workOrdersService.updateStatus(
+      id,
+      { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: body.expectedVersion, idempotencyKey: body.idempotencyKey },
+      req.user
+    );
+    return { data, message: "Work order started" };
+  }
+
+  @Post(":id/hold")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order placed on hold" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.hold")
+  async holdWorkOrder(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      holdReasonCode: string;
+      delayReason?: string;
+      notes?: string;
+      expectedResumeAt?: string;
+      expectedVersion?: number;
+      idempotencyKey?: string;
+    }
+  ) {
+    const data = await this.workOrdersService.updateStatus(
+      id,
+      {
+        status: WorkOrderStatus.ON_HOLD,
+        holdReasonCode: body.holdReasonCode,
+        delayReason: body.delayReason,
+        notes: body.notes,
+        expectedResumeAt: body.expectedResumeAt,
+        expectedVersion: body.expectedVersion,
+        idempotencyKey: body.idempotencyKey
+      },
+      req.user
+    );
+    return { data, message: "Work order placed on hold" };
+  }
+
+  @Post(":id/resume")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Work order resumed" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.resume")
+  async resumeWorkOrder(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { expectedVersion?: number; idempotencyKey?: string }
+  ) {
+    const data = await this.workOrdersService.updateStatus(
+      id,
+      { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: body.expectedVersion, idempotencyKey: body.idempotencyKey },
+      req.user
+    );
+    return { data, message: "Work order resumed" };
+  }
+
+  @Post(":id/complete-technician")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Technician completion submitted" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.complete")
+  async completeTechnician(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      completionNote: string;
+      failureCode?: string;
+      causeCode?: string;
+      remedyCode?: string;
+      completionCondition?: string;
+      followUpRequired?: boolean;
+      followUpNote?: string;
+      overrideReason?: string;
+      expectedVersion?: number;
+      idempotencyKey?: string;
+    }
+  ) {
+    const data = await this.workOrdersService.updateStatus(
+      id,
+      {
+        status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+        completionNote: body.completionNote,
+        failureCode: body.failureCode,
+        causeCode: body.causeCode,
+        remedyCode: body.remedyCode,
+        completionCondition: body.completionCondition as any,
+        followUpRequired: body.followUpRequired,
+        followUpNote: body.followUpNote,
+        overrideReason: body.overrideReason,
+        expectedVersion: body.expectedVersion,
+        idempotencyKey: body.idempotencyKey
+      },
+      req.user
+    );
+    return { data, message: "Technician completion submitted" };
   }
 
   @Post(":id/verify-supervisor")
@@ -622,6 +774,8 @@ export class WorkOrdersController {
       actualHours?: number;
       delayReason?: string;
       overrideReason?: string;
+      expectedVersion?: number;
+      sodOverrideReason?: string;
     }
   ) {
     const data = await this.workOrdersService.verifySupervisor(id, body, req.user);
@@ -636,9 +790,12 @@ export class WorkOrdersController {
   async closeWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { note?: string }
+    @Body() body: { note?: string; expectedVersion?: number; overrideReason?: string }
   ) {
-    const data = await this.workOrdersService.closeWorkOrder(id, body?.note, req.user);
+    const data = await this.workOrdersService.closeWorkOrder(id, body?.note, req.user, {
+      expectedVersion: body.expectedVersion,
+      overrideReason: body.overrideReason
+    });
     return { data, message: "Work order closed" };
   }
 
@@ -648,6 +805,41 @@ export class WorkOrdersController {
   async rejectSupervisor(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { reason: string }) {
     const data = await this.workOrdersService.rejectSupervisor(id, body.reason, req.user);
     return { data, message: "Work order supervisor rejection recorded" };
+  }
+
+  @Post(":id/requester-confirmation")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Requester confirmation recorded" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  async requesterConfirmation(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { outcome: "RESOLVED" | "UNRESOLVED"; note?: string; overrideReason?: string }
+  ) {
+    const data = await this.workOrdersService.recordRequesterConfirmation(id, body, req.user);
+    return { data, message: "Requester confirmation recorded" };
+  }
+
+  @Post(":id/labour/:entryId/correct")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: "Labour correction recorded" })
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "TECHNICIAN")
+  @Permissions("work_orders.correct")
+  async correctLabourEntry(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("entryId") entryId: string,
+    @Body() body: { requestedDurationMinutes: number; reason: string }
+  ) {
+    const data = await this.workOrdersService.correctLabourEntry(id, entryId, body, req.user);
+    return { data, message: "Labour correction recorded" };
+  }
+
+  @Get(":id/next-actions")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "TECHNICIAN")
+  async nextActions(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrdersService.getNextActions(id, req.user);
+    return { data, message: "Work order next actions fetched" };
   }
 
   @Post(":id/reopen")

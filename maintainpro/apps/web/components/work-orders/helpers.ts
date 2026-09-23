@@ -139,7 +139,7 @@ export function toTitleCase(value: string): string {
     .join(" ");
 }
 
-/** Phase 6 human labels — TECHNICIAN_COMPLETED displays as Completed */
+/** Phase 6 human labels — show lifecycle-friendly D2 status labels. */
 export function humanWorkOrderStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     OPEN: "Open",
@@ -147,7 +147,7 @@ export function humanWorkOrderStatusLabel(status: string): string {
     ASSIGNED: "Assigned",
     IN_PROGRESS: "In Progress",
     ON_HOLD: "On Hold",
-    TECHNICIAN_COMPLETED: "Completed",
+    TECHNICIAN_COMPLETED: "Completed — Awaiting Verification",
     REWORK_REQUIRED: "Return for Correction",
     VERIFIED: "Verified",
     CLOSED: "Closed",

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
-import { toTitleCase } from "./helpers";
+import { humanWorkOrderStatusLabel } from "./helpers";
+import { isAllowedKanbanDrop } from "@/lib/work-order-actions";
 import { WorkOrderCard } from "./work-order-card";
 import { STATUS_ORDER, type TechnicianOption, type WorkOrder, type WorkOrderStatus } from "./types";
 
@@ -90,7 +91,11 @@ export function KanbanBoard({
             }}
             onDrop={(event) => {
               event.preventDefault();
-              if (draggingOrder && draggingOrder.status !== status) {
+              if (
+                draggingOrder &&
+                draggingOrder.status !== status &&
+                isAllowedKanbanDrop(draggingOrder.status, status)
+              ) {
                 onMoveToStatus(draggingOrder, status);
               }
               setDraggingOrder(null);
@@ -99,7 +104,9 @@ export function KanbanBoard({
             className={`rounded-xl border p-3 ${columnAccent[status]} ${highlighted ? "ring-2 ring-brand-300" : ""}`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">{toTitleCase(status)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                {humanWorkOrderStatusLabel(status)}
+              </p>
               <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
                 {rows.length}
               </span>

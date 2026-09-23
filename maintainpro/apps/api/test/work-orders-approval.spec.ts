@@ -20,6 +20,19 @@ const createPrismaMock = () => ({
     update: jest.fn(),
     delete: jest.fn()
   },
+  workOrderLabourEntry: {
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    update: jest.fn()
+  },
+  workOrderHoldHistory: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn()
+  },
+  workOrderCostSnapshot: {
+    upsert: jest.fn()
+  },
   user: {
     findFirst: jest.fn()
   },
@@ -42,7 +55,10 @@ const createPrismaMock = () => ({
   },
   workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
   asset: { findFirst: jest.fn().mockResolvedValue({ id: "507f1f77bcf86cd799439012", tenantId: "tenant-a" }) },
-  workOrderStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+  workOrderStatusHistory: {
+    create: jest.fn().mockResolvedValue({}),
+    findFirst: jest.fn().mockResolvedValue(null)
+  },
   evidenceAttachment: {
     findMany: jest.fn().mockResolvedValue([
       { evidenceType: "BEFORE_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" },
@@ -231,6 +247,7 @@ describe("WorkOrdersService approval and audit", () => {
     const prisma = createPrismaMock();
     prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
+      tenantId: "tenant-a",
       woNumber: "WO-2026-0005",
       approvalStatus: WorkOrderApprovalStatus.APPROVED,
       status: WorkOrderStatus.IN_PROGRESS,

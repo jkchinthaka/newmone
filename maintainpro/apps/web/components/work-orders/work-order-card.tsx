@@ -11,6 +11,7 @@ import {
   getStatusClass,
   getTechnicianName,
   getWorkOrderDueUrgency,
+  humanWorkOrderStatusLabel,
   isWorkOrderOverdue,
   toTitleCase
 } from "./helpers";
@@ -89,7 +90,7 @@ export function WorkOrderCard({
           {toTitleCase(workOrder.priority)}
         </span>
         <span className={`rounded-full px-2 py-1 font-medium ring-1 ${getStatusClass(workOrder.status)}`}>
-          {toTitleCase(workOrder.status)}
+          {humanWorkOrderStatusLabel(workOrder.status)}
         </span>
         {urgency.level !== "NONE" ? (
           <span className={`rounded-full px-2 py-1 font-medium ring-1 ${getDueUrgencyClass(urgency.level)}`}>

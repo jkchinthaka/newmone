@@ -31,6 +31,15 @@ import {
 import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
 import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
+  assertLabourCorrectionReason,
+  assertNoActiveLabourForTechnician,
+  assertSingleActiveSessionOnWorkOrder,
+  closeLabourSessionTimestamps,
+  sumLabourHours
+} from "../../common/utils/work-order-labour.util";
+import { deriveActualCost } from "../../common/utils/work-order-cost.util";
+import { deriveReadiness, getValidWorkOrderActions } from "../../common/utils/work-order-actions";
+import {
   assertAllowedStatusTransition,
   assertReasonProvided,
   assertRoleCanSetStatus,
@@ -84,6 +93,11 @@ import { ReliabilityService } from "../reliability/reliability.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
+};
+
+type AssignOptions = {
+  reason?: string;
+  expectedVersion?: number;
 };
 
 @Injectable()
@@ -157,6 +171,170 @@ export class WorkOrdersService {
     }
 
     return actor;
+  }
+
+  private assertOptimisticVersion(
+    current: { id: string; version?: number | null },
+    expectedVersion?: number
+  ): { id: string; version?: number } {
+    assertVersionMatch(current.version, expectedVersion, "Work order");
+    return expectedVersion != null ? { id: current.id, version: expectedVersion } : { id: current.id };
+  }
+
+  private async closeActiveLabourSessions(
+    workOrderId: string,
+    technicianUserId: string | undefined,
+    tenantId: string
+  ) {
+    const activeEntries = await this.prisma.workOrderLabourEntry.findMany({
+      where: {
+        tenantId,
+        workOrderId,
+        endedAt: null,
+        ...(technicianUserId ? { technicianUserId } : {})
+      },
+      select: {
+        id: true,
+        startedAt: true
+      }
+    });
+
+    if (activeEntries.length === 0) {
+      return [];
+    }
+
+    return Promise.all(
+      activeEntries.map((entry) =>
+        this.prisma.workOrderLabourEntry.update({
+          where: { id: entry.id },
+          data: closeLabourSessionTimestamps(entry.startedAt)
+        })
+      )
+    );
+  }
+
+  private async startLabourSession(workOrderId: string, technicianUserId: string, tenantId: string) {
+    const activeEntries = await this.prisma.workOrderLabourEntry.findMany({
+      where: {
+        tenantId,
+        technicianUserId,
+        endedAt: null
+      },
+      select: {
+        id: true,
+        workOrderId: true,
+        technicianUserId: true,
+        startedAt: true,
+        endedAt: true,
+        durationMinutes: true
+      }
+    });
+
+    const activeOnThisWorkOrder = activeEntries.filter((entry) => entry.workOrderId === workOrderId);
+    assertSingleActiveSessionOnWorkOrder(activeOnThisWorkOrder);
+    assertNoActiveLabourForTechnician(activeEntries, workOrderId);
+
+    if (activeOnThisWorkOrder.length === 1) {
+      return activeOnThisWorkOrder[0];
+    }
+
+    return this.prisma.workOrderLabourEntry.create({
+      data: {
+        tenantId,
+        workOrderId,
+        technicianUserId,
+        startedAt: new Date()
+      }
+    });
+  }
+
+  private async computeAuthoritativeHoursAndCost(workOrderId: string, actor?: Actor) {
+    const entries = (await this.prisma.workOrderLabourEntry.findMany({
+      where: { workOrderId }
+    })) as Array<{
+      id: string;
+      technicianUserId?: string | null;
+      startedAt: Date;
+      endedAt?: Date | null;
+      durationMinutes?: number | null;
+      correctedDurationMinutes?: number | null;
+      labourRateSnapshot?: number | null;
+    }>;
+    const actualHours = sumLabourHours(
+      entries.map((entry) => ({
+        id: entry.id,
+        technicianUserId: entry.technicianUserId,
+        startedAt: entry.startedAt,
+        endedAt: entry.endedAt,
+        durationMinutes: entry.correctedDurationMinutes ?? entry.durationMinutes
+      }))
+    );
+    const labourCost =
+      Math.round(
+        entries.reduce((sum, entry) => {
+          const minutes = Number(entry.correctedDurationMinutes ?? entry.durationMinutes ?? 0) || 0;
+          const rate = Number(entry.labourRateSnapshot ?? 0) || 0;
+          return sum + (minutes / 60) * rate;
+        }, 0) * 100
+      ) / 100;
+    const costSummary = await this.workOrderPartsService.getCostSummary(workOrderId, actor);
+    const partsCost = Number(costSummary.netPartCost ?? 0) || 0;
+    const actualCost = deriveActualCost({ partsCost, labourCost });
+    return { actualHours, actualCost, partsCost };
+  }
+
+  private async assertPartsReconciledForCompletion(workOrderId: string, actor?: Actor) {
+    const costSummary = await this.workOrderPartsService.getCostSummary(workOrderId, actor);
+    if ((costSummary.unaccountedLines ?? 0) > 0) {
+      throw new BadRequestException("All issued parts must be reconciled before completion.");
+    }
+  }
+
+  private async assertSegregationOfDuties(
+    current: {
+      id: string;
+      woNumber?: string | null;
+      technicianId?: string | null;
+    },
+    actor: Actor | undefined,
+    sodOverrideReason?: string
+  ) {
+    const approver = this.assertActor(actor);
+    const latestCompletion = await this.prisma.workOrderStatusHistory.findFirst({
+      where: {
+        workOrderId: current.id,
+        OR: [{ toStatus: WorkOrderStatus.TECHNICIAN_COMPLETED }, { action: "TECHNICIAN_COMPLETED" }]
+      },
+      orderBy: { createdAt: "desc" },
+      select: { actorId: true }
+    });
+    const technicianActorId = latestCompletion?.actorId ?? current.technicianId ?? null;
+    if (!technicianActorId || technicianActorId !== approver.sub) {
+      return;
+    }
+
+    const trimmedOverride = sodOverrideReason?.trim() ?? "";
+    const canOverride =
+      (approver.role === RoleName.ADMIN || approver.role === RoleName.SUPER_ADMIN) &&
+      trimmedOverride.length >= 3;
+    if (!canOverride) {
+      throw new ForbiddenException(
+        "Separation of duties violation: the completing technician cannot verify this work order."
+      );
+    }
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: current.id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: trimmedOverride,
+      metadata: {
+        event: "work_order_sod_override",
+        woNumber: current.woNumber ?? null,
+        technicianActorId
+      }
+    });
   }
 
   private async appendStatusHistory(
@@ -932,6 +1110,110 @@ export class WorkOrdersService {
     return updated;
   }
 
+  async planWork(
+    id: string,
+    data: {
+      plannedStartAt: string;
+      dueDate?: string;
+      expectedCompletionDate?: string;
+      estimatedHours?: number;
+      estimatedDurationMinutes?: number;
+      notes?: string;
+      delayReason?: string;
+      vendorSupplierId?: string;
+      expectedVersion?: number;
+    },
+    actor?: Actor
+  ) {
+    const current = await this.findOne(id, actor);
+    if (current.status !== WorkOrderStatus.OPEN && current.status !== WorkOrderStatus.PLANNED) {
+      throw new BadRequestException("Work planning is only allowed from OPEN or PLANNED status.");
+    }
+
+    const plannedStartAt = new Date(data.plannedStartAt);
+    const dueDate = data.dueDate ? new Date(data.dueDate) : current.dueDate;
+    const expectedCompletionDate = data.expectedCompletionDate
+      ? new Date(data.expectedCompletionDate)
+      : current.expectedCompletionDate;
+    if (Number.isNaN(plannedStartAt.getTime())) {
+      throw new BadRequestException("A valid planned start date is required.");
+    }
+    if (dueDate && dueDate.getTime() < plannedStartAt.getTime()) {
+      throw new BadRequestException("Due date must not be earlier than planned start.");
+    }
+    if (expectedCompletionDate && expectedCompletionDate.getTime() < plannedStartAt.getTime()) {
+      throw new BadRequestException("Expected completion must not be earlier than planned start.");
+    }
+    if (
+      data.estimatedHours != null &&
+      (!Number.isFinite(data.estimatedHours) || Number(data.estimatedHours) < 0)
+    ) {
+      throw new BadRequestException("Estimated hours must be zero or greater.");
+    }
+    if (
+      data.estimatedDurationMinutes != null &&
+      (!Number.isFinite(data.estimatedDurationMinutes) || Number(data.estimatedDurationMinutes) < 0)
+    ) {
+      throw new BadRequestException("Estimated duration minutes must be zero or greater.");
+    }
+
+    const where = this.assertOptimisticVersion(current, data.expectedVersion);
+    const planData = {
+      status: WorkOrderStatus.PLANNED,
+      plannedStartAt,
+      dueDate,
+      expectedCompletionDate,
+      estimatedHours: data.estimatedHours ?? current.estimatedHours,
+      estimatedDurationMinutes: data.estimatedDurationMinutes ?? current.estimatedDurationMinutes,
+      notes: data.notes?.trim() || current.notes,
+      delayReason: data.delayReason?.trim() || current.delayReason,
+      vendorSupplierId: data.vendorSupplierId ?? current.vendorSupplierId,
+      version: { increment: 1 as const }
+    };
+
+    if (data.expectedVersion != null) {
+      const updatedCount = await this.prisma.workOrder.updateMany({
+        where,
+        data: planData
+      });
+      if (updatedCount.count !== 1) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+      }
+    } else {
+      await this.prisma.workOrder.update({
+        where: { id },
+        data: planData
+      });
+    }
+
+    const updated = await this.findOneWithRelations(id, actor);
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: WorkOrderStatus.PLANNED,
+      action: "PLANNED",
+      actorId: actor?.sub,
+      reason: data.notes ?? data.delayReason,
+      metadata: {
+        plannedStartAt: updated.plannedStartAt?.toISOString() ?? null,
+        dueDate: updated.dueDate?.toISOString() ?? null
+      }
+    });
+    if ((current.dueDate?.toISOString() ?? null) !== (updated.dueDate?.toISOString() ?? null)) {
+      await this.recordAudit({
+        entity: "WorkOrder",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: data.notes ?? "Work order due date planned",
+        metadata: { event: "work_order_due_date_planned", woNumber: current.woNumber },
+        beforeData: { dueDate: current.dueDate?.toISOString() ?? null },
+        afterData: { dueDate: updated.dueDate?.toISOString() ?? null }
+      });
+    }
+
+    return updated;
+  }
+
   async remove(id: string, actor?: Actor) {
     const existing = await this.findOne(id, actor);
 
@@ -976,8 +1258,24 @@ export class WorkOrdersService {
     return { deleted: false, cancelled: true, id, status: updated.status };
   }
 
-  async assign(id: string, technicianId: string, actor?: Actor) {
+  async assign(
+    id: string,
+    technicianId: string,
+    actorOrOptions?: Actor | AssignOptions,
+    maybeOptions?: AssignOptions | Actor
+  ) {
+    const actor =
+      actorOrOptions && "sub" in actorOrOptions
+        ? (actorOrOptions as Actor)
+        : (maybeOptions as Actor | undefined);
+    const options =
+      actorOrOptions && !("sub" in actorOrOptions)
+        ? (actorOrOptions as AssignOptions)
+        : (maybeOptions as AssignOptions | undefined);
     const current = await this.findOne(id, actor);
+    if (current.status !== WorkOrderStatus.PLANNED && current.status !== WorkOrderStatus.ASSIGNED) {
+      throw new BadRequestException("Work orders can only be assigned from PLANNED or ASSIGNED status.");
+    }
     this.assertWorkOrderApprovedForExecution(current);
     const tenantId = this.resolveTenantId(actor);
     const technician = await this.prisma.user.findFirst({
@@ -1004,21 +1302,36 @@ export class WorkOrdersService {
       // Prefer technician/mechanic; allow other non-viewer operational roles already filtered above.
     }
 
-    const normalizedStatus =
-      current.status && String(current.status).trim()
-        ? current.status
-        : WorkOrderStatus.OPEN;
+    const isReassignment =
+      Boolean(current.technicianId) && current.technicianId !== technicianId;
+    const trimmedReason = options?.reason?.trim();
+    if (isReassignment && (!trimmedReason || trimmedReason.length < 3)) {
+      throw new BadRequestException("Reassignment reason is required when changing technician.");
+    }
 
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
-      data: {
-        technicianId,
-        status:
-          normalizedStatus === WorkOrderStatus.OPEN || normalizedStatus === WorkOrderStatus.PLANNED
-            ? WorkOrderStatus.ASSIGNED
-            : normalizedStatus
+    const where = this.assertOptimisticVersion(current, options?.expectedVersion);
+    const assignmentData = {
+      technicianId,
+      status: WorkOrderStatus.ASSIGNED,
+      version: { increment: 1 as const }
+    };
+
+    if (options?.expectedVersion != null) {
+      const updatedCount = await this.prisma.workOrder.updateMany({
+        where,
+        data: assignmentData
+      });
+      if (updatedCount.count !== 1) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
       }
-    });
+    } else {
+      await this.prisma.workOrder.update({
+        where: { id },
+        data: assignmentData
+      });
+    }
+
+    const updated = await this.findOneWithRelations(id, actor);
 
     // Canonical assignee model: sync WorkOrderAssignee from legacy technicianId when a linked employee exists.
     let employee = await this.prisma.employee.findFirst({
@@ -1075,15 +1388,29 @@ export class WorkOrdersService {
       entityId: id,
       action: AuditAction.UPDATE,
       actor,
-      reason: "Technician assigned",
+      reason: trimmedReason ?? "Technician assigned",
       metadata: {
-        event: "work_order_assigned",
+        event: isReassignment ? "work_order_reassigned" : "work_order_assigned",
         woNumber: updated.woNumber,
         technicianId,
-        employeeId: employee.id
+        employeeId: employee.id,
+        previousTechnicianId: current.technicianId ?? null
       },
       beforeData: { technicianId: current.technicianId ?? null },
       afterData: { technicianId: updated.technicianId ?? null, employeeId: employee.id }
+    });
+
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: WorkOrderStatus.ASSIGNED,
+      action: isReassignment ? "REASSIGNED" : "ASSIGNED",
+      actorId: actor?.sub,
+      reason: trimmedReason,
+      metadata: {
+        previousTechnicianId: current.technicianId ?? null,
+        technicianId,
+        employeeId: employee.id
+      }
     });
 
     return this.findOneWithRelations(id, actor);
@@ -1249,7 +1576,9 @@ export class WorkOrdersService {
       actualCost?: number;
       actualHours?: number;
       delayReason?: string;
+      notes?: string;
       holdReasonCode?: string;
+      expectedResumeAt?: string;
       cancelReason?: string;
       completionNote?: string;
       emergencyCloseReason?: string;
@@ -1257,6 +1586,11 @@ export class WorkOrdersService {
       followUpRequired?: boolean;
       followUpNote?: string;
       overrideReason?: string;
+      expectedVersion?: number;
+      idempotencyKey?: string;
+      failureCode?: string;
+      causeCode?: string;
+      remedyCode?: string;
     },
     actor?: Actor
   ) {
@@ -1266,7 +1600,13 @@ export class WorkOrdersService {
       data.status === WorkOrderStatus.COMPLETED && TECHNICIAN_EXECUTION_ROLES.has(actor?.role as RoleName)
         ? WorkOrderStatus.TECHNICIAN_COMPLETED
         : data.status;
+    const trimmedIdempotencyKey = data.idempotencyKey?.trim();
 
+    if (trimmedIdempotencyKey && current.lastIdempotencyKey === trimmedIdempotencyKey && current.status === targetStatus) {
+      return this.findOneWithRelations(id, actor);
+    }
+
+    this.assertOptimisticVersion(current, data.expectedVersion);
     assertAllowedStatusTransition(current.status, targetStatus);
     assertRoleCanSetStatus(actor?.role as RoleName | undefined, current.status, targetStatus, {
       emergencyCloseReason: data.emergencyCloseReason
@@ -1350,13 +1690,15 @@ export class WorkOrdersService {
     }
 
     if (targetStatus === WorkOrderStatus.ON_HOLD) {
-      assertReasonProvided("Hold reason", data.delayReason);
+      const holdNotes = data.delayReason?.trim() || data.notes?.trim();
+      assertReasonProvided("Hold reason", holdNotes);
       const holdCode = (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString();
       if (this.maintenanceConfig) {
-        await this.maintenanceConfig.assertHoldReason(tenantId, holdCode, data.delayReason);
+        await this.maintenanceConfig.assertHoldReason(tenantId, holdCode, holdNotes);
       } else {
-        assertValidHoldReason(holdCode, data.delayReason);
+        assertValidHoldReason(holdCode, holdNotes);
       }
+      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
     }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
@@ -1366,20 +1708,23 @@ export class WorkOrdersService {
           assignmentStatus: { not: "REMOVED" }
         }
       });
+      const labourActorId = actor?.sub ?? current.technicianId ?? undefined;
       if (!current.technicianId && assigneeCount === 0) {
         throw new BadRequestException("Cannot start work without an assigned technician or employee.");
       }
+      if (!labourActorId) {
+        throw new BadRequestException("Cannot start work without a technician labour actor.");
+      }
+      await this.startLabourSession(id, labourActorId, tenantId);
     }
 
     if (targetStatus === WorkOrderStatus.CANCELLED) {
       assertReasonProvided("Cancel reason", data.cancelReason);
     }
 
+    let authoritativeCompletion: { actualHours: number; actualCost: number; partsCost: number } | null = null;
     if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
       assertReasonProvided("Technician completion note", data.completionNote);
-      if (!data.actualCost || !data.actualHours) {
-        throw new BadRequestException("Cannot mark technician completion without actual cost and hours");
-      }
 
       const assigneeCount = await this.prisma.workOrderAssignee.count({
         where: {
@@ -1423,6 +1768,10 @@ export class WorkOrdersService {
         throw error;
       }
 
+      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
+      await this.assertPartsReconciledForCompletion(id, actor);
+      authoritativeCompletion = await this.computeAuthoritativeHoursAndCost(id, actor);
+
       if (overrideAllowed) {
         await this.recordAudit({
           entity: "WorkOrder",
@@ -1436,23 +1785,32 @@ export class WorkOrdersService {
     }
 
     if (targetStatus === WorkOrderStatus.COMPLETED) {
-      if (!data.actualCost || !data.actualHours) {
-        throw new BadRequestException("Cannot complete a work order without entering actual cost and hours");
-      }
       if (current.status !== WorkOrderStatus.TECHNICIAN_COMPLETED && !canDirectlyCloseWorkOrder(actor?.role as RoleName)) {
         throw new BadRequestException("Supervisor verification required before closing.");
+      }
+      if (current.status !== WorkOrderStatus.TECHNICIAN_COMPLETED) {
+        assertReasonProvided("Emergency close reason", data.emergencyCloseReason);
       }
       if (requiresEvidenceForCompletion(current.type)) {
         const evidenceCount = await this.prisma.evidenceAttachment.count({
           where: { workOrderId: id, status: "UPLOADED" }
         });
         const storageEnabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+        const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
+        if (!storageEnabled && isProduction) {
+          throw new BadRequestException(
+            "Evidence storage is unavailable. Completion is blocked while required photo evidence cannot be stored (fail closed)."
+          );
+        }
         if (storageEnabled && evidenceCount < 2) {
           throw new BadRequestException(
             "Before and after evidence are required for this work order category when uploads are enabled."
           );
         }
       }
+      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
+      await this.assertPartsReconciledForCompletion(id, actor);
+      authoritativeCompletion = await this.computeAuthoritativeHoursAndCost(id, actor);
     }
 
     const slaRisk = calculateSlaRisk({
@@ -1486,13 +1844,12 @@ export class WorkOrdersService {
         ? WorkOrderVerificationStatus.PENDING
         : current.verificationStatus;
 
-    // Idempotent timestamp capture — do not overwrite if already set
     const repairStartedAt =
       targetStatus === WorkOrderStatus.IN_PROGRESS
         ? current.repairStartedAt ?? startDate ?? new Date()
         : current.repairStartedAt;
     const repairCompletedAt =
-      targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+      targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED || targetStatus === WorkOrderStatus.COMPLETED
         ? current.repairCompletedAt ?? new Date()
         : current.repairCompletedAt;
     const heldAt =
@@ -1502,62 +1859,180 @@ export class WorkOrdersService {
         ? new Date()
         : current.resumedAt;
 
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
-      data: {
-        status: targetStatus,
-        startDate,
-        slaDeadline,
-        repairStartedAt,
-        repairCompletedAt,
-        heldAt,
-        resumedAt,
-        holdNotes:
-          targetStatus === WorkOrderStatus.ON_HOLD
-            ? data.delayReason?.trim() || current.holdNotes
-            : current.holdNotes,
-        holdReasonCode:
-          targetStatus === WorkOrderStatus.ON_HOLD
-            ? (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString().toUpperCase()
-            : current.holdReasonCode,
-        acknowledgedAt:
-          (targetStatus === WorkOrderStatus.ASSIGNED || targetStatus === WorkOrderStatus.IN_PROGRESS) &&
-          !current.acknowledgedAt
-            ? new Date()
-            : current.acknowledgedAt,
-        actualCost: data.actualCost ?? current.actualCost,
-        actualHours: data.actualHours ?? current.actualHours,
-        delayReason: data.delayReason?.trim() || current.delayReason,
-        cancelledReason:
-          targetStatus === WorkOrderStatus.CANCELLED ? assertReasonProvided("Cancel reason", data.cancelReason) : current.cancelledReason,
-        technicianCompletionNote:
-          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
-            ? assertReasonProvided("Technician completion note", data.completionNote)
-            : current.technicianCompletionNote,
-        completionCondition:
-          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
-            ? data.completionCondition ?? current.completionCondition
-            : current.completionCondition,
-        followUpRequired:
-          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
-            ? Boolean(data.followUpRequired)
-            : current.followUpRequired,
-        followUpNote:
-          targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
-            ? data.followUpNote?.trim() || null
-            : current.followUpNote,
-        verificationStatus,
-        completedDate,
-        slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime())
+    if (targetStatus === WorkOrderStatus.ON_HOLD) {
+      await this.prisma.workOrderHoldHistory.create({
+        data: {
+          tenantId,
+          workOrderId: id,
+          holdReasonCode: (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString().toUpperCase(),
+          notes: data.delayReason?.trim() || data.notes?.trim() || null,
+          heldAt: heldAt ?? new Date(),
+          expectedResumeAt: data.expectedResumeAt ? new Date(data.expectedResumeAt) : null,
+          heldById: actor?.sub
+        }
+      });
+    }
+
+    if (current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS) {
+      const openHold = await this.prisma.workOrderHoldHistory.findFirst({
+        where: { workOrderId: id, resumedAt: null },
+        orderBy: { heldAt: "desc" }
+      });
+      if (openHold) {
+        const resumed = resumedAt ?? new Date();
+        const durationMinutes = Math.max(0, Math.round((resumed.getTime() - openHold.heldAt.getTime()) / 60_000));
+        await this.prisma.workOrderHoldHistory.update({
+          where: { id: openHold.id },
+          data: {
+            resumedAt: resumed,
+            resumedById: actor?.sub,
+            durationMinutes
+          }
+        });
       }
-    });
+    }
+
+    const mutationData = {
+      status: targetStatus,
+      startDate,
+      slaDeadline,
+      repairStartedAt,
+      repairCompletedAt,
+      heldAt,
+      resumedAt,
+      holdNotes:
+        targetStatus === WorkOrderStatus.ON_HOLD
+          ? data.delayReason?.trim() || data.notes?.trim() || current.holdNotes
+          : current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
+            ? null
+            : current.holdNotes,
+      holdReasonCode:
+        targetStatus === WorkOrderStatus.ON_HOLD
+          ? (data.holdReasonCode ?? current.holdReasonCode ?? "OTHER").toString().toUpperCase()
+          : current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
+            ? null
+            : current.holdReasonCode,
+      expectedResumeAt:
+        targetStatus === WorkOrderStatus.ON_HOLD
+          ? data.expectedResumeAt
+            ? new Date(data.expectedResumeAt)
+            : current.expectedResumeAt
+          : current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
+            ? null
+            : current.expectedResumeAt,
+      acknowledgedAt:
+        (targetStatus === WorkOrderStatus.ASSIGNED || targetStatus === WorkOrderStatus.IN_PROGRESS) &&
+        !current.acknowledgedAt
+          ? new Date()
+          : current.acknowledgedAt,
+      actualCost: authoritativeCompletion?.actualCost ?? current.actualCost,
+      actualHours: authoritativeCompletion?.actualHours ?? current.actualHours,
+      delayReason: data.delayReason?.trim() || current.delayReason,
+      cancelledReason:
+        targetStatus === WorkOrderStatus.CANCELLED
+          ? assertReasonProvided("Cancel reason", data.cancelReason)
+          : current.cancelledReason,
+      technicianCompletionNote:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? assertReasonProvided("Technician completion note", data.completionNote)
+          : current.technicianCompletionNote,
+      completionCondition:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? data.completionCondition ?? current.completionCondition
+          : current.completionCondition,
+      followUpRequired:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? Boolean(data.followUpRequired)
+          : current.followUpRequired,
+      followUpNote:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? data.followUpNote?.trim() || null
+          : current.followUpNote,
+      verificationStatus,
+      completedDate,
+      failureCodeSnapshot:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? data.failureCode?.trim() || current.failureCodeSnapshot
+          : current.failureCodeSnapshot,
+      causeCodeSnapshot:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? data.causeCode?.trim() || current.causeCodeSnapshot
+          : current.causeCodeSnapshot,
+      remedyCodeSnapshot:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? data.remedyCode?.trim() || current.remedyCodeSnapshot
+          : current.remedyCodeSnapshot,
+      lastIdempotencyKey: trimmedIdempotencyKey || current.lastIdempotencyKey,
+      slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime()),
+      version: { increment: 1 as const }
+    };
+
+    if (data.expectedVersion != null) {
+      const updatedCount = await this.prisma.workOrder.updateMany({
+        where: { id, version: data.expectedVersion },
+        data: mutationData
+      });
+      if (updatedCount.count !== 1) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+      }
+    } else {
+      await this.prisma.workOrder.update({
+        where: { id },
+        data: mutationData
+      });
+    }
+
+    const updated = await this.findOneWithRelations(id, actor);
+
+    if (
+      authoritativeCompletion &&
+      (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED || targetStatus === WorkOrderStatus.COMPLETED)
+    ) {
+      await this.prisma.workOrderCostSnapshot.upsert({
+        where: { workOrderId: id },
+        update: {
+          partsCost: authoritativeCompletion.partsCost,
+          internalLabourCost: Math.max(0, authoritativeCompletion.actualCost - authoritativeCompletion.partsCost),
+          totalCost: authoritativeCompletion.actualCost,
+          snappedById: actor?.sub,
+          notes:
+            targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+              ? "Authoritative snapshot at technician completion"
+              : "Authoritative snapshot at close",
+          lineItems: JSON.stringify(authoritativeCompletion)
+        },
+        create: {
+          tenantId,
+          workOrderId: id,
+          partsCost: authoritativeCompletion.partsCost,
+          internalLabourCost: Math.max(0, authoritativeCompletion.actualCost - authoritativeCompletion.partsCost),
+          totalCost: authoritativeCompletion.actualCost,
+          snappedById: actor?.sub,
+          notes:
+            targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+              ? "Authoritative snapshot at technician completion"
+              : "Authoritative snapshot at close",
+          lineItems: JSON.stringify(authoritativeCompletion)
+        }
+      });
+    }
 
     await this.appendStatusHistory(current.tenantId, id, {
       fromStatus: current.status,
       toStatus: targetStatus,
-      action: "STATUS_CHANGE",
+      action:
+        targetStatus === WorkOrderStatus.ON_HOLD
+          ? "ON_HOLD"
+          : current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
+            ? "RESUMED"
+            : targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+              ? "TECHNICIAN_COMPLETED"
+              : targetStatus === WorkOrderStatus.COMPLETED
+                ? "COMPLETED"
+                : "STATUS_CHANGE",
       actorId: actor?.sub,
-      reason: data.delayReason || data.cancelReason || data.completionNote || data.emergencyCloseReason
+      reason: data.delayReason || data.cancelReason || data.completionNote || data.emergencyCloseReason,
+      metadata: trimmedIdempotencyKey ? { idempotencyKey: trimmedIdempotencyKey } : undefined
     });
 
     const auditEvent =
@@ -1587,8 +2062,9 @@ export class WorkOrdersService {
         woNumber: updated.woNumber,
         previousStatus: current.status,
         nextStatus: updated.status,
-        actualCost: data.actualCost ?? null,
-        actualHours: data.actualHours ?? null
+        actualCost: authoritativeCompletion?.actualCost ?? updated.actualCost ?? null,
+        actualHours: authoritativeCompletion?.actualHours ?? updated.actualHours ?? null,
+        idempotencyKey: trimmedIdempotencyKey ?? null
       },
       beforeData: {
         status: current.status,
@@ -1624,6 +2100,8 @@ export class WorkOrdersService {
       actualHours?: number;
       delayReason?: string;
       overrideReason?: string;
+      expectedVersion?: number;
+      sodOverrideReason?: string;
     },
     actor?: Actor
   ) {
@@ -1636,9 +2114,14 @@ export class WorkOrdersService {
       throw new BadRequestException("Only technician-completed work orders can be supervisor verified.");
     }
 
-    const actualCost = data.actualCost ?? current.actualCost;
-    const actualHours = data.actualHours ?? current.actualHours;
-    if (!actualCost || !actualHours) {
+    await this.assertSegregationOfDuties(current, actor, data.sodOverrideReason);
+    // Client actualCost/actualHours are ignored — server labour/parts are authoritative.
+    const authoritative = await this.computeAuthoritativeHoursAndCost(id, actor);
+    const actualCost =
+      current.actualCost != null ? Number(current.actualCost) : authoritative.actualCost;
+    const actualHours =
+      current.actualHours != null ? Number(current.actualHours) : authoritative.actualHours;
+    if (actualCost == null || actualHours == null || Number.isNaN(actualCost) || Number.isNaN(actualHours)) {
       throw new BadRequestException("Actual cost and hours are required before closing.");
     }
 
@@ -1671,21 +2154,59 @@ export class WorkOrdersService {
     }
 
     const approver = this.assertActor(actor);
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
-      data: {
-        status: WorkOrderStatus.VERIFIED,
-        verificationStatus: WorkOrderVerificationStatus.VERIFIED,
-        verifiedById: approver.sub,
-        verifiedAt: new Date(),
-        verificationNote: data.verificationNote?.trim() || null,
-        verificationRejectionReason: null,
-        actualCost,
-        actualHours,
-        completedDate: current.completedDate ?? new Date(),
-        delayReason: data.delayReason?.trim() || current.delayReason
+    const currentWithRequester = current as typeof current & {
+      requesterConfirmationPolicyHours?: number | null;
+    };
+    const now = new Date();
+    const requesterConfirmationPolicyHours = currentWithRequester.requesterConfirmationPolicyHours ?? 48;
+    const requesterConfirmationDueAt = new Date(
+      now.getTime() + requesterConfirmationPolicyHours * 60 * 60 * 1000
+    );
+    if (data.expectedVersion != null) {
+      const updatedCount = await this.prisma.workOrder.updateMany({
+        where: { id, version: data.expectedVersion },
+        data: {
+          status: WorkOrderStatus.VERIFIED,
+          verificationStatus: WorkOrderVerificationStatus.VERIFIED,
+          verifiedById: approver.sub,
+          verifiedAt: now,
+          verificationNote: data.verificationNote?.trim() || null,
+          verificationRejectionReason: null,
+          actualCost,
+          actualHours,
+          completedDate: current.completedDate ?? now,
+          delayReason: data.delayReason?.trim() || current.delayReason,
+          requesterConfirmationStatus: "PENDING",
+          requesterConfirmationDueAt,
+          requesterConfirmationPolicyHours,
+          version: { increment: 1 }
+        } as any
+      });
+      if (updatedCount.count !== 1) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
       }
-    });
+    } else {
+      await this.prisma.workOrder.update({
+        where: { id },
+        data: {
+          status: WorkOrderStatus.VERIFIED,
+          verificationStatus: WorkOrderVerificationStatus.VERIFIED,
+          verifiedById: approver.sub,
+          verifiedAt: now,
+          verificationNote: data.verificationNote?.trim() || null,
+          verificationRejectionReason: null,
+          actualCost,
+          actualHours,
+          completedDate: current.completedDate ?? now,
+          delayReason: data.delayReason?.trim() || current.delayReason,
+          requesterConfirmationStatus: "PENDING",
+          requesterConfirmationDueAt,
+          requesterConfirmationPolicyHours,
+          version: { increment: 1 }
+        } as any
+      });
+    }
+    const updated = await this.findOneWithRelations(id, actor);
 
     await this.appendStatusHistory(current.tenantId, id, {
       fromStatus: current.status,
@@ -1710,21 +2231,81 @@ export class WorkOrdersService {
   }
 
   /** VERIFIED → CLOSED — final historical truth */
-  async closeWorkOrder(id: string, note: string | undefined, actor?: Actor) {
+  async closeWorkOrder(
+    id: string,
+    note: string | undefined,
+    actor?: Actor,
+    options?: { expectedVersion?: number; overrideReason?: string }
+  ) {
     if (!canVerifySupervisor(actor?.role as RoleName) && !canDirectlyCloseWorkOrder(actor?.role as RoleName)) {
       throw new ForbiddenException("Close requires supervisor or admin permission.");
     }
     const current = await this.findOne(id, actor);
+    if (current.status === WorkOrderStatus.CLOSED) {
+      // Idempotent replay: already closed — do not append duplicate CLOSED history.
+      return this.findOneWithRelations(id, actor);
+    }
+    const currentWithRequester = current as typeof current & {
+      requesterConfirmationStatus?: string | null;
+      requesterConfirmationOutcome?: string | null;
+      requesterConfirmationDueAt?: Date | null;
+      requesterConfirmedAt?: Date | null;
+      requesterConfirmationNote?: string | null;
+    };
     assertAllowedStatusTransition(current.status, WorkOrderStatus.CLOSED);
-    const approver = this.assertActor(actor);
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
-      data: {
-        status: WorkOrderStatus.CLOSED,
-        closedAt: new Date(),
-        notes: note?.trim() || current.notes
+    const overrideReason = options?.overrideReason?.trim();
+    const now = new Date();
+    if (
+      currentWithRequester.requesterConfirmationStatus === "PENDING" &&
+      (currentWithRequester.requesterConfirmationOutcome == null ||
+        currentWithRequester.requesterConfirmationOutcome === "UNRESOLVED")
+    ) {
+      const dueAt = currentWithRequester.requesterConfirmationDueAt;
+      const isHighPriority = current.priority === Priority.HIGH || current.priority === Priority.CRITICAL;
+      const duePassed = Boolean(dueAt && dueAt.getTime() <= now.getTime());
+      if (isHighPriority && !duePassed && !overrideReason) {
+        throw new BadRequestException(
+          "Requester confirmation is still pending for this priority work order. Provide an override reason to close early."
+        );
       }
-    });
+      if (!isHighPriority && duePassed && !currentWithRequester.requesterConfirmedAt) {
+        await this.prisma.workOrder.update({
+          where: { id },
+          data: {
+            requesterConfirmationOutcome: "AUTO_CLOSED",
+            requesterConfirmationNote:
+              currentWithRequester.requesterConfirmationNote ??
+              "Auto-closed after requester confirmation window expired."
+          } as any
+        });
+      }
+    }
+    const approver = this.assertActor(actor);
+    if (options?.expectedVersion != null) {
+      const updatedCount = await this.prisma.workOrder.updateMany({
+        where: { id, version: options.expectedVersion },
+        data: {
+          status: WorkOrderStatus.CLOSED,
+          closedAt: now,
+          notes: note?.trim() || current.notes,
+          version: { increment: 1 }
+        }
+      });
+      if (updatedCount.count !== 1) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+      }
+    } else {
+      await this.prisma.workOrder.update({
+        where: { id },
+        data: {
+          status: WorkOrderStatus.CLOSED,
+          closedAt: now,
+          notes: note?.trim() || current.notes,
+          version: { increment: 1 }
+        }
+      });
+    }
+    const updated = await this.findOneWithRelations(id, actor);
     await this.appendStatusHistory(current.tenantId, id, {
       fromStatus: current.status,
       toStatus: WorkOrderStatus.CLOSED,
@@ -1737,8 +2318,13 @@ export class WorkOrdersService {
       entityId: id,
       action: AuditAction.UPDATE,
       actor,
-      reason: note ?? "Work order closed",
-      metadata: { event: "work_order_closed", woNumber: updated.woNumber },
+      reason: overrideReason ?? note ?? "Work order closed",
+      metadata: {
+        event: "work_order_closed",
+        woNumber: updated.woNumber,
+        closedById: approver.sub,
+        requesterConfirmationOutcome: (updated as { requesterConfirmationOutcome?: string | null }).requesterConfirmationOutcome ?? null
+      },
       beforeData: { status: current.status },
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
@@ -1820,8 +2406,17 @@ export class WorkOrdersService {
       data: {
         status: WorkOrderStatus.REWORK_REQUIRED,
         verificationStatus: WorkOrderVerificationStatus.REJECTED,
-        verificationRejectionReason: trimmedReason
+        verificationRejectionReason: trimmedReason,
+        version: { increment: 1 }
       }
+    });
+
+    await this.appendStatusHistory(current.tenantId, id, {
+      fromStatus: current.status,
+      toStatus: WorkOrderStatus.REWORK_REQUIRED,
+      action: "REWORK_REQUIRED",
+      actorId: actor?.sub,
+      reason: trimmedReason
     });
 
     await this.recordAudit({
@@ -1836,6 +2431,139 @@ export class WorkOrdersService {
     });
 
     return this.findOneWithRelations(id, actor);
+  }
+
+  async recordRequesterConfirmation(
+    id: string,
+    data: {
+      outcome: "RESOLVED" | "UNRESOLVED";
+      note?: string;
+      overrideReason?: string;
+    },
+    actor?: Actor
+  ) {
+    const approver = this.assertActor(actor);
+    const current = await this.findOne(id, actor);
+    const updated = await this.prisma.workOrder.update({
+      where: { id },
+      data: {
+        requesterConfirmationStatus: "CONFIRMED",
+        requesterConfirmationOutcome: data.outcome,
+        requesterConfirmationNote: data.note?.trim() || null,
+        requesterConfirmedAt: new Date(),
+        requesterConfirmedById: approver.sub,
+        version: { increment: 1 }
+      } as any
+    });
+
+    await this.recordAudit({
+      entity: "WorkOrder",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.overrideReason?.trim() || data.note?.trim() || "Requester confirmation recorded",
+      metadata: {
+        event: "work_order_requester_confirmation_recorded",
+        woNumber: current.woNumber,
+        outcome: data.outcome
+      }
+    });
+
+    return updated;
+  }
+
+  async correctLabourEntry(
+    workOrderId: string,
+    entryId: string,
+    data: { requestedDurationMinutes: number; reason: string },
+    actor?: Actor
+  ) {
+    await this.findOne(workOrderId, actor);
+    const approver = this.assertActor(actor);
+    const trimmedReason = assertLabourCorrectionReason(data.reason);
+    if (!Number.isFinite(data.requestedDurationMinutes) || data.requestedDurationMinutes < 0) {
+      throw new BadRequestException("Corrected duration must be zero or greater.");
+    }
+    const entry = await this.prisma.workOrderLabourEntry.findFirst({
+      where: { id: entryId, workOrderId }
+    }) as
+      | ({
+          id: string;
+          durationMinutes?: number | null;
+          correctedDurationMinutes?: number | null;
+          correctionApprovedById?: string | null;
+        } & Record<string, unknown>)
+      | null;
+    if (!entry) {
+      throw new NotFoundException("Labour entry not found");
+    }
+
+    const canApprove =
+      actor?.role === RoleName.SUPER_ADMIN ||
+      actor?.role === RoleName.ADMIN ||
+      actor?.role === RoleName.MANAGER ||
+      actor?.role === RoleName.OPERATIONS_MANAGER ||
+      actor?.role === RoleName.ASSET_MANAGER ||
+      actor?.role === RoleName.SUPERVISOR;
+    const updated = await this.prisma.workOrderLabourEntry.update({
+      where: { id: entryId },
+      data: {
+        correctedDurationMinutes: Math.round(data.requestedDurationMinutes),
+        correctionReason: trimmedReason,
+        correctedById: approver.sub,
+        correctedAt: new Date(),
+        correctionApprovedById: canApprove ? approver.sub : entry.correctionApprovedById
+      } as any
+    }) as {
+      correctedDurationMinutes?: number | null;
+      correctionApprovedById?: string | null;
+    };
+
+    await this.recordAudit({
+      entity: "WorkOrderLabourEntry",
+      entityId: entryId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: trimmedReason,
+      metadata: {
+        event: "work_order_labour_corrected",
+        workOrderId,
+        requestedDurationMinutes: data.requestedDurationMinutes
+      },
+      beforeData: {
+        correctedDurationMinutes: entry.correctedDurationMinutes ?? entry.durationMinutes ?? null
+      },
+      afterData: {
+        correctedDurationMinutes: updated.correctedDurationMinutes ?? null,
+        correctionApprovedById: updated.correctionApprovedById ?? null
+      }
+    });
+
+    return updated;
+  }
+
+  async getNextActions(id: string, actor?: Actor) {
+    const current = await this.findOneWithRelations(id, actor);
+    const assigneeCount = await this.prisma.workOrderAssignee.count({
+      where: {
+        workOrderId: id,
+        assignmentStatus: { not: "REMOVED" }
+      }
+    });
+    const partsSummary = await this.workOrderPartsService.getCostSummary(id, actor);
+    return {
+      actions: getValidWorkOrderActions(current.status),
+      readiness: deriveReadiness({
+        status: current.status,
+        hasTechnician: Boolean(current.technicianId) || assigneeCount > 0,
+        plannedStartAt: current.plannedStartAt,
+        dueDate: current.dueDate,
+        approvalOk:
+          current.approvalStatus !== WorkOrderApprovalStatus.PENDING &&
+          current.approvalStatus !== WorkOrderApprovalStatus.REJECTED,
+        partsBlocked: (partsSummary.unaccountedLines ?? 0) > 0
+      })
+    };
   }
 
   async reopenWorkOrder(id: string, reason: string, actor?: Actor) {

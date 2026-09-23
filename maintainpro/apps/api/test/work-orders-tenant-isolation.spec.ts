@@ -48,12 +48,28 @@ describe("WorkOrdersService tenant isolation", () => {
 
   it("assign scopes technician lookup to tenant context", async () => {
     const prisma = createPrismaMock();
-    prisma.workOrder.findFirst.mockResolvedValue({
+    const plannedWorkOrder = {
       id: "wo-1",
       woNumber: "WO-2026-0001",
       dueDate: null,
-      status: "OPEN"
-    });
+      status: "PLANNED",
+      approvalStatus: "APPROVED",
+      technicianId: null,
+      tenantId: "tenant-a",
+      version: 1
+    };
+    prisma.workOrder.findFirst
+      .mockResolvedValueOnce(plannedWorkOrder)
+      .mockResolvedValue({
+        ...plannedWorkOrder,
+        status: "ASSIGNED",
+        technicianId: "tech-1",
+        asset: null,
+        vehicle: null,
+        technician: null,
+        createdBy: null,
+        parts: []
+      });
     prisma.user.findFirst.mockResolvedValue({
       id: "tech-1",
       email: "tech@example.com",
@@ -66,8 +82,10 @@ describe("WorkOrdersService tenant isolation", () => {
       id: "wo-1",
       woNumber: "WO-2026-0001",
       dueDate: null,
-      status: "ASSIGNED"
+      status: "ASSIGNED",
+      technicianId: "tech-1"
     });
+    (prisma as any).workOrderStatusHistory = { create: jest.fn() };
     const notificationsService = { createNotification: jest.fn() };
     const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 

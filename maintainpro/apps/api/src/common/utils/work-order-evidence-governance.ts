@@ -53,6 +53,15 @@ export function evaluateEvidenceRequirements(
   const hasAfter = accepted.some((item) => item.evidenceType === EvidenceType.AFTER_PHOTO);
   const required = requiresTypedEvidence(workOrderType);
 
+  const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
+  // Fail closed in production: required evidence cannot be waived when storage is unavailable.
+  // Non-production may proceed with completion note only when storage is explicitly disabled.
+  const storageBlocksCompletion = required && !storageEnabled && isProduction;
+  const photoComplete = hasBefore && hasAfter;
+  const complete =
+    !required ||
+    (storageEnabled ? photoComplete : !isProduction);
+
   return {
     required,
     storageEnabled,
@@ -62,7 +71,8 @@ export function evaluateEvidenceRequirements(
     afterCount: accepted.filter((item) => item.evidenceType === EvidenceType.AFTER_PHOTO).length,
     missingBefore: required && storageEnabled && !hasBefore,
     missingAfter: required && storageEnabled && !hasAfter,
-    complete: !required || !storageEnabled || (hasBefore && hasAfter),
+    storageUnavailableBlocking: storageBlocksCompletion,
+    complete: complete && !storageBlocksCompletion,
     rejectedCount: active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length
   };
 }
@@ -81,6 +91,11 @@ export function assertEvidenceForTechnicianCompletion(input: {
   }
 
   const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items);
+  if (checklist.storageUnavailableBlocking) {
+    throw new BadRequestException(
+      "Evidence storage is unavailable. Completion is blocked while required photo evidence cannot be stored (fail closed)."
+    );
+  }
   if (checklist.required && checklist.storageEnabled) {
     if (checklist.missingBefore) {
       throw new BadRequestException("Before photo is required before completion.");
@@ -88,16 +103,17 @@ export function assertEvidenceForTechnicianCompletion(input: {
     if (checklist.missingAfter) {
       throw new BadRequestException("After photo is required before completion.");
     }
-  } else if (checklist.required && !checklist.storageEnabled) {
-    // Storage disabled: photo evidence is waived for this environment; completion note remains mandatory.
   }
 
   if (requiresQrVerification(input.workOrderType, input.assetId, input.vehicleId)) {
+    const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
     const e2eMode = /^(1|true|yes)$/i.test((process.env.E2E_TEST_MODE ?? "").trim());
+    // E2E_TEST_MODE must never waive QR in production (boot also refuses this combo).
+    const allowE2eBypass = e2eMode && !isProduction;
     const ok =
       input.qrStatus === QrVerificationStatus.VERIFIED ||
       input.qrStatus === QrVerificationStatus.OVERRIDDEN ||
-      e2eMode;
+      allowE2eBypass;
     if (!ok && !input.overrideReason?.trim()) {
       throw new BadRequestException("QR verification required before completion.");
     }
@@ -114,6 +130,11 @@ export function assertEvidenceForSupervisorVerification(input: {
   overrideReason?: string | null;
 }) {
   const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items);
+  if (checklist.storageUnavailableBlocking && !input.overrideReason?.trim()) {
+    throw new BadRequestException(
+      "Evidence storage is unavailable. Supervisor verification is blocked while required photo evidence cannot be stored."
+    );
+  }
   if (
     checklist.required &&
     checklist.storageEnabled &&

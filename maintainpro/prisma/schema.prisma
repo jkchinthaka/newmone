@@ -1474,6 +1474,15 @@ model WorkOrder {
   expectedResumeAt DateTime?
   resumedAt        DateTime?
 
+  // D2 — requester confirmation (separate from technical verification; not a new WO status)
+  requesterConfirmationStatus   String    @default("NOT_REQUIRED") @db.NVarChar(64)
+  requesterConfirmationDueAt    DateTime?
+  requesterConfirmedAt          DateTime?
+  requesterConfirmedById        String?   @db.NVarChar(36)
+  requesterConfirmationNote     String?
+  requesterConfirmationOutcome  String?   @db.NVarChar(64)
+  requesterConfirmationPolicyHours Int?
+
   // Phase 6 — downtime (optional by domain; not forced on every WO)
   affectsOperation   Boolean   @default(false)
   downtimeApplicable Boolean   @default(false)
@@ -1772,11 +1781,18 @@ model WorkOrderLabourEntry {
   durationMinutes    Int?
   notes              String?
   labourRateSnapshot Decimal?  @db.Decimal(18, 2)
+  /// Governed correction (do not let technicians rewrite historic sessions silently)
+  correctionReason         String?
+  correctedDurationMinutes Int?
+  correctedById            String?   @db.NVarChar(36)
+  correctionApprovedById   String?   @db.NVarChar(36)
+  correctedAt              DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([workOrderId, startedAt])
+  @@index([technicianUserId, endedAt])
 }
 
 model WorkOrderStatusHistory {
