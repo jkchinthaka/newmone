@@ -154,6 +154,7 @@ export interface CreateWorkOrderInput {
   triageReason?: string;
   jobDomain?: string;
   currentOdometer?: number;
+  jobCategoryId?: string;
 }
 
 export interface UpdateWorkOrderInput {

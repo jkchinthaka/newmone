@@ -1082,6 +1082,39 @@ export class MaintenanceRequestsService {
       dto.title?.trim() ||
       `MR ${current.requestNumber}: ${(current.problemCategoryLabel || "Maintenance").slice(0, 80)}`;
 
+    let preservedJobCategoryId: string | undefined;
+    if (jobDomain && typeof (this.prisma as { maintenanceJobCategory?: unknown }).maintenanceJobCategory !== "undefined") {
+      const problemCat =
+        current.problemCategoryId
+          ? await this.prisma.requestProblemCategory.findFirst({
+              where: { id: current.problemCategoryId, tenantId: tid },
+              select: { code: true, name: true }
+            }).catch(() => null)
+          : null;
+      const orFilters: Array<{ code?: string; name?: string }> = [];
+      if (problemCat?.code) orFilters.push({ code: problemCat.code });
+      if (problemCat?.name) orFilters.push({ name: problemCat.name });
+      if (current.problemCategoryLabel) {
+        orFilters.push({ name: current.problemCategoryLabel });
+        orFilters.push({
+          code: current.problemCategoryLabel.trim().toUpperCase().replace(/\s+/g, "_")
+        });
+      }
+      if (orFilters.length > 0) {
+        const match = await this.prisma.maintenanceJobCategory.findFirst({
+          where: {
+            tenantId: tid,
+            jobDomain,
+            active: true,
+            OR: orFilters
+          },
+          select: { id: true },
+          orderBy: [{ level: "desc" }, { sortOrder: "asc" }]
+        });
+        preservedJobCategoryId = match?.id;
+      }
+    }
+
     const result = await this.prisma.$transaction(
       async (tx) => {
       const claimed = await tx.maintenanceRequest.updateMany({
@@ -1127,6 +1160,7 @@ export class MaintenanceRequestsService {
           failedAt: current.failureNoticedAt?.toISOString?.() ?? undefined,
           jobDomain,
           domainId: current.domainId ?? undefined,
+          jobCategoryId: preservedJobCategoryId,
           idempotencyKey: dto.idempotencyKey?.trim() || `mr-convert:${id}`
         },
         actor as never,

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, BadRequestException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { PartReturnCondition, Priority, WorkOrderStatus } from "@prisma/client";
 
@@ -18,6 +18,7 @@ import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
+import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 import { parseWorkOrderListQuery } from "./work-order-list-query.util";
 
 type AuthedRequest = {
@@ -40,7 +41,8 @@ export class WorkOrdersController {
     private readonly evidenceService: EvidenceService,
     private readonly vendorRepairService: VendorRepairService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
-    private readonly workOrderDomainService: WorkOrderDomainService
+    private readonly workOrderDomainService: WorkOrderDomainService,
+    private readonly maintenanceConfig: MaintenanceConfigService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -142,6 +144,33 @@ export class WorkOrdersController {
   async queueItems(@Req() req: AuthedRequest, @Param("queueKey") queueKey: string, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getQueue(req.user, queueKey, query);
     return { data, message: "Work order queue fetched" };
+  }
+
+  @Get("job-categories")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR"
+  )
+  async listJobCategories(
+    @Req() req: AuthedRequest,
+    @Query("jobDomain") jobDomain?: string,
+    @Query("level") level?: "MAIN" | "SUB"
+  ) {
+    if (!jobDomain?.trim()) {
+      throw new BadRequestException("jobDomain is required");
+    }
+    const data = await this.maintenanceConfig.listSelectableJobCategories(req.user, {
+      jobDomain,
+      level: level === "MAIN" ? "MAIN" : "SUB",
+      activeOnly: true
+    });
+    return { data, message: "Work order job categories" };
   }
 
   @Get("category-summary")
@@ -284,6 +313,7 @@ export class WorkOrdersController {
       domainId?: string;
       maintenanceTemplateId?: string;
       currentOdometer?: number;
+      jobCategoryId?: string;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);

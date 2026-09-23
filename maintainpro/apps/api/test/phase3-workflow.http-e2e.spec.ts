@@ -29,6 +29,7 @@ import { WorkOrderQueuesService } from "../src/modules/work-orders/work-order-qu
 import { WorkOrderDomainService } from "../src/modules/work-orders/work-order-domain.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { VendorRepairService } from "../src/modules/work-orders/vendor-repair.service";
+import { MaintenanceConfigService } from "../src/modules/maintenance-config/maintenance-config.service";
 
 const inventoryService = {
   parts: jest.fn(),
@@ -168,6 +169,12 @@ const workOrderDomainService = {
   assertDomainCloseout: jest.fn()
 };
 
+const maintenanceConfigService = {
+  listSelectableJobCategories: jest.fn(),
+  assertJobCategoryForDomain: jest.fn(),
+  findJobCategoryMatch: jest.fn()
+};
+
 const prisma = {
   user: { findUnique: jest.fn() }
 };
@@ -186,6 +193,7 @@ const prisma = {
     { provide: VendorRepairService, useValue: vendorRepairService },
     { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
     { provide: WorkOrderDomainService, useValue: workOrderDomainService },
+    { provide: MaintenanceConfigService, useValue: maintenanceConfigService },
     { provide: WorkOrderTaxonomyService, useValue: createWorkOrderTaxonomyServiceMock() },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },
     { provide: InventoryExcelImportService, useValue: excelImportService },

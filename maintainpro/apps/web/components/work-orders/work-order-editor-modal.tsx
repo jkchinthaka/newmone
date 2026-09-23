@@ -51,6 +51,7 @@ type WorkOrderCreateFormValue = {
   triageReason?: string;
   jobDomain?: string;
   currentOdometer?: number;
+  jobCategoryId?: string;
 };
 
 type WorkOrderEditFormValue = UpdateWorkOrderInput;
@@ -258,12 +259,8 @@ export function WorkOrderEditorModal({
                       assetId: values.assetId,
                       vehicleId: values.vehicleId,
                       functionalLocationId: values.functionalLocationId,
-                      taxonomyCategoryId: values.isTriage ? undefined : values.taxonomyCategoryId,
-                      taxonomyTypeId: values.isTriage ? undefined : values.taxonomyTypeId,
-                      taxonomyIssueId: values.isTriage ? undefined : values.taxonomyIssueId,
-                      isTriage: values.isTriage,
-                      triageReason: values.isTriage ? values.description : undefined,
                       jobDomain: values.jobDomain,
+                      jobCategoryId: values.jobCategoryId,
                       currentOdometer: values.currentOdometer
                     });
                   }}

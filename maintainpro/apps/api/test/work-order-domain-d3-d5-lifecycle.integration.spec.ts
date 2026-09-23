@@ -288,6 +288,17 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
     currentOdometer?: number;
     completionExtra?: Record<string, unknown>;
   }) {
+    let jobCategoryId: string | undefined;
+    if (input.jobDomain === "SERVICE") {
+      const category = await prisma.maintenanceJobCategory.findFirst({
+        where: { tenantId, jobDomain: "SERVICE", level: "SUB", active: true },
+        select: { id: true },
+        orderBy: { sortOrder: "asc" }
+      });
+      expect(category?.id).toBeTruthy();
+      jobCategoryId = category!.id;
+    }
+
     const created = await workOrders.create(
       {
         title: `${input.label} closeout`,
@@ -299,6 +310,7 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
         vehicleId: input.vehicleId,
         functionalLocationId: input.functionalLocationId,
         jobDomain: input.jobDomain,
+        jobCategoryId,
         currentOdometer: input.currentOdometer
       },
       planner

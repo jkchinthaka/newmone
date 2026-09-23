@@ -1561,6 +1561,9 @@ model WorkOrder {
   pmOccurrenceKey String?
   pmOccurrences   PmOccurrence[]
 
+  /// Master-data job / problem / service category (MaintenanceJobCategory) — domain-aware.
+  jobCategoryId        String?                   @db.NVarChar(36)
+  jobCategory          MaintenanceJobCategory?   @relation(fields: [jobCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   taxonomyCategoryId   String?            @db.NVarChar(36)
   taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   taxonomyTypeId       String?            @db.NVarChar(36)
@@ -1597,6 +1600,7 @@ model WorkOrder {
   @@index([tenantId, executionMode])
   @@index([tenantId, jobDomain])
   @@index([tenantId, jobDomain, status])
+  @@index([tenantId, jobCategoryId])
   @@index([tenantId, maintenanceTemplateId])
   @@index([status])
   @@index([priority])
@@ -3259,6 +3263,8 @@ model MaintenanceJobCategory {
   sortOrder Int                     @default(0)
   createdAt DateTime                @default(now())
   updatedAt DateTime                @updatedAt
+
+  workOrders WorkOrder[]
 
   @@unique([tenantId, jobDomain, code])
   @@index([tenantId, jobDomain, level, active])

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 import { EntityPicker } from "@/components/ui/entity-picker";
@@ -11,14 +12,10 @@ import {
   primaryCreateFields,
   suggestWorkOrderTitle
 } from "@/lib/work-order-create-hci";
-import {
-  formatTaxonomyPathLabel,
-  suggestWorkOrderTaxonomy,
-  type TaxonomySuggestion
-} from "@/lib/work-order-taxonomy-api";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { withTenantScope } from "@/lib/tenant-query";
 
 import { toTitleCase } from "./helpers";
-import { WorkOrderTaxonomyPicker } from "./work-order-taxonomy-picker";
 import {
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_TYPES,
@@ -26,21 +23,14 @@ import {
   type WorkOrderType
 } from "./types";
 
-function isWorkOrderPriority(value: string | undefined): value is WorkOrderPriority {
-  return Boolean(value && WORK_ORDER_PRIORITIES.includes(value as WorkOrderPriority));
-}
-
-const SERVICE_CATEGORIES = [
-  "ELECTRICAL",
-  "PLUMBING",
-  "CIVIL",
-  "HVAC",
-  "REFRIGERATION",
-  "IT",
-  "FIRE",
-  "SECURITY",
-  "GENERAL"
-] as const;
+type JobCategoryOption = {
+  id: string;
+  code: string;
+  name: string;
+  jobDomain: string;
+  level: string;
+  active: boolean;
+};
 
 export type GuidedCreateValues = {
   title: string;
@@ -52,18 +42,12 @@ export type GuidedCreateValues = {
   assetId?: string;
   vehicleId?: string;
   functionalLocationId?: string;
-  taxonomyCategoryId?: string;
-  taxonomyTypeId?: string;
-  taxonomyIssueId?: string;
-  isTriage?: boolean;
-  triageReason?: string;
-  taxonomyPathLabel?: string;
   /** Always stamped from the domain lane / picker — never rely on inference alone. */
   jobDomain: JobDomain;
   /** VEHICLE direct create — current odometer at request time. */
   currentOdometer?: number;
-  /** SERVICE category label for context (also reflected in problem text). */
-  serviceCategory?: string;
+  /** Master-data MaintenanceJobCategory (Service / Problem Category). */
+  jobCategoryId?: string;
 };
 
 type Props = {
@@ -76,8 +60,7 @@ type Props = {
 
 /**
  * Single-screen Direct Create with progressive disclosure.
- * Replaces the former Context → Work → Plan → Review wizard for normal corrective work.
- * Planned start is intentionally omitted — it belongs in Planning after create.
+ * Category values come from MaintenanceJobCategory master data — not triage suggestion UI.
  */
 export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onSubmit, onCancel }: Props) {
   const formId = useId();
@@ -97,22 +80,10 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
   const [assetLabel, setAssetLabel] = useState("");
   const [vehicleLabel, setVehicleLabel] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
-  const [serviceCategory, setServiceCategory] = useState<string>("");
+  const [jobCategoryId, setJobCategoryId] = useState("");
   const [currentOdometer, setCurrentOdometer] = useState("");
   const [showMore, setShowMore] = useState(false);
-  const [showTaxonomyChange, setShowTaxonomyChange] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [suggesting, setSuggesting] = useState(false);
-  const [suggestion, setSuggestion] = useState<TaxonomySuggestion | null>(null);
-  const [suggestionUnavailable, setSuggestionUnavailable] = useState(false);
-  const [taxonomySelection, setTaxonomySelection] = useState<{
-    categoryId?: string;
-    typeId?: string;
-    issueId?: string;
-    pathLabel?: string;
-    isTriage?: boolean;
-  }>({});
-  const suggestAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (lockedDomain) {
@@ -122,91 +93,33 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
 
   useEffect(() => {
     if (!domain) return;
-    // Reset entity selections when domain changes so Vehicle never leaks into Machinery, etc.
     setAssetId("");
     setVehicleId("");
     setFunctionalLocationId("");
     setAssetLabel("");
     setVehicleLabel("");
     setLocationLabel("");
-    setServiceCategory("");
+    setJobCategoryId("");
     setFieldErrors({});
   }, [domain]);
+
+  const categoriesQuery = useQuery({
+    queryKey: withTenantScope(["work-orders", "job-categories", domain ?? "none"]),
+    enabled: Boolean(domain),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const res = await apiClient.get<{ data: JobCategoryOption[] }>("/work-orders/job-categories", {
+        params: { jobDomain: domain, level: "SUB" }
+      });
+      return res.data.data ?? [];
+    }
+  });
 
   const fields = domain ? primaryCreateFields(domain) : null;
   const entityLabel = assetLabel || vehicleLabel || locationLabel || "";
   const autoTitle = suggestWorkOrderTitle({ description, entityLabel });
   const effectiveTitle = (titleOverride ?? autoTitle).trim();
-
-  const suggestQuery = useMemo(() => {
-    const parts = [serviceCategory, description].map((p) => p.trim()).filter(Boolean);
-    return parts.join(" ").trim();
-  }, [description, serviceCategory]);
-
-  useEffect(() => {
-    if (!domain || suggestQuery.length < 2) {
-      setSuggestion(null);
-      setSuggestionUnavailable(false);
-      return;
-    }
-
-    suggestAbortRef.current?.abort();
-    const controller = new AbortController();
-    suggestAbortRef.current = controller;
-
-    const handle = window.setTimeout(async () => {
-      setSuggesting(true);
-      setSuggestionUnavailable(false);
-      try {
-        const result = await suggestWorkOrderTaxonomy(suggestQuery);
-        if (controller.signal.aborted) return;
-        const nextSuggestion = result.suggestion ?? null;
-        setSuggestion(nextSuggestion);
-        if (nextSuggestion && !showTaxonomyChange) {
-          const highConfidence = nextSuggestion.confidence >= 60;
-          if (highConfidence) {
-            setTaxonomySelection({
-              categoryId: nextSuggestion.categoryId,
-              typeId: nextSuggestion.typeId,
-              issueId: nextSuggestion.issueId,
-              pathLabel: formatTaxonomyPathLabel(nextSuggestion),
-              isTriage: false
-            });
-          }
-          if (isWorkOrderPriority(nextSuggestion.defaultPriority)) {
-            setPriority(nextSuggestion.defaultPriority);
-          }
-        }
-        if (!nextSuggestion && !showTaxonomyChange) {
-          // Allow creation as triage when suggestion is empty.
-          setTaxonomySelection((current) =>
-            current.pathLabel
-              ? current
-              : { pathLabel: "Needs classification / Triage", isTriage: true }
-          );
-        }
-      } catch {
-        if (controller.signal.aborted) return;
-        setSuggestion(null);
-        setSuggestionUnavailable(true);
-        if (!showTaxonomyChange) {
-          setTaxonomySelection({
-            pathLabel: "Needs classification / Triage",
-            isTriage: true
-          });
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setSuggesting(false);
-        }
-      }
-    }, 300);
-
-    return () => {
-      window.clearTimeout(handle);
-      controller.abort();
-    };
-  }, [suggestQuery, domain, showTaxonomyChange]);
+  const categories = categoriesQuery.data ?? [];
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -228,8 +141,8 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
     if (domain === "SERVICE" && !functionalLocationId) {
       next.functionalLocationId = "Select a location / facility.";
     }
-    if (domain === "SERVICE" && !serviceCategory.trim()) {
-      next.serviceCategory = "Select a service category.";
+    if (domain === "SERVICE" && !jobCategoryId) {
+      next.jobCategoryId = "Select a service category.";
     }
     if (domain === "VEHICLE") {
       const reading = Number(currentOdometer);
@@ -248,17 +161,9 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
       return;
     }
 
-    const isTriage =
-      Boolean(taxonomySelection.isTriage) ||
-      Boolean(taxonomySelection.pathLabel?.includes("Triage")) ||
-      (!taxonomySelection.categoryId && !taxonomySelection.typeId);
-
     onSubmit({
       title: effectiveTitle,
-      description:
-        domain === "SERVICE" && serviceCategory
-          ? `[${serviceCategory}] ${description.trim()}`
-          : description.trim(),
+      description: description.trim(),
       priority,
       type: domain === "SERVICE" ? type || "CORRECTIVE" : type,
       dueDate: dueDate || undefined,
@@ -266,14 +171,8 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
       assetId: assetId || undefined,
       vehicleId: vehicleId || undefined,
       functionalLocationId: functionalLocationId || undefined,
-      taxonomyCategoryId: isTriage ? undefined : taxonomySelection.categoryId,
-      taxonomyTypeId: isTriage ? undefined : taxonomySelection.typeId,
-      taxonomyIssueId: isTriage ? undefined : taxonomySelection.issueId,
-      isTriage,
-      triageReason: isTriage ? description.trim() : undefined,
-      taxonomyPathLabel: taxonomySelection.pathLabel,
       jobDomain: domain,
-      serviceCategory: serviceCategory || undefined,
+      jobCategoryId: jobCategoryId || undefined,
       currentOdometer:
         domain === "VEHICLE" && currentOdometer.trim()
           ? Number(currentOdometer)
@@ -329,6 +228,53 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
       </div>
     );
   }
+
+  const categoryLabel = domain === "SERVICE" ? "Service Category" : "Problem Category";
+  const renderCategorySelect = () => (
+    <label className="block space-y-1 text-sm text-slate-700">
+      <span className="font-medium">
+        {categoryLabel}
+        {domain === "SERVICE" ? <span className="text-rose-600"> *</span> : null}
+      </span>
+      <select
+        value={jobCategoryId}
+        onChange={(event) => setJobCategoryId(event.target.value)}
+        className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
+        required={domain === "SERVICE"}
+        disabled={categoriesQuery.isLoading}
+        aria-invalid={Boolean(fieldErrors.jobCategoryId)}
+        aria-busy={categoriesQuery.isLoading}
+      >
+        <option value="">
+          {categoriesQuery.isLoading
+            ? "Loading categories…"
+            : domain === "SERVICE"
+              ? "Select service category…"
+              : "Select problem category…"}
+        </option>
+        {categories.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+      {categoriesQuery.isError ? (
+        <p className="text-sm text-rose-700" role="alert">
+          {getApiErrorMessage(categoriesQuery.error, "Unable to load categories")}
+        </p>
+      ) : null}
+      {!categoriesQuery.isLoading && !categoriesQuery.isError && categories.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          No active categories configured. Ask an administrator to seed Job Categories.
+        </p>
+      ) : null}
+      {fieldErrors.jobCategoryId ? (
+        <p className="text-sm text-rose-700" role="alert">
+          {fieldErrors.jobCategoryId}
+        </p>
+      ) : null}
+    </label>
+  );
 
   return (
     <form
@@ -459,31 +405,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
         </div>
       ) : null}
 
-      {fields?.showServiceCategory ? (
-        <label className="block space-y-1 text-sm text-slate-700">
-          <span className="font-medium">
-            Service Category <span className="text-rose-600">*</span>
-          </span>
-          <select
-            value={serviceCategory}
-            onChange={(event) => setServiceCategory(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
-            required
-          >
-            <option value="">Select…</option>
-            {SERVICE_CATEGORIES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.serviceCategory ? (
-            <p className="text-sm text-rose-700" role="alert">
-              {fieldErrors.serviceCategory}
-            </p>
-          ) : null}
-        </label>
-      ) : null}
+      {fields?.showServiceCategory ? renderCategorySelect() : null}
 
       <label className="block space-y-1 text-sm text-slate-700">
         <span className="font-medium">
@@ -505,54 +427,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
             {fieldErrors.description}
           </p>
         ) : null}
-        {suggesting ? (
-          <span className="inline-flex items-center gap-2 text-xs text-slate-500">
-            <Loader2 size={12} className="animate-spin" aria-hidden /> Finding category suggestions…
-          </span>
-        ) : null}
       </label>
-
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Suggested category</p>
-            <p className="mt-0.5 font-medium text-slate-900">
-              {taxonomySelection.pathLabel ||
-                (suggestionUnavailable
-                  ? "Needs classification / Triage"
-                  : suggestion
-                    ? formatTaxonomyPathLabel(suggestion)
-                    : "Will use triage if no match")}
-            </p>
-            {suggestion ? (
-              <p className="text-xs text-slate-500">{suggestion.confidence}% confidence</p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
-            onClick={() => setShowTaxonomyChange((current) => !current)}
-          >
-            Change
-          </button>
-        </div>
-        {showTaxonomyChange ? (
-          <div className="mt-3 border-t border-slate-200 pt-3">
-            <WorkOrderTaxonomyPicker
-              value={taxonomySelection}
-              onChange={(value) =>
-                setTaxonomySelection({
-                  categoryId: value.categoryId,
-                  typeId: value.typeId,
-                  issueId: value.issueId,
-                  pathLabel: value.pathLabel,
-                  isTriage: value.isTriage ?? value.pathLabel.includes("Triage")
-                })
-              }
-            />
-          </div>
-        ) : null}
-      </div>
 
       <div className={`grid gap-4 ${fields?.showWorkType ? "sm:grid-cols-2" : ""}`}>
         <label className="block space-y-1 text-sm text-slate-700">
@@ -599,6 +474,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
         </button>
         {showMore ? (
           <div className="mt-3 space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+            {domain === "MACHINERY" || domain === "VEHICLE" ? renderCategorySelect() : null}
             <label className="block space-y-1 text-sm text-slate-700">
               <span className="font-medium">Title</span>
               <input
