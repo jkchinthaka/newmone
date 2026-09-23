@@ -31,11 +31,15 @@ function isWorkOrderPriority(value: string | undefined): value is WorkOrderPrior
 }
 
 const SERVICE_CATEGORIES = [
-  "Electrical",
-  "Plumbing",
-  "Civil",
+  "ELECTRICAL",
+  "PLUMBING",
+  "CIVIL",
+  "HVAC",
+  "REFRIGERATION",
   "IT",
-  "Other"
+  "FIRE",
+  "SECURITY",
+  "GENERAL"
 ] as const;
 
 export type GuidedCreateValues = {
@@ -56,6 +60,10 @@ export type GuidedCreateValues = {
   taxonomyPathLabel?: string;
   /** Always stamped from the domain lane / picker — never rely on inference alone. */
   jobDomain: JobDomain;
+  /** VEHICLE direct create — current odometer at request time. */
+  currentOdometer?: number;
+  /** SERVICE category label for context (also reflected in problem text). */
+  serviceCategory?: string;
 };
 
 type Props = {
@@ -90,6 +98,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
   const [vehicleLabel, setVehicleLabel] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
   const [serviceCategory, setServiceCategory] = useState<string>("");
+  const [currentOdometer, setCurrentOdometer] = useState("");
   const [showMore, setShowMore] = useState(false);
   const [showTaxonomyChange, setShowTaxonomyChange] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -219,6 +228,15 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
     if (domain === "SERVICE" && !functionalLocationId) {
       next.functionalLocationId = "Select a location / facility.";
     }
+    if (domain === "SERVICE" && !serviceCategory.trim()) {
+      next.serviceCategory = "Select a service category.";
+    }
+    if (domain === "VEHICLE") {
+      const reading = Number(currentOdometer);
+      if (!currentOdometer.trim() || !Number.isFinite(reading) || reading < 0) {
+        next.currentOdometer = "Enter the current odometer reading.";
+      }
+    }
     setFieldErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -237,7 +255,10 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
 
     onSubmit({
       title: effectiveTitle,
-      description: description.trim(),
+      description:
+        domain === "SERVICE" && serviceCategory
+          ? `[${serviceCategory}] ${description.trim()}`
+          : description.trim(),
       priority,
       type: domain === "SERVICE" ? type || "CORRECTIVE" : type,
       dueDate: dueDate || undefined,
@@ -251,7 +272,12 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
       isTriage,
       triageReason: isTriage ? description.trim() : undefined,
       taxonomyPathLabel: taxonomySelection.pathLabel,
-      jobDomain: domain
+      jobDomain: domain,
+      serviceCategory: serviceCategory || undefined,
+      currentOdometer:
+        domain === "VEHICLE" && currentOdometer.trim()
+          ? Number(currentOdometer)
+          : undefined
     });
   };
 
@@ -384,6 +410,26 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
               {fieldErrors.vehicleId}
             </p>
           ) : null}
+          <label className="block space-y-1 text-sm text-slate-700">
+            <span className="font-medium">
+              Current odometer <span className="text-rose-600">*</span>
+            </span>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={currentOdometer}
+              onChange={(event) => setCurrentOdometer(event.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="e.g. 126520"
+              required
+            />
+            {fieldErrors.currentOdometer ? (
+              <p className="text-sm text-rose-700" role="alert">
+                {fieldErrors.currentOdometer}
+              </p>
+            ) : null}
+          </label>
         </div>
       ) : null}
 
@@ -415,11 +461,14 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
 
       {fields?.showServiceCategory ? (
         <label className="block space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Service Required</span>
+          <span className="font-medium">
+            Service Category <span className="text-rose-600">*</span>
+          </span>
           <select
             value={serviceCategory}
             onChange={(event) => setServiceCategory(event.target.value)}
             className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
+            required
           >
             <option value="">Select…</option>
             {SERVICE_CATEGORIES.map((item) => (
@@ -428,6 +477,11 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
               </option>
             ))}
           </select>
+          {fieldErrors.serviceCategory ? (
+            <p className="text-sm text-rose-700" role="alert">
+              {fieldErrors.serviceCategory}
+            </p>
+          ) : null}
         </label>
       ) : null}
 

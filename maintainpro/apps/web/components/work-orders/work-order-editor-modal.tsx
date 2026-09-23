@@ -24,6 +24,7 @@ import { WorkOrderAuditPanel } from "./work-order-audit-panel";
 import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
 import { WorkOrderGovernanceBanner } from "./work-order-governance-banner";
+import { WorkOrderDomainPanel } from "./work-order-domain-panel";
 import { SupervisorVerificationPanel } from "./supervisor-verification-panel";
 import { WorkOrderVendorRepairPanel } from "./work-order-vendor-repair-panel";
 import { WorkOrderGuidedCreate } from "./work-order-guided-create";
@@ -49,6 +50,7 @@ type WorkOrderCreateFormValue = {
   isTriage?: boolean;
   triageReason?: string;
   jobDomain?: string;
+  currentOdometer?: number;
 };
 
 type WorkOrderEditFormValue = UpdateWorkOrderInput;
@@ -261,7 +263,8 @@ export function WorkOrderEditorModal({
                       taxonomyIssueId: values.isTriage ? undefined : values.taxonomyIssueId,
                       isTriage: values.isTriage,
                       triageReason: values.isTriage ? values.description : undefined,
-                      jobDomain: values.jobDomain
+                      jobDomain: values.jobDomain,
+                      currentOdometer: values.currentOdometer
                     });
                   }}
                 />
@@ -466,6 +469,22 @@ export function WorkOrderEditorModal({
               {!isCreateMode && workOrder && activeTab === "overview" ? (
                 <div className="space-y-3">
                   <WorkOrderGovernanceBanner workOrder={workOrder} />
+                  <WorkOrderDomainPanel
+                    workOrderId={workOrder.id}
+                    workOrderStatus={workOrder.status}
+                    canReturnToService={Boolean(
+                      currentUser.role &&
+                        [
+                          "SUPER_ADMIN",
+                          "ADMIN",
+                          "MANAGER",
+                          "OPERATIONS_MANAGER",
+                          "ASSET_MANAGER",
+                          "SUPERVISOR",
+                          "FLEET_MANAGER"
+                        ].includes(String(currentUser.role))
+                    )}
+                  />
                   <SupervisorVerificationPanel
                     workOrderId={workOrder.id}
                     status={workOrder.status}

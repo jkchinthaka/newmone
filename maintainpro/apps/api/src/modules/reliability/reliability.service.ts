@@ -206,10 +206,13 @@ export class ReliabilityService {
     tenantId: string;
     workOrderId: string;
     assetId?: string | null;
+    vehicleId?: string | null;
+    functionalLocationId?: string | null;
     failureCode?: string | null;
   }) {
     const policy = await this.getOrCreatePolicy(input.tenantId);
-    if (!input.assetId && policy.matchSameAsset) {
+    const hasTarget = Boolean(input.assetId || input.vehicleId || input.functionalLocationId);
+    if (!hasTarget && policy.matchSameAsset) {
       return { isRepeat: false, similarCount: 0, windowDays: policy.repeatWindowDays };
     }
 
@@ -220,14 +223,28 @@ export class ReliabilityService {
       createdAt: { gte: since },
       status: { notIn: ["CANCELLED"] }
     };
-    if (policy.matchSameAsset && input.assetId) {
-      where.assetId = input.assetId;
+
+    const targetOr: Array<Record<string, string>> = [];
+    if (policy.matchSameAsset && input.assetId) targetOr.push({ assetId: input.assetId });
+    if (input.vehicleId) targetOr.push({ vehicleId: input.vehicleId });
+    if (input.functionalLocationId) targetOr.push({ functionalLocationId: input.functionalLocationId });
+    if (targetOr.length === 1) {
+      Object.assign(where, targetOr[0]);
+    } else if (targetOr.length > 1) {
+      where.OR = targetOr;
     }
+
     if (policy.matchSameFaultCode && input.failureCode) {
-      where.OR = [
+      const faultOr = [
         { failureCodeSnapshot: input.failureCode },
         { causeCodeSnapshot: input.failureCode }
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR as never }, { OR: faultOr }];
+        delete where.OR;
+      } else {
+        where.OR = faultOr;
+      }
     }
 
     const similarCount = await this.prisma.workOrder.count({ where: where as never });
