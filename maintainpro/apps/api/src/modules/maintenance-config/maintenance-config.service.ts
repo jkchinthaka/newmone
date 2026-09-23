@@ -295,6 +295,105 @@ export class MaintenanceConfigService {
     });
   }
 
+  /**
+   * Selectable categories for direct Work Order create dropdowns.
+   * Defaults to active SUB rows for the domain (problem / service category leaves).
+   */
+  async listSelectableJobCategories(
+    actor: Actor,
+    input: { jobDomain: string; level?: "MAIN" | "SUB"; activeOnly?: boolean }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const domain = parseJobDomain(input.jobDomain);
+    if (!domain) throw new BadRequestException("Invalid jobDomain");
+    const level = input.level ?? "SUB";
+    const activeOnly = input.activeOnly !== false;
+    return this.prisma.maintenanceJobCategory.findMany({
+      where: {
+        tenantId,
+        jobDomain: domain,
+        level,
+        ...(activeOnly ? { active: true } : {})
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        jobDomain: true,
+        level: true,
+        active: true,
+        sortOrder: true,
+        parentId: true
+      }
+    });
+  }
+
+  async assertJobCategoryForDomain(
+    tenantId: string,
+    jobCategoryId: string | null | undefined,
+    jobDomain: JobDomain,
+    options?: { required?: boolean }
+  ): Promise<{ id: string; code: string; name: string } | null> {
+    const required = options?.required === true;
+    const id = jobCategoryId?.trim() || "";
+    if (!id) {
+      if (required) {
+        throw new BadRequestException(
+          jobDomain === "SERVICE"
+            ? "Service Category is required."
+            : "Problem Category is required."
+        );
+      }
+      return null;
+    }
+    const row = await this.prisma.maintenanceJobCategory.findFirst({
+      where: { id, tenantId },
+      select: { id: true, code: true, name: true, jobDomain: true, active: true, level: true }
+    });
+    if (!row) {
+      throw new BadRequestException("Selected category was not found for this tenant.");
+    }
+    if (!row.active) {
+      throw new BadRequestException("Selected category is inactive.");
+    }
+    if (row.jobDomain !== jobDomain) {
+      throw new BadRequestException(
+        `Selected category is not applicable to ${jobDomain} work orders.`
+      );
+    }
+    return { id: row.id, code: row.code, name: row.name };
+  }
+
+  async findJobCategoryMatch(
+    tenantId: string,
+    jobDomain: JobDomain,
+    input: { code?: string | null; name?: string | null }
+  ): Promise<{ id: string; code: string; name: string } | null> {
+    const code = input.code?.trim().toUpperCase();
+    const name = input.name?.trim();
+    if (!code && !name) return null;
+    const row = await this.prisma.maintenanceJobCategory.findFirst({
+      where: {
+        tenantId,
+        jobDomain,
+        active: true,
+        OR: [
+          ...(code ? [{ code }] : []),
+          ...(name
+            ? [
+                { name: { equals: name } },
+                { code: name.toUpperCase().replace(/\s+/g, "_") }
+              ]
+            : [])
+        ]
+      },
+      select: { id: true, code: true, name: true },
+      orderBy: [{ level: "desc" }, { sortOrder: "asc" }]
+    });
+    return row;
+  }
+
   async createJobCategory(
     actor: Actor,
     input: {

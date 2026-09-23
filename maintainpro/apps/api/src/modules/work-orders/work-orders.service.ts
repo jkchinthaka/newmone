@@ -741,6 +741,8 @@ export class WorkOrdersService {
       maintenanceTemplateId?: string;
       /** VEHICLE create — current odometer (monotonic vs last accepted). */
       currentOdometer?: number;
+      /** Master-data MaintenanceJobCategory id (Service Category / Problem Category). */
+      jobCategoryId?: string;
     },
     actor?: Actor,
     options?: { tx?: Prisma.TransactionClient }
@@ -857,6 +859,38 @@ export class WorkOrdersService {
       }
     }
 
+    let jobCategoryId: string | undefined;
+    let jobCategoryNameSnapshot: string | undefined;
+    const explicitServiceCreate =
+      !options?.tx &&
+      resolvedJobDomain === "SERVICE" &&
+      parseJobDomain(data.jobDomain) === "SERVICE";
+    const requestedCategoryId = data.jobCategoryId?.trim() || "";
+    if (requestedCategoryId || explicitServiceCreate) {
+      if (!requestedCategoryId && explicitServiceCreate) {
+        throw new BadRequestException("Service Category is required.");
+      }
+      if (requestedCategoryId && resolvedJobDomain) {
+        const category = await db.maintenanceJobCategory.findFirst({
+          where: { id: requestedCategoryId, tenantId },
+          select: { id: true, code: true, name: true, jobDomain: true, active: true }
+        });
+        if (!category) {
+          throw new BadRequestException("Selected category was not found for this tenant.");
+        }
+        if (!category.active) {
+          throw new BadRequestException("Selected category is inactive.");
+        }
+        if (category.jobDomain !== resolvedJobDomain) {
+          throw new BadRequestException(
+            `Selected category is not applicable to ${resolvedJobDomain} work orders.`
+          );
+        }
+        jobCategoryId = category.id;
+        jobCategoryNameSnapshot = category.name;
+      }
+    }
+
     let taxonomyFields: {
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;
@@ -892,6 +926,9 @@ export class WorkOrdersService {
         isTriage: taxonomy.isTriage,
         triageReason: data.isTriage ? data.triageReason ?? data.description : undefined
       };
+    }
+    if (jobCategoryNameSnapshot && !taxonomyFields.categoryNameSnapshot) {
+      taxonomyFields.categoryNameSnapshot = jobCategoryNameSnapshot;
     }
 
     const approvalStatus =
@@ -962,6 +999,7 @@ export class WorkOrdersService {
           createdById: authoritativeCreatorId,
           domainId: resolvedDomainId,
           jobDomain: resolvedJobDomain,
+          jobCategoryId,
           ...taxonomyFields,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           expectedCompletionDate: data.expectedCompletionDate
