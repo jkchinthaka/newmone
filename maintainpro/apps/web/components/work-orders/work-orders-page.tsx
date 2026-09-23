@@ -599,7 +599,18 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
                 // canonical tech-complete status so supervisors aren't stuck.
                 status: "TECHNICIAN_COMPLETED",
                 delayReason: payload.delayReason,
-                completionNote: payload.completionNote
+                completionNote: payload.completionNote,
+                failureCode: payload.failureCode,
+                causeCode: payload.causeCode,
+                remedyCode: payload.remedyCode,
+                completionCondition: payload.completionCondition,
+                followUpRequired: payload.followUpRequired,
+                followUpNote: payload.followUpNote,
+                functionalTestResult: payload.functionalTestResult,
+                roadTestResult: payload.roadTestResult,
+                completionMeterReading: payload.completionMeterReading,
+                operatingRestriction: payload.operatingRestriction,
+                productionImpact: payload.productionImpact
               }
             })
             .then(() => {

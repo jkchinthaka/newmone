@@ -1494,6 +1494,12 @@ model WorkOrder {
   temporaryRepair          Boolean   @default(false)
   temporaryRepairExpiry    DateTime?
   temporaryRepairFollowUpId String?  @db.NVarChar(36)
+  /// D3/D4/D5 — domain completion / release (unified WO engine; not a separate lifecycle)
+  functionalTestResult     String?   @db.NVarChar(32)
+  roadTestResult           String?   @db.NVarChar(32)
+  completionMeterReading   Float?
+  operatingRestriction     String?   @db.NVarChar(Max)
+  productionImpact         String?   @db.NVarChar(32)
   workflowVersionId        String?   @db.NVarChar(36)
   workflowVersion          WorkflowVersion? @relation(fields: [workflowVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

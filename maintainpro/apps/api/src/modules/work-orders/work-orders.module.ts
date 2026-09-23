@@ -14,6 +14,7 @@ import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderQueuesService } from "./work-order-queues.service";
+import { WorkOrderDomainService } from "./work-order-domain.service";
 import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
@@ -46,6 +47,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
     WorkOrderGovernanceService,
     WorkOrderPartsService,
     WorkOrderQueuesService,
+    WorkOrderDomainService,
     VendorRepairService
   ],
   exports: [
@@ -56,6 +58,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
     WorkOrderGovernanceService,
     WorkOrderPartsService,
     WorkOrderQueuesService,
+    WorkOrderDomainService,
     VendorRepairService
   ]
 })

@@ -153,6 +153,7 @@ export interface CreateWorkOrderInput {
   isTriage?: boolean;
   triageReason?: string;
   jobDomain?: string;
+  currentOdometer?: number;
 }
 
 export interface UpdateWorkOrderInput {
@@ -174,6 +175,17 @@ export interface UpdateWorkOrderStatusInput {
   cancelReason?: string;
   completionNote?: string;
   emergencyCloseReason?: string;
+  failureCode?: string;
+  causeCode?: string;
+  remedyCode?: string;
+  completionCondition?: string;
+  followUpRequired?: boolean;
+  followUpNote?: string;
+  functionalTestResult?: string;
+  roadTestResult?: string;
+  completionMeterReading?: number;
+  operatingRestriction?: string;
+  productionImpact?: string;
 }
 
 export interface TechnicianOption {

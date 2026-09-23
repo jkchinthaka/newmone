@@ -29,7 +29,13 @@ import {
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
 import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
-import { resolveJobDomain } from "../../common/utils/job-domain.util";
+import { parseJobDomain, resolveJobDomain } from "../../common/utils/job-domain.util";
+import {
+  assertDomainTestAllowsCompletion,
+  assertJobDomainSubjects,
+  parseDomainTestResult,
+  parseProductionImpact
+} from "../../common/utils/work-order-domain.util";
 import {
   assertLabourCorrectionReason,
   assertNoActiveLabourForTechnician,
@@ -77,6 +83,7 @@ import {
   FRAUD_CONTROL_ENABLED
 } from "../../common/utils/fraud-control.util";
 import { PrismaService } from "../../database/prisma.service";
+import { WorkOrderDomainService } from "./work-order-domain.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -114,7 +121,8 @@ export class WorkOrdersService {
     @Optional() private readonly reliability?: ReliabilityService,
     @Optional() private readonly approvalsService?: ApprovalsService,
     @Optional() stockEngine?: InventoryTransactionEngine,
-    @Optional() private readonly enterpriseOps?: EnterpriseOpsService
+    @Optional() private readonly enterpriseOps?: EnterpriseOpsService,
+    @Optional() private readonly workOrderDomain?: WorkOrderDomainService
   ) {
     this.stockEngine = stockEngine ?? new InventoryTransactionEngine(this.prisma);
   }
@@ -731,6 +739,8 @@ export class WorkOrdersService {
       domainId?: string;
       /** Apply versioned MaintenanceTemplate — snapshot frozen on the WO */
       maintenanceTemplateId?: string;
+      /** VEHICLE create — current odometer (monotonic vs last accepted). */
+      currentOdometer?: number;
     },
     actor?: Actor,
     options?: { tx?: Prisma.TransactionClient }
@@ -831,6 +841,21 @@ export class WorkOrdersService {
       assetId,
       assetDomainCode
     });
+    assertJobDomainSubjects({
+      jobDomain: resolvedJobDomain,
+      assetId,
+      vehicleId,
+      functionalLocationId
+    });
+    if (resolvedJobDomain === "VEHICLE" && data.currentOdometer == null && !options?.tx) {
+      // Request→WO conversion may omit odometer; direct VEHICLE create should supply it.
+      // Soft requirement only when client explicitly stamps VEHICLE domain.
+      if (parseJobDomain(data.jobDomain) === "VEHICLE") {
+        throw new BadRequestException(
+          "Current odometer is required when creating a VEHICLE work order."
+        );
+      }
+    }
 
     let taxonomyFields: {
       taxonomyCategoryId?: string;
@@ -980,6 +1005,23 @@ export class WorkOrdersService {
         },
         db
       );
+
+      if (
+        data.currentOdometer != null &&
+        resolvedJobDomain === "VEHICLE" &&
+        this.workOrderDomain &&
+        !options?.tx
+      ) {
+        await this.workOrderDomain.applyCompletionMeterReading({
+          workOrderId: created.id,
+          reading: Number(data.currentOdometer),
+          actor
+        });
+        await this.prisma.workOrder.update({
+          where: { id: created.id },
+          data: { completionMeterReading: Number(data.currentOdometer) }
+        });
+      }
 
       if (!options?.tx) {
         await this.recordAudit({
@@ -1591,6 +1633,11 @@ export class WorkOrdersService {
       failureCode?: string;
       causeCode?: string;
       remedyCode?: string;
+      functionalTestResult?: string;
+      roadTestResult?: string;
+      completionMeterReading?: number;
+      operatingRestriction?: string;
+      productionImpact?: string;
     },
     actor?: Actor
   ) {
@@ -1670,14 +1717,20 @@ export class WorkOrdersService {
           });
         }
 
-        if (current.assetId || current.failureCodeSnapshot) {
+        if (current.assetId || current.vehicleId || current.functionalLocationId || current.failureCodeSnapshot) {
           await this.reliability.detectRepeatFailure({
             tenantId,
             workOrderId: id,
             assetId: current.assetId,
+            vehicleId: current.vehicleId,
+            functionalLocationId: current.functionalLocationId,
             failureCode: current.failureCodeSnapshot
           });
         }
+      }
+
+      if (this.workOrderDomain) {
+        await this.workOrderDomain.syncTargetUnderMaintenance(id, actor);
       }
     }
 
@@ -1723,8 +1776,53 @@ export class WorkOrdersService {
     }
 
     let authoritativeCompletion: { actualHours: number; actualCost: number; partsCost: number } | null = null;
+    let parsedFunctionalTest: string | undefined;
+    let parsedRoadTest: string | undefined;
+    let parsedProductionImpact: string | undefined;
+    let parsedOperatingRestriction: string | null | undefined;
+    let isTemporaryRepair = current.temporaryRepair;
     if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
       assertReasonProvided("Technician completion note", data.completionNote);
+
+      parsedFunctionalTest = parseDomainTestResult(data.functionalTestResult);
+      parsedRoadTest = parseDomainTestResult(data.roadTestResult);
+      parsedProductionImpact = parseProductionImpact(data.productionImpact);
+      parsedOperatingRestriction =
+        data.operatingRestriction !== undefined
+          ? data.operatingRestriction.trim() || null
+          : current.operatingRestriction;
+
+      const completionCondition =
+        data.completionCondition ?? current.completionCondition ?? undefined;
+      isTemporaryRepair =
+        Boolean(data.followUpRequired) ||
+        completionCondition === WorkOrderCompletionCondition.TEMPORARY_FIX ||
+        String(data.remedyCode ?? "")
+          .trim()
+          .toUpperCase() === "TEMPORARY_REPAIR" ||
+        Boolean(parsedOperatingRestriction);
+
+      assertDomainTestAllowsCompletion({
+        jobDomain: current.jobDomain,
+        functionalTestResult: parsedFunctionalTest ?? current.functionalTestResult,
+        roadTestResult: parsedRoadTest ?? current.roadTestResult,
+        // Fail/partial always block; mandatory presence is UI/policy-driven per domain lane.
+        requireFunctionalTest: false,
+        requireRoadTest: false
+      });
+
+      if (data.completionMeterReading != null) {
+        if (!this.workOrderDomain) {
+          throw new BadRequestException("Domain meter/odometer service is unavailable.");
+        }
+        await this.workOrderDomain.applyCompletionMeterReading({
+          workOrderId: id,
+          reading: Number(data.completionMeterReading),
+          actor
+        });
+      } else if (parseJobDomain(current.jobDomain) === "VEHICLE") {
+        throw new BadRequestException("Current odometer reading is required for vehicle job completion.");
+      }
 
       const assigneeCount = await this.prisma.workOrderAssignee.count({
         where: {
@@ -1962,6 +2060,32 @@ export class WorkOrdersService {
         targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
           ? data.remedyCode?.trim() || current.remedyCodeSnapshot
           : current.remedyCodeSnapshot,
+      functionalTestResult:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? parsedFunctionalTest ?? current.functionalTestResult
+          : current.functionalTestResult,
+      roadTestResult:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? parsedRoadTest ?? current.roadTestResult
+          : current.roadTestResult,
+      completionMeterReading:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED && data.completionMeterReading != null
+          ? Number(data.completionMeterReading)
+          : current.completionMeterReading,
+      operatingRestriction:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? parsedOperatingRestriction !== undefined
+            ? parsedOperatingRestriction
+            : current.operatingRestriction
+          : current.operatingRestriction,
+      productionImpact:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? parsedProductionImpact ?? current.productionImpact
+          : current.productionImpact,
+      temporaryRepair:
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+          ? isTemporaryRepair
+          : current.temporaryRepair,
       lastIdempotencyKey: trimmedIdempotencyKey || current.lastIdempotencyKey,
       slaBreached: Boolean(slaDeadline && completedDate && completedDate.getTime() > slaDeadline.getTime()),
       version: { increment: 1 as const }

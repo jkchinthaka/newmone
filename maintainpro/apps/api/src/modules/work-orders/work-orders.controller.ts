@@ -13,6 +13,7 @@ import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderQueuesService } from "./work-order-queues.service";
+import { WorkOrderDomainService } from "./work-order-domain.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
@@ -38,7 +39,8 @@ export class WorkOrdersController {
     private readonly workOrderQueuesService: WorkOrderQueuesService,
     private readonly evidenceService: EvidenceService,
     private readonly vendorRepairService: VendorRepairService,
-    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService
+    private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
+    private readonly workOrderDomainService: WorkOrderDomainService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -281,6 +283,7 @@ export class WorkOrdersController {
       jobDomain?: string;
       domainId?: string;
       maintenanceTemplateId?: string;
+      currentOdometer?: number;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);
@@ -299,6 +302,43 @@ export class WorkOrdersController {
   async workOrderHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderHistoryService.getHistory(id, req.user);
     return { data, message: "Work order history fetched" };
+  }
+
+  @Get(":id/domain-context")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "FLEET_MANAGER",
+    "FACILITY_MANAGER",
+    "BUILDING_SUPERVISOR",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "VIEWER"
+  )
+  async domainContext(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderDomainService.getDomainContext(id, req.user);
+    return { data, message: "Work order domain context fetched" };
+  }
+
+  @Post(":id/return-to-service")
+  @HttpCode(HttpStatus.OK)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "FLEET_MANAGER")
+  @Permissions("work_orders.verify")
+  async returnToService(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      note?: string;
+      allowComplianceBlockedMaintenanceComplete?: boolean;
+    }
+  ) {
+    const data = await this.workOrderDomainService.returnToService(id, body ?? {}, req.user);
+    return { data, message: "Return to service recorded" };
   }
 
   @Get(":id/activity")
@@ -641,6 +681,11 @@ export class WorkOrdersController {
       failureCode?: string;
       causeCode?: string;
       remedyCode?: string;
+      functionalTestResult?: string;
+      roadTestResult?: string;
+      completionMeterReading?: number;
+      operatingRestriction?: string;
+      productionImpact?: string;
     }
   ) {
     const data = await this.workOrdersService.updateStatus(id, body as Parameters<WorkOrdersService["updateStatus"]>[1], req.user);
@@ -737,6 +782,11 @@ export class WorkOrdersController {
       overrideReason?: string;
       expectedVersion?: number;
       idempotencyKey?: string;
+      functionalTestResult?: string;
+      roadTestResult?: string;
+      completionMeterReading?: number;
+      operatingRestriction?: string;
+      productionImpact?: string;
     }
   ) {
     const data = await this.workOrdersService.updateStatus(
@@ -752,7 +802,12 @@ export class WorkOrdersController {
         followUpNote: body.followUpNote,
         overrideReason: body.overrideReason,
         expectedVersion: body.expectedVersion,
-        idempotencyKey: body.idempotencyKey
+        idempotencyKey: body.idempotencyKey,
+        functionalTestResult: body.functionalTestResult,
+        roadTestResult: body.roadTestResult,
+        completionMeterReading: body.completionMeterReading,
+        operatingRestriction: body.operatingRestriction,
+        productionImpact: body.productionImpact
       },
       req.user
     );
