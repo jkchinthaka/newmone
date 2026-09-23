@@ -20,6 +20,9 @@ import {
   MaintenanceRequestListQueryDto,
   MarkDuplicateDto,
   RejectMaintenanceRequestDto,
+  RequesterRespondDto,
+  RequestInformationDto,
+  ResumeReviewDto,
   TriageMaintenanceRequestDto
 } from "./dto/maintenance-request.dto";
 import { MaintenanceRequestsService } from "./maintenance-requests.service";
@@ -177,7 +180,7 @@ export class MaintenanceRequestsController {
   async needsInformation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { question: string; publicNote?: string }
+    @Body() body: RequestInformationDto
   ) {
     const data = await this.requests.requestInformation(
       req.user?.tenantId ?? null,
@@ -188,13 +191,30 @@ export class MaintenanceRequestsController {
     return { data, message: "Requester asked for more information" };
   }
 
+  @Post(":id/respond")
+  @Roles(...WRITE_ROLES)
+  @Permissions("maintenance_requests.create")
+  async respond(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: RequesterRespondDto
+  ) {
+    const data = await this.requests.respondToInformationRequest(
+      req.user?.tenantId ?? null,
+      id,
+      req.user!,
+      body
+    );
+    return { data, message: "Requester response recorded" };
+  }
+
   @Post(":id/resume-review")
   @Roles(...TRIAGE_ROLES)
   @Permissions("maintenance_requests.triage")
   async resumeReview(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { responseNote?: string }
+    @Body() body: ResumeReviewDto
   ) {
     const data = await this.requests.resumeReview(req.user?.tenantId ?? null, id, req.user!, body);
     return { data, message: "Review resumed" };

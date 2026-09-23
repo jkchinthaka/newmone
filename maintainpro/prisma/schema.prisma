@@ -1010,6 +1010,7 @@ model Vehicle {
   maintenanceSchedules MaintenanceSchedule[]
   maintenanceLogs      MaintenanceLog[]
   workOrders           WorkOrder[]
+  maintenanceRequests  MaintenanceRequest[]
   gpsLocations         GpsLocation[]
   meterLogs            VehicleMeterLog[]
   gateMovements        VehicleGateMovement[]
@@ -3116,6 +3117,9 @@ model MaintenanceRequest {
 
   assetId              String?             @db.NVarChar(36)
   asset                Asset?              @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Canonical vehicle target (Vehicle may also link to Asset via Vehicle.assetId)
+  vehicleId            String?             @db.NVarChar(36)
+  vehicle              Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   siteId               String?             @db.NVarChar(36)
   site                 Site?               @relation(fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   functionalLocationId String?             @db.NVarChar(36)
@@ -3124,8 +3128,12 @@ model MaintenanceRequest {
   department           Department?         @relation("RequestDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   domainId             String?             @db.NVarChar(36)
   domain               AssetDomain?        @relation(fields: [domainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// MACHINERY | SERVICE | VEHICLE — inherited by converted work orders
+  /// MACHINERY | SERVICE | VEHICLE — inherited by converted work orders; null until target confirmed
   jobDomain            String?             @db.NVarChar(32)
+  /// True when requester submitted without a confirmed canonical target ("Not Sure")
+  targetUnresolved     Boolean             @default(false)
+  /// Free-text approximate area when target is unresolved
+  approximateLocation  String?             @db.NVarChar(500)
 
   problemCategoryId    String?                 @db.NVarChar(36)
   problemCategory      RequestProblemCategory? @relation(fields: [problemCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3134,10 +3142,18 @@ model MaintenanceRequest {
   description          String
   affectsOperation     Boolean                 @default(false)
   businessImpact       String?
+  /// Requester-facing urgency: NORMAL | URGENT | VERY_URGENT (not official Priority)
+  reportedUrgency      String?                 @db.NVarChar(32)
+  /// NO | YES | NOT_SURE
+  safetyImpact         String?                 @db.NVarChar(32)
+  /// NONE | REDUCED | STOPPED | NOT_SURE
+  productionImpact     String?                 @db.NVarChar(32)
   isEmergency          Boolean                 @default(false)
 
   /// Server-built report-time context — immutable after create (asset may move later)
   contextSnapshot String? @db.NVarChar(Max)
+  /// Immutable snapshot of the original requester submission (JSON text)
+  originalSubmission String? @db.NVarChar(Max)
 
   triageNotes      String?
   publicUpdateNote String?
@@ -3187,10 +3203,13 @@ model MaintenanceRequest {
   updatedAt           DateTime                    @updatedAt
 
   @@unique([tenantId, requestNumber])
+  /// Non-unique index kept for lookups; filtered UNIQUE for concurrency is applied in migration
+  /// 20260922160000_d1_maintenance_request_hardening (WHERE idempotencyKey IS NOT NULL).
   @@index([tenantId, idempotencyKey])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, siteId, status])
   @@index([tenantId, assetId, status])
+  @@index([tenantId, vehicleId, status])
   @@index([tenantId, functionalLocationId, status])
   @@index([tenantId, priority, status])
   @@index([tenantId, reportedById, createdAt])

@@ -670,17 +670,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         ctx = requestContext.get();
         delegate = (this as unknown as Record<string, any>)[camelCase(model)];
 
-        if (action === "update" || action === "delete" || action === "upsert") {
-          const where = (params.args as { where?: unknown })?.where;
-          if (where && delegate?.findUnique) {
-            const found = await delegate.findUnique({ where });
-            if (found) beforeRows = [found as Record<string, unknown>];
-          }
-        } else if (action === "updateMany" || action === "deleteMany") {
-          const where = (params.args as { where?: unknown })?.where ?? {};
-          if (delegate?.findMany) {
-            const found = await delegate.findMany({ where, take: 100 });
-            beforeRows = (found ?? []) as Array<Record<string, unknown>>;
+        // Inside interactive transactions, pre-fetch via the outer client can self-deadlock
+        // against row locks held by the same transaction (seen on Request→WO conversion).
+        const inInteractiveTxn = Boolean((params as { runInTransaction?: boolean }).runInTransaction);
+        if (!inInteractiveTxn) {
+          if (action === "update" || action === "delete" || action === "upsert") {
+            const where = (params.args as { where?: unknown })?.where;
+            if (where && delegate?.findUnique) {
+              const found = await delegate.findUnique({ where });
+              if (found) beforeRows = [found as Record<string, unknown>];
+            }
+          } else if (action === "updateMany" || action === "deleteMany") {
+            const where = (params.args as { where?: unknown })?.where ?? {};
+            if (delegate?.findMany) {
+              const found = await delegate.findMany({ where, take: 100 });
+              beforeRows = (found ?? []) as Array<Record<string, unknown>>;
+            }
           }
         }
       } catch (err) {
