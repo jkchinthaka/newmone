@@ -86,24 +86,15 @@ async function runLifecycleGate(browser: Browser): Promise<{
       await techResolveContext.close();
     }
 
+    // D2: OPEN → PLANNED before ASSIGNED
+    const plannedStartAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await authenticatedPost(managerPage, `/api/backend/work-orders/${workOrderId}/plan`, {
+      data: { plannedStartAt, estimatedHours: 1, notes: "e2e gate plan" }
+    });
     const assign = await authenticatedPost(managerPage, `/api/backend/work-orders/${workOrderId}/assign`, {
       data: { technicianId }
     });
-    // D2 governed path: OPEN → PLANNED before ASSIGNED when assign alone is rejected.
-    if (assign.status() !== 200) {
-      const plannedStartAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      await authenticatedPost(managerPage, `/api/backend/work-orders/${workOrderId}/plan`, {
-        data: { plannedStartAt, estimatedHours: 1, notes: "e2e gate plan" }
-      });
-      const assignAfterPlan = await authenticatedPost(
-        managerPage,
-        `/api/backend/work-orders/${workOrderId}/assign`,
-        { data: { technicianId } }
-      );
-      assignmentPresent = assignAfterPlan.status() === 200 ? "yes" : "no";
-    } else {
-      assignmentPresent = "yes";
-    }
+    assignmentPresent = assign.status() === 200 ? "yes" : "no";
 
     const techContext = await browser.newContext({ baseURL });
     const techPage = await techContext.newPage();
