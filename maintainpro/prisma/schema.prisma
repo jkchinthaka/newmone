@@ -162,6 +162,12 @@ model Tenant {
   vendorInvoices               VendorInvoice[]
   /// Phase 9 — WO cost snapshots, vendor contracts, repair warranties
   workOrderCostSnapshots       WorkOrderCostSnapshot[]
+  /// DB-2 — WorkOrder normalization extensions
+  workOrderPlannings           WorkOrderPlanning[]
+  workOrderExecutions          WorkOrderExecution[]
+  workOrderCompletions         WorkOrderCompletion[]
+  workOrderSafeties            WorkOrderSafety[]
+  workOrderClassifications     WorkOrderClassification[]
   vendorContracts              VendorContract[]
   repairWarranties             RepairWarranty[]
   workOrderTaxonomies          WorkOrderTaxonomy[]
@@ -348,6 +354,12 @@ model User {
   verifiedWorkOrders          WorkOrder[]                 @relation("VerifiedWorkOrders")
   reopenedWorkOrders          WorkOrder[]                 @relation("ReopenedWorkOrders")
   qrVerifiedWorkOrders        WorkOrder[]                 @relation("QrVerifiedWorkOrders")
+  workOrderExecutionApprovals WorkOrderExecution[]        @relation("WorkOrderExecutionApprovedBy")
+  workOrderCompletionVerifies WorkOrderCompletion[]       @relation("WorkOrderCompletionVerifiedBy")
+  workOrderCompletionReopens  WorkOrderCompletion[]       @relation("WorkOrderCompletionReopenedBy")
+  workOrderCompletionQr       WorkOrderCompletion[]       @relation("WorkOrderCompletionQrVerifiedBy")
+  workOrderCompletionRequester WorkOrderCompletion[]      @relation("WorkOrderCompletionRequesterConfirmedBy")
+  workOrderClassificationTriage WorkOrderClassification[] @relation("WorkOrderClassificationTriageBy")
   memberships                 TenantMembership[]
   sentInvitations             TenantInvitation[]          @relation("TenantInvitedBy")
   notifications               Notification[]
@@ -1544,6 +1556,12 @@ model WorkOrder {
   labourEntries       WorkOrderLabourEntry[]
   statusHistory       WorkOrderStatusHistory[]
   costSnapshot        WorkOrderCostSnapshot?
+  /// DB-2 normalization extensions (1:1; dual-write begins in DB-3)
+  planning            WorkOrderPlanning?
+  execution           WorkOrderExecution?
+  completion          WorkOrderCompletion?
+  safety              WorkOrderSafety?
+  classification      WorkOrderClassification?
   repairWarranties    RepairWarranty[]
   warrantyClaims      WarrantyClaim[]
   downtimeSegments    DowntimeSegment[]
@@ -1658,6 +1676,9 @@ model WorkOrderTaxonomy {
   workOrdersAsCategory WorkOrder[] @relation("WorkOrderTaxonomyCategory")
   workOrdersAsType     WorkOrder[] @relation("WorkOrderTaxonomyType")
   workOrdersAsIssue    WorkOrder[] @relation("WorkOrderTaxonomyIssue")
+  classificationAsCategory WorkOrderClassification[] @relation("WoClassificationTaxonomyCategory")
+  classificationAsType     WorkOrderClassification[] @relation("WoClassificationTaxonomyType")
+  classificationAsIssue    WorkOrderClassification[] @relation("WoClassificationTaxonomyIssue")
 
   @@unique([tenantId, code])
   @@index([tenantId, level, active])
@@ -1751,6 +1772,9 @@ model MaintenanceAnalysisCode {
   failureWorkOrders WorkOrder[] @relation("WoFailureCode")
   causeWorkOrders   WorkOrder[] @relation("WoCauseCode")
   remedyWorkOrders  WorkOrder[] @relation("WoRemedyCode")
+  classificationFailures WorkOrderClassification[] @relation("WoClassificationFailureCode")
+  classificationCauses   WorkOrderClassification[] @relation("WoClassificationCauseCode")
+  classificationRemedies WorkOrderClassification[] @relation("WoClassificationRemedyCode")
 
   @@unique([tenantId, kind, code])
   @@index([tenantId, kind, isActive])
@@ -2309,6 +2333,7 @@ model Supplier {
   contacts          VendorContact[]
   repairWarranties  RepairWarranty[]
   vendorWorkOrders  WorkOrder[]        @relation("WorkOrderVendorSupplier")
+  workOrderExecutions WorkOrderExecution[] @relation("WorkOrderExecutionVendor")
   portalAccesses    VendorPortalAccess[]
 
   @@unique([tenantId, vendorCode])
@@ -3389,6 +3414,7 @@ model MaintenanceTemplate {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   workOrders            WorkOrder[]
+  workOrderClassifications WorkOrderClassification[]
 
   @@unique([tenantId, code, version])
   @@index([tenantId, jobDomain, active])
@@ -5834,6 +5860,180 @@ model WorkOrderCostSnapshot {
   lineItems           String?   @db.NVarChar(Max)
 
   @@index([tenantId, snappedAt])
+}
+
+/// DB-2 — Planning / SLA / schedule window for a WorkOrder (1:1 extension).
+/// Legacy WorkOrder planning columns remain until destructive cleanup is approved.
+model WorkOrderPlanning {
+  id                       String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId                 String    @db.NVarChar(36)
+  tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId              String    @unique @db.NVarChar(36)
+  workOrder                WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expectedCompletionDate   DateTime?
+  plannedStartAt           DateTime?
+  plannedEndAt             DateTime?
+  delayReason              String?
+  cancelledReason          String?
+  estimatedHours           Float?
+  estimatedDurationMinutes Int?
+  slaDeadline              DateTime?
+  slaBreached              Boolean   @default(false)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, plannedEndAt])
+}
+
+/// DB-2 — Execution / ops timestamps / current hold / vendor mode (1:1 extension).
+/// WorkOrderHoldHistory remains canonical hold episode history.
+model WorkOrderExecution {
+  id                   String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId             String    @db.NVarChar(36)
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId          String    @unique @db.NVarChar(36)
+  workOrder            WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  executionMode        String    @default("") @db.NVarChar(64)
+  vendorSupplierId     String?   @db.NVarChar(36)
+  vendorSupplier       Supplier? @relation("WorkOrderExecutionVendor", fields: [vendorSupplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById         String?   @db.NVarChar(36)
+  approvedBy           User?     @relation("WorkOrderExecutionApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedAt           DateTime?
+  rejectionReason      String?
+  startDate            DateTime?
+  failedAt             DateTime?
+  reportedAt           DateTime?
+  acknowledgedAt       DateTime?
+  technicianArrivedAt  DateTime?
+  repairStartedAt      DateTime?
+  repairCompletedAt    DateTime?
+  productionResumedAt  DateTime?
+  holdReasonCode       String?
+  holdNotes            String?
+  heldAt               DateTime?
+  expectedResumeAt     DateTime?
+  resumedAt            DateTime?
+  correctionReason     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, vendorSupplierId])
+}
+
+/// DB-2 — Completion / verification / QR / requester confirmation (1:1 extension).
+model WorkOrderCompletion {
+  id                               String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId                         String    @db.NVarChar(36)
+  tenant                           Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId                      String    @unique @db.NVarChar(36)
+  workOrder                        WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  completedDate                    DateTime?
+  technicianCompletionNote         String?
+  verificationStatus               String    @default("") @db.NVarChar(64)
+  verifiedById                     String?   @db.NVarChar(36)
+  verifiedBy                       User?     @relation("WorkOrderCompletionVerifiedBy", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedAt                       DateTime?
+  verificationNote                 String?
+  verificationRejectionReason      String?
+  reopenReason                     String?
+  reopenedAt                       DateTime?
+  reopenedById                     String?   @db.NVarChar(36)
+  reopenedBy                       User?     @relation("WorkOrderCompletionReopenedBy", fields: [reopenedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actualHours                      Float?
+  completionCondition              String?   @db.NVarChar(64)
+  followUpRequired                 Boolean   @default(false)
+  followUpNote                     String?
+  qrVerificationStatus             String    @default("") @db.NVarChar(64)
+  qrVerifiedAt                     DateTime?
+  qrVerifiedById                   String?   @db.NVarChar(36)
+  qrVerifiedBy                     User?     @relation("WorkOrderCompletionQrVerifiedBy", fields: [qrVerifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qrVerifiedAssetId                String?   @db.NVarChar(36)
+  qrVerifiedVehicleId              String?   @db.NVarChar(36)
+  qrOverrideReason                 String?
+  requesterConfirmationStatus      String    @default("NOT_REQUIRED") @db.NVarChar(64)
+  requesterConfirmationDueAt       DateTime?
+  requesterConfirmedAt             DateTime?
+  requesterConfirmedById           String?   @db.NVarChar(36)
+  requesterConfirmedBy             User?     @relation("WorkOrderCompletionRequesterConfirmedBy", fields: [requesterConfirmedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requesterConfirmationNote        String?
+  requesterConfirmationOutcome     String?   @db.NVarChar(64)
+  requesterConfirmationPolicyHours Int?
+  functionalTestResult             String?   @db.NVarChar(32)
+  roadTestResult                   String?   @db.NVarChar(32)
+  completionMeterReading           Float?
+  operatingRestriction             String?   @db.NVarChar(Max)
+  productionImpact                 String?   @db.NVarChar(32)
+  createdAt                        DateTime  @default(now())
+  updatedAt                        DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, verificationStatus])
+}
+
+/// DB-2 — WO-level safety configuration/context (not a replacement for WorkPermit/LotoRecord).
+model WorkOrderSafety {
+  id                  String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId         String    @unique @db.NVarChar(36)
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  riskLevel           String?
+  ppeRequired         String    @default("[]") @db.NVarChar(Max)
+  lotoRequired        Boolean   @default(false)
+  hotWorkRequired     Boolean   @default(false)
+  workingAtHeight     Boolean   @default(false)
+  electricalIsolation Boolean   @default(false)
+  confinedSpace       Boolean   @default(false)
+  permitReference     String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+/// DB-2 — Taxonomy / template / RCA / triage classification (1:1 extension).
+/// WorkOrder.jobCategoryId stays on base WorkOrder (Category HCI).
+model WorkOrderClassification {
+  id                          String                   @id @default(cuid()) @db.NVarChar(36)
+  tenantId                    String                   @db.NVarChar(36)
+  tenant                      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId                 String                   @unique @db.NVarChar(36)
+  workOrder                   WorkOrder                @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceTemplateId       String?                  @db.NVarChar(36)
+  maintenanceTemplate         MaintenanceTemplate?     @relation(fields: [maintenanceTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceTemplateVersion  Int?
+  maintenanceTemplateSnapshot String?                  @db.NVarChar(Max)
+  failureCodeId               String?                  @db.NVarChar(36)
+  failureCode                 MaintenanceAnalysisCode? @relation("WoClassificationFailureCode", fields: [failureCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  causeCodeId                 String?                  @db.NVarChar(36)
+  causeCode                   MaintenanceAnalysisCode? @relation("WoClassificationCauseCode", fields: [causeCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  remedyCodeId                String?                  @db.NVarChar(36)
+  remedyCode                  MaintenanceAnalysisCode? @relation("WoClassificationRemedyCode", fields: [remedyCodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  failureCodeSnapshot         String?
+  causeCodeSnapshot           String?
+  remedyCodeSnapshot          String?
+  taxonomyCategoryId          String?                  @db.NVarChar(36)
+  taxonomyCategory            WorkOrderTaxonomy?       @relation("WoClassificationTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyTypeId              String?                  @db.NVarChar(36)
+  taxonomyType                WorkOrderTaxonomy?       @relation("WoClassificationTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyIssueId             String?                  @db.NVarChar(36)
+  taxonomyIssue               WorkOrderTaxonomy?       @relation("WoClassificationTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryNameSnapshot        String?
+  typeNameSnapshot            String?
+  issueNameSnapshot           String?
+  isTriage                    Boolean                  @default(false)
+  triageReason                String?
+  triageClassifiedAt          DateTime?
+  triageClassifiedById        String?                  @db.NVarChar(36)
+  triageClassifiedBy          User?                    @relation("WorkOrderClassificationTriageBy", fields: [triageClassifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isTriage])
+  @@index([tenantId, maintenanceTemplateId])
 }
 
 model VendorContact {
