@@ -97,6 +97,7 @@ import { MaintenanceConfigService } from "../maintenance-config/maintenance-conf
 import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-templates.service";
 import { WarrantiesService } from "../warranties/warranties.service";
 import { ReliabilityService } from "../reliability/reliability.service";
+import { preferExtensionValue, syncWorkOrderExtensions } from "./work-order-extension-sync.util";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -1084,6 +1085,9 @@ export class WorkOrdersService {
         }
       });
       }
+
+      // DB-3: dual-write normalized extensions (same write path; legacy columns remain).
+      await this.syncNormalizedExtensions(created.id, tenantId, db);
 
       return this.syncCreateTimeApprovals(created, actor);
     } catch (error) {
@@ -2251,6 +2255,8 @@ export class WorkOrdersService {
       await this.notifyEnterpriseCompleted(updated, actor);
     }
 
+    await this.syncNormalizedExtensions(id, tenantId);
+
     return this.findOneWithRelations(id, actor);
   }
 
@@ -2389,6 +2395,7 @@ export class WorkOrdersService {
       afterData: { status: updated.status, verificationStatus: updated.verificationStatus }
     });
 
+    await this.syncNormalizedExtensions(id, this.resolveTenantId(actor));
     return this.findOneWithRelations(id, actor);
   }
 
@@ -2491,6 +2498,7 @@ export class WorkOrdersService {
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
     await this.completePmOccurrenceForClosedWorkOrder(current);
+    await this.syncNormalizedExtensions(id, this.resolveTenantId(actor));
     return this.findOneWithRelations(id, actor);
   }
 
@@ -2828,7 +2836,26 @@ export class WorkOrdersService {
       afterData: { status: updated.status, reopenReason: trimmedReason }
     });
 
+    await this.syncNormalizedExtensions(id, this.resolveTenantId(actor));
     return this.findOneWithRelations(id, actor);
+  }
+
+  /**
+   * DB-3 dual-write: mirror legacy WorkOrder field groups into extension tables.
+   * Lazy upsert — empty field groups do not create rows.
+   */
+  private async syncNormalizedExtensions(
+    workOrderId: string,
+    tenantId: string,
+    db: typeof this.prisma | Prisma.TransactionClient = this.prisma
+  ) {
+    const wo = await db.workOrder.findFirst({
+      where: { id: workOrderId, tenantId }
+    });
+    if (!wo) {
+      return;
+    }
+    await syncWorkOrderExtensions(db as never, wo);
   }
 
   private async findOneWithRelations(id: string, actor?: Actor) {
@@ -2848,13 +2875,156 @@ export class WorkOrdersService {
           include: {
             part: true
           }
-        }
+        },
+        // DB-6: selective extension includes for detail composition (not used on list queries).
+        planning: true,
+        execution: true,
+        completion: true,
+        safety: true,
+        classification: true
       }
     });
 
     if (!workOrder) {
       throw new NotFoundException("Work order not found");
     }
+
+    return this.composeNormalizedWorkOrderDetail(workOrder);
+  }
+
+  /**
+   * DB-6: project extension values onto the legacy WorkOrder API shape.
+   * Prefer extension when the 1:1 row exists; otherwise keep legacy scalars.
+   * Uses null/undefined semantics (not truthiness) so false/0/"" remain valid.
+   */
+  private composeNormalizedWorkOrderDetail<
+    T extends {
+      planning?: Record<string, unknown> | null;
+      execution?: Record<string, unknown> | null;
+      completion?: Record<string, unknown> | null;
+      safety?: Record<string, unknown> | null;
+      classification?: Record<string, unknown> | null;
+    }
+  >(workOrder: T): T {
+    const { preferExtensionValue: prefer } = {
+      preferExtensionValue
+    };
+    const planning = workOrder.planning;
+    const execution = workOrder.execution;
+    const completion = workOrder.completion;
+    const safety = workOrder.safety;
+    const classification = workOrder.classification;
+
+    const overlay = (ext: Record<string, unknown> | null | undefined, keys: string[]) => {
+      if (!ext) return;
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(ext, key)) {
+          (workOrder as Record<string, unknown>)[key] = prefer(
+            ext,
+            ext[key] as never,
+            (workOrder as Record<string, unknown>)[key] as never
+          );
+        }
+      }
+    };
+
+    overlay(planning ?? undefined, [
+      "expectedCompletionDate",
+      "plannedStartAt",
+      "plannedEndAt",
+      "delayReason",
+      "cancelledReason",
+      "estimatedHours",
+      "estimatedDurationMinutes",
+      "slaDeadline",
+      "slaBreached"
+    ]);
+    overlay(execution ?? undefined, [
+      "executionMode",
+      "vendorSupplierId",
+      "approvedById",
+      "approvedAt",
+      "rejectionReason",
+      "startDate",
+      "failedAt",
+      "reportedAt",
+      "acknowledgedAt",
+      "technicianArrivedAt",
+      "repairStartedAt",
+      "repairCompletedAt",
+      "productionResumedAt",
+      "holdReasonCode",
+      "holdNotes",
+      "heldAt",
+      "expectedResumeAt",
+      "resumedAt",
+      "correctionReason"
+    ]);
+    overlay(completion ?? undefined, [
+      "completedDate",
+      "technicianCompletionNote",
+      "verificationStatus",
+      "verifiedById",
+      "verifiedAt",
+      "verificationNote",
+      "verificationRejectionReason",
+      "reopenReason",
+      "reopenedAt",
+      "reopenedById",
+      "actualHours",
+      "completionCondition",
+      "followUpRequired",
+      "followUpNote",
+      "qrVerificationStatus",
+      "qrVerifiedAt",
+      "qrVerifiedById",
+      "qrVerifiedAssetId",
+      "qrVerifiedVehicleId",
+      "qrOverrideReason",
+      "requesterConfirmationStatus",
+      "requesterConfirmationDueAt",
+      "requesterConfirmedAt",
+      "requesterConfirmedById",
+      "requesterConfirmationNote",
+      "requesterConfirmationOutcome",
+      "requesterConfirmationPolicyHours",
+      "functionalTestResult",
+      "roadTestResult",
+      "completionMeterReading",
+      "operatingRestriction",
+      "productionImpact"
+    ]);
+    overlay(safety ?? undefined, [
+      "riskLevel",
+      "ppeRequired",
+      "lotoRequired",
+      "hotWorkRequired",
+      "workingAtHeight",
+      "electricalIsolation",
+      "confinedSpace",
+      "permitReference"
+    ]);
+    overlay(classification ?? undefined, [
+      "maintenanceTemplateId",
+      "maintenanceTemplateVersion",
+      "maintenanceTemplateSnapshot",
+      "failureCodeId",
+      "causeCodeId",
+      "remedyCodeId",
+      "failureCodeSnapshot",
+      "causeCodeSnapshot",
+      "remedyCodeSnapshot",
+      "taxonomyCategoryId",
+      "taxonomyTypeId",
+      "taxonomyIssueId",
+      "categoryNameSnapshot",
+      "typeNameSnapshot",
+      "issueNameSnapshot",
+      "isTriage",
+      "triageReason",
+      "triageClassifiedAt",
+      "triageClassifiedById"
+    ]);
 
     return workOrder;
   }
