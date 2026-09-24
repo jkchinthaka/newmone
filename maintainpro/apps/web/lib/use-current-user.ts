@@ -83,7 +83,11 @@ export function useCurrentUser(): CurrentUser {
     setUser(readStoredUser());
     const onStorage = () => setUser(readStoredUser());
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("maintainpro:user-updated", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("maintainpro:user-updated", onStorage);
+    };
   }, []);
 
   return user;

@@ -42,6 +42,7 @@ import { DepartmentSelect, type DepartmentOption } from "@/components/department
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { canCreateWorkOrder as userCanCreateWorkOrder } from "@/lib/user-role";
 import { withTenantScope } from "@/lib/tenant-query";
 import { AssetsTable } from "./assets-table";
 import {
@@ -841,6 +842,7 @@ export default function AssetsManagementPage() {
   const columnPickerRef = useRef<HTMLDivElement | null>(null);
 
   const canCreate = roleTier !== "viewer";
+  const canCreateWorkOrders = userCanCreateWorkOrder(currentUser.role, currentUser.permissions);
   const canEditFields = roleTier === "manager" || roleTier === "admin";
   const canChangeStatus = roleTier === "operator" || roleTier === "manager" || roleTier === "admin";
   const canBulkEdit = roleTier === "manager" || roleTier === "admin";
@@ -1206,6 +1208,10 @@ export default function AssetsManagementPage() {
   }
 
   async function handleCreateWorkOrder(asset: AssetListItem | AssetDetail) {
+    if (!canCreateWorkOrders) {
+      toast.error("You do not have permission to create work orders.");
+      return;
+    }
     if (!currentUserId) {
       toast.error("Unable to identify current user for work order creation.");
       return;
@@ -1648,6 +1654,7 @@ export default function AssetsManagementPage() {
                 canEditFields={canEditFields}
                 canChangeStatus={canChangeStatus}
                 canCreate={canCreate}
+                canCreateWorkOrder={canCreateWorkOrders}
                 canDelete={canDelete}
                 emptyDescription={filterSummary}
                 onClearFilters={() => {
@@ -1817,6 +1824,7 @@ export default function AssetsManagementPage() {
             canEdit={canEditFields}
             canDelete={canDelete}
             canCreate={canCreate}
+            canCreateWorkOrder={canCreateWorkOrders}
             onClose={() => setDetailsAssetId(null)}
             onEdit={() => {
               if (!detailsAsset) return;
@@ -2563,6 +2571,7 @@ function AssetDetailsDrawer({
   canEdit,
   canDelete,
   canCreate,
+  canCreateWorkOrder = false,
   onClose,
   onEdit,
   onCreateWorkOrder,
@@ -2577,6 +2586,7 @@ function AssetDetailsDrawer({
   canEdit: boolean;
   canDelete: boolean;
   canCreate: boolean;
+  canCreateWorkOrder?: boolean;
   onClose: () => void;
   onEdit: () => void;
   onCreateWorkOrder: (asset: AssetDetail) => void;
@@ -2826,7 +2836,7 @@ function AssetDetailsDrawer({
               <section className="rounded-2xl border border-slate-200 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-sm font-semibold text-slate-900">Linked Work Orders</p>
-                  {canCreate && (
+                  {canCreateWorkOrder && (
                     <button
                       onClick={() => onCreateWorkOrder(asset)}
                       className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
