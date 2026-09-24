@@ -111,142 +111,160 @@ export function WorkOrderFiltersBar({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
-        <label className="relative">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={filters.query}
-            onChange={(event) => onChange({ query: event.target.value })}
-            placeholder="Search by title or WO number"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          />
-        </label>
+      {view === "queues" ? (
+        // The Queues view (WorkOrderQueuePanel) has its own self-contained search,
+        // priority, and smart-view filters wired to its own request. These fields here
+        // update `filters`, which only "list"/"kanban" read — on Queues they visibly
+        // change the stat cards above but silently do nothing to the queue list below,
+        // which looks like a broken filter. Hide them here rather than show controls
+        // that don't affect the data on screen.
+        <p className="text-sm text-slate-500">
+          Search and filter the active queue below — it has its own search, priority, and view shortcuts.
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+            <label className="relative">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={filters.query}
+                onChange={(event) => onChange({ query: event.target.value })}
+                placeholder="Search by title or WO number"
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+              />
+            </label>
 
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Status</span>
-          <select
-            value={filters.status}
-            onChange={(event) => onChange({ status: event.target.value as WorkOrderFilters["status"] })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>Status</span>
+              <select
+                value={filters.status}
+                onChange={(event) => onChange({ status: event.target.value as WorkOrderFilters["status"] })}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+              >
+                <option value="ALL">All Statuses</option>
+                {WORK_ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {toTitleCase(status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>Priority</span>
+              <select
+                value={filters.priority}
+                onChange={(event) => onChange({ priority: event.target.value as WorkOrderFilters["priority"] })}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+              >
+                <option value="ALL">All Priorities</option>
+                {WORK_ORDER_PRIORITIES.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {toTitleCase(priority)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>Technician</span>
+              <select
+                value={filters.technicianId}
+                onChange={(event) => onChange({ technicianId: event.target.value })}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+              >
+                <option value="ALL">All Technicians</option>
+                <option value="UNASSIGNED">Unassigned</option>
+                {technicians.map((technician) => (
+                  <option key={technician.id} value={technician.id}>
+                    {technician.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters((current) => !current)}
+            aria-expanded={showMoreFilters}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
           >
-            <option value="ALL">All Statuses</option>
-            {WORK_ORDER_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {toTitleCase(status)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Priority</span>
-          <select
-            value={filters.priority}
-            onChange={(event) => onChange({ priority: event.target.value as WorkOrderFilters["priority"] })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          >
-            <option value="ALL">All Priorities</option>
-            {WORK_ORDER_PRIORITIES.map((priority) => (
-              <option key={priority} value={priority}>
-                {toTitleCase(priority)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Technician</span>
-          <select
-            value={filters.technicianId}
-            onChange={(event) => onChange({ technicianId: event.target.value })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          >
-            <option value="ALL">All Technicians</option>
-            <option value="UNASSIGNED">Unassigned</option>
-            {technicians.map((technician) => (
-              <option key={technician.id} value={technician.id}>
-                {technician.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowMoreFilters((current) => !current)}
-        aria-expanded={showMoreFilters}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
-      >
-        <ChevronDown
-          size={14}
-          className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
-        />
-        {showMoreFilters ? "Hide due date & sort filters" : "More filters (due date, sort)"}
-      </button>
-
-      {showMoreFilters ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Due Date From</span>
-            <input
-              type="date"
-              value={filters.dueDateFrom}
-              onChange={(event) => onChange({ dueDateFrom: event.target.value })}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
             />
-          </label>
+            {showMoreFilters ? "Hide due date & sort filters" : "More filters (due date, sort)"}
+          </button>
 
-          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Due Date To</span>
-            <input
-              type="date"
-              value={filters.dueDateTo}
-              onChange={(event) => onChange({ dueDateTo: event.target.value })}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-            />
-          </label>
+          {showMoreFilters ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
+              <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Due Date From</span>
+                <input
+                  type="date"
+                  value={filters.dueDateFrom}
+                  onChange={(event) => onChange({ dueDateFrom: event.target.value })}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                />
+              </label>
 
-          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Sort By</span>
-            <select
-              value={filters.sortBy}
-              onChange={(event) => onChange({ sortBy: event.target.value as WorkOrderFilters["sortBy"] })}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-            >
-              <option value="createdAt">Created Date</option>
-              <option value="woNumber">WO Number</option>
-              <option value="title">Title</option>
-              <option value="asset">Asset</option>
-              <option value="status">Status</option>
-              <option value="priority">Priority</option>
-              <option value="technician">Technician</option>
-              <option value="dueDate">Due Date</option>
-            </select>
-          </label>
+              <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Due Date To</span>
+                <input
+                  type="date"
+                  value={filters.dueDateTo}
+                  onChange={(event) => onChange({ dueDateTo: event.target.value })}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                />
+              </label>
 
-          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Direction</span>
-            <select
-              value={filters.sortDirection}
-              onChange={(event) => onChange({ sortDirection: event.target.value as WorkOrderFilters["sortDirection"] })}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
+              <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Sort By</span>
+                <select
+                  value={filters.sortBy}
+                  onChange={(event) => onChange({ sortBy: event.target.value as WorkOrderFilters["sortBy"] })}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                >
+                  <option value="createdAt">Created Date</option>
+                  <option value="woNumber">WO Number</option>
+                  <option value="title">Title</option>
+                  <option value="asset">Asset</option>
+                  <option value="status">Status</option>
+                  <option value="priority">Priority</option>
+                  <option value="technician">Technician</option>
+                  <option value="dueDate">Due Date</option>
+                </select>
+              </label>
+
+              <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Direction</span>
+                <select
+                  value={filters.sortDirection}
+                  onChange={(event) => onChange({ sortDirection: event.target.value as WorkOrderFilters["sortDirection"] })}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+        </>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-        >
-          <Filter size={14} /> Reset Filters
-        </button>
+        {view !== "queues" ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            <Filter size={14} /> Reset Filters
+          </button>
+        ) : (
+          <span />
+        )}
 
         {selectionCount > 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">

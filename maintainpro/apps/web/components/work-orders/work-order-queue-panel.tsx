@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
@@ -152,6 +152,24 @@ export function WorkOrderQueuePanel({
       return true;
     });
   }, [summaryData.queues, currentUser?.role]);
+
+  // Smart views are query-string shortcuts into the same queues the tabs above already
+  // navigate to. A smart view is a true duplicate of a tab only when its own key names
+  // the same queue (e.g. smart view "overdue" -> queue "overdue"): those apply no extra
+  // narrowing beyond what clicking the tab already does. Several others share a
+  // *queueKey* with a tab but are NOT duplicates — "Completed This Month" / "Cancelled
+  // This Month" add a this-month date window on top of the Completed/Cancelled queue,
+  // and "Created Today" / "Updated Today" narrow "All" to today — so this compares
+  // view.key (the smart view's own identity), never view.queueKey, against the tab
+  // keys. Getting this backwards would silently hide the date-scoped views entirely,
+  // not just their button.
+  const distinctSmartViews = useMemo(() => {
+    const tabKeys = new Set(visibleQueues.map((queue) => queue.key as string));
+    return (smartViewsQuery.data?.views ?? []).filter((view) => !tabKeys.has(view.key));
+  }, [smartViewsQuery.data?.views, visibleQueues]);
+  const PINNED_SMART_VIEW_COUNT = 3;
+  const pinnedSmartViews = distinctSmartViews.slice(0, PINNED_SMART_VIEW_COUNT);
+  const moreSmartViews = distinctSmartViews.slice(PINNED_SMART_VIEW_COUNT);
 
   const rows = queueQuery.data?.data ?? [];
 
@@ -307,11 +325,11 @@ export function WorkOrderQueuePanel({
           </button>
         </div>
 
-        {smartViewsQuery.data?.views?.length ? (
+        {distinctSmartViews.length ? (
           <div className="border-b border-slate-200 px-4 py-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Smart views</p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {smartViewsQuery.data.views.map((view) => (
+            <div className="flex flex-wrap items-center gap-2">
+              {pinnedSmartViews.map((view) => (
                 <button
                   key={view.key}
                   type="button"
@@ -331,6 +349,36 @@ export function WorkOrderQueuePanel({
                   {view.label}
                 </button>
               ))}
+              {moreSmartViews.length ? (
+                <details className="relative inline-block">
+                  <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                    More views
+                    {moreSmartViews.some((view) => filters.smartView === view.key) ? (
+                      <span className="ml-1 rounded-full bg-brand-100 px-1.5 text-brand-800">•</span>
+                    ) : null}
+                    <ChevronDown size={12} />
+                  </summary>
+                  <div className="absolute left-0 top-full z-10 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                    {moreSmartViews.map((view) => (
+                      <button
+                        key={view.key}
+                        type="button"
+                        onClick={(event) => {
+                          updateFilters({ smartView: view.key, queue: view.queueKey, page: 1 });
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                        }}
+                        className={`block w-full rounded-md px-3 py-1.5 text-left text-xs font-medium ${
+                          filters.smartView === view.key
+                            ? "bg-brand-50 text-brand-800"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {view.label}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </div>
         ) : null}

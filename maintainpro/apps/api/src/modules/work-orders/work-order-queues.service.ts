@@ -299,7 +299,8 @@ export class WorkOrderQueuesService {
         where: { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } }
       },
       "waiting-parts": { where: this.waitingPartsWhere() },
-      "waiting-evidence": { where: this.waitingEvidenceWhere() },
+      // "waiting-evidence" is intentionally absent here — see countWaitingEvidence(),
+      // which the loop below calls directly for this key instead of a plain DB where.
       "technician-completed": { where: { status: WorkOrderStatus.TECHNICIAN_COMPLETED } },
       "supervisor-verification": { where: this.supervisorVerificationWhere() },
       "rework-required": { where: { status: WorkOrderStatus.REWORK_REQUIRED } },
@@ -317,12 +318,11 @@ export class WorkOrderQueuesService {
     const queueResults = await Promise.all([
       ...accessible.map((key) => {
         const definition = countDefinitions[key] ?? { where: {} };
-        return this.safeCount(
-          key,
-          warnings,
-          () => this.countScoped(actor, definition.where),
-          definition.severity
-        );
+        const countFn =
+          key === "waiting-evidence"
+            ? () => this.countWaitingEvidence(actor)
+            : () => this.countScoped(actor, definition.where);
+        return this.safeCount(key, warnings, countFn, definition.severity);
       }),
       this.safeAggregateCount("highPriorityOpen", warnings, () =>
         this.countScoped(actor, this.highPriorityOpenWhere())
@@ -401,6 +401,32 @@ export class WorkOrderQueuesService {
     });
   }
 
+  /**
+   * "Waiting evidence" can't be expressed as a plain Prisma `where`: the real rule
+   * (resolveEvidenceStatus / evaluateEvidenceRequirements) depends on the work order's
+   * evidence-type mix and env-gated storage config across 6 work order types, not the
+   * simpler 3-type/status heuristic a previous hand-written DB predicate used to
+   * approximate for a cheap count. That mismatch let the badge count rows the list's
+   * true per-row status check would never include. Rather than keep two drifting
+   * hand-maintained definitions, this counts
+   * by running the identical resolveEvidenceStatus() check the list uses — same
+   * candidate superset (nonTerminal), same pure per-row function, so badge and list
+   * cannot disagree. resolveEvidenceStatus only reads row.type/evidenceAttachments, so
+   * this needs no extra per-row queries beyond the one findMany.
+   */
+  private async countWaitingEvidence(actor: Actor): Promise<number> {
+    const where = this.mergeWhere(this.buildScopedBaseWhere(actor), this.nonTerminalWhere());
+    const rows = await this.prisma.workOrder.findMany({
+      where,
+      select: { type: true, evidenceAttachments: { where: { deletedAt: null, status: { not: "DELETED" } }, select: { evidenceType: true, status: true, verificationStatus: true } } },
+      take: 2000
+    });
+    return rows.filter((row) => {
+      const status = this.resolveEvidenceStatus(row as unknown as WorkOrderRow);
+      return status === "Missing" || status === "Rejected";
+    }).length;
+  }
+
   private buildScopedBaseWhere(actor: Actor): Prisma.WorkOrderWhereInput {
     return this.buildPrismaWhere(actor, {});
   }
@@ -420,7 +446,11 @@ export class WorkOrderQueuesService {
     return {
       OR: [
         { technicianId: actor.sub },
-        { assignees: { some: { employee: { linkedUserId: actor.sub } } } }
+        {
+          assignees: {
+            some: { employee: { linkedUserId: actor.sub }, assignmentStatus: { not: "REMOVED" } }
+          }
+        }
       ]
     };
   }
@@ -440,7 +470,10 @@ export class WorkOrderQueuesService {
   private assignedWhere(): Prisma.WorkOrderWhereInput {
     return this.mergeWhere(this.nonTerminalWhere(), {
       status: { in: ACTIVE_OPERATIONAL_STATUSES },
-      OR: [{ technicianId: { not: null } }, { assignees: { some: {} } }]
+      OR: [
+        { technicianId: { not: null } },
+        { assignees: { some: { assignmentStatus: { not: "REMOVED" } } } }
+      ]
     });
   }
 
@@ -470,34 +503,6 @@ export class WorkOrderQueuesService {
     });
   }
 
-  private waitingEvidenceWhere(): Prisma.WorkOrderWhereInput {
-    const activeEvidenceFilter = { deletedAt: null, status: { not: EvidenceAttachmentStatus.DELETED } };
-    return this.mergeWhere(this.nonTerminalWhere(), {
-      OR: [
-        {
-          evidenceAttachments: {
-            some: {
-              ...activeEvidenceFilter,
-              verificationStatus: EvidenceVerificationStatus.REJECTED
-            }
-          }
-        },
-        {
-          type: { in: [WorkOrderType.CORRECTIVE, WorkOrderType.EMERGENCY, WorkOrderType.INSPECTION] },
-          status: {
-            in: [
-              WorkOrderStatus.IN_PROGRESS,
-              WorkOrderStatus.TECHNICIAN_COMPLETED,
-              WorkOrderStatus.REWORK_REQUIRED,
-              WorkOrderStatus.ON_HOLD
-            ]
-          },
-          evidenceAttachments: { none: activeEvidenceFilter }
-        }
-      ]
-    });
-  }
-
   private highRiskWhere(now = new Date()): Prisma.WorkOrderWhereInput {
     return this.mergeWhere(this.nonTerminalWhere(), {
       OR: [
@@ -510,7 +515,7 @@ export class WorkOrderQueuesService {
   }
 
   private financeVendorPendingWhere(): Prisma.WorkOrderWhereInput {
-    return {
+    return this.mergeWhere(this.nonTerminalWhere(), {
       vendorRepairCase: {
         invoices: {
           some: {
@@ -518,7 +523,7 @@ export class WorkOrderQueuesService {
           }
         }
       }
-    };
+    });
   }
 
   private actionRequiredWhere(now = new Date()): Prisma.WorkOrderWhereInput {
@@ -1005,53 +1010,15 @@ export class WorkOrderQueuesService {
           ]
         };
       case "my-tasks":
-        return {
-          AND: [
-            where,
-            nonTerminal,
-            {
-              OR: [
-                { technicianId: actor.sub },
-                { assignees: { some: { employee: { linkedUserId: actor.sub }, assignmentStatus: { not: "REMOVED" } } } }
-              ]
-            }
-          ]
-        };
+        // Shared with the count badge (myTasksWhere()) — see action-required's comment
+        // below for why hand-duplicated OR-lists here caused badge/list drift.
+        return { AND: [where, this.nonTerminalWhere(), this.myTasksWhere(actor)] };
       case "assigned":
-        return {
-          AND: [
-            where,
-            nonTerminal,
-            {
-              OR: [
-                { technicianId: { not: null } },
-                { assignees: { some: { assignmentStatus: { not: "REMOVED" } } } }
-              ]
-            }
-          ]
-        };
+        return { AND: [where, this.assignedWhere()] };
       case "waiting-parts":
-        return {
-          AND: [
-            where,
-            nonTerminal,
-            {
-              parts: {
-                some: {
-                  OR: [
-                    { lineStatus: WorkOrderPartLineStatus.REQUESTED },
-                    { pendingReturnQuantity: { gt: 0 } },
-                    {
-                      lineStatus: WorkOrderPartLineStatus.APPROVED,
-                      issuedQuantity: 0,
-                      requestedQuantity: { gt: 0 }
-                    }
-                  ]
-                }
-              }
-            }
-          ]
-        };
+        // waitingPartsWhere() also matches on partIssues (issue history), which this
+        // case previously omitted, undercounting the list relative to the badge.
+        return { AND: [where, this.waitingPartsWhere()] };
       case "high-risk":
         return {
           AND: [
@@ -1068,62 +1035,29 @@ export class WorkOrderQueuesService {
           ]
         };
       case "action-required":
-        return {
-          AND: [
-            where,
-            nonTerminal,
-            {
-              OR: [
-                { approvalStatus: WorkOrderApprovalStatus.PENDING },
-                { isTriage: true },
-                { status: WorkOrderStatus.REWORK_REQUIRED },
-                { status: WorkOrderStatus.OVERDUE },
-                {
-                  status: WorkOrderStatus.TECHNICIAN_COMPLETED,
-                  verificationStatus: WorkOrderVerificationStatus.PENDING
-                },
-                { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
-                { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
-                {
-                  parts: {
-                    some: {
-                      lineStatus: WorkOrderPartLineStatus.APPROVED,
-                      issuedQuantity: 0,
-                      requestedQuantity: { gt: 0 }
-                    }
-                  }
-                }
-              ]
-            }
-          ]
-        };
+        // Single source of truth shared with the queue-count badge (actionRequiredWhere()):
+        // previously this case hand-maintained its own, narrower OR-list that omitted the
+        // dueDate<now overdue branch (only checked status===OVERDUE) plus the finance/vendor
+        // and QR-mismatch branches, so work orders overdue-by-date but not yet transitioned to
+        // the OVERDUE status were counted in the "Action Required" badge but silently dropped
+        // before the list's candidate fetch ever ran — badge and list/category-summary/total
+        // disagreed even though both were reading the same underlying data.
+        return { AND: [where, this.actionRequiredWhere(now)] };
       case "waiting-evidence":
-        return {
-          AND: [
-            where,
-            nonTerminal,
-            {
-              OR: [
-                {
-                  evidenceAttachments: {
-                    some: { verificationStatus: EvidenceVerificationStatus.REJECTED, deletedAt: null }
-                  }
-                },
-                { evidenceAttachments: { none: { deletedAt: null, status: { not: "DELETED" } } } }
-              ]
-            }
-          ]
-        };
+        // The real "needs evidence" rule (resolveEvidenceStatus / evaluateEvidenceRequirements,
+        // applied below by matchesQueue) depends on evidence-type mix and storage config
+        // across 6 work order types — not cleanly expressible as a DB where. Fetch the
+        // full non-terminal superset here and let matchesQueue's per-row check (the same
+        // one countWaitingEvidence() uses for the badge) decide membership, so badge and
+        // list can't drift the way they did when this case used a narrower 3-type/status
+        // DB heuristic that both missed valid rows (PREVENTIVE/ACCIDENT_REPAIR/INSTALLATION
+        // types) and let others through that didn't actually need evidence.
+        return { AND: [where, nonTerminal] };
       case "finance-vendor-pending":
         return {
           AND: [
             where,
-            nonTerminal,
-            {
-              vendorRepairCase: {
-                invoices: { some: { status: { in: [VendorInvoiceStatus.SUBMITTED, VendorInvoiceStatus.UNDER_REVIEW] } } }
-              }
-            }
+            this.financeVendorPendingWhere()
           ]
         };
       default:
