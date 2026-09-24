@@ -13,7 +13,11 @@ describe("WorkOrderQueuesService lightweight summary", () => {
   function buildService(countImpl: (args: { where: unknown }) => number | Promise<number> = () => 0) {
     const prisma = {
       workOrder: {
-        count: jest.fn(async (args: { where: unknown }) => countImpl(args))
+        count: jest.fn(async (args: { where: unknown }) => countImpl(args)),
+        // countWaitingEvidence() counts via findMany + resolveEvidenceStatus rather
+        // than a plain DB where (see work-order-queues.service.ts for why); an empty
+        // fixture DB has nothing waiting on evidence either way.
+        findMany: jest.fn().mockResolvedValue([])
       }
     };
     const maintenanceReports = {
@@ -81,7 +85,16 @@ describe("WorkOrderQueuesService lightweight summary", () => {
 
     expect(summary.queues.find((queue) => queue.key === "open-requests")?.count).toBe(31);
     expect(prisma.workOrder.count).toHaveBeenCalled();
-    expect((prisma.workOrder as { findMany?: unknown }).findMany).toBeUndefined();
+    // countWaitingEvidence() legitimately calls findMany (see work-order-queues.service.ts
+    // for why "waiting evidence" can't be a plain DB where) — that's not the page-one
+    // aggregation bug this test guards against. What matters is that no queue count,
+    // including open-requests, is derived by fetching a *paginated page* (take/skip)
+    // and counting client-side.
+    const findManyCalls = (prisma.workOrder as { findMany: jest.Mock }).findMany.mock.calls;
+    for (const [args] of findManyCalls) {
+      expect(args).not.toHaveProperty("skip");
+      expect(args.take).not.toBe(25);
+    }
   });
 
   it("returns 200 when dueDate is null and overdue query is evaluated", async () => {
