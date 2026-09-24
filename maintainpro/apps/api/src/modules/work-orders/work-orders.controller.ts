@@ -146,17 +146,14 @@ export class WorkOrdersController {
     return { data, message: "Work order queue fetched" };
   }
 
+  /**
+   * Direct-create category lookup — must match POST /work-orders create RBAC
+   * (create-capable roles + work_orders.manage). Do not broaden to TECHNICIAN/
+   * MECHANIC/SUPERVISOR; those roles execute WOs but do not open the create form.
+   */
   @Get("job-categories")
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-    "OPERATIONS_MANAGER",
-    "ASSET_MANAGER",
-    "MECHANIC",
-    "TECHNICIAN",
-    "SUPERVISOR"
-  )
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
   async listJobCategories(
     @Req() req: AuthedRequest,
     @Query("jobDomain") jobDomain?: string,

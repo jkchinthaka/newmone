@@ -12,7 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { clearAuthSession, clearStoredTokens } from "@/lib/auth-storage";
+import { clearAuthSession, clearStoredTokens, mergeStoredPublicUserProfile } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 export type TenantSessionState =
@@ -102,7 +102,9 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
     setState((prev) => (prev === "READY" ? "RECOVERING" : "INITIALIZING"));
 
     try {
-      await apiClient.get("/auth/me");
+      const meResponse = await apiClient.get("/auth/me");
+      const meData = (meResponse.data as { data?: unknown } | undefined)?.data;
+      mergeStoredPublicUserProfile(meData);
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {

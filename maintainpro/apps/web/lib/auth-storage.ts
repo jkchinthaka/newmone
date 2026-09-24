@@ -40,6 +40,63 @@ export function setAuthSession(payload: {
   }
 }
 
+/**
+ * Merge non-secret profile fields from `/auth/me` into the cached user.
+ * Never stores tokens, password hashes, or other secrets.
+ */
+export function mergeStoredPublicUserProfile(profile: unknown) {
+  if (typeof window === "undefined" || !profile || typeof profile !== "object") {
+    return;
+  }
+
+  const incoming = profile as Record<string, unknown>;
+  const raw = localStorage.getItem(USER_KEY);
+  let existing: Record<string, unknown> = {};
+  if (raw) {
+    try {
+      existing = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      existing = {};
+    }
+  }
+
+  const next: Record<string, unknown> = { ...existing };
+
+  if (typeof incoming.id === "string") {
+    next.id = incoming.id;
+  }
+  if (typeof incoming.email === "string") {
+    next.email = incoming.email;
+  }
+  if (typeof incoming.fullName === "string") {
+    next.fullName = incoming.fullName;
+  }
+  if (typeof incoming.tenantId === "string" || incoming.tenantId === null) {
+    next.tenantId = incoming.tenantId;
+  }
+  if (typeof incoming.role === "string") {
+    next.role = incoming.role;
+  } else if (incoming.role && typeof incoming.role === "object") {
+    const roleObj = incoming.role as { name?: unknown };
+    if (typeof roleObj.name === "string") {
+      next.role = roleObj.name;
+    }
+  }
+  if (Array.isArray(incoming.permissions)) {
+    next.permissions = incoming.permissions.filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+  }
+  if (Array.isArray(incoming.enabledFeatures)) {
+    next.enabledFeatures = incoming.enabledFeatures.filter(
+      (value): value is string => typeof value === "string"
+    );
+  }
+
+  localStorage.setItem(USER_KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("maintainpro:user-updated"));
+}
+
 export function setAccessToken(_accessToken: string) {
   if (typeof window === "undefined") return;
   clearStoredTokens();

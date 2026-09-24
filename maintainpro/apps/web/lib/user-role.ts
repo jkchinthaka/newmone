@@ -46,6 +46,50 @@ export const INVENTORY_ANALYTICS_ROLES: DashboardRole[] = [
 export const INVENTORY_MANAGE_PERMISSION = "inventory.manage";
 
 /**
+ * Mirrors POST /work-orders create RBAC:
+ * `@Roles(SUPER_ADMIN, ADMIN, MANAGER, OPERATIONS_MANAGER, ASSET_MANAGER)`
+ * + `@Permissions("work_orders.manage")`.
+ * TECHNICIAN / MECHANIC / SUPERVISOR are intentionally excluded.
+ */
+export const WORK_ORDER_CREATE_ROLES: DashboardRole[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "OPERATIONS_MANAGER",
+  "ASSET_MANAGER"
+];
+
+export const WORK_ORDERS_MANAGE_PERMISSION = "work_orders.manage";
+
+/**
+ * Whether the session may open the direct Create Work Order form / call POST /work-orders.
+ * Role must match the API create allow-list; permission must be present when the
+ * cached profile from `/auth/me` includes a permissions list. Empty permissions
+ * with an allow-listed role still gates UI on role only (PermissionsGuard resolves
+ * grants from DB), matching inventory analytics UX.
+ */
+export function canCreateWorkOrder(
+  role?: string | null,
+  permissions?: readonly string[] | null
+): boolean {
+  const resolvedRole = (role ?? getStoredRole()).trim();
+  if (!WORK_ORDER_CREATE_ROLES.includes(resolvedRole)) {
+    return false;
+  }
+
+  if (resolvedRole === "SUPER_ADMIN") {
+    return true;
+  }
+
+  const resolvedPermissions = permissions ?? getStoredPermissions();
+  if (resolvedPermissions.length === 0) {
+    return true;
+  }
+
+  return resolvedPermissions.includes(WORK_ORDERS_MANAGE_PERMISSION);
+}
+
+/**
  * Mirrors @Roles on GET /fleet/live-map. Note the sibling routes /fleet/alerts and
  * /fleet/geofences additionally allow MANAGER, so a manager can open the fleet page but
  * cannot read live positions — requesting them anyway only yields 403.

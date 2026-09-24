@@ -84,6 +84,7 @@ type AssetRowActionsProps<T extends AssetTableRow> = {
   canEditFields: boolean;
   canChangeStatus: boolean;
   canCreate: boolean;
+  canCreateWorkOrder?: boolean;
   canDelete: boolean;
   onToggleMenu: (assetId: string) => void;
   onOpenDetails: (assetId: string) => void;
@@ -104,6 +105,7 @@ function AssetRowActions<T extends AssetTableRow>({
   canEditFields,
   canChangeStatus,
   canCreate,
+  canCreateWorkOrder = false,
   canDelete,
   onToggleMenu,
   onOpenDetails,
@@ -227,7 +229,7 @@ function AssetRowActions<T extends AssetTableRow>({
             </div>
           ) : null}
 
-          {canCreate ? (
+          {canCreateWorkOrder ? (
             <button
               type="button"
               onClick={() => onCreateWorkOrder(asset)}
@@ -281,6 +283,7 @@ export type AssetsTableProps<T extends AssetTableRow = AssetTableRow> = {
   canEditFields: boolean;
   canChangeStatus: boolean;
   canCreate: boolean;
+  canCreateWorkOrder?: boolean;
   canDelete: boolean;
   emptyDescription: string;
   onClearFilters: () => void;
@@ -308,6 +311,7 @@ export function AssetsTable<T extends AssetTableRow>({
   canEditFields,
   canChangeStatus,
   canCreate,
+  canCreateWorkOrder = false,
   canDelete,
   emptyDescription,
   onClearFilters,
@@ -470,6 +474,7 @@ export function AssetsTable<T extends AssetTableRow>({
                 asset={asset}
                 canChangeStatus={canChangeStatus}
                 canCreate={canCreate}
+                canCreateWorkOrder={canCreateWorkOrder}
                 canDelete={canDelete}
                 canEditFields={canEditFields}
                 onConfirmStatus={onConfirmStatus}

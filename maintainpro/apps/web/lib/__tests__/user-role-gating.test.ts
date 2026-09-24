@@ -3,10 +3,13 @@ import { afterEach, describe, it } from "node:test";
 
 import { USER_KEY } from "../auth-storage";
 import {
+  canCreateWorkOrder,
   canReadFleetLiveMap,
   canReadInventoryAnalytics,
   FLEET_LIVE_MAP_ROLES,
-  INVENTORY_ANALYTICS_ROLES
+  INVENTORY_ANALYTICS_ROLES,
+  WORK_ORDER_CREATE_ROLES,
+  WORK_ORDERS_MANAGE_PERMISSION
 } from "../user-role";
 
 function stubUser(payload: unknown) {
@@ -54,5 +57,41 @@ describe("canReadFleetLiveMap", () => {
   it("allows SUPERVISOR for live map", () => {
     stubUser({ role: "SUPERVISOR" });
     assert.equal(canReadFleetLiveMap(), true);
+  });
+});
+
+describe("canCreateWorkOrder (UI/API create RBAC)", () => {
+  it("allows manager/admin create roles with work_orders.manage", () => {
+    for (const role of WORK_ORDER_CREATE_ROLES) {
+      assert.equal(
+        canCreateWorkOrder(role, [WORK_ORDERS_MANAGE_PERMISSION]),
+        true,
+        `${role} should create`
+      );
+    }
+  });
+
+  it("hides create for technician/mechanic/supervisor even with manage permission", () => {
+    for (const role of ["TECHNICIAN", "MECHANIC", "SUPERVISOR", "VIEWER"] as const) {
+      assert.equal(
+        canCreateWorkOrder(role, [WORK_ORDERS_MANAGE_PERMISSION]),
+        false,
+        `${role} must not see Create Work Order`
+      );
+    }
+  });
+
+  it("denies create-capable role that lacks work_orders.manage when permissions are known", () => {
+    assert.equal(canCreateWorkOrder("MANAGER", ["work_orders.view"]), false);
+  });
+
+  it("allows create-capable role when /auth/me permissions list is empty (DB resolves grant)", () => {
+    stubUser({ role: "MANAGER", permissions: [] });
+    assert.equal(canCreateWorkOrder(), true);
+  });
+
+  it("does not treat unauthorized roles as create-capable", () => {
+    assert.equal(WORK_ORDER_CREATE_ROLES.includes("TECHNICIAN"), false);
+    assert.equal(WORK_ORDER_CREATE_ROLES.includes("SUPERVISOR"), false);
   });
 });
