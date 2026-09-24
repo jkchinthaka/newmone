@@ -51,7 +51,7 @@ describe("D6 maintenance dashboard opsOverview", () => {
   function mockPrisma(overrides: Record<string, unknown> = {}) {
     const count = jest.fn().mockResolvedValue(0);
     return {
-      workOrder: { count },
+      workOrder: { count, findMany: jest.fn().mockResolvedValue([]) },
       approvalRequest: { count: jest.fn().mockResolvedValue(0) },
       pmPlan: { count: jest.fn().mockResolvedValue(0) },
       maintenanceRequest: { count: jest.fn().mockResolvedValue(0) },
@@ -97,6 +97,46 @@ describe("D6 maintenance dashboard opsOverview", () => {
     expect(data.lowStock).toBe(1);
     expect(data.availability.approvals).toBe(true);
     expect(typeof data.pendingApprovals).toBe("number");
+  });
+
+  it("returns the priority work list scoped to the current tenant, mapped for the UI", async () => {
+    const dueDate = new Date("2026-09-20T00:00:00.000Z");
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: "wo-1",
+        woNumber: "WO-2026-0001",
+        title: "Replace conveyor belt",
+        jobDomain: "MACHINERY",
+        status: "OVERDUE",
+        priority: "CRITICAL",
+        dueDate
+      }
+    ]);
+    const prisma = mockPrisma({ workOrder: { count: jest.fn().mockResolvedValue(0), findMany } });
+    const service = new MaintenanceConfigService(prisma as never);
+    const data = await service.opsOverview({
+      sub: "admin-1",
+      tenantId: "tenant-a",
+      role: "ADMIN"
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: "tenant-a" }),
+        take: 8
+      })
+    );
+    expect(data.priorityWorkList).toEqual([
+      {
+        id: "wo-1",
+        woNumber: "WO-2026-0001",
+        title: "Replace conveyor belt",
+        jobDomain: "MACHINERY",
+        status: "OVERDUE",
+        priority: "CRITICAL",
+        dueDate: dueDate.toISOString()
+      }
+    ]);
   });
 
   it("fails closed without tenant", async () => {

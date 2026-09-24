@@ -1,6 +1,7 @@
 "use client";
 
-import { Filter, Layers3, List, LayoutGrid, Plus, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Filter, Layers3, List, LayoutGrid, Plus, Search, Trash2 } from "lucide-react";
 
 import { toTitleCase } from "./helpers";
 import {
@@ -18,6 +19,10 @@ type WorkOrderFiltersBarProps = {
   view: WorkOrderViewMode;
   selectionCount: number;
   bulkLoading: boolean;
+  /** When false, Create Work Order is hidden (matches POST /work-orders RBAC). */
+  canCreate?: boolean;
+  /** False on domain job pages (Machinery/Service/Vehicle), which already show their own page heading. */
+  showHeading?: boolean;
   onChange: (patch: Partial<WorkOrderFilters>) => void;
   onReset: () => void;
   onCreate: () => void;
@@ -26,12 +31,17 @@ type WorkOrderFiltersBarProps = {
   onBulkDelete: () => void;
 };
 
+const DEFAULT_SORT_BY: WorkOrderFilters["sortBy"] = "createdAt";
+const DEFAULT_SORT_DIRECTION: WorkOrderFilters["sortDirection"] = "desc";
+
 export function WorkOrderFiltersBar({
   filters,
   technicians,
   view,
   selectionCount,
   bulkLoading,
+  canCreate = false,
+  showHeading = true,
   onChange,
   onReset,
   onCreate,
@@ -39,13 +49,24 @@ export function WorkOrderFiltersBar({
   onBulkStatusChange,
   onBulkDelete
 }: WorkOrderFiltersBarProps) {
+  const hasActiveAdvancedFilters =
+    Boolean(filters.dueDateFrom) ||
+    Boolean(filters.dueDateTo) ||
+    filters.sortBy !== DEFAULT_SORT_BY ||
+    filters.sortDirection !== DEFAULT_SORT_DIRECTION;
+  const [showMoreFilters, setShowMoreFilters] = useState(hasActiveAdvancedFilters);
+
   return (
     <section className="card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Work Orders</h2>
-          <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
-        </div>
+        {showHeading ? (
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">Work Orders</h2>
+            <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
+          </div>
+        ) : (
+          <div />
+        )}
 
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
@@ -78,13 +99,15 @@ export function WorkOrderFiltersBar({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onCreate}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <Plus size={16} /> Create Work Order
-          </button>
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={onCreate}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              <Plus size={16} /> Create Work Order
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -149,57 +172,72 @@ export function WorkOrderFiltersBar({
         </label>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Due Date From</span>
-          <input
-            type="date"
-            value={filters.dueDateFrom}
-            onChange={(event) => onChange({ dueDateFrom: event.target.value })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          />
-        </label>
+      <button
+        type="button"
+        onClick={() => setShowMoreFilters((current) => !current)}
+        aria-expanded={showMoreFilters}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
+      >
+        <ChevronDown
+          size={14}
+          className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+        />
+        {showMoreFilters ? "Hide due date & sort filters" : "More filters (due date, sort)"}
+      </button>
 
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Due Date To</span>
-          <input
-            type="date"
-            value={filters.dueDateTo}
-            onChange={(event) => onChange({ dueDateTo: event.target.value })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          />
-        </label>
+      {showMoreFilters ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Due Date From</span>
+            <input
+              type="date"
+              value={filters.dueDateFrom}
+              onChange={(event) => onChange({ dueDateFrom: event.target.value })}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            />
+          </label>
 
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Sort By</span>
-          <select
-            value={filters.sortBy}
-            onChange={(event) => onChange({ sortBy: event.target.value as WorkOrderFilters["sortBy"] })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          >
-            <option value="createdAt">Created Date</option>
-            <option value="woNumber">WO Number</option>
-            <option value="title">Title</option>
-            <option value="asset">Asset</option>
-            <option value="status">Status</option>
-            <option value="priority">Priority</option>
-            <option value="technician">Technician</option>
-            <option value="dueDate">Due Date</option>
-          </select>
-        </label>
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Due Date To</span>
+            <input
+              type="date"
+              value={filters.dueDateTo}
+              onChange={(event) => onChange({ dueDateTo: event.target.value })}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            />
+          </label>
 
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Direction</span>
-          <select
-            value={filters.sortDirection}
-            onChange={(event) => onChange({ sortDirection: event.target.value as WorkOrderFilters["sortDirection"] })}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-      </div>
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Sort By</span>
+            <select
+              value={filters.sortBy}
+              onChange={(event) => onChange({ sortBy: event.target.value as WorkOrderFilters["sortBy"] })}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            >
+              <option value="createdAt">Created Date</option>
+              <option value="woNumber">WO Number</option>
+              <option value="title">Title</option>
+              <option value="asset">Asset</option>
+              <option value="status">Status</option>
+              <option value="priority">Priority</option>
+              <option value="technician">Technician</option>
+              <option value="dueDate">Due Date</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Direction</span>
+            <select
+              value={filters.sortDirection}
+              onChange={(event) => onChange({ sortDirection: event.target.value as WorkOrderFilters["sortDirection"] })}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button

@@ -7,7 +7,18 @@ import type { ReactNode } from "react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState, ErrorState, LoadingCardSkeleton, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { jobDomainLabel } from "@/lib/job-domain";
 import { withTenantScope } from "@/lib/tenant-query";
+
+type PriorityWorkOrder = {
+  id: string;
+  woNumber: string;
+  title: string;
+  jobDomain: string | null;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+};
 
 type DashboardQueueLink = {
   key: string;
@@ -37,6 +48,7 @@ type MaintenanceDashboard = {
   verificationRequired: number;
   reworkRequired: number;
   attentionQueues: DashboardQueueLink[];
+  priorityWorkList: PriorityWorkOrder[];
   availability: {
     inventory: boolean;
     approvals: boolean;
@@ -158,7 +170,13 @@ export function MaintenanceDashboardPage() {
   }
 
   const d = query.data;
-  const attention = (d.attentionQueues ?? []).filter((q) => q.count > 0);
+  // Only surface queue links here that aren't already shown as their own card
+  // in Workload or Pipeline & Signals below — avoids showing the same count twice.
+  const UNIQUE_ATTENTION_KEYS = new Set(["overdue", "critical"]);
+  const attention = (d.attentionQueues ?? []).filter(
+    (q) => q.count > 0 && UNIQUE_ATTENTION_KEYS.has(q.key)
+  );
+  const priorityWorkList = d.priorityWorkList ?? [];
 
   return (
     <div className="space-y-8">
@@ -181,18 +199,67 @@ export function MaintenanceDashboardPage() {
 
       <Section
         title="Needs attention now"
-        description="Overdue, critical, verification, and blocked queues with drill-down links."
+        description="Overdue and critical-priority open work — the two signals not already broken out below."
       >
         {attention.length === 0 ? (
           <EmptyState
             title="Nothing urgent"
-            description="No overdue, critical, verification, or rework items right now."
+            description="No overdue or critical-priority work orders right now."
           />
         ) : (
           <div className="grid gap-3 grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {attention.map((q) => (
               <KpiCard key={q.key} label={q.label} value={q.count} href={q.href} tone={q.tone} />
             ))}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Priority work list"
+        description="The most urgent open work orders — overdue or critical priority — open one to act on it."
+      >
+        {priorityWorkList.length === 0 ? (
+          <EmptyState
+            title="Nothing urgent"
+            description="No overdue or critical-priority work orders right now."
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <ul className="divide-y divide-slate-100">
+              {priorityWorkList.map((wo) => (
+                <li key={wo.id}>
+                  <Link
+                    href={`/work-orders?wo=${wo.id}` as any}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-slate-900">{wo.woNumber}</span>
+                      <span className="ml-2 text-slate-600">{wo.title}</span>
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                        {jobDomainLabel(wo.jobDomain)}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-medium ${
+                          wo.priority === "CRITICAL"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {wo.priority}
+                      </span>
+                      <span className="text-slate-500">
+                        {wo.dueDate
+                          ? `Due ${new Date(wo.dueDate).toLocaleDateString()}`
+                          : "No due date"}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </Section>
