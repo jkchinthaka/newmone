@@ -11,6 +11,7 @@ import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { USER_KEY } from "@/lib/auth-storage";
+import { canCreateWorkOrder } from "@/lib/user-role";
 import {
   ALLOWED_STATUS_TRANSITIONS,
   getValidWorkOrderActions,
@@ -39,7 +40,6 @@ import {
 import { KanbanBoard } from "./kanban-board";
 import { WorkOrderQueuePanel } from "./work-order-queue-panel";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
-import { WorkOrderGovernanceExceptionsCard } from "./work-order-governance-exceptions-card";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
 import type { WorkOrder, WorkOrderSortField, WorkOrderStatus, WorkOrderViewMode } from "./types";
@@ -136,10 +136,18 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
   const canApproveWorkOrders = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"].includes(
     currentUser.role ?? ""
   );
+  const canCreateWorkOrders = canCreateWorkOrder(currentUser.role, currentUser.permissions);
 
   useEffect(() => {
     setCurrentUserId(readCurrentUserId());
   }, []);
+
+  useEffect(() => {
+    // Close create modal if session cannot create (role/permission change / storage refresh).
+    if (!canCreateWorkOrders && editorState.open && editorState.mode === "create") {
+      setEditorState((current) => ({ ...current, open: false }));
+    }
+  }, [canCreateWorkOrders, editorState.open, editorState.mode]);
 
   useEffect(() => {
     const validIds = new Set(workOrdersQuery.workOrders.map((order) => order.id));
@@ -163,6 +171,9 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
   const bulkBusy = bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
 
   const openCreateModal = () => {
+    if (!canCreateWorkOrders) {
+      return;
+    }
     setEditorState({ open: true, mode: "create", workOrder: null });
   };
 
@@ -494,6 +505,8 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         view={view}
         selectionCount={selectedIds.length}
         bulkLoading={bulkBusy}
+        canCreate={canCreateWorkOrders}
+        showHeading={!jobDomain}
         onChange={updateFilters}
         onReset={resetFilters}
         onCreate={openCreateModal}
@@ -509,8 +522,6 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         <StatCard label="Overdue" value={workOrdersQuery.stats.overdue} />
         <StatCard label="Completed" value={workOrdersQuery.stats.completed} />
       </section>
-
-      <WorkOrderGovernanceExceptionsCard />
 
       <motion.section
         layout
@@ -531,7 +542,10 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
       </motion.section>
 
       <WorkOrderEditorModal
-        open={editorState.open}
+        open={
+          editorState.open &&
+          (editorState.mode === "edit" || canCreateWorkOrders)
+        }
         mode={editorState.mode}
         workOrder={editorState.workOrder}
         submitting={createMutation.isPending || updateMutation.isPending}
@@ -542,6 +556,10 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         }
         onClose={closeEditorModal}
         onCreate={(values) => {
+          if (!canCreateWorkOrders) {
+            toast.error("You do not have permission to create work orders.");
+            return;
+          }
           if (!currentUserId) {
             toast.error("Unable to identify current user. Please login again.");
             return;

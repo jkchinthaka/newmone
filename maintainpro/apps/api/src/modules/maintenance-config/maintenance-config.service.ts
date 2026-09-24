@@ -216,6 +216,32 @@ export class MaintenanceConfigService {
       })
     ]);
 
+    // Priority work list: same overdue/critical definition as the counts above,
+    // but returns the actual work orders so supervisors can act directly from
+    // the dashboard instead of only seeing a count.
+    const priorityWorkOrders = await this.prisma.workOrder.findMany({
+      where: {
+        tenantId,
+        status: { in: OPEN_STATUSES },
+        OR: [
+          { status: WorkOrderStatus.OVERDUE },
+          { dueDate: { lt: now } },
+          { priority: Priority.CRITICAL }
+        ]
+      },
+      select: {
+        id: true,
+        woNumber: true,
+        title: true,
+        jobDomain: true,
+        status: true,
+        priority: true,
+        dueDate: true
+      },
+      orderBy: [{ dueDate: "asc" }],
+      take: 8
+    });
+
     let lowStock: number | null = null;
     if (canViewInventory) {
       const parts = await this.prisma.sparePart.findMany({
@@ -261,6 +287,15 @@ export class MaintenanceConfigService {
       verificationRequired,
       reworkRequired,
       attentionQueues,
+      priorityWorkList: priorityWorkOrders.map((wo) => ({
+        id: wo.id,
+        woNumber: wo.woNumber,
+        title: wo.title,
+        jobDomain: wo.jobDomain,
+        status: wo.status,
+        priority: wo.priority,
+        dueDate: wo.dueDate ? wo.dueDate.toISOString() : null
+      })),
       availability: {
         inventory: canViewInventory,
         approvals: canViewApprovals,
