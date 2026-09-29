@@ -1,9 +1,12 @@
 # Building / Facility Maintenance Module Plan
 
 **Task:** BUILD-001  
-**Status:** Planning complete — no schema or runtime implementation in this pass  
+**Status:** Historical plan (2026-06-13). Much of the spatial hierarchy / issue→WO scope is now **implemented**.  
+**Current blueprint:** [FACILITY_OPERATIONS_WORKFLOW_BLUEPRINT.md](FACILITY_OPERATIONS_WORKFLOW_BLUEPRINT.md)  
 **Audience:** Nelna operations, facility supervisors, engineering, product  
-**Last updated:** 2026-06-13
+**Last updated:** 2026-06-13 (status banner 2026-08-15)
+
+> Sections below that describe “no Building/Floor/Room” or “no `/facilities` routes” are **outdated**. Prefer the status matrix in the facility operations blueprint.
 
 ---
 
