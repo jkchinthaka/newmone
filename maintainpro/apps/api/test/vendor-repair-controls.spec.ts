@@ -19,6 +19,7 @@ describe("vendor repair controls", () => {
           actualCost: 0
         })
       },
+      vendorContract: { findMany: jest.fn().mockResolvedValue([]) },
       supplier: {
         findFirst: jest.fn().mockResolvedValue({
           id: "vendor-1",
@@ -65,12 +66,20 @@ describe("vendor repair controls", () => {
   it("blocks blacklisted vendor without override", async () => {
     const { service, prisma } = buildService({
       supplier: {
-        findFirst: jest.fn().mockResolvedValue({ id: "vendor-1", isActive: true, blacklisted: true })
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: "vendor-1", tenantId: "tenant-1", isActive: true, blacklisted: true })
       }
     });
+    // Eligibility engine (vendor-eligibility) reports blocks as VENDOR_NOT_ASSIGNABLE.
     await expect(
       service.requestVendorRepair("wo-1", { externalRepairReason: "Engine failure", supplierId: "vendor-1" }, actor)
-    ).rejects.toThrow(new BadRequestException("Blacklisted vendor cannot be selected."));
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: "VENDOR_NOT_ASSIGNABLE",
+        message: expect.stringMatching(/blocked/i)
+      })
+    });
     expect(prisma.vendorRepairCase.upsert).not.toHaveBeenCalled();
   });
 

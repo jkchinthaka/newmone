@@ -236,12 +236,23 @@ export class PermissionsGuard implements CanActivate {
   }
 
   private hasPermission(userPermissions: Set<string>, requiredPermission: string): boolean {
-    if (userPermissions.has(requiredPermission)) {
-      return true;
-    }
-
-    return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some((permission) =>
-      userPermissions.has(permission)
-    );
+    return hasCompatiblePermission(userPermissions, requiredPermission);
   }
+}
+
+/**
+ * Same check the guard applies (direct key or a legacy alias). Services that make
+ * finer-grained decisions after the guard must use this so both layers agree.
+ */
+export function hasCompatiblePermission(
+  userPermissions: ReadonlySet<string>,
+  requiredPermission: string
+): boolean {
+  if (userPermissions.has(requiredPermission)) {
+    return true;
+  }
+
+  return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some((permission) =>
+    userPermissions.has(permission)
+  );
 }

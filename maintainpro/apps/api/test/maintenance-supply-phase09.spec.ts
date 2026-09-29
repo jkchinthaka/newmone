@@ -413,6 +413,7 @@ describe("Phase 9 MaintenanceSupplyService", () => {
           vendorSupplierId: "sup-1"
         })
       },
+      vendorContract: { findMany: jest.fn().mockResolvedValue([]) },
       supplier: {
         findFirst: jest.fn().mockResolvedValue({
           id: "sup-1",
@@ -472,6 +473,7 @@ describe("Phase 9 MaintenanceSupplyService", () => {
         }),
         update: jest.fn()
       },
+      vendorContract: { findMany: jest.fn().mockResolvedValue([]) },
       supplier: {
         findFirst: jest.fn().mockResolvedValue({ id: "sup-1", name: "CoolTech", isActive: true })
       }

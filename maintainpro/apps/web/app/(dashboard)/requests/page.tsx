@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Loader2, MoreHorizontal, Plus, Search } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState } from "@/components/ui/page-state";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
-import { useCurrentUser } from "@/lib/use-current-user";
-import { extractRoleName } from "@/lib/role-redirect";
 import {
   approveRequest,
   cancelRequest,
@@ -20,40 +19,34 @@ import {
   listMaintenanceRequests,
   requestMoreInformation,
   startRequestReview,
-  type MaintenanceRequestListItem
+  type MaintenanceRequestListItem,
+  type MaintenanceRequestSummary
 } from "@/lib/maintenance-requests-api";
-
-const TRIAGE_ROLES = new Set([
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "SUPERVISOR",
-  "ASSET_MANAGER",
-  "FACILITY_MANAGER",
-  "BUILDING_SUPERVISOR"
-]);
-
-const REPORT_ROLES = new Set([
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "SUPERVISOR",
-  "ASSET_MANAGER",
-  "TECHNICIAN",
-  "MECHANIC",
-  "FACILITY_MANAGER",
-  "BUILDING_SUPERVISOR",
-  "DRIVER",
-  "VIEWER"
-]);
+import {
+  isActionAllowed,
+  isRequestStage,
+  REQUEST_STAGE_LABELS,
+  requestStageCards,
+  requestStatusLabel,
+  requestValueLabel
+} from "@/lib/maintenance-request-ui";
 
 type View = "all" | "mine" | "triage";
 
-function granted(role: string | null, permissions: string[], permission: string, roles: Set<string>) {
-  if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
-  if (permissions.includes(permission)) return true;
-  return permissions.length === 0 && role != null && roles.has(role);
-}
+const EMPTY_SUMMARY: MaintenanceRequestSummary = { open: 0, awaitingTriage: 0, highCritical: 0, converted: 0 };
+
+const STATUS_OPTIONS = [
+  "NEW",
+  "UNDER_REVIEW",
+  "NEEDS_INFORMATION",
+  "APPROVED",
+  "CLOSED",
+  "CANCELLED",
+  "CONVERTED_TO_WO"
+] as const;
+
+const minLength = (value: string) =>
+  value.trim().length < 3 ? "Please enter at least 3 characters." : null;
 
 function formatReported(value: string) {
   const date = new Date(value);
@@ -91,32 +84,100 @@ function PriorityBadge({ priority }: { priority: string }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}>
       {priority === "CRITICAL" ? <AlertTriangle aria-hidden size={12} /> : null}
-      {priority.charAt(0) + priority.slice(1).toLowerCase()}
+      {requestValueLabel(priority)}
     </span>
   );
 }
 
-function StatusBadge({ label }: { label: string }) {
+function StatusBadge({ status }: { status: string }) {
   return (
     <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-800">
-      {label}
+      {requestStatusLabel(status)}
     </span>
+  );
+}
+
+type RowAction = { id: string; label: string; href?: string; run?: () => Promise<boolean> };
+
+function ActionMenu({
+  item,
+  actions,
+  open,
+  onToggle,
+  onClose,
+  onRun
+}: {
+  item: MaintenanceRequestListItem;
+  actions: RowAction[];
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onRun: (action: RowAction) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    const onPointer = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [open, onClose]);
+
+  const itemClass = "block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none";
+
+  return (
+    <div ref={containerRef} className="relative inline-block">
+      <button
+        type="button"
+        aria-label={`Actions for ${item.requestNumber}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white"
+        onClick={onToggle}
+      >
+        <MoreHorizontal size={16} aria-hidden />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-10 mt-1 w-60 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          {actions.map((action) =>
+            action.href ? (
+              <Link key={action.id} role="menuitem" href={action.href as Route} className={itemClass} onClick={onClose}>
+                {action.label}
+              </Link>
+            ) : (
+              <button key={action.id} role="menuitem" type="button" className={itemClass} onClick={() => onRun(action)}>
+                {action.label}
+              </button>
+            )
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 export default function RequestsPage() {
-  const user = useCurrentUser();
-  const role = extractRoleName({ role: user.role });
-  const permissions = user.permissions ?? [];
-  const canTriage = granted(role, permissions, "maintenance_requests.triage", TRIAGE_ROLES);
-  const canApprove = granted(role, permissions, "maintenance_requests.approve", TRIAGE_ROLES);
-  const canConvert = granted(role, permissions, "maintenance_requests.convert", TRIAGE_ROLES);
-  const canReport = granted(role, permissions, "maintenance_requests.create", REPORT_ROLES);
-
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view = (searchParams.get("view") as View) || "all";
+  const { prompt, dialog } = usePromptDialog();
+
+  const rawView = searchParams.get("view");
+  const view: View = rawView === "mine" || rawView === "triage" ? rawView : "all";
+  const rawStage = searchParams.get("stage");
+  const stage = isRequestStage(rawStage) ? rawStage : null;
   const status = searchParams.get("status") ?? "";
   const priority = searchParams.get("priority") ?? "";
   const assetQuery = searchParams.get("asset") ?? "";
@@ -132,11 +193,15 @@ export default function RequestsPage() {
   const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted));
   const [items, setItems] = useState<MaintenanceRequestListItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [summary, setSummary] = useState({ open: 0, awaitingTriage: 0, highCritical: 0, converted: 0 });
+  const [summary, setSummary] = useState<MaintenanceRequestSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
 
+  const capabilities = summary.capabilities;
+  const canReport = Boolean(capabilities?.canReport);
+  const canTriage = Boolean(capabilities?.canTriage);
+  const canViewAll = Boolean(capabilities?.canViewAll);
   const limit = 25;
 
   const writeQuery = useCallback(
@@ -152,6 +217,12 @@ export default function RequestsPage() {
     },
     [pathname, router, searchParams]
   );
+
+  const clearFilters = useCallback(() => {
+    setDraftQuery("");
+    // Keep the chosen view (All / My / Triage); clear everything else.
+    router.replace((view === "all" ? pathname : `${pathname}?view=${view}`) as Route);
+  }, [pathname, router, view]);
 
   useEffect(() => {
     setDraftQuery(queryText);
@@ -169,24 +240,25 @@ export default function RequestsPage() {
     setLoading(true);
     setError(null);
     try {
+      const triage = view === "triage";
       const [result, counts] = await Promise.all([
         listMaintenanceRequests({
-          view: undefined,
           mine: view === "mine" || undefined,
-          triageQueue: view === "triage" || undefined,
-          status: view === "triage" ? undefined : status || undefined,
+          triageQueue: triage || undefined,
+          stage: triage ? undefined : stage ?? undefined,
+          status: triage || stage ? undefined : status || undefined,
           priority: priority || undefined,
           assetQuery: assetQuery || undefined,
           search: queryText || undefined,
-          sortBy: view === "triage" ? undefined : sortBy,
-          sortDirection: view === "triage" ? undefined : sortDirection,
+          sortBy: triage ? undefined : sortBy,
+          sortDirection: triage ? undefined : sortDirection,
           reporter: reporter || undefined,
           from: from || undefined,
           converted: converted === "" ? undefined : converted === "yes",
           page,
           limit
         }),
-        getMaintenanceRequestSummary()
+        getMaintenanceRequestSummary({ mine: view === "mine" })
       ]);
       setItems(result.items);
       setTotal(Number(result.meta?.total ?? result.items.length));
@@ -196,7 +268,7 @@ export default function RequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [assetQuery, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, status, view]);
+  }, [assetQuery, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view]);
 
   useEffect(() => {
     void refresh();
@@ -205,78 +277,118 @@ export default function RequestsPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const fromRow = total === 0 ? 0 : (page - 1) * limit + 1;
   const toRow = Math.min(page * limit, total);
-  const filtered = Boolean(queryText || status || priority || assetQuery || reporter || from || converted || view !== "all");
 
-  const actionsFor = useMemo(() => {
-    return (item: MaintenanceRequestListItem) => {
-      const isOwner = item.reportedBy?.id === user.id;
-      const actions: Array<{ id: string; label: string; href?: string; run?: () => Promise<void> }> = [
-        { id: "view", label: "View Request", href: `/requests/${item.id}` }
-      ];
-      if (item.workOrder?.id) {
-        actions.push({
-          id: "wo",
-          label: `View Work Order ${item.workOrder.woNumber}`,
-          href: `/work-orders?wo=${item.workOrder.id}`
-        });
-      }
-      if (canTriage && !isOwner && item.status === "NEW") {
-        actions.push({
-          id: "triage",
-          label: "Start Triage",
-          run: () => startRequestReview(item.id).then(() => undefined)
-        });
-      }
-      if (canTriage && !isOwner && item.status === "UNDER_REVIEW") {
-        actions.push({
-          id: "info",
-          label: "Request More Information",
-          run: async () => {
-            const question = window.prompt("What information do you need?");
-            if (!question?.trim()) return;
-            await requestMoreInformation(item.id, { question: question.trim() });
-          }
-        });
-      }
-      if (canApprove && !isOwner && item.status === "UNDER_REVIEW") {
-        actions.push({
-          id: "approve",
-          label: "Approve",
-          run: () => approveRequest(item.id).then(() => undefined)
-        });
-      }
-      if (canConvert && !isOwner && item.status === "APPROVED" && !item.workOrderId) {
-        actions.push({
-          id: "convert",
-          label: "Convert to Work Order",
-          run: () => convertRequestToWorkOrder(item.id).then(() => undefined)
-        });
-      }
-      if (isOwner && ["NEW", "UNDER_REVIEW", "NEEDS_INFORMATION"].includes(item.status)) {
-        actions.push({
-          id: "cancel",
-          label: "Cancel Request",
-          run: async () => {
-            const reason = window.prompt("Cancellation reason");
-            if (!reason?.trim()) return;
-            await cancelRequest(item.id, reason.trim());
-          }
-        });
-      }
-      return actions;
-    };
-  }, [canApprove, canConvert, canTriage, user.id]);
+  const activeFilters: Array<{ key: string; label: string; clear: Record<string, null> }> = [];
+  if (stage && view !== "triage") activeFilters.push({ key: "stage", label: REQUEST_STAGE_LABELS[stage], clear: { stage: null } });
+  if (status && !stage && view !== "triage") activeFilters.push({ key: "status", label: `Status: ${requestStatusLabel(status)}`, clear: { status: null } });
+  if (priority) activeFilters.push({ key: "priority", label: `Priority: ${requestValueLabel(priority)}`, clear: { priority: null } });
+  if (assetQuery) activeFilters.push({ key: "asset", label: `Asset: ${assetQuery}`, clear: { asset: null } });
+  if (queryText) activeFilters.push({ key: "q", label: `Search: ${queryText}`, clear: { q: null } });
+  if (reporter) activeFilters.push({ key: "reporter", label: `Reported by: ${reporter}`, clear: { reporter: null } });
+  if (from) activeFilters.push({ key: "from", label: `Reported from ${from}`, clear: { from: null } });
+  if (converted) activeFilters.push({ key: "converted", label: converted === "yes" ? "Converted" : "Not converted", clear: { converted: null } });
+  const filtered = activeFilters.length > 0;
 
-  async function runAction(item: MaintenanceRequestListItem, run: () => Promise<void>) {
+  const actionsFor = (item: MaintenanceRequestListItem): RowAction[] => {
+    const allowed = item.allowedActions;
+    const actions: RowAction[] = [{ id: "view", label: "Open request", href: `/requests/${item.id}` }];
+    if (item.workOrder?.id) {
+      actions.push({
+        id: "wo",
+        label: `Open work order ${item.workOrder.woNumber}`,
+        href: `/work-orders?wo=${item.workOrder.id}`
+      });
+    }
+    if (isActionAllowed(allowed, "startReview")) {
+      actions.push({
+        id: "triage",
+        label: "Start review",
+        run: () => startRequestReview(item.id).then(() => true)
+      });
+    }
+    if (isActionAllowed(allowed, "requestInformation")) {
+      actions.push({
+        id: "info",
+        label: "Ask requester a question",
+        run: async () => {
+          const question = await prompt({
+            title: `Ask about ${item.requestNumber}`,
+            description: "The requester sees this question and can reply on the request.",
+            label: "Question for the requester",
+            submitLabel: "Send question",
+            validate: minLength
+          });
+          if (!question) return false;
+          await requestMoreInformation(item.id, { question: question.trim() });
+          return true;
+        }
+      });
+    }
+    if (isActionAllowed(allowed, "approve")) {
+      actions.push({ id: "approve", label: "Accept for work", run: () => approveRequest(item.id).then(() => true) });
+    }
+    if (isActionAllowed(allowed, "convert")) {
+      actions.push({
+        id: "convert",
+        label: "Create work order",
+        run: async () => {
+          const result = await convertRequestToWorkOrder(item.id);
+          if (result.workOrder?.woNumber) {
+            toast.message(
+              result.alreadyConverted
+                ? `Already linked to ${result.workOrder.woNumber}`
+                : `Created work order ${result.workOrder.woNumber}`
+            );
+          }
+          return true;
+        }
+      });
+    }
+    if (isActionAllowed(allowed, "cancel")) {
+      actions.push({
+        id: "cancel",
+        label: "Cancel request",
+        run: async () => {
+          const reason = await prompt({
+            title: `Cancel ${item.requestNumber}?`,
+            description: "Cancelled requests cannot be reopened.",
+            label: "Cancellation reason",
+            submitLabel: "Cancel request",
+            cancelLabel: "Keep request",
+            validate: minLength
+          });
+          if (!reason) return false;
+          await cancelRequest(item.id, reason.trim());
+          return true;
+        }
+      });
+    }
+    return actions;
+  };
+
+  async function runAction(item: MaintenanceRequestListItem, action: RowAction) {
     setMenuId(null);
+    if (!action.run) return;
     try {
-      await run();
+      const done = await action.run();
+      if (!done) return;
       toast.success(`${item.requestNumber} updated`);
       await refresh();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "That action could not be completed."));
+      await refresh();
     }
   }
+
+  const closeMenu = useCallback(() => setMenuId(null), []);
+  // Users who can only see their own requests get no view tabs: every view would be the same list.
+  const views: Array<[View, string]> = canViewAll
+    ? [
+        ["all", "All requests"],
+        ["mine", "My requests"],
+        ...(canTriage ? [["triage", "Triage queue"] as [View, string]] : [])
+      ]
+    : [];
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -285,7 +397,7 @@ export default function RequestsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Maintenance Requests</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Report and triage maintenance issues before work order creation.
+            Report issues, then triage and accept them before a work order is created.
           </p>
         </div>
         {canReport ? (
@@ -293,33 +405,46 @@ export default function RequestsPage() {
             href={"/requests/new" as Route}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            <Plus size={16} aria-hidden /> Report Issue
+            <Plus size={16} aria-hidden /> Report issue
           </Link>
         ) : null}
       </header>
 
-      <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Request indicators">
-        {[
-          ["Open Requests", summary.open],
-          ["Awaiting Triage", summary.awaitingTriage],
-          ["High / Critical", summary.highCritical],
-          ["Converted", summary.converted]
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-          </div>
-        ))}
+      <section aria-labelledby="request-overview-heading" className="space-y-2">
+        <h2 id="request-overview-heading" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {summary.scope === "mine" ? "Overview of your requests" : "Overview of all requests"}
+          <span className="font-normal normal-case tracking-normal"> · select a card to list those requests</span>
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {requestStageCards(summary).map((card) => {
+            const active = stage === card.stage && view !== "triage";
+            return (
+              <button
+                key={card.stage}
+                type="button"
+                aria-pressed={active}
+                onClick={() =>
+                  writeQuery({
+                    stage: active ? null : card.stage,
+                    status: null,
+                    view: view === "triage" ? null : view === "all" ? null : view
+                  })
+                }
+                className={`rounded-xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                  active ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <span className="block text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</span>
+                <span className="mt-1 block text-2xl font-semibold text-slate-900">{loading && !capabilities ? "–" : card.value}</span>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Quick views">
-        {(
-          [
-            ["all", "All Requests"],
-            ["mine", "My Requests"],
-            ...(canTriage ? [["triage", "Triage Queue"] as const] : [])
-          ] as Array<[View, string]>
-        ).map(([id, label]) => (
+      {views.length > 1 ? (
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Request views">
+        {views.map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -328,14 +453,15 @@ export default function RequestsPage() {
             className={`min-h-11 rounded-lg px-3 text-sm font-medium ${
               view === id ? "bg-brand-600 text-white" : "border border-slate-200 bg-white text-slate-700"
             }`}
-            onClick={() => writeQuery({ view: id === "all" ? null : id })}
+            onClick={() => writeQuery({ view: id === "all" ? null : id, ...(id === "triage" ? { stage: null, status: null } : {}) })}
           >
             {label}
           </button>
         ))}
       </div>
+      ) : null}
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
         <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">
           <label className="relative block">
             <span className="sr-only">Search requests</span>
@@ -343,25 +469,24 @@ export default function RequestsPage() {
             <input
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="Search request ID, issue, asset or location..."
+              placeholder="Search request number, issue, asset or location..."
               className="min-h-11 w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
             />
           </label>
           <select
             aria-label="Status"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={status}
+            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+            value={stage || view === "triage" ? "" : status}
             disabled={view === "triage"}
-            onChange={(event) => writeQuery({ status: event.target.value || null })}
+            title={view === "triage" ? "The triage queue always shows New, Under Review and Needs Information." : undefined}
+            onChange={(event) => writeQuery({ status: event.target.value || null, stage: null })}
           >
-            <option value="">Status</option>
-            <option value="NEW">New</option>
-            <option value="UNDER_REVIEW">Under Review</option>
-            <option value="NEEDS_INFORMATION">Needs Information</option>
-            <option value="APPROVED">Approved</option>
-            <option value="CLOSED">Closed</option>
-            <option value="CANCELLED">Cancelled</option>
-            <option value="CONVERTED_TO_WO">Converted to Work Order</option>
+            <option value="">{stage ? REQUEST_STAGE_LABELS[stage] : "Any status"}</option>
+            {STATUS_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {requestStatusLabel(value)}
+              </option>
+            ))}
           </select>
           <select
             aria-label="Priority"
@@ -369,25 +494,26 @@ export default function RequestsPage() {
             value={priority}
             onChange={(event) => writeQuery({ priority: event.target.value || null })}
           >
-            <option value="">Priority</option>
+            <option value="">Any priority</option>
             <option value="CRITICAL">Critical</option>
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
           </select>
           <input
-            aria-label="Asset"
+            aria-label="Asset, vehicle or location"
             value={assetQuery}
             onChange={(event) => writeQuery({ asset: event.target.value || null })}
-            placeholder="Asset"
+            placeholder="Asset, vehicle or location"
             className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
           />
           <button
             type="button"
+            aria-expanded={advanced}
             className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
             onClick={() => setAdvanced((current) => !current)}
           >
-            Advanced Filters
+            {advanced ? "Fewer filters" : "More filters"}
           </button>
         </div>
         {advanced ? (
@@ -396,60 +522,81 @@ export default function RequestsPage() {
               aria-label="Reported by"
               value={reporter}
               onChange={(event) => writeQuery({ reporter: event.target.value || null })}
-              placeholder="Reported by"
+              placeholder="Reported by (name or email)"
               className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
             />
-            <input
-              aria-label="Reported from"
-              type="date"
-              value={from}
-              onChange={(event) => writeQuery({ from: event.target.value || null })}
-              className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
-            />
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="whitespace-nowrap">Reported from</span>
+              <input
+                type="date"
+                value={from}
+                onChange={(event) => writeQuery({ from: event.target.value || null })}
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm"
+              />
+            </label>
             <select
-              aria-label="Conversion"
+              aria-label="Work order link"
               className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
               value={converted}
               onChange={(event) => writeQuery({ converted: event.target.value || null })}
             >
-              <option value="">Converted / Not converted</option>
-              <option value="yes">Converted</option>
-              <option value="no">Not converted</option>
+              <option value="">With or without a work order</option>
+              <option value="yes">Has a work order</option>
+              <option value="no">No work order yet</option>
             </select>
           </div>
         ) : null}
+
+        {filtered ? (
+          <ul className="flex flex-wrap gap-2" aria-label="Active filters">
+            {activeFilters.map((filter) => (
+              <li key={filter.key}>
+                <button
+                  type="button"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-3 text-xs font-medium text-brand-900"
+                  onClick={() => {
+                    if (filter.key === "q") setDraftQuery("");
+                    writeQuery(filter.clear);
+                  }}
+                  aria-label={`Remove filter ${filter.label}`}
+                >
+                  {filter.label}
+                  <X size={12} aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-          <p>
-            {total} request{total === 1 ? "" : "s"}
+          <p aria-live="polite">
+            {loading ? "Loading…" : `${total} request${total === 1 ? "" : "s"}${filtered || view !== "all" ? " match this view" : ""}`}
           </p>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2">
-              Sort
-              <select
-                className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-                value={`${sortBy}:${sortDirection}`}
-                onChange={(event) => {
-                  const [sort, dir] = event.target.value.split(":");
-                  writeQuery({ sort: sort === "reportedAt" ? null : sort, dir: dir === "desc" ? null : dir });
-                }}
-              >
-                <option value="reportedAt:desc">Newest reported</option>
-                <option value="reportedAt:asc">Oldest reported</option>
-                <option value="priority:desc">Priority (urgent first)</option>
-                <option value="requestNumber:asc">Request number</option>
-                <option value="status:asc">Status</option>
-              </select>
-            </label>
+          <div className="flex flex-wrap items-center gap-2">
+            {view !== "triage" ? (
+              <label className="flex items-center gap-2">
+                Sort
+                <select
+                  className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+                  value={`${sortBy}:${sortDirection}`}
+                  onChange={(event) => {
+                    const [sort, dir] = event.target.value.split(":");
+                    writeQuery({ sort: sort === "reportedAt" ? null : sort, dir: dir === "desc" ? null : dir });
+                  }}
+                >
+                  <option value="reportedAt:desc">Newest reported</option>
+                  <option value="reportedAt:asc">Oldest reported</option>
+                  <option value="priority:desc">Priority (urgent first)</option>
+                  <option value="requestNumber:asc">Request number</option>
+                  <option value="status:asc">Status</option>
+                </select>
+              </label>
+            ) : (
+              <span className="text-xs text-slate-500">Sorted critical first, then oldest</span>
+            )}
             {filtered ? (
-              <button
-                type="button"
-                className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
-                onClick={() => {
-                  setDraftQuery("");
-                  router.replace(pathname as Route);
-                }}
-              >
-                Clear Filters
+              <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={clearFilters}>
+                Clear filters
               </button>
             ) : null}
           </div>
@@ -457,16 +604,11 @@ export default function RequestsPage() {
       </section>
 
       {error ? (
-        <ErrorState
-          title="We couldn't load maintenance requests."
-          description={error}
-          onRetry={() => void refresh()}
-          retryLabel="Retry"
-        />
+        <ErrorState title="We couldn't load maintenance requests." description={error} onRetry={() => void refresh()} retryLabel="Retry" />
       ) : null}
 
-      {loading ? (
-        <div className="space-y-2" aria-busy="true" aria-live="polite">
+      {loading && items.length === 0 && !error ? (
+        <div className="space-y-2" aria-busy="true">
           <p className="sr-only">Loading requests</p>
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />
@@ -477,86 +619,63 @@ export default function RequestsPage() {
       {!loading && !error && items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
           <p className="font-medium text-slate-900">
-            {filtered ? "No requests match these filters." : "No maintenance requests yet."}
+            {filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for triage." : "No maintenance requests yet."}
           </p>
           <p className="mt-1 text-sm text-slate-600">
             {filtered
-              ? "Try a different search or clear the current filters."
-              : "Report an issue to start the maintenance workflow."}
+              ? "Try a different search or clear the filters."
+              : view === "triage"
+                ? "New requests appear here as soon as they are reported."
+                : canReport
+                  ? "Report an issue to start the maintenance workflow."
+                  : "Requests you are allowed to see will appear here."}
           </p>
           {filtered ? (
-            <button
-              type="button"
-              className="mt-4 min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
-              onClick={() => {
-                setDraftQuery("");
-                router.replace(pathname as Route);
-              }}
-            >
-              Clear Filters
+            <button type="button" className="mt-4 min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={clearFilters}>
+              Clear filters
             </button>
-          ) : canReport ? (
+          ) : canReport && view !== "triage" ? (
             <Link href={"/requests/new" as Route} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">
-              Report Issue
+              Report issue
             </Link>
           ) : null}
         </div>
       ) : null}
 
-      {!loading && items.length > 0 ? (
-        <>
+      {items.length > 0 && !error ? (
+        <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
           <div className="space-y-2 md:hidden">
             {items.map((item) => {
               const place = subject(item);
               return (
                 <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() => router.push(`/requests/${item.id}` as Route)}
-                  >
+                  <Link href={`/requests/${item.id}` as Route} className="block">
                     <p className="font-semibold text-slate-900">{item.requestNumber}</p>
                     <p className="line-clamp-1 text-sm text-slate-700">{item.description}</p>
                     <p className="mt-2 text-sm text-slate-800">{place.title}</p>
                     {place.code ? <p className="text-xs text-slate-500">{place.code}</p> : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <PriorityBadge priority={item.priority} />
-                      <StatusBadge label={item.statusLabel} />
+                      <StatusBadge status={item.status} />
+                      {item.workOrder ? (
+                        <span className="text-xs font-medium text-brand-700">{item.workOrder.woNumber}</span>
+                      ) : null}
                     </div>
-                  </button>
+                  </Link>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <span className="text-xs text-slate-500" title={new Date(item.reportedAt).toLocaleString()}>
                       Reported {formatReported(item.reportedAt)}
+                      {item.reportedBy?.name ? ` by ${item.reportedBy.name}` : ""}
                     </span>
-                    <button
-                      type="button"
-                      aria-label={`Actions for ${item.requestNumber}`}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200"
-                      onClick={() => setMenuId((current) => (current === item.id ? null : item.id))}
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
+                    <ActionMenu
+                      item={item}
+                      actions={actionsFor(item)}
+                      open={menuId === item.id}
+                      onToggle={() => setMenuId((current) => (current === item.id ? null : item.id))}
+                      onClose={closeMenu}
+                      onRun={(action) => void runAction(item, action)}
+                    />
                   </div>
-                  {menuId === item.id ? (
-                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 py-1">
-                      {actionsFor(item).map((action) =>
-                        action.href ? (
-                          <Link key={action.id} href={action.href as Route} className="block px-3 py-2 text-sm">
-                            {action.label}
-                          </Link>
-                        ) : (
-                          <button
-                            key={action.id}
-                            type="button"
-                            className="block w-full px-3 py-2 text-left text-sm"
-                            onClick={() => action.run && void runAction(item, action.run)}
-                          >
-                            {action.label}
-                          </button>
-                        )
-                      )}
-                    </div>
-                  ) : null}
                 </article>
               );
             })}
@@ -566,13 +685,13 @@ export default function RequestsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-3 py-2">Request</th>
-                  <th className="px-3 py-2">Asset / Location</th>
-                  <th className="px-3 py-2">Priority</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Reporter</th>
-                  <th className="px-3 py-2">Reported</th>
-                  <th className="px-3 py-2">Actions</th>
+                  <th scope="col" className="px-3 py-2">Request</th>
+                  <th scope="col" className="px-3 py-2">Asset / Location</th>
+                  <th scope="col" className="px-3 py-2">Priority</th>
+                  <th scope="col" className="px-3 py-2">Status</th>
+                  <th scope="col" className="px-3 py-2">Reporter</th>
+                  <th scope="col" className="px-3 py-2">Reported</th>
+                  <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -585,7 +704,13 @@ export default function RequestsPage() {
                       onClick={() => router.push(`/requests/${item.id}` as Route)}
                     >
                       <td className="px-3 py-3">
-                        <div className="font-semibold text-slate-900">{item.requestNumber}</div>
+                        <Link
+                          href={`/requests/${item.id}` as Route}
+                          className="font-semibold text-slate-900 hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {item.requestNumber}
+                        </Link>
                         <div className="line-clamp-1 max-w-xs text-xs text-slate-500">{item.description}</div>
                       </td>
                       <td className="px-3 py-3">
@@ -596,7 +721,7 @@ export default function RequestsPage() {
                         <PriorityBadge priority={item.priority} />
                       </td>
                       <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                        <StatusBadge label={item.statusLabel} />
+                        <StatusBadge status={item.status} />
                         {item.workOrder ? (
                           <Link
                             href={`/work-orders?wo=${item.workOrder.id}` as Route}
@@ -610,41 +735,15 @@ export default function RequestsPage() {
                       <td className="px-3 py-3 text-slate-600" title={new Date(item.reportedAt).toLocaleString()}>
                         {formatReported(item.reportedAt)}
                       </td>
-                      <td className="relative px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${item.requestNumber}`}
-                          aria-expanded={menuId === item.id}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200"
-                          onClick={() => setMenuId((current) => (current === item.id ? null : item.id))}
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                        {menuId === item.id ? (
-                          <div className="absolute right-3 z-10 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                            {actionsFor(item).map((action) =>
-                              action.href ? (
-                                <Link
-                                  key={action.id}
-                                  href={action.href as Route}
-                                  className="block px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
-                                  onClick={() => setMenuId(null)}
-                                >
-                                  {action.label}
-                                </Link>
-                              ) : (
-                                <button
-                                  key={action.id}
-                                  type="button"
-                                  className="block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                                  onClick={() => action.run && void runAction(item, action.run)}
-                                >
-                                  {action.label}
-                                </button>
-                              )
-                            )}
-                          </div>
-                        ) : null}
+                      <td className="px-3 py-3 text-right" onClick={(event) => event.stopPropagation()}>
+                        <ActionMenu
+                          item={item}
+                          actions={actionsFor(item)}
+                          open={menuId === item.id}
+                          onToggle={() => setMenuId((current) => (current === item.id ? null : item.id))}
+                          onClose={closeMenu}
+                          onRun={(action) => void runAction(item, action)}
+                            />
                       </td>
                     </tr>
                   );
@@ -653,7 +752,7 @@ export default function RequestsPage() {
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+          <nav className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600" aria-label="Pagination">
             <p>
               Showing {fromRow}–{toRow} of {total}
             </p>
@@ -661,26 +760,28 @@ export default function RequestsPage() {
               <button
                 type="button"
                 className="min-h-11 rounded-lg border border-slate-300 px-3 disabled:opacity-50"
-                disabled={page <= 1}
+                disabled={page <= 1 || loading}
                 onClick={() => writeQuery({ page: page - 1 <= 1 ? null : String(page - 1) }, false)}
               >
                 Previous
               </button>
               <span>
-                {page} / {totalPages}
+                Page {page} of {totalPages}
               </span>
               <button
                 type="button"
                 className="min-h-11 rounded-lg border border-slate-300 px-3 disabled:opacity-50"
-                disabled={page >= totalPages}
+                disabled={page >= totalPages || loading}
                 onClick={() => writeQuery({ page: String(page + 1) }, false)}
               >
                 Next
               </button>
             </div>
-          </div>
-        </>
+          </nav>
+        </div>
       ) : null}
+
+      {dialog}
     </div>
   );
 }

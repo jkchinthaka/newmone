@@ -118,14 +118,24 @@ const HOME_ROLES = mergeRoles(
   FARM_INFRA_ROLES
 );
 
+/**
+ * Mirrors the maintenance-requests API read roles (maintenance-requests.controller.ts READ_ROLES).
+ * Visibility additionally requires the list permission below, so roles that would get a 403
+ * (e.g. seeded TECHNICIAN / DRIVER without request permissions) do not see a dead menu entry.
+ */
 const REQUEST_ROLES = mergeRoles(
-  HOME_ROLES,
+  ADMIN_ROLES,
+  ["MANAGER", "SUPERVISOR", "ASSET_MANAGER", "VIEWER", "DRIVER"],
   TECHNICIAN_ROLES,
-  SUPERVISOR_ROLES,
-  MANAGEMENT_ROLES,
-  FACILITY_ROLES,
-  READ_ONLY_ROLES
+  FACILITY_ROLES
 );
+
+/** GET /maintenance-requests requires maintenance_requests.view_own or a guard alias of it. */
+export const REQUEST_LIST_PERMISSIONS = [
+  "maintenance_requests.view_own",
+  "facility_issues.view",
+  "facility_issues.report"
+] as const;
 
 const WO_ROLES = mergeRoles(
   ADMIN_ROLES,
@@ -341,6 +351,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/requests",
     icon: "AlertTriangle",
     allowedRoles: REQUEST_ROLES,
+    requiredPermissions: REQUEST_LIST_PERMISSIONS,
     category: "operations",
     description: "Report and triage Maintenance Requests",
     mobilePriority: true,

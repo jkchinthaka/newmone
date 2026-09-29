@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException
@@ -13,7 +14,9 @@ import {
   WorkOrderType
 } from "@prisma/client";
 
+import { hasCompatiblePermission } from "../../common/guards/permissions.guard";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import { PrismaService } from "../../database/prisma.service";
@@ -42,7 +45,11 @@ import {
   humanRequestStatus,
   isActiveRequestStatus,
   mapRejectionTypeToResolution,
-  TRIAGE_QUEUE_STATUSES
+  requestAllowedActions,
+  requestStageFilter,
+  TRIAGE_QUEUE_STATUSES,
+  type RequestCapabilities,
+  type RequestStage
 } from "./request-lifecycle";
 
 type Actor = {
@@ -94,6 +101,7 @@ export class MaintenanceRequestsService {
   }
 
   async create(tenantId: string | null, actor: Actor, dto: CreateMaintenanceRequestDto) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     if (!actor.sub) throw new ForbiddenException("Authenticated actor required");
 
@@ -239,6 +247,7 @@ export class MaintenanceRequestsService {
   }
 
   async list(tenantId: string | null, actor: Actor, query: MaintenanceRequestListQueryDto) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     const page = Math.max(query.page ?? 1, 1);
     const limit = Math.min(Math.max(query.limit ?? 25, 1), 100);
@@ -299,37 +308,35 @@ export class MaintenanceRequestsService {
     };
   }
 
-  async summary(tenantId: string | null, actor: Actor) {
+  async summary(tenantId: string | null, actor: Actor, options: { mine?: boolean } = {}) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     const scope: Prisma.MaintenanceRequestWhereInput = { tenantId: tid };
-    if (!this.canViewAll(actor)) {
+    if (options.mine || !this.canViewAll(actor)) {
       scope.reportedById = actor.sub;
     }
-    const openStatuses = [
-      MaintenanceRequestStatus.NEW,
-      MaintenanceRequestStatus.UNDER_REVIEW,
-      MaintenanceRequestStatus.NEEDS_INFORMATION,
-      MaintenanceRequestStatus.APPROVED
-    ];
+    const stageWhere = (stage: RequestStage): Prisma.MaintenanceRequestWhereInput => {
+      const filter = requestStageFilter(stage);
+      return {
+        ...scope,
+        status: { in: filter.statuses },
+        ...(filter.priorities ? { priority: { in: filter.priorities } } : {})
+      };
+    };
     const [open, awaitingTriage, highCritical, converted] = await Promise.all([
-      this.prisma.maintenanceRequest.count({
-        where: { ...scope, status: { in: openStatuses } }
-      }),
-      this.prisma.maintenanceRequest.count({
-        where: { ...scope, status: { in: TRIAGE_QUEUE_STATUSES } }
-      }),
-      this.prisma.maintenanceRequest.count({
-        where: {
-          ...scope,
-          status: { in: openStatuses },
-          priority: { in: [Priority.HIGH, Priority.CRITICAL] }
-        }
-      }),
-      this.prisma.maintenanceRequest.count({
-        where: { ...scope, status: MaintenanceRequestStatus.CONVERTED_TO_WO }
-      })
+      this.prisma.maintenanceRequest.count({ where: stageWhere("open") }),
+      this.prisma.maintenanceRequest.count({ where: stageWhere("awaiting_triage") }),
+      this.prisma.maintenanceRequest.count({ where: stageWhere("urgent") }),
+      this.prisma.maintenanceRequest.count({ where: stageWhere("converted") })
     ]);
-    return { open, awaitingTriage, highCritical, converted };
+    return {
+      open,
+      awaitingTriage,
+      highCritical,
+      converted,
+      scope: scope.reportedById ? ("mine" as const) : ("all" as const),
+      capabilities: { ...this.capabilities(actor), canViewAll: this.canViewAll(actor) }
+    };
   }
 
   private buildListWhere(
@@ -360,6 +367,10 @@ export class MaintenanceRequestsService {
           MaintenanceRequestStatus.APPROVED
         ]
       };
+    } else if (query.stage) {
+      const stage = requestStageFilter(query.stage);
+      where.status = { in: stage.statuses };
+      if (stage.priorities && !query.priority) where.priority = { in: stage.priorities };
     } else if (query.status) {
       where.status = query.status as MaintenanceRequestStatus;
     }
@@ -375,10 +386,11 @@ export class MaintenanceRequestsService {
     if (query.converted === true) where.workOrderId = { not: null };
     if (query.converted === false) where.workOrderId = null;
 
+    // The list shows and sorts by reportedAt, so the date filter uses the same field.
     if (query.from || query.to) {
-      where.createdAt = {};
-      if (query.from) where.createdAt.gte = new Date(query.from);
-      if (query.to) where.createdAt.lte = new Date(query.to);
+      where.reportedAt = {};
+      if (query.from) where.reportedAt.gte = new Date(query.from);
+      if (query.to) where.reportedAt.lte = new Date(query.to);
     }
 
     const and: Prisma.MaintenanceRequestWhereInput[] = [];
@@ -434,6 +446,7 @@ export class MaintenanceRequestsService {
     actor: Actor,
     options: { forceAll?: boolean } = {}
   ) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     const row = await this.prisma.maintenanceRequest.findFirst({
       where: { id, tenantId: tid },
@@ -504,19 +517,17 @@ export class MaintenanceRequestsService {
   }
 
   async startReview(tenantId: string | null, id: string, actor: Actor) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     this.assertNotSelfGoverned(actor, current, "start review");
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.UNDER_REVIEW,
-        reviewedAt: new Date(),
-        triageOwnerId: actor.sub
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.UNDER_REVIEW,
+      reviewedAt: new Date(),
+      triageOwnerId: actor.sub
     });
 
     await this.appendHistory(tid, id, {
@@ -540,6 +551,7 @@ export class MaintenanceRequestsService {
   }
 
   async triage(tenantId: string | null, id: string, actor: Actor, dto: TriageMaintenanceRequestDto) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -601,29 +613,26 @@ export class MaintenanceRequestsService {
           assetDomainCode
         });
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        assetId: placement.assetId,
-        vehicleId: placement.vehicleId,
-        siteId: placement.siteId,
-        functionalLocationId: placement.functionalLocationId,
-        domainId: placement.domainId,
-        jobDomain,
-        targetUnresolved: placement.targetUnresolved,
-        problemCategoryId:
-          dto.problemCategoryId !== undefined ? dto.problemCategoryId : undefined,
-        priority: dto.priority ?? undefined,
-        isEmergency: dto.isEmergency ?? undefined,
-        triageNotes: dto.triageNotes?.trim() || undefined,
-        publicUpdateNote: dto.publicUpdateNote?.trim() || undefined,
-        triageOwnerId: actor.sub,
-        status:
-          current.status === MaintenanceRequestStatus.NEW
-            ? MaintenanceRequestStatus.UNDER_REVIEW
-            : current.status,
-        reviewedAt: current.reviewedAt ?? new Date()
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      assetId: placement.assetId,
+      vehicleId: placement.vehicleId,
+      siteId: placement.siteId,
+      functionalLocationId: placement.functionalLocationId,
+      domainId: placement.domainId,
+      jobDomain,
+      targetUnresolved: placement.targetUnresolved,
+      problemCategoryId:
+        dto.problemCategoryId !== undefined ? dto.problemCategoryId : undefined,
+      priority: dto.priority ?? undefined,
+      isEmergency: dto.isEmergency ?? undefined,
+      triageNotes: dto.triageNotes?.trim() || undefined,
+      publicUpdateNote: dto.publicUpdateNote?.trim() || undefined,
+      triageOwnerId: actor.sub,
+      status:
+        current.status === MaintenanceRequestStatus.NEW
+          ? MaintenanceRequestStatus.UNDER_REVIEW
+          : current.status,
+      reviewedAt: current.reviewedAt ?? new Date()
     });
 
     await this.appendHistory(tid, id, {
@@ -672,6 +681,7 @@ export class MaintenanceRequestsService {
   }
 
   async approve(tenantId: string | null, id: string, actor: Actor) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertApprove(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -694,15 +704,12 @@ export class MaintenanceRequestsService {
       assetDomainCode
     });
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.APPROVED,
-        approvedAt: new Date(),
-        triageOwnerId: actor.sub,
-        jobDomain,
-        targetUnresolved: false
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.APPROVED,
+      approvedAt: new Date(),
+      triageOwnerId: actor.sub,
+      jobDomain,
+      targetUnresolved: false
     });
 
     await this.appendHistory(tid, id, {
@@ -743,25 +750,24 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: { question: string; publicNote?: string }
   ) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "request information on");
     assertValidTransition(current.status, MaintenanceRequestStatus.NEEDS_INFORMATION);
     const question = dto.question?.trim();
     if (!question || question.length < 3) {
       throw new BadRequestException("A clear question for the requester is required (min 3 characters).");
     }
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.NEEDS_INFORMATION,
-        publicUpdateNote: dto.publicNote?.trim() || question,
-        triageNotes: current.triageNotes
-          ? `${current.triageNotes}\n[Needs info] ${question}`
-          : `[Needs info] ${question}`,
-        triageOwnerId: actor.sub
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.NEEDS_INFORMATION,
+      publicUpdateNote: dto.publicNote?.trim() || question,
+      triageNotes: current.triageNotes
+        ? `${current.triageNotes}\n[Needs info] ${question}`
+        : `[Needs info] ${question}`,
+      triageOwnerId: actor.sub
     });
 
     await this.appendHistory(tid, id, {
@@ -802,6 +808,7 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: RequesterRespondDto
   ) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     if (current.reportedById !== actor.sub) {
@@ -816,13 +823,10 @@ export class MaintenanceRequestsService {
     }
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.UNDER_REVIEW,
-        publicUpdateNote: response,
-        reviewedAt: new Date()
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.UNDER_REVIEW,
+      publicUpdateNote: response,
+      reviewedAt: new Date()
     });
 
     await this.appendHistory(tid, id, {
@@ -860,6 +864,7 @@ export class MaintenanceRequestsService {
   }
 
   async resumeReview(tenantId: string | null, id: string, actor: Actor, dto?: { note?: string }) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -870,13 +875,10 @@ export class MaintenanceRequestsService {
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
     const note = dto?.note?.trim();
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.UNDER_REVIEW,
-        triageOwnerId: actor.sub,
-        reviewedAt: new Date()
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.UNDER_REVIEW,
+      triageOwnerId: actor.sub,
+      reviewedAt: new Date()
     });
 
     await this.appendHistory(tid, id, {
@@ -906,9 +908,11 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: RejectMaintenanceRequestDto
   ) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertApprove(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "close");
     assertValidTransition(current.status, MaintenanceRequestStatus.CLOSED);
 
     if (
@@ -920,15 +924,12 @@ export class MaintenanceRequestsService {
     const reason = dto.reason?.trim() || dto.reasonType;
     if (!reason) throw new BadRequestException("Rejection reason is required");
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.CLOSED,
-        rejectedAt: new Date(),
-        rejectionReasonType: dto.reasonType,
-        rejectionReason: reason,
-        resolutionCode: mapRejectionTypeToResolution(dto.reasonType)
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.CLOSED,
+      rejectedAt: new Date(),
+      rejectionReasonType: dto.reasonType,
+      rejectionReason: reason,
+      resolutionCode: mapRejectionTypeToResolution(dto.reasonType)
     });
 
     await this.appendHistory(tid, id, {
@@ -962,6 +963,7 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: CancelMaintenanceRequestDto
   ) {
+    actor = await this.withCurrentPermissions(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     assertValidTransition(current.status, MaintenanceRequestStatus.CANCELLED);
@@ -975,13 +977,10 @@ export class MaintenanceRequestsService {
       throw new ForbiddenException("Requesters may only cancel requests still in New status");
     }
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.CANCELLED,
-        cancelledAt: new Date(),
-        cancellationReason: dto.reason.trim()
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.CANCELLED,
+      cancelledAt: new Date(),
+      cancellationReason: dto.reason.trim()
     });
 
     await this.appendHistory(tid, id, {
@@ -1011,25 +1010,24 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: MarkDuplicateDto
   ) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
+    this.assertNotSelfGoverned(actor, current, "close as duplicate");
     if (dto.canonicalRequestId === id) {
       throw new BadRequestException("Cannot mark a request as duplicate of itself");
     }
     const canonical = await this.requireRequest(tid, dto.canonicalRequestId);
     assertValidTransition(current.status, MaintenanceRequestStatus.CLOSED);
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: {
-        status: MaintenanceRequestStatus.CLOSED,
-        rejectedAt: new Date(),
-        rejectionReasonType: RequestRejectionReasonType.DUPLICATE,
-        rejectionReason: dto.reason.trim(),
-        resolutionCode: "DUPLICATE",
-        duplicateOfId: canonical.id
-      }
+    const updated = await this.guardedUpdate(tid, current, {
+      status: MaintenanceRequestStatus.CLOSED,
+      rejectedAt: new Date(),
+      rejectionReasonType: RequestRejectionReasonType.DUPLICATE,
+      rejectionReason: dto.reason.trim(),
+      resolutionCode: "DUPLICATE",
+      duplicateOfId: canonical.id
     });
 
     await this.appendHistory(tid, id, {
@@ -1058,6 +1056,7 @@ export class MaintenanceRequestsService {
   }
 
   async duplicateCandidates(tenantId: string | null, id: string, actor: Actor) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -1099,6 +1098,7 @@ export class MaintenanceRequestsService {
   }
 
   async repeatHistory(tenantId: string | null, id: string, actor: Actor) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -1164,6 +1164,7 @@ export class MaintenanceRequestsService {
     actor: Actor,
     dto: ConvertToWorkOrderDto = {}
   ) {
+    actor = await this.withCurrentPermissions(actor);
     this.assertConvert(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
@@ -1786,8 +1787,12 @@ export class MaintenanceRequestsService {
         lastName: string;
         email: string;
       } | null;
+      reportedById?: string | null;
+      assetId?: string | null;
+      vehicleId?: string | null;
+      functionalLocationId?: string | null;
     },
-    _actor: Actor
+    actor: Actor
   ) {
     return {
       id: row.id,
@@ -1833,7 +1838,8 @@ export class MaintenanceRequestsService {
               row.reportedBy.email
           }
         : null,
-      isActive: isActiveRequestStatus(row.status)
+      isActive: isActiveRequestStatus(row.status),
+      allowedActions: this.allowedActionsFor(row, actor)
     };
   }
 
@@ -1919,29 +1925,103 @@ export class MaintenanceRequestsService {
     }
   }
 
+  /**
+   * Access JWTs do not carry permissions, so req.user.permissions is empty in production.
+   * Load the role's current permissions from the DB — the same source PermissionsGuard
+   * uses — so Admin Console grants and revocations apply to these finer-grained checks.
+   */
+  private async withCurrentPermissions(actor: Actor): Promise<Actor> {
+    if (!actor?.sub || (Array.isArray(actor.permissions) && actor.permissions.length > 0)) {
+      return actor;
+    }
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: actor.sub },
+      select: {
+        role: { select: { permissionLinks: { select: { permission: { select: { key: true } } } } } }
+      }
+    });
+    return { ...actor, permissions: rolePermissionKeys(dbUser?.role) };
+  }
+
   private hasPermission(actor: Actor, key: string) {
     const role = String(actor.role ?? "").toUpperCase();
     if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
-    return (actor.permissions ?? []).includes(key);
+    return hasCompatiblePermission(new Set(actor.permissions ?? []), key);
   }
 
   private canViewAll(actor: Actor) {
-    return (
-      this.hasPermission(actor, "maintenance_requests.view_all") ||
-      this.canTriage(actor) ||
-      ["MANAGER", "SUPERVISOR", "ASSET_MANAGER", "FACILITY_MANAGER", "BUILDING_SUPERVISOR"].includes(
-        String(actor.role ?? "").toUpperCase()
-      )
-    );
+    return this.hasPermission(actor, "maintenance_requests.view_all") || this.canTriage(actor);
   }
 
   private canTriage(actor: Actor) {
-    return (
-      this.hasPermission(actor, "maintenance_requests.triage") ||
-      ["MANAGER", "SUPERVISOR", "ASSET_MANAGER", "FACILITY_MANAGER", "BUILDING_SUPERVISOR"].includes(
-        String(actor.role ?? "").toUpperCase()
-      )
+    return this.hasPermission(actor, "maintenance_requests.triage");
+  }
+
+  private capabilities(actor: Actor): RequestCapabilities {
+    return {
+      canReport: this.hasPermission(actor, "maintenance_requests.create"),
+      canTriage: this.canTriage(actor),
+      canApprove: this.hasPermission(actor, "maintenance_requests.approve"),
+      canReject: this.hasPermission(actor, "maintenance_requests.reject"),
+      canConvert: this.hasPermission(actor, "maintenance_requests.convert"),
+      canCancelOwn: this.hasPermission(actor, "maintenance_requests.cancel_own"),
+      canCancelAny: this.hasPermission(actor, "maintenance_requests.cancel_any")
+    };
+  }
+
+  private allowedActionsFor(
+    row: {
+      status: MaintenanceRequestStatus;
+      reportedById?: string | null;
+      targetUnresolved?: boolean | null;
+      assetId?: string | null;
+      vehicleId?: string | null;
+      functionalLocationId?: string | null;
+      workOrderId: string | null;
+    },
+    actor: Actor
+  ) {
+    return requestAllowedActions(
+      {
+        status: row.status,
+        isOwner: Boolean(row.reportedById) && row.reportedById === actor.sub,
+        targetUnresolved: Boolean(row.targetUnresolved),
+        hasTarget: Boolean(row.assetId || row.vehicleId || row.functionalLocationId),
+        workOrderId: row.workOrderId
+      },
+      this.capabilities(actor)
     );
+  }
+
+  /**
+   * Optimistic-concurrency write: only applies if the request still has the status and
+   * version this action was validated against. Prevents, e.g., a cancel landing after a
+   * concurrent conversion and leaving a CANCELLED request linked to a live work order.
+   */
+  private async guardedUpdate(
+    tenantId: string,
+    current: { id: string; status: MaintenanceRequestStatus; version?: number | null },
+    data: Prisma.MaintenanceRequestUncheckedUpdateManyInput
+  ) {
+    const claimed = await this.prisma.maintenanceRequest.updateMany({
+      where: {
+        id: current.id,
+        tenantId,
+        status: current.status,
+        ...(typeof current.version === "number" ? { version: current.version } : {})
+      },
+      data: { ...data, version: { increment: 1 } }
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException(
+        "This request was updated by someone else. Refresh to see the latest status and try again."
+      );
+    }
+    const row = await this.prisma.maintenanceRequest.findFirst({
+      where: { id: current.id, tenantId }
+    });
+    if (!row) throw new NotFoundException("Maintenance request not found");
+    return row;
   }
 
   private assertTriage(actor: Actor) {

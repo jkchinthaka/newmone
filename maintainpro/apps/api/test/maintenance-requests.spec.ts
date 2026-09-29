@@ -124,7 +124,7 @@ describe("request lifecycle transitions", () => {
 
   it("humanizes status labels", () => {
     expect(humanRequestStatus(MaintenanceRequestStatus.UNDER_REVIEW)).toBe("Under Review");
-    expect(humanRequestStatus(MaintenanceRequestStatus.APPROVED)).toBe("Approved");
+    expect(humanRequestStatus(MaintenanceRequestStatus.APPROVED)).toBe("Accepted");
     expect(humanRequestStatus(MaintenanceRequestStatus.NEEDS_INFORMATION)).toBe(
       "Needs Information"
     );
@@ -463,30 +463,25 @@ describe("MaintenanceRequestsService", () => {
       failureNoticedAt: null
     };
 
+    prisma.maintenanceRequest.updateMany.mockResolvedValue({ count: 1 });
     prisma.maintenanceRequest.findFirst
       .mockResolvedValueOnce(base)
+      .mockResolvedValueOnce({ ...base, status: MaintenanceRequestStatus.UNDER_REVIEW })
       .mockResolvedValueOnce(
         detailRow({
           ...base,
           status: MaintenanceRequestStatus.UNDER_REVIEW
         })
       );
-    prisma.maintenanceRequest.update.mockResolvedValue({
-      ...base,
-      status: MaintenanceRequestStatus.UNDER_REVIEW
-    });
     prisma.maintenanceRequestHistory.create.mockResolvedValue({});
     await service.startReview(tenantA, "mr-2", actor);
 
     prisma.maintenanceRequest.findFirst
       .mockResolvedValueOnce({ ...base, status: MaintenanceRequestStatus.UNDER_REVIEW })
+      .mockResolvedValueOnce({ ...base, status: MaintenanceRequestStatus.APPROVED })
       .mockResolvedValueOnce(
         detailRow({ ...base, status: MaintenanceRequestStatus.APPROVED })
       );
-    prisma.maintenanceRequest.update.mockResolvedValue({
-      ...base,
-      status: MaintenanceRequestStatus.APPROVED
-    });
     await service.approve(tenantA, "mr-2", actor);
 
     const wo = { id: "wo-1", woNumber: "WO-2026-0001", tenantId: tenantA };
@@ -599,6 +594,13 @@ describe("MaintenanceRequestsService", () => {
         requestNumber: "MR-2026-00050",
         publicUpdateNote: "What noise?"
       })
+      .mockResolvedValueOnce({
+        id: "mr-info",
+        tenantId: tenantA,
+        status: MaintenanceRequestStatus.UNDER_REVIEW,
+        reportedById: requester.sub,
+        updatedAt: new Date()
+      })
       .mockResolvedValueOnce(
         detailRow({
           id: "mr-info",
@@ -606,10 +608,7 @@ describe("MaintenanceRequestsService", () => {
           publicUpdateNote: "Loud grinding from gearbox"
         })
       );
-    prisma.maintenanceRequest.update.mockResolvedValue({
-      id: "mr-info",
-      status: MaintenanceRequestStatus.UNDER_REVIEW
-    });
+    prisma.maintenanceRequest.updateMany.mockResolvedValue({ count: 1 });
     prisma.maintenanceRequestHistory.create.mockResolvedValue({});
 
     const result = await service.respondToInformationRequest(tenantA, "mr-info", requester, {

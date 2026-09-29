@@ -66,13 +66,23 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("maps supervisor roles to Requests, jobs, and PM", () => {
-    const supervisorItems = getVisibleNavigationItems("SUPERVISOR");
+    // Requests requires the list permission the API checks (seeded SUPERVISOR holds it).
+    const supervisorItems = getVisibleNavigationItems("SUPERVISOR", {
+      permissions: ["maintenance_requests.view_own", "maintenance_requests.triage"]
+    });
     const ids = supervisorItems.map((item) => item.id);
 
     expect(ids).toEqual(
       expect.arrayContaining(["home", "requests", "all-jobs", "preventive-maintenance"])
     );
     expect(ids).not.toContain("billing");
+  });
+
+  it("hides Requests when the role lacks the request list permission (API would return 403)", () => {
+    const technicianIds = getVisibleNavigationItems("TECHNICIAN", {
+      permissions: ["work_orders.view_own", "work_orders.update_status"]
+    }).map((item) => item.id);
+    expect(technicianIds).not.toContain("requests");
   });
 
   it("maps manager roles to reports and jobs", () => {

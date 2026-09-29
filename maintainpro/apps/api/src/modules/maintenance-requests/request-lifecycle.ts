@@ -36,35 +36,168 @@ export function isActiveRequestStatus(status: MaintenanceRequestStatus) {
   return ACTIVE_STATUSES.includes(status);
 }
 
+/**
+ * Named request stages shared by the summary counters and the list filter, so a counter
+ * and the list it links to always use the same status predicate.
+ */
+export const REQUEST_STAGES = ["open", "awaiting_triage", "urgent", "converted"] as const;
+export type RequestStage = (typeof REQUEST_STAGES)[number];
+
+export function requestStageFilter(stage: RequestStage): {
+  statuses: MaintenanceRequestStatus[];
+  priorities?: string[];
+} {
+  switch (stage) {
+    case "open":
+      return { statuses: [...ACTIVE_STATUSES] };
+    case "awaiting_triage":
+      return { statuses: [...TRIAGE_QUEUE_STATUSES] };
+    case "urgent":
+      return { statuses: [...ACTIVE_STATUSES], priorities: ["HIGH", "CRITICAL"] };
+    case "converted":
+      return { statuses: [MaintenanceRequestStatus.CONVERTED_TO_WO] };
+  }
+}
+
+/** What the acting user is permitted to do on requests in general (DB-resolved permissions). */
+export type RequestCapabilities = {
+  canReport: boolean;
+  canTriage: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+  canConvert: boolean;
+  /** Endpoint gate for every cancel (owner or reviewer). */
+  canCancelOwn: boolean;
+  canCancelAny: boolean;
+};
+
+export type RequestActionKey =
+  | "startReview"
+  | "triage"
+  | "requestInformation"
+  | "respond"
+  | "resumeReview"
+  | "approve"
+  | "close"
+  | "markDuplicate"
+  | "convert"
+  | "cancel";
+
+/**
+ * `allowed` — the action will be accepted by the API right now.
+ * `reason` — set when the action applies to this status and role but is blocked; the UI
+ * shows it instead of offering a button that would fail.
+ */
+export type RequestActionState = { allowed: boolean; reason?: string };
+
+const SELF_GOVERNED_REASON =
+  "Segregation of duties: you reported this request, so another reviewer must handle it.";
+const TARGET_UNRESOLVED_REASON =
+  "Confirm the machine, vehicle, or functional location in triage first.";
+
+/**
+ * Single source of truth for which request actions are available. The service enforces
+ * the same rules on each mutation; the UI renders buttons from this result.
+ */
+export function requestAllowedActions(
+  request: {
+    status: MaintenanceRequestStatus;
+    isOwner: boolean;
+    targetUnresolved: boolean;
+    hasTarget: boolean;
+    workOrderId: string | null;
+  },
+  caps: RequestCapabilities
+): Record<RequestActionKey, RequestActionState> {
+  const { status, isOwner } = request;
+  const targetReady = !request.targetUnresolved && request.hasTarget;
+
+  const governed = (permitted: boolean, statusOk: boolean, blockedReason?: string) => {
+    if (!permitted || !statusOk) return { allowed: false };
+    if (isOwner) return { allowed: false, reason: SELF_GOVERNED_REASON };
+    if (blockedReason) return { allowed: false, reason: blockedReason };
+    return { allowed: true };
+  };
+
+  let cancel: RequestActionState = { allowed: false };
+  if (canTransition(status, MaintenanceRequestStatus.CANCELLED) && caps.canCancelOwn) {
+    if (!isOwner) {
+      cancel = { allowed: caps.canCancelAny || caps.canTriage };
+    } else if (caps.canCancelAny || status === MaintenanceRequestStatus.NEW) {
+      cancel = { allowed: true };
+    } else {
+      cancel = {
+        allowed: false,
+        reason: "Review has started, so ask the reviewer to cancel this request."
+      };
+    }
+  }
+
+  return {
+    startReview: governed(caps.canTriage, status === MaintenanceRequestStatus.NEW),
+    triage: governed(
+      caps.canTriage,
+      status === MaintenanceRequestStatus.NEW ||
+        status === MaintenanceRequestStatus.UNDER_REVIEW ||
+        status === MaintenanceRequestStatus.APPROVED
+    ),
+    requestInformation: governed(
+      caps.canTriage,
+      canTransition(status, MaintenanceRequestStatus.NEEDS_INFORMATION)
+    ),
+    respond: {
+      allowed: isOwner && caps.canReport && status === MaintenanceRequestStatus.NEEDS_INFORMATION
+    },
+    resumeReview: governed(caps.canTriage, status === MaintenanceRequestStatus.NEEDS_INFORMATION),
+    approve: governed(
+      caps.canApprove,
+      canTransition(status, MaintenanceRequestStatus.APPROVED),
+      targetReady ? undefined : TARGET_UNRESOLVED_REASON
+    ),
+    close: governed(caps.canReject, canTransition(status, MaintenanceRequestStatus.CLOSED)),
+    markDuplicate: governed(caps.canTriage, canTransition(status, MaintenanceRequestStatus.CLOSED)),
+    convert: governed(
+      caps.canConvert,
+      status === MaintenanceRequestStatus.APPROVED && !request.workOrderId,
+      targetReady ? undefined : TARGET_UNRESOLVED_REASON
+    ),
+    cancel
+  };
+}
+
+function canTransition(from: MaintenanceRequestStatus, to: MaintenanceRequestStatus) {
+  return (REQUEST_TRANSITIONS[from] ?? []).includes(to);
+}
+
+const REQUEST_TRANSITIONS: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
+  NEW: [
+    MaintenanceRequestStatus.UNDER_REVIEW,
+    MaintenanceRequestStatus.CANCELLED,
+    MaintenanceRequestStatus.CLOSED
+  ],
+  UNDER_REVIEW: [
+    MaintenanceRequestStatus.NEEDS_INFORMATION,
+    MaintenanceRequestStatus.APPROVED,
+    MaintenanceRequestStatus.CLOSED,
+    MaintenanceRequestStatus.CANCELLED
+  ],
+  NEEDS_INFORMATION: [
+    MaintenanceRequestStatus.UNDER_REVIEW,
+    MaintenanceRequestStatus.CANCELLED,
+    MaintenanceRequestStatus.CLOSED
+  ],
+  APPROVED: [MaintenanceRequestStatus.CONVERTED_TO_WO, MaintenanceRequestStatus.CANCELLED],
+  REJECTED: [],
+  CANCELLED: [],
+  CLOSED: [],
+  CONVERTED_TO_WO: []
+};
+
 export function assertValidTransition(
   from: MaintenanceRequestStatus,
   to: MaintenanceRequestStatus
 ) {
-  const allowed: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
-    NEW: [
-      MaintenanceRequestStatus.UNDER_REVIEW,
-      MaintenanceRequestStatus.CANCELLED,
-      MaintenanceRequestStatus.CLOSED
-    ],
-    UNDER_REVIEW: [
-      MaintenanceRequestStatus.NEEDS_INFORMATION,
-      MaintenanceRequestStatus.APPROVED,
-      MaintenanceRequestStatus.CLOSED,
-      MaintenanceRequestStatus.CANCELLED
-    ],
-    NEEDS_INFORMATION: [
-      MaintenanceRequestStatus.UNDER_REVIEW,
-      MaintenanceRequestStatus.CANCELLED,
-      MaintenanceRequestStatus.CLOSED
-    ],
-    APPROVED: [MaintenanceRequestStatus.CONVERTED_TO_WO, MaintenanceRequestStatus.CANCELLED],
-    REJECTED: [],
-    CANCELLED: [],
-    CLOSED: [],
-    CONVERTED_TO_WO: []
-  };
-
-  if (!allowed[from]?.includes(to)) {
+  if (!canTransition(from, to)) {
     throw new BadRequestException(`Illegal status transition: ${from} → ${to}`);
   }
 }
@@ -88,7 +221,7 @@ export function humanRequestStatus(status: MaintenanceRequestStatus): string {
     NEW: "New",
     UNDER_REVIEW: "Under Review",
     NEEDS_INFORMATION: "Needs Information",
-    APPROVED: "Approved",
+    APPROVED: "Accepted",
     REJECTED: "Rejected (legacy)",
     CANCELLED: "Cancelled",
     CLOSED: "Closed",

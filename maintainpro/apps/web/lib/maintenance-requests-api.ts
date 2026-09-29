@@ -15,6 +15,46 @@ export type ReportedUrgency = "NORMAL" | "URGENT" | "VERY_URGENT";
 export type SafetyImpact = "NO" | "YES" | "NOT_SURE";
 export type ProductionImpact = "NONE" | "REDUCED" | "STOPPED" | "NOT_SURE";
 
+export type RequestActionKey =
+  | "startReview"
+  | "triage"
+  | "requestInformation"
+  | "respond"
+  | "resumeReview"
+  | "approve"
+  | "close"
+  | "markDuplicate"
+  | "convert"
+  | "cancel";
+
+/** Server-computed: `allowed` means the API will accept it now; `reason` explains a block. */
+export type RequestActionState = { allowed: boolean; reason?: string };
+export type RequestAllowedActions = Partial<Record<RequestActionKey, RequestActionState>>;
+
+/** Named stages shared by the summary counters and the list `stage` filter. */
+export type RequestStage = "open" | "awaiting_triage" | "urgent" | "converted";
+
+export type RequestCapabilities = {
+  canReport: boolean;
+  canTriage: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+  canConvert: boolean;
+  canCancelOwn: boolean;
+  canCancelAny: boolean;
+  canViewAll: boolean;
+};
+
+export type MaintenanceRequestSummary = {
+  open: number;
+  awaitingTriage: number;
+  highCritical: number;
+  converted: number;
+  /** "mine" when the counters only cover the caller's own requests. */
+  scope?: "mine" | "all";
+  capabilities?: RequestCapabilities;
+};
+
 export type MaintenanceRequestListItem = {
   id: string;
   requestNumber: string;
@@ -48,6 +88,7 @@ export type MaintenanceRequestListItem = {
   domain?: { id: string; code: string; name: string } | null;
   problemCategoryLabel?: string | null;
   reportedBy?: { id: string; name: string } | null;
+  allowedActions?: RequestAllowedActions;
 };
 
 export type ProblemCategory = {
@@ -68,14 +109,11 @@ export async function listProblemCategories() {
   return unwrap<{ items: ProblemCategory[] }>(res.data);
 }
 
-export async function getMaintenanceRequestSummary() {
-  const res = await apiClient.get("/maintenance-requests/summary");
-  return unwrap<{
-    open: number;
-    awaitingTriage: number;
-    highCritical: number;
-    converted: number;
-  }>(res.data);
+export async function getMaintenanceRequestSummary(options: { mine?: boolean } = {}) {
+  const res = await apiClient.get("/maintenance-requests/summary", {
+    params: options.mine ? { mine: true } : undefined
+  });
+  return unwrap<MaintenanceRequestSummary>(res.data);
 }
 
 export async function listMaintenanceRequests(params: Record<string, unknown> = {}) {

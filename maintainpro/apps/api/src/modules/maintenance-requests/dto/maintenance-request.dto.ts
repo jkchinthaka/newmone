@@ -14,6 +14,8 @@ import {
   MinLength
 } from "class-validator";
 
+import { REQUEST_STAGES, type RequestStage } from "../request-lifecycle";
+
 function toOptionalBoolean(value: unknown) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -132,6 +134,14 @@ export class MaintenanceRequestListQueryDto {
   @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   openOnly?: boolean;
+
+  @ApiPropertyOptional({
+    enum: REQUEST_STAGES,
+    description: "Named stage shared with the summary counters (same status predicate)"
+  })
+  @IsOptional()
+  @IsIn(REQUEST_STAGES as unknown as string[])
+  stage?: RequestStage;
 
   @ApiPropertyOptional({ enum: ["requestNumber", "priority", "status", "reportedAt"] })
   @IsOptional()

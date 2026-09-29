@@ -107,8 +107,10 @@ export class MaintenanceRequestsController {
   @Get("summary")
   @Roles(...READ_ROLES)
   @Permissions("maintenance_requests.view_own")
-  async summary(@Req() req: AuthedRequest) {
-    const data = await this.requests.summary(req.user?.tenantId ?? null, req.user!);
+  async summary(@Req() req: AuthedRequest, @Query("mine") mine?: string) {
+    const data = await this.requests.summary(req.user?.tenantId ?? null, req.user!, {
+      mine: mine === "true" || mine === "1"
+    });
     return { data, message: "Maintenance request summary" };
   }
 
