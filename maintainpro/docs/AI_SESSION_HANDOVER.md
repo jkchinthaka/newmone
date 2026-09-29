@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~20:10 IST. Phase 03 Action Center is locally complete on `feature/phase-03-action-center`. Continue with Phase 04 Maintenance dashboard. Do not wait for CONTINUE.
+**Last updated:** 2026-09-29 ~20:15 IST. Phase 03 Action Center is locally complete (`42c9d82c`). Phase 04 Maintenance dashboard is in progress on `feature/phase-04-maintenance-dashboard`. Continue without waiting for CONTINUE.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 03 Action Center — LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| Next phase | 04 Maintenance dashboard (`/maintenance`). Continue without waiting for CONTINUE. |
-| Local Git | `feature/phase-03-action-center` at `42c9d82c`, created with `--no-track` from `feature/phase-02-shell` at `088d3cec`. Ancestors include Phase 01, Phase 02, and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Current phase | 04 Maintenance dashboard — IN PROGRESS on `feature/phase-04-maintenance-dashboard` |
+| Next phase | Finish `/maintenance`: remaining card destinations, waiting-parts count vs queue, then browser the rest of the page. |
+| Local Git | `feature/phase-04-maintenance-dashboard`, created with `--no-track` from `feature/phase-03-action-center`. Phase 03 code is `42c9d82c`; handover note `84186c65`. Ancestors include unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
-| Working branch | `feature/phase-03-action-center` (not pushed). `feature/phase-02-shell` remains at `088d3cec`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
+| Working branch | `feature/phase-04-maintenance-dashboard` (not pushed). `feature/phase-03-action-center` remains at `84186c65`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -149,7 +149,9 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Start Phase 04 Maintenance dashboard (`/maintenance`). Do not reopen Phase 03 unless a new defect is found. Do not open `/requests/new`. The owner authorized continuous local execution; do not wait for CONTINUE.
+Finish Phase 04 Maintenance dashboard (`/maintenance`). Do not reopen Phase 03 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
+
+The dashboard already loads for the seeded admin. Overdue (`smartView=overdue`) opens a list of 5, matching the card. In progress (`status=IN_PROGRESS`) opens a list of 1, matching the card and excluding On hold. Still to check: unassigned versus the open-requests list, waiting-parts card versus the waiting-parts queue, machinery/service/vehicle cards, and a non-admin role. No schema change and no permission grant so far.
 
 1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.

@@ -271,7 +271,6 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Unassigned"
             value={d.unassignedJobs}
-            href="/work-orders?smartView=action-required"
             tone={d.unassignedJobs > 0 ? "warn" : "default"}
           />
           <KpiCard

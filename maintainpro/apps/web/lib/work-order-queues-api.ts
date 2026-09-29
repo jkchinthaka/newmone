@@ -173,6 +173,65 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
+const QUEUE_LINK_STATUSES = new Set([
+  "OPEN",
+  "PLANNED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
+  "VERIFIED",
+  "CLOSED",
+  "COMPLETED",
+  "CANCELLED",
+  "OVERDUE"
+]);
+
+const QUEUE_LINK_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
+
+export function isWorkOrderQueueKey(value: string): value is WorkOrderQueueKey {
+  return (
+    FALLBACK_QUEUE_SUMMARY.queues.some((queue) => queue.key === value) ||
+    value === "rework-required" ||
+    value === "finance-vendor-pending" ||
+    value === "technician-completed" ||
+    value === "approved-planned"
+  );
+}
+
+/**
+ * Turns a maintenance-dashboard work-order link into queue filters.
+ * `smartView` and `status` are accepted because those are the links the dashboard already emits.
+ */
+export function queueFiltersFromSearch(params: {
+  queue?: string | null;
+  smartView?: string | null;
+  status?: string | null;
+  priority?: string | null;
+}): Partial<WorkOrderQueueFilters> {
+  const status = params.status && QUEUE_LINK_STATUSES.has(params.status) ? params.status : undefined;
+  const priority =
+    params.priority && QUEUE_LINK_PRIORITIES.has(params.priority) ? params.priority : undefined;
+  const explicitQueue = params.queue && isWorkOrderQueueKey(params.queue) ? params.queue : undefined;
+  const smartQueue =
+    params.smartView && isWorkOrderQueueKey(params.smartView) ? params.smartView : undefined;
+
+  let queue = explicitQueue ?? smartQueue;
+  if (!queue && status === "OPEN") queue = "open-requests";
+  if (!queue && (status === "IN_PROGRESS" || status === "ON_HOLD")) queue = "in-progress";
+  if (!queue && status === "REWORK_REQUIRED") queue = "rework-required";
+  if (!queue && status === "TECHNICIAN_COMPLETED") queue = "technician-completed";
+  if (!queue && priority === "CRITICAL") queue = "high-priority";
+
+  const patch: Partial<WorkOrderQueueFilters> = {};
+  if (queue) patch.queue = queue;
+  if (status) patch.status = status as WorkOrderQueueFilters["status"];
+  if (priority) patch.priority = priority as WorkOrderQueueFilters["priority"];
+  if (params.smartView) patch.smartView = params.smartView;
+  return patch;
+}
+
 export async function fetchWorkOrderQueueSummary(): Promise<WorkOrderQueueSummary> {
   const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>("/work-orders/queues");
   return unwrap(response.data);

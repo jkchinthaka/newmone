@@ -28,6 +28,7 @@ import {
   isWorkOrderOverdue,
   overdueDayCount,
   priorityWeight,
+  waitingPartsQueueWhere,
   resolveDefaultQueueForRole,
   roleCanAccessQueue,
   severityWeight,
@@ -492,22 +493,7 @@ export class WorkOrderQueuesService {
   }
 
   private waitingPartsWhere(): Prisma.WorkOrderWhereInput {
-    return this.mergeWhere(this.nonTerminalWhere(), {
-      OR: [
-        { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
-        { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
-        {
-          parts: {
-            some: {
-              lineStatus: WorkOrderPartLineStatus.APPROVED,
-              issuedQuantity: 0,
-              requestedQuantity: { gt: 0 }
-            }
-          }
-        },
-        { partIssues: { some: {} } }
-      ]
-    });
+    return waitingPartsQueueWhere();
   }
 
   private highRiskWhere(now = new Date()): Prisma.WorkOrderWhereInput {

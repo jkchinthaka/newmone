@@ -1,4 +1,4 @@
-import { RoleName, WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
+import { Prisma, RoleName, WorkOrderPartLineStatus, WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
 
 import type { RiskSeverity } from "./maintenance-risk-score";
 import { TERMINAL_WORK_ORDER_STATUSES } from "./work-order-governance";
@@ -181,6 +181,31 @@ export function severityWeight(severity: RiskSeverity | undefined): number {
     default:
       return 1;
   }
+}
+
+/** Same waiting-parts membership the work-order queue count and list use. */
+export function waitingPartsQueueWhere(): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      { status: { notIn: TERMINAL_STATUSES } },
+      {
+        OR: [
+          { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
+          { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
+          {
+            parts: {
+              some: {
+                lineStatus: WorkOrderPartLineStatus.APPROVED,
+                issuedQuantity: 0,
+                requestedQuantity: { gt: 0 }
+              }
+            }
+          },
+          { partIssues: { some: {} } }
+        ]
+      }
+    ]
+  };
 }
 
 export function isSupervisorVerificationPending(status: WorkOrderStatus, verificationStatus?: WorkOrderVerificationStatus | null) {

@@ -109,7 +109,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 01 | Login, session, invitation onboarding | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 03 | Action Center | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 04 | Maintenance dashboard | IMPLEMENTED — NOT VERIFIED |
+| 04 | Maintenance dashboard | IN PROGRESS |
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
 | 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
 | 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
@@ -128,8 +128,8 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 03 Action Center — LOCAL DEVELOPMENT COMPLETE on `feature/phase-03-action-center`. Release readiness remains BLOCKED.
-- **Next phase:** 04 Maintenance dashboard. Continue without waiting for CONTINUE.
+- **Current phase:** 04 Maintenance dashboard — IN PROGRESS on `feature/phase-04-maintenance-dashboard`. Phase 03 is locally complete at `42c9d82c`. Release readiness remains BLOCKED.
+- **Next phase:** Finish `/maintenance`, then Phase 05. Continue without waiting for CONTINUE.
 - **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - `/requests/new` stays in Phase 08 and is not started.
@@ -185,7 +185,7 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Maintenance dashboard | `/maintenance` | IMPLEMENTED — NOT VERIFIED |
+| Maintenance dashboard | `/maintenance` | IN PROGRESS | Admin page loads. Overdue and in-progress cards now open matching lists (5 and 1). Remaining cards not fully checked. |
 
 ### Phase 05 — All jobs / work orders
 
@@ -434,6 +434,4 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 
 ## M. Exact NEXT ACTION
 
-Continue with Phase 04 Maintenance dashboard (`/maintenance`). Do not reopen Phase 03 unless a new defect is found.
-
-Do not merge `feature/phase-03-action-center` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`), Phase 01 through `4cf25f20` and `6f5dd56f`, and Phase 02 through `088d3cec`. Legacy raw workspace invitation tokens were not rewritten. Release readiness stays BLOCKED.
+Continue Phase 04 on `feature/phase-04-maintenance-dashboard`. Do not merge it into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) plus Phases 01–03. Release readiness stays BLOCKED.

@@ -7,6 +7,7 @@ import {
   DASHBOARD_OPEN_STATUSES
 } from "../../common/utils/maintenance-dashboard.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import {
@@ -156,14 +157,7 @@ export class MaintenanceConfigService {
         }
       }),
       this.prisma.workOrder.count({
-        where: {
-          tenantId,
-          status: WorkOrderStatus.ON_HOLD,
-          OR: [
-            { holdReasonCode: { contains: "PART" } },
-            { holdNotes: { contains: "part" } }
-          ]
-        }
+        where: { AND: [{ tenantId }, waitingPartsQueueWhere()] }
       }),
       this.prisma.workOrder.count({
         where: {
