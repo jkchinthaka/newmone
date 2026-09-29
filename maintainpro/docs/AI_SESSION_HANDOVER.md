@@ -24,19 +24,20 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~17:15 IST. SUPER_ADMIN browser evidence stands. Targeted role and count tests passed. `release-validate` passed on origin `c04ff246`. Console hook on the client navigation to the detail page recorded no error or warning. Not pushed, so CI was not restarted.
+**Last updated:** 2026-09-29 ~17:20 IST. Requests list/detail is locally complete. Release readiness stays blocked. Next local page is `/login`.
 
-Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. The ledger now has the 15-phase checklist. Active page is still `/requests` and `/requests/[id]`.
+Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 08 Maintenance Requests |
-| Current page | `/requests` and `/requests/[id]` |
-| Status | **PARTIALLY VERIFIED**. SUPER_ADMIN browser UAT of list and detail is recorded. Client navigation to MR-2026-00001 produced an empty console error/warn list, no Next.js error overlay, and no alert. Document-start console capture did not bind, and a later reload was interrupted, so messages from the first paint of the list were not dumped. `npx tsx --test lib/__tests__/maintenance-request-ui.test.ts`: 12 passed, including `1 request matches this view`. `npx jest test/maintenance-requests-actions.spec.ts`: 16 passed. Stage filters exclude CANCELLED and CLOSED. A user with no request permissions gets no allowed actions. Terminal statuses, including converted, get no workflow action. Seeded TECHNICIAN navigation is hidden. PR #62 origin `c04ff246`: validate-monorepo, release-validate (16m47s), build, docker-build, and fresh-sqlserver-migrate pass. full-stack-e2e, Vercel, and Workers fail. Not merged. |
+| Current phase | 01 Login, session, invitation onboarding |
+| Current page | `/login` — not yet walked under this programme |
+| Requests list/detail | **LOCAL DEVELOPMENT COMPLETE**. Initial load resource timing 200 for auth, tenant, summary, and list. No application error overlay. Release readiness **BLOCKED** (MinIO E2E, Vercel, Workers). |
+| Local Git | `ci/jest-heap-oom` at `8e999fde`, preserving `04dc017c`. Ahead of origin by 2. Not pushed. Do not merge PR #62. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
-| Uncommitted changes | none after the commit that carries this file |
+| Uncommitted changes | tracking files only, until the local docs commit that follows `8e999fde` |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -151,11 +152,9 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The earliest unfinished page is `/requests` and `/requests/[id]`. Do not start `/requests/new`,
-and do not rebuild the Requests slice that is already on `main` (`89533ac0` inside `52311b8f`).
+The earliest unfinished local page is `/login`. Do not rebuild Requests. Do not start Phase 02 or `/requests/new`. Do not push, force-push, reset, or merge PR #62.
 
-1. Stay on `/requests` and `/requests/[id]`. Browser UAT for the signed-in SUPER_ADMIN is recorded below. Do not start `/requests/new`.
-2. PR #62 origin head `c04ff246`: `validate-monorepo`, `release-validate` (16m47s, run `36561155039`), `build`, `docker-build`, and `fresh-sqlserver-migrate` passed. `full-stack-e2e` run `36561154876` failed in 1m58s. Quay anonymous manifest access for the pinned MinIO image stays 401 after a pull token. Docker Hub returns `insufficient_scope`. No replacement image was selected. Local Docker is not running. Vercel deployment `dpl_BgGAqXGZCXoA9sSppycbQwbUvkg5` failed and Cloudflare Workers build `9eb336a6-f906-4c32-8175-606db8a9f706` failed; their build logs were not readable from this session. Do not remove the `NEXT_PUBLIC_API_URL` guard. Do not merge.
-3. Vercel and Cloudflare Workers are supported web deploy targets. Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_BASE_URL`, and `NEXT_PUBLIC_API_ORIGIN` in those build environments, or share the build log.
-4. Local commits `04dc017c` and the following test commit stay unpushed on purpose. Pushing them alone restarts CI and does not clear MinIO, Vercel, or Workers.
-5. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green. Do not start `/requests/new` before that.
+1. Read the existing login page, BFF session cookies, `POST /auth/login`, `GET /auth/me`, and the return-path behaviour.
+2. Validate `/login` locally: session persistence, a failed login, and the return path. Do not write secrets into these files.
+3. Continue to forgot-password, accept-invite, register, and splash only after `/login` is locally complete.
+4. Release checks stay independent. `full-stack-e2e`, Vercel, and Workers are still failing on origin `c04ff246`. Do not record them as passed.

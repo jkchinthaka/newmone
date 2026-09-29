@@ -109,7 +109,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
 | 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
 | 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
-| 08 | Maintenance requests | IN PROGRESS — list and detail PARTIALLY VERIFIED; create page not in this iteration |
+| 08 | Maintenance requests | List and detail LOCAL DEVELOPMENT COMPLETE; `/requests/new` not started. Release readiness BLOCKED |
 | 09 | Assets, sites, locations | IMPLEMENTED — NOT VERIFIED |
 | 10 | Preventive maintenance | IMPLEMENTED — NOT VERIFIED |
 | 11 | Fleet and gate | IMPLEMENTED — NOT VERIFIED |
@@ -124,10 +124,16 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 08 Maintenance Requests.
-- **Current page:** `/requests` and `/requests/[id]` (one iteration; detail is the same slice).
-- **Status:** PARTIALLY VERIFIED.
-- **Do not start** `/requests/new` until this page is VERIFIED COMPLETE or a recorded blocker makes further verification impossible and the user types CONTINUE past it.
+- **Current phase:** 01 Login, session, and invitation onboarding.
+- **Current page:** `/login` (not started under this local programme).
+- **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
+- **Do not start** Phase 02, and do not open `/requests/new` during Phase 01.
+
+### Requests list and detail — two statuses
+
+LOCAL DEVELOPMENT STATUS: COMPLETE. Implementation is the slice on main (`89533ac0`). Local tests: web label tests 12/12, API action tests 16/16. SUPER_ADMIN browser UAT at 1440, 820, and 390 passed. Initial `/requests` load at 17:18 IST, signed in: Performance resource timing showed `auth/me` 200, `tenants/me` 200, list 200, and summary 200. The server log matches those 200s. No Next.js error overlay. A later client navigation to the detail page produced no hooked console error or warning. No local application defect was found on that load. Redis on port 6380 is refused and did not fail the page.
+
+RELEASE READINESS STATUS: BLOCKED. Origin PR #62 head `c04ff246`: `validate-monorepo`, `release-validate`, `build`, `docker-build`, and `fresh-sqlserver-migrate` passed. `full-stack-e2e` failed on the MinIO image pull (`unauthorized`). Vercel and Cloudflare Workers Builds failed; build logs were not retrieved. These are not recorded as passed. PR #62 is not merged. Local commits `04dc017c` and `8e999fde` stay unpushed.
 
 ---
 
@@ -137,13 +143,15 @@ Required pages that exist in the current tree. "Implemented" means a route file 
 
 ### Phase 01 — Login, session, invitation onboarding
 
-| Page | Route | Status |
-| --- | --- | --- |
-| Login | `/login` | IMPLEMENTED — NOT VERIFIED |
-| Forgot password | `/forgot-password` | IMPLEMENTED — NOT VERIFIED |
-| Accept invitation | `/accept-invite` | IMPLEMENTED — NOT VERIFIED |
-| Register | `/register` | IMPLEMENTED — NOT VERIFIED |
-| Splash | `/splash` | IMPLEMENTED — NOT VERIFIED |
+| Page | Route | Local status | Notes |
+| --- | --- | --- | --- |
+| Login | `/login` | IMPLEMENTED — NOT VERIFIED | Next local page. API `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`. Return path exists (`returnTo`). |
+| Forgot password | `/forgot-password` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/forgot-password` and `POST /auth/reset-password`. |
+| Accept invitation | `/accept-invite` | IMPLEMENTED — NOT VERIFIED | API `GET /auth/invite/verify` and `POST /auth/invite/accept`. Admin invitations page is Phase 13. |
+| Register | `/register` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/register`. Confirm whether invitation policy already disables open registration before changing it. |
+| Splash | `/splash` | IMPLEMENTED — NOT VERIFIED | |
+
+Each Phase 01 page, starting with `/login`, must be checked through database session records, API, RBAC, workflow, UI, integration, and local tests before the next page. Do not begin Phase 02 until every Phase 01 page is locally complete.
 
 Return-path hardening commit `faba0ab7` is historical evidence, not a fresh UAT of this phase.
 
@@ -198,7 +206,7 @@ PR #59 merged at `6264948f`. Prior local browser check showed an empty assigned 
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Request list and detail | `/requests`, `/requests/[id]` | PARTIALLY VERIFIED — SUPER_ADMIN browser UAT passed; CI and other roles still open |
+| Request list and detail | `/requests`, `/requests/[id]` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | Report issue | `/requests/new` | IMPLEMENTED — NOT VERIFIED |
 | QR report redirect | `/qr/report-issue` | IMPLEMENTED — NOT VERIFIED |
 
@@ -395,7 +403,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | Targeted tests: web count label 12/12, API actions 16/16. `release-validate` passed on `c04ff246`. Detail client navigation had no hooked console error or warning. MinIO, Vercel, and Workers unchanged. Not pushed. | local, on top of `04dc017c` |
+| 2026-09-29 | Initial `/requests` load resource timing: auth, tenant, summary, and list all HTTP 200. No error overlay. List/detail marked local-development complete. Release readiness left blocked. Active phase set to 01, page `/login`. Not pushed. | local docs, on `8e999fde` |
 
 ---
 
@@ -403,7 +411,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 
 Stay on `/requests` and `/requests/[id]`.
 
-1. Do not merge PR #62. Origin `c04ff246` has `release-validate` pass and `full-stack-e2e`, Vercel, and Workers fail. MinIO anonymous pull remains 401. Build logs for Vercel and Workers were not retrieved.
-2. Keep local `04dc017c` and the following test commit unpushed until a push can change one of those failing checks. Do not push documentation alone.
-3. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green.
-4. The following page is `/requests/new`. Do not open it while this page is unfinished.
+Stay on Phase 01, page `/login`.
+
+1. Inspect the existing login, session cookie, tenant, and return-path behaviour. Do not rebuild it.
+2. Do not push the local commits. Do not merge PR #62. Do not remove the `NEXT_PUBLIC_API_URL` guard. Do not start Phase 02 or `/requests/new`.
