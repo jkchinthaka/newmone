@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,13 +13,15 @@ import { PRODUCT_TAGLINE } from "@/lib/branding";
 import { getPostLoginRedirect } from "@/lib/role-redirect";
 
 type RegisterForm = {
-  userId: string;
   firstName: string;
   lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
 };
+
+const fieldClass =
+  "min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
 
 export function RegisterFormCard() {
   const searchParams = useSearchParams();
@@ -28,6 +31,7 @@ export function RegisterFormCard() {
   const { register, handleSubmit } = useForm<RegisterForm>();
 
   const onSubmit = async (values: RegisterForm) => {
+    if (!invitationToken) return;
     if (values.password !== values.confirmPassword) {
       setError("Password and confirmation must match.");
       return;
@@ -42,62 +46,90 @@ export function RegisterFormCard() {
         lastName: values.lastName,
         email: values.email,
         password: values.password,
-        ...(invitationToken ? { invitationToken } : {})
+        invitationToken
       });
       const payload = res.data?.data;
-
       if (!payload?.user) {
         setError("Registration failed. Please try again.");
         return;
       }
-
-      setAuthSession({
-        user: payload.user
-      });
-
+      setAuthSession({ user: payload.user });
       window.location.replace(getPostLoginRedirect(payload.user));
-    } catch (e) {
-      setError(getApiErrorMessage(e, "Registration failed. Check your details and try again."));
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Registration failed. Check your details and try again."));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-6">
-      <section className="w-full max-w-2xl rounded-[32px] border border-white/60 bg-white/92 p-8 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur xl:p-10">
+    <main className="grid min-h-[100dvh] place-items-center bg-slate-100 p-4 sm:p-6">
+      <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <MaintainProLogo showTagline size="md" />
-
         <header className="mt-6">
-          <h1 className="text-3xl font-semibold text-slate-900">
-            {invitationToken ? "Accept invitation" : "Registration"}
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {invitationToken ? "Join your workspace" : "Registration is by invitation"}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{PRODUCT_TAGLINE}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{PRODUCT_TAGLINE}</p>
         </header>
 
-        <p className="mt-4 text-sm leading-6 text-slate-500">
-          {invitationToken
-            ? "You've been invited to join a MaintainPro workspace. Complete the form below using the email address your invitation was sent to."
-            : "Access is by invitation only. If self-registration is disabled, ask your administrator for an invitation link."}
-        </p>
-
-        <form className="mt-8 grid gap-4 md:grid-cols-2" method="post" onSubmit={handleSubmit(onSubmit)}>
-          <label className="text-sm text-slate-600" htmlFor="register-user-id"><span className="mb-2 block">User ID</span><input {...register("userId")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-user-id" type="text" /></label>
-          <label className="text-sm text-slate-600" htmlFor="register-email"><span className="mb-2 block">Email</span><input {...register("email")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-email" type="email" /></label>
-          <label className="text-sm text-slate-600" htmlFor="register-first-name"><span className="mb-2 block">First Name</span><input {...register("firstName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-first-name" type="text" /></label>
-          <label className="text-sm text-slate-600" htmlFor="register-last-name"><span className="mb-2 block">Last Name</span><input {...register("lastName")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-last-name" type="text" /></label>
-          <label className="text-sm text-slate-600" htmlFor="register-password"><span className="mb-2 block">Password</span><input {...register("password")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-password" type="password" /></label>
-          <label className="text-sm text-slate-600" htmlFor="register-confirm-password"><span className="mb-2 block">Confirm Password</span><input {...register("confirmPassword")} className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" id="register-confirm-password" type="password" /></label>
-
-          <div className="md:col-span-2 flex items-center justify-between gap-3 pt-2">
-            <p className="text-sm text-slate-500">Already have an account? <a href="/login" className="font-medium text-brand-700 hover:text-brand-800">Login</a></p>
-            <button className="min-h-11 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-medium text-white hover:bg-brand-700" type="submit">
-              {busy ? <span className="inline-flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Registering...</span> : "REGISTER"}
+        {invitationToken ? (
+          <form className="mt-6 grid gap-4 sm:grid-cols-2" noValidate onSubmit={handleSubmit(onSubmit)}>
+            <p className="sm:col-span-2 text-sm text-slate-600">
+              Use the email address the invitation was sent to. The workspace and role come from that invitation.
+            </p>
+            <label className="text-sm" htmlFor="register-first-name">
+              <span className="mb-1.5 block font-medium text-slate-700">First name</span>
+              <input id="register-first-name" className={fieldClass} autoComplete="given-name" {...register("firstName", { required: true })} />
+            </label>
+            <label className="text-sm" htmlFor="register-last-name">
+              <span className="mb-1.5 block font-medium text-slate-700">Last name</span>
+              <input id="register-last-name" className={fieldClass} autoComplete="family-name" {...register("lastName", { required: true })} />
+            </label>
+            <label className="text-sm sm:col-span-2" htmlFor="register-email">
+              <span className="mb-1.5 block font-medium text-slate-700">Email</span>
+              <input id="register-email" className={fieldClass} type="email" autoComplete="email" {...register("email", { required: true })} />
+            </label>
+            <label className="text-sm" htmlFor="register-password">
+              <span className="mb-1.5 block font-medium text-slate-700">Password</span>
+              <input id="register-password" className={fieldClass} type="password" autoComplete="new-password" {...register("password", { required: true })} />
+            </label>
+            <label className="text-sm" htmlFor="register-confirm-password">
+              <span className="mb-1.5 block font-medium text-slate-700">Confirm password</span>
+              <input id="register-confirm-password" className={fieldClass} type="password" autoComplete="new-password" {...register("confirmPassword", { required: true })} />
+            </label>
+            {error ? (
+              <p className="sm:col-span-2 text-sm text-rose-700" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button className="min-h-11 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70 sm:col-span-2" disabled={busy} type="submit">
+              {busy ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 aria-hidden className="animate-spin" size={16} />
+                  Creating account
+                </span>
+              ) : (
+                "Create account"
+              )}
             </button>
+          </form>
+        ) : (
+          <div className="mt-6 space-y-4 text-sm leading-6 text-slate-700">
+            <p>
+              MaintainPro accounts are created by an administrator. Open registration does not create a tenant or an administrator.
+            </p>
+            <p>If you received a personal invitation, open that link to set your password. A workspace invitation includes its own registration link.</p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white" href="/login">
+                Sign in
+              </Link>
+              <Link className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-800" href="/accept-invite">
+                Accept an invitation
+              </Link>
+            </div>
           </div>
-
-          {error ? <p className="md:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">{error}</p> : null}
-        </form>
+        )}
       </section>
     </main>
   );

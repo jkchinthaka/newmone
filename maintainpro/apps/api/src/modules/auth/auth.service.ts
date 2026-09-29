@@ -172,12 +172,6 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-
-    if (existing) {
-      throw new BadRequestException("Email already in use");
-    }
-
     let invitation: Awaited<ReturnType<typeof this.prisma.tenantInvitation.findUnique>> = null;
 
     if (dto.invitationToken) {
@@ -196,6 +190,12 @@ export class AuthService {
       }
     } else if (!this.isPublicRegistrationEnabled()) {
       throw new ForbiddenException("Registration is by invitation only. Please contact your administrator.");
+    }
+
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+
+    if (existing) {
+      throw new BadRequestException("Email already in use");
     }
 
     const roleName = invitation

@@ -80,6 +80,7 @@ describe("AuthService.register", () => {
     const service = buildService(false, prisma);
 
     await expect(service.register({ ...baseDto })).rejects.toThrow(ForbiddenException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
