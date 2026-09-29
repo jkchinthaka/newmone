@@ -1,6 +1,7 @@
 import { ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
+import { createHash } from "node:crypto";
 
 import {
   CREATE_INVITATION_SENSITIVE_FIELDS,
@@ -129,7 +130,11 @@ describe("Legacy tenant invitation API hardening", () => {
         "tenantName"
       ].sort()
     );
-    expect(result.invitationLink).toBe("https://app.example.com/register?invitationToken=secret-token-value");
+    const createdToken = prisma.tenantInvitation.create.mock.calls[0][0].data.token as string;
+    const linkToken = new URL(result.invitationLink).searchParams.get("invitationToken");
+    expect(linkToken).toBeTruthy();
+    expect(createdToken).toBe(createHash("sha256").update(linkToken ?? "").digest("hex"));
+    expect(createdToken).not.toBe(linkToken);
     expect(result.tenantName).toBe("Tenant A");
 
     for (const field of CREATE_INVITATION_SENSITIVE_FIELDS) {

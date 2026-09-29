@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~19:15 IST. `/splash` is locally verified on `feature/phase-01-login`. The next CONTINUE is the Phase 01 cross-page audit, not Phase 02.
+**Last updated:** 2026-09-29 ~19:30 IST. Phase 01 cross-page audit passed locally on `feature/phase-01-login`. Do not start Phase 02 until the next CONTINUE.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 01 Login, session, invitation onboarding |
-| Current page | `/splash` — LOCAL DEVELOPMENT COMPLETE |
-| Next page | Phase 01 cross-page audit — do not start Phase 02 until that audit is done |
+| Current phase | 01 Login, session, invitation onboarding — LOCAL DEVELOPMENT COMPLETE |
+| Current page | Phase 01 audit complete |
+| Next page | Phase 02 — Global Application Shell, shared dashboard layout and navigation. Do not start until the next CONTINUE. |
 | Local Git | `feature/phase-01-login`. Still based on unmerged `ci/jest-heap-oom` at `4c41d269`. Ancestors include `04dc017c` and `8e999fde`. Do not merge this branch straight to main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
@@ -152,7 +152,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The next CONTINUE runs the Phase 01 cross-page audit across login, forgot-password, accept-invite, register, and splash. Do not start Phase 02 during that pass.
+The next CONTINUE starts Phase 02 on the shared dashboard layout and navigation. Do not begin it until that command.
 
-1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269` and `0e5ec73c`. Do not merge it directly into main.
-2. Vercel, Cloudflare, and Netlify stay under release readiness.
+1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269` and `6f5dd56f`. Do not merge it directly into main.
+2. Vercel, Cloudflare, Netlify, and the MinIO end-to-end pull stay under release readiness. `EMAIL_MODE=disabled` and Redis on port 6380 refused are environment limits, not Phase 01 defects.

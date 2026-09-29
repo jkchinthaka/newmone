@@ -175,9 +175,14 @@ export class AuthService {
     let invitation: Awaited<ReturnType<typeof this.prisma.tenantInvitation.findUnique>> = null;
 
     if (dto.invitationToken) {
-      invitation = await this.prisma.tenantInvitation.findUnique({
-        where: { token: dto.invitationToken }
-      });
+      const tokenHash = this.hashToken(dto.invitationToken);
+      invitation =
+        (await this.prisma.tenantInvitation.findUnique({
+          where: { token: tokenHash }
+        })) ??
+        (await this.prisma.tenantInvitation.findUnique({
+          where: { token: dto.invitationToken }
+        }));
 
       const isUsable =
         invitation &&
