@@ -146,6 +146,38 @@ export class WorkOrdersController {
     return { data, message: "Work order queue fetched" };
   }
 
+  @Get("my-jobs")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR"
+  )
+  async myJobs(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const result = await this.workOrderQueuesService.listMyJobs(req.user, query);
+    return {
+      data: {
+        items: result.items,
+        counts: result.counts,
+        scope: result.scope,
+        view: result.view,
+        timezone: result.timezone,
+        capped: result.capped
+      },
+      meta: {
+        page: result.page,
+        limit: result.pageSize,
+        total: result.total,
+        totalPages: result.total === 0 ? 0 : Math.ceil(result.total / result.pageSize)
+      },
+      message: "Jobs assigned to you"
+    };
+  }
+
   /**
    * Direct-create category lookup — must match POST /work-orders create RBAC
    * (create-capable roles + work_orders.manage). Do not broaden to TECHNICIAN/
