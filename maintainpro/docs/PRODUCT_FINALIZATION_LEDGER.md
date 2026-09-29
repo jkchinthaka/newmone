@@ -109,7 +109,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 01 | Login, session, invitation onboarding | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 03 | Action Center | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 04 | Maintenance dashboard | IN PROGRESS |
+| 04 | Maintenance dashboard | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
 | 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
 | 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
@@ -128,8 +128,8 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 04 Maintenance dashboard — IN PROGRESS on `feature/phase-04-maintenance-dashboard`. Phase 03 is locally complete at `42c9d82c`. Release readiness remains BLOCKED.
-- **Next phase:** Finish `/maintenance`, then Phase 05. Continue without waiting for CONTINUE.
+- **Current phase:** 04 Maintenance dashboard — LOCAL DEVELOPMENT COMPLETE on `feature/phase-04-maintenance-dashboard` (`cde25d49`). Release readiness remains BLOCKED.
+- **Next phase:** 05 All jobs / work orders. Continue without waiting for CONTINUE.
 - **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - `/requests/new` stays in Phase 08 and is not started.
@@ -185,7 +185,7 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Maintenance dashboard | `/maintenance` | IN PROGRESS | Admin page loads. Overdue and in-progress cards now open matching lists (5 and 1). Remaining cards not fully checked. |
+| Maintenance dashboard | `/maintenance` | LOCAL DEVELOPMENT COMPLETE | Overdue opens 5 rows. In progress opens 1 row and leaves On hold out. Waiting for parts is 1 and uses the same rule as the waiting-parts queue. Domain counts add up to open maintenance (15+3+6=24). Unassigned is a count only. No schema change. No permission grant. |
 
 ### Phase 05 — All jobs / work orders
 
@@ -429,9 +429,10 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | `ae7f84dd`, local, not pushed |
 | 2026-09-29 | Phase 02 shell finished locally: sidebar, topbar, breadcrumbs, mobile drawer, tenant stability, cleaner denial, expired session, logout, and offline banner. | `feature/phase-02-shell`, not pushed |
 | 2026-09-29 | Phase 03 Action Center: readiness no longer blocks the board; overdue and high-priority cards open matching queues. No schema change. No permissions granted. | `feature/phase-03-action-center` `42c9d82c`, not pushed |
+| 2026-09-29 | Phase 04 dashboard cards open the work-order queues that match their counts, including waiting parts. | `feature/phase-04-maintenance-dashboard` `cde25d49`, not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-Continue Phase 04 on `feature/phase-04-maintenance-dashboard`. Do not merge it into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) plus Phases 01–03. Release readiness stays BLOCKED.
+Start Phase 05 All jobs / work orders (`/maintenance/jobs` and `/work-orders`). Do not merge `feature/phase-04-maintenance-dashboard` into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) plus Phases 01–04. Release readiness stays BLOCKED.
