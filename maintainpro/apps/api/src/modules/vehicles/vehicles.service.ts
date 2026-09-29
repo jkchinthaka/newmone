@@ -1,4 +1,11 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import {
   AuditAction,
   ApprovalProcessType,
@@ -20,6 +27,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { normalizeRegistrationNo, registrationSearchPattern } from "../../common/utils/vehicle-registration";
 import { PUBLIC_USER_WITH_ROLE_SELECT } from "../../common/selects/public-user.select";
@@ -679,9 +687,7 @@ export class VehiclesService {
       })
     );
 
-    const gateTime = data.occurredAt
-      ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
-      : new Date();
+    const gateTime = this.resolveGateOccurredAt(data.occurredAt);
 
     let selectedDriver = vehicle.driver;
     if (data.driverId) {
@@ -809,9 +815,12 @@ export class VehiclesService {
       // Gate override requires a second authorized approver (four-eyes principle via Phase 7).
       // If an approval rule is configured for GATE_OVERRIDE, the request must be APPROVED
       // before we allow the override — PENDING status blocks the gate.
+      // The requester is always the authenticated caller; data.approvedByUserId is
+      // client input and is never trusted for authorization or attribution.
+      let engineApproverId: string | undefined;
       if (this.approvalsService) {
         const approvalResult = await this.approvalsService.ensureApprovalRequired({
-          actor: { sub: data.approvedByUserId ?? "system", tenantId },
+          actor: { sub: requestContext.getActorId() ?? "system", tenantId },
           processType: ApprovalProcessType.GATE_OVERRIDE,
           trigger: ApprovalTrigger.BEFORE_GATE_OVERRIDE,
           subjectEntityType: "Vehicle",
@@ -838,9 +847,20 @@ export class VehiclesService {
             processType: ApprovalProcessType.GATE_OVERRIDE
           });
         }
+
+        // A completed four-eyes approval authorizes the release; attribute it to the
+        // user who approved it in the approval engine.
+        if (approvalResult.approvalRequestId && approvalResult.status === ApprovalRequestStatus.APPROVED) {
+          const decision = await this.prisma.approvalDecision.findFirst({
+            where: { tenantId, approvalRequestId: approvalResult.approvalRequestId },
+            orderBy: { decidedAt: "desc" },
+            select: { actorId: true }
+          });
+          engineApproverId = decision?.actorId;
+        }
       }
 
-      approvedByUserId = await this.assertGateOverrideApprover(data.approvedByUserId);
+      approvedByUserId = engineApproverId ?? (await this.assertGateOverrideApprover(tenantId));
       assertPolicy(
         canVehicleGateOut({
           tenantId,
@@ -965,9 +985,7 @@ export class VehiclesService {
       throw new BadRequestException("Mileage entries must be monotonically increasing");
     }
 
-    const gateTime = data.occurredAt
-      ? this.parseDateOrThrow(data.occurredAt, "occurredAt")
-      : new Date();
+    const gateTime = this.resolveGateOccurredAt(data.occurredAt);
 
     const serviceStatus = this.resolveServiceStatus({
       currentMileage: data.meterReading,
@@ -1648,6 +1666,11 @@ export class VehiclesService {
       throw new NotFoundException("Trip not found");
     }
 
+    // Re-ending a completed/cancelled trip would overwrite its mileage and distance.
+    if (trip.status !== TripStatus.IN_PROGRESS) {
+      throw new BadRequestException("Only IN_PROGRESS trips can be ended");
+    }
+
     if (data.endMileage < Number(trip.startMileage)) {
       throw new BadRequestException("Mileage entries must be monotonically increasing");
     }
@@ -1913,24 +1936,56 @@ export class VehiclesService {
     );
   }
 
-  private async assertGateOverrideApprover(userId?: string): Promise<string> {
-    if (!userId) {
-      throw new BadRequestException("An approver is required for gate override");
+  /**
+   * Client-supplied gate times (offline replay) are accepted only within a sane window so a
+   * movement cannot be back- or forward-dated arbitrarily in the gate/audit history.
+   */
+  private resolveGateOccurredAt(occurredAt?: string): Date {
+    if (!occurredAt) {
+      return new Date();
+    }
+    const parsed = this.parseDateOrThrow(occurredAt, "occurredAt");
+    const now = Date.now();
+    if (parsed.getTime() > now + 24 * 60 * 60 * 1000) {
+      throw new BadRequestException("occurredAt cannot be more than 24 hours in the future");
+    }
+    if (parsed.getTime() < now - 30 * 24 * 60 * 60 * 1000) {
+      throw new BadRequestException("occurredAt cannot be more than 30 days in the past");
+    }
+    return parsed;
+  }
+
+  /**
+   * Override authority belongs to the authenticated actor, never to a client-supplied
+   * approver id: otherwise any caller with gate.out.create could name a manager's id and
+   * release a blocked vehicle. The approver must be the caller, in the active tenant,
+   * holding an approver role or the gate.override.approve permission.
+   */
+  private async assertGateOverrideApprover(tenantId: string): Promise<string> {
+    const actorId = requestContext.getActorId();
+    if (!actorId) {
+      throw new ForbiddenException("An authenticated approver is required for gate override");
     }
 
     const approver = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: actorId },
       include: {
         role: {
           select: {
-            name: true
+            name: true,
+            permissionLinks: { select: { permission: { select: { key: true } } } }
           }
         }
       }
     });
 
-    if (!approver) {
-      throw new NotFoundException("Override approver not found");
+    if (!approver || !approver.role) {
+      throw new ForbiddenException("Override approver not found");
+    }
+
+    const isSuperAdmin = approver.role.name === RoleName.SUPER_ADMIN;
+    if (!isSuperAdmin && approver.tenantId !== tenantId) {
+      throw new ForbiddenException("Override approver does not have authority for gate release");
     }
 
     const allowedRoles = new Set<RoleName>([
@@ -1943,8 +1998,9 @@ export class VehiclesService {
       RoleName.FARM_MANAGER
     ]);
 
-    if (!allowedRoles.has(approver.role.name)) {
-      throw new BadRequestException("Override approver does not have authority for gate release");
+    const holdsOverridePermission = rolePermissionKeys(approver.role).includes("gate.override.approve");
+    if (!allowedRoles.has(approver.role.name) && !holdsOverridePermission) {
+      throw new ForbiddenException("Override approver does not have authority for gate release");
     }
 
     return approver.id;

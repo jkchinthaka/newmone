@@ -288,6 +288,21 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 
+  const mockUsers = (users: Record<string, { role: RoleName; tenantId?: string | null; permissions?: string[] }>) => {
+    prisma.user.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => {
+      const user = users[where.id];
+      if (!user) return null;
+      return {
+        id: where.id,
+        tenantId: user.tenantId === undefined ? "tenant-1" : user.tenantId,
+        role: {
+          name: user.role,
+          permissionLinks: (user.permissions ?? []).map((key) => ({ permission: { key } }))
+        }
+      };
+    });
+  };
+
   itT("allows override only for authorized approver roles and records override audit data", async () => {
     jest.spyOn(service, "findOne").mockResolvedValue(
       buildVehicle({
@@ -297,12 +312,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
       }) as any
     );
 
-    prisma.user.findUnique.mockResolvedValue({
-      id: "mgr-1",
-      role: {
-        name: RoleName.FLEET_MANAGER
-      }
-    });
+    mockUsers({ "user-1": { role: RoleName.FLEET_MANAGER } });
 
     tx.vehicle.update.mockResolvedValue({ id: "veh-1" });
     tx.vehicleGateMovement.create.mockResolvedValue({ id: "move-override-1", status: GateMovementStatus.OVERRIDE_APPROVED });
@@ -312,7 +322,6 @@ describe("VehiclesService Phase 2 critical flows", () => {
       meterReading: 1850,
       allowOverride: true,
       overrideReason: "Emergency response dispatch",
-      approvedByUserId: "mgr-1",
       notes: "Approved override"
     });
 
@@ -322,7 +331,7 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(tx.vehicleGateMovement.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         status: GateMovementStatus.OVERRIDE_APPROVED,
-        approvedById: "mgr-1",
+        approvedById: "user-1",
         overrideReason: "Emergency response dispatch"
       })
     });
@@ -342,23 +351,72 @@ describe("VehiclesService Phase 2 critical flows", () => {
       }) as any
     );
 
-    prisma.user.findUnique.mockResolvedValue({
-      id: "drv-1",
-      role: {
-        name: RoleName.DRIVER
-      }
+    mockUsers({ "user-1": { role: RoleName.DRIVER } });
+
+    await expect(
+      service.gateOut("veh-1", {
+        meterReading: 1410,
+        allowOverride: true,
+        overrideReason: "Need to move quickly"
+      })
+    ).rejects.toThrow("Override approver does not have authority for gate release");
+
+    expect(tx.vehicle.update).not.toHaveBeenCalled();
+    expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
+  });
+
+  itT("ignores a client-supplied manager id: the caller's own authority decides", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(
+      buildVehicle({ status: VehicleStatus.OUT_OF_SERVICE, currentMileage: 1400 }) as any
+    );
+    mockUsers({
+      "user-1": { role: RoleName.SECURITY_OFFICER },
+      "mgr-1": { role: RoleName.FLEET_MANAGER }
     });
 
     await expect(
       service.gateOut("veh-1", {
         meterReading: 1410,
         allowOverride: true,
-        overrideReason: "Need to move quickly",
-        approvedByUserId: "drv-1"
+        overrideReason: "Named a manager to bypass",
+        approvedByUserId: "mgr-1"
       })
     ).rejects.toThrow("Override approver does not have authority for gate release");
 
-    expect(tx.vehicle.update).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "mgr-1" } }));
+    expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
+  });
+
+  itT("allows override when the caller holds gate.override.approve", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(
+      buildVehicle({ status: VehicleStatus.OUT_OF_SERVICE, currentMileage: 1400, nextServiceMileage: 4000 }) as any
+    );
+    mockUsers({ "user-1": { role: RoleName.SECURITY_OFFICER, permissions: ["gate.override.approve"] } });
+    tx.vehicle.update.mockResolvedValue({ id: "veh-1" });
+    tx.vehicleGateMovement.create.mockResolvedValue({ id: "move-2", status: GateMovementStatus.OVERRIDE_APPROVED });
+    tx.vehicleMeterLog.create.mockResolvedValue({ id: "log-2" });
+
+    const result = await service.gateOut("veh-1", {
+      meterReading: 1450,
+      allowOverride: true,
+      overrideReason: "Delegated override"
+    });
+
+    expect(result.overrideUsed).toBe(true);
+    expect(tx.vehicleGateMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ approvedById: "user-1" })
+    });
+  });
+
+  itT("rejects an approver-role caller from another tenant", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(
+      buildVehicle({ status: VehicleStatus.OUT_OF_SERVICE, currentMileage: 1400 }) as any
+    );
+    mockUsers({ "user-1": { role: RoleName.FLEET_MANAGER, tenantId: "tenant-2" } });
+
+    await expect(
+      service.gateOut("veh-1", { meterReading: 1410, allowOverride: true, overrideReason: "Cross tenant" })
+    ).rejects.toThrow("Override approver does not have authority for gate release");
     expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
   });
 
@@ -429,13 +487,43 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  itT("rejects gate times outside the accepted replay window", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle({ status: VehicleStatus.AVAILABLE }) as any);
+    const day = 24 * 60 * 60 * 1000;
+
+    await expect(
+      service.gateOut("veh-1", { meterReading: 1100, occurredAt: new Date(Date.now() + 2 * day).toISOString() })
+    ).rejects.toThrow("occurredAt cannot be more than 24 hours in the future");
+    await expect(
+      service.gateIn("veh-1", { meterReading: 1100, occurredAt: new Date(Date.now() - 31 * day).toISOString() })
+    ).rejects.toThrow("occurredAt cannot be more than 30 days in the past");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  itT("refuses to end a trip that is already completed", async () => {
+    prisma.vehicle.findUnique.mockResolvedValueOnce({ id: "veh-1" });
+    prisma.tripLog.findUnique.mockResolvedValue({
+      id: "trip-1",
+      vehicleId: "veh-1",
+      driverId: "drv-1",
+      startMileage: 1000,
+      status: TripStatus.COMPLETED
+    });
+
+    await expect(service.tripEnd("veh-1", { tripId: "trip-1", endMileage: 1600 })).rejects.toThrow(
+      "Only IN_PROGRESS trips can be ended"
+    );
+    expect(tx.tripLog.update).not.toHaveBeenCalled();
+  });
+
   itT("calculates trip KM correctly on trip end", async () => {
     prisma.vehicle.findUnique.mockResolvedValueOnce({ id: "veh-1" });
     prisma.tripLog.findUnique.mockResolvedValue({
       id: "trip-1",
       vehicleId: "veh-1",
       driverId: "drv-1",
-      startMileage: 1000
+      startMileage: 1000,
+      status: TripStatus.IN_PROGRESS
     });
 
     tx.tripLog.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({

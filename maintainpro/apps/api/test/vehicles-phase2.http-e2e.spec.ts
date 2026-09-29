@@ -369,6 +369,7 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     );
     prisma.user.findUnique.mockResolvedValueOnce({
       id: "mgr-1",
+      tenantId: "tenant-1",
       role: {
         name: RoleName.FLEET_MANAGER
       }
@@ -383,13 +384,15 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     const response = await request(app.getHttpServer())
       .post("/vehicles/veh-1/gate-out")
       .set("x-test-permissions", "vehicles.operate")
+      .set("x-test-user-id", "mgr-1")
       .send({
         meterReading: 3200,
         allowOverride: true,
-        overrideReason: "Emergency move",
-        approvedByUserId: "mgr-1"
+        overrideReason: "Emergency move"
       })
       .expect(201);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "mgr-1" } }));
 
     expect(response.body.message).toBe("Gate-out recorded");
     expect(response.body.data.allowed).toBe(true);
@@ -413,6 +416,7 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     );
     prisma.user.findUnique.mockResolvedValueOnce({
       id: "driver-approver",
+      tenantId: "tenant-1",
       role: {
         name: RoleName.DRIVER
       }
@@ -421,13 +425,15 @@ describe("Vehicles Phase 2 HTTP e2e", () => {
     const response = await request(app.getHttpServer())
       .post("/vehicles/veh-1/gate-out")
       .set("x-test-permissions", "vehicles.operate")
+      .set("x-test-user-id", "driver-approver")
       .send({
         meterReading: 1110,
         allowOverride: true,
         overrideReason: "Try bypass",
-        approvedByUserId: "driver-approver"
+        // A client-named manager must not grant authority to the caller.
+        approvedByUserId: "mgr-1"
       })
-      .expect(400);
+      .expect(403);
 
     expect(response.body.message).toBe("Override approver does not have authority for gate release");
   });
