@@ -25,8 +25,8 @@ Inspected 2026-09-29 from `C:\Dev\newmone` after `git fetch origin`.
 | `origin/main` | `52311b8f` `docs(handover): record branch HEAD after protocol commit` |
 | Requests on main | Yes. Tree landed in `89533ac0` (message says `test(vendors)…`; the tree is the Requests slice plus the vendor-contract test fix). Docs `7878eb56`, `52311b8f`. Direct push to `main` by `jkchinthaka` at 2026-09-29T10:09:06Z. No PR. History was not rewritten. |
 | Earlier merges already on main | PR #59 My Jobs `6264948f`; PR #60 Vendor eligibility `74e66f2a`; PR #61 Maintenance costs `fd250e72`; PR #58 Flutter retirement `1a5c8803` |
-| Checkout | `ci/jest-heap-oom` @ `a5f14019`, tracking `origin/ci/jest-heap-oom`, clean |
-| PR #62 | Open, MERGEABLE, head `a5f14019`. https://github.com/jkchinthaka/newmone/pull/62 |
+| Checkout at Phase 00 write | `ci/jest-heap-oom` @ `a5f14019`, later docs commit `c4bb680e` |
+| PR #62 | Open. https://github.com/jkchinthaka/newmone/pull/62 |
 | Worktrees left alone | `C:\Dev\newmone-maintenance-costs` @ `5ad5637c` (merged via #61); `C:\Dev\newmone-vendor-eligibility` @ `26790251` (merged via #60) |
 | Stash | `stash@{0}` `pre-main-handover-20260929`. Not popped. |
 | Remote branches | `origin/main`, `origin/ci/jest-heap-oom`, `origin/feature/my-jobs-workspace`, `origin/feature/vendor-eligibility`, `origin/feature/maintenance-costs` |
@@ -48,13 +48,33 @@ PR #62 head `a5f14019` (re-run after the latest handover commit):
 
 Do not merge PR #62 while required checks are pending or failing. Do not force-push or reset `main`.
 
+### CI recheck 2026-09-29 ~16:45 IST, head `c4bb680e`
+
+`gh pr checks 62` against that commit (the Phase 00 docs push):
+
+| Check | Result |
+| --- | --- |
+| `validate-monorepo` | pass, 8m45s |
+| `release-validate` | pass, 17m15s |
+| `fresh-sqlserver-migrate` | pass, 3m9s |
+| `build` | pass, 4m32s |
+| `docker-build` | pass, 9m4s |
+| Netlify preview | pass |
+| `full-stack-e2e` | fail, 1m54s. Log: `minio Error unauthorized` while pulling the pinned Quay images. Run `36558212887`. |
+| Vercel | fail. Deployment `dpl_FpGAjGK5LXm8pjCFsC77WJKr6x6W`. Logs not retrieved. |
+| Cloudflare Workers Builds | fail. Logs not retrieved. |
+
+The Jest heap change in PR #62 is confirmed on this head. It does not fix MinIO, Vercel, or Workers. Not merged.
+
+Browser UAT of `/requests` was not run. The only open browser tab was `http://localhost:3001/login`. The local `npm run dev` process is running. The agent did not type the seed password.
+
 ---
 
 ## B. 15-phase roadmap
 
 | Phase | Name | Programme status |
 | --- | --- | --- |
-| 00 | Baseline reconciliation | PARTIALLY VERIFIED — facts below recorded; PR #62 checks on `a5f14019` still running for several jobs |
+| 00 | Baseline reconciliation | PARTIALLY VERIFIED — baseline recorded; PR #62 app checks passed on `c4bb680e`; MinIO, Vercel, and Workers still fail |
 | 01 | Login, session, invitation onboarding | IMPLEMENTED — NOT VERIFIED |
 | 02 | Global application shell | IMPLEMENTED — NOT VERIFIED |
 | 03 | Action Center | IMPLEMENTED — NOT VERIFIED |
@@ -151,7 +171,7 @@ PR #59 merged at `6264948f`. Prior local browser check showed an empty assigned 
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Request list and detail | `/requests`, `/requests/[id]` | PARTIALLY VERIFIED |
+| Request list and detail | `/requests`, `/requests/[id]` | PARTIALLY VERIFIED — browser UAT blocked on the login screen |
 | Report issue | `/requests/new` | IMPLEMENTED — NOT VERIFIED |
 | QR report redirect | `/qr/report-issue` | IMPLEMENTED — NOT VERIFIED |
 
@@ -313,8 +333,8 @@ Standing failures, not introduced by Requests:
 ## I. Pending work and blockers
 
 1. Finish Phase 08 page `/requests` and `/requests/[id]` before any other page.
-2. PR #62 must be rechecked at head `a5f14019`. Do not merge while checks are pending or failing.
-3. Browser UAT of `/requests` and `/requests/[id]` at desktop, tablet, and phone. The standing handover rule is that the user signs in; the agent does not type the seed password.
+2. PR #62 head `c4bb680e` app checks passed. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing.
+3. Browser UAT of `/requests` and `/requests/[id]` is blocked until a signed-in session exists at `http://localhost:3001`. Observed tab: `/login`. Do not type the seed password.
 4. `full-stack-e2e` needs an infra decision on the MinIO images. Not an application change for this page.
 5. Vercel / Workers need `NEXT_PUBLIC_API_URL` (and the related public API vars) at build time, or a log that shows a different cause. Do not remove the fail-closed guard.
 6. Business decision still open: whether TECHNICIAN / MECHANIC / DRIVER may report issues. No permission was granted.
@@ -326,7 +346,7 @@ Standing failures, not introduced by Requests:
 | Item | Value |
 | --- | --- |
 | Main | `52311b8f` |
-| Active branch | `ci/jest-heap-oom` @ `a5f14019` |
+| Active branch | `ci/jest-heap-oom`. CI evidence head `c4bb680e`. A later docs commit may follow this recheck. |
 | Open PR | #62 https://github.com/jkchinthaka/newmone/pull/62 |
 | Merged and already contained in main | #58 `1a5c8803`, #59 `6264948f`, #60 `74e66f2a`, #61 `fd250e72` |
 | Requests commits on main | `89533ac0`, `7878eb56`, `52311b8f` |
@@ -347,7 +367,8 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | My Jobs, vendor eligibility, maintenance costs merged to main | #59 `6264948f`, #60 `74e66f2a`, #61 `fd250e72` |
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
-| 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | see commit for this file |
+| 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
+| 2026-09-29 | CONTINUE. PR #62 head `c4bb680e`: validate-monorepo, release-validate, fresh-sqlserver-migrate, build, docker-build pass. full-stack-e2e is MinIO unauthorized. Browser tab is `/login`. Page stays PARTIALLY VERIFIED. | not merged |
 
 ---
 
@@ -355,8 +376,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 
 Stay on `/requests` and `/requests/[id]`.
 
-1. `gh pr checks 62` for head `a5f14019`.
-2. If a required check failed for an application reason, fix it on `ci/jest-heap-oom`. Do not merge while checks are pending or failing. Do not self-merge.
-3. When the user has an authenticated browser session, run the Requests UAT described in `AI_SESSION_HANDOVER.md` and record it here.
+1. CI for `c4bb680e` is recorded in section A. Do not merge PR #62 while `full-stack-e2e`, Vercel, or Workers is failing. Do not self-merge.
+2. When the user has an authenticated browser session (the last observation was `http://localhost:3001/login`), run the Requests UAT described in `AI_SESSION_HANDOVER.md` and record it here. Do not type the seed password.
 4. Mark this page VERIFIED COMPLETE only after that UAT and a recorded main SHA that contains both the Requests slice and a green required CI result.
 5. The following page is `/requests/new`. Do not open it while this page is unfinished.
