@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~17:45 IST. `/forgot-password` is locally verified on `feature/phase-01-login`. Do not start `/accept-invite` until the next CONTINUE.
+**Last updated:** 2026-09-29 ~18:00 IST. `/accept-invite` is locally verified on `feature/phase-01-login`. Do not start `/register` until the next CONTINUE.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
 | Current phase | 01 Login, session, invitation onboarding |
-| Current page | `/forgot-password` — LOCAL DEVELOPMENT COMPLETE |
-| Next page | `/accept-invite` — do not start until the next CONTINUE |
+| Current page | `/accept-invite` — LOCAL DEVELOPMENT COMPLETE |
+| Next page | `/register` — do not start until the next CONTINUE |
 | Local Git | `feature/phase-01-login`. Still based on unmerged `ci/jest-heap-oom` at `4c41d269`. Ancestors include `04dc017c` and `8e999fde`. Do not merge this branch straight to main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
@@ -152,7 +152,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The earliest unfinished local page is `/accept-invite`. Do not open it until the next CONTINUE. `/forgot-password` is locally complete on `feature/phase-01-login`.
+The earliest unfinished local page is `/register`. Do not open it until the next CONTINUE. `/accept-invite` is locally complete on `feature/phase-01-login`.
 
-1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge it directly into main.
-2. Vercel, Cloudflare, and Netlify stay under release readiness. `EMAIL_MODE` is `disabled` locally, so a mailbox was not used.
+1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269`, including `61e455f5`. Do not merge it directly into main.
+2. Vercel, Cloudflare, and Netlify stay under release readiness.

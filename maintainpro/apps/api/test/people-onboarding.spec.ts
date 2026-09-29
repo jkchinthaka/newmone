@@ -254,6 +254,7 @@ describe("AuthService invite + login hardening", () => {
       expiresAt: new Date(Date.now() + 60_000),
       acceptedAt: null
     });
+    prisma.userInvitation.updateMany.mockResolvedValue({ count: 1 });
     prisma.$transaction.mockImplementation(async (ops: unknown) => {
       if (typeof ops === "function") return ops(prisma);
       if (Array.isArray(ops)) {
@@ -270,7 +271,34 @@ describe("AuthService invite + login hardening", () => {
         data: expect.objectContaining({ mustChangePassword: false })
       })
     );
+    expect(prisma.userInvitation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "inv-1",
+          acceptedAt: null
+        })
+      })
+    );
     expect(tokenHash.length).toBeGreaterThan(10);
+  });
+
+  it("does not activate the account when another acceptance already claimed the invite", async () => {
+    const prisma = buildPrisma();
+    prisma.userInvitation.findUnique.mockResolvedValue({
+      id: "inv-1",
+      userId: "user-1",
+      tenantId: "tenant-1",
+      status: UserInviteStatus.SENT,
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt: null
+    });
+    prisma.userInvitation.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = buildAuthService(prisma);
+    await expect(service.acceptInvite({ token: "invite-token", password: "Password1!" })).rejects.toThrow(
+      "Invitation already accepted"
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("login blocks inactive linked employee", async () => {

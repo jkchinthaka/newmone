@@ -711,6 +711,19 @@ export class AuthService {
     const ctx = requestContext.get();
 
     await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.userInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          acceptedAt: null,
+          status: { in: [UserInviteStatus.NOT_SENT, UserInviteStatus.SENT] },
+          expiresAt: { gt: now }
+        },
+        data: { status: UserInviteStatus.ACCEPTED, acceptedAt: now }
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Invitation already accepted");
+      }
+
       await tx.user.update({
         where: { id: invitation.userId },
         data: {
@@ -722,10 +735,6 @@ export class AuthService {
           failedLoginAttempts: 0,
           lockedUntil: null
         }
-      });
-      await tx.userInvitation.update({
-        where: { id: invitation.id },
-        data: { status: UserInviteStatus.ACCEPTED, acceptedAt: now }
       });
       await tx.auditLog.create({
         data: {

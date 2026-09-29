@@ -32,7 +32,8 @@ export class InviteUserDto {
   @IsString()
   lastName!: string;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
   roleId!: string;
 
   @IsOptional()
