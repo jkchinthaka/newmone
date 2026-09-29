@@ -21,6 +21,11 @@ jobs:
   release-validate:
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    env:
+      # ts-jest type-checks each suite against the ~34 MB generated Prisma types; a single cold
+      # suite needs ~2.2 GB and the full --runInBand run peaks ~3.3 GB (measured 2026-09-29),
+      # above Node 20's ~2 GB default heap on the runner. Runner has 16 GB.
+      NODE_OPTIONS: --max-old-space-size=6144
 
     steps:
       - name: Checkout

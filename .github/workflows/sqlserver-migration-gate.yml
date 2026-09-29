@@ -75,6 +75,9 @@ jobs:
       - name: API typecheck
         run: npm run typecheck --workspace @maintainpro/api
       - name: Focused integrity tests
+        env:
+          # Cold ts-jest compile against the generated Prisma types needs >2 GB (see pr-validation.yml).
+          NODE_OPTIONS: --max-old-space-size=6144
         run: |
           cd apps/api
           npx jest --config ./jest.config.cjs test/database-integrity.spec.ts test/tenant-fk-validation.spec.ts --runInBand
