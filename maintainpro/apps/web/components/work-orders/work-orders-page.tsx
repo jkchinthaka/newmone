@@ -84,9 +84,10 @@ function LoadingSkeleton() {
 
 type WorkOrdersPageProps = {
   jobDomain?: string;
+  hideHeading?: boolean;
 };
 
-export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
+export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -507,7 +508,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         selectionCount={selectedIds.length}
         bulkLoading={bulkBusy}
         canCreate={canCreateWorkOrders}
-        showHeading={!jobDomain}
+        showHeading={!hideHeading && !jobDomain}
         onChange={updateFilters}
         onReset={resetFilters}
         onCreate={openCreateModal}

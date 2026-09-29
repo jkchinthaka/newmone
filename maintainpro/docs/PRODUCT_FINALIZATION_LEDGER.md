@@ -110,7 +110,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 03 | Action Center | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 04 | Maintenance dashboard | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
+| 05 | All jobs / work orders | IN PROGRESS |
 | 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
 | 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
 | 08 | Maintenance requests | List and detail LOCAL DEVELOPMENT COMPLETE; `/requests/new` not started. Release readiness BLOCKED |
@@ -191,8 +191,8 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| All jobs | `/maintenance/jobs` | IMPLEMENTED — NOT VERIFIED |
-| Work orders | `/work-orders` | IMPLEMENTED — NOT VERIFIED |
+| All jobs | `/maintenance/jobs` | IN PROGRESS | Single heading is Work Orders. The old All Jobs title was removed. |
+| Work orders | `/work-orders` | IN PROGRESS | Redirects to `/maintenance/jobs` and keeps the query string. |
 
 Known overlap: two entry points, titles "All Jobs" vs "Work Orders". Queue predicates were unified earlier. Not re-verified in this session.
 

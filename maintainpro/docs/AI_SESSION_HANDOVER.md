@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~20:35 IST. Phase 04 Maintenance dashboard is locally complete on `feature/phase-04-maintenance-dashboard`. Begin Phase 05. Do not wait for CONTINUE.
+**Last updated:** 2026-09-29 ~20:40 IST. Phase 04 is locally complete at `5f393d65`. Phase 05 All Jobs / Work Orders is in progress on `feature/phase-05-all-jobs`. Do not wait for CONTINUE.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 04 Maintenance dashboard — LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| Next phase | 05 All jobs / work orders (`/maintenance/jobs`, `/work-orders`). Continue without waiting for CONTINUE. |
-| Local Git | `feature/phase-04-maintenance-dashboard`. Dashboard link commit `cde25d49`. Created with `--no-track` from `feature/phase-03-action-center`. Phase 03 code is `42c9d82c`. Ancestors include unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Current phase | 05 All jobs / work orders — IN PROGRESS on `feature/phase-05-all-jobs` |
+| Next phase | 05 All jobs / work orders — IN PROGRESS on `feature/phase-05-all-jobs`. `/work-orders` now redirects to `/maintenance/jobs` and keeps the query. One heading: Work Orders. |
+| Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-04-maintenance-dashboard` (not pushed). `feature/phase-03-action-center` remains at `84186c65`. PR **#62** is merged on `origin/main` at `0f355313`. |
+| Working branch | `feature/phase-05-all-jobs` (not pushed). Phase 04 tip `5f393d65` is on `feature/phase-04-maintenance-dashboard`. PR **#62** is merged on `origin/main` at `0f355313`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -149,7 +149,7 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Start Phase 05 All jobs / work orders (`/maintenance/jobs` and `/work-orders`). Do not reopen Phase 04 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
+Continue Phase 05 on `feature/phase-05-all-jobs`. `/work-orders` redirects to `/maintenance/jobs` and keeps the query. The board heading is Work Orders. Still to verify: signed-in redirect, queue counts on the single board, create and status persistence, technician vs admin actions, and then Phase 06. Do not reopen Phase 04 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
 
 Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seeded admin. API open-load 24, machinery 15, service 3, vehicle 6. `tech@maintainpro.local` dashboard 200 with inventory and approvals hidden; `cleaner@maintainpro.local` 403; `manager@maintainpro.local` 200. A later browser load of `/maintenance` redirected to login because the session had expired; the password was not entered. The dashboard request does not call readiness, so the Redis refusal does not hold those counts. No schema migration. No permission grant.
 

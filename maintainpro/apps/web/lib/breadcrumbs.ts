@@ -22,6 +22,19 @@ const REPORT_MODULE_LABELS: Record<string, string> = {
 
 const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   "/work-orders": [{ label: "Work Orders" }],
+  "/maintenance/jobs": [{ label: "Work Orders" }],
+  "/maintenance/jobs/machinery": [
+    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Machinery" }
+  ],
+  "/maintenance/jobs/service": [
+    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Service" }
+  ],
+  "/maintenance/jobs/vehicle": [
+    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Vehicle" }
+  ],
   "/assets": [{ label: "Assets" }],
   "/requests": [{ label: "Requests" }],
   "/requests/new": [
