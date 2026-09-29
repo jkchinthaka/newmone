@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -64,7 +66,10 @@ export function WorkOrderTable({
       mobileLabel: "WO Number",
       sortable: true,
       cell: (workOrder) => (
-        <span className="font-semibold text-brand-700">{workOrder.woNumber}</span>
+        <div>
+          <span className="font-semibold text-brand-700">{workOrder.woNumber}</span>
+          <Link className="mt-1 block text-xs font-medium text-brand-700 underline" href={`/maintenance/costs?search=${encodeURIComponent(workOrder.woNumber)}` as Route}>Costs</Link>
+        </div>
       )
     },
     {
