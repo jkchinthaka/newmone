@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~20:40 IST. Phase 04 is locally complete at `5f393d65`. Phase 05 All Jobs / Work Orders is in progress on `feature/phase-05-all-jobs`. Do not wait for CONTINUE.
+**Last updated:** 2026-09-29 ~21:10 IST. Phase 05 and Phase 06 are locally complete on `feature/phase-05-all-jobs`. Next is Phase 07 My Jobs. Do not wait for CONTINUE.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 05 All jobs / work orders — IN PROGRESS on `feature/phase-05-all-jobs` |
-| Next phase | 05 All jobs / work orders — IN PROGRESS on `feature/phase-05-all-jobs`. `/work-orders` now redirects to `/maintenance/jobs` and keeps the query. One heading: Work Orders. |
+| Current phase | 07 Work order details / My Jobs — NOT STARTED yet. Phases 05 and 06 are locally complete on `feature/phase-05-all-jobs`. |
+| Next phase | 07 My Jobs (`/work-orders/my`) and work-order execution. Continue without waiting for CONTINUE. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-05-all-jobs` (not pushed). Phase 04 tip `5f393d65` is on `feature/phase-04-maintenance-dashboard`. PR **#62** is merged on `origin/main` at `0f355313`. |
@@ -149,7 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue Phase 05 on `feature/phase-05-all-jobs`. `/work-orders` redirects to `/maintenance/jobs` and keeps the query. The board heading is Work Orders. Still to verify: signed-in redirect, queue counts on the single board, create and status persistence, technician vs admin actions, and then Phase 06. Do not reopen Phase 04 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
+Continue Phase 07 My Jobs (`/work-orders/my`) and work-order execution. Do not reopen Phase 05 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
+
+Phase 05: `/work-orders?queue=unassigned` resolves to `/maintenance/jobs?queue=unassigned`. Technician list of my-tasks returned 200 with total 3. Technician create returned 403. Cleaner list returned 403. Admin open-load total was 24 before a later login was rate-limited (429). Queue view no longer prints a second count strip.
+
+Phase 06: machinery, service, and vehicle routes all render the same board with `jobDomain`. Open-load lists previously matched the dashboard: 15, 3, and 6. A fresh signed-in browser pass was not repeated because the dashboard session had expired and the admin login was then rate-limited. No schema migration. No permission grant.
 
 Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seeded admin. API open-load 24, machinery 15, service 3, vehicle 6. `tech@maintainpro.local` dashboard 200 with inventory and approvals hidden; `cleaner@maintainpro.local` 403; `manager@maintainpro.local` 200. A later browser load of `/maintenance` redirected to login because the session had expired; the password was not entered. The dashboard request does not call readiness, so the Redis refusal does not hold those counts. No schema migration. No permission grant.
 

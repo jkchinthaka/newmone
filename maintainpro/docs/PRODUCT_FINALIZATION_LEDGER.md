@@ -110,8 +110,8 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 03 | Action Center | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 04 | Maintenance dashboard | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 05 | All jobs / work orders | IN PROGRESS |
-| 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
+| 05 | All jobs / work orders | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
+| 06 | Machinery / service / vehicle jobs | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
 | 08 | Maintenance requests | List and detail LOCAL DEVELOPMENT COMPLETE; `/requests/new` not started. Release readiness BLOCKED |
 | 09 | Assets, sites, locations | IMPLEMENTED — NOT VERIFIED |
@@ -128,8 +128,8 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 04 Maintenance dashboard — LOCAL DEVELOPMENT COMPLETE on `feature/phase-04-maintenance-dashboard` (`cde25d49`). Release readiness remains BLOCKED.
-- **Next phase:** 05 All jobs / work orders. Continue without waiting for CONTINUE.
+- **Current phase:** 07 My Jobs and work-order execution. Phases 05 and 06 are locally complete on `feature/phase-05-all-jobs`. Release readiness remains BLOCKED.
+- **Next phase:** 07. Continue without waiting for CONTINUE.
 - **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - `/requests/new` stays in Phase 08 and is not started.
@@ -191,18 +191,18 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| All jobs | `/maintenance/jobs` | IN PROGRESS | Single heading is Work Orders. The old All Jobs title was removed. |
-| Work orders | `/work-orders` | IN PROGRESS | Redirects to `/maintenance/jobs` and keeps the query string. |
+| All jobs | `/maintenance/jobs` | LOCAL DEVELOPMENT COMPLETE | One Work Orders heading. Queue view no longer shows a second count row from a different query. |
+| Work orders | `/work-orders` | LOCAL DEVELOPMENT COMPLETE | Server redirect keeps the query (`/maintenance/jobs?queue=unassigned`). |
 
-Known overlap: two entry points, titles "All Jobs" vs "Work Orders". Queue predicates were unified earlier. Not re-verified in this session.
+Known overlap resolved: `/work-orders` redirects to `/maintenance/jobs` and keeps the query. The board heading is Work Orders. Queue view uses the queue summary for counts.
 
 ### Phase 06 — Domain jobs
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Machinery jobs | `/maintenance/jobs/machinery` | IMPLEMENTED — NOT VERIFIED |
-| Service jobs | `/maintenance/jobs/service` | IMPLEMENTED — NOT VERIFIED |
-| Vehicle jobs | `/maintenance/jobs/vehicle` | IMPLEMENTED — NOT VERIFIED |
+| Machinery jobs | `/maintenance/jobs/machinery` | LOCAL DEVELOPMENT COMPLETE | Same board, `jobDomain=MACHINERY`. Open-load list 15. |
+| Service jobs | `/maintenance/jobs/service` | LOCAL DEVELOPMENT COMPLETE | Same board, `jobDomain=SERVICE`. Open-load list 3. |
+| Vehicle jobs | `/maintenance/jobs/vehicle` | LOCAL DEVELOPMENT COMPLETE | Same board, `jobDomain=VEHICLE`. Open-load list 6. |
 
 ### Phase 07 — Work order details and My Jobs
 
