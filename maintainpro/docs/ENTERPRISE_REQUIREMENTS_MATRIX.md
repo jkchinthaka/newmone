@@ -96,7 +96,7 @@ Status legend: **VERIFIED** | **PARTIAL** | **MISSING** | **EXTERNAL_DEPENDENCY*
 | 87 | Timezone currency | Tenant fields | VERIFIED | currency fields |  |  |
 | 88 | Accessible UI | ui-components | VERIFIED | ui-components |  |  |
 | 89 | Desktop UX | Grids/filters | VERIFIED | tables |  |  |
-| 90 | Mobile UX | Flutter+PWA | VERIFIED | apps/mobile,web PWA |  |  |
+| 90 | Field client | Web/PWA | SUPPORTED | apps/web PWA manifest and service worker | Flutter native app discontinued 2026-09-29 |  |
 | 91 | API architecture | Envelope | VERIFIED | ResponseInterceptor |  |  |
 | 92 | Error model | HttpExceptionFilter | VERIFIED | filters |  |  |
 | 93 | Performance | Pagination | VERIFIED | list endpoints |  |  |

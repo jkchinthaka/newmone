@@ -9,19 +9,19 @@
 
 | Client | Role |
 |--------|------|
-| **Next.js PWA** (`apps/web`) | Primary office + field client |
-| **Flutter** (`apps/mobile`) | Archive/decommission path — not pilot-certified; extract QR/offline/evidence knowledge into PWA |
+| **Next.js web/PWA** (`apps/web`) | Supported client for office and field work |
 | NestJS API | Single modular monolith |
+
+The native Flutter client (`apps/mobile`, branch `feature/mobile-v2`) was discontinued on 2026-09-29. Recover it from tag `archive/2026-09-29/branch/feature/mobile-v2` (`a49d7d1e`). Do not add new native iOS or Android apps. Redis remains for background jobs. The FG recorder integration is separate from the retired app and stays.
 
 ---
 
 ## Logical architecture
 
 ```text
-Next.js PWA (primary)     Flutter (thin / sunset)
-         │                        │
-         └──────────┬─────────────┘
-                    ▼
+Next.js web/PWA (supported client)
+         │
+         ▼
          NestJS /api  (JWT → Tenant → Roles → Permissions)
                     ▼
          Tenant (isolation + optional billing)

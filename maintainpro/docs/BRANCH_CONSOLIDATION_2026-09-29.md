@@ -70,7 +70,7 @@ re-integrated on `maintainpro/integration-v1`, which is in `main`; see
 | Branch | Reason |
 | --- | --- |
 | `main` | Primary branch. |
-| `feature/mobile-v2` (PR #28, open) | Flutter Mobile V2 (73 commits, 555 mobile files). `TARGET_ARCHITECTURE.md` (2026-09-14) freezes new Flutter features in favour of the PWA, so merging it is a product decision. Its backend fixes are already covered in `main` (JWTs without permissions, four-eyes gate override). |
+| `feature/mobile-v2` (PR #28) | Retired 2026-09-29. Product direction is web/PWA only. Tip `a49d7d1e` stays at `archive/2026-09-29/branch/feature/mobile-v2`. Native Flutter code and mobile-only broker changes were not merged. |
 
 ## Integration fixes made during consolidation
 
