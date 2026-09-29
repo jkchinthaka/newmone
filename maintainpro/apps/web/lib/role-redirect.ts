@@ -147,6 +147,13 @@ export function safeInternalReturnPath(value: string | null | undefined): string
     return null;
   }
 
+  // Browsers strip tab/CR/LF from URLs, so "/%09/evil.example" would become the
+  // protocol-relative "//evil.example". Reject every control character.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(decoded)) {
+    return null;
+  }
+
   if (!decoded.startsWith("/") || decoded.startsWith("//") || decoded.includes("\\") || decoded.includes("://")) {
     return null;
   }
