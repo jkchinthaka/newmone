@@ -40,6 +40,10 @@ export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPalett
   const handleSelect = useCallback(
     (item: CommandPaletteItem) => {
       handleClose();
+      if (item.external || /^https?:\/\//i.test(item.href)) {
+        window.location.assign(item.href);
+        return;
+      }
       router.push(item.href as Route);
     },
     [handleClose, router]

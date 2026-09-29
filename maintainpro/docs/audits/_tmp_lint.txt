@@ -1,0 +1,20 @@
+
+> maintainpro@1.2.0 lint
+> npm run lint --workspace @maintainpro/api && npm run lint --workspace @maintainpro/web
+
+
+> @maintainpro/api@1.2.0 lint
+> npm run typecheck
+
+
+> @maintainpro/api@1.2.0 typecheck
+> tsc --noEmit -p tsconfig.json
+
+
+> @maintainpro/web@1.2.0 lint
+> npm run typecheck
+
+
+> @maintainpro/web@1.2.0 typecheck
+> tsc --noEmit -p tsconfig.json
+

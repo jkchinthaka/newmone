@@ -33,6 +33,12 @@ const nextConfig = {
   experimental: {
     typedRoutes: true
   },
+  env: {
+    NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL:
+      process.env.FG_DIGITAL_RECORDING_URL ??
+      process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL ??
+      ""
+  },
   async headers() {
     return [
       {

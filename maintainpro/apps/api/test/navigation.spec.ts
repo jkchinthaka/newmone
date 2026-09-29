@@ -12,9 +12,29 @@ import {
   isNavItemActive,
   NAVIGATION_ITEMS
 } from "../../web/lib/navigation";
+import {
+  buildFgDigitalRecordingNavItem,
+  getFgDigitalRecordingUrl,
+  FG_DIGITAL_RECORDING_NAV_ID
+} from "../../web/lib/fg-digital-recording";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
 describe("navigation config", () => {
+  const originalFgUrl = process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL;
+  const originalFgUrlAlt = process.env.FG_DIGITAL_RECORDING_URL;
+
+  afterEach(() => {
+    if (originalFgUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL;
+    } else {
+      process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL = originalFgUrl;
+    }
+    if (originalFgUrlAlt === undefined) {
+      delete process.env.FG_DIGITAL_RECORDING_URL;
+    } else {
+      process.env.FG_DIGITAL_RECORDING_URL = originalFgUrlAlt;
+    }
+  });
   it("maps facility roles to facilities navigation", () => {
     const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
     const buildingSupervisorItems = getVisibleNavigationItems("BUILDING_SUPERVISOR");
@@ -196,5 +216,45 @@ describe("navigation config", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
     expect(technicianMobile.some((item) => item.id === "home")).toBe(true);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
+  });
+
+  it("hides FG Digital Recording when URL is not configured", () => {
+    delete process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL;
+    delete process.env.FG_DIGITAL_RECORDING_URL;
+
+    expect(getFgDigitalRecordingUrl()).toBeNull();
+    expect(buildFgDigitalRecordingNavItem()).toBeNull();
+    expect(getVisibleNavigationItems("MANAGER").some((item) => item.id === FG_DIGITAL_RECORDING_NAV_ID)).toBe(
+      false
+    );
+  });
+
+  it("shows FG Digital Recording for operational roles when URL is configured", () => {
+    process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL = "http://127.0.0.1:8001";
+
+    const managerItems = getVisibleNavigationItems("MANAGER");
+    const fgItem = managerItems.find((item) => item.id === FG_DIGITAL_RECORDING_NAV_ID);
+
+    expect(fgItem).toBeDefined();
+    expect(fgItem?.label).toBe("FG Digital Recording");
+    expect(fgItem?.href).toBe("http://127.0.0.1:8001");
+    expect(fgItem?.external).toBe(true);
+    expect(fgItem?.category).toBe("compliance");
+  });
+
+  it("rejects FG URLs with credentials or query parameters", () => {
+    process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL = "http://user:pass@127.0.0.1:8001";
+    expect(getFgDigitalRecordingUrl()).toBeNull();
+
+    process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL = "http://127.0.0.1:8001/?token=secret";
+    expect(getFgDigitalRecordingUrl()).toBeNull();
+  });
+
+  it("does not expose FG Digital Recording to technician-only roles", () => {
+    process.env.NEXT_PUBLIC_FG_DIGITAL_RECORDING_URL = "http://127.0.0.1:8001";
+
+    expect(getVisibleNavigationItems("TECHNICIAN").some((item) => item.id === FG_DIGITAL_RECORDING_NAV_ID)).toBe(
+      false
+    );
   });
 });

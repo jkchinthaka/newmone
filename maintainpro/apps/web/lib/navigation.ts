@@ -5,6 +5,7 @@
 
 import { LEGACY_FMS_HOME_PATH } from "./role-redirect";
 import { LEGACY_FMS_ARCHIVE_ROLES } from "./legacy-fms-access";
+import { buildFgDigitalRecordingNavItem } from "./fg-digital-recording";
 
 export type NavActiveMatch = "exact" | "startsWith";
 
@@ -40,6 +41,8 @@ export interface NavigationItem {
   category: NavCategory;
   description?: string;
   legacy?: boolean;
+  /** Opens a separate application; href must not include auth query parameters. */
+  external?: boolean;
   activeMatch?: NavActiveMatch;
   badgeKey?: NavBadgeKey;
   mobilePriority?: boolean;
@@ -869,7 +872,7 @@ export function getVisibleNavigationItems(
 
   const visible = NAVIGATION_ITEMS.filter((item) => {
     const baseHref = item.href.split("?")[0];
-    if (!EXISTING_NAV_ROUTES.has(baseHref)) {
+    if (!item.external && !EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
 
@@ -885,6 +888,11 @@ export function getVisibleNavigationItems(
 
     return true;
   });
+
+  const fgNavItem = buildFgDigitalRecordingNavItem();
+  if (fgNavItem && isNavigationItemVisible(fgNavItem, roleName, permissions)) {
+    visible.push(fgNavItem);
+  }
 
   if (visible.length > 0) {
     return visible;

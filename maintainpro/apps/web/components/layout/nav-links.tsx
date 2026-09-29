@@ -54,6 +54,7 @@ import {
   type NavCategory,
   type NavigationItem
 } from "@/lib/navigation";
+import { isExternalNavigationHref } from "@/lib/fg-digital-recording";
 import {
   readCollapsedNavGroups,
   readFavoriteNavIds,
@@ -201,22 +202,41 @@ function NavItemLink({
   onNavigate?: () => void;
 }) {
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
+  const external = Boolean(item.external) || isExternalNavigationHref(item.href);
+  const linkClassName = `flex min-h-11 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+    active ? activeClass : idleClass
+  }`;
+
+  const linkBody = (
+    <>
+      <Icon aria-hidden size={16} />
+      <span className="truncate">{item.label}</span>
+      {badgeCount != null ? <NavBadge count={badgeCount} /> : null}
+    </>
+  );
 
   return (
     <div className="group flex items-center gap-1">
-      <Link
-        href={item.href as Route}
-        onClick={onNavigate}
-        aria-current={toNavAriaCurrent(active)}
-        title={item.description}
-        className={`flex min-h-11 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
-          active ? activeClass : idleClass
-        }`}
-      >
-        <Icon aria-hidden size={16} />
-        <span className="truncate">{item.label}</span>
-        {badgeCount != null ? <NavBadge count={badgeCount} /> : null}
-      </Link>
+      {external ? (
+        <a
+          href={item.href}
+          onClick={onNavigate}
+          title={item.description}
+          className={linkClassName}
+        >
+          {linkBody}
+        </a>
+      ) : (
+        <Link
+          href={item.href as Route}
+          onClick={onNavigate}
+          aria-current={toNavAriaCurrent(active)}
+          title={item.description}
+          className={linkClassName}
+        >
+          {linkBody}
+        </Link>
+      )}
       <button
         type="button"
         onClick={onToggleFavorite}
