@@ -93,6 +93,21 @@ describe("ErpExcelImportService", () => {
             return { ...next, rows: rowsByRun.get(where.id) ?? [] };
           }
           return next;
+        }),
+        updateMany: jest.fn(async ({ where, data }: any) => {
+          const current = runs.get(where.id);
+          if (!current || current.tenantId !== where.tenantId) {
+            return { count: 0 };
+          }
+          if (where.status != null && current.status !== where.status) {
+            return { count: 0 };
+          }
+          if (where.appliedAt === null && current.appliedAt != null) {
+            return { count: 0 };
+          }
+          Object.assign(current, data);
+          runs.set(where.id, current);
+          return { count: 1 };
         })
       },
       inventoryImportRow: {
@@ -117,6 +132,14 @@ describe("ErpExcelImportService", () => {
               { id: "p1", partNumber: "09CS41", name: "Seal", quantityInStock: 12 }
             ]
           );
+        }),
+        update: jest.fn(async () => {
+          throw new Error("preview must not mutate SparePart");
+        })
+      },
+      stockMovement: {
+        create: jest.fn(async () => {
+          throw new Error("preview must not mutate StockMovement");
         })
       },
       auditLog: {
@@ -310,5 +333,78 @@ describe("ErpExcelImportService", () => {
     );
     expect(second.reused).toBe(true);
     expect(second.run.id).toBe(first.run.id);
+    expect(second.insight?.headers?.length).toBeGreaterThan(0);
+    expect(second.insight?.selectedSheet).toBeTruthy();
+  });
+
+  it("preview/validate does not mutate SparePart stock or StockMovement", async () => {
+    const { service, prisma } = buildService();
+    const buffer = await xlsxBuffer([{ "Item Code": "09CS41", Qty: 20 }]);
+    const uploaded = await service.upload(
+      { originalname: "preview.xlsx", buffer, size: buffer.length },
+      actor
+    );
+    await service.validate(
+      uploaded.run.id,
+      { mapping: { itemCode: "Item Code", quantity: "Qty" } },
+      actor
+    );
+    expect(prisma.sparePart.update).not.toHaveBeenCalled();
+    expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("allows only one winner when two apply requests race", async () => {
+    const { service, erpStockSyncService, prisma, runs } = buildService();
+    const buffer = await xlsxBuffer([{ "Item Code": "09CS41", Qty: 20 }]);
+    const uploaded = await service.upload(
+      { originalname: "race.xlsx", buffer, size: buffer.length },
+      actor
+    );
+    await service.validate(
+      uploaded.run.id,
+      { mapping: { itemCode: "Item Code", quantity: "Qty" } },
+      actor
+    );
+
+    let releaseApply!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseApply = resolve;
+    });
+    (erpStockSyncService.applyAbsoluteStockBalances as jest.Mock).mockImplementation(
+      async (_actor: unknown, balances: unknown[]) => {
+        await gate;
+        return {
+          mode: "absolute-snapshot",
+          status: "completed",
+          appliedAt: new Date().toISOString(),
+          updatedCount: balances.length,
+          skippedCount: 0,
+          failedCount: 0,
+          failedPartNumbers: [],
+          warnings: [],
+          message: "Applied",
+          snapshotBalanceCount: balances.length
+        };
+      }
+    );
+
+    const firstPromise = service.apply(uploaded.run.id, { confirmed: true }, actor);
+    // Let claim happen before second request.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(runs.get(uploaded.run.id).status).toBe(InventoryImportStatus.APPLYING);
+
+    const secondPromise = service.apply(uploaded.run.id, { confirmed: true }, actor);
+    releaseApply();
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(erpStockSyncService.applyAbsoluteStockBalances).toHaveBeenCalledTimes(1);
+    expect([first.reused, second.reused].filter(Boolean)).toHaveLength(1);
+    expect(
+      [first.run.status, second.run.status].every(
+        (status) =>
+          status === InventoryImportStatus.COMPLETED || status === InventoryImportStatus.PARTIAL
+      )
+    ).toBe(true);
+    expect(prisma.inventoryImportRun.updateMany).toHaveBeenCalled();
   });
 });

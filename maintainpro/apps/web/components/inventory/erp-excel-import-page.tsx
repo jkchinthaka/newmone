@@ -26,6 +26,17 @@ export function ErpExcelImportPage() {
   const [run, setRun] = useState<ErpExcelImportRun | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [sheetsByName, setSheetsByName] = useState<
+    Record<
+      string,
+      {
+        headers?: string[];
+        suggestedMapping?: Partial<ErpExcelColumnMapping>;
+        mappingConfidence?: string;
+        warehousesDetected?: string[];
+      }
+    >
+  >({});
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ErpExcelColumnMapping>({
     itemCode: "",
@@ -79,20 +90,26 @@ export function ErpExcelImportPage() {
     try {
       const data = await uploadErpExcelImport(file);
       setRun(data.run);
-      setHeaders(data.insight.headers);
-      setSheetNames(data.insight.sheetNames);
-      setWarehouses(data.insight.warehousesDetected);
-      setSheetName(data.insight.selectedSheet);
+      const insight = data.insight;
+      if (!insight) {
+        throw new Error("Upload response missing workbook insight");
+      }
+      setHeaders(insight.headers ?? []);
+      setSheetNames(insight.sheetNames ?? data.run.sheetsDetected ?? []);
+      setSheetsByName(insight.sheetsByName ?? data.run.mappingSnapshot?.sheetsByName ?? {});
+      setWarehouses(insight.warehousesDetected ?? data.run.warehousesDetected ?? []);
+      setSheetName(insight.selectedSheet || data.run.sheetName || "");
       setMapping({
-        itemCode: data.insight.suggestedMapping.itemCode ?? "",
-        quantity: data.insight.suggestedMapping.quantity ?? "",
-        itemName: data.insight.suggestedMapping.itemName ?? "",
-        warehouse: data.insight.suggestedMapping.warehouse ?? "",
-        uom: data.insight.suggestedMapping.uom ?? "",
-        businessDate: data.insight.suggestedMapping.businessDate ?? ""
+        itemCode: insight.suggestedMapping?.itemCode ?? "",
+        quantity: insight.suggestedMapping?.quantity ?? "",
+        itemName: insight.suggestedMapping?.itemName ?? "",
+        warehouse: insight.suggestedMapping?.warehouse ?? "",
+        uom: insight.suggestedMapping?.uom ?? "",
+        businessDate: insight.suggestedMapping?.businessDate ?? ""
       });
-      if (data.insight.warehousesDetected.length === 1) {
-        setWarehouseScope(data.insight.warehousesDetected[0]);
+      const detected = insight.warehousesDetected ?? [];
+      if (detected.length === 1) {
+        setWarehouseScope(detected[0]);
       }
       setStep("map");
       toast.success(data.reused ? "Recovered existing import for this file" : "Workbook uploaded");
@@ -101,6 +118,25 @@ export function ErpExcelImportPage() {
       toast.error(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function onSheetChange(nextSheet: string) {
+    setSheetName(nextSheet);
+    const meta = sheetsByName[nextSheet] ?? run?.mappingSnapshot?.sheetsByName?.[nextSheet];
+    if (meta?.headers?.length) {
+      setHeaders(meta.headers);
+      setMapping({
+        itemCode: meta.suggestedMapping?.itemCode ?? "",
+        quantity: meta.suggestedMapping?.quantity ?? "",
+        itemName: meta.suggestedMapping?.itemName ?? "",
+        warehouse: meta.suggestedMapping?.warehouse ?? "",
+        uom: meta.suggestedMapping?.uom ?? "",
+        businessDate: meta.suggestedMapping?.businessDate ?? ""
+      });
+      const wh = meta.warehousesDetected ?? [];
+      setWarehouses(wh);
+      setWarehouseScope(wh.length === 1 ? wh[0] : "");
     }
   }
 
@@ -218,7 +254,7 @@ export function ErpExcelImportPage() {
               <select
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 value={sheetName}
-                onChange={(event) => setSheetName(event.target.value)}
+                onChange={(event) => onSheetChange(event.target.value)}
               >
                 {sheetNames.map((name) => (
                   <option key={name} value={name}>
@@ -310,7 +346,9 @@ export function ErpExcelImportPage() {
                   <th className="px-3 py-2">MP Qty</th>
                   <th className="px-3 py-2">ERP Qty</th>
                   <th className="px-3 py-2">Diff</th>
+                  <th className="px-3 py-2">Warehouse</th>
                   <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Message</th>
                 </tr>
               </thead>
               <tbody>
@@ -322,11 +360,13 @@ export function ErpExcelImportPage() {
                     <td className="px-3 py-2">{row.maintainProQuantity ?? "—"}</td>
                     <td className="px-3 py-2">{row.erpQuantity ?? "—"}</td>
                     <td className="px-3 py-2">{row.difference ?? "—"}</td>
+                    <td className="px-3 py-2">{row.warehouseCode ?? "—"}</td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusTone[row.status] ?? ""}`}>
                         {row.status}
                       </span>
                     </td>
+                    <td className="px-3 py-2 text-slate-600">{row.message ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

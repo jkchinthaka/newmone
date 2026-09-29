@@ -33,6 +33,15 @@ export type ErpExcelImportRun = {
     suggestedMapping?: Partial<ErpExcelColumnMapping>;
     mapping?: ErpExcelColumnMapping;
     mappingConfidence?: string;
+    sheetsByName?: Record<
+      string,
+      {
+        headers?: string[];
+        suggestedMapping?: Partial<ErpExcelColumnMapping>;
+        mappingConfidence?: string;
+        warehousesDetected?: string[];
+      }
+    >;
   } | null;
   sheetsDetected?: string[] | null;
   warehousesDetected?: string[] | null;
@@ -64,7 +73,7 @@ export async function uploadErpExcelImport(file: File) {
     return response.data.data as {
       run: ErpExcelImportRun;
       reused: boolean;
-      insight: {
+      insight?: {
         sheetNames: string[];
         selectedSheet: string;
         headers: string[];
@@ -72,6 +81,15 @@ export async function uploadErpExcelImport(file: File) {
         mappingConfidence: string;
         warehousesDetected: string[];
         sampleRowCount: number;
+        sheetsByName?: Record<
+          string,
+          {
+            headers?: string[];
+            suggestedMapping?: Partial<ErpExcelColumnMapping>;
+            mappingConfidence?: string;
+            warehousesDetected?: string[];
+          }
+        >;
       };
     };
   } catch (error) {

@@ -15,11 +15,14 @@ import { ErpStockSyncService } from "./erp-stock-sync.service";
 import type { StockBalanceSnapshot } from "./inventory-erp-adapter.service";
 import {
   assertXlsxUpload,
+  ERP_EXCEL_MULTI_STAGING_FORMAT,
   ErpExcelColumnMapping,
+  ErpExcelMultiSheetStaging,
   ErpExcelStagingRecord,
   inspectErpExcelWorkbook,
   mappingIsComplete,
-  materializeRowsFromStaging
+  materializeRowsFromStaging,
+  resolveSheetStaging
 } from "./erp-excel-stock.parser";
 
 type Actor = {
@@ -89,6 +92,7 @@ export class ErpExcelImportService {
       IMPORT_ALREADY_APPLIED: "This ERP Excel file was already applied for this tenant.",
       IMPORT_NOT_READY: "Import is not ready to apply. Complete mapping and validation first.",
       IMPORT_APPLY_FAILED: "Stock synchronization failed. Inventory was not fully updated.",
+      IMPORT_APPLY_IN_PROGRESS: "Another apply is already in progress for this import. Retry shortly.",
       WAREHOUSE_SCOPE_REQUIRED: "Multiple warehouses were detected. Select a warehouse scope before apply."
     };
     throw new BadRequestException({
@@ -136,6 +140,7 @@ export class ErpExcelImportService {
       return {
         run: this.toPublicRun(existing),
         reused: true,
+        insight: this.insightFromRun(existing),
         message: "Existing import run recovered for this file fingerprint."
       };
     }
@@ -147,6 +152,12 @@ export class ErpExcelImportService {
       const code = (error as { code?: string }).code ?? "UNSUPPORTED_WORKBOOK";
       this.mapError(code, "Unsupported workbook");
     }
+
+    const multiStaging: ErpExcelMultiSheetStaging = {
+      format: ERP_EXCEL_MULTI_STAGING_FORMAT,
+      activeSheet: insight.selectedSheet,
+      sheets: insight.sheetsByName
+    };
 
     const run = await this.prisma.inventoryImportRun.create({
       data: {
@@ -161,11 +172,22 @@ export class ErpExcelImportService {
         sheetsDetected: insight.sheetNames as Prisma.InputJsonValue,
         warehousesDetected: insight.warehousesDetected as Prisma.InputJsonValue,
         headerRowIndex: insight.headerRowIndex,
-        stagingRecords: insight.stagingRecords as Prisma.InputJsonValue,
+        stagingRecords: multiStaging as unknown as Prisma.InputJsonValue,
         mappingSnapshot: {
           headers: insight.headers,
           suggestedMapping: insight.suggestedMapping,
-          mappingConfidence: insight.mappingConfidence
+          mappingConfidence: insight.mappingConfidence,
+          sheetsByName: Object.fromEntries(
+            Object.entries(insight.sheetsByName).map(([name, sheet]) => [
+              name,
+              {
+                headers: sheet.headers,
+                suggestedMapping: sheet.suggestedMapping,
+                mappingConfidence: sheet.mappingConfidence,
+                warehousesDetected: sheet.warehousesDetected
+              }
+            ])
+          )
         } as Prisma.InputJsonValue
       }
     });
@@ -194,7 +216,18 @@ export class ErpExcelImportService {
         suggestedMapping: insight.suggestedMapping,
         mappingConfidence: insight.mappingConfidence,
         warehousesDetected: insight.warehousesDetected,
-        sampleRowCount: insight.rows.length
+        sampleRowCount: insight.rows.length,
+        sheetsByName: Object.fromEntries(
+          Object.entries(insight.sheetsByName).map(([name, sheet]) => [
+            name,
+            {
+              headers: sheet.headers,
+              suggestedMapping: sheet.suggestedMapping,
+              mappingConfidence: sheet.mappingConfidence,
+              warehousesDetected: sheet.warehousesDetected
+            }
+          ])
+        )
       }
     };
   }
@@ -231,7 +264,16 @@ export class ErpExcelImportService {
       this.mapError("COLUMN_MAPPING_REQUIRED", "Column mapping required");
     }
 
-    const stagingRecords = (run.stagingRecords as ErpExcelStagingRecord[] | null) ?? [];
+    let sheetResolved: ReturnType<typeof resolveSheetStaging>;
+    try {
+      sheetResolved = resolveSheetStaging(run.stagingRecords, body.sheetName ?? run.sheetName);
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? "IMPORT_NOT_READY";
+      this.mapError(code, "Import staging data is missing; upload the workbook again.");
+    }
+    const stagingRecords = ("records" in sheetResolved.staging
+      ? sheetResolved.staging.records
+      : []) as ErpExcelStagingRecord[];
     if (stagingRecords.length === 0) {
       this.mapError("IMPORT_NOT_READY", "Import staging data is missing; upload the workbook again.");
     }
@@ -345,7 +387,7 @@ export class ErpExcelImportService {
     const updated = await this.prisma.inventoryImportRun.update({
       where: { id: run.id },
       data: {
-        sheetName: body.sheetName ?? run.sheetName,
+        sheetName: sheetResolved.sheetName || body.sheetName || run.sheetName,
         warehouseScope: warehouseScope ?? (warehouses.length <= 1 ? warehouses[0] ?? null : null),
         businessDate: body.businessDate ? new Date(body.businessDate) : null,
         status: blocked ? InventoryImportStatus.BLOCKED : InventoryImportStatus.VALIDATED,
@@ -462,46 +504,102 @@ export class ErpExcelImportService {
       };
     }
 
-    if (run.status !== InventoryImportStatus.VALIDATED) {
+    if (run.status === InventoryImportStatus.APPLYING) {
+      const waited = await this.waitForApplyTerminal(importRunId, tenantId);
+      if (waited) {
+        return {
+          run: this.toPublicRun(waited as never),
+          preview: waited.rows?.map((row) => this.toPublicRow(row)),
+          reused: true,
+          message: "Import already applied; returning existing result."
+        };
+      }
+      // Stale APPLYING (crash) — reclaim by resetting to VALIDATED then claiming below.
+      await this.prisma.inventoryImportRun.updateMany({
+        where: {
+          id: run.id,
+          tenantId,
+          status: InventoryImportStatus.APPLYING,
+          appliedAt: null
+        },
+        data: { status: InventoryImportStatus.VALIDATED }
+      });
+    }
+
+    const ready = await this.prisma.inventoryImportRun.findFirst({
+      where: { id: importRunId, tenantId },
+      include: { rows: true }
+    });
+    if (!ready) {
+      throw new NotFoundException("Import run not found");
+    }
+    if (
+      ready.status === InventoryImportStatus.COMPLETED ||
+      ready.status === InventoryImportStatus.PARTIAL
+    ) {
+      return {
+        run: this.toPublicRun(ready),
+        reused: true,
+        message: "Import already applied; returning existing result."
+      };
+    }
+    if (ready.status !== InventoryImportStatus.VALIDATED) {
       this.mapError("IMPORT_NOT_READY", "Import not ready");
     }
 
-    if (run.duplicateRows > 0 || run.invalidRows > 0) {
+    // Server-side revalidation: never trust stale browser preview alone.
+    if (ready.duplicateRows > 0 || ready.invalidRows > 0) {
       this.mapError(
-        run.duplicateRows > 0 ? "DUPLICATE_ITEM_CODE" : "IMPORT_NOT_READY",
+        ready.duplicateRows > 0 ? "DUPLICATE_ITEM_CODE" : "IMPORT_NOT_READY",
         "Import blocked"
       );
     }
 
-    const applyable = run.rows.filter(
-      (row) =>
-        row.status === InventoryImportRowStatus.CHANGE ||
-        row.status === InventoryImportRowStatus.UNCHANGED ||
-        row.status === InventoryImportRowStatus.MATCHED
+    const changeRows = ready.rows.filter(
+      (row) => row.status === InventoryImportRowStatus.CHANGE
     );
-    const changeRows = applyable.filter((row) => row.status === InventoryImportRowStatus.CHANGE);
+    const stillValidChanges = changeRows.filter(
+      (row) => row.erpItemCode && row.erpQuantity != null && row.partId
+    );
+    if (stillValidChanges.length !== changeRows.length) {
+      this.mapError("IMPORT_NOT_READY", "Import rows are no longer valid; re-validate the workbook.");
+    }
 
-    await this.prisma.inventoryImportRun.update({
-      where: { id: run.id },
+    // Atomic claim: only one concurrent apply may transition VALIDATED → APPLYING.
+    const claimed = await this.prisma.inventoryImportRun.updateMany({
+      where: {
+        id: ready.id,
+        tenantId,
+        status: InventoryImportStatus.VALIDATED
+      },
       data: { status: InventoryImportStatus.APPLYING }
     });
+    if (claimed.count !== 1) {
+      const raced = await this.waitForApplyTerminal(importRunId, tenantId);
+      if (raced) {
+        return {
+          run: this.toPublicRun(raced as never),
+          preview: raced.rows?.map((row) => this.toPublicRow(row)),
+          reused: true,
+          message: "Import already applied; returning existing result."
+        };
+      }
+      this.mapError("IMPORT_APPLY_IN_PROGRESS", "Apply already in progress");
+    }
 
-    const erpBalances: StockBalanceSnapshot[] = changeRows
-      .filter((row) => row.erpItemCode && row.erpQuantity != null && row.partId)
-      .map((row) => ({
-        partSku: row.erpItemCode as string,
-        quantityOnHand: row.erpQuantity as number,
-        warehouseCode: row.warehouseCode
-      }));
+    const erpBalances: StockBalanceSnapshot[] = stillValidChanges.map((row) => ({
+      partSku: row.erpItemCode as string,
+      quantityOnHand: row.erpQuantity as number,
+      warehouseCode: row.warehouseCode
+    }));
 
-    // Include unchanged as well so absolute engine can skip-no-op; only CHANGE needed for mutation.
     const result = await this.erpStockSyncService.applyAbsoluteStockBalances(
       actor?.sub
         ? { sub: actor.sub, tenantId: actor.tenantId ?? null }
         : undefined,
       erpBalances,
       {
-        movementReference: `ERP-EXCEL:${run.id}`,
+        movementReference: `ERP-EXCEL:${ready.id}`,
         notesPrefix: "ERP Excel stock import"
       }
     );
@@ -515,7 +613,7 @@ export class ErpExcelImportService {
 
     if (finalStatus === InventoryImportStatus.FAILED) {
       await this.prisma.inventoryImportRun.update({
-        where: { id: run.id },
+        where: { id: ready.id },
         data: {
           status: InventoryImportStatus.FAILED,
           failedRows: result.failedCount,
@@ -527,7 +625,7 @@ export class ErpExcelImportService {
     }
 
     const updated = await this.prisma.inventoryImportRun.update({
-      where: { id: run.id },
+      where: { id: ready.id },
       data: {
         status: finalStatus,
         appliedAt: new Date(),
@@ -540,7 +638,7 @@ export class ErpExcelImportService {
     });
 
     await this.recordAudit({
-      entityId: run.id,
+      entityId: ready.id,
       action: AuditAction.UPDATE,
       actor,
       reason: "ERP Excel stock import applied",
@@ -549,8 +647,8 @@ export class ErpExcelImportService {
         updatedRows: result.updatedCount,
         failedRows: result.failedCount,
         skippedCount: result.skippedCount,
-        movementReference: `ERP-EXCEL:${run.id}`,
-        unmappedRows: run.unmappedRows
+        movementReference: `ERP-EXCEL:${ready.id}`,
+        unmappedRows: ready.unmappedRows
       }
     });
 
@@ -560,6 +658,102 @@ export class ErpExcelImportService {
       apply: result,
       reused: false,
       message: result.message
+    };
+  }
+
+  private async waitForApplyTerminal(
+    importRunId: string,
+    tenantId: string,
+    attempts = 20,
+    delayMs = 100
+  ): Promise<{
+    id: string;
+    status: InventoryImportStatus;
+    rows?: Array<{
+      id: string;
+      rowNumber: number;
+      erpItemCode: string | null;
+      itemName: string | null;
+      erpQuantity: number | null;
+      warehouseCode: string | null;
+      partNumber: string | null;
+      maintainProQuantity: number | null;
+      difference: number | null;
+      status: InventoryImportRowStatus;
+      message: string | null;
+    }>;
+    [key: string]: unknown;
+  } | null> {
+    for (let i = 0; i < attempts; i += 1) {
+      const fresh = await this.prisma.inventoryImportRun.findFirst({
+        where: { id: importRunId, tenantId },
+        include: { rows: { orderBy: { rowNumber: "asc" }, take: 500 } }
+      });
+      if (!fresh) return null;
+      if (
+        fresh.status === InventoryImportStatus.COMPLETED ||
+        fresh.status === InventoryImportStatus.PARTIAL ||
+        fresh.status === InventoryImportStatus.FAILED
+      ) {
+        return fresh;
+      }
+      if (fresh.status !== InventoryImportStatus.APPLYING) {
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    return null;
+  }
+
+  private insightFromRun(run: {
+    sheetName: string | null;
+    totalRows: number;
+    mappingSnapshot: Prisma.JsonValue | null;
+    sheetsDetected: Prisma.JsonValue | null;
+    warehousesDetected: Prisma.JsonValue | null;
+    stagingRecords: Prisma.JsonValue | null;
+  }) {
+    const mappingSnapshot = (run.mappingSnapshot as Record<string, unknown> | null) ?? {};
+    const sheetsByNameMeta =
+      (mappingSnapshot.sheetsByName as Record<
+        string,
+        {
+          headers?: string[];
+          suggestedMapping?: Partial<ErpExcelColumnMapping>;
+          mappingConfidence?: string;
+          warehousesDetected?: string[];
+        }
+      > | null) ?? null;
+    const selectedSheet = run.sheetName ?? "";
+    const selectedMeta = sheetsByNameMeta?.[selectedSheet];
+    const sheetNames = Array.isArray(run.sheetsDetected)
+      ? (run.sheetsDetected as string[])
+      : selectedSheet
+        ? [selectedSheet]
+        : [];
+    const headers =
+      selectedMeta?.headers ??
+      (Array.isArray(mappingSnapshot.headers) ? (mappingSnapshot.headers as string[]) : []);
+    const suggestedMapping =
+      selectedMeta?.suggestedMapping ??
+      ((mappingSnapshot.suggestedMapping as Partial<ErpExcelColumnMapping> | undefined) ?? {});
+    const warehousesDetected =
+      selectedMeta?.warehousesDetected ??
+      (Array.isArray(run.warehousesDetected) ? (run.warehousesDetected as string[]) : []);
+
+    return {
+      sheetNames,
+      selectedSheet,
+      headers,
+      suggestedMapping,
+      mappingConfidence:
+        selectedMeta?.mappingConfidence ??
+        (typeof mappingSnapshot.mappingConfidence === "string"
+          ? mappingSnapshot.mappingConfidence
+          : "low"),
+      warehousesDetected,
+      sampleRowCount: run.totalRows,
+      sheetsByName: sheetsByNameMeta ?? undefined
     };
   }
 
