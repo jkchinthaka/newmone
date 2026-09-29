@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { PrismaService } from "../../database/prisma.service";
 import { DriverIntelligenceService } from "../driver-intelligence/driver-intelligence.service";
 import { VehiclesService } from "../vehicles/vehicles.service";
@@ -216,6 +217,24 @@ export class ReportsService {
     private readonly vehiclesService: VehiclesService,
     private readonly erpMonitoringService: ErpMonitoringService
   ) {}
+
+  /**
+   * report-access.matrix.ts keys fine-grained view/export checks off actor.permissions,
+   * but access/refresh JWTs deliberately no longer carry permissions (cookie size), so
+   * req.user.permissions is empty in production. Load the role's current permissions
+   * from the DB — the same source PermissionsGuard uses — so an Admin Console grant of
+   * reports.export (or a granular report permission) takes effect for custom roles.
+   */
+  private async withCurrentPermissions(actor: ReportActor): Promise<ReportActor> {
+    if (!actor?.sub || (Array.isArray(actor.permissions) && actor.permissions.length > 0)) {
+      return actor;
+    }
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: actor.sub },
+      select: { role: { select: { permissionLinks: { select: { permission: { select: { key: true } } } } } } }
+    });
+    return { ...actor, permissions: rolePermissionKeys(dbUser?.role) };
+  }
 
   async options(actor: ReportActor): Promise<ReportFilterOptions> {
     return this.getFilterOptions(actor.tenantId ?? null);
@@ -612,6 +631,7 @@ export class ReportsService {
 
   async moduleReport(actor: ReportActor, module: ReportModuleKey, query: ReportQuery = {}): Promise<ReportModuleResponse> {
     this.assertModule(module);
+    actor = await this.withCurrentPermissions(actor);
     this.assertModuleAccess(actor, module);
 
     switch (module) {
@@ -641,6 +661,7 @@ export class ReportsService {
   }
 
   async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile & { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }> {
+    actor = await this.withCurrentPermissions(actor);
     assertCanExportReport(actor, module);
     const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_PAGE_SIZE });
     const totalMatchedCount = report.table.pagination.total;
