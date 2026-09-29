@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { safeInternalReturnPath } from "../role-redirect";
+import { getPostLoginRedirect, resolveSplashDestination, safeInternalReturnPath } from "../role-redirect";
 
 describe("safeInternalReturnPath", () => {
   it("allows an internal work-order path", () => {
@@ -20,6 +20,13 @@ describe("safeInternalReturnPath", () => {
   it("rejects auth pages that would loop", () => {
     assert.equal(safeInternalReturnPath("/login"), null);
     assert.equal(safeInternalReturnPath("/forgot-password"), null);
+    assert.equal(safeInternalReturnPath("/splash"), null);
+  });
+
+  it("uses a safe return path before the role landing", () => {
+    assert.equal(resolveSplashDestination({ role: "ADMIN" }, "/requests"), "/requests");
+    assert.equal(resolveSplashDestination({ role: "ADMIN" }, "https://evil.example"), "/action-center");
+    assert.equal(resolveSplashDestination({ role: "ADMIN" }, null), getPostLoginRedirect({ role: "ADMIN" }));
   });
 
   it("rejects a control character that would decode into a protocol-relative URL", () => {

@@ -168,3 +168,7 @@ export function safeInternalReturnPath(value: string | null | undefined): string
 
   return decoded;
 }
+
+export function resolveSplashDestination(user: PostLoginUserLike, returnTo: string | null | undefined) {
+  return safeInternalReturnPath(returnTo) ?? getPostLoginRedirect(user);
+}

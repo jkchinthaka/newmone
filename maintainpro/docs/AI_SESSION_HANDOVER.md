@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~19:05 IST. `/register` is locally verified as invitation-only on `feature/phase-01-login`. Do not start `/splash` until the next CONTINUE.
+**Last updated:** 2026-09-29 ~19:15 IST. `/splash` is locally verified on `feature/phase-01-login`. The next CONTINUE is the Phase 01 cross-page audit, not Phase 02.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
 | Current phase | 01 Login, session, invitation onboarding |
-| Current page | `/register` — LOCAL DEVELOPMENT COMPLETE |
-| Next page | `/splash` — do not start until the next CONTINUE |
+| Current page | `/splash` — LOCAL DEVELOPMENT COMPLETE |
+| Next page | Phase 01 cross-page audit — do not start Phase 02 until that audit is done |
 | Local Git | `feature/phase-01-login`. Still based on unmerged `ci/jest-heap-oom` at `4c41d269`. Ancestors include `04dc017c` and `8e999fde`. Do not merge this branch straight to main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
@@ -152,7 +152,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The earliest unfinished local page is `/splash`. Do not open it until the next CONTINUE. `/register` stays invitation-only.
+The next CONTINUE runs the Phase 01 cross-page audit across login, forgot-password, accept-invite, register, and splash. Do not start Phase 02 during that pass.
 
-1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269` and `653e2a20`. Do not merge it directly into main.
+1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269` and `0e5ec73c`. Do not merge it directly into main.
 2. Vercel, Cloudflare, and Netlify stay under release readiness.
