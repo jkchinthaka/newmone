@@ -15,13 +15,18 @@ type ForgotPasswordForm = {
 export default function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const { register, handleSubmit } = useForm<ForgotPasswordForm>();
+  const [error, setError] = useState<string | null>(null);
+  const { register, handleSubmit, formState: { errors } } = useForm<ForgotPasswordForm>();
 
   const onSubmit = async (values: ForgotPasswordForm) => {
     setBusy(true);
+    setError(null);
     try {
       await apiClient.post("/auth/forgot-password", values);
       setSent(true);
+    } catch {
+      setSent(false);
+      setError("We could not send the reset request. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -41,16 +46,23 @@ export default function ForgotPasswordPage() {
           Enter your work email. If an account exists, a reset link request will be accepted.
         </p>
 
-        <form className="mt-8 space-y-4" method="post" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-4" noValidate onSubmit={handleSubmit(onSubmit)}>
           <label className="block text-sm text-slate-600" htmlFor="forgot-password-email">
             <span className="mb-2 block font-medium text-slate-700">Work Email</span>
             <input
-              {...register("email")}
+              {...register("email", { required: "Enter the email address for your account." })}
+              aria-describedby={errors.email ? "forgot-password-email-error" : undefined}
+              aria-invalid={errors.email ? "true" : "false"}
               autoComplete="email"
               className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
               id="forgot-password-email"
               type="email"
             />
+            {errors.email?.message ? (
+              <p id="forgot-password-email-error" className="mt-2 text-sm text-rose-700" role="alert">
+                {errors.email.message}
+              </p>
+            ) : null}
           </label>
           <button
             className="min-h-11 w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-70"
@@ -71,6 +83,11 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
 
+        {error ? (
+          <p className="mt-4 text-sm text-rose-700" role="alert">
+            {error}
+          </p>
+        ) : null}
         {sent ? (
           <p
             className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"

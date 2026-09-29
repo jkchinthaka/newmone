@@ -129,7 +129,7 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 ## C. Current phase and page
 
 - **Current phase:** 01 Login, session, and invitation onboarding.
-- **Current page:** `/login` — LOCAL DEVELOPMENT COMPLETE. Do not start `/forgot-password` until the next CONTINUE.
+- **Current page:** `/forgot-password` — LOCAL DEVELOPMENT COMPLETE. Do not start `/accept-invite` until the next CONTINUE.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - **Do not start** Phase 02, and do not open `/requests/new` during Phase 01.
 
@@ -150,7 +150,7 @@ Required pages that exist in the current tree. "Implemented" means a route file 
 | Page | Route | Local status | Notes |
 | --- | --- | --- | --- |
 | Login | `/login` | LOCAL DEVELOPMENT COMPLETE | Existing login kept. Failed sign-in stays on the page with “Incorrect email or password.” An external `returnTo` is ignored and lands on `/action-center`. Reload keeps the session. Access and refresh cookies are HttpOnly. Tokens are not stored in localStorage. |
-| Forgot password | `/forgot-password` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/forgot-password` and `POST /auth/reset-password`. |
+| Forgot password | `/forgot-password` and `/reset-password` | LOCAL DEVELOPMENT COMPLETE | Unknown and registered emails both receive “If this email exists, a reset link has been sent.” The reset token is stored as a SHA-256 hash for 15 minutes, older unused tokens are marked used, and a second use is rejected. Refresh sessions are revoked on reset. `EMAIL_MODE=disabled` locally, so no mailbox delivery was observed and the log line does not include the token. An invalid token shows “Invalid or expired reset token.” |
 | Accept invitation | `/accept-invite` | IMPLEMENTED — NOT VERIFIED | API `GET /auth/invite/verify` and `POST /auth/invite/accept`. Admin invitations page is Phase 13. |
 | Register | `/register` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/register`. Confirm whether invitation policy already disables open registration before changing it. |
 | Splash | `/splash` | IMPLEMENTED — NOT VERIFIED | |
@@ -419,12 +419,12 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | `/login` local verification on `feature/phase-01-login`. No login code change. `ci/jest-heap-oom` left at `4c41d269`. | not pushed |
+| 2026-09-29 | `/forgot-password` and `/reset-password` local verification. Same response for unknown and known emails. Token hash and single-use covered by tests. Email delivery not observed because EMAIL_MODE=disabled. | local, not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-`/login` is locally complete. Do not start another page in this session.
+`/forgot-password` is locally complete. Do not start `/accept-invite` until the next CONTINUE.
 
-The next CONTINUE should open `/forgot-password` on `feature/phase-01-login`, without moving `ci/jest-heap-oom` or pushing.
+`feature/phase-01-login` still contains unmerged `ci/jest-heap-oom` (`4c41d269`). Do not merge this branch directly into main.
