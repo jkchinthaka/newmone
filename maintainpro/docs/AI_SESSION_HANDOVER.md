@@ -30,7 +30,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 | --- | --- |
 | Current phase | 04 Maintenance dashboard — IN PROGRESS on `feature/phase-04-maintenance-dashboard` |
 | Next phase | Finish `/maintenance`: remaining card destinations, waiting-parts count vs queue, then browser the rest of the page. |
-| Local Git | `feature/phase-04-maintenance-dashboard`, created with `--no-track` from `feature/phase-03-action-center`. Phase 03 code is `42c9d82c`; handover note `84186c65`. Ancestors include unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Local Git | `feature/phase-04-maintenance-dashboard` at `cde25d49`, created with `--no-track` from `feature/phase-03-action-center`. Phase 03 code is `42c9d82c`. Ancestors include unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `feature/phase-04-maintenance-dashboard` (not pushed). `feature/phase-03-action-center` remains at `84186c65`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
