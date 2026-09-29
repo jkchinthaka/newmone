@@ -24,12 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~16:10 IST (Claude Code session, reconciliation after main push)
+**Last updated:** 2026-09-29 ~16:20 IST (Cursor Phase 00 reconciliation)
+
+Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. The ledger now has the 15-phase checklist. Active page is still `/requests` and `/requests/[id]`.
 
 | Item | Value |
 | --- | --- |
-| Current page | Maintenance Requests — list `/requests` and detail `/requests/[id]` (iteration 01) |
-| Status | **PARTIALLY VERIFIED**: on `main`, automated local gates pass; CI red (root cause fixed in PR #62, awaiting CI); browser UAT not done; Vercel/Cloudflare red (config, pre-existing) |
+| Current phase | 08 Maintenance Requests |
+| Current page | `/requests` and `/requests/[id]` |
+| Status | **PARTIALLY VERIFIED**. Local gates from the Requests session passed. Browser UAT not done. PR #62 head is now `a5f14019`: `fresh-sqlserver-migrate` pass; `full-stack-e2e`, Vercel, and Workers fail; `build`, `docker-build`, `release-validate`, and `validate-monorepo` were still pending at the Phase 00 inspection. Do not treat the older green run on `4a9a597b` as the result for this head. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -148,19 +151,24 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` §3.1. Summary:
 
 ## Exact next action for the next agent
 
-1. Run the start-of-session checks. Expect `origin/main` = `52311b8f` (or the PR #62 merge
-   commit if the user merged it) and branch `ci/jest-heap-oom`.
-2. Check PR #62: `gh pr checks 62`. If validate-monorepo is green, report to the user and ask
-   to merge (do not self-merge without approval). If red, read `gh run view <id> --log-failed`
-   and fix the root cause on the same branch.
-3. Browser UAT once the user has signed in: `/requests` and `/requests/<id>` at desktop
-   (~1440), tablet (~820) and phone (~390) widths:
+The earliest unfinished page is `/requests` and `/requests/[id]`. Do not start `/requests/new`,
+and do not rebuild the Requests slice that is already on `main` (`89533ac0` inside `52311b8f`).
+
+1. Run the start-of-session checks. Expect branch `ci/jest-heap-oom` unless PR #62 has merged.
+   `origin/main` stays `52311b8f` until that merge.
+2. `gh pr checks 62` for head `a5f14019` (or a newer head on this branch). If a required check
+   failed because of this branch, fix it here. Leave MinIO, Vercel, and Workers failures as the
+   recorded infra blockers unless a log shows a new application fault. Do not merge while
+   required checks are pending or failing. Do not self-merge.
+3. Browser UAT once the user has signed in at `http://localhost:3001`. Do not type the seed
+   password. Check `/requests` and `/requests/<id>` at desktop (~1440), tablet (~820), and
+   phone (~390):
    - no horizontal scroll;
    - no console errors;
    - `GET /api/backend/maintenance-requests*` calls succeed;
    - counter cards filter the list; Escape closes the row menu.
 
-   Record the results here and in the ledger.
-4. Only when CI is green and UAT passes: mark iteration 01 **VERIFIED COMPLETE** in the ledger
-   with the final main SHA. Then, and only then, start `/requests/new` on a new `--no-track`
-   branch from `origin/main`.
+   Record the results in this file and in `PRODUCT_FINALIZATION_LEDGER.md`.
+4. Mark the page **VERIFIED COMPLETE** only when that UAT is recorded and main contains both
+   the Requests slice and a passing required CI result. The next page is then `/requests/new`,
+   on a new `--no-track` branch from updated `origin/main`.
