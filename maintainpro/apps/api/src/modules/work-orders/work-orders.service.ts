@@ -28,6 +28,7 @@ import {
   assertTenantEntityExists,
   requireTenantId
 } from "../../common/utils/tenant-scope.util";
+import { evaluateVendorEligibility } from "../policies/governance-policies";
 import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
 import { parseJobDomain, resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
@@ -1194,6 +1195,31 @@ export class WorkOrdersService {
     return updated;
   }
 
+  private async assertVendorAssignable(supplierId: string, actor?: Actor) {
+    const tenantId = requireTenantId(actor?.tenantId);
+    const supplier = await this.prisma.supplier.findFirst({ where: { id: supplierId, tenantId } });
+    if (!supplier) throw new NotFoundException("Vendor not found");
+    const contracts = await this.prisma.vendorContract.findMany({
+      where: { tenantId, supplierId, isActive: true },
+      select: { startDate: true, endDate: true, isActive: true, reminderDays: true }
+    });
+    const decision = evaluateVendorEligibility({
+      tenantId,
+      active: supplier.isActive,
+      blacklisted: supplier.blacklisted,
+      insuranceRequired: supplier.insuranceRequired,
+      insuranceExpiresAt: supplier.insuranceExpiresAt,
+      contracts
+    });
+    if (!decision.assignmentAllowed) {
+      throw new BadRequestException({
+        code: "VENDOR_NOT_ASSIGNABLE",
+        message: decision.reasons.map((reason) => reason.message).join(" "),
+        reasons: decision.reasons
+      });
+    }
+  }
+
   async planWork(
     id: string,
     data: {
@@ -1227,6 +1253,9 @@ export class WorkOrdersService {
     }
     if (expectedCompletionDate && expectedCompletionDate.getTime() < plannedStartAt.getTime()) {
       throw new BadRequestException("Expected completion must not be earlier than planned start.");
+    }
+    if (data.vendorSupplierId && data.vendorSupplierId !== current.vendorSupplierId) {
+      await this.assertVendorAssignable(data.vendorSupplierId, actor);
     }
     if (
       data.estimatedHours != null &&
