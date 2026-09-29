@@ -428,7 +428,7 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
 | 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | `ae7f84dd`, local, not pushed |
 | 2026-09-29 | Phase 02 shell finished locally: sidebar, topbar, breadcrumbs, mobile drawer, tenant stability, cleaner denial, expired session, logout, and offline banner. | `feature/phase-02-shell`, not pushed |
-| 2026-09-29 | Phase 03 Action Center: readiness no longer blocks the board; overdue and high-priority cards open matching queues. No schema change. No permissions granted. | `feature/phase-03-action-center`, not pushed |
+| 2026-09-29 | Phase 03 Action Center: readiness no longer blocks the board; overdue and high-priority cards open matching queues. No schema change. No permissions granted. | `feature/phase-03-action-center` `42c9d82c`, not pushed |
 
 ---
 

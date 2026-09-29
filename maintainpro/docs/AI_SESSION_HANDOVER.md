@@ -30,7 +30,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 | --- | --- |
 | Current phase | 03 Action Center — LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | Next phase | 04 Maintenance dashboard (`/maintenance`). Continue without waiting for CONTINUE. |
-| Local Git | `feature/phase-03-action-center`, created with `--no-track` from `feature/phase-02-shell` at `088d3cec`. Ancestors include Phase 01, Phase 02, and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Local Git | `feature/phase-03-action-center` at `42c9d82c`, created with `--no-track` from `feature/phase-02-shell` at `088d3cec`. Ancestors include Phase 01, Phase 02, and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `feature/phase-03-action-center` (not pushed). `feature/phase-02-shell` remains at `088d3cec`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
