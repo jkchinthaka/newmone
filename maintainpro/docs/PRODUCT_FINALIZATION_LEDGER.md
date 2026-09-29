@@ -1,7 +1,7 @@
 # MaintainPro — Product Finalization Ledger
 
-Persistent record for the page-by-page finalization programme. **Read this first** at the start of
-every session, together with `git log origin/main`, `docs/BRANCH_CONSOLIDATION_2026-09-29.md`
+Persistent record for the page-by-page finalization programme. **Read `AI_SESSION_HANDOVER.md`
+first** (live state, blockers, exact next action), then this file, together with `git log origin/main`, `docs/BRANCH_CONSOLIDATION_2026-09-29.md`
 and `docs/audit/FULL_SYSTEM_CONSISTENCY_AUDIT.md`.
 
 Rules of the programme: one page / vertical slice per iteration; database → API → RBAC →
@@ -74,9 +74,10 @@ programme's gates.
 | Routes | `/requests`, `/requests/[id]` |
 | Baseline | `origin/main` @ `6264948f` |
 | Branch | `maintainpro/finalization-iter-01` |
-| Final commit | recorded in the PR / merge record |
+| Branch commit | `89533ac0` (local, not pushed; tree identical to original `124e9fc5`, see handover "Branch history warning") |
+| Merged to main | not yet |
 | Date | 2026-09-29 |
-| Status | See final report in PR (browser visual check pending user sign-in at time of writing) |
+| Status | **PARTIALLY VERIFIED**: all automated gates pass; browser visual/responsive check and main integration pending |
 
 **API endpoints** (`maintenance-requests.controller.ts`): `GET /maintenance-requests`
 (+ new `stage`), `GET /summary` (+ `mine`, returns `scope` and `capabilities`), `GET /:id`,
@@ -127,10 +128,12 @@ vendor-eligibility merge (#60); the blacklist test now asserts the eligibility e
 | Gate | Result |
 | --- | --- |
 | `npm run typecheck` / `npm run lint` | pass |
-| `npm run test` (API jest) | see PR (final full-suite run recorded there) |
+| `npm run test` (API jest) | 221 suites pass, 1 skipped; 1933 tests pass, 10 skipped, 0 failed |
 | New `test/maintenance-requests-actions.spec.ts` | 16 / 16 |
 | `test/maintenance-requests.spec.ts`, `request-lifecycle`, `permissions.guard`, `navigation` | pass |
 | Web `npm test` (tsx) incl. new `maintenance-request-ui.test.ts` | 106 / 106 |
+| Full build (CI env) | pass |
+| Browser visual / responsive check | not run (needs user sign-in) |
 | `npm run audit:rbac` | 951 routes, 0 violations |
 | `npm run audit:tenant` | 0 unapproved |
 | `npm run db:migrate:status` | 25 migrations, up to date (no migration in this slice) |

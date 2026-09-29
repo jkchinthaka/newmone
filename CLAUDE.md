@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session continuity (MANDATORY — read before anything else)
+
+Any AI session can end abruptly (usage limits). Continuity lives in the repo, not the chat.
+
+1. **At session start**, before changing anything: read `maintainpro/docs/AI_SESSION_HANDOVER.md`,
+   then `maintainpro/docs/PRODUCT_FINALIZATION_LEDGER.md`, then run the Git checks listed in the
+   handover (`git fetch`, `status -sb`, `log`, `reflog`, `stash list`, `worktree list`,
+   `log HEAD..origin/main`). If the branch or HEAD differs from what the handover records, stop and
+   tell the user before continuing.
+2. **After every meaningful milestone** (a fix verified, a test run, a commit, a blocker found),
+   update `AI_SESSION_HANDOVER.md`: current page and status, completed and remaining work, branch
+   and commit SHA, modified or uncommitted files, DB/API/RBAC/workflow changes, tests actually run
+   with real results, errors and blockers, and the exact next action. Update the ledger when a
+   page's status changes. Commit these doc updates on the working branch.
+3. Keep unfinished work committed on the current feature branch. Never force-push, never reset or
+   discard others' changes, never pop stashes you did not create, never push unvalidated code to `main`.
+4. Never record secrets (passwords, tokens, connection strings) in these files.
+
 ## Repository layout
 
 This git repo's root contains deployment glue (root `Dockerfile`, `vercel.json`, `wrangler.jsonc`, `render.yaml`, `.github/workflows/docker-image.yml`) that all point into the actual application, which lives entirely under `maintainpro/`. **Almost all work happens inside `maintainpro/`.** Run all commands below from `maintainpro/` unless otherwise noted.
