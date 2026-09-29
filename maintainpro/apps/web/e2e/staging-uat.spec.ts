@@ -36,7 +36,7 @@ test.describe("staging browser UAT (UAT-001)", () => {
     await page.locator('input[name="password"]').fill("WrongPass123!@#");
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText("Invalid email or password")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Incorrect email or password.")).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/login/);
     await expect(page).not.toHaveURL(/reason=session_expired/);
   });

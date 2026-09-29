@@ -16,6 +16,7 @@ import {
   TenantSessionProvider,
   useTenantSession
 } from "@/lib/tenant-session";
+import { safeInternalReturnPath } from "@/lib/role-redirect";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -25,7 +26,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (state === "SESSION_EXPIRED") {
-      router.replace("/login?reason=session_expired");
+      const current = `${window.location.pathname}${window.location.search}`;
+      const returnTo = safeInternalReturnPath(current);
+      const params = new URLSearchParams({ reason: "session_expired" });
+      if (returnTo) params.set("returnTo", returnTo);
+      router.replace(`/login?${params.toString()}`);
     }
   }, [router, state]);
 

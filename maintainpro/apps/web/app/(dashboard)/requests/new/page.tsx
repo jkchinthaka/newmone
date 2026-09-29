@@ -2,6 +2,8 @@
 
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import type { Route } from "next";
 import { Loader2, MapPin, QrCode, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,12 +16,13 @@ import { getBrowserNetworkState } from "@/lib/network-status";
 import { enqueueOfflineAction } from "@/lib/offline-queue";
 import {
   createMaintenanceRequest,
+  listMaintenanceRequests,
+  type MaintenanceRequestListItem,
   type ProductionImpact,
   type ReportedUrgency,
   type SafetyImpact
 } from "@/lib/maintenance-requests-api";
 import { listLocations, listSites, type OrgLocation, type OrgSite } from "@/lib/organization-api";
-import type { Route } from "next";
 
 type TargetKind = "MACHINE" | "VEHICLE" | "FACILITY" | "NOT_SURE";
 
@@ -70,6 +73,7 @@ function NewRequestForm() {
   const [productionImpact, setProductionImpact] = useState<ProductionImpact>("NOT_SURE");
   const [submitting, setSubmitting] = useState(false);
   const [pendingLocalId, setPendingLocalId] = useState<string | null>(null);
+  const [openMatches, setOpenMatches] = useState<MaintenanceRequestListItem[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -186,6 +190,24 @@ function NewRequestForm() {
     siteId,
     approximateLocation
   ]);
+
+  useEffect(() => {
+    if (!selectedAsset?.id) {
+      setOpenMatches([]);
+      return;
+    }
+    let cancelled = false;
+    void listMaintenanceRequests({ assetId: selectedAsset.id, openOnly: true, limit: 5 })
+      .then((result) => {
+        if (!cancelled) setOpenMatches(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setOpenMatches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAsset?.id]);
 
   const canContinueTarget = Boolean(
     (targetKind === "MACHINE" && selectedAsset) ||
@@ -362,9 +384,28 @@ function NewRequestForm() {
             </ul>
           ) : null}
           {selectedAsset ? (
-            <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-              Selected: <strong>{selectedAsset.assetTag} — {selectedAsset.name}</strong>
-            </p>
+            <div className="space-y-2">
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                Selected: <strong>{selectedAsset.assetTag} — {selectedAsset.name}</strong>
+              </p>
+              {openMatches.length > 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <p>
+                    {openMatches.length} open request{openMatches.length === 1 ? "" : "s"} already exist for this asset.
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {openMatches.map((item) => (
+                      <li key={item.id}>
+                        <Link href={`/requests/${item.id}` as Route} className="font-medium underline">
+                          {item.requestNumber}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-xs">You can still report a new issue if this is a different problem.</p>
+                </div>
+              ) : null}
+            </div>
           ) : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>

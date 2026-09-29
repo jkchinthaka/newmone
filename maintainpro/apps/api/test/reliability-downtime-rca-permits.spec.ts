@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 
 import { ReliabilityService } from "../src/modules/reliability/reliability.service";
 
@@ -331,3 +331,209 @@ describe("LOTO start gate and SoD", () => {
     ).rejects.toMatchObject({ response: expect.objectContaining({ code: "SOD_VIOLATION" }) });
   });
 });
+
+describe("work order reliability gate matrix", () => {
+  const tenantId = "tenant-1";
+
+  function permitPolicy() {
+    return {
+      reliabilityPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          tenantId,
+          requirePermitForCriticalAssets: true,
+          permitRequiredCriticalities: "CRITICAL,HIGH",
+          requireLotoWhenPermitRequires: true
+        })
+      }
+    };
+  }
+
+  it("allows start for a low criticality asset without a permit", async () => {
+    const prisma = {
+      ...permitPolicy(),
+      asset: { findFirst: jest.fn().mockResolvedValue({ criticalityLevel: "LOW", criticality: null }) },
+      workPermit: { findMany: jest.fn() }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    const result = await service.assertPermitReadyForStart({ tenantId, workOrderId: "wo-low", assetId: "asset-low" });
+    expect(result.required).toBe(false);
+  });
+
+  it("blocks an expired permit", async () => {
+    const prisma = {
+      ...permitPolicy(),
+      asset: { findFirst: jest.fn().mockResolvedValue({ criticalityLevel: "CRITICAL", criticality: null }) },
+      workPermit: {
+        findMany: jest.fn().mockResolvedValue([
+          { status: "APPROVED", validFrom: new Date(Date.now() - 7200000), validTo: new Date(Date.now() - 1000) }
+        ])
+      }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.assertPermitReadyForStart({ tenantId, workOrderId: "wo-1", assetId: "asset-1" })
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: "SAFETY_BLOCK" }) });
+  });
+
+  it("scopes permit lookup to the caller tenant", async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      ...permitPolicy(),
+      asset: { findFirst: jest.fn().mockResolvedValue({ criticalityLevel: "CRITICAL", criticality: null }) },
+      workPermit: { findMany }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.assertPermitReadyForStart({ tenantId, workOrderId: "wo-1", assetId: "asset-1" })
+    ).rejects.toBeTruthy();
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ tenantId }) }));
+  });
+
+  it("allows start when isolation is not required", async () => {
+    const prisma = {
+      reliabilityPolicy: { findUnique: jest.fn().mockResolvedValue({ tenantId, requireLotoWhenPermitRequires: true }) },
+      workOrder: { findFirst: jest.fn().mockResolvedValue({ lotoRequired: false, maintenanceTemplateSnapshot: null }) },
+      workPermit: { findMany: jest.fn().mockResolvedValue([]) },
+      lotoRecord: { findFirst: jest.fn() }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    const result = await service.assertLotoReadyForStart({ tenantId, workOrderId: "wo-1" });
+    expect(result.required).toBe(false);
+  });
+
+  it("allows start when LOTO is verified for the same tenant", async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: "loto-1", status: "VERIFIED", verifiedById: "lead-1", verifiedAt: new Date() });
+    const prisma = {
+      reliabilityPolicy: { findUnique: jest.fn().mockResolvedValue({ tenantId, requireLotoWhenPermitRequires: true }) },
+      workOrder: { findFirst: jest.fn().mockResolvedValue({ lotoRequired: true, maintenanceTemplateSnapshot: null }) },
+      lotoRecord: { findFirst },
+      workPermit: { findMany: jest.fn() }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    const result = await service.assertLotoReadyForStart({ tenantId, workOrderId: "wo-1" });
+    expect(result.required).toBe(true);
+    expect(result.reasons).toEqual([]);
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ tenantId, status: "VERIFIED" }) }));
+  });
+});
+
+describe("reliability tenant isolation and RCA cluster", () => {
+  const tenantId = "tenant-1";
+  const actor = { sub: "admin-1", tenantId, role: "ADMIN" };
+
+  it("rejects a criticality change for an asset outside the tenant", async () => {
+    const prisma = { asset: { findFirst: jest.fn().mockResolvedValue(null) } } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.setAssetCriticality(actor, "foreign-asset", { criticalityLevel: "LOW", reason: "Reclassified" })
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rejects an RCA for a work order outside the tenant", async () => {
+    const prisma = { workOrder: { findFirst: jest.fn().mockResolvedValue(null) } } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.createRca(actor, { workOrderId: "foreign-wo", problemStatement: "Bearing repeat" })
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rejects an asset outside the tenant when opening an RCA", async () => {
+    const prisma = { asset: { findFirst: jest.fn().mockResolvedValue(null) } } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(
+      service.createRca(actor, { assetId: "foreign-asset", failureCode: "BRG-FAIL", problemStatement: "Repeat" })
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("returns the existing open RCA for the same cluster", async () => {
+    const existing = { id: "rca-1", clusterKey: "asset:asset-1|fault:BRG-FAIL", status: "OPEN", capaActions: [] };
+    const create = jest.fn();
+    const prisma = {
+      asset: { findFirst: jest.fn().mockResolvedValue({ id: "asset-1" }) },
+      reliabilityPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          tenantId,
+          matchSameAsset: true,
+          matchSameFaultCode: true,
+          repeatWindowDays: 90,
+          requireRcaOnRepeat: true,
+          repeatAction: "REQUIRE_RCA"
+        })
+      },
+      rcaCase: { findFirst: jest.fn().mockResolvedValue(existing), create }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    const first = await service.createRca(actor, { assetId: "asset-1", failureCode: "brg-fail", problemStatement: "Third failure" });
+    const second = await service.createRca(actor, { assetId: "asset-1", failureCode: "BRG-FAIL", problemStatement: "Retry" });
+    expect(first.id).toBe("rca-1");
+    expect(second.id).toBe("rca-1");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("stores manager review as a distinct repeat action", async () => {
+    const update = jest.fn().mockResolvedValue({ id: "pol-1", repeatAction: "MANAGER_REVIEW", requireRcaOnRepeat: false });
+    const prisma = {
+      reliabilityPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "pol-1",
+          tenantId,
+          repeatWindowDays: 90,
+          matchSameFaultCode: true,
+          matchSameAsset: true,
+          requireRcaOnRepeat: false,
+          repeatAction: "FLAG_ONLY",
+          requirePermitForCriticalAssets: true,
+          permitRequiredCriticalities: "CRITICAL,HIGH"
+        }),
+        update
+      },
+      configChangeHistory: { count: jest.fn().mockResolvedValue(1), create: jest.fn() }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await service.updatePolicy(actor, { repeatAction: "MANAGER_REVIEW", reason: "Review before RCA" });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ repeatAction: "MANAGER_REVIEW", requireRcaOnRepeat: false })
+      })
+    );
+  });
+
+  it("reopens an RCA when effectiveness is ineffective and does not close it from CAPA", async () => {
+    const rcaUpdate = jest.fn().mockResolvedValue({ id: "rca-1", status: "OPEN", effectiveness: "INEFFECTIVE", capaActions: [] });
+    const capaUpdate = jest.fn().mockResolvedValue({ id: "capa-1", status: "VERIFIED", rcaCaseId: "rca-1" });
+    const prisma = {
+      rcaCase: {
+        findFirst: jest.fn().mockResolvedValue({ id: "rca-1", tenantId, status: "COMPLETED", effectiveness: null }),
+        update: rcaUpdate
+      },
+      capaAction: {
+        findFirst: jest.fn().mockResolvedValue({ id: "capa-1", tenantId, rcaCaseId: "rca-1", status: "IN_PROGRESS" }),
+        update: capaUpdate
+      },
+      configChangeHistory: { count: jest.fn().mockResolvedValue(0), create: jest.fn() }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await service.updateCapa(actor, "capa-1", { status: "VERIFIED", verificationNote: "Installed" });
+    expect(rcaUpdate).not.toHaveBeenCalled();
+    const verified = await service.verifyEffectiveness(actor, "rca-1", { result: "INEFFECTIVE", notes: "Failed again" });
+    expect(verified.status).toBe("OPEN");
+    expect(rcaUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "OPEN" }) }));
+  });
+
+  it("rejects a foreign RCA, CAPA, permit, and LOTO id", async () => {
+    const prisma = {
+      rcaCase: { findFirst: jest.fn().mockResolvedValue(null) },
+      capaAction: { findFirst: jest.fn().mockResolvedValue(null) },
+      workOrder: { findFirst: jest.fn().mockResolvedValue(null) },
+      workPermit: { findFirst: jest.fn().mockResolvedValue(null) },
+      lotoRecord: { findFirst: jest.fn().mockResolvedValue(null) }
+    } as never;
+    const service = new ReliabilityService(prisma);
+    await expect(service.updateRca(actor, "foreign-rca", { rootCause: "x" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.updateCapa(actor, "foreign-capa", { status: "IN_PROGRESS" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.createPermit(actor, { workOrderId: "foreign-wo", permitType: "HOT_WORK" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.transitionLoto(actor, "foreign-loto", { status: "ISOLATED" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.transitionPermit(actor, "foreign-permit", { status: "APPROVED" })).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+

@@ -18,13 +18,13 @@ export function validateWorkEmail(value: string): string | null {
   const trimmed = value.trim();
 
   if (!trimmed) {
-    return "Work email is required";
+    return "Please enter your email address.";
   }
 
   const candidate = resolveLoginEmail(trimmed);
 
   if (!WORK_EMAIL_PATTERN.test(candidate)) {
-    return "Enter a valid work email address";
+    return "Please enter a valid email address.";
   }
 
   return null;

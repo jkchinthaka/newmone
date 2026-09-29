@@ -98,8 +98,17 @@ export class EnterpriseOpsController {
   @Get("forecasts")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "TECHNICIAN", "MECHANIC")
   @Permissions("operations.view")
-  async forecastsList(@Req() req: AuthedRequest) {
-    const data = await this.forecasts.listForecasts(req.user);
+  async forecastsList(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const data = await this.forecasts.listPlanner(req.user, {
+      horizon: query.horizon,
+      dueWindow: query.dueWindow,
+      confidence: query.confidence,
+      status: query.status,
+      search: query.search,
+      page: query.page ? Number(query.page) : undefined,
+      pageSize: query.pageSize ? Number(query.pageSize) : undefined,
+      sort: query.sort
+    });
     return { data, message: "Maintenance forecasts" };
   }
 

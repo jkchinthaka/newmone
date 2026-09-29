@@ -34,6 +34,7 @@ export type MaintenanceRequestListItem = {
   createdAt: string;
   publicUpdateNote?: string | null;
   workOrderId?: string | null;
+  workOrder?: { id: string; woNumber: string; status?: string } | null;
   resolutionCode?: string | null;
   asset?: { id: string; assetTag: string; name: string } | null;
   vehicle?: {
@@ -65,6 +66,16 @@ function unwrap<T>(payload: unknown): T {
 export async function listProblemCategories() {
   const res = await apiClient.get("/maintenance-requests/problem-categories");
   return unwrap<{ items: ProblemCategory[] }>(res.data);
+}
+
+export async function getMaintenanceRequestSummary() {
+  const res = await apiClient.get("/maintenance-requests/summary");
+  return unwrap<{
+    open: number;
+    awaitingTriage: number;
+    highCritical: number;
+    converted: number;
+  }>(res.data);
 }
 
 export async function listMaintenanceRequests(params: Record<string, unknown> = {}) {

@@ -198,6 +198,40 @@ export function validateEvidenceUploadInput(
   return { ok: true, sanitizedFileName };
 }
 
+export async function persistEvidenceFileBytes(input: {
+  tenantId: string;
+  inspectionId: string;
+  checklistItemKey: string;
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
+  maxFileSizeMb?: number;
+  allowedMimeTypes?: readonly string[];
+}): Promise<{ ok: true; storageKey: string; sizeBytes: number; fileName: string } | { ok: false; message: string }> {
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  const { resolve, join } = await import("node:path");
+  const allowed = input.allowedMimeTypes ?? DEFAULT_EVIDENCE_ALLOWED_MIME_TYPES;
+  const buffer = Buffer.from(input.contentBase64, "base64");
+  const validated = validateEvidenceUploadInput({
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    sizeBytes: buffer.length,
+    maxFileSizeMb: input.maxFileSizeMb ?? DEFAULT_EVIDENCE_MAX_FILE_SIZE_MB,
+    allowedMimeTypes: [...allowed]
+  });
+  if (!validated.ok) return validated;
+  const itemKey = input.checklistItemKey.replace(/[^\w.-]+/g, "_").slice(0, 80) || "item";
+  const storageKey = `evidence/${input.tenantId}/inspections/${input.inspectionId}/${itemKey}/${randomUUID()}/${validated.sanitizedFileName}`;
+  const absolute = resolve(process.cwd(), "var", storageKey);
+  const root = resolve(process.cwd(), "var", "evidence");
+  if (!absolute.startsWith(root)) {
+    return { ok: false, message: "Evidence path is not allowed." };
+  }
+  await mkdir(join(absolute, ".."), { recursive: true });
+  await writeFile(absolute, buffer);
+  return { ok: true, storageKey, sizeBytes: buffer.length, fileName: validated.sanitizedFileName };
+}
+
 export function buildEvidenceStorageKey(input: {
   tenantId: string | null;
   workOrderId: string;

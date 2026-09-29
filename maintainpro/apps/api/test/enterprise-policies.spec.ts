@@ -2,7 +2,7 @@ import { canPartReserve } from "../src/modules/policies/inventory-policies";
 import { canVehicleGateOut } from "../src/modules/policies/vehicle-policies";
 import { canWorkOrderComplete, canWorkOrderReopen, canWorkOrderStart } from "../src/modules/policies/work-order-policies";
 import { deny } from "../src/modules/policies/policy-decision";
-import { nextPreventiveDue, forecastServiceDue, canMeterReadingAdvance } from "../src/modules/policies/maintenance-policies";
+import { classifyStoredForecast, forecastServiceDue, canMeterReadingAdvance, nextPreventiveDue } from "../src/modules/policies/maintenance-policies";
 import { evaluateReorder, canPurchaseRecommendationCreate } from "../src/modules/policies/procurement-policies";
 import { evaluatePartCompatibility, canIssuePartToVehicle, isWithinWarranty } from "../src/modules/policies/parts-policies";
 import { scoreVehicleHealth } from "../src/modules/policies/health-score";
@@ -132,6 +132,30 @@ describe("PM forecast and meter policies", () => {
     });
     expect(forecast.coverage).toBe("COMPLETE");
     expect(forecast.remainingDays).toBeCloseTo(6);
+  });
+
+  it("classifies stored forecasts without inventing a date", () => {
+    expect(
+      classifyStoredForecast({
+        coverage: "INSUFFICIENT_DATA",
+        remainingDays: null,
+        estimatedDueDate: null
+      }).status
+    ).toBe("INSUFFICIENT_DATA");
+    expect(
+      classifyStoredForecast({
+        coverage: "COMPLETE",
+        remainingDays: -2,
+        estimatedDueDate: new Date(Date.now() - 2 * 86400000)
+      }).status
+    ).toBe("OVERDUE");
+    expect(
+      classifyStoredForecast({
+        coverage: "COMPLETE",
+        remainingDays: 4,
+        estimatedDueDate: new Date(Date.now() + 4 * 86400000)
+      }).status
+    ).toBe("DUE_SOON");
   });
 
   it("blocks meter rollback", () => {
