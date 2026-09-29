@@ -6,6 +6,10 @@ Statuses used for every page and phase: **NOT STARTED**, **IN PROGRESS**, **IMPL
 
 A page is **VERIFIED COMPLETE** only when database, API, RBAC, workflow, integration, automated tests, browser UAT, and GitHub validation are all recorded. A phase is **VERIFIED COMPLETE** only when every required page in that phase is.
 
+A page can be **LOCAL DEVELOPMENT COMPLETE** when its database, API, RBAC, workflow, UI, local integration checks, and browser UAT are recorded, and no local application defect remains. Vercel, Cloudflare, and Netlify failures do not block that status and must not stop the next local page. Do not delete or disconnect those hosting configurations without explicit approval.
+
+RELEASE READINESS stays separate. Do not record GitHub deployment checks, `full-stack-e2e`, MinIO, Vercel, Cloudflare, or Netlify as passed unless that exact check passed.
+
 Authoritative stack (verified 2026-09-29 against source, not older docs):
 
 - Web/PWA: Next.js App Router in `maintainpro/apps/web`.
@@ -391,7 +395,19 @@ Standing failures, not introduced by Requests:
 
 ## K. Release readiness
 
-Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser UAT of the active page has not run. Production deployment and production migrations are out of scope.
+Local development continues on localhost SQL Server. Hosting failures do not stop the phase list.
+
+### DEPLOYMENT / RELEASE READINESS
+
+| Check | Status | Notes |
+| --- | --- | --- |
+| `validate-monorepo`, `release-validate`, `build`, `docker-build`, `fresh-sqlserver-migrate` | pass on origin `c04ff246` | App CI jobs. |
+| `full-stack-e2e` / MinIO | fail | Anonymous Quay pull returns `unauthorized`. Image not changed. |
+| Vercel | fail | Deployment `dpl_BgGAqXGZCXoA9sSppycbQwbUvkg5`. Log not retrieved. Guard in `apps/web/lib/api-url.ts` stays. |
+| Cloudflare Workers Builds | fail | Build `9eb336a6-f906-4c32-8175-606db8a9f706`. Log not retrieved. |
+| Netlify preview | pass | Not a production release. |
+
+Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconnect these hosts. Production migrations stay out of scope.
 
 ---
 
@@ -403,15 +419,14 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | Initial `/requests` load resource timing: auth, tenant, summary, and list all HTTP 200. No error overlay. List/detail marked local-development complete. Release readiness left blocked. Active phase set to 01, page `/login`. Not pushed. | local docs, on `8e999fde` |
+| 2026-09-29 | Local phases are not blocked by Vercel, Cloudflare, or Netlify. Those stay under deployment readiness. Next local page remains `/login`. | local docs |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-Stay on `/requests` and `/requests/[id]`.
-
 Stay on Phase 01, page `/login`.
 
 1. Inspect the existing login, session cookie, tenant, and return-path behaviour. Do not rebuild it.
-2. Do not push the local commits. Do not merge PR #62. Do not remove the `NEXT_PUBLIC_API_URL` guard. Do not start Phase 02 or `/requests/new`.
+2. Validate it locally. Vercel, Cloudflare, and Netlify failures do not delay this page.
+3. Do not push these local commits only to refresh hosting checks. Do not merge PR #62. Do not remove or disconnect hosting config. Do not start Phase 02 or `/requests/new`.

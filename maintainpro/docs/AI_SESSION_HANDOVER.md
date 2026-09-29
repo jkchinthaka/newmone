@@ -33,7 +33,7 @@ Phase 00 compared the tracking files with `git fetch` and the tree. Requests ite
 | Current phase | 01 Login, session, invitation onboarding |
 | Current page | `/login` — not yet walked under this programme |
 | Requests list/detail | **LOCAL DEVELOPMENT COMPLETE**. Initial load resource timing 200 for auth, tenant, summary, and list. No application error overlay. Release readiness **BLOCKED** (MinIO E2E, Vercel, Workers). |
-| Local Git | `ci/jest-heap-oom` at `8e999fde`, preserving `04dc017c`. Ahead of origin by 2. Not pushed. Do not merge PR #62. |
+| Local Git | `ci/jest-heap-oom` at `c4426037`, which contains `04dc017c` and `8e999fde`. Ahead of origin. Not pushed. Do not merge PR #62. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -157,4 +157,4 @@ The earliest unfinished local page is `/login`. Do not rebuild Requests. Do not 
 1. Read the existing login page, BFF session cookies, `POST /auth/login`, `GET /auth/me`, and the return-path behaviour.
 2. Validate `/login` locally: session persistence, a failed login, and the return path. Do not write secrets into these files.
 3. Continue to forgot-password, accept-invite, register, and splash only after `/login` is locally complete.
-4. Release checks stay independent. `full-stack-e2e`, Vercel, and Workers are still failing on origin `c04ff246`. Do not record them as passed.
+4. Vercel, Cloudflare, and Netlify failures are DEPLOYMENT / RELEASE READINESS only. They do not stop localhost phase work. Do not delete or disconnect those hosting configs. Still required locally: typecheck and relevant tests, database safety, RBAC, local integration checks, and browser UAT. Do not record `full-stack-e2e`, MinIO, Vercel, Cloudflare, or Netlify as passed.
