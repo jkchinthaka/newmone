@@ -74,10 +74,11 @@ programme's gates.
 | Routes | `/requests`, `/requests/[id]` |
 | Baseline | `origin/main` @ `6264948f` |
 | Branch | `maintainpro/finalization-iter-01` |
-| Branch commit | `89533ac0` (local, not pushed; tree identical to original `124e9fc5`, see handover "Branch history warning") |
-| Merged to main | not yet |
+| Commits on main | `89533ac0` (whole slice; commit message wrongly says "test(vendors)…"), docs `7878eb56`, `52311b8f` |
+| Merged to main | **Yes, by direct push** (2026-09-29T10:09Z, no PR; see handover "How iteration 01 reached main") |
+| CI on main | PR Validation red (pre-existing Jest OOM since `d7456ab0`; fix in PR #62); Vercel / Cloudflare red since ≥ 2026-09-18 (config, unconfirmed) |
 | Date | 2026-09-29 |
-| Status | **PARTIALLY VERIFIED**: all automated gates pass; browser visual/responsive check and main integration pending |
+| Status | **PARTIALLY VERIFIED**: local gates pass; CI green pending PR #62; browser UAT pending user sign-in. Not VERIFIED COMPLETE. |
 
 **API endpoints** (`maintenance-requests.controller.ts`): `GET /maintenance-requests`
 (+ new `stage`), `GET /summary` (+ `mine`, returns `scope` and `capabilities`), `GET /:id`,
@@ -133,6 +134,8 @@ vendor-eligibility merge (#60); the blacklist test now asserts the eligibility e
 | `test/maintenance-requests.spec.ts`, `request-lifecycle`, `permissions.guard`, `navigation` | pass |
 | Web `npm test` (tsx) incl. new `maintenance-request-ui.test.ts` | 106 / 106 |
 | Full build (CI env) | pass |
+| Cold-cache API jest (CI-equivalent, 4 GB) | 221 suites / 1933 tests pass |
+| GitHub PR Validation | red on `52311b8f` (OOM, pre-existing); re-run pending on PR #62 |
 | Browser visual / responsive check | not run (needs user sign-in) |
 | `npm run audit:rbac` | 951 routes, 0 violations |
 | `npm run audit:tenant` | 0 unapproved |

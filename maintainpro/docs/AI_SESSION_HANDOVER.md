@@ -24,29 +24,43 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 (Claude Code session, iteration 1)
+**Last updated:** 2026-09-29 ~16:10 IST (Claude Code session, reconciliation after main push)
 
 | Item | Value |
 | --- | --- |
-| Current page | Maintenance Requests — list `/requests` and detail `/requests/[id]` |
-| Status | **PARTIALLY VERIFIED**: code complete, all automated gates pass; browser visual/responsive check and integration into `main` pending |
-| Branch | `maintainpro/finalization-iter-01` (local only, **not pushed**) |
-| Branch HEAD | `7878eb56` (docs: handover protocol), on top of `89533ac0` (Requests slice); 2 commits ahead of `origin/main` @ `6264948f` |
-| Uncommitted changes | only this SHA update to the handover itself, if not yet committed |
-| Other worktrees | `C:/Dev/newmone-maintenance-costs` (`feature/maintenance-costs`), `C:/Dev/newmone-vendor-eligibility` (`feature/vendor-eligibility`): both already merged to main; leave alone |
+| Current page | Maintenance Requests — list `/requests` and detail `/requests/[id]` (iteration 01) |
+| Status | **PARTIALLY VERIFIED**: on `main`, automated local gates pass; CI red (root cause fixed in PR #62, awaiting CI); browser UAT not done; Vercel/Cloudflare red (config, pre-existing) |
+| `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
+| Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
+| Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
+| Uncommitted changes | none after the commit that carries this file |
+| Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
-| Local dev stack | User runs `npm run dev` from this tree (API :3000 with `node --watch`, web :3001 `next dev`) against local SQL Server `MaintainProDev`. It hot-reloads branch changes. |
+| Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
 
-### Branch history warning
+### How iteration 01 reached main (reconciled 2026-09-29)
 
-The branch was rewritten by another process during iteration 1. The reflog shows two `reset`s
-after our commits, then commit `89533ac0`. Its **tree is identical** to our original commit
-`124e9fc5` (verified with `git diff 124e9fc5 89533ac0` = empty), but it squashed two commits
-into one under the misleading message "test(vendors): add vendorContract mocks…". It actually
-contains the whole Requests slice. Original commits are still in the reflog: `9aced764`
-(vendor test fix) and `124e9fc5` (requests feature). **Asked the user who did this; no answer
-yet.** Do not rewrite again without the user's go-ahead. When opening the PR, use a correct
-title/description (or squash-merge with the feature title).
+- GitHub activity API: `push` to `refs/heads/main` by `jkchinthaka` at 2026-09-29T10:09:06Z,
+  after = `52311b8f`. There is **no PR**, so iteration 01 never went through PR Validation before landing.
+- Local `origin/main` reflog: `update by push` at 15:39:07 IST, then an IDE-style
+  `fetch --prune --recurse-submodules=on-demand` 2 s later (VS Code / Cursor Sync pattern).
+  The agent ran no `git push`. Contributing cause: the branch was created with
+  `git switch -c … origin/main`, so its **upstream was `origin/main`** and any plain push or
+  Sync from this checkout targeted `main`.
+- **Mitigation:** upstream of `maintainpro/finalization-iter-01` removed. New branches must be
+  created with `--no-track` and pushed with an explicit `origin <branch>`.
+- History shape: `89533ac0` (message says "test(vendors)…" but contains the whole Requests
+  slice plus the vendor test fix; tree identical to original `124e9fc5`), `7878eb56`, `52311b8f`.
+  **Not rewritten.** Main is shared history now; no reset or force-push.
+
+### CI / deployment status (investigated 2026-09-29)
+
+| Check | Status on `52311b8f` | Since | Root cause | Fix |
+| --- | --- | --- | --- | --- |
+| PR Validation / validate-monorepo | failure (OOM in `npm run test`) | `d7456ab0` (PR #59, before iteration 01) | ts-jest type-checks every suite against ~34 MB Prisma `index.d.ts`; **cold cache** needs ~2.2 GB per suite, ~3.3 GB peak for full run; Node 20 runner default ~2 GB. Reproduced locally with `--no-cache` + 2 GB cap (same FATAL). | PR #62: `NODE_OPTIONS=--max-old-space-size=6144` on Jest jobs (pr-validation, release-validation, sqlserver gate step). Local cold run with 4 GB: 221 suites / 1933 tests pass, 135 s. **Awaiting CI on PR #62.** |
+| Vercel | failure | ≥ 2026-09-18 (all 40+ checked main commits) | **Unconfirmed** (agent cannot read logs: Vercel CLI and dashboard not signed in). Strong candidate: fail-closed guard in `apps/web/lib/api-url.ts` (added `9ac1da24`, 2026-09-17) throws when `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_API_BASE_URL` is absent at build time. `npm run vercel:build` without it reproduces the failure; with it the build passes. | User: set `NEXT_PUBLIC_API_URL` (and `_BASE_URL`, `_ORIGIN`) in Vercel project env (Production + Preview) and redeploy, or share the build log. Do **not** remove the guard. |
+| Cloudflare Workers Builds | failure | ≥ 2026-09-18 | **Unconfirmed**, no log access. `wrangler.jsonc` sets the API URL under `vars`, which are **runtime** vars; `NEXT_PUBLIC_*` must exist at **build** time → same guard likely fires. Local `cloudflare:build` can't confirm: OpenNext on Windows fails with unrelated `Could not resolve` errors inside Next (tool warns it is not Windows-compatible). | User: add the three `NEXT_PUBLIC_*` values as Workers Builds *build variables* (dashboard → Settings → Build), or share the build log. |
+| Docker Image CI / Docker Build Check | success | — | — | — |
 
 ## Completed in iteration 1
 
@@ -92,9 +106,22 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` §3.1. Summary:
 | `npm run db:migrate:status` | 25 migrations, up to date |
 | Full build (shared-types, ui-components, api `tsc`, web `next build` with `NEXT_PUBLIC_API_URL=http://localhost:3000/api` as in CI) | pass, run in a temporary worktree (since removed) |
 | Live API smoke vs local dev stack (script: session scratchpad `requests-smoke.mjs`, reads seed password from `.env` without printing) | 15 / 15, incl. real concurrent accept-vs-cancel → one 201, one 409 |
-| Browser visual / responsive / console check | **NOT RUN**: no browser session; agent must not type passwords |
+| Browser visual / responsive / console check | **NOT RUN**: user will sign in manually; agent must not type passwords |
+| Cold-cache API jest, 2 GB cap (CI reproduction) | OOM (same FATAL as CI) |
+| Cold-cache API jest, 4 GB cap | 221 suites / 1933 tests pass, 10 skipped, 135 s, peak heap 3.25 GB |
+| Security-sensitive Jest suites (CI step) | 4 suites / 32 tests pass |
+| `npm run validate:secret-safety` | 12 passed, 0 failed |
+| `vercel:build` without `NEXT_PUBLIC_API_URL` | fails: "Missing NEXT_PUBLIC_API_URL…" (guard) |
+| `cloudflare:build` with env, on Windows | fails with OpenNext Windows path errors: inconclusive |
+| CI on PR #62 | pending (see PR) |
 
 ## Known environment gotchas
+
+- **Never create a branch with `origin/main` as upstream** (`git switch -c x origin/main` does that).
+  An IDE Sync then pushes straight to `main` (this happened on 2026-09-29). Use
+  `git switch --no-track -c <branch> origin/main` and push with `git push -u origin <branch>`.
+- API Jest on a cold ts-jest cache needs more than 2 GB of heap. If running with `--no-cache`
+  or on a fresh machine, set `NODE_OPTIONS=--max-old-space-size=6144`.
 
 - `npm run db:generate` fails with EPERM while the dev API runs (query-engine DLL locked). The
   JS client still regenerates, but the patch scripts are skipped, so `@prisma/client` enums
@@ -108,23 +135,31 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` §3.1. Summary:
 
 ## Blockers / open decisions
 
-1. Branch rewrite by an unknown process (see above): need user confirmation before pushing.
-2. Browser check needs the user to sign in at `http://localhost:3001` (e.g. as the seeded manager).
-3. Business decision: should TECHNICIAN / MECHANIC / DRIVER report issues? (API role list includes
-   them; seed grants no request permission; nav now hides Requests from them.)
+1. **CI red on main** until PR #62 merges. Merge only after its PR Validation run is green, and
+   only with the user's approval.
+2. **Browser UAT for /requests and /requests/[id] not done.** The user signs in at
+   `http://localhost:3001`; the agent must not type credentials.
+3. **Vercel + Cloudflare deploys red since ≥ 2026-09-18.** Root cause not confirmed (no log
+   access). Needs the user to check the build env vars or share logs (see table above).
+4. Business decision: should TECHNICIAN / MECHANIC / DRIVER report issues? No permissions granted.
+5. Iteration 01 landed on main without PR review, under a misleading commit message
+   (`89533ac0`). Accepted as history; no rewrite.
 
 ## Exact next action for the next agent
 
-1. Run the start-of-session checks. If HEAD is no longer `89533ac0` or the tree changed, stop and
-   report to the user.
-2. If the user has signed in at `localhost:3001`, verify `/requests` and `/requests/<id>`:
-   - desktop, then tablet ~820px and phone ~390px widths (no horizontal scroll);
-   - console free of errors; network calls `GET /api/maintenance-requests?…` and `/summary` succeed;
-   - counter cards filter the list; action menu closes with Escape.
-   Record results here.
-3. With the user's confirmation on the branch history: push `maintainpro/finalization-iter-01`
-   (no force), open a PR to `main` titled "feat(requests): finalize request list and detail with
-   server-driven actions" (end the body with the Claude Code attribution line), wait for CI, then merge.
-   Record the merge SHA in the ledger §3.1 and here.
-4. Start iteration 2: **Report issue `/requests/new`** (ledger §2 item 2) on a new branch from the
-   updated `origin/main`.
+1. Run the start-of-session checks. Expect `origin/main` = `52311b8f` (or the PR #62 merge
+   commit if the user merged it) and branch `ci/jest-heap-oom`.
+2. Check PR #62: `gh pr checks 62`. If validate-monorepo is green, report to the user and ask
+   to merge (do not self-merge without approval). If red, read `gh run view <id> --log-failed`
+   and fix the root cause on the same branch.
+3. Browser UAT once the user has signed in: `/requests` and `/requests/<id>` at desktop
+   (~1440), tablet (~820) and phone (~390) widths:
+   - no horizontal scroll;
+   - no console errors;
+   - `GET /api/backend/maintenance-requests*` calls succeed;
+   - counter cards filter the list; Escape closes the row menu.
+
+   Record the results here and in the ledger.
+4. Only when CI is green and UAT passes: mark iteration 01 **VERIFIED COMPLETE** in the ledger
+   with the final main SHA. Then, and only then, start `/requests/new` on a new `--no-track`
+   branch from `origin/main`.
