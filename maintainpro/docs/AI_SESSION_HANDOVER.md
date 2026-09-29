@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~16:50 IST (CONTINUE: CI recheck of `168694a2` and browser session check)
+**Last updated:** 2026-09-29 ~17:05 IST (Requests browser UAT on the signed-in Cursor session). Docs and the count-label fix are local until the next push, so CI is not restarted by this note.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. The ledger now has the 15-phase checklist. Active page is still `/requests` and `/requests/[id]`.
 
@@ -32,7 +32,7 @@ Phase 00 compared the tracking files with `git fetch` and the tree. Requests ite
 | --- | --- |
 | Current phase | 08 Maintenance Requests |
 | Current page | `/requests` and `/requests/[id]` |
-| Status | **PARTIALLY VERIFIED**. Browser UAT **NOT VERIFIED**. At 16:50 IST the Cursor browser opened `http://localhost:3001/requests` and showed “Session expired. Redirecting to sign in…”, then ` /login?reason=session_expired&returnTo=%2Frequests`. No password was typed. Signing in in a normal browser does not authenticate this Cursor browser. PR #62 head `168694a2`: `full-stack-e2e` failed again on MinIO `unauthorized` (run `36560675132`). `validate-monorepo`, `release-validate`, `fresh-sqlserver-migrate`, `build`, and `docker-build` were still pending on this head. The previous head `c4bb680e` had those app jobs green. Not merged. |
+| Status | **PARTIALLY VERIFIED**. Browser UAT of `/requests` and `/requests/cmu815bnr0021ozy4uvrbu19o` (MR-2026-00001) passed for the signed-in SUPER_ADMIN session at 1440, 820, and 390. Session survived the visit. Open card 0 matched a 0-row list. Converted card 1 matched MR-2026-00001. All requests showed 2, including one Cancelled row that is not one of the four cards. Search `q=pump` with the converted stage stayed on that row. Clear filters returned to 2 rows. Actions menu offered Open request and Open work order, and Escape set `aria-expanded=false`. Detail next step: “Progress continues on the work order.” No document horizontal overflow. Request API calls in the dev log were 200. PR #62 head `c04ff246`: validate-monorepo, build, docker-build, fresh-sqlserver-migrate pass; release-validate was still pending; full-stack-e2e, Vercel, and Workers fail. Not merged. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -154,17 +154,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 The earliest unfinished page is `/requests` and `/requests/[id]`. Do not start `/requests/new`,
 and do not rebuild the Requests slice that is already on `main` (`89533ac0` inside `52311b8f`).
 
-1. Run the start-of-session checks. Expect `ci/jest-heap-oom`. `origin/main` stays `52311b8f` until PR #62 merges.
-2. Compare `gh pr checks 62` with head `168694a2` or later. App jobs were green on `c4bb680e`. On `168694a2`, `full-stack-e2e` failed again with `minio Error unauthorized` (run `36560675132`). Do not change the MinIO pin to skip the job. Do not merge while that check, Vercel, or Workers is failing, or while app jobs are still pending. Do not self-merge.
-3. Browser UAT is **NOT VERIFIED**. The Cursor browser must be signed in; a session in another browser is not shared. The last URL was
-   `http://localhost:3001/login?reason=session_expired&returnTo=%2Frequests`.
-   After sign-in on that Cursor browser, check `/requests` and one `/requests/<id>` at desktop (~1440), tablet (~820), and phone (~390):
-   - no horizontal scroll;
-   - no console errors;
-   - `GET /api/backend/maintenance-requests*` calls succeed;
-   - counter cards filter the list; Escape closes the row menu.
-
-   Record the results in this file and in `PRODUCT_FINALIZATION_LEDGER.md`.
-4. Mark the page **VERIFIED COMPLETE** only when that UAT is recorded and main contains both
-   the Requests slice and a passing required CI result. The next page is then `/requests/new`,
-   on a new `--no-track` branch from updated `origin/main`.
+1. Stay on `/requests` and `/requests/[id]`. Browser UAT for the signed-in SUPER_ADMIN is recorded below. Do not start `/requests/new`.
+2. PR #62 head on origin is `c04ff246`. `validate-monorepo`, `build`, `docker-build`, and `fresh-sqlserver-migrate` passed. `release-validate` was still pending at 17:05 IST. `full-stack-e2e` run `36561154876` failed in 1m58s. Anonymous manifest requests to Quay for `minio/minio:RELEASE.2025-04-22T22-12-26Z` and `minio/mc` still return 401 after a pull token. Docker Hub returned `insufficient_scope`. Local Docker Desktop is not running, so an image change was not pulled or applied. Do not delete the MinIO volume or disable the job. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing.
+3. Vercel and Cloudflare Workers are supported web deploy targets. Their GitHub checks fail without a retrieved build log. The standing hypothesis remains missing `NEXT_PUBLIC_API_URL` at build time. Do not remove the guard in `apps/web/lib/api-url.ts`. User action: set that variable, plus `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_API_ORIGIN`, on Vercel Preview/Production and as Cloudflare Workers build variables.
+4. Do not push a docs-only commit. The count label fix (`1 request matches this view`) is local with these notes. Push when the next validated code change is ready.
+5. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green. Browser UAT alone is not enough. The next page is then `/requests/new`, on a new `--no-track` branch from updated `origin/main`.

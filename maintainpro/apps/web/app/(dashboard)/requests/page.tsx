@@ -570,7 +570,9 @@ export default function RequestsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
           <p aria-live="polite">
-            {loading ? "Loading…" : `${total} request${total === 1 ? "" : "s"}${filtered || view !== "all" ? " match this view" : ""}`}
+            {loading
+              ? "Loading…"
+              : `${total} ${total === 1 ? "request" : "requests"}${filtered || view !== "all" ? ` ${total === 1 ? "matches" : "match"} this view` : ""}`}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {view !== "triage" ? (

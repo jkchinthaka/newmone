@@ -77,7 +77,23 @@ The Jest heap change in PR #62 is confirmed on head `c4bb680e`. It does not fix 
 | Vercel, Workers | pending or in progress at inspection |
 | Netlify preview | pass |
 
-Browser UAT remains **NOT VERIFIED**. The Cursor browser loaded `/requests`, showed “Session expired. Redirecting to sign in…”, and landed on `/login?reason=session_expired&returnTo=%2Frequests`. No password was entered.
+Browser UAT on 2026-09-29 ~17:05 IST, signed-in Cursor browser, user `superadmin@maintainpro.local`, tenant MaintainPro Default Tenant. No password was recorded.
+
+| Check | Result |
+| --- | --- |
+| Session | Login at 16:53 returned 200, then `/requests`, `/auth/me`, and `/tenants/me` returned 200. The same session opened the list, filters, and detail through 17:01. |
+| Counts | Open 0, Awaiting triage 0, Open high / critical 0, Converted 1. All requests list total 2: MR-2026-00002 Cancelled and MR-2026-00001 Converted to Work Order. Cancelled is not one of the four cards. |
+| Card filter | `?stage=open` showed “0 requests” and “No requests match these filters.” `?stage=converted` showed 1 row, MR-2026-00001, “Showing 1–1 of 1.” |
+| Search and clear | `?stage=converted&q=pump` kept that row. Clear filters returned to `/requests` with 2 requests. |
+| Actions | Menu for MR-2026-00001 offered only “Open request” and “Open work order WO-2026-0006”. Escape set `aria-expanded=false`. |
+| Detail | `/requests/cmu815bnr0021ozy4uvrbu19o`. Next step: “Progress continues on the work order.” API `GET /api/backend/maintenance-requests/cmu815bnr0021ozy4uvrbu19o` 200. |
+| Layout | `documentElement.scrollWidth` equalled the viewport at 1440, 820, and 390 for list and detail. |
+| API errors | Dev log showed 200 for the request list, summary, and detail during this pass. Redis `ECONNREFUSED 127.0.0.1:6380` continued and did not fail these pages. |
+| Copy | Filtered count said “1 request match this view”. Fixed locally to “matches” / “match”. |
+
+Screenshots: `requests-desktop-1440.png`, `requests-detail-desktop-1440.png`, `requests-detail-tablet-820.png`, `requests-list-tablet-820.png`, `requests-list-mobile-390.png`, `requests-detail-mobile-390.png` under `%LOCALAPPDATA%\Temp\cursor\screenshots`.
+
+Cross-role browser denial was not repeated. The earlier API smoke remains the technician 403 evidence.
 
 ---
 
@@ -182,7 +198,7 @@ PR #59 merged at `6264948f`. Prior local browser check showed an empty assigned 
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Request list and detail | `/requests`, `/requests/[id]` | PARTIALLY VERIFIED — browser UAT blocked on the login screen |
+| Request list and detail | `/requests`, `/requests/[id]` | PARTIALLY VERIFIED — SUPER_ADMIN browser UAT passed; CI and other roles still open |
 | Report issue | `/requests/new` | IMPLEMENTED — NOT VERIFIED |
 | QR report redirect | `/qr/report-issue` | IMPLEMENTED — NOT VERIFIED |
 
@@ -344,8 +360,8 @@ Standing failures, not introduced by Requests:
 ## I. Pending work and blockers
 
 1. Finish Phase 08 page `/requests` and `/requests/[id]` before any other page.
-2. PR #62 head `c4bb680e` app checks passed. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing.
-3. Browser UAT of `/requests` and `/requests/[id]` is **NOT VERIFIED**. Sign in on the Cursor browser at `http://localhost:3001/login?returnTo=%2Frequests`. A normal browser session is not visible to the agent. Do not type the seed password into the agent transcript.
+2. PR #62 origin head `c04ff246`: app jobs passed except `release-validate` still pending at the last check, and `full-stack-e2e` failed on MinIO unauthorized. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing. Do not change the MinIO image until an anonymous pull of the replacement is proven. Local Docker is not running.
+3. Browser UAT for SUPER_ADMIN is recorded in section A. Remaining: other roles in the browser, the local plural copy fix pushed only with the next real change, and required CI on main.
 4. `full-stack-e2e` needs an infra decision on the MinIO images. Not an application change for this page.
 5. Vercel / Workers need `NEXT_PUBLIC_API_URL` (and the related public API vars) at build time, or a log that shows a different cause. Do not remove the fail-closed guard.
 6. Business decision still open: whether TECHNICIAN / MECHANIC / DRIVER may report issues. No permission was granted.
@@ -379,7 +395,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | CONTINUE. Cursor browser on `/requests` showed session expired and returned to login with `returnTo=/requests`. UAT NOT VERIFIED. PR #62 head `168694a2` `full-stack-e2e` failed again on MinIO unauthorized; other app jobs still pending. | not merged |
+| 2026-09-29 | CONTINUE browser UAT as SUPER_ADMIN at 1440, 820, and 390. Counts, filters, Escape, and detail next step passed. MinIO image left unchanged after Quay stayed 401 with a pull token and local Docker was stopped. Label “1 request match” fixed locally, not pushed. | local only |
 
 ---
 
@@ -387,7 +403,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 
 Stay on `/requests` and `/requests/[id]`.
 
-1. CI for `c4bb680e` is recorded in section A. Do not merge PR #62 while `full-stack-e2e`, Vercel, or Workers is failing. Do not self-merge.
-2. When the user has an authenticated browser session (the last observation was `http://localhost:3001/login`), run the Requests UAT described in `AI_SESSION_HANDOVER.md` and record it here. Do not type the seed password.
-4. Mark this page VERIFIED COMPLETE only after that UAT and a recorded main SHA that contains both the Requests slice and a green required CI result.
-5. The following page is `/requests/new`. Do not open it while this page is unfinished.
+1. Recheck `gh pr checks 62` for origin head `c04ff246` or later. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing, or while `release-validate` is pending.
+2. Do not push this local docs and label fix by itself. The next push should be a change that can be verified, including a MinIO image only after an anonymous manifest pull returns 200.
+3. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green. SUPER_ADMIN browser UAT is already recorded.
+4. The following page is `/requests/new`. Do not open it while this page is unfinished.
