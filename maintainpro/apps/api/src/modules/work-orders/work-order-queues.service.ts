@@ -43,6 +43,15 @@ import {
 } from "../../common/utils/work-order-queues";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import {
+  assignedToActorScope,
+  businessDayWindow,
+  compareMyJobs,
+  isMyJobView,
+  matchesMyJobFilters,
+  matchesMyJobView,
+  type MyJobView
+} from "./my-jobs.rules";
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
 import { WorkOrderCategoryReportsService } from "../reports/work-order-category-reports.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -443,16 +452,7 @@ export class WorkOrderQueuesService {
   }
 
   private myTasksWhere(actor: Actor): Prisma.WorkOrderWhereInput {
-    return {
-      OR: [
-        { technicianId: actor.sub },
-        {
-          assignees: {
-            some: { employee: { linkedUserId: actor.sub }, assignmentStatus: { not: "REMOVED" } }
-          }
-        }
-      ]
-    };
+    return assignedToActorScope(actor.sub);
   }
 
   private overdueWhere(now = new Date()): Prisma.WorkOrderWhereInput {
@@ -624,6 +624,124 @@ export class WorkOrderQueuesService {
     } finally {
       if (timer) clearTimeout(timer);
     }
+  }
+
+  async listMyJobs(
+    actor: Actor,
+    query: {
+      view?: string;
+      search?: string;
+      status?: string;
+      priority?: string;
+      due?: string;
+      page?: string | number;
+      pageSize?: string | number;
+    } = {}
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const view: MyJobView = isMyJobView(query.view) ? query.view : "active";
+    const page = Math.max(1, Number(query.page ?? 1) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number(query.pageSize ?? 25) || 25));
+    const now = new Date();
+    const filters = {
+      search: query.search?.trim() || undefined,
+      status: query.status?.trim().toUpperCase() || undefined,
+      priority: query.priority?.trim().toUpperCase() || undefined,
+      due: query.due?.trim().toLowerCase() || undefined
+    };
+    const rows = await this.prisma.workOrder.findMany({
+      where: { tenantId, ...this.myTasksWhere(actor) },
+      select: {
+        id: true,
+        woNumber: true,
+        title: true,
+        status: true,
+        priority: true,
+        dueDate: true,
+        approvalStatus: true,
+        asset: { select: { name: true, assetTag: true } },
+        functionalLocation: { select: { name: true, code: true } },
+        site: { select: { name: true } }
+      },
+      take: 500
+    });
+    const matched = rows.filter((row) =>
+      matchesMyJobFilters(
+        {
+          status: row.status,
+          priority: row.priority,
+          dueDate: row.dueDate,
+          woNumber: row.woNumber,
+          title: row.title,
+          assetName: row.asset?.name,
+          assetTag: row.asset?.assetTag
+        },
+        filters,
+        now
+      )
+    );
+    const counts = {
+      active: matched.filter((row) => matchesMyJobView(row, "active", now)).length,
+      overdue: matched.filter((row) => matchesMyJobView(row, "overdue", now)).length,
+      dueToday: matched.filter((row) => matchesMyJobView(row, "due-today", now)).length,
+      inProgress: matched.filter((row) => matchesMyJobView(row, "in-progress", now)).length,
+      completed: matched.filter((row) => matchesMyJobView(row, "completed", now)).length
+    };
+    const visible = matched
+      .filter((row) => matchesMyJobView(row, view, now))
+      .sort((left, right) => compareMyJobs(left, right, now));
+    const start = (page - 1) * pageSize;
+    const items = visible.slice(start, start + pageSize).map((row) => ({
+      id: row.id,
+      woNumber: row.woNumber,
+      title: row.title,
+      status: row.status,
+      priority: row.priority,
+      dueDate: row.dueDate,
+      approvalStatus: row.approvalStatus,
+      asset: row.asset,
+      functionalLocation: row.functionalLocation,
+      site: row.site,
+      nextAction: this.myJobNextAction(row)
+    }));
+    return {
+      items,
+      counts,
+      scope: "assigned-to-me",
+      view,
+      timezone: businessDayWindow(now).timeZone,
+      capped: rows.length >= 500,
+      page,
+      pageSize,
+      total: visible.length
+    };
+  }
+
+  private myJobNextAction(row: { status: string; approvalStatus: string }) {
+    if (row.status === "IN_PROGRESS" || row.status === "ON_HOLD") {
+      return { kind: "continue" as const, label: "Continue work" };
+    }
+    if (row.status === "COMPLETED" || row.status === "CLOSED") {
+      return { kind: "summary" as const, label: "View summary" };
+    }
+    if (row.approvalStatus === "PENDING") {
+      return {
+        kind: "blocked" as const,
+        label: "Open job",
+        reason: "Approval is required before this job can start."
+      };
+    }
+    if (row.status === "ASSIGNED" || row.status === "OVERDUE" || row.status === "REWORK_REQUIRED") {
+      return { kind: "start" as const, label: "Start work" };
+    }
+    if (row.status === "OPEN" || row.status === "PLANNED") {
+      return {
+        kind: "open" as const,
+        label: "Open job",
+        reason: "This job must be planned and assigned before work can start."
+      };
+    }
+    return { kind: "open" as const, label: "Open job" };
   }
 
   async getActionRequired(actor: Actor, query: WorkOrderQueueQuery = {}) {
