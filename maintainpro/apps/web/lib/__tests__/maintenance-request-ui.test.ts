@@ -7,6 +7,7 @@ import {
   isRequestStage,
   requestHistoryActionLabel,
   requestNextStep,
+  requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
   requestValueLabel
@@ -99,6 +100,12 @@ describe("request stage cards", () => {
     );
     for (const card of cards) assert.equal(isRequestStage(card.stage), true);
     assert.equal(isRequestStage("bogus"), false);
+  });
+
+  it("pluralizes the filtered count with matches for one request", () => {
+    assert.equal(requestResultCountLabel(2, false), "2 requests");
+    assert.equal(requestResultCountLabel(1, true), "1 request matches this view");
+    assert.equal(requestResultCountLabel(0, true), "0 requests match this view");
   });
 });
 

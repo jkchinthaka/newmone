@@ -26,6 +26,7 @@ import {
   isActionAllowed,
   isRequestStage,
   REQUEST_STAGE_LABELS,
+  requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
   requestValueLabel
@@ -570,9 +571,7 @@ export default function RequestsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
           <p aria-live="polite">
-            {loading
-              ? "Loading…"
-              : `${total} ${total === 1 ? "request" : "requests"}${filtered || view !== "all" ? ` ${total === 1 ? "matches" : "match"} this view` : ""}`}
+            {loading ? "Loading…" : requestResultCountLabel(total, Boolean(filtered || view !== "all"))}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {view !== "triage" ? (

@@ -192,3 +192,11 @@ export const REQUEST_STAGE_LABELS: Record<RequestStage, string> = {
 export function isRequestStage(value: string | null | undefined): value is RequestStage {
   return value === "open" || value === "awaiting_triage" || value === "urgent" || value === "converted";
 }
+
+/** List count line. A filtered total of 1 uses “matches”, not “match”. */
+export function requestResultCountLabel(total: number, filtered: boolean) {
+  const noun = total === 1 ? "request" : "requests";
+  if (!filtered) return `${total} ${noun}`;
+  const verb = total === 1 ? "matches" : "match";
+  return `${total} ${noun} ${verb} this view`;
+}

@@ -360,8 +360,8 @@ Standing failures, not introduced by Requests:
 ## I. Pending work and blockers
 
 1. Finish Phase 08 page `/requests` and `/requests/[id]` before any other page.
-2. PR #62 origin head `c04ff246`: app jobs passed except `release-validate` still pending at the last check, and `full-stack-e2e` failed on MinIO unauthorized. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing. Do not change the MinIO image until an anonymous pull of the replacement is proven. Local Docker is not running.
-3. Browser UAT for SUPER_ADMIN is recorded in section A. Remaining: other roles in the browser, the local plural copy fix pushed only with the next real change, and required CI on main.
+2. PR #62 origin head `c04ff246`: `release-validate` passed in 16m47s. `full-stack-e2e`, Vercel, and Workers still fail. Do not merge. Do not change the MinIO image until an anonymous manifest pull returns 200.
+3. SUPER_ADMIN browser UAT is recorded. Additional evidence: client navigation to the detail page emitted no hooked `console.error` or `console.warn`; no error overlay. `maintenance-request-ui.test.ts` 12/12 and `maintenance-requests-actions.spec.ts` 16/16. Stage cards exclude Cancelled and Closed. A no-permission user gets no actions. Other roles were not signed in through the browser.
 4. `full-stack-e2e` needs an infra decision on the MinIO images. Not an application change for this page.
 5. Vercel / Workers need `NEXT_PUBLIC_API_URL` (and the related public API vars) at build time, or a log that shows a different cause. Do not remove the fail-closed guard.
 6. Business decision still open: whether TECHNICIAN / MECHANIC / DRIVER may report issues. No permission was granted.
@@ -395,7 +395,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | CONTINUE browser UAT as SUPER_ADMIN at 1440, 820, and 390. Counts, filters, Escape, and detail next step passed. MinIO image left unchanged after Quay stayed 401 with a pull token and local Docker was stopped. Label “1 request match” fixed locally, not pushed. | local only |
+| 2026-09-29 | Targeted tests: web count label 12/12, API actions 16/16. `release-validate` passed on `c04ff246`. Detail client navigation had no hooked console error or warning. MinIO, Vercel, and Workers unchanged. Not pushed. | local, on top of `04dc017c` |
 
 ---
 
@@ -403,7 +403,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 
 Stay on `/requests` and `/requests/[id]`.
 
-1. Recheck `gh pr checks 62` for origin head `c04ff246` or later. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing, or while `release-validate` is pending.
-2. Do not push this local docs and label fix by itself. The next push should be a change that can be verified, including a MinIO image only after an anonymous manifest pull returns 200.
-3. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green. SUPER_ADMIN browser UAT is already recorded.
+1. Do not merge PR #62. Origin `c04ff246` has `release-validate` pass and `full-stack-e2e`, Vercel, and Workers fail. MinIO anonymous pull remains 401. Build logs for Vercel and Workers were not retrieved.
+2. Keep local `04dc017c` and the following test commit unpushed until a push can change one of those failing checks. Do not push documentation alone.
+3. Mark this page VERIFIED COMPLETE only after required CI on the containing main SHA is green.
 4. The following page is `/requests/new`. Do not open it while this page is unfinished.
