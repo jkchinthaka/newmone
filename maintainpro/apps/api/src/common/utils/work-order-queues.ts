@@ -16,6 +16,7 @@ export const WORK_ORDER_QUEUE_KEYS = [
   "supervisor-verification",
   "rework-required",
   "overdue",
+  "high-priority",
   "high-risk",
   "finance-vendor-pending",
   "triage",
@@ -39,6 +40,7 @@ export const WORK_ORDER_QUEUE_LABELS: Record<WorkOrderQueueKey, string> = {
   "supervisor-verification": "Supervisor Verification",
   "rework-required": "Rework Required",
   overdue: "Overdue",
+  "high-priority": "High Priority",
   "high-risk": "High Risk",
   "finance-vendor-pending": "Finance / Vendor Pending",
   triage: "Triage / Not Sure",
@@ -133,7 +135,7 @@ export function roleCanAccessQueue(role: RoleName | string | undefined, queue: W
     return ["finance-vendor-pending", "high-risk", "action-required", "completed", "cancelled"].includes(queue);
   }
   if (TECHNICIAN_ROLES.has(r)) {
-    return !["all", "finance-vendor-pending", "supervisor-verification"].includes(queue);
+    return !["all", "finance-vendor-pending", "supervisor-verification", "high-priority"].includes(queue);
   }
   return queue !== "all";
 }

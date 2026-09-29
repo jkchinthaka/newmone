@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~19:50 IST. Phase 02 Global application shell is locally complete on `feature/phase-02-shell`. Do not start Phase 03 Action Center until the next CONTINUE.
+**Last updated:** 2026-09-29 ~20:10 IST. Phase 03 Action Center is locally complete on `feature/phase-03-action-center`. Continue with Phase 04 Maintenance dashboard. Do not wait for CONTINUE.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 02 Global application shell — LOCAL DEVELOPMENT COMPLETE |
-| Next phase | 03 Action Center. Do not start until the next CONTINUE. |
-| Local Git | `feature/phase-02-shell`, created with `--no-track` from `feature/phase-01-login` at `4cf25f20`. Layout commit `ae7f84dd` is preserved. Ancestors include `6f5dd56f` and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Current phase | 03 Action Center — LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
+| Next phase | 04 Maintenance dashboard (`/maintenance`). Continue without waiting for CONTINUE. |
+| Local Git | `feature/phase-03-action-center`, created with `--no-track` from `feature/phase-02-shell` at `088d3cec`. Ancestors include Phase 01, Phase 02, and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
-| Working branch | `feature/phase-02-shell` (not pushed). `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
+| Working branch | `feature/phase-03-action-center` (not pushed). `feature/phase-02-shell` remains at `088d3cec`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -149,8 +149,8 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-The next CONTINUE starts Phase 03 Action Center (`/action-center`). Do not reopen Phase 02 unless a new defect is found. Do not open `/requests/new`.
+Start Phase 04 Maintenance dashboard (`/maintenance`). Do not reopen Phase 03 unless a new defect is found. Do not open `/requests/new`. The owner authorized continuous local execution; do not wait for CONTINUE.
 
-1. `feature/phase-02-shell` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
+1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.
-3. Phase 02 local evidence is in `PRODUCT_FINALIZATION_LEDGER.md` section D. Web `tsc --noEmit` passed. `test/navigation.spec.ts` passed 23/23. Web unit tests including breadcrumbs passed 14/14. Browser results are recorded in that section.
+3. Phase 03 evidence is in `PRODUCT_FINALIZATION_LEDGER.md` section D. Web `lib/__tests__/action-center.test.ts` 24/24. API `action-center.spec.ts` and `work-order-queues.spec.ts` together 22/22. Browser, signed in as the seeded admin: overdue queue selected with 5 table rows; high-priority queue selected with 2 High rows and badge 2 (a concurrent summary can time out at 2.5s and flash 0, then recover); search "inventory" left only Inventory & procurement; facility zero card linked to `/facilities/reports`; `/dashboard` and `/workspace` landed on `/action-center`; document did not overflow at 390, 820, or 1440. No schema change. No permissions granted. Technicians cannot open the tenant-wide high-priority queue.

@@ -108,7 +108,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 00 | Baseline reconciliation | PARTIALLY VERIFIED — baseline recorded; PR #62 app checks passed on `c4bb680e`; MinIO, Vercel, and Workers still fail |
 | 01 | Login, session, invitation onboarding | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 03 | Action Center | IMPLEMENTED — NOT VERIFIED |
+| 03 | Action Center | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 04 | Maintenance dashboard | IMPLEMENTED — NOT VERIFIED |
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
 | 06 | Machinery / service / vehicle jobs | IMPLEMENTED — NOT VERIFIED |
@@ -128,8 +128,8 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 02 Global application shell — LOCAL DEVELOPMENT COMPLETE on `feature/phase-02-shell`. Release readiness remains BLOCKED.
-- **Next phase:** 03 Action Center. Do not start until the next CONTINUE.
+- **Current phase:** 03 Action Center — LOCAL DEVELOPMENT COMPLETE on `feature/phase-03-action-center`. Release readiness remains BLOCKED.
+- **Next phase:** 04 Maintenance dashboard. Continue without waiting for CONTINUE.
 - **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - `/requests/new` stays in Phase 08 and is not started.
@@ -176,8 +176,10 @@ No database, API contract, or permission grant changed in this pass. Navigation 
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Action Center | `/action-center` | IMPLEMENTED — NOT VERIFIED |
-| Legacy redirects | `/dashboard`, `/workspace` | IMPLEMENTED — NOT VERIFIED |
+| Action Center | `/action-center` | LOCAL DEVELOPMENT COMPLETE | Live queues, inventory, invitations, facility feed, and KPI strip. Readiness no longer holds the rest of the page. Overdue and high-priority cards open matching work-order queues. |
+| Legacy redirects | `/dashboard`, `/workspace` | LOCAL DEVELOPMENT COMPLETE | Both land on `/action-center`. |
+
+No schema migration. No permission grant. Technicians still cannot open the high-priority queue. Readiness stays a separate query, so a slow Redis check shows “Checking readiness” while the rest of the board is already visible. Signed-in browser, `superadmin@maintainpro.local`, tenant MaintainPro Default Tenant: search for “overdue” kept that card and hid inventory and admin. `/work-orders?queue=high-priority` showed badge 2 and list total 2. Document overflow was false at 390 and 1440. Web `action-center.test.ts` 24/24. API `action-center.spec.ts` and `work-order-queues.spec.ts` 22/22 together. Redis on `127.0.0.1:6380` still refused and is not an Action Center defect. Release readiness stays BLOCKED.
 
 ### Phase 04 — Maintenance dashboard
 
@@ -426,11 +428,12 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
 | 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | `ae7f84dd`, local, not pushed |
 | 2026-09-29 | Phase 02 shell finished locally: sidebar, topbar, breadcrumbs, mobile drawer, tenant stability, cleaner denial, expired session, logout, and offline banner. | `feature/phase-02-shell`, not pushed |
+| 2026-09-29 | Phase 03 Action Center: readiness no longer blocks the board; overdue and high-priority cards open matching queues. No schema change. No permissions granted. | `feature/phase-03-action-center`, not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-The next CONTINUE starts Phase 03 Action Center (`/action-center`, plus the existing `/dashboard` and `/workspace` redirects). Do not start it in the same cycle as Phase 02.
+Continue with Phase 04 Maintenance dashboard (`/maintenance`). Do not reopen Phase 03 unless a new defect is found.
 
-Do not merge `feature/phase-02-shell` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) and Phase 01 through `4cf25f20` and `6f5dd56f`. Legacy raw workspace invitation tokens were not rewritten. Release readiness stays BLOCKED.
+Do not merge `feature/phase-03-action-center` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`), Phase 01 through `4cf25f20` and `6f5dd56f`, and Phase 02 through `088d3cec`. Legacy raw workspace invitation tokens were not rewritten. Release readiness stays BLOCKED.

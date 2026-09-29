@@ -314,6 +314,7 @@ export class WorkOrderQueuesService {
       "supervisor-verification": { where: this.supervisorVerificationWhere() },
       "rework-required": { where: { status: WorkOrderStatus.REWORK_REQUIRED } },
       overdue: { where: this.overdueWhere(now), severity: "HIGH" },
+      "high-priority": { where: this.highPriorityOpenWhere(), severity: "HIGH" },
       "high-risk": { where: this.highRiskWhere(now), severity: "CRITICAL" },
       "finance-vendor-pending": { where: this.financeVendorPendingWhere() },
       triage: { where: this.mergeWhere(this.nonTerminalWhere(), { isTriage: true }) },
@@ -324,6 +325,7 @@ export class WorkOrderQueuesService {
 
     // Run Action Center aggregates in the same parallel wave as queue counts
     // (previously a second sequential Promise.all after ~15 counts completed).
+    const highPriorityQueueCounted = accessible.includes("high-priority");
     const queueResults = await Promise.all([
       ...accessible.map((key) => {
         const definition = countDefinitions[key] ?? { where: {} };
@@ -333,9 +335,13 @@ export class WorkOrderQueuesService {
             : () => this.countScoped(actor, definition.where);
         return this.safeCount(key, warnings, countFn, definition.severity);
       }),
-      this.safeAggregateCount("highPriorityOpen", warnings, () =>
-        this.countScoped(actor, this.highPriorityOpenWhere())
-      ).then((count) => ({ __aggregate: "highPriorityOpen" as const, count })),
+      ...(highPriorityQueueCounted
+        ? []
+        : [
+            this.safeAggregateCount("highPriorityOpen", warnings, () =>
+              this.countScoped(actor, this.highPriorityOpenWhere())
+            ).then((count) => ({ __aggregate: "highPriorityOpen" as const, count }))
+          ]),
       this.safeAggregateCount("openUnassigned", warnings, () =>
         this.countScoped(actor, this.openUnassignedWhere())
       ).then((count) => ({ __aggregate: "openUnassigned" as const, count }))
@@ -355,8 +361,9 @@ export class WorkOrderQueuesService {
     );
 
     const countByKey = new Map(queueOnly.map((entry) => [entry.key, entry.count]));
-    const highPriorityOpen =
-      aggregateEntries.find((e) => e.__aggregate === "highPriorityOpen")?.count ?? 0;
+    const highPriorityOpen = highPriorityQueueCounted
+      ? countByKey.get("high-priority") ?? 0
+      : aggregateEntries.find((e) => e.__aggregate === "highPriorityOpen")?.count ?? 0;
     const openUnassigned =
       aggregateEntries.find((e) => e.__aggregate === "openUnassigned")?.count ?? 0;
 
@@ -1137,6 +1144,8 @@ export class WorkOrderQueuesService {
         // waitingPartsWhere() also matches on partIssues (issue history), which this
         // case previously omitted, undercounting the list relative to the badge.
         return { AND: [where, this.waitingPartsWhere()] };
+      case "high-priority":
+        return { AND: [where, this.highPriorityOpenWhere()] };
       case "high-risk":
         return {
           AND: [
@@ -1509,6 +1518,11 @@ export class WorkOrderQueuesService {
         return row.status === WorkOrderStatus.REWORK_REQUIRED;
       case "overdue":
         return isWorkOrderOverdue(row);
+      case "high-priority":
+        return (
+          (row.priority === Priority.HIGH || row.priority === Priority.CRITICAL) &&
+          !TERMINAL_STATUSES.includes(row.status)
+        );
       case "high-risk":
         return riskScore >= 40 && !TERMINAL_STATUSES.includes(row.status);
       case "finance-vendor-pending":

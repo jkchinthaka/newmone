@@ -89,6 +89,10 @@ export type ActionCenterSnapshot = {
     invitations: boolean;
     facilityIssues: boolean;
   };
+  /** Sections still loading after the rest of the board is ready to paint. */
+  pending?: Partial<{
+    systemHealth: boolean;
+  }>;
   /** Set only for a section that failed to load; a section that never fetches has no entry. */
   errors?: Partial<{
     workOrders: ActionCenterErrorKind;
@@ -422,6 +426,17 @@ function describeUnavailable(
 }
 
 function buildSystemHealthSection(snapshot: ActionCenterSnapshot): ActionCenterSection {
+  if (snapshot.pending?.systemHealth) {
+    return {
+      id: "system-health",
+      title: "System health",
+      description: "Platform readiness checks for administrators.",
+      items: [],
+      emptyTitle: "Checking readiness",
+      emptyDescription: "Platform checks are still running. The rest of this page is already live."
+    };
+  }
+
   if (!snapshot.connections.systemHealth || !snapshot.systemHealth) {
     const state = describeUnavailable(
       snapshot.errors?.systemHealth,
@@ -574,7 +589,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
       id: "overdue-work",
       title: "Overdue work orders",
       description: "Jobs past due or with SLA breach flags.",
-      href: "/work-orders",
+      href: "/work-orders?queue=overdue",
       tone: "danger",
       metricLabel: "Overdue",
       metricValue: String(stats.overdue)
@@ -586,7 +601,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
       id: "priority-work",
       title: "High-priority open work",
       description: "Critical or high priority jobs still open.",
-      href: "/work-orders",
+      href: "/work-orders?queue=high-priority",
       tone: "warning",
       metricLabel: "High priority",
       metricValue: String(stats.highPriority)
@@ -757,6 +772,12 @@ function buildInvitationsSection(snapshot: ActionCenterSnapshot): ActionCenterSe
 }
 
 function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSection {
+  const facilitySource = resolveFacilityIssuesSource(snapshot.roleName);
+  const issueListHref = facilitySource === "cleaning" ? "/cleaning/issues" : "/facilities/reports";
+  const sectionDescription =
+    facilitySource === "cleaning"
+      ? "Open and critical issues from cleaning management."
+      : "Open and critical facility issues for this tenant.";
   const facilityHierarchyLink: ActionCenterItem = {
     id: "facility-hierarchy",
     title: "Open facility hierarchy",
@@ -790,8 +811,8 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
       title: errorKind === "unauthorized" ? "Issue counts not available to your role" : "Issue feed unavailable",
       description:
         errorKind === "unauthorized"
-          ? "Your role doesn't have access to live open/critical issue counts. Hierarchy and reports links below still work."
-          : "Live open/critical issue counts could not be loaded right now. Hierarchy and reports links below still work.",
+          ? "Your role doesn't have access to live open/critical issue counts. Hierarchy and reports links still work."
+          : "Live open/critical issue counts could not be loaded right now. Hierarchy and reports links still work.",
       href: "/facilities",
       tone: "warning",
       statusLabel: "Degraded"
@@ -799,7 +820,7 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
     return {
       id: "facility",
       title: "Cleaning & facility issues",
-      description: "Issue reporting workflows available today via Cleaning Management.",
+      description: sectionDescription,
       items: [facilityHierarchyLink, facilityReportsLink, facilityAgingLink, degradedWarning]
     };
   }
@@ -811,8 +832,8 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
     items.push({
       id: "open-issues",
       title: "Open facility issues",
-      description: "Review reported cleaning or facility issues.",
-      href: "/cleaning/issues",
+      description: "Review reported facility or cleaning issues.",
+      href: issueListHref,
       tone: toneFromCount(stats.open, 1, 5),
       metricLabel: "Open",
       metricValue: String(stats.open)
@@ -824,17 +845,29 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
       id: "critical-issues",
       title: "Critical facility issues",
       description: "High-severity issues need supervisor attention.",
-      href: "/cleaning/issues",
+      href: issueListHref,
       tone: "danger",
       metricLabel: "Critical",
       metricValue: String(stats.critical)
     });
   }
 
+  if (stats.open === 0 && stats.critical === 0) {
+    items.push({
+      id: "facility-issues-clear",
+      title: "No open facility issues",
+      description: "The live issue feed returned no open or critical issues.",
+      href: issueListHref,
+      tone: "success",
+      metricLabel: "Open",
+      metricValue: "0"
+    });
+  }
+
   return {
     id: "facility",
     title: "Cleaning & facility issues",
-    description: "Issue reporting workflows available today via Cleaning Management.",
+    description: sectionDescription,
     items
   };
 }

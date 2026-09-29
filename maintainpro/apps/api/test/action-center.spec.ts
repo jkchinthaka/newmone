@@ -108,6 +108,34 @@ describe("action center section builders", () => {
     expect(workOrders?.emptyTitle).toBe("Not connected yet");
   });
 
+  it("opens overdue and high-priority cards on the matching work-order queues", () => {
+    const sections = buildActionCenterSections(baseSnapshot());
+    const workOrders = sections.find((section) => section.id === "work-orders");
+    expect(workOrders?.items.find((item) => item.id === "overdue-work")?.href).toBe("/work-orders?queue=overdue");
+    expect(workOrders?.items.find((item) => item.id === "priority-work")?.href).toBe(
+      "/work-orders?queue=high-priority"
+    );
+  });
+
+  it("shows a zero facility issue count from the facility reports destination", () => {
+    const sections = buildActionCenterSections(
+      baseSnapshot({
+        roleName: "ADMIN",
+        connections: {
+          workOrders: true,
+          inventory: true,
+          systemHealth: true,
+          invitations: true,
+          facilityIssues: true
+        },
+        facilityIssues: { open: 0, inProgress: 0, critical: 0 }
+      })
+    );
+    const clear = sections.find((section) => section.id === "facility")?.items.find((item) => item.id === "facility-issues-clear");
+    expect(clear?.metricValue).toBe("0");
+    expect(clear?.href).toBe("/facilities/reports");
+  });
+
   it("builds technician assigned work section metrics", () => {
     const sections = buildActionCenterSections(
       baseSnapshot({

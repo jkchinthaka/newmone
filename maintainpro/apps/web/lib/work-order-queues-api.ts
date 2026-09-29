@@ -15,6 +15,7 @@ export type WorkOrderQueueKey =
   | "supervisor-verification"
   | "rework-required"
   | "overdue"
+  | "high-priority"
   | "high-risk"
   | "finance-vendor-pending"
   | "triage"
@@ -72,6 +73,7 @@ export const FALLBACK_QUEUE_SUMMARY: WorkOrderQueueSummary = {
     { key: "waiting-evidence", label: "Waiting Evidence", count: 0 },
     { key: "supervisor-verification", label: "Supervisor Verification", count: 0 },
     { key: "overdue", label: "Overdue", count: 0 },
+    { key: "high-priority", label: "High Priority", count: 0 },
     { key: "high-risk", label: "High Risk", count: 0 },
     { key: "triage", label: "Triage / Not Sure", count: 0 },
     { key: "completed", label: "Completed", count: 0 },
