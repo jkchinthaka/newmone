@@ -394,6 +394,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
       return (
         <Suspense fallback={<LoadingSkeleton />}>
           <WorkOrderQueuePanel
+            jobDomain={jobDomain}
             onOpenWorkOrder={openEditModal}
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}

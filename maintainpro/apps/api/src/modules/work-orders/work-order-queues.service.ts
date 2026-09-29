@@ -91,6 +91,8 @@ export type WorkOrderQueueQuery = {
   overdueOnly?: string | boolean;
   highRiskOnly?: string | boolean;
   myAssignedOnly?: string | boolean;
+  /** OPEN or PLANNED work orders with no technician. Matches the maintenance dashboard card. */
+  unassigned?: string | boolean;
   /** MACHINERY | SERVICE | VEHICLE */
   jobDomain?: string;
   domainId?: string;
@@ -235,7 +237,7 @@ export class WorkOrderQueuesService {
     };
   }
 
-  async getQueueSummary(actor: Actor): Promise<WorkOrderQueueSummaryResponse> {
+  async getQueueSummary(actor: Actor, jobDomain?: string): Promise<WorkOrderQueueSummaryResponse> {
     const startedAt = Date.now();
     const role = actor.role as RoleName;
     const accessible = WORK_ORDER_QUEUE_KEYS.filter((key) => roleCanAccessQueue(role, key));
@@ -246,7 +248,7 @@ export class WorkOrderQueuesService {
 
     const fallback = this.buildTimeoutFallback(accessible, role);
     const result = await this.withQueueSummaryTimeout(
-      this.buildLightweightQueueSummary(actor, accessible, role),
+      this.buildLightweightQueueSummary(actor, accessible, role, jobDomain),
       fallback,
       readQueueSummaryEndpointTimeoutMs()
     );
@@ -284,7 +286,8 @@ export class WorkOrderQueuesService {
   private async buildLightweightQueueSummary(
     actor: Actor,
     accessible: WorkOrderQueueKey[],
-    role: RoleName
+    role: RoleName,
+    jobDomain?: string
   ): Promise<WorkOrderQueueSummaryResponse> {
     const warnings: WorkOrderQueueSummaryWarning[] = [];
     const now = new Date();
@@ -326,25 +329,28 @@ export class WorkOrderQueuesService {
 
     // Run Action Center aggregates in the same parallel wave as queue counts
     // (previously a second sequential Promise.all after ~15 counts completed).
+    const domain = jobDomain?.trim().toUpperCase();
+    const withDomain = (extra: Prisma.WorkOrderWhereInput): Prisma.WorkOrderWhereInput =>
+      domain ? this.mergeWhere(extra, { jobDomain: domain }) : extra;
     const highPriorityQueueCounted = accessible.includes("high-priority");
     const queueResults = await Promise.all([
       ...accessible.map((key) => {
         const definition = countDefinitions[key] ?? { where: {} };
         const countFn =
           key === "waiting-evidence"
-            ? () => this.countWaitingEvidence(actor)
-            : () => this.countScoped(actor, definition.where);
+            ? () => this.countWaitingEvidence(actor, domain)
+            : () => this.countScoped(actor, withDomain(definition.where));
         return this.safeCount(key, warnings, countFn, definition.severity);
       }),
       ...(highPriorityQueueCounted
         ? []
         : [
             this.safeAggregateCount("highPriorityOpen", warnings, () =>
-              this.countScoped(actor, this.highPriorityOpenWhere())
+              this.countScoped(actor, withDomain(this.highPriorityOpenWhere()))
             ).then((count) => ({ __aggregate: "highPriorityOpen" as const, count }))
           ]),
       this.safeAggregateCount("openUnassigned", warnings, () =>
-        this.countScoped(actor, this.openUnassignedWhere())
+        this.countScoped(actor, withDomain(this.openUnassignedWhere()))
       ).then((count) => ({ __aggregate: "openUnassigned" as const, count }))
     ]);
 
@@ -431,8 +437,12 @@ export class WorkOrderQueuesService {
    * cannot disagree. resolveEvidenceStatus only reads row.type/evidenceAttachments, so
    * this needs no extra per-row queries beyond the one findMany.
    */
-  private async countWaitingEvidence(actor: Actor): Promise<number> {
-    const where = this.mergeWhere(this.buildScopedBaseWhere(actor), this.nonTerminalWhere());
+  private async countWaitingEvidence(actor: Actor, jobDomain?: string): Promise<number> {
+    const where = this.mergeWhere(
+      this.buildScopedBaseWhere(actor),
+      this.nonTerminalWhere(),
+      jobDomain ? { jobDomain } : {}
+    );
     const rows = await this.prisma.workOrder.findMany({
       where,
       select: { type: true, evidenceAttachments: { where: { deletedAt: null, status: { not: "DELETED" } }, select: { evidenceType: true, status: true, verificationStatus: true } } },
@@ -881,7 +891,7 @@ export class WorkOrderQueuesService {
     const tenantId = requireTenantId(actor.tenantId);
 
     const baseWhere = this.buildPrismaWhere(actor, query);
-    const where = this.applyQueueDbWhere(baseWhere, queue, actor);
+    const where = this.applyQueueDbWhere(baseWhere, queue, actor, query);
     const usesPostFilter = this.queueRequiresPostEnrichmentFilter(queue, query);
 
     if (!usesPostFilter) {
@@ -1079,7 +1089,8 @@ export class WorkOrderQueuesService {
   private applyQueueDbWhere(
     where: Prisma.WorkOrderWhereInput,
     queue: WorkOrderQueueKey,
-    actor: Actor
+    actor: Actor,
+    query: WorkOrderQueueQuery = {}
   ): Prisma.WorkOrderWhereInput {
     const nonTerminal = { status: { notIn: TERMINAL_STATUSES } };
     const now = new Date();
@@ -1088,6 +1099,9 @@ export class WorkOrderQueuesService {
       case "triage":
         return { AND: [where, { isTriage: true }, nonTerminal] };
       case "open-requests":
+        if (query.unassigned === true || query.unassigned === "true") {
+          return where;
+        }
         return { AND: [where, { status: WorkOrderStatus.OPEN }] };
       case "completed":
         return { AND: [where, { status: WorkOrderStatus.COMPLETED }] };
@@ -1243,6 +1257,12 @@ export class WorkOrderQueuesService {
 
     if (query.status && query.status !== "ALL") {
       where.status = query.status as WorkOrderStatus;
+    }
+    if (query.unassigned === true || query.unassigned === "true") {
+      where.technicianId = null;
+      if (!query.status || query.status === "ALL") {
+        where.status = { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED] };
+      }
     }
     if (query.priority && query.priority !== "ALL") {
       where.priority = query.priority as Priority;

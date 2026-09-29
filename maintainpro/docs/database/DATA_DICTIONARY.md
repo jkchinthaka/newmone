@@ -24,6 +24,21 @@ Each entry: purpose, owner module, source of truth, keys, lifecycle/delete polic
 |-------|---------|-------|-----|--------------|---------------|
 | MaintenanceRequest | Need capture / triage | Requests | MaintainPro | tenant+requestNumber | Close/Cancel |
 | WorkOrder | Executable maintenance | Work Mgmt | MaintainPro | tenant+woNumber | Cancel (no hard delete) |
+
+Phase 04 dashboard reads these existing columns. No new table or migration in that pass.
+
+| Column | Used for |
+| --- | --- |
+| WorkOrder.tenantId | Every dashboard count is tenant-scoped |
+| WorkOrder.status | Open load, unplanned (OPEN), in progress, on hold, verification (TECHNICIAN_COMPLETED), rework |
+| WorkOrder.jobDomain | Machinery / Service / Vehicle cards, and the matching job lanes |
+| WorkOrder.technicianId | Unassigned = OPEN or PLANNED and technicianId null |
+| WorkOrder.dueDate | Overdue when still in the open status set and the date is past |
+| WorkOrder.priority | Critical open work |
+| WorkOrder.version | Optimistic concurrency on status updates (existing) |
+| PmPlan.nextDueAt | PM due within 7 days |
+| MaintenanceRequest.status | Requests in NEW, UNDER_REVIEW, or APPROVED |
+| WorkOrderPart.lineStatus / pendingReturnQuantity / requestedQuantity / issuedQuantity and PartIssue | Waiting-parts membership shared with the work-order queue |
 | WorkOrderStatusHistory | Lifecycle audit trail | Work Mgmt | MaintainPro | id | Append-only |
 | PmPlan / PmPlanRevision | Recurring strategy + versioned config | Planning | MaintainPro | tenant+code / plan+revision | Retire; never rewrite published |
 | PmOccurrence | One scheduled occurrence | Planning | MaintainPro | tenant+plan+generationKey | Skip/Defer/Complete |

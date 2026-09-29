@@ -33,3 +33,9 @@ test("critical priority opens the high-priority queue", () => {
 test("an explicit queue wins over a status guess", () => {
   assert.equal(queueFiltersFromSearch({ queue: "overdue", status: "OPEN" }).queue, "overdue");
 });
+
+test("unassigned dashboard link keeps open or planned jobs with no technician", () => {
+  const filters = queueFiltersFromSearch({ queue: "open-requests", unassigned: "true" });
+  assert.equal(filters.queue, "open-requests");
+  assert.equal(filters.unassigned, true);
+});

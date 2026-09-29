@@ -32,6 +32,7 @@ type Props = {
   onRefreshLegacy?: () => void;
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
+  jobDomain?: string;
 };
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
@@ -62,7 +63,8 @@ export function WorkOrderQueuePanel({
   onOpenWorkOrder,
   onRefreshLegacy,
   selectedIds = [],
-  onSelectedIdsChange
+  onSelectedIdsChange,
+  jobDomain
 }: Props) {
   const currentUser = useCurrentUser();
   const searchParams = useSearchParams();
@@ -70,6 +72,7 @@ export function WorkOrderQueuePanel({
   const urlSmartView = searchParams.get("smartView");
   const urlStatus = searchParams.get("status");
   const urlPriority = searchParams.get("priority");
+  const urlUnassigned = searchParams.get("unassigned");
   const urlQuery = searchParams.get("q") ?? searchParams.get("search");
   const linkedFilters = useMemo(
     () =>
@@ -77,9 +80,10 @@ export function WorkOrderQueuePanel({
         queue: urlQueue,
         smartView: urlSmartView,
         status: urlStatus,
-        priority: urlPriority
+        priority: urlPriority,
+        unassigned: urlUnassigned
       }),
-    [urlQueue, urlSmartView, urlStatus, urlPriority]
+    [urlQueue, urlSmartView, urlStatus, urlPriority, urlUnassigned]
   );
   const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
   const [searchInput, setSearchInput] = useState(urlQuery ?? "");
@@ -107,8 +111,8 @@ export function WorkOrderQueuePanel({
   });
 
   const summaryQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue-summary"]),
-    queryFn: fetchWorkOrderQueueSummary,
+    queryKey: withTenantScope(["work-orders", "queue-summary", jobDomain ?? ""]),
+    queryFn: () => fetchWorkOrderQueueSummary(jobDomain),
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.error ? false : 30_000)
@@ -127,7 +131,8 @@ export function WorkOrderQueuePanel({
           linkedFilters.queue ??
           summaryQuery.data?.defaultQueue ??
           FALLBACK_QUEUE_SUMMARY.defaultQueue,
-        query: urlQuery ?? current.query
+        query: urlQuery ?? current.query,
+        jobDomain: jobDomain || undefined
       }));
       if (urlQuery) {
         setSearchInput(urlQuery);
@@ -144,7 +149,8 @@ export function WorkOrderQueuePanel({
         current.queue === (linkedFilters.queue ?? current.queue) &&
         current.status === (linkedFilters.status ?? current.status) &&
         current.priority === (linkedFilters.priority ?? current.priority) &&
-        current.smartView === (linkedFilters.smartView ?? current.smartView);
+        current.smartView === (linkedFilters.smartView ?? current.smartView) &&
+        Boolean(current.unassigned) === Boolean(linkedFilters.unassigned);
       return unchanged ? current : { ...current, ...linkedFilters, page: 1 };
     });
   }, [initialized, linkedFilters]);

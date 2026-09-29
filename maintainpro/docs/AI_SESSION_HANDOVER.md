@@ -31,8 +31,8 @@ git log --oneline HEAD..origin/main   # has main moved?
 | Current phase | 04 Maintenance dashboard — LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | Next phase | 05 All jobs / work orders (`/maintenance/jobs`, `/work-orders`). Continue without waiting for CONTINUE. |
 | Local Git | `feature/phase-04-maintenance-dashboard`. Dashboard link commit `cde25d49`. Created with `--no-track` from `feature/phase-03-action-center`. Phase 03 code is `42c9d82c`. Ancestors include unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
-| `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
-| Working branch | `feature/phase-04-maintenance-dashboard` (not pushed). `feature/phase-03-action-center` remains at `84186c65`. `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
+| `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
+| Working branch | `feature/phase-04-maintenance-dashboard` (not pushed). `feature/phase-03-action-center` remains at `84186c65`. PR **#62** is merged on `origin/main` at `0f355313`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -151,7 +151,7 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 Start Phase 05 All jobs / work orders (`/maintenance/jobs` and `/work-orders`). Do not reopen Phase 04 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
 
-Phase 04 browser, seeded admin: overdue card opened `?smartView=overdue` with the Overdue chip selected and 5 rows; in-progress card opened `?status=IN_PROGRESS` with 1 in-progress row (On hold stayed out); waiting for parts is 1, the same membership as the waiting-parts queue; machinery 15 + service 3 + vehicle 6 = open maintenance 24. Unassigned stays a count only, because no queue matches open or planned jobs with no technician, and the old link to Action Required was wrong. No schema change. No permissions granted. Other roles were not signed in. Document overflow was false at 390 on the filtered work-order board.
+Phase 04 database check on local SQL Server, tenant MaintainPro Default Tenant: open load 24, unassigned 19, in progress 1, on hold 1, machinery/service/vehicle 15/3/6. Browser: unassigned `?queue=open-requests&unassigned=true` listed 19; in progress listed 1; overdue listed 5. Machinery lane summary is domain-scoped (`open-requests` 12, `all` 51) and the unscoped summary stayed at open 19 and overdue 5. No schema migration. No permission grant. A non-admin sign-in was not repeated.
 
 1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.

@@ -139,6 +139,9 @@ export type WorkOrderQueueFilters = {
   issueId: string;
   triageOnly: boolean;
   smartView?: string;
+  jobDomain?: string;
+  /** OPEN or PLANNED jobs with no technician. */
+  unassigned?: boolean;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -209,15 +212,18 @@ export function queueFiltersFromSearch(params: {
   smartView?: string | null;
   status?: string | null;
   priority?: string | null;
+  unassigned?: string | null;
 }): Partial<WorkOrderQueueFilters> {
   const status = params.status && QUEUE_LINK_STATUSES.has(params.status) ? params.status : undefined;
   const priority =
     params.priority && QUEUE_LINK_PRIORITIES.has(params.priority) ? params.priority : undefined;
+  const unassigned = params.unassigned === "true";
   const explicitQueue = params.queue && isWorkOrderQueueKey(params.queue) ? params.queue : undefined;
   const smartQueue =
     params.smartView && isWorkOrderQueueKey(params.smartView) ? params.smartView : undefined;
 
   let queue = explicitQueue ?? smartQueue;
+  if (!queue && unassigned) queue = "open-requests";
   if (!queue && status === "OPEN") queue = "open-requests";
   if (!queue && (status === "IN_PROGRESS" || status === "ON_HOLD")) queue = "in-progress";
   if (!queue && status === "REWORK_REQUIRED") queue = "rework-required";
@@ -229,11 +235,17 @@ export function queueFiltersFromSearch(params: {
   if (status) patch.status = status as WorkOrderQueueFilters["status"];
   if (priority) patch.priority = priority as WorkOrderQueueFilters["priority"];
   if (params.smartView) patch.smartView = params.smartView;
+  if (unassigned) patch.unassigned = true;
   return patch;
 }
 
-export async function fetchWorkOrderQueueSummary(): Promise<WorkOrderQueueSummary> {
-  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>("/work-orders/queues");
+export async function fetchWorkOrderQueueSummary(jobDomain?: string): Promise<WorkOrderQueueSummary> {
+  const params = new URLSearchParams();
+  if (jobDomain) params.set("jobDomain", jobDomain);
+  const query = params.toString();
+  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>(
+    query ? `/work-orders/queues?${query}` : "/work-orders/queues"
+  );
   return unwrap(response.data);
 }
 
@@ -253,6 +265,8 @@ export async function fetchWorkOrderQueue(
   if (filters.overdueOnly) params.set("overdueOnly", "true");
   if (filters.highRiskOnly) params.set("highRiskOnly", "true");
   if (filters.myAssignedOnly) params.set("myAssignedOnly", "true");
+  if (filters.unassigned) params.set("unassigned", "true");
+  if (filters.jobDomain) params.set("jobDomain", filters.jobDomain);
   if (filters.categoryId) params.set("categoryId", filters.categoryId);
   if (filters.typeId) params.set("typeId", filters.typeId);
   if (filters.issueId) params.set("issueId", filters.issueId);

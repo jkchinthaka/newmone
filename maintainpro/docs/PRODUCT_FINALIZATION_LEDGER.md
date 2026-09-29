@@ -185,7 +185,7 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Maintenance dashboard | `/maintenance` | LOCAL DEVELOPMENT COMPLETE | Overdue opens 5 rows. In progress opens 1 row and leaves On hold out. Waiting for parts is 1 and uses the same rule as the waiting-parts queue. Domain counts add up to open maintenance (15+3+6=24). Unassigned is a count only. No schema change. No permission grant. |
+| Maintenance dashboard | `/maintenance` | LOCAL DEVELOPMENT COMPLETE | SQL counts match the admin cards. Unassigned opens a list of 19 (OPEN or PLANNED, no technician). Machinery queues are scoped to `jobDomain`. No schema migration. No permission grant. Non-admin browser sign-in was not repeated. |
 
 ### Phase 05 — All jobs / work orders
 

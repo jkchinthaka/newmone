@@ -271,6 +271,7 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Unassigned"
             value={d.unassignedJobs}
+            href="/work-orders?queue=open-requests&unassigned=true"
             tone={d.unassignedJobs > 0 ? "warn" : "default"}
           />
           <KpiCard
@@ -287,7 +288,7 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Verification required"
             value={d.verificationRequired}
-            href="/work-orders?smartView=supervisor-verification"
+            href="/work-orders?queue=technician-completed"
             tone={d.verificationRequired > 0 ? "warn" : "default"}
           />
           <KpiCard
