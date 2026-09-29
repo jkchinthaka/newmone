@@ -31,8 +31,8 @@ git log --oneline HEAD..origin/main   # has main moved?
 | Current page | Maintenance Requests — list `/requests` and detail `/requests/[id]` |
 | Status | **PARTIALLY VERIFIED**: code complete, all automated gates pass; browser visual/responsive check and integration into `main` pending |
 | Branch | `maintainpro/finalization-iter-01` (local only, **not pushed**) |
-| Branch HEAD | `89533ac0` (1 commit ahead of `origin/main` @ `6264948f`) |
-| Uncommitted changes | none (except updates to this file / CLAUDE.md made after `89533ac0`, see commit log) |
+| Branch HEAD | `7878eb56` (docs: handover protocol), on top of `89533ac0` (Requests slice); 2 commits ahead of `origin/main` @ `6264948f` |
+| Uncommitted changes | only this SHA update to the handover itself, if not yet committed |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs` (`feature/maintenance-costs`), `C:/Dev/newmone-vendor-eligibility` (`feature/vendor-eligibility`): both already merged to main; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User runs `npm run dev` from this tree (API :3000 with `node --watch`, web :3001 `next dev`) against local SQL Server `MaintainProDev`. It hot-reloads branch changes. |
