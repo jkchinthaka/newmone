@@ -107,7 +107,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | --- | --- | --- |
 | 00 | Baseline reconciliation | PARTIALLY VERIFIED — baseline recorded; PR #62 app checks passed on `c4bb680e`; MinIO, Vercel, and Workers still fail |
 | 01 | Login, session, invitation onboarding | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 02 | Global application shell | Shared dashboard layout LOCAL DEVELOPMENT COMPLETE. Sidebar and navigation are next. |
+| 02 | Global application shell | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 03 | Action Center | IMPLEMENTED — NOT VERIFIED |
 | 04 | Maintenance dashboard | IMPLEMENTED — NOT VERIFIED |
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
@@ -128,11 +128,11 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 02 Global application shell.
-- **Current page:** Shared dashboard layout — LOCAL DEVELOPMENT COMPLETE. Do not start Sidebar & Navigation until the next CONTINUE.
+- **Current phase:** 02 Global application shell — LOCAL DEVELOPMENT COMPLETE on `feature/phase-02-shell`. Release readiness remains BLOCKED.
+- **Next phase:** 03 Action Center. Do not start until the next CONTINUE.
 - **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
-- **Do not start** Phase 02, and do not open `/requests/new` during Phase 01.
+- `/requests/new` stays in Phase 08 and is not started.
 
 ### Requests list and detail — two statuses
 
@@ -164,10 +164,13 @@ Return-path hardening commit `faba0ab7` is historical evidence, not a fresh UAT 
 
 | Surface | Location | Status |
 | --- | --- | --- |
-| Shared dashboard layout | `apps/web/app/(dashboard)/layout.tsx` | LOCAL DEVELOPMENT COMPLETE |
-| Sidebar, topbar, and navigation item rules | existing components used by the layout | Inspected for integration. Separate finalization is the next page. |
+| Shared dashboard layout | `apps/web/app/(dashboard)/layout.tsx` | LOCAL DEVELOPMENT COMPLETE (`ae7f84dd`) |
+| Sidebar and navigation | `components/layout/sidebar.tsx`, `nav-links.tsx`, `lib/navigation.ts` | LOCAL DEVELOPMENT COMPLETE |
+| Topbar and global actions | `components/layout/topbar.tsx` | LOCAL DEVELOPMENT COMPLETE |
+| Breadcrumbs and legacy routes | `lib/breadcrumbs.ts`, `/dashboard` and `/workspace` redirect to `/action-center` | LOCAL DEVELOPMENT COMPLETE |
+| Mobile and tablet navigation | `mobile-nav.tsx`, `mobile-bottom-nav.tsx` | LOCAL DEVELOPMENT COMPLETE |
 
-Requests nav roles were narrowed in iteration 01. The rest of the shell has not been walked under this programme.
+No database, API contract, or permission grant changed in this pass. Navigation visibility stays in `getVisibleNavigationItems` / `canAccessNavigationPath`, which the route guard uses before painting a denied page. Browser walk used the seeded admin and cleaner accounts. The cleaner was sent from `/admin` to `/action-center?reason=access_denied`. A forced `401` from `/auth/me` landed on `/login?reason=session_expired&returnTo=/requests`. Sign-out reached `/login`. A signed-out visit to `/requests` reached `/login`. Tenant id stayed the same from `/requests` to `/assets`. Requests showed `aria-current="page"` after the Maintenance group was opened. `/dashboard` and `/workspace` both landed on `/action-center`. At 1440 the sidebar was visible; at 820 and 390 it was hidden and the menu button was available. The drawer locked body scroll, closed from the dimmed area and the close button, and closed after Asset Register was opened. Offline mode showed the existing offline banner. Document overflow was false at 1440, 820, and 390. Redis on `127.0.0.1:6380` still refused and was not treated as a shell defect. Fixes in this pass: drawer body scroll lock, 44px group and full-navigation controls, pin controls large enough to use in the drawer, a named Logout control when its text is hidden, and no unread badge when the notification count request fails.
 
 ### Phase 03 — Action Center
 
@@ -421,12 +424,13 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | local, not pushed |
+| 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | `ae7f84dd`, local, not pushed |
+| 2026-09-29 | Phase 02 shell finished locally: sidebar, topbar, breadcrumbs, mobile drawer, tenant stability, cleaner denial, expired session, logout, and offline banner. | `feature/phase-02-shell`, not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-The next CONTINUE starts Phase 02 Sidebar & Navigation.
+The next CONTINUE starts Phase 03 Action Center (`/action-center`, plus the existing `/dashboard` and `/workspace` redirects). Do not start it in the same cycle as Phase 02.
 
-Do not merge `feature/phase-02-shell` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) and Phase 01 through `4cf25f20` and `6f5dd56f`. Legacy raw workspace invitation tokens were not rewritten.
+Do not merge `feature/phase-02-shell` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) and Phase 01 through `4cf25f20` and `6f5dd56f`. Legacy raw workspace invitation tokens were not rewritten. Release readiness stays BLOCKED.

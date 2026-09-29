@@ -178,7 +178,7 @@ export function Topbar({
             aria-label="Open notifications"
           >
             <Bell size={18} />
-            {(unreadQuery.data ?? 0) > 0 ? (
+            {!unreadQuery.isError && (unreadQuery.data ?? 0) > 0 ? (
               <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-[10px] font-semibold text-white">
                 {(unreadQuery.data ?? 0) > 99 ? "99+" : unreadQuery.data}
               </span>
@@ -187,6 +187,7 @@ export function Topbar({
           <button
             type="button"
             onClick={logout}
+            aria-label="Logout"
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <UserCircle2 size={18} />

@@ -24,20 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~19:40 IST. Shared dashboard layout is locally verified on `feature/phase-02-shell`. Do not start Sidebar & Navigation until the next CONTINUE.
-
-Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
+**Last updated:** 2026-09-29 ~19:50 IST. Phase 02 Global application shell is locally complete on `feature/phase-02-shell`. Do not start Phase 03 Action Center until the next CONTINUE.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 02 Global application shell |
-| Current page | Shared dashboard layout — LOCAL DEVELOPMENT COMPLETE |
-| Next page | Phase 02 — Sidebar & Navigation. Do not start until the next CONTINUE. |
-| Local Git | `feature/phase-02-shell`, created with `--no-track` from `feature/phase-01-login` at `4cf25f20`. Ancestors include `6f5dd56f` and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
+| Current phase | 02 Global application shell — LOCAL DEVELOPMENT COMPLETE |
+| Next phase | 03 Action Center. Do not start until the next CONTINUE. |
+| Local Git | `feature/phase-02-shell`, created with `--no-track` from `feature/phase-01-login` at `4cf25f20`. Layout commit `ae7f84dd` is preserved. Ancestors include `6f5dd56f` and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
-| Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
-| Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
-| Uncommitted changes | tracking files only, until the local docs commit that follows `8e999fde` |
+| Working branch | `feature/phase-02-shell` (not pushed). `ci/jest-heap-oom` stays where it was; PR **#62** → `main` is not merged |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -140,6 +135,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Blockers / open decisions
 
+Phase 02 local shell work is complete. The items below remain release or product decisions, not open shell defects.
+
 1. **CI red on main** until PR #62 merges. PR #62's validate-monorepo is green; merge needs the
    user's approval. full-stack-e2e stays red (MinIO image pull, pre-existing) until the infra decision.
 2. **Browser UAT for /requests and /requests/[id] not done.** The user signs in at
@@ -152,7 +149,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The next CONTINUE starts Phase 02 Sidebar & Navigation. Do not start the Action Center.
+The next CONTINUE starts Phase 03 Action Center (`/action-center`). Do not reopen Phase 02 unless a new defect is found. Do not open `/requests/new`.
 
-1. `feature/phase-02-shell` contains Phase 01 through `4cf25f20` and `6f5dd56f`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main.
+1. `feature/phase-02-shell` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.
+3. Phase 02 local evidence is in `PRODUCT_FINALIZATION_LEDGER.md` section D. Web `tsc --noEmit` passed. `test/navigation.spec.ts` passed 23/23. Web unit tests including breadcrumbs passed 14/14. Browser results are recorded in that section.

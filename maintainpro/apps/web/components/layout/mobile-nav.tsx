@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
@@ -18,6 +18,15 @@ type MobileNavProps = {
 export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNavProps) {
   const panelRef = useRef<HTMLElement>(null);
   useFocusTrap(open, panelRef, { onEscape: onClose });
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   if (!open) {
     return null;

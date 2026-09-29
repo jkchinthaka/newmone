@@ -253,7 +253,7 @@ function NavItemLink({
       <button
         type="button"
         onClick={onToggleFavorite}
-        className="rounded-md p-1 text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-brand-700 group-hover:opacity-100 focus-visible:opacity-100"
+        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-100 transition hover:bg-slate-100 hover:text-brand-700 focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100"
         aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
       >
         {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
@@ -333,7 +333,7 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
             setFullNavigation(next);
             writeFullNavigationMode(next);
           }}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+          className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         >
           {fullNavigation ? "Simplified navigation" : "Full navigation mode"}
         </button>
@@ -369,11 +369,11 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
             <button
               type="button"
               onClick={() => toggleGroup(group.category)}
-              className={`flex w-full items-center justify-between px-2 pt-1 ${surface.heading}`}
+              className={`flex min-h-11 w-full items-center justify-between px-2 ${surface.heading}`}
               aria-expanded={!collapsed}
             >
               <span>{group.label}</span>
-              <ChevronDown size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
+              <ChevronDown aria-hidden size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
             </button>
             {!collapsed ? (
               <div className="mt-1 space-y-1">
