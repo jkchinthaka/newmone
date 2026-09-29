@@ -2,14 +2,17 @@ import { Controller, Get, Param, Query, Req, Res, UseGuards } from "@nestjs/comm
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { TenantScoped } from "../../common/decorators/tenant-scope.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { spreadsheetCell } from "./maintenance-cost.rollup";
 import { contentDispositionAttachment } from "./report-export-safety.util";
 import { assertReportModuleKey, parseExportFormat, parseValidatedReportQuery } from "./report-query.dto";
 import { ReportExportFormat, ReportModuleKey, ReportQuery, ReportsService } from "./reports.service";
 import { ErpMonitoringService } from "./erp-monitoring.service";
+import { MaintenanceCostQueryService } from "./maintenance-cost.query";
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -38,8 +41,53 @@ const REPORT_READ_ROLES = [
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
+    private readonly maintenanceCosts: MaintenanceCostQueryService,
     private readonly erpMonitoringService: ErpMonitoringService
   ) {}
+
+  @Get("maintenance-costs/export")
+  @Roles(...REPORT_READ_ROLES)
+  @Permissions("reports.view")
+  async exportMaintenanceCosts(@Req() req: AuthedRequest, @Query() query: Record<string, string>, @Res() res: Response) {
+    const result = await this.maintenanceCosts.list(req.user, { ...query, page: "1", pageSize: "5000" });
+    const header = ["WO number", "Title", "Status", "Asset", "Period parts", "Period labour", "Period services", "Period total", "Currency", "Completeness", "Lifetime actual", "Variance amount", "Variance percent", "Variance label"];
+    const lines = [
+      header.join(","),
+      ...result.items.map((job) =>
+        [
+          job.woNumber,
+          job.title,
+          job.status,
+          job.asset,
+          job.period.parts,
+          job.period.labour,
+          job.period.services,
+          job.period.actual,
+          job.period.currency,
+          job.period.complete ? "Complete" : "Partial",
+          job.lifetime.actual,
+          job.lifetime.variance.amount,
+          job.lifetime.variance.percent,
+          job.lifetime.variance.label
+        ].map((cell) => spreadsheetCell(cell)).join(",")
+      )
+    ];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", contentDispositionAttachment("maintenance-costs.csv"));
+    res.send(lines.join("\n"));
+  }
+
+  @Get("maintenance-costs")
+  @Roles(...REPORT_READ_ROLES)
+  @Permissions("reports.view")
+  async maintenanceCostsReport(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const result = await this.maintenanceCosts.list(req.user, query);
+    return {
+      data: { items: result.items, summary: result.summary, evaluatedAt: result.evaluatedAt },
+      meta: { page: result.page, limit: result.pageSize, total: result.total, totalPages: result.total === 0 ? 0 : Math.ceil(result.total / result.pageSize) },
+      message: "Maintenance costs"
+    };
+  }
 
   @Get("options")
   @Roles(...REPORT_READ_ROLES)
