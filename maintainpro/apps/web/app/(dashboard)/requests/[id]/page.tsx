@@ -451,7 +451,7 @@ export default function RequestDetailPage() {
                     type="button"
                     disabled={busy || Boolean(detail.targetUnresolved)}
                     className="min-h-11 w-full rounded-lg bg-emerald-600 text-sm text-white disabled:opacity-40"
-                    onClick={() => void run(() => approveRequest(id), "Accepted")}
+                    onClick={() => void run(() => approveRequest(id), "Approved")}
                   >
                     Accept
                   </button>

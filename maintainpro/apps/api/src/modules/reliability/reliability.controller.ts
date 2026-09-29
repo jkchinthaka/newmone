@@ -28,6 +28,31 @@ type AuthedRequest = { user: JwtPayload };
 export class ReliabilityController {
   constructor(private readonly reliability: ReliabilityService) {}
 
+  @Get("reliability/summary")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
+  @Permissions("reliability.view")
+  async summary(@Req() req: AuthedRequest) {
+    const data = await this.reliability.summarize(req.user);
+    return { data, message: "Reliability summary" };
+  }
+
+  @Get("reliability/repeat-candidates")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
+  @Permissions("reliability.view")
+  async repeatCandidates(
+    @Req() req: AuthedRequest,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string
+  ) {
+    const data = await this.reliability.listRepeatClusters(req.user, {
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+      search
+    });
+    return { data: data.items, meta: data.meta, message: "Repeat failure clusters" };
+  }
+
   @Get("reliability/policy")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
   @Permissions("reliability.view")
@@ -45,6 +70,7 @@ export class ReliabilityController {
       matchSameFaultCode: body.matchSameFaultCode != null ? Boolean(body.matchSameFaultCode) : undefined,
       matchSameAsset: body.matchSameAsset != null ? Boolean(body.matchSameAsset) : undefined,
       requireRcaOnRepeat: body.requireRcaOnRepeat != null ? Boolean(body.requireRcaOnRepeat) : undefined,
+      repeatAction: body.repeatAction ? String(body.repeatAction) : undefined,
       requirePermitForCriticalAssets:
         body.requirePermitForCriticalAssets != null
           ? Boolean(body.requirePermitForCriticalAssets)
@@ -117,10 +143,32 @@ export class ReliabilityController {
     @Req() req: AuthedRequest,
     @Query("workOrderId") workOrderId?: string,
     @Query("assetId") assetId?: string,
-    @Query("status") status?: string
+    @Query("status") status?: string,
+    @Query("ownerId") ownerId?: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("sort") sort?: string
   ) {
-    const data = await this.reliability.listRca(req.user, { workOrderId, assetId, status });
-    return { data, message: "RCA cases" };
+    const data = await this.reliability.listRca(req.user, {
+      workOrderId,
+      assetId,
+      status,
+      ownerId,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+      sort
+    });
+    return { data: data.items, meta: data.meta, message: "RCA cases" };
+  }
+
+  @Get("reliability/rca/:id")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "AUDITOR")
+  @Permissions("reliability.view")
+  async getRca(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.reliability.getRca(req.user, id);
+    return { data, message: "RCA case" };
   }
 
   @Post("reliability/rca")
@@ -137,7 +185,11 @@ export class ReliabilityController {
       causeCode: body.causeCode ? String(body.causeCode) : undefined,
       evidence: Array.isArray(body.evidence) ? body.evidence.map(String) : undefined,
       fiveWhy: Array.isArray(body.fiveWhy) ? body.fiveWhy.map(String) : undefined,
-      ownerId: body.ownerId ? String(body.ownerId) : undefined
+      ownerId: body.ownerId ? String(body.ownerId) : undefined,
+      source: body.source ? String(body.source) : undefined,
+      impact: body.impact ? String(body.impact) : undefined,
+      method: body.method ? String(body.method) : undefined,
+      dueDate: body.dueDate ? String(body.dueDate) : undefined
     });
     return { data, message: "RCA case created" };
   }
@@ -157,9 +209,30 @@ export class ReliabilityController {
       causeCode: body.causeCode != null ? String(body.causeCode) : undefined,
       fiveWhy: Array.isArray(body.fiveWhy) ? body.fiveWhy.map(String) : undefined,
       evidence: Array.isArray(body.evidence) ? body.evidence.map(String) : undefined,
-      ownerId: body.ownerId ? String(body.ownerId) : undefined
+      ownerId: body.ownerId ? String(body.ownerId) : undefined,
+      impact: body.impact != null ? String(body.impact) : undefined,
+      method: body.method ? String(body.method) : undefined,
+      source: body.source ? String(body.source) : undefined,
+      dueDate: body.dueDate != null ? String(body.dueDate) : undefined,
+      problemStatement: body.problemStatement != null ? String(body.problemStatement) : undefined
     });
     return { data, message: "RCA case updated" };
+  }
+
+  @Post("reliability/rca/:id/effectiveness")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
+  @Permissions("reliability.manage")
+  async verifyEffectiveness(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    if (!body.result) throw new BadRequestException("result is required");
+    const data = await this.reliability.verifyEffectiveness(req.user, id, {
+      result: String(body.result),
+      notes: body.notes ? String(body.notes) : undefined
+    });
+    return { data, message: "Effectiveness recorded" };
   }
 
   @Post("reliability/rca/:id/capa")
@@ -193,7 +266,9 @@ export class ReliabilityController {
     const data = await this.reliability.updateCapa(req.user, id, {
       status: body.status ? String(body.status) : undefined,
       verificationNote: body.verificationNote != null ? String(body.verificationNote) : undefined,
-      dueDate: body.dueDate ? String(body.dueDate) : undefined
+      dueDate: body.dueDate ? String(body.dueDate) : undefined,
+      description: body.description ? String(body.description) : undefined,
+      evidence: Array.isArray(body.evidence) ? body.evidence.map(String) : undefined
     });
     return { data, message: "CAPA action updated" };
   }
@@ -250,10 +325,33 @@ export class ReliabilityController {
   @Permissions("reliability.view")
   async listCriticality(
     @Req() req: AuthedRequest,
-    @Query("criticalityLevel") criticalityLevel?: string
+    @Query("criticalityLevel") criticalityLevel?: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
   ) {
-    const data = await this.reliability.listAssetCriticality(req.user, { criticalityLevel });
-    return { data, message: "Asset criticality" };
+    const data = await this.reliability.listAssetCriticality(req.user, {
+      criticalityLevel,
+      search,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined
+    });
+    return { data: data.items, meta: data.meta, message: "Asset criticality" };
+  }
+
+  @Post("reliability/asset-criticality/bulk")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER")
+  @Permissions("reliability.manage")
+  async bulkCriticality(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    const assetIds = Array.isArray(body.assetIds) ? body.assetIds.map(String) : [];
+    if (!body.criticalityLevel) throw new BadRequestException("criticalityLevel is required");
+    if (!body.reason) throw new BadRequestException("reason is required");
+    const data = await this.reliability.bulkSetAssetCriticality(req.user, {
+      assetIds,
+      criticalityLevel: String(body.criticalityLevel),
+      reason: String(body.reason)
+    });
+    return { data, message: "Asset criticality updated" };
   }
 
   @Patch("assets/:id/criticality")

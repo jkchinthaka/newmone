@@ -19,6 +19,8 @@ import {
   WorkOrderType
 } from "@prisma/client";
 
+import { persistEvidenceFileBytes } from "../evidence/evidence-storage.mapper";
+import { evaluateInspectionChecklist } from "./inspection-checklist";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -56,6 +58,18 @@ function isUniqueConflict(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+function parseInspectionMeta(raw: string | null | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 @Injectable()
 export class PlanningService {
   constructor(
@@ -72,20 +86,98 @@ export class PlanningService {
 
   async listPmPlans(
     actor: Actor,
-    filters?: { status?: PmPlanStatus; siteId?: string; assetId?: string; vehicleId?: string }
+    filters?: {
+      status?: PmPlanStatus;
+      siteId?: string;
+      assetId?: string;
+      vehicleId?: string;
+      search?: string;
+      trigger?: string;
+      dueWindow?: string;
+      page?: number;
+      pageSize?: number;
+    }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    return this.prisma.pmPlan.findMany({
+    const page = Math.max(filters?.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+    const search = filters?.search?.trim();
+    const rows = await this.prisma.pmPlan.findMany({
       where: {
         tenantId,
         status: filters?.status,
         siteId: filters?.siteId,
         assetId: filters?.assetId,
-        vehicleId: filters?.vehicleId
+        vehicleId: filters?.vehicleId,
+        ...(filters?.trigger
+          ? { triggers: { some: { kind: filters.trigger as never, isActive: true } } }
+          : {}),
+        ...(search
+          ? {
+              OR: [
+                { code: { contains: search } },
+                { name: { contains: search } },
+                { description: { contains: search } },
+                { asset: { name: { contains: search } } },
+                { asset: { assetTag: { contains: search } } },
+                { vehicle: { registrationNo: { contains: search } } },
+                { vehicle: { make: { contains: search } } }
+              ]
+            }
+          : {})
       },
-      include: { triggers: true },
-      orderBy: [{ updatedAt: "desc" }]
+      include: {
+        triggers: true,
+        asset: { select: { id: true, name: true, assetTag: true, status: true } },
+        vehicle: { select: { id: true, registrationNo: true, make: true, vehicleModel: true, status: true } },
+        workOrders: {
+          where: { status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CLOSED, WorkOrderStatus.CANCELLED] } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, woNumber: true, status: true }
+        }
+      },
+      orderBy: [{ nextDueAt: "asc" }, { updatedAt: "desc" }]
     });
+
+    const now = Date.now();
+    const decorated = rows.map((plan) => {
+      const due = plan.nextDueAt ? plan.nextDueAt.getTime() : null;
+      const days = due == null ? null : (due - now) / 86400000;
+      let dueState = "ON_TRACK";
+      if (plan.status === "ACTIVE" && (!plan.triggers?.length || (!plan.assetId && !plan.vehicleId))) {
+        dueState = "NEEDS_ATTENTION";
+      } else if (plan.status === "ACTIVE" && due == null && plan.triggers?.some((trigger) => trigger.kind === "CALENDAR")) {
+        dueState = "NEEDS_ATTENTION";
+      } else if (days != null && days < 0) {
+        dueState = "OVERDUE";
+      } else if (days != null && days <= 7) {
+        dueState = "DUE_SOON";
+      }
+      return { ...plan, dueState, remainingDays: days };
+    });
+
+    const summary = {
+      active: decorated.filter((plan) => plan.status === "ACTIVE").length,
+      dueIn7: decorated.filter((plan) => plan.dueState === "DUE_SOON").length,
+      overdue: decorated.filter((plan) => plan.dueState === "OVERDUE").length,
+      needsAttention: decorated.filter((plan) => plan.dueState === "NEEDS_ATTENTION").length
+    };
+
+    const windowed = decorated.filter((plan) => {
+      if (filters?.dueWindow === "overdue") return plan.dueState === "OVERDUE";
+      if (filters?.dueWindow === "7") return plan.dueState === "DUE_SOON";
+      if (filters?.dueWindow === "attention") return plan.dueState === "NEEDS_ATTENTION";
+      return true;
+    });
+
+    const total = windowed.length;
+    const items = windowed.slice((page - 1) * pageSize, page * pageSize);
+    return {
+      items,
+      summary,
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
   }
 
   async createPmPlan(
@@ -94,6 +186,7 @@ export class PlanningService {
       code: string;
       name: string;
       description?: string;
+      status?: PmPlanStatus;
       assetId?: string;
       vehicleId?: string;
       location?: string;
@@ -129,7 +222,7 @@ export class PlanningService {
         code: input.code,
         name: input.name,
         description: input.description,
-        status: PmPlanStatus.ACTIVE,
+        status: (input as { status?: PmPlanStatus }).status ?? PmPlanStatus.ACTIVE,
         assetId: input.assetId,
         vehicleId: input.vehicleId,
         location: input.location,
@@ -959,6 +1052,374 @@ export class PlanningService {
 
   // ----- Inspections -----
 
+  async listInspections(
+    actor: Actor,
+    query: {
+      search?: string;
+      status?: string;
+      result?: string;
+      view?: string;
+      page?: number;
+      pageSize?: number;
+    } = {}
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const page = Math.max(query.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 25, 1), 100);
+    const search = query.search?.trim();
+    const rows = await this.prisma.inspection.findMany({
+      where: {
+        tenantId,
+        ...(query.result ? { result: query.result } : {}),
+        ...(search
+          ? {
+              OR: [
+                { findings: { contains: search } },
+                { asset: { name: { contains: search } } },
+                { asset: { assetTag: { contains: search } } },
+                { vehicle: { registrationNo: { contains: search } } },
+                { template: { name: { contains: search } } },
+                { template: { code: { contains: search } } }
+              ]
+            }
+          : {})
+      },
+      include: {
+        template: { select: { id: true, code: true, name: true, version: true, domainKey: true } },
+        asset: { select: { id: true, name: true, assetTag: true, criticalityLevel: true } },
+        vehicle: { select: { id: true, registrationNo: true, make: true, vehicleModel: true } },
+        findingRecords: { select: { id: true, severity: true, workOrderId: true, maintenanceRequestId: true } }
+      },
+      orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }]
+    });
+
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    const weekStart = new Date(startOfDay);
+    weekStart.setDate(weekStart.getDate() - 6);
+
+    const decorated = rows.map((row) => {
+      const due = row.scheduledAt ?? row.performedAt;
+      const open = row.status !== "COMPLETED" && row.status !== "CANCELLED" && row.status !== "MISSED";
+      const overdue = Boolean(open && due && due.getTime() < startOfDay.getTime());
+      const dueToday = Boolean(open && due && due >= startOfDay && due < endOfDay);
+      const criticalFindings = row.findingRecords.filter((finding) =>
+        ["CRITICAL", "HIGH"].includes(String(finding.severity).toUpperCase())
+      ).length;
+      return {
+        ...row,
+        displayCode: `INSP-${row.createdAt.getFullYear()}-${row.id.slice(-6).toUpperCase()}`,
+        dueState: overdue ? "OVERDUE" : dueToday ? "DUE_TODAY" : open ? "UPCOMING" : "DONE",
+        criticalFindings,
+        subjectName: row.vehicle
+          ? `${row.vehicle.make} ${row.vehicle.vehicleModel}`.trim() || row.vehicle.registrationNo
+          : row.asset?.name || "Unassigned",
+        subjectCode: row.vehicle?.registrationNo || row.asset?.assetTag || ""
+      };
+    });
+
+    const summary = {
+      dueToday: decorated.filter((row) => row.dueState === "DUE_TODAY").length,
+      overdue: decorated.filter((row) => row.dueState === "OVERDUE").length,
+      failed: decorated.filter((row) => row.result === "FAIL" || row.criticalFindings > 0).length,
+      completedThisWeek: decorated.filter(
+        (row) => row.status === "COMPLETED" && row.performedAt && row.performedAt >= weekStart
+      ).length
+    };
+
+    const view = query.view;
+    const filtered = decorated.filter((row) => {
+      if (query.status && row.status !== query.status) return false;
+      if (view === "due") return row.dueState === "DUE_TODAY";
+      if (view === "overdue") return row.dueState === "OVERDUE";
+      if (view === "upcoming") return row.dueState === "UPCOMING";
+      if (view === "failed") return row.result === "FAIL";
+      if (view === "completed") return row.status === "COMPLETED";
+      return true;
+    });
+
+    const total = filtered.length;
+    return {
+      items: filtered.slice((page - 1) * pageSize, page * pageSize),
+      summary,
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
+  }
+
+  async scheduleInspection(
+    actor: Actor,
+    input: {
+      title?: string;
+      templateId?: string;
+      assetId?: string;
+      vehicleId?: string;
+      inspectorId?: string;
+      scheduledAt?: Date;
+      priorInspectionId?: string;
+      functionalLocationId?: string;
+      inspectionType?: string;
+      description?: string;
+    }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    if (input.assetId) {
+      const asset = await this.prisma.asset.findFirst({ where: { id: input.assetId, tenantId }, select: { id: true } });
+      if (!asset) throw new BadRequestException("Asset is not in this workspace.");
+    }
+    if (input.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({ where: { id: input.vehicleId, tenantId }, select: { id: true } });
+      if (!vehicle) throw new BadRequestException("Vehicle is not in this workspace.");
+    }
+    if (input.functionalLocationId) {
+      const location = await this.prisma.functionalLocation.findFirst({
+        where: { id: input.functionalLocationId, tenantId },
+        select: { id: true }
+      });
+      if (!location) throw new BadRequestException("Location is not in this workspace.");
+    }
+    if (input.inspectorId) {
+      const inspector = await this.prisma.user.findFirst({
+        where: { id: input.inspectorId, tenantId },
+        select: { id: true }
+      });
+      if (!inspector) throw new BadRequestException("Inspector is not in this workspace.");
+    }
+    if (input.templateId) {
+      const template = await this.prisma.inspectionTemplate.findFirst({
+        where: { id: input.templateId, tenantId },
+        select: { id: true }
+      });
+      if (!template) throw new BadRequestException("Inspection template is not in this workspace.");
+    }
+    if (!input.assetId && !input.vehicleId && !input.functionalLocationId && !input.title?.trim()) {
+      throw new BadRequestException("Choose an asset, a vehicle, a location, or a title.");
+    }
+    return this.prisma.inspection.create({
+      data: {
+        tenantId,
+        templateId: input.templateId,
+        assetId: input.assetId,
+        vehicleId: input.vehicleId,
+        functionalLocationId: input.functionalLocationId,
+        inspectionType: input.inspectionType,
+        description: input.description,
+        inspectorId: input.inspectorId ?? actor.sub,
+        scheduledAt: input.scheduledAt ?? new Date(),
+        isAdHoc: !input.templateId,
+        findings: input.title,
+        answers: input.priorInspectionId
+          ? JSON.stringify({ reinspectionOfId: input.priorInspectionId })
+          : undefined,
+        status: "SCHEDULED"
+      }
+    });
+  }
+
+  async listInspectionTemplates(actor: Actor) {
+    const tenantId = requireTenantId(actor.tenantId);
+    return this.prisma.inspectionTemplate.findMany({
+      where: { tenantId, isActive: true },
+      include: { checklistTemplate: { include: { items: { orderBy: { sortOrder: "asc" } } } } },
+      orderBy: { name: "asc" }
+    });
+  }
+
+  async getInspection(actor: Actor, id: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const row = await this.prisma.inspection.findFirst({
+      where: { id, tenantId },
+      include: {
+        template: { include: { checklistTemplate: { include: { items: { orderBy: { sortOrder: "asc" } } } } } },
+        asset: { select: { id: true, name: true, assetTag: true, tenantId: true } },
+        vehicle: { select: { id: true, registrationNo: true, make: true, vehicleModel: true, tenantId: true } },
+        functionalLocation: { select: { id: true, name: true, code: true } },
+        findingRecords: true
+      }
+    });
+    if (!row) throw new NotFoundException("Inspection not found");
+    const execution = await this.prisma.checklistExecution.findFirst({
+      where: { tenantId, inspectionId: id },
+      orderBy: { startedAt: "desc" }
+    });
+    return {
+      ...row,
+      displayCode: `INSP-${row.createdAt.getFullYear()}-${row.id.slice(-6).toUpperCase()}`,
+      execution
+    };
+  }
+
+  async startInspection(actor: Actor, id: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const row = await this.prisma.inspection.findFirst({
+      where: { id, tenantId },
+      include: { template: true }
+    });
+    if (!row) throw new NotFoundException("Inspection not found");
+    if (row.status === "COMPLETED" || row.status === "CANCELLED" || row.status === "MISSED") {
+      throw new BadRequestException(`Inspection cannot be started from ${row.status}.`);
+    }
+    if (row.status === "IN_PROGRESS") {
+      return row;
+    }
+    const checklistTemplateId = row.template?.checklistTemplateId;
+    if (checklistTemplateId) {
+      const existingExecution = await this.prisma.checklistExecution.findFirst({
+        where: { tenantId, inspectionId: id, completedAt: null }
+      });
+      if (!existingExecution) {
+        const template = await this.prisma.checklistTemplate.findFirst({
+          where: { id: checklistTemplateId, tenantId },
+          include: { items: { orderBy: { sortOrder: "asc" } } }
+        });
+        if (template) {
+          await this.prisma.checklistExecution.create({
+            data: {
+              tenantId,
+              templateId: template.id,
+              templateRevision: template.version,
+              inspectionId: id,
+              executedById: actor.sub,
+              templateSnapshot: JSON.stringify({
+                id: template.id,
+                version: template.version,
+                items: template.items
+              })
+            }
+          });
+        }
+      }
+    }
+    return this.prisma.inspection.update({
+      where: { id },
+      data: {
+        status: "IN_PROGRESS",
+        answers: JSON.stringify({
+          ...(parseInspectionMeta(row.answers)),
+          startedAt: new Date().toISOString(),
+          startedBy: actor.sub
+        })
+      }
+    });
+  }
+
+  async saveInspectionAnswers(actor: Actor, id: string, answers: Record<string, unknown>) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const row = await this.prisma.inspection.findFirst({ where: { id, tenantId } });
+    if (!row) throw new NotFoundException("Inspection not found");
+    if (row.status === "COMPLETED") {
+      throw new BadRequestException("Completed inspections are read-only.");
+    }
+    const execution = await this.prisma.checklistExecution.findFirst({
+      where: { tenantId, inspectionId: id, completedAt: null }
+    });
+    if (!execution) throw new BadRequestException("Start the inspection before recording answers.");
+    return this.prisma.checklistExecution.update({
+      where: { id: execution.id },
+      data: { answers: JSON.stringify(answers), executedById: actor.sub }
+    });
+  }
+
+  async completeScheduledInspection(actor: Actor, id: string, answers: Record<string, { value?: unknown; comment?: string | null; evidenceRefs?: string[] }>) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const row = await this.getInspection(actor, id);
+    if (row.status === "COMPLETED") {
+      return { ...row, alreadyCompleted: true };
+    }
+    if (row.status !== "IN_PROGRESS") {
+      throw new BadRequestException("Start the inspection before completing it.");
+    }
+    const execution = row.execution;
+    const snapshot = execution?.templateSnapshot ? JSON.parse(execution.templateSnapshot) : null;
+    const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
+    const evaluated = evaluateInspectionChecklist({
+      items,
+      answers: answers as never
+    });
+    if (evaluated.errors.length) {
+      throw new BadRequestException(evaluated.errors.join(" "));
+    }
+    if (execution && !execution.completedAt) {
+      await this.prisma.checklistExecution.update({
+        where: { id: execution.id },
+        data: { answers: JSON.stringify(answers), completedAt: new Date(), executedById: actor.sub }
+      });
+    }
+    return this.completeInspection(actor, {
+      inspectionId: id,
+      templateId: row.templateId ?? undefined,
+      assetId: row.assetId ?? undefined,
+      vehicleId: row.vehicleId ?? undefined,
+      inspectorId: actor.sub,
+      result: evaluated.result as InspectionResult,
+      findings: row.findings ?? row.template?.name ?? "Inspection completed",
+      answers,
+      findingItems: evaluated.findings
+    });
+  }
+
+  async attachInspectionEvidence(
+    actor: Actor,
+    inspectionId: string,
+    input: { checklistItemKey: string; fileName: string; mimeType: string; contentBase64: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const inspection = await this.prisma.inspection.findFirst({
+      where: { id: inspectionId, tenantId },
+      select: { id: true, status: true }
+    });
+    if (!inspection) throw new NotFoundException("Inspection not found");
+    if (inspection.status === "COMPLETED") {
+      throw new BadRequestException("Completed inspections are read-only.");
+    }
+    const stored = await persistEvidenceFileBytes({
+      tenantId,
+      inspectionId,
+      checklistItemKey: input.checklistItemKey,
+      fileName: input.fileName,
+      mimeType: input.mimeType,
+      contentBase64: input.contentBase64
+    });
+    if (!stored.ok) {
+      throw new BadRequestException(stored.message);
+    }
+    return this.prisma.evidenceAttachment.create({
+      data: {
+        tenantId,
+        inspectionId,
+        checklistItemKey: input.checklistItemKey,
+        evidenceType: "PHOTO",
+        fileName: stored.fileName,
+        mimeType: input.mimeType.trim().toLowerCase(),
+        sizeBytes: stored.sizeBytes,
+        storageProvider: "LOCAL",
+        storageKey: stored.storageKey,
+        status: "READY",
+        uploadedById: actor.sub,
+        source: "WEB"
+      },
+      select: { id: true, fileName: true, mimeType: true, sizeBytes: true, status: true, checklistItemKey: true }
+    });
+  }
+
+  async createReinspection(actor: Actor, id: string) {
+    const source = await this.getInspection(actor, id);
+    if (source.status !== "COMPLETED") {
+      throw new BadRequestException("Only a completed inspection can be re-inspected.");
+    }
+    return this.scheduleInspection(actor, {
+      title: `Re-inspection of ${source.displayCode}`,
+      templateId: source.templateId ?? undefined,
+      assetId: source.assetId ?? undefined,
+      vehicleId: source.vehicleId ?? undefined,
+      inspectorId: source.inspectorId ?? actor.sub,
+      scheduledAt: new Date(),
+      priorInspectionId: source.id
+    });
+  }
+
   async completeInspection(
     actor: Actor,
     input: {
@@ -969,6 +1430,7 @@ export class PlanningService {
       functionalLocationId?: string;
       inspectorId?: string;
       isAdHoc?: boolean;
+      inspectionId?: string;
       result: InspectionResult;
       findings?: string;
       evidenceUrls?: string[];
@@ -983,8 +1445,24 @@ export class PlanningService {
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
+    if (input.inspectionId) {
+      const existing = await this.prisma.inspection.findFirst({
+        where: { id: input.inspectionId, tenantId },
+        include: { findingRecords: true }
+      });
+      if (!existing) throw new NotFoundException("Inspection not found");
+      if (existing.status === "COMPLETED") {
+        return {
+          ...existing,
+          alreadyCompleted: true,
+          maintenanceRequestId: existing.findingRecords.find((finding) => finding.maintenanceRequestId)?.maintenanceRequestId,
+          findingCount: existing.findingRecords.length
+        };
+      }
+    }
     let correctiveWorkOrderId: string | undefined;
     let maintenanceRequestId: string | undefined;
+    const correctiveKey = input.inspectionId ? `insp-fail:${input.inspectionId}` : undefined;
 
     if (input.result === InspectionResult.FAIL && input.createCorrectiveWo !== false) {
       const description =
@@ -1012,7 +1490,7 @@ export class PlanningService {
               description: description.length >= 5 ? description : `${description} (inspection)`,
               priority: Priority.HIGH,
               problemCategoryLabel: "INSPECTION_FAIL",
-              idempotencyKey: `insp-fail:${input.assetId ?? input.functionalLocationId ?? "adhoc"}:${Date.now()}`
+              idempotencyKey: correctiveKey ?? `insp-fail:${input.assetId ?? input.functionalLocationId ?? "adhoc"}`
             }
           );
           maintenanceRequestId = request.id;
@@ -1036,24 +1514,6 @@ export class PlanningService {
       }
     }
 
-    const inspection = await this.prisma.inspection.create({
-      data: {
-        tenantId,
-        templateId: input.templateId,
-        assetId: input.assetId,
-        vehicleId: input.vehicleId,
-        inspectorId: input.inspectorId ?? actor.sub,
-        isAdHoc: input.isAdHoc ?? !input.templateId,
-        performedAt: new Date(),
-        result: input.result,
-        findings: input.findings,
-        evidenceUrls: input.evidenceUrls ?? [],
-        answers: input.answers as Prisma.InputJsonValue,
-        correctiveWorkOrderId,
-        status: "COMPLETED"
-      }
-    });
-
     const findingInputs =
       input.findingItems?.length
         ? input.findingItems
@@ -1067,21 +1527,61 @@ export class PlanningService {
             ]
           : [];
 
-    if (findingInputs.length > 0) {
-      await this.prisma.inspectionFinding.createMany({
-        data: findingInputs.map((f) => ({
-          tenantId,
-          inspectionId: inspection.id,
-          itemKey: f.itemKey,
-          severity: f.severity ?? "MEDIUM",
-          description: f.description,
-          evidenceUrls: f.evidenceUrls ?? [],
-          correctiveActionRequired: true,
-          maintenanceRequestId,
-          workOrderId: correctiveWorkOrderId
-        }))
-      });
-    }
+    const writeCompletedInspection = async (db: typeof this.prisma) => {
+      const inspection = input.inspectionId
+        ? await db.inspection.update({
+            where: { id: input.inspectionId },
+            data: {
+              performedAt: new Date(),
+              result: input.result,
+              findings: input.findings,
+              answers: JSON.stringify(input.answers ?? {}),
+              correctiveWorkOrderId,
+              status: "COMPLETED",
+              inspectorId: input.inspectorId ?? actor.sub
+            }
+          })
+        : await db.inspection.create({
+            data: {
+              tenantId,
+              templateId: input.templateId,
+              assetId: input.assetId,
+              vehicleId: input.vehicleId,
+              functionalLocationId: input.functionalLocationId,
+              inspectorId: input.inspectorId ?? actor.sub,
+              isAdHoc: input.isAdHoc ?? !input.templateId,
+              performedAt: new Date(),
+              result: input.result,
+              findings: input.findings,
+              evidenceUrls: input.evidenceUrls ?? [],
+              answers: JSON.stringify(input.answers ?? {}),
+              correctiveWorkOrderId,
+              status: "COMPLETED"
+            }
+          });
+
+      if (findingInputs.length > 0) {
+        await db.inspectionFinding.createMany({
+          data: findingInputs.map((f) => ({
+            tenantId,
+            inspectionId: inspection.id,
+            itemKey: f.itemKey,
+            severity: f.severity ?? "MEDIUM",
+            description: f.description,
+            evidenceUrls: f.evidenceUrls ?? [],
+            correctiveActionRequired: true,
+            maintenanceRequestId,
+            workOrderId: correctiveWorkOrderId
+          }))
+        });
+      }
+      return inspection;
+    };
+
+    const inspection =
+      input.inspectionId && typeof this.prisma.$transaction === "function"
+        ? await this.prisma.$transaction(async (tx) => writeCompletedInspection(tx as typeof this.prisma))
+        : await writeCompletedInspection(this.prisma);
 
     return {
       ...inspection,

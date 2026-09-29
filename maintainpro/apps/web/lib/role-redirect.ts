@@ -129,3 +129,35 @@ export function getPostLoginRedirect(userOrRole: PostLoginUserLike): string {
 
   return resolvePostLoginPath(preferences);
 }
+
+/**
+ * Accept only same-app relative paths. Reject protocol-relative and external URLs.
+ */
+export function safeInternalReturnPath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\") || raw.includes("://")) {
+    return null;
+  }
+
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+
+  if (!decoded.startsWith("/") || decoded.startsWith("//") || decoded.includes("\\") || decoded.includes("://")) {
+    return null;
+  }
+
+  const path = decoded.split("?")[0]?.split("#")[0] ?? "";
+  if (!path || path.includes("..")) return null;
+
+  const blocked = ["/login", "/forgot-password", "/reset-password", "/register", "/splash"];
+  if (blocked.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    return null;
+  }
+
+  return decoded;
+}

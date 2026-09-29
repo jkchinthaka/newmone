@@ -2994,6 +2994,7 @@ model FunctionalLocation {
   workOrders          WorkOrder[]
   maintenanceRequests MaintenanceRequest[]
   pmPlans             PmPlan[]
+  inspections         Inspection[]
 
   @@unique([tenantId, siteId, code])
   @@index([tenantId, siteId])
@@ -3538,6 +3539,19 @@ model RcaCase {
   similarWoCount    Int       @default(0)
   ownerId           String?   @db.NVarChar(36)
   owner             User?     @relation("RcaCaseOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dueDate           DateTime?
+  /// Deterministic repeat-failure key, e.g. asset:{id}|fault:{CODE}
+  clusterKey        String?   @db.NVarChar(160)
+  /// REPEAT_FAILURE | CRITICAL_BREAKDOWN | MAJOR_DOWNTIME | SAFETY_ISSUE | INSPECTION | MANAGER | AUDIT | OTHER
+  source            String?   @db.NVarChar(32)
+  impact            String?   @db.NVarChar(Max)
+  /// FIVE_WHYS | FISHBONE | FAULT_TREE | OTHER
+  method            String?   @db.NVarChar(32)
+  /// EFFECTIVE | PARTIALLY_EFFECTIVE | INEFFECTIVE
+  effectiveness     String?   @db.NVarChar(32)
+  effectivenessNote String?   @db.NVarChar(Max)
+  effectivenessVerifiedById String? @db.NVarChar(36)
+  effectivenessVerifiedAt   DateTime?
   completedAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -3547,6 +3561,7 @@ model RcaCase {
   @@index([tenantId, workOrderId])
   @@index([tenantId, assetId, createdAt])
   @@index([tenantId, repeatCandidate])
+  @@index([tenantId, clusterKey, status])
 }
 
 /// Corrective / Preventive Action linked to an RCA.
@@ -3564,6 +3579,8 @@ model CapaAction {
   ownerId          String?  @db.NVarChar(36)
   owner            User?    @relation("CapaActionOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dueDate          DateTime?
+  evidenceJson     String   @default("[]") @db.NVarChar(Max)
+  verifiedById     String?  @db.NVarChar(36)
   verifiedAt       DateTime?
   verificationNote String?
   closedAt         DateTime?
@@ -3614,6 +3631,8 @@ model ReliabilityPolicy {
   matchSameFaultCode              Boolean  @default(true)
   matchSameAsset                  Boolean  @default(true)
   requireRcaOnRepeat              Boolean  @default(false)
+  /// FLAG_ONLY | MANAGER_REVIEW | REQUIRE_RCA. Kept in step with requireRcaOnRepeat (true only for REQUIRE_RCA).
+  repeatAction                    String   @default("FLAG_ONLY") @db.NVarChar(32)
   /// When true, WO start is blocked unless an ACTIVE/APPROVED non-expired permit exists for critical assets
   requirePermitForCriticalAssets  Boolean  @default(true)
   /// CSV of Asset.criticalityLevel values that require a permit before start
@@ -3797,6 +3816,9 @@ model EvidenceAttachment {
   /// Phase 5: evidence attached to MaintenanceRequest (reuse same secure storage)
   maintenanceRequestId String?             @db.NVarChar(36)
   maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionId         String?             @db.NVarChar(36)
+  inspection           Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklistItemKey     String?             @db.NVarChar(64)
   evidenceType         String              @default("") @db.NVarChar(64)
   fileName             String
   mimeType             String
@@ -3826,6 +3848,7 @@ model EvidenceAttachment {
   @@index([tenantId, workOrderId])
   @@index([tenantId, facilityIssueId])
   @@index([tenantId, maintenanceRequestId])
+  @@index([tenantId, inspectionId, checklistItemKey])
   @@index([tenantId, status])
   @@index([tenantId, clientGeneratedId])
 }
@@ -5720,6 +5743,10 @@ model Inspection {
   asset                 Asset?              @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicleId             String?             @db.NVarChar(36)
   vehicle               Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  functionalLocationId  String?             @db.NVarChar(36)
+  functionalLocation    FunctionalLocation? @relation(fields: [functionalLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionType        String?             @db.NVarChar(64)
+  description           String?             @db.NVarChar(2000)
   inspectorId           String?             @db.NVarChar(36)
   scheduledAt           DateTime?
   performedAt           DateTime?
@@ -5734,11 +5761,13 @@ model Inspection {
   updatedAt             DateTime            @updatedAt
 
   findingRecords InspectionFinding[]
+  evidenceAttachments EvidenceAttachment[]
 
   @@index([tenantId, status])
   @@index([tenantId, result])
   @@index([assetId])
   @@index([vehicleId])
+  @@index([functionalLocationId])
   @@index([templateId])
 }
 

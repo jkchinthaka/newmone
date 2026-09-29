@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession } from "@/lib/auth-storage";
+import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
@@ -189,9 +190,14 @@ function attachCsrfHeader(config: InternalAxiosRequestConfig): void {
 
 function handleSessionExpiredRedirect() {
   clearAuthSession();
-  if (!window.location.pathname.startsWith("/login")) {
-    window.location.href = "/login?reason=session_expired";
+  if (window.location.pathname.startsWith("/login")) {
+    return;
   }
+  const current = `${window.location.pathname}${window.location.search}`;
+  const returnTo = safeInternalReturnPath(current);
+  const params = new URLSearchParams({ reason: "session_expired" });
+  if (returnTo) params.set("returnTo", returnTo);
+  window.location.href = `/login?${params.toString()}`;
 }
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {

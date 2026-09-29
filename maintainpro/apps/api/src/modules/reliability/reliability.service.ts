@@ -48,8 +48,52 @@ const PERMIT_TRANSITIONS: Record<string, string[]> = {
 const RCA_STATUSES = ["OPEN", "IN_REVIEW", "COMPLETED", "CLOSED"] as const;
 const CAPA_KINDS = ["CORRECTIVE", "PREVENTIVE"] as const;
 const CAPA_STATUSES = ["OPEN", "IN_PROGRESS", "VERIFIED", "CLOSED", "CANCELLED"] as const;
+const REPEAT_ACTIONS = ["FLAG_ONLY", "MANAGER_REVIEW", "REQUIRE_RCA"] as const;
+const RCA_METHODS = ["FIVE_WHYS", "FISHBONE", "FAULT_TREE", "OTHER"] as const;
+const RCA_SOURCES = [
+  "REPEAT_FAILURE",
+  "CRITICAL_BREAKDOWN",
+  "MAJOR_DOWNTIME",
+  "SAFETY_ISSUE",
+  "INSPECTION",
+  "MANAGER",
+  "AUDIT",
+  "OTHER"
+] as const;
+const EFFECTIVENESS = ["EFFECTIVE", "PARTIALLY_EFFECTIVE", "INEFFECTIVE"] as const;
 
 const DEFAULT_CRITICALITIES = ["CRITICAL", "HIGH"];
+
+function pageWindow(page?: number, pageSize?: number) {
+  const size = Math.min(100, Math.max(1, pageSize ?? 25));
+  const current = Math.max(1, page ?? 1);
+  return { page: current, pageSize: size, skip: (current - 1) * size };
+}
+
+export function repeatClusterKey(input: {
+  matchSameAsset: boolean;
+  matchSameFaultCode: boolean;
+  assetId?: string | null;
+  failureCode?: string | null;
+}) {
+  const parts: string[] = [];
+  if (input.matchSameAsset) {
+    if (!input.assetId) return null;
+    parts.push(`asset:${input.assetId}`);
+  }
+  if (input.matchSameFaultCode) {
+    const code = input.failureCode?.trim().toUpperCase();
+    if (!code) return null;
+    parts.push(`fault:${code}`);
+  }
+  return parts.length > 0 ? parts.join("|") : null;
+}
+
+function resolveRepeatAction(policy: { repeatAction?: string | null; requireRcaOnRepeat?: boolean }) {
+  const value = policy.repeatAction?.trim().toUpperCase();
+  if (value && (REPEAT_ACTIONS as readonly string[]).includes(value)) return value;
+  return policy.requireRcaOnRepeat ? "REQUIRE_RCA" : "FLAG_ONLY";
+}
 
 @Injectable()
 export class ReliabilityService {
@@ -65,6 +109,7 @@ export class ReliabilityService {
         matchSameFaultCode: true,
         matchSameAsset: true,
         requireRcaOnRepeat: false,
+        repeatAction: "FLAG_ONLY",
         requirePermitForCriticalAssets: true,
         permitRequiredCriticalities: DEFAULT_CRITICALITIES.join(","),
         requireLotoWhenPermitRequires: true
@@ -84,6 +129,7 @@ export class ReliabilityService {
       matchSameFaultCode?: boolean;
       matchSameAsset?: boolean;
       requireRcaOnRepeat?: boolean;
+      repeatAction?: string;
       requirePermitForCriticalAssets?: boolean;
       permitRequiredCriticalities?: string[];
       requireLotoWhenPermitRequires?: boolean;
@@ -98,6 +144,26 @@ export class ReliabilityService {
     const criticalities =
       input.permitRequiredCriticalities?.map((c) => c.trim().toUpperCase()).filter(Boolean) ??
       before.permitRequiredCriticalities.split(",").map((c) => c.trim()).filter(Boolean);
+    if (input.permitRequiredCriticalities) {
+      const allowed = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+      const unknown = criticalities.filter((level) => !allowed.has(level));
+      if (unknown.length > 0) {
+        throw new BadRequestException("permitRequiredCriticalities must be CRITICAL, HIGH, MEDIUM, or LOW");
+      }
+    }
+
+    let repeatAction = resolveRepeatAction(before);
+    if (input.repeatAction) {
+      const next = input.repeatAction.trim().toUpperCase();
+      if (!(REPEAT_ACTIONS as readonly string[]).includes(next)) {
+        throw new BadRequestException("repeatAction must be FLAG_ONLY, MANAGER_REVIEW, or REQUIRE_RCA");
+      }
+      repeatAction = next;
+    } else if (input.requireRcaOnRepeat === true) {
+      repeatAction = "REQUIRE_RCA";
+    } else if (input.requireRcaOnRepeat === false && repeatAction === "REQUIRE_RCA") {
+      repeatAction = "FLAG_ONLY";
+    }
 
     const updated = await this.prisma.reliabilityPolicy.update({
       where: { tenantId },
@@ -105,7 +171,8 @@ export class ReliabilityService {
         ...(input.repeatWindowDays != null ? { repeatWindowDays: input.repeatWindowDays } : {}),
         ...(input.matchSameFaultCode != null ? { matchSameFaultCode: input.matchSameFaultCode } : {}),
         ...(input.matchSameAsset != null ? { matchSameAsset: input.matchSameAsset } : {}),
-        ...(input.requireRcaOnRepeat != null ? { requireRcaOnRepeat: input.requireRcaOnRepeat } : {}),
+        repeatAction,
+        requireRcaOnRepeat: repeatAction === "REQUIRE_RCA",
         ...(input.requirePermitForCriticalAssets != null
           ? { requirePermitForCriticalAssets: input.requirePermitForCriticalAssets }
           : {}),
@@ -257,7 +324,164 @@ export class ReliabilityService {
       });
     }
 
-    return { isRepeat, similarCount, windowDays: policy.repeatWindowDays, requireRcaOnRepeat: policy.requireRcaOnRepeat };
+    return { isRepeat, similarCount, windowDays: policy.repeatWindowDays, requireRcaOnRepeat: policy.requireRcaOnRepeat, repeatAction: resolveRepeatAction(policy) };
+  }
+
+  async listRepeatClusters(actor: Actor, query: { page?: number; pageSize?: number; search?: string } = {}) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const policy = await this.getOrCreatePolicy(tenantId);
+    const paging = pageWindow(query.page, query.pageSize);
+    const since = new Date(Date.now() - policy.repeatWindowDays * 24 * 60 * 60 * 1000);
+    const empty = { items: [], meta: { page: paging.page, pageSize: paging.pageSize, total: 0 } };
+    if (!policy.matchSameAsset && !policy.matchSameFaultCode) return empty;
+
+    const by = [
+      ...(policy.matchSameAsset ? (["assetId"] as const) : []),
+      ...(policy.matchSameFaultCode ? (["failureCodeSnapshot"] as const) : [])
+    ];
+    const grouped = await this.prisma.workOrder.groupBy({
+      by: by as ["assetId"] | ["failureCodeSnapshot"] | ["assetId", "failureCodeSnapshot"],
+      where: {
+        tenantId,
+        createdAt: { gte: since },
+        status: { notIn: ["CANCELLED"] },
+        ...(policy.matchSameAsset ? { assetId: { not: null } } : {}),
+        ...(policy.matchSameFaultCode ? { failureCodeSnapshot: { not: null } } : {})
+      },
+      _count: { _all: true },
+      _min: { createdAt: true },
+      _max: { createdAt: true }
+    });
+
+    const repeats = grouped.filter((row) => row._count._all >= 2);
+    const assetIds = [...new Set(repeats.map((row) => ("assetId" in row ? row.assetId : null)).filter(Boolean))] as string[];
+    const assets = assetIds.length
+      ? await this.prisma.asset.findMany({
+          where: { tenantId, id: { in: assetIds } },
+          select: { id: true, name: true, assetTag: true }
+        })
+      : [];
+    const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+    const search = query.search?.trim().toLowerCase();
+    const action = resolveRepeatAction(policy);
+
+    const shaped = repeats
+      .map((row) => {
+        const assetId = "assetId" in row ? row.assetId : null;
+        const failureCode = "failureCodeSnapshot" in row ? row.failureCodeSnapshot : null;
+        const asset = assetId ? assetById.get(assetId) : undefined;
+        const clusterKey = repeatClusterKey({
+          matchSameAsset: policy.matchSameAsset,
+          matchSameFaultCode: policy.matchSameFaultCode,
+          assetId,
+          failureCode
+        });
+        return {
+          clusterKey,
+          assetId,
+          assetName: asset?.name ?? (assetId ? "Asset" : "Any asset"),
+          assetCode: asset?.assetTag ?? "",
+          failureCode: failureCode || "Any fault",
+          failureCount: row._count._all,
+          firstOccurrence: row._min.createdAt,
+          lastOccurrence: row._max.createdAt,
+          windowDays: policy.repeatWindowDays
+        };
+      })
+      .filter((row) => {
+        if (!search) return true;
+        return [row.assetName, row.assetCode, row.failureCode, row.clusterKey].join(" ").toLowerCase().includes(search);
+      })
+      .sort((a, b) => new Date(b.lastOccurrence ?? 0).getTime() - new Date(a.lastOccurrence ?? 0).getTime());
+
+    const pageRows = shaped.slice(paging.skip, paging.skip + paging.pageSize);
+    const keys = pageRows.map((row) => row.clusterKey).filter(Boolean) as string[];
+    const [linkedRca, linkedOrders] = await Promise.all([
+      keys.length
+        ? this.prisma.rcaCase.findMany({
+            where: { tenantId, clusterKey: { in: keys }, status: { notIn: ["CLOSED", "CANCELLED"] } },
+            select: { id: true, status: true, clusterKey: true }
+          })
+        : Promise.resolve([]),
+      pageRows.length
+        ? this.prisma.workOrder.findMany({
+            where: {
+              tenantId,
+              createdAt: { gte: since },
+              status: { notIn: ["CANCELLED"] },
+              OR: pageRows.map((row) => ({
+                ...(row.assetId ? { assetId: row.assetId } : {}),
+                ...(policy.matchSameFaultCode ? { failureCodeSnapshot: row.failureCode } : {})
+              }))
+            },
+            select: { id: true, woNumber: true, assetId: true, failureCodeSnapshot: true, createdAt: true }
+          })
+        : Promise.resolve([])
+    ]);
+    const segments = linkedOrders.length
+      ? await this.prisma.downtimeSegment.findMany({
+          where: { tenantId, workOrderId: { in: linkedOrders.map((row) => row.id) }, endedAt: { not: null } },
+          select: { workOrderId: true, startedAt: true, endedAt: true, planned: true }
+        })
+      : [];
+
+    const items = pageRows.map((row) => {
+      const orders = linkedOrders.filter((order) => {
+        if (policy.matchSameAsset && order.assetId !== row.assetId) return false;
+        if (policy.matchSameFaultCode && (order.failureCodeSnapshot || "").toUpperCase() !== row.failureCode.toUpperCase()) return false;
+        return true;
+      });
+      const orderIds = new Set(orders.map((order) => order.id));
+      const related = segments.filter((segment) => orderIds.has(segment.workOrderId));
+      const downtimeHours = related.length
+        ? Math.round(
+            (related.reduce((sum, segment) => sum + (segment.endedAt!.getTime() - segment.startedAt.getTime()), 0) / 3600000) * 10
+          ) / 10
+        : null;
+      const rca = linkedRca.find((item) => item.clusterKey === row.clusterKey);
+      const candidateStatus = rca
+        ? "RCA open"
+        : action === "REQUIRE_RCA"
+          ? "RCA required"
+          : action === "MANAGER_REVIEW"
+            ? "Manager review"
+            : "Repeat failure";
+      return {
+        ...row,
+        downtimeHours,
+        unplannedDowntimeHours: related.some((segment) => segment.planned === false) ? downtimeHours : null,
+        workOrders: orders.map((order) => ({ id: order.id, woNumber: order.woNumber, createdAt: order.createdAt })),
+        rcaId: rca?.id ?? null,
+        rcaStatus: rca?.status ?? null,
+        candidateStatus
+      };
+    });
+
+    return { items, meta: { page: paging.page, pageSize: paging.pageSize, total: shaped.length } };
+  }
+
+  async summarize(actor: Actor) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const [clusters, openRcas, overdueCapas, criticalAssets] = await Promise.all([
+      this.listRepeatClusters(actor, { page: 1, pageSize: 1 }),
+      this.prisma.rcaCase.count({
+        where: { tenantId, status: { notIn: ["CLOSED", "CANCELLED"] } }
+      }),
+      this.prisma.capaAction.count({
+        where: {
+          tenantId,
+          dueDate: { lt: new Date() },
+          status: { notIn: ["CLOSED", "CANCELLED", "VERIFIED"] }
+        }
+      }),
+      this.prisma.asset.count({ where: { tenantId, criticalityLevel: "CRITICAL" } })
+    ]);
+    return {
+      repeatFailures: clusters.meta.total,
+      openRcas,
+      overdueCapas,
+      criticalAssets
+    };
   }
 
   // ── Downtime segments ──────────────────────────────────────────────
@@ -396,18 +620,101 @@ export class ReliabilityService {
 
   // ── RCA / CAPA ─────────────────────────────────────────────────────
 
-  async listRca(actor: Actor, query: { workOrderId?: string; assetId?: string; status?: string } = {}) {
+  async listRca(
+    actor: Actor,
+    query: {
+      workOrderId?: string;
+      assetId?: string;
+      status?: string;
+      ownerId?: string;
+      search?: string;
+      page?: number;
+      pageSize?: number;
+      sort?: string;
+    } = {}
+  ) {
     const tenantId = requireTenantId(actor.tenantId);
-    return this.prisma.rcaCase.findMany({
+    const paging = pageWindow(query.page, query.pageSize);
+    const status = query.status?.trim().toUpperCase();
+    const where = {
+      tenantId,
+      ...(query.workOrderId ? { workOrderId: query.workOrderId } : {}),
+      ...(query.assetId ? { assetId: query.assetId } : {}),
+      ...(query.ownerId ? { ownerId: query.ownerId } : {}),
+      ...(status ? { status } : {}),
+      ...(query.search?.trim()
+        ? {
+            OR: [
+              { problemStatement: { contains: query.search.trim() } },
+              { failureCode: { contains: query.search.trim() } },
+              { id: { contains: query.search.trim() } },
+              { clusterKey: { contains: query.search.trim() } }
+            ]
+          }
+        : {})
+    };
+    const orderBy =
+      query.sort === "due" ? { dueDate: "asc" as const } : { createdAt: "desc" as const };
+    const [total, items, openCount, overdueCapa] = await Promise.all([
+      this.prisma.rcaCase.count({ where }),
+      this.prisma.rcaCase.findMany({
+        where,
+        include: { capaActions: true },
+        orderBy,
+        skip: paging.skip,
+        take: paging.pageSize
+      }),
+      this.prisma.rcaCase.count({
+        where: { tenantId, status: { notIn: ["CLOSED", "CANCELLED"] } }
+      }),
+      this.prisma.capaAction.count({
+        where: {
+          tenantId,
+          dueDate: { lt: new Date() },
+          status: { notIn: ["VERIFIED", "CLOSED", "CANCELLED"] }
+        }
+      })
+    ]);
+    return {
+      items,
+      meta: { page: paging.page, pageSize: paging.pageSize, total, openCount, overdueCapa }
+    };
+  }
+
+  async getRca(actor: Actor, id: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const rca = await this.prisma.rcaCase.findFirst({
+      where: { id, tenantId },
+      include: { capaActions: { orderBy: { createdAt: "asc" } } }
+    });
+    if (!rca) throw new NotFoundException("RCA case not found");
+
+    const since = rca.repeatWindowDays
+      ? new Date(Date.now() - rca.repeatWindowDays * 24 * 60 * 60 * 1000)
+      : undefined;
+    const workOrders = await this.prisma.workOrder.findMany({
       where: {
         tenantId,
-        ...(query.workOrderId ? { workOrderId: query.workOrderId } : {}),
-        ...(query.assetId ? { assetId: query.assetId } : {}),
-        ...(query.status ? { status: query.status.toUpperCase() } : {})
+        ...(rca.clusterKey && rca.assetId && rca.failureCode
+          ? {
+              assetId: rca.assetId,
+              failureCodeSnapshot: rca.failureCode,
+              ...(since ? { createdAt: { gte: since } } : {})
+            }
+          : rca.workOrderId
+            ? { id: rca.workOrderId }
+            : { id: "__none__" })
       },
-      include: { capaActions: true },
-      orderBy: { createdAt: "desc" }
+      select: { id: true, woNumber: true, status: true, createdAt: true, failureCodeSnapshot: true },
+      orderBy: { createdAt: "desc" },
+      take: 50
     });
+    const activity = await this.prisma.configChangeHistory.findMany({
+      where: { tenantId, entityType: "RcaCase", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+    return { ...rca, workOrders, activity };
   }
 
   async createRca(
@@ -422,6 +729,10 @@ export class ReliabilityService {
       evidence?: string[];
       fiveWhy?: string[];
       ownerId?: string;
+      source?: string;
+      impact?: string;
+      method?: string;
+      dueDate?: string;
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
@@ -433,6 +744,33 @@ export class ReliabilityService {
       const wo = await this.assertWorkOrder(tenantId, input.workOrderId);
       assetId = assetId ?? wo.assetId;
       failureCode = failureCode || wo.failureCodeSnapshot || null;
+      const existingByWorkOrder = await this.prisma.rcaCase.findFirst({
+        where: {
+          tenantId,
+          workOrderId: input.workOrderId,
+          status: { notIn: ["CLOSED", "CANCELLED"] }
+        },
+        include: { capaActions: true }
+      });
+      if (existingByWorkOrder) return existingByWorkOrder;
+    } else if (assetId) {
+      const asset = await this.prisma.asset.findFirst({ where: { id: assetId, tenantId }, select: { id: true } });
+      if (!asset) throw new NotFoundException("Asset not found");
+    }
+
+    const policy = await this.getOrCreatePolicy(tenantId);
+    const clusterKey = repeatClusterKey({
+      matchSameAsset: policy.matchSameAsset,
+      matchSameFaultCode: policy.matchSameFaultCode,
+      assetId,
+      failureCode
+    });
+    if (clusterKey) {
+      const existingCluster = await this.prisma.rcaCase.findFirst({
+        where: { tenantId, clusterKey, status: { notIn: ["CLOSED", "CANCELLED"] } },
+        include: { capaActions: true }
+      });
+      if (existingCluster) return existingCluster;
     }
 
     const repeat = await this.detectRepeatFailure({
@@ -441,8 +779,16 @@ export class ReliabilityService {
       assetId,
       failureCode
     });
+    const source = (input.source ?? (repeat.isRepeat ? "REPEAT_FAILURE" : "OTHER")).toUpperCase();
+    if (!(RCA_SOURCES as readonly string[]).includes(source)) {
+      throw new BadRequestException("Invalid RCA source");
+    }
+    const method = input.method?.trim().toUpperCase() || null;
+    if (method && !(RCA_METHODS as readonly string[]).includes(method)) {
+      throw new BadRequestException("Invalid RCA method");
+    }
 
-    return this.prisma.rcaCase.create({
+    const created = await this.prisma.rcaCase.create({
       data: {
         tenantId,
         workOrderId: input.workOrderId ?? null,
@@ -457,10 +803,23 @@ export class ReliabilityService {
         repeatWindowDays: repeat.windowDays,
         similarWoCount: repeat.similarCount,
         ownerId: input.ownerId ?? actor.sub,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        clusterKey,
+        source,
+        impact: input.impact?.trim() || null,
+        method,
         status: "OPEN"
       },
       include: { capaActions: true }
     });
+    await this.recordHistory(actor, {
+      entityType: "RcaCase",
+      entityId: created.id,
+      action: "CREATE",
+      afterJson: { status: created.status, clusterKey, source },
+      reason: "RCA opened"
+    });
+    return created;
   }
 
   async updateRca(
@@ -474,6 +833,11 @@ export class ReliabilityService {
       fiveWhy?: string[];
       evidence?: string[];
       ownerId?: string;
+      impact?: string;
+      method?: string;
+      source?: string;
+      dueDate?: string;
+      problemStatement?: string;
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
@@ -486,8 +850,16 @@ export class ReliabilityService {
         throw new BadRequestException("Invalid RCA status");
       }
     }
+    const method = input.method?.trim().toUpperCase();
+    if (method && !(RCA_METHODS as readonly string[]).includes(method)) {
+      throw new BadRequestException("Invalid RCA method");
+    }
+    const source = input.source?.trim().toUpperCase();
+    if (source && !(RCA_SOURCES as readonly string[]).includes(source)) {
+      throw new BadRequestException("Invalid RCA source");
+    }
 
-    return this.prisma.rcaCase.update({
+    const updated = await this.prisma.rcaCase.update({
       where: { id },
       data: {
         ...(input.status ? { status: input.status.toUpperCase() } : {}),
@@ -497,12 +869,61 @@ export class ReliabilityService {
         ...(input.fiveWhy ? { fiveWhyJson: JSON.stringify(input.fiveWhy) } : {}),
         ...(input.evidence ? { evidenceJson: JSON.stringify(input.evidence) } : {}),
         ...(input.ownerId != null ? { ownerId: input.ownerId } : {}),
+        ...(input.impact != null ? { impact: input.impact.trim() || null } : {}),
+        ...(method ? { method } : {}),
+        ...(source ? { source } : {}),
+        ...(input.dueDate != null ? { dueDate: input.dueDate ? new Date(input.dueDate) : null } : {}),
+        ...(input.problemStatement != null ? { problemStatement: input.problemStatement.trim() } : {}),
         ...(input.status?.toUpperCase() === "COMPLETED" || input.status?.toUpperCase() === "CLOSED"
           ? { completedAt: new Date() }
           : {})
       },
       include: { capaActions: true }
     });
+    await this.recordHistory(actor, {
+      entityType: "RcaCase",
+      entityId: id,
+      action: "UPDATE",
+      beforeJson: { status: existing.status, rootCause: existing.rootCause },
+      afterJson: { status: updated.status, rootCause: updated.rootCause, method: updated.method },
+      reason: "RCA updated"
+    });
+    return updated;
+  }
+
+  async verifyEffectiveness(
+    actor: Actor,
+    id: string,
+    input: { result: string; notes?: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const existing = await this.prisma.rcaCase.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException("RCA case not found");
+    const result = input.result.trim().toUpperCase();
+    if (!(EFFECTIVENESS as readonly string[]).includes(result)) {
+      throw new BadRequestException("result must be EFFECTIVE, PARTIALLY_EFFECTIVE, or INEFFECTIVE");
+    }
+    const reopen = result === "INEFFECTIVE";
+    const updated = await this.prisma.rcaCase.update({
+      where: { id },
+      data: {
+        effectiveness: result,
+        effectivenessNote: input.notes?.trim() || null,
+        effectivenessVerifiedById: actor.sub,
+        effectivenessVerifiedAt: new Date(),
+        ...(reopen ? { status: "OPEN", completedAt: null } : {})
+      },
+      include: { capaActions: true }
+    });
+    await this.recordHistory(actor, {
+      entityType: "RcaCase",
+      entityId: id,
+      action: "EFFECTIVENESS",
+      beforeJson: { status: existing.status, effectiveness: existing.effectiveness },
+      afterJson: { status: updated.status, effectiveness: result },
+      reason: input.notes?.trim() || `Effectiveness recorded as ${result}`
+    });
+    return updated;
   }
 
   async addCapa(
@@ -520,7 +941,7 @@ export class ReliabilityService {
     }
     if (!input.description?.trim()) throw new BadRequestException("description is required");
 
-    return this.prisma.capaAction.create({
+    const created = await this.prisma.capaAction.create({
       data: {
         tenantId,
         rcaCaseId,
@@ -531,12 +952,20 @@ export class ReliabilityService {
         status: "OPEN"
       }
     });
+    await this.recordHistory(actor, {
+      entityType: "RcaCase",
+      entityId: rcaCaseId,
+      action: "CAPA_CREATE",
+      afterJson: { id: created.id, kind, status: "OPEN" },
+      reason: "CAPA added"
+    });
+    return created;
   }
 
   async updateCapa(
     actor: Actor,
     id: string,
-    input: { status?: string; verificationNote?: string; dueDate?: string }
+    input: { status?: string; verificationNote?: string; dueDate?: string; evidence?: string[]; description?: string }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
     const existing = await this.prisma.capaAction.findFirst({ where: { id, tenantId } });
@@ -550,16 +979,27 @@ export class ReliabilityService {
     }
 
     const status = input.status?.toUpperCase();
-    return this.prisma.capaAction.update({
+    const updated = await this.prisma.capaAction.update({
       where: { id },
       data: {
         ...(status ? { status } : {}),
+        ...(input.description != null ? { description: input.description.trim() } : {}),
         ...(input.verificationNote != null ? { verificationNote: input.verificationNote } : {}),
+        ...(input.evidence ? { evidenceJson: JSON.stringify(input.evidence) } : {}),
         ...(input.dueDate != null ? { dueDate: new Date(input.dueDate) } : {}),
-        ...(status === "VERIFIED" ? { verifiedAt: new Date() } : {}),
+        ...(status === "VERIFIED" ? { verifiedAt: new Date(), verifiedById: actor.sub } : {}),
         ...(status === "CLOSED" ? { closedAt: new Date() } : {})
       }
     });
+    await this.recordHistory(actor, {
+      entityType: "RcaCase",
+      entityId: existing.rcaCaseId,
+      action: "CAPA_UPDATE",
+      beforeJson: { id, status: existing.status },
+      afterJson: { id, status: updated.status },
+      reason: input.verificationNote?.trim() || "CAPA updated"
+    });
+    return updated;
   }
 
   // ── Work permits ───────────────────────────────────────────────────
@@ -641,27 +1081,46 @@ export class ReliabilityService {
     });
   }
 
-  async listAssetCriticality(actor: Actor, query: { criticalityLevel?: string } = {}) {
+  async listAssetCriticality(
+    actor: Actor,
+    query: { criticalityLevel?: string; search?: string; page?: number; pageSize?: number } = {}
+  ) {
     const tenantId = requireTenantId(actor.tenantId);
-    const assets = await this.prisma.asset.findMany({
-      where: {
-        tenantId,
-        ...(query.criticalityLevel
-          ? { criticalityLevel: query.criticalityLevel.toUpperCase() }
-          : {})
-      },
-      select: {
-        id: true,
-        assetTag: true,
-        name: true,
-        criticalityLevel: true,
-        criticality: true,
-        status: true
-      },
-      orderBy: [{ criticalityLevel: "asc" }, { assetTag: "asc" }],
-      take: 500
-    });
-    return assets;
+    const paging = pageWindow(query.page, query.pageSize);
+    const where = {
+      tenantId,
+      ...(query.criticalityLevel ? { criticalityLevel: query.criticalityLevel.toUpperCase() } : {}),
+      ...(query.search?.trim()
+        ? {
+            OR: [
+              { name: { contains: query.search.trim() } },
+              { assetTag: { contains: query.search.trim() } }
+            ]
+          }
+        : {})
+    };
+    const [total, items, criticalCount] = await Promise.all([
+      this.prisma.asset.count({ where }),
+      this.prisma.asset.findMany({
+        where,
+        select: {
+          id: true,
+          assetTag: true,
+          name: true,
+          category: true,
+          location: true,
+          criticalityLevel: true,
+          criticality: true,
+          status: true,
+          updatedAt: true
+        },
+        orderBy: [{ criticalityLevel: "asc" }, { assetTag: "asc" }],
+        skip: paging.skip,
+        take: paging.pageSize
+      }),
+      this.prisma.asset.count({ where: { tenantId, criticalityLevel: "CRITICAL" } })
+    ]);
+    return { items, meta: { page: paging.page, pageSize: paging.pageSize, total, criticalCount } };
   }
 
   async setAssetCriticality(
@@ -669,6 +1128,7 @@ export class ReliabilityService {
     assetId: string,
     input: { criticalityLevel: string; reason?: string }
   ) {
+    if (!input.reason?.trim()) throw new BadRequestException("A reason is required for a criticality change");
     const tenantId = requireTenantId(actor.tenantId);
     const level = input.criticalityLevel.trim().toUpperCase();
     const allowed = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "NON_CRITICAL"];
@@ -696,6 +1156,26 @@ export class ReliabilityService {
       reason: input.reason ?? "Asset criticality updated"
     });
 
+    return updated;
+  }
+
+  async bulkSetAssetCriticality(
+    actor: Actor,
+    input: { assetIds: string[]; criticalityLevel: string; reason: string }
+  ) {
+    const ids = [...new Set(input.assetIds.map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0) throw new BadRequestException("Select at least one asset");
+    if (ids.length > 100) throw new BadRequestException("Bulk criticality is limited to 100 assets");
+    if (!input.reason?.trim()) throw new BadRequestException("A reason is required for a criticality change");
+    const updated = [];
+    for (const assetId of ids) {
+      updated.push(
+        await this.setAssetCriticality(actor, assetId, {
+          criticalityLevel: input.criticalityLevel,
+          reason: input.reason
+        })
+      );
+    }
     return updated;
   }
 

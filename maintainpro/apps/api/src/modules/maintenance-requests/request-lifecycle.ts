@@ -8,6 +8,30 @@ const ACTIVE_STATUSES: MaintenanceRequestStatus[] = [
   MaintenanceRequestStatus.APPROVED
 ];
 
+/** Pre-work-order queue. Approved requests wait for conversion and stay on All Requests. */
+export const TRIAGE_QUEUE_STATUSES: MaintenanceRequestStatus[] = [
+  MaintenanceRequestStatus.NEW,
+  MaintenanceRequestStatus.UNDER_REVIEW,
+  MaintenanceRequestStatus.NEEDS_INFORMATION
+];
+
+const PRIORITY_RANK: Record<string, number> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3
+};
+
+/** Critical first, then older reports within the same priority. */
+export function compareTriageOrder(
+  a: { priority: string; reportedAt: Date },
+  b: { priority: string; reportedAt: Date }
+) {
+  const rank = (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9);
+  if (rank !== 0) return rank;
+  return a.reportedAt.getTime() - b.reportedAt.getTime();
+}
+
 export function isActiveRequestStatus(status: MaintenanceRequestStatus) {
   return ACTIVE_STATUSES.includes(status);
 }
@@ -64,7 +88,7 @@ export function humanRequestStatus(status: MaintenanceRequestStatus): string {
     NEW: "New",
     UNDER_REVIEW: "Under Review",
     NEEDS_INFORMATION: "Needs Information",
-    APPROVED: "Accepted",
+    APPROVED: "Approved",
     REJECTED: "Rejected (legacy)",
     CANCELLED: "Cancelled",
     CLOSED: "Closed",

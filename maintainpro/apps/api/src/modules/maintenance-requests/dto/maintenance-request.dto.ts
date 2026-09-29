@@ -106,6 +106,43 @@ export class MaintenanceRequestListQueryDto {
   @IsDateString()
   to?: string;
 
+  @ApiPropertyOptional({ description: "Free-text asset, vehicle, or location match" })
+  @IsOptional()
+  @IsString()
+  assetQuery?: string;
+
+  @ApiPropertyOptional({ description: "Reporter name match" })
+  @IsOptional()
+  @IsString()
+  reporter?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @ApiPropertyOptional({ description: "true = has work order, false = not converted" })
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  converted?: boolean;
+
+  @ApiPropertyOptional({ description: "Open (not closed/cancelled/converted/rejected)" })
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  openOnly?: boolean;
+
+  @ApiPropertyOptional({ enum: ["requestNumber", "priority", "status", "reportedAt"] })
+  @IsOptional()
+  @IsIn(["requestNumber", "priority", "status", "reportedAt"])
+  sortBy?: "requestNumber" | "priority" | "status" | "reportedAt";
+
+  @ApiPropertyOptional({ enum: ["asc", "desc"] })
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  sortDirection?: "asc" | "desc";
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)

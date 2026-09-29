@@ -124,7 +124,7 @@ describe("request lifecycle transitions", () => {
 
   it("humanizes status labels", () => {
     expect(humanRequestStatus(MaintenanceRequestStatus.UNDER_REVIEW)).toBe("Under Review");
-    expect(humanRequestStatus(MaintenanceRequestStatus.APPROVED)).toBe("Accepted");
+    expect(humanRequestStatus(MaintenanceRequestStatus.APPROVED)).toBe("Approved");
     expect(humanRequestStatus(MaintenanceRequestStatus.NEEDS_INFORMATION)).toBe(
       "Needs Information"
     );

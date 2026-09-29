@@ -104,6 +104,14 @@ export class MaintenanceRequestsController {
     return { data: data.items, meta: data.meta, message: "Maintenance requests fetched" };
   }
 
+  @Get("summary")
+  @Roles(...READ_ROLES)
+  @Permissions("maintenance_requests.view_own")
+  async summary(@Req() req: AuthedRequest) {
+    const data = await this.requests.summary(req.user?.tenantId ?? null, req.user!);
+    return { data, message: "Maintenance request summary" };
+  }
+
   @Post()
   @Roles(...WRITE_ROLES)
   @Permissions("maintenance_requests.create")

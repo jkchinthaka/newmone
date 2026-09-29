@@ -37,10 +37,12 @@ import {
 } from "./dto/maintenance-request.dto";
 import {
   assertValidTransition,
+  compareTriageOrder,
   DEFAULT_PROBLEM_CATEGORIES,
   humanRequestStatus,
   isActiveRequestStatus,
-  mapRejectionTypeToResolution
+  mapRejectionTypeToResolution,
+  TRIAGE_QUEUE_STATUSES
 } from "./request-lifecycle";
 
 type Actor = {
@@ -239,9 +241,103 @@ export class MaintenanceRequestsService {
   async list(tenantId: string | null, actor: Actor, query: MaintenanceRequestListQueryDto) {
     const tid = requireTenantId(tenantId);
     const page = Math.max(query.page ?? 1, 1);
-    const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
-    const canViewAll = this.canViewAll(actor);
+    const limit = Math.min(Math.max(query.limit ?? 25, 1), 100);
+    const where = this.buildListWhere(tid, actor, query);
+    const operationalSort = Boolean(query.triageQueue) || query.sortBy === "priority";
 
+    if (operationalSort) {
+      const keys = await this.prisma.maintenanceRequest.findMany({
+        where,
+        select: { id: true, priority: true, reportedAt: true, requestNumber: true, status: true }
+      });
+      if (query.triageQueue) {
+        keys.sort(compareTriageOrder);
+      } else {
+        const urgentFirst = query.sortDirection !== "asc";
+        keys.sort((a, b) => (urgentFirst ? compareTriageOrder(a, b) : compareTriageOrder(b, a)));
+      }
+      const total = keys.length;
+      const pageIds = keys.slice((page - 1) * limit, page * limit).map((row) => row.id);
+      const rows = pageIds.length
+        ? await this.prisma.maintenanceRequest.findMany({
+            where: { tenantId: tid, id: { in: pageIds } },
+            include: this.listInclude()
+          })
+        : [];
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return {
+        items: pageIds
+          .map((id) => byId.get(id))
+          .filter((row): row is NonNullable<typeof row> => Boolean(row))
+          .map((row) => this.mapListItem(row, actor)),
+        meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
+      };
+    }
+
+    const direction: Prisma.SortOrder = query.sortDirection === "asc" ? "asc" : "desc";
+    const orderBy: Prisma.MaintenanceRequestOrderByWithRelationInput =
+      query.sortBy === "requestNumber"
+        ? { requestNumber: direction }
+        : query.sortBy === "status"
+          ? { status: direction }
+          : { reportedAt: direction };
+
+    const [total, items] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where }),
+      this.prisma.maintenanceRequest.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: this.listInclude()
+      })
+    ]);
+
+    return {
+      items: items.map((row) => this.mapListItem(row, actor)),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
+    };
+  }
+
+  async summary(tenantId: string | null, actor: Actor) {
+    const tid = requireTenantId(tenantId);
+    const scope: Prisma.MaintenanceRequestWhereInput = { tenantId: tid };
+    if (!this.canViewAll(actor)) {
+      scope.reportedById = actor.sub;
+    }
+    const openStatuses = [
+      MaintenanceRequestStatus.NEW,
+      MaintenanceRequestStatus.UNDER_REVIEW,
+      MaintenanceRequestStatus.NEEDS_INFORMATION,
+      MaintenanceRequestStatus.APPROVED
+    ];
+    const [open, awaitingTriage, highCritical, converted] = await Promise.all([
+      this.prisma.maintenanceRequest.count({
+        where: { ...scope, status: { in: openStatuses } }
+      }),
+      this.prisma.maintenanceRequest.count({
+        where: { ...scope, status: { in: TRIAGE_QUEUE_STATUSES } }
+      }),
+      this.prisma.maintenanceRequest.count({
+        where: {
+          ...scope,
+          status: { in: openStatuses },
+          priority: { in: [Priority.HIGH, Priority.CRITICAL] }
+        }
+      }),
+      this.prisma.maintenanceRequest.count({
+        where: { ...scope, status: MaintenanceRequestStatus.CONVERTED_TO_WO }
+      })
+    ]);
+    return { open, awaitingTriage, highCritical, converted };
+  }
+
+  private buildListWhere(
+    tid: string,
+    actor: Actor,
+    query: MaintenanceRequestListQueryDto
+  ): Prisma.MaintenanceRequestWhereInput {
+    const canViewAll = this.canViewAll(actor);
     const where: Prisma.MaintenanceRequestWhereInput = { tenantId: tid };
 
     if (query.mine || (!canViewAll && !query.triageQueue)) {
@@ -254,6 +350,8 @@ export class MaintenanceRequestsService {
       if (!this.canTriage(actor)) {
         throw new ForbiddenException("Triage permission required");
       }
+      where.status = { in: TRIAGE_QUEUE_STATUSES };
+    } else if (query.openOnly) {
       where.status = {
         in: [
           MaintenanceRequestStatus.NEW,
@@ -272,7 +370,10 @@ export class MaintenanceRequestsService {
     if (query.assetId) where.assetId = query.assetId;
     if (query.vehicleId) where.vehicleId = query.vehicleId;
     if (query.domainId) where.domainId = query.domainId;
+    if (query.departmentId) where.departmentId = query.departmentId;
     if (query.jobDomain) where.jobDomain = query.jobDomain.trim().toUpperCase();
+    if (query.converted === true) where.workOrderId = { not: null };
+    if (query.converted === false) where.workOrderId = null;
 
     if (query.from || query.to) {
       where.createdAt = {};
@@ -280,30 +381,51 @@ export class MaintenanceRequestsService {
       if (query.to) where.createdAt.lte = new Date(query.to);
     }
 
+    const and: Prisma.MaintenanceRequestWhereInput[] = [];
     if (query.search?.trim()) {
       const q = query.search.trim();
-      where.OR = [
-        { requestNumber: { contains: q } },
-        { description: { contains: q } },
-        { problemCategoryLabel: { contains: q } }
-      ];
+      and.push({
+        OR: [
+          { requestNumber: { contains: q } },
+          { description: { contains: q } },
+          { problemCategoryLabel: { contains: q } },
+          { approximateLocation: { contains: q } },
+          { asset: { name: { contains: q } } },
+          { asset: { assetTag: { contains: q } } },
+          { vehicle: { registrationNo: { contains: q } } },
+          { functionalLocation: { name: { contains: q } } },
+          { site: { name: { contains: q } } },
+          { reportedBy: { firstName: { contains: q } } },
+          { reportedBy: { lastName: { contains: q } } },
+          { workOrder: { woNumber: { contains: q } } }
+        ]
+      });
     }
-
-    const [total, items] = await Promise.all([
-      this.prisma.maintenanceRequest.count({ where }),
-      this.prisma.maintenanceRequest.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: this.listInclude()
-      })
-    ]);
-
-    return {
-      items: items.map((row) => this.mapListItem(row, actor)),
-      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
-    };
+    if (query.assetQuery?.trim()) {
+      const a = query.assetQuery.trim();
+      and.push({
+        OR: [
+          { asset: { name: { contains: a } } },
+          { asset: { assetTag: { contains: a } } },
+          { vehicle: { registrationNo: { contains: a } } },
+          { vehicle: { make: { contains: a } } },
+          { functionalLocation: { name: { contains: a } } },
+          { approximateLocation: { contains: a } }
+        ]
+      });
+    }
+    if (query.reporter?.trim()) {
+      const name = query.reporter.trim();
+      and.push({
+        OR: [
+          { reportedBy: { firstName: { contains: name } } },
+          { reportedBy: { lastName: { contains: name } } },
+          { reportedBy: { email: { contains: name } } }
+        ]
+      });
+    }
+    if (and.length) where.AND = and;
+    return where;
   }
 
   async findOne(
@@ -1619,7 +1741,8 @@ export class MaintenanceRequestsService {
       problemCategory: { select: { id: true, code: true, name: true } },
       reportedBy: {
         select: { id: true, firstName: true, lastName: true, email: true }
-      }
+      },
+      workOrder: { select: { id: true, woNumber: true, status: true } }
     } as const;
   }
 
@@ -1656,6 +1779,7 @@ export class MaintenanceRequestsService {
       domain?: { id: string; code: string; name: string } | null;
       problemCategory?: { id: string; code: string; name: string } | null;
       problemCategoryLabel?: string | null;
+      workOrder?: { id: string; woNumber: string; status: string } | null;
       reportedBy?: {
         id: string;
         firstName: string;
@@ -1684,6 +1808,9 @@ export class MaintenanceRequestsService {
       createdAt: row.createdAt,
       publicUpdateNote: row.publicUpdateNote,
       workOrderId: row.workOrderId,
+      workOrder: row.workOrder
+        ? { id: row.workOrder.id, woNumber: row.workOrder.woNumber, status: row.workOrder.status }
+        : null,
       asset: row.asset ?? null,
       vehicle: row.vehicle
         ? {

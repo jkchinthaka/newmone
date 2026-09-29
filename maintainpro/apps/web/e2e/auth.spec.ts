@@ -132,8 +132,8 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill("");
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText("Work email is required")).toBeVisible();
-    await expect(page.getByText("Password is required")).toBeVisible();
+    await expect(page.getByText("Please enter your email address.")).toBeVisible();
+    await expect(page.getByText("Please enter your password.")).toBeVisible();
     expect(loginCalls).toBe(0);
   });
 
@@ -149,7 +149,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill("WrongPass123");
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText("Enter a valid work email address")).toBeVisible();
+    await expect(page.getByText("Please enter a valid email address.")).toBeVisible();
     expect(loginCalls).toBe(0);
   });
 
@@ -173,7 +173,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill("WrongPass123");
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText("Invalid email or password")).toBeVisible();
+    await expect(page.getByText("Incorrect email or password.")).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 
@@ -358,7 +358,7 @@ test.describe("authentication", () => {
 
     await page.goto("/dashboard");
 
-    await expect(page).toHaveURL(/\/login\?reason=session_expired$/);
+    await expect(page).toHaveURL(/\/login\?reason=session_expired/);
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 

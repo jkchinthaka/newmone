@@ -169,3 +169,34 @@ export function forecastServiceDue(input: {
     confidence: "NONE"
   };
 }
+
+export type ForecastPlannerStatus =
+  | "OVERDUE"
+  | "DUE_SOON"
+  | "UPCOMING"
+  | "ON_TRACK"
+  | "INSUFFICIENT_DATA";
+
+/** Explainable status from an already-calculated forecast. Does not invent a date. */
+export function classifyStoredForecast(input: {
+  coverage: string;
+  remainingDays: number | null;
+  estimatedDueDate: Date | null;
+  now?: Date;
+  horizonDays?: number;
+}): { status: ForecastPlannerStatus; dataQuality: "GOOD" | "MODERATE" | "POOR" } {
+  const now = input.now ?? new Date();
+  const horizon = input.horizonDays ?? 30;
+  if (input.coverage !== "COMPLETE" || !input.estimatedDueDate) {
+    return { status: "INSUFFICIENT_DATA", dataQuality: "POOR" };
+  }
+  const days =
+    input.remainingDays ??
+    (input.estimatedDueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000);
+  if (days < 0 || input.estimatedDueDate.getTime() < now.getTime()) {
+    return { status: "OVERDUE", dataQuality: days < -30 ? "MODERATE" : "GOOD" };
+  }
+  if (days <= 7) return { status: "DUE_SOON", dataQuality: "GOOD" };
+  if (days <= horizon) return { status: "UPCOMING", dataQuality: "MODERATE" };
+  return { status: "ON_TRACK", dataQuality: "GOOD" };
+}

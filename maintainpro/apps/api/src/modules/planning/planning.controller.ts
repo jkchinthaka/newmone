@@ -44,15 +44,21 @@ export class PlanningController {
     @Query("status") status?: PmPlanStatus,
     @Query("siteId") siteId?: string,
     @Query("assetId") assetId?: string,
-    @Query("vehicleId") vehicleId?: string
+    @Query("vehicleId") vehicleId?: string,
+    @Query() query?: Record<string, string>
   ) {
     const data = await this.planning.listPmPlans(req.user, {
       status,
       siteId,
       assetId,
-      vehicleId
+      vehicleId,
+      search: query?.search,
+      trigger: query?.trigger,
+      dueWindow: query?.dueWindow,
+      page: query?.page ? Number(query.page) : undefined,
+      pageSize: query?.pageSize ? Number(query.pageSize) : undefined
     });
-    return { data, message: "PM plans" };
+    return { data: data.items, meta: { ...data.meta, summary: data.summary }, message: "PM plans" };
   }
 
   @Post("pm-plans")
@@ -237,6 +243,115 @@ export class PlanningController {
   async listWorkOrderChecklists(@Req() req: AuthedRequest, @Param("workOrderId") workOrderId: string) {
     const data = await this.planning.listChecklistExecutionsForWorkOrder(req.user, workOrderId);
     return { data, message: "Work order checklist executions" };
+  }
+
+  @Get("inspections")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async listInspections(
+    @Req() req: AuthedRequest,
+    @Query() query: Record<string, string>
+  ) {
+    const data = await this.planning.listInspections(req.user, {
+      search: query.search,
+      status: query.status,
+      result: query.result,
+      view: query.view,
+      page: query.page ? Number(query.page) : undefined,
+      pageSize: query.pageSize ? Number(query.pageSize) : undefined
+    });
+    return { data: data.items, meta: { ...data.meta, summary: data.summary }, message: "Inspections" };
+  }
+
+  @Post("inspections/schedule")
+  @Roles(...MANAGE_ROLES)
+  @Permissions("planning.manage")
+  async scheduleInspection(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    const data = await this.planning.scheduleInspection(req.user, {
+      title: body.title ? String(body.title) : undefined,
+      templateId: body.templateId ? String(body.templateId) : undefined,
+      assetId: body.assetId ? String(body.assetId) : undefined,
+      vehicleId: body.vehicleId ? String(body.vehicleId) : undefined,
+      inspectorId: body.inspectorId ? String(body.inspectorId) : undefined,
+      functionalLocationId: body.functionalLocationId ? String(body.functionalLocationId) : undefined,
+      inspectionType: body.inspectionType ? String(body.inspectionType) : undefined,
+      description: body.description ? String(body.description) : undefined,
+      scheduledAt: body.scheduledAt ? new Date(String(body.scheduledAt)) : undefined
+    });
+    return { data, message: "Inspection scheduled" };
+  }
+
+  @Get("inspection-templates")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async listInspectionTemplates(@Req() req: AuthedRequest) {
+    const data = await this.planning.listInspectionTemplates(req.user);
+    return { data, message: "Inspection templates" };
+  }
+
+  @Get("inspections/:id")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async getInspection(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.planning.getInspection(req.user, id);
+    return { data, message: "Inspection" };
+  }
+
+  @Post("inspections/:id/start")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async startInspection(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.planning.startInspection(req.user, id);
+    return { data, message: "Inspection started" };
+  }
+
+  @Put("inspections/:id/answers")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async saveInspectionAnswers(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { answers?: Record<string, unknown> }
+  ) {
+    const data = await this.planning.saveInspectionAnswers(req.user, id, body.answers ?? {});
+    return { data, message: "Inspection answers saved" };
+  }
+
+  @Post("inspections/:id/evidence")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async attachInspectionEvidence(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { checklistItemKey?: string; fileName?: string; mimeType?: string; contentBase64?: string }
+  ) {
+    const data = await this.planning.attachInspectionEvidence(req.user, id, {
+      checklistItemKey: String(body.checklistItemKey ?? ""),
+      fileName: String(body.fileName ?? "evidence"),
+      mimeType: String(body.mimeType ?? ""),
+      contentBase64: String(body.contentBase64 ?? "")
+    });
+    return { data, message: "Inspection evidence recorded" };
+  }
+
+  @Post("inspections/:id/complete")
+  @Roles(...FIELD_ROLES)
+  @Permissions("planning.manage")
+  async completeScheduledInspection(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { answers?: Record<string, { value?: unknown; comment?: string | null; evidenceRefs?: string[] }> }
+  ) {
+    const data = await this.planning.completeScheduledInspection(req.user, id, body.answers ?? {});
+    return { data, message: "Inspection completed" };
+  }
+
+  @Post("inspections/:id/reinspect")
+  @Roles(...MANAGE_ROLES)
+  @Permissions("planning.manage")
+  async reinspect(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.planning.createReinspection(req.user, id);
+    return { data, message: "Re-inspection scheduled" };
   }
 
   @Post("inspections")
