@@ -123,3 +123,26 @@ Target: one coherent production system on a single integrated line — not indep
 | Phase 14 tip (reference) | `ce38e89` |
 | integration-v1 Phase 14 baseline | `dacae29` |
 | Common merge-base (all lines) | `290bf3a` |
+
+---
+
+## 2026-09-29 — Repository consolidation (historical branches archived as tags)
+
+V1 integration is complete (`integration-v1` and later lines are merged into `main`).
+The "keep Phase 8–14 branches" rule above is now satisfied by **immutable archive tags**
+instead of live branches. Every branch tip that existed on 2026-09-29 is preserved as:
+
+```text
+archive/2026-09-29/branch/<original-branch-name>
+```
+
+For example `archive/2026-09-29/branch/maintainpro/phase-14-production` → `ce38e89`.
+Restore a branch with:
+
+```bash
+git fetch origin 'refs/tags/archive/2026-09-29/*:refs/tags/archive/2026-09-29/*'
+git branch <name> archive/2026-09-29/branch/<name>
+```
+
+The branch-by-branch disposition ledger is in
+[`BRANCH_CONSOLIDATION_2026-09-29.md`](BRANCH_CONSOLIDATION_2026-09-29.md).
