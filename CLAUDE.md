@@ -102,11 +102,7 @@ npm run docker:up        # production-like stack: nginx, api, web, mongo, redis,
 - Domain-specific API helper modules also exist (`audit-api.ts`, `driver-intelligence-api.ts`, `farm-api.ts`, `phase4-api.ts`) following the same axios-client pattern.
 - Shared UI primitives come from `@maintainpro/ui-components` and local `components/` (organized by domain: `work-orders/`, `inventory/`, `maintenance/`, `farm/`, etc., plus generic `ui/`, `forms/`, `tables/`, `layout/`, `charts/`).
 - Two deployment targets for the same Next.js app: Vercel (`npm run vercel:build`) and Cloudflare Workers via OpenNext (`npm run cloudflare:build` / `cloudflare:deploy`, config in `wrangler.jsonc`).
-
-### Mobile (`apps/mobile`, Flutter + Riverpod)
-
-- Feature-organized under `lib/features/<domain>` (assets, fleet, work_orders, inventory, maintenance, farm, cleaning, etc.), with shared networking/storage/offline-queue code under `lib/core/` (`network`, `storage`, `offline`).
-- Uses Dio for HTTP and Hive for an offline write queue — offline-first patterns matter here; check `lib/core/offline` before adding new mutating API calls.
+- The supported client is this responsive web/PWA (`app/manifest.ts`, `public/sw.js`). The native Flutter app was discontinued; do not revive `apps/mobile`.
 
 ### Shared packages
 

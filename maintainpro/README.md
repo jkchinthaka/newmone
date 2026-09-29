@@ -281,8 +281,7 @@ npm run test:e2e:staging:uat003
 ```text
 maintainpro/
 ├── apps/api/          NestJS backend
-├── apps/web/          Next.js dashboard
-├── apps/mobile/       Flutter field app
+├── apps/web/          Next.js web/PWA (supported client)
 ├── packages/          shared-types, ui-components
 ├── prisma/            MongoDB schema
 ├── docs/              runbooks, UAT, screenshots

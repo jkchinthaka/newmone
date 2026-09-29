@@ -55,14 +55,15 @@ check(
   "Web CreateWorkOrderInput requires createdById"
 );
 
-const mobileDs = path.join(
-  maintainproRoot,
-  "apps/mobile/lib/features/work_orders/data/datasources/work_orders_remote_datasource.dart"
-);
 check(
   "WO-CONTRACT-004",
-  existsSync(mobileDs) && /createdById/.test(readFileSync(mobileDs, "utf8")),
-  "Flutter create path includes createdById"
+  !existsSync(
+    path.join(
+      maintainproRoot,
+      "apps/mobile/lib/features/work_orders/data/datasources/work_orders_remote_datasource.dart"
+    )
+  ) && /createdById/.test(webTypes),
+  "Native Flutter client is retired; web create contract still requires createdById"
 );
 
 const helper = readFileSync(

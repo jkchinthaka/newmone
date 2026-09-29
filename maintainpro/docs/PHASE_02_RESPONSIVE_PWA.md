@@ -64,9 +64,9 @@ Offline does **not** claim server sync until API confirmation succeeds.
 
 ---
 
-## Flutter
+## Native client
 
-Marked **non-production / deprecated** in `apps/mobile/README.md`. Source retained for knowledge until web parity is complete. Not deleted.
+The Flutter field app was discontinued on 2026-09-29. The supported client is the responsive web/PWA (`apps/web`): installable manifest, service worker, and offline shell. Do not rebuild or release a native iOS or Android app from this repository. The archived native tree is tag `archive/2026-09-29/branch/feature/mobile-v2`.
 
 ---
 
