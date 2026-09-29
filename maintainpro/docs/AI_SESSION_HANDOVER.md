@@ -57,10 +57,11 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 | Check | Status on `52311b8f` | Since | Root cause | Fix |
 | --- | --- | --- | --- | --- |
-| PR Validation / validate-monorepo | failure (OOM in `npm run test`) | `d7456ab0` (PR #59, before iteration 01) | ts-jest type-checks every suite against ~34 MB Prisma `index.d.ts`; **cold cache** needs ~2.2 GB per suite, ~3.3 GB peak for full run; Node 20 runner default ~2 GB. Reproduced locally with `--no-cache` + 2 GB cap (same FATAL). | PR #62: `NODE_OPTIONS=--max-old-space-size=6144` on Jest jobs (pr-validation, release-validation, sqlserver gate step). Local cold run with 4 GB: 221 suites / 1933 tests pass, 135 s. **Awaiting CI on PR #62.** |
+| PR Validation / validate-monorepo | failure (OOM in `npm run test`) | `d7456ab0` (PR #59, before iteration 01) | ts-jest type-checks every suite against ~34 MB Prisma `index.d.ts`; **cold cache** needs ~2.2 GB per suite, ~3.3 GB peak for full run; Node 20 runner default ~2 GB. Reproduced locally with `--no-cache` + 2 GB cap (same FATAL). | PR #62: `NODE_OPTIONS=--max-old-space-size=6144` on Jest jobs (pr-validation, release-validation, sqlserver gate step). Local cold run with 4 GB: 221 suites / 1933 tests pass, 135 s. **Verified: PR #62 validate-monorepo green.** |
 | Vercel | failure | ≥ 2026-09-18 (all 40+ checked main commits) | **Unconfirmed** (agent cannot read logs: Vercel CLI and dashboard not signed in). Strong candidate: fail-closed guard in `apps/web/lib/api-url.ts` (added `9ac1da24`, 2026-09-17) throws when `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_API_BASE_URL` is absent at build time. `npm run vercel:build` without it reproduces the failure; with it the build passes. | User: set `NEXT_PUBLIC_API_URL` (and `_BASE_URL`, `_ORIGIN`) in Vercel project env (Production + Preview) and redeploy, or share the build log. Do **not** remove the guard. |
 | Cloudflare Workers Builds | failure | ≥ 2026-09-18 | **Unconfirmed**, no log access. `wrangler.jsonc` sets the API URL under `vars`, which are **runtime** vars; `NEXT_PUBLIC_*` must exist at **build** time → same guard likely fires. Local `cloudflare:build` can't confirm: OpenNext on Windows fails with unrelated `Could not resolve` errors inside Next (tool warns it is not Windows-compatible). | User: add the three `NEXT_PUBLIC_*` values as Workers Builds *build variables* (dashboard → Settings → Build), or share the build log. |
 | Docker Image CI / Docker Build Check | success | — | — | — |
+| full-stack-e2e | failure | every run checked back to `028ba871` (2026-09-24) | Registry denies anonymous pull of pinned MinIO images (`quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z`, `quay.io/minio/mc:…`): `unauthorized: access to the requested resource is not authorized` in "Build and start isolated E2E stack". External image availability, not app code. | Infra decision needed: mirror the images into a registry you control (e.g. GHCR), or switch the E2E storage service to another S3-compatible image. Not changed in PR #62. |
 
 ## Completed in iteration 1
 
@@ -113,7 +114,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` §3.1. Summary:
 | `npm run validate:secret-safety` | 12 passed, 0 failed |
 | `vercel:build` without `NEXT_PUBLIC_API_URL` | fails: "Missing NEXT_PUBLIC_API_URL…" (guard) |
 | `cloudflare:build` with env, on Windows | fails with OpenNext Windows path errors: inconclusive |
-| CI on PR #62 | pending (see PR) |
+| CI on PR #62 (head `4a9a597b`) | **validate-monorepo pass** (OOM fixed), release-validate pass, fresh-sqlserver-migrate pass, build pass, docker-build pass; full-stack-e2e fail (pre-existing, see below); Vercel / Workers fail (pre-existing config) |
 
 ## Known environment gotchas
 
@@ -135,8 +136,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` §3.1. Summary:
 
 ## Blockers / open decisions
 
-1. **CI red on main** until PR #62 merges. Merge only after its PR Validation run is green, and
-   only with the user's approval.
+1. **CI red on main** until PR #62 merges. PR #62's validate-monorepo is green; merge needs the
+   user's approval. full-stack-e2e stays red (MinIO image pull, pre-existing) until the infra decision.
 2. **Browser UAT for /requests and /requests/[id] not done.** The user signs in at
    `http://localhost:3001`; the agent must not type credentials.
 3. **Vercel + Cloudflare deploys red since ≥ 2026-09-18.** Root cause not confirmed (no log
