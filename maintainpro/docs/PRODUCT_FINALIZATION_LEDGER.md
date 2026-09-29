@@ -107,7 +107,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | --- | --- | --- |
 | 00 | Baseline reconciliation | PARTIALLY VERIFIED — baseline recorded; PR #62 app checks passed on `c4bb680e`; MinIO, Vercel, and Workers still fail |
 | 01 | Login, session, invitation onboarding | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 02 | Global application shell | IMPLEMENTED — NOT VERIFIED |
+| 02 | Global application shell | Shared dashboard layout LOCAL DEVELOPMENT COMPLETE. Sidebar and navigation are next. |
 | 03 | Action Center | IMPLEMENTED — NOT VERIFIED |
 | 04 | Maintenance dashboard | IMPLEMENTED — NOT VERIFIED |
 | 05 | All jobs / work orders | IMPLEMENTED — NOT VERIFIED |
@@ -128,9 +128,9 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 
 ## C. Current phase and page
 
-- **Current phase:** 01 is locally complete. The next CONTINUE starts Phase 02, shared dashboard layout and navigation.
-- **Current page:** none. Do not open Phase 02 until that command.
-- **Phase 01 audit:** splash to login, valid login with tenant `/tenants/me` 200 and return to `/requests`, existing session to `/action-center`, logout then blocked from `/action-center`, external return path rejected, offline splash retry, invitation-only register, hashed password-reset and user-invitation tokens. New workspace invitations now store a SHA-256 hash. Existing `TenantInvitation.token` rows that still hold the raw value remain valid and were not rewritten.
+- **Current phase:** 02 Global application shell.
+- **Current page:** Shared dashboard layout — LOCAL DEVELOPMENT COMPLETE. Do not start Sidebar & Navigation until the next CONTINUE.
+- **Phase 01:** locally complete at `4cf25f20`. Legacy raw `TenantInvitation` tokens were not rewritten.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - **Do not start** Phase 02, and do not open `/requests/new` during Phase 01.
 
@@ -164,7 +164,8 @@ Return-path hardening commit `faba0ab7` is historical evidence, not a fresh UAT 
 
 | Surface | Location | Status |
 | --- | --- | --- |
-| Dashboard shell, sidebar, topbar, permission-aware nav | `apps/web` dashboard layout and `lib/navigation.ts` | IMPLEMENTED — NOT VERIFIED |
+| Shared dashboard layout | `apps/web/app/(dashboard)/layout.tsx` | LOCAL DEVELOPMENT COMPLETE |
+| Sidebar, topbar, and navigation item rules | existing components used by the layout | Inspected for integration. Separate finalization is the next page. |
 
 Requests nav roles were narrowed in iteration 01. The rest of the shell has not been walked under this programme.
 
@@ -420,12 +421,12 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | Phase 01 cross-page audit passed locally. New workspace invitation tokens are stored hashed; older raw tokens were not rewritten. | local, not pushed |
+| 2026-09-29 | Shared dashboard layout verified on localhost. Unauthorized routes are not painted before the access check. Skip link added. | local, not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-The next CONTINUE starts Phase 02 — Global Application Shell, shared dashboard layout and navigation.
+The next CONTINUE starts Phase 02 Sidebar & Navigation.
 
-Do not merge `feature/phase-01-login` directly into main. It still contains unmerged `ci/jest-heap-oom` (`4c41d269`) and `6f5dd56f`.
+Do not merge `feature/phase-02-shell` directly into main. It contains unmerged `ci/jest-heap-oom` (`4c41d269`) and Phase 01 through `4cf25f20` and `6f5dd56f`. Legacy raw workspace invitation tokens were not rewritten.

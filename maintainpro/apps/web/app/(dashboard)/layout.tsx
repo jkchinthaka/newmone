@@ -72,14 +72,14 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="mt-4 flex justify-center gap-2">
             <button
               type="button"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+              className="min-h-11 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
               onClick={() => void refresh()}
             >
               Retry
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700"
+              className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700"
               onClick={() => router.replace("/login")}
             >
               Sign in again
@@ -121,6 +121,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-slate-900 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-brand-500"
+      >
+        Skip to content
+      </a>
       <NetworkStatusBanner />
       <div className="flex min-h-screen">
         <Sidebar />

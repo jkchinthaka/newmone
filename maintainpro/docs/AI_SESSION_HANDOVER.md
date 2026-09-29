@@ -24,16 +24,16 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~19:30 IST. Phase 01 cross-page audit passed locally on `feature/phase-01-login`. Do not start Phase 02 until the next CONTINUE.
+**Last updated:** 2026-09-29 ~19:40 IST. Shared dashboard layout is locally verified on `feature/phase-02-shell`. Do not start Sidebar & Navigation until the next CONTINUE.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 01 Login, session, invitation onboarding — LOCAL DEVELOPMENT COMPLETE |
-| Current page | Phase 01 audit complete |
-| Next page | Phase 02 — Global Application Shell, shared dashboard layout and navigation. Do not start until the next CONTINUE. |
-| Local Git | `feature/phase-01-login`. Still based on unmerged `ci/jest-heap-oom` at `4c41d269`. Ancestors include `04dc017c` and `8e999fde`. Do not merge this branch straight to main. Not pushed. |
+| Current phase | 02 Global application shell |
+| Current page | Shared dashboard layout — LOCAL DEVELOPMENT COMPLETE |
+| Next page | Phase 02 — Sidebar & Navigation. Do not start until the next CONTINUE. |
+| Local Git | `feature/phase-02-shell`, created with `--no-track` from `feature/phase-01-login` at `4cf25f20`. Ancestors include `6f5dd56f` and unmerged `ci/jest-heap-oom` at `4c41d269`. Do not merge directly into main. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -152,7 +152,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The next CONTINUE starts Phase 02 on the shared dashboard layout and navigation. Do not begin it until that command.
+The next CONTINUE starts Phase 02 Sidebar & Navigation. Do not start the Action Center.
 
-1. This branch still contains unmerged `ci/jest-heap-oom` at `4c41d269` and `6f5dd56f`. Do not merge it directly into main.
-2. Vercel, Cloudflare, Netlify, and the MinIO end-to-end pull stay under release readiness. `EMAIL_MODE=disabled` and Redis on port 6380 refused are environment limits, not Phase 01 defects.
+1. `feature/phase-02-shell` contains Phase 01 through `4cf25f20` and `6f5dd56f`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main.
+2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.

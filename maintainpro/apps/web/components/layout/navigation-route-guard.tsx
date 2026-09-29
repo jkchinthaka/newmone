@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { canAccessNavigationPath } from "@/lib/navigation";
@@ -16,16 +16,33 @@ export function NavigationRouteGuard({ children }: Props) {
   const router = useRouter();
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
+  const [checked, setChecked] = useState(false);
+
+  const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions);
 
   useEffect(() => {
-    if (!pathname) {
+    setChecked(true);
+    if (!pathname || allowed) {
       return;
     }
+    router.replace("/action-center?reason=access_denied");
+  }, [allowed, pathname, router]);
 
-    if (!canAccessNavigationPath(pathname, roleName, user.permissions)) {
-      router.replace("/action-center?reason=access_denied");
-    }
-  }, [pathname, roleName, router, user.permissions]);
+  if (!checked) {
+    return (
+      <p className="text-sm text-slate-600" role="status">
+        Checking access...
+      </p>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <p className="text-sm text-slate-600" role="status">
+        Opening an allowed page...
+      </p>
+    );
+  }
 
   return <>{children}</>;
 }
