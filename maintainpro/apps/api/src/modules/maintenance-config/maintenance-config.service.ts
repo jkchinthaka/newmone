@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { ApprovalRequestStatus, Priority, WorkOrderStatus } from "@prisma/client";
+import { ApprovalRequestStatus, ApprovalStepStatus, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { JOB_DOMAINS, parseJobDomain, type JobDomain } from "../../common/utils/job-domain.util";
 import {
@@ -7,9 +7,10 @@ import {
   DASHBOARD_OPEN_STATUSES
 } from "../../common/utils/maintenance-dashboard.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
-import { waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
+import { unassignedQueueWhere, waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { requestStageFilter } from "../maintenance-requests/request-lifecycle";
 import {
   assertValidHoldReason,
   DEFAULT_CAUSE_CODES,
@@ -18,7 +19,7 @@ import {
   HOLD_REASON_CODES
 } from "../work-orders/work-order-lifecycle";
 
-type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role">;
+type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role"> & { permissions?: string[] };
 
 const OPEN_STATUSES = DASHBOARD_OPEN_STATUSES;
 
@@ -116,6 +117,11 @@ export class MaintenanceConfigService {
       "SUPERVISOR",
       "MAINTENANCE_SUPERVISOR"
     ].includes(role);
+    const viewAllApprovals =
+      role === "SUPER_ADMIN" ||
+      role === "ADMIN" ||
+      (actor.permissions ?? []).includes("approvals.view_all");
+    const requestOpenStatuses = requestStageFilter("open").statuses;
 
     const [
       openJobs,
@@ -168,33 +174,42 @@ export class MaintenanceConfigService {
       }),
       canViewApprovals
         ? this.prisma.approvalRequest.count({
-            where: { tenantId, status: ApprovalRequestStatus.PENDING }
+            where: {
+              tenantId,
+              status: {
+                in: [ApprovalRequestStatus.PENDING, ApprovalRequestStatus.EMERGENCY_OVERRIDE_PENDING_REVIEW]
+              },
+              ...(viewAllApprovals
+                ? {}
+                : {
+                    steps: {
+                      some: {
+                        status: { in: [ApprovalStepStatus.PENDING, ApprovalStepStatus.ESCALATED] },
+                        OR: [{ assignedApproverId: actor.sub }, { backupApproverId: actor.sub }]
+                      }
+                    }
+                  })
+            }
           })
         : Promise.resolve(null as number | null),
-      this.prisma.pmPlan
-        .count({
-          where: {
-            tenantId,
-            nextDueAt: { lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) }
-          }
-        })
-        .catch(() => 0),
-      this.prisma.maintenanceRequest.count({
+      this.prisma.pmPlan.count({
         where: {
           tenantId,
-          status: { in: ["NEW", "UNDER_REVIEW", "APPROVED"] }
+          status: "ACTIVE",
+          nextDueAt: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
+          triggers: { some: {} },
+          OR: [{ assetId: { not: null } }, { vehicleId: { not: null } }]
         }
+      }),
+      this.prisma.maintenanceRequest.count({
+        where: { tenantId, status: { in: requestOpenStatuses } }
       }),
       // Unplanned = OPEN with no plan linkage (plannedAt null / status still OPEN intake)
       this.prisma.workOrder.count({
         where: { tenantId, status: WorkOrderStatus.OPEN }
       }),
       this.prisma.workOrder.count({
-        where: {
-          tenantId,
-          status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED] },
-          technicianId: null
-        }
+        where: { AND: [{ tenantId }, unassignedQueueWhere()] }
       }),
       this.prisma.workOrder.count({
         where: { tenantId, status: WorkOrderStatus.IN_PROGRESS }
@@ -238,15 +253,13 @@ export class MaintenanceConfigService {
 
     let lowStock: number | null = null;
     if (canViewInventory) {
-      const parts = await this.prisma.sparePart.findMany({
-        where: { tenantId, isActive: true },
-        select: { id: true, quantityInStock: true, minimumStock: true, reorderPoint: true },
-        take: 500
+      lowStock = await this.prisma.sparePart.count({
+        where: {
+          isActive: true,
+          tenantId,
+          quantityInStock: { lte: this.prisma.sparePart.fields.reorderPoint }
+        }
       });
-      lowStock = parts.filter((p) => {
-        const min = p.reorderPoint ?? p.minimumStock ?? 0;
-        return (p.quantityInStock ?? 0) <= min;
-      }).length;
     }
 
     const attentionQueues = buildAttentionQueues({

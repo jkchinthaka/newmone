@@ -16,6 +16,8 @@ export const WORK_ORDER_QUEUE_KEYS = [
   "supervisor-verification",
   "rework-required",
   "overdue",
+  "unassigned",
+  "open-load",
   "high-priority",
   "high-risk",
   "finance-vendor-pending",
@@ -40,6 +42,8 @@ export const WORK_ORDER_QUEUE_LABELS: Record<WorkOrderQueueKey, string> = {
   "supervisor-verification": "Supervisor Verification",
   "rework-required": "Rework Required",
   overdue: "Overdue",
+  unassigned: "Unassigned",
+  "open-load": "Open Load",
   "high-priority": "High Priority",
   "high-risk": "High Risk",
   "finance-vendor-pending": "Finance / Vendor Pending",
@@ -129,7 +133,7 @@ export function roleCanAccessQueue(role: RoleName | string | undefined, queue: W
   const r = role as RoleName;
   if (ADMIN_ROLES.has(r) || MANAGER_ROLES.has(r) || SUPERVISOR_ROLES.has(r)) return true;
   if (INVENTORY_ROLES.has(r)) {
-    return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress"].includes(queue);
+    return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress", "unassigned", "open-load"].includes(queue);
   }
   if (FINANCE_ROLES.has(r)) {
     return ["finance-vendor-pending", "high-risk", "action-required", "completed", "cancelled"].includes(queue);
@@ -183,7 +187,18 @@ export function severityWeight(severity: RiskSeverity | undefined): number {
   }
 }
 
-/** Same waiting-parts membership the work-order queue count and list use. */
+/** OPEN or PLANNED work with no technician. Assignment moves a job to ASSIGNED. */
+export function unassignedQueueWhere(): Prisma.WorkOrderWhereInput {
+  return {
+    status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED] },
+    technicianId: null
+  };
+}
+
+/** Same open-status set as the maintenance dashboard open-load cards. */
+export function openLoadQueueWhere(statuses: WorkOrderStatus[]): Prisma.WorkOrderWhereInput {
+  return { status: { in: statuses } };
+}
 export function waitingPartsQueueWhere(): Prisma.WorkOrderWhereInput {
   return {
     AND: [

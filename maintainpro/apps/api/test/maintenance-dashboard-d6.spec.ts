@@ -59,7 +59,9 @@ describe("D6 maintenance dashboard opsOverview", () => {
         findMany: jest.fn().mockResolvedValue([
           { id: "p1", quantityInStock: 1, minimumStock: 5, reorderPoint: null },
           { id: "p2", quantityInStock: 10, minimumStock: 2, reorderPoint: null }
-        ])
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+        fields: { reorderPoint: { name: "reorderPoint" } }
       },
       ...overrides
     };
@@ -82,7 +84,7 @@ describe("D6 maintenance dashboard opsOverview", () => {
     expect(data.pendingApprovals).toBeNull();
     expect(data.availability.approvals).toBe(false);
     expect(data.notAvailable.mttr).toBe("Not Configured");
-    expect(prisma.sparePart.findMany).not.toHaveBeenCalled();
+    expect(prisma.sparePart.count).not.toHaveBeenCalled();
   });
 
   it("returns low stock for inventory-capable roles", async () => {

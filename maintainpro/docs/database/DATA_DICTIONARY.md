@@ -32,7 +32,7 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 | WorkOrder.tenantId | Every dashboard count is tenant-scoped |
 | WorkOrder.status | Open load, unplanned (OPEN), in progress, on hold, verification (TECHNICIAN_COMPLETED), rework |
 | WorkOrder.jobDomain | Machinery / Service / Vehicle cards, and the matching job lanes |
-| WorkOrder.technicianId | Unassigned = OPEN or PLANNED and technicianId null |
+| WorkOrder.technicianId | Unassigned queue: status OPEN or PLANNED and technicianId null. Assignment sets status ASSIGNED. |
 | WorkOrder.dueDate | Overdue when still in the open status set and the date is past |
 | WorkOrder.priority | Critical open work |
 | WorkOrder.version | Optimistic concurrency on status updates (existing) |

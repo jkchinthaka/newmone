@@ -185,7 +185,7 @@ No schema migration. No permission grant. Technicians still cannot open the high
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Maintenance dashboard | `/maintenance` | LOCAL DEVELOPMENT COMPLETE | SQL counts match the admin cards. Unassigned opens a list of 19 (OPEN or PLANNED, no technician). Machinery queues are scoped to `jobDomain`. No schema migration. No permission grant. Non-admin browser sign-in was not repeated. |
+| Maintenance dashboard | `/maintenance` | LOCAL DEVELOPMENT COMPLETE | Unassigned is the `unassigned` queue (OPEN/PLANNED, no technician): API and list both 19. Open load queue is 24; machinery/service/vehicle open-load lists are 15/3/6. Requests use stage `open`. PM uses plans view `due`. Approvals match the inbox statuses. Low stock uses the inventory low-stock predicate. Technician dashboard is 200 with stock and approvals hidden. Cleaner is 403. Redis readiness is not part of this page request. |
 
 ### Phase 05 — All jobs / work orders
 

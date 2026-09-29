@@ -20,7 +20,7 @@ import {
   type RiskSeverity,
   type WorkOrderRiskFactors
 } from "../../common/utils/maintenance-risk-score";
-import { pendingQuantity } from "../../common/utils/work-order-parts-governance";
+import { DASHBOARD_OPEN_STATUSES } from "../../common/utils/maintenance-dashboard.util";
 import { evaluateEvidenceRequirements } from "../../common/utils/work-order-evidence-governance";
 import {
   ACTIVE_OPERATIONAL_STATUSES,
@@ -29,6 +29,8 @@ import {
   overdueDayCount,
   priorityWeight,
   waitingPartsQueueWhere,
+  unassignedQueueWhere,
+  openLoadQueueWhere,
   resolveDefaultQueueForRole,
   roleCanAccessQueue,
   severityWeight,
@@ -304,6 +306,8 @@ export class WorkOrderQueuesService {
       "action-required": { where: this.actionRequiredWhere(now), severity: "HIGH" },
       "my-tasks": { where: this.mergeWhere(this.nonTerminalWhere(), this.myTasksWhere(actor)) },
       "open-requests": { where: { status: WorkOrderStatus.OPEN } },
+      unassigned: { where: unassignedQueueWhere() },
+      "open-load": { where: openLoadQueueWhere(DASHBOARD_OPEN_STATUSES) },
       "approved-planned": {
         where: { approvalStatus: WorkOrderApprovalStatus.APPROVED, status: WorkOrderStatus.OPEN }
       },
@@ -1103,6 +1107,10 @@ export class WorkOrderQueuesService {
           return where;
         }
         return { AND: [where, { status: WorkOrderStatus.OPEN }] };
+      case "unassigned":
+        return { AND: [where, unassignedQueueWhere()] };
+      case "open-load":
+        return { AND: [where, openLoadQueueWhere(DASHBOARD_OPEN_STATUSES)] };
       case "completed":
         return { AND: [where, { status: WorkOrderStatus.COMPLETED }] };
       case "cancelled":
@@ -1503,6 +1511,13 @@ export class WorkOrderQueuesService {
         return assignedToActor && !TERMINAL_STATUSES.includes(row.status);
       case "open-requests":
         return row.status === WorkOrderStatus.OPEN;
+      case "unassigned":
+        return (
+          (row.status === WorkOrderStatus.OPEN || row.status === WorkOrderStatus.PLANNED) &&
+          !row.technicianId
+        );
+      case "open-load":
+        return DASHBOARD_OPEN_STATUSES.includes(row.status);
       case "approved-planned":
         return row.approvalStatus === "APPROVED" && row.status === WorkOrderStatus.OPEN;
       case "assigned":

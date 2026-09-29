@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~20:20 IST. Phase 04 Maintenance dashboard is locally complete on `feature/phase-04-maintenance-dashboard`. Continue with Phase 05. Do not wait for CONTINUE.
+**Last updated:** 2026-09-29 ~20:35 IST. Phase 04 Maintenance dashboard is locally complete on `feature/phase-04-maintenance-dashboard`. Begin Phase 05. Do not wait for CONTINUE.
 
 | Item | Value |
 | --- | --- |
@@ -151,7 +151,7 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 Start Phase 05 All jobs / work orders (`/maintenance/jobs` and `/work-orders`). Do not reopen Phase 04 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
 
-Phase 04 database check on local SQL Server, tenant MaintainPro Default Tenant: open load 24, unassigned 19, in progress 1, on hold 1, machinery/service/vehicle 15/3/6. Browser: unassigned `?queue=open-requests&unassigned=true` listed 19; in progress listed 1; overdue listed 5. Machinery lane summary is domain-scoped (`open-requests` 12, `all` 51) and the unscoped summary stayed at open 19 and overdue 5. No schema migration. No permission grant. A non-admin sign-in was not repeated.
+Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seeded admin. API open-load 24, machinery 15, service 3, vehicle 6. `tech@maintainpro.local` dashboard 200 with inventory and approvals hidden; `cleaner@maintainpro.local` 403; `manager@maintainpro.local` 200. A later browser load of `/maintenance` redirected to login because the session had expired; the password was not entered. The dashboard request does not call readiness, so the Redis refusal does not hold those counts. No schema migration. No permission grant.
 
 1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.
