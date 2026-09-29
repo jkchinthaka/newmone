@@ -64,9 +64,20 @@ Do not merge PR #62 while required checks are pending or failing. Do not force-p
 | Vercel | fail. Deployment `dpl_FpGAjGK5LXm8pjCFsC77WJKr6x6W`. Logs not retrieved. |
 | Cloudflare Workers Builds | fail. Logs not retrieved. |
 
-The Jest heap change in PR #62 is confirmed on this head. It does not fix MinIO, Vercel, or Workers. Not merged.
+The Jest heap change in PR #62 is confirmed on head `c4bb680e`. It does not fix MinIO, Vercel, or Workers. Not merged.
 
-Browser UAT of `/requests` was not run. The only open browser tab was `http://localhost:3001/login`. The local `npm run dev` process is running. The agent did not type the seed password.
+### CI recheck 2026-09-29 ~16:50 IST, head `168694a2`
+
+`gh pr checks 62` while the docs commit was still running:
+
+| Check | Result |
+| --- | --- |
+| `full-stack-e2e` | fail, 1m53s. Log: `minio Error unauthorized`. Run `36560675132`. Same external image pull as `c4bb680e`. |
+| `validate-monorepo`, `release-validate`, `fresh-sqlserver-migrate`, `build`, `docker-build` | pending at inspection |
+| Vercel, Workers | pending or in progress at inspection |
+| Netlify preview | pass |
+
+Browser UAT remains **NOT VERIFIED**. The Cursor browser loaded `/requests`, showed “Session expired. Redirecting to sign in…”, and landed on `/login?reason=session_expired&returnTo=%2Frequests`. No password was entered.
 
 ---
 
@@ -334,7 +345,7 @@ Standing failures, not introduced by Requests:
 
 1. Finish Phase 08 page `/requests` and `/requests/[id]` before any other page.
 2. PR #62 head `c4bb680e` app checks passed. Do not merge while `full-stack-e2e`, Vercel, or Workers is failing.
-3. Browser UAT of `/requests` and `/requests/[id]` is blocked until a signed-in session exists at `http://localhost:3001`. Observed tab: `/login`. Do not type the seed password.
+3. Browser UAT of `/requests` and `/requests/[id]` is **NOT VERIFIED**. Sign in on the Cursor browser at `http://localhost:3001/login?returnTo=%2Frequests`. A normal browser session is not visible to the agent. Do not type the seed password into the agent transcript.
 4. `full-stack-e2e` needs an infra decision on the MinIO images. Not an application change for this page.
 5. Vercel / Workers need `NEXT_PUBLIC_API_URL` (and the related public API vars) at build time, or a log that shows a different cause. Do not remove the fail-closed guard.
 6. Business decision still open: whether TECHNICIAN / MECHANIC / DRIVER may report issues. No permission was granted.
@@ -368,7 +379,7 @@ Not release-ready. No phase is VERIFIED COMPLETE. Main CI is not green. Browser 
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | CONTINUE. PR #62 head `c4bb680e`: validate-monorepo, release-validate, fresh-sqlserver-migrate, build, docker-build pass. full-stack-e2e is MinIO unauthorized. Browser tab is `/login`. Page stays PARTIALLY VERIFIED. | not merged |
+| 2026-09-29 | CONTINUE. Cursor browser on `/requests` showed session expired and returned to login with `returnTo=/requests`. UAT NOT VERIFIED. PR #62 head `168694a2` `full-stack-e2e` failed again on MinIO unauthorized; other app jobs still pending. | not merged |
 
 ---
 

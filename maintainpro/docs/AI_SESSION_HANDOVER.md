@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~16:45 IST (CONTINUE: PR #62 checks on `c4bb680e`)
+**Last updated:** 2026-09-29 ~16:50 IST (CONTINUE: CI recheck of `168694a2` and browser session check)
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. The ledger now has the 15-phase checklist. Active page is still `/requests` and `/requests/[id]`.
 
@@ -32,7 +32,7 @@ Phase 00 compared the tracking files with `git fetch` and the tree. Requests ite
 | --- | --- |
 | Current phase | 08 Maintenance Requests |
 | Current page | `/requests` and `/requests/[id]` |
-| Status | **PARTIALLY VERIFIED**. Local gates from the Requests session passed. Browser UAT **BLOCKED**: the open app tab is `http://localhost:3001/login`; the agent must not type the seed password. PR #62 head `c4bb680e`: `validate-monorepo`, `release-validate`, `fresh-sqlserver-migrate`, `build`, `docker-build`, and Netlify preview **pass**. `full-stack-e2e` fails on MinIO `unauthorized`. Vercel and Workers fail. Not merged. |
+| Status | **PARTIALLY VERIFIED**. Browser UAT **NOT VERIFIED**. At 16:50 IST the Cursor browser opened `http://localhost:3001/requests` and showed “Session expired. Redirecting to sign in…”, then ` /login?reason=session_expired&returnTo=%2Frequests`. No password was typed. Signing in in a normal browser does not authenticate this Cursor browser. PR #62 head `168694a2`: `full-stack-e2e` failed again on MinIO `unauthorized` (run `36560675132`). `validate-monorepo`, `release-validate`, `fresh-sqlserver-migrate`, `build`, and `docker-build` were still pending on this head. The previous head `c4bb680e` had those app jobs green. Not merged. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -154,14 +154,11 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 The earliest unfinished page is `/requests` and `/requests/[id]`. Do not start `/requests/new`,
 and do not rebuild the Requests slice that is already on `main` (`89533ac0` inside `52311b8f`).
 
-1. Run the start-of-session checks. Expect branch `ci/jest-heap-oom` at `c4bb680e` or a later
-   docs commit on that branch, unless PR #62 has merged. `origin/main` stays `52311b8f` until that merge.
-2. CI for head `c4bb680e` is recorded: app Jest/build/migrate jobs passed. `full-stack-e2e` log
-   is still `minio Error unauthorized`. Do not merge while that check, Vercel, or Workers
-   is failing. Do not self-merge. A later docs commit will re-run checks; compare them with this result.
-3. Browser UAT once the user has signed in at `http://localhost:3001`. The last check found only
-   the login tab. Do not type the seed password. Then check `/requests` and `/requests/<id>` at
-   desktop (~1440), tablet (~820), and phone (~390):
+1. Run the start-of-session checks. Expect `ci/jest-heap-oom`. `origin/main` stays `52311b8f` until PR #62 merges.
+2. Compare `gh pr checks 62` with head `168694a2` or later. App jobs were green on `c4bb680e`. On `168694a2`, `full-stack-e2e` failed again with `minio Error unauthorized` (run `36560675132`). Do not change the MinIO pin to skip the job. Do not merge while that check, Vercel, or Workers is failing, or while app jobs are still pending. Do not self-merge.
+3. Browser UAT is **NOT VERIFIED**. The Cursor browser must be signed in; a session in another browser is not shared. The last URL was
+   `http://localhost:3001/login?reason=session_expired&returnTo=%2Frequests`.
+   After sign-in on that Cursor browser, check `/requests` and one `/requests/<id>` at desktop (~1440), tablet (~820), and phone (~390):
    - no horizontal scroll;
    - no console errors;
    - `GET /api/backend/maintenance-requests*` calls succeed;
