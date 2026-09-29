@@ -139,8 +139,8 @@ export class SuppliersService {
 
   async setBlacklist(id: string, blacklisted: boolean, reason: string | undefined, actor?: Actor) {
     this.assertCanManage(actor);
-    if (blacklisted && !reason?.trim()) {
-      throw new BadRequestException("Blacklist reason is required.");
+    if (!reason?.trim()) {
+      throw new BadRequestException("A reason is required to block or unblock a vendor.");
     }
 
     const supplier = await this.prisma.supplier.findFirst({

@@ -243,18 +243,172 @@ export function canUseVendor(input: {
   insuranceExpiresAt?: Date | null;
   now?: Date;
 }): PolicyDecision {
+  const decision = evaluateVendorEligibility({
+    tenantId: input.tenantId,
+    active: input.active !== false,
+    blacklisted: Boolean(input.blacklisted),
+    insuranceRequired: input.insuranceExpiresAt != null,
+    insuranceExpiresAt: input.insuranceExpiresAt,
+    contracts: input.contractExpiresAt
+      ? [{ startDate: new Date(0), endDate: input.contractExpiresAt, isActive: true }]
+      : [],
+    now: input.now
+  });
+  if (decision.assignmentAllowed) return allow(decision.reasons[0]?.code);
+  const blocking = decision.reasons.find((reason) => reason.blocksAssignment) ?? decision.reasons[0];
+  return deny(blocking?.code ?? "VENDOR_INELIGIBLE", undefined, decision.availability === "BLOCKED" ? "CRITICAL" : "HIGH");
+}
+
+export const VENDOR_EXPIRY_WARNING_DAYS = 30;
+
+export type VendorDocumentState = "VALID" | "EXPIRING_SOON" | "EXPIRED" | "MISSING" | "NOT_REQUIRED" | "NOT_YET_EFFECTIVE";
+
+export type VendorEligibilityReason = {
+  code: string;
+  message: string;
+  blocksAssignment: boolean;
+};
+
+export type VendorEligibilityDecision = {
+  availability: "ACTIVE" | "INACTIVE" | "BLOCKED";
+  eligibility: "ELIGIBLE" | "INELIGIBLE" | "NEEDS_REVIEW";
+  assignmentAllowed: boolean;
+  reasons: VendorEligibilityReason[];
+  contract: { state: VendorDocumentState; startDate: string | null; endDate: string | null };
+  insurance: { state: VendorDocumentState; expiresAt: string | null; required: boolean };
+  evaluatedAt: string;
+  timezone: "Asia/Colombo";
+};
+
+function businessDateOnly(value: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(value);
+}
+
+function businessDayEnd(value: Date) {
+  return new Date(`${businessDateOnly(value)}T23:59:59.999+05:30`);
+}
+
+function businessDayStart(value: Date) {
+  return new Date(`${businessDateOnly(value)}T00:00:00.000+05:30`);
+}
+
+export function evaluateVendorEligibility(input: {
+  tenantId?: string | null;
+  active: boolean;
+  blacklisted: boolean;
+  insuranceRequired?: boolean;
+  insuranceExpiresAt?: Date | null;
+  contracts?: Array<{ startDate: Date; endDate: Date; isActive?: boolean; reminderDays?: number | null }>;
+  now?: Date;
+}): VendorEligibilityDecision {
   const now = input.now ?? new Date();
-  return firstDenial(
-    requireTenant(input.tenantId),
-    input.active === false ? deny("VENDOR_INACTIVE") : allow(),
-    input.blacklisted ? deny("VENDOR_BLOCKED", undefined, "CRITICAL") : allow(),
-    input.contractExpiresAt && input.contractExpiresAt.getTime() < now.getTime()
-      ? deny("VENDOR_CONTRACT_EXPIRED")
-      : allow(),
-    input.insuranceExpiresAt && input.insuranceExpiresAt.getTime() < now.getTime()
-      ? deny("VENDOR_INSURANCE_EXPIRED")
-      : allow()
+  const reasons: VendorEligibilityReason[] = [];
+  if (!input.tenantId) {
+    reasons.push({
+      code: "TENANT_REQUIRED",
+      message: "This vendor is not tied to a tenant, so eligibility cannot be confirmed.",
+      blocksAssignment: true
+    });
+  }
+  if (input.blacklisted) {
+    reasons.push({
+      code: "VENDOR_BLOCKED",
+      message: "This vendor is blocked and cannot receive new work.",
+      blocksAssignment: true
+    });
+  }
+  if (!input.active) {
+    reasons.push({
+      code: "VENDOR_INACTIVE",
+      message: "This vendor is inactive and cannot receive new work.",
+      blocksAssignment: true
+    });
+  }
+
+  const contracts = (input.contracts ?? []).filter((contract) => contract.isActive !== false);
+  let contractState: VendorDocumentState = "NOT_REQUIRED";
+  let contractStart: string | null = null;
+  let contractEnd: string | null = null;
+  if (contracts.length > 0) {
+    const covering = contracts.filter((contract) => {
+      if (contract.startDate.getTime() > contract.endDate.getTime()) return false;
+      return businessDayStart(contract.startDate).getTime() <= now.getTime() && businessDayEnd(contract.endDate).getTime() >= now.getTime();
+    });
+    const invalid = contracts.filter((contract) => contract.startDate.getTime() > contract.endDate.getTime());
+    const chosen = covering[0] ?? contracts.slice().sort((a, b) => b.endDate.getTime() - a.endDate.getTime())[0];
+    contractStart = chosen?.startDate.toISOString() ?? null;
+    contractEnd = chosen?.endDate.toISOString() ?? null;
+    if (invalid.length > 0 && covering.length === 0) {
+      contractState = "MISSING";
+      reasons.push({
+        code: "CONTRACT_DATE_RANGE_INVALID",
+        message: "A contract has an end date before its start date.",
+        blocksAssignment: true
+      });
+    } else if (covering.length > 0) {
+      const windowDays = covering[0].reminderDays ?? VENDOR_EXPIRY_WARNING_DAYS;
+      const warningMs = windowDays * 24 * 60 * 60 * 1000;
+      contractState = businessDayEnd(covering[0].endDate).getTime() - now.getTime() <= warningMs ? "EXPIRING_SOON" : "VALID";
+    } else if (contracts.every((contract) => businessDayStart(contract.startDate).getTime() > now.getTime())) {
+      contractState = "NOT_YET_EFFECTIVE";
+      reasons.push({
+        code: "CONTRACT_NOT_YET_EFFECTIVE",
+        message: "The contract has not started, so this vendor cannot take new work yet.",
+        blocksAssignment: true
+      });
+    } else {
+      contractState = "EXPIRED";
+      reasons.push({
+        code: "VENDOR_CONTRACT_EXPIRED",
+        message: "The contract has expired. New work cannot be assigned until it is renewed.",
+        blocksAssignment: true
+      });
+    }
+  }
+
+  const insuranceRequired = Boolean(input.insuranceRequired);
+  let insuranceState: VendorDocumentState = insuranceRequired ? "MISSING" : "NOT_REQUIRED";
+  if (insuranceRequired && input.insuranceExpiresAt) {
+    const expires = businessDayEnd(input.insuranceExpiresAt);
+    if (expires.getTime() < now.getTime()) {
+      insuranceState = "EXPIRED";
+      reasons.push({
+        code: "VENDOR_INSURANCE_EXPIRED",
+        message: "Required insurance has expired. New work cannot be assigned.",
+        blocksAssignment: true
+      });
+    } else if (expires.getTime() - now.getTime() <= VENDOR_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000) {
+      insuranceState = "EXPIRING_SOON";
+    } else {
+      insuranceState = "VALID";
+    }
+  } else if (insuranceRequired) {
+    reasons.push({
+      code: "INSURANCE_MISSING",
+      message: "Required insurance has no expiry date, so this vendor needs review before assignment.",
+      blocksAssignment: true
+    });
+  }
+
+  const blocking = reasons.filter((reason) => reason.blocksAssignment);
+  const hardBlock = blocking.some((reason) =>
+    ["VENDOR_BLOCKED", "VENDOR_INACTIVE", "VENDOR_CONTRACT_EXPIRED", "VENDOR_INSURANCE_EXPIRED", "TENANT_REQUIRED"].includes(reason.code)
   );
+  const eligibility = hardBlock ? "INELIGIBLE" : blocking.length > 0 ? "NEEDS_REVIEW" : "ELIGIBLE";
+  return {
+    availability: input.blacklisted ? "BLOCKED" : input.active ? "ACTIVE" : "INACTIVE",
+    eligibility,
+    assignmentAllowed: blocking.length === 0,
+    reasons,
+    contract: { state: contractState, startDate: contractStart, endDate: contractEnd },
+    insurance: {
+      state: insuranceState,
+      expiresAt: input.insuranceExpiresAt?.toISOString() ?? null,
+      required: insuranceRequired
+    },
+    evaluatedAt: now.toISOString(),
+    timezone: "Asia/Colombo"
+  };
 }
 
 export function canRecordFuel(input: {

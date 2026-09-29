@@ -255,9 +255,21 @@ export class EnterpriseOpsController {
   @Get("vendors")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
   @Permissions("purchase_orders.view")
-  async vendors(@Req() req: AuthedRequest) {
-    const data = await this.governance.vendorEligibility(req.user);
-    return { data, message: "Vendor eligibility" };
+  async vendors(
+    @Req() req: AuthedRequest,
+    @Query("search") search?: string,
+    @Query("eligibility") eligibility?: string,
+    @Query("availability") availability?: string,
+    @Query("document") document?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    const result = await this.governance.vendorEligibility(req.user, { search, eligibility, availability, document, page, pageSize });
+    return {
+      data: { items: result.items, counts: result.counts, evaluatedAt: result.evaluatedAt },
+      meta: { page: result.page, limit: result.pageSize, total: result.total, totalPages: result.total === 0 ? 0 : Math.ceil(result.total / result.pageSize) },
+      message: "Vendor eligibility"
+    };
   }
 
   @Get("mappings")

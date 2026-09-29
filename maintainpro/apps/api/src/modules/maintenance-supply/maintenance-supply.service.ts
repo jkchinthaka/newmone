@@ -17,6 +17,7 @@ import {
 
 import { stringArrayToText } from "../../common/utils/json-text";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { evaluateVendorEligibility } from "../policies/governance-policies";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApprovalsService } from "../approvals/approvals.service";
@@ -448,12 +449,33 @@ export class MaintenanceSupplyService {
     executionMode: WorkOrderExecutionMode = WorkOrderExecutionMode.EXTERNAL
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    const [wo, supplier] = await Promise.all([
+    const [wo, supplier, contracts] = await Promise.all([
       this.prisma.workOrder.findFirst({ where: { id: workOrderId, tenantId } }),
-      this.prisma.supplier.findFirst({ where: { id: supplierId, tenantId, isActive: true } })
+      this.prisma.supplier.findFirst({ where: { id: supplierId, tenantId } }),
+      this.prisma.vendorContract.findMany({
+        where: { tenantId, supplierId, isActive: true },
+        select: { startDate: true, endDate: true, isActive: true, reminderDays: true }
+      })
     ]);
     if (!wo) throw new NotFoundException("Work order not found");
     if (!supplier) throw new NotFoundException("Vendor not found");
+    if (wo.vendorSupplierId !== supplierId) {
+      const decision = evaluateVendorEligibility({
+        tenantId,
+        active: supplier.isActive,
+        blacklisted: supplier.blacklisted,
+        insuranceRequired: supplier.insuranceRequired,
+        insuranceExpiresAt: supplier.insuranceExpiresAt,
+        contracts
+      });
+      if (!decision.assignmentAllowed) {
+        throw new BadRequestException({
+          code: "VENDOR_NOT_ASSIGNABLE",
+          message: decision.reasons.map((reason) => reason.message).join(" "),
+          reasons: decision.reasons
+        });
+      }
+    }
 
     if (this.approvalsService) {
       const result = await this.approvalsService.ensureApprovalRequired({

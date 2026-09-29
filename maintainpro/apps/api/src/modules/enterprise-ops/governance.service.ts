@@ -19,7 +19,7 @@ import {
   canAssignTechnician,
   canCommitBudget,
   canStartHazardousWork,
-  canUseVendor,
+  evaluateVendorEligibility,
   evaluateSlaClock,
   matchThreeWay,
   mttrMtbf,
@@ -359,25 +359,78 @@ export class GovernanceService {
     return results;
   }
 
-  async vendorEligibility(actor: Actor) {
+  async vendorEligibility(
+    actor: Actor,
+    query: { search?: string; eligibility?: string; availability?: string; document?: string; page?: string; pageSize?: string } = {}
+  ) {
     const tenantId = requireTenantId(actor.tenantId);
-    const vendors = await this.prisma.supplier.findMany({ where: { tenantId }, take: 80, orderBy: { name: "asc" } });
-    return vendors.map((vendor) => {
-      const decision = canUseVendor({
+    const page = Math.max(1, Number(query.page ?? 1) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number(query.pageSize ?? 25) || 25));
+    const vendors = await this.prisma.supplier.findMany({
+      where: { tenantId },
+      include: {
+        contracts: { where: { tenantId, isActive: true }, select: { startDate: true, endDate: true, isActive: true, reminderDays: true } }
+      },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      take: 1000
+    });
+    const now = new Date();
+    const evaluated = vendors.map((vendor) => {
+      const decision = evaluateVendorEligibility({
         tenantId,
         active: vendor.isActive,
-        blacklisted: vendor.blacklisted
+        blacklisted: vendor.blacklisted,
+        insuranceRequired: vendor.insuranceRequired,
+        insuranceExpiresAt: vendor.insuranceExpiresAt,
+        contracts: vendor.contracts,
+        now
       });
       return {
         id: vendor.id,
         name: vendor.name,
         vendorCode: vendor.vendorCode,
-        allowed: decision.allowed,
-        code: decision.code,
-        contractCoverage: "INSUFFICIENT_DATA",
-        insuranceCoverage: "INSUFFICIENT_DATA"
+        availability: decision.availability,
+        eligibility: decision.eligibility,
+        assignmentAllowed: decision.assignmentAllowed,
+        reasons: decision.reasons,
+        contract: decision.contract,
+        insurance: decision.insurance,
+        evaluatedAt: decision.evaluatedAt,
+        blacklistReason: vendor.blacklistReason,
+        updatedAt: vendor.updatedAt
       };
     });
+    const search = query.search?.trim().toLowerCase();
+    const scoped = evaluated.filter((vendor) => {
+      if (search && !`${vendor.name} ${vendor.vendorCode ?? ""}`.toLowerCase().includes(search)) return false;
+      if (query.availability && vendor.availability !== query.availability.toUpperCase()) return false;
+      return true;
+    });
+    const counts = {
+      all: scoped.length,
+      eligible: scoped.filter((vendor) => vendor.eligibility === "ELIGIBLE").length,
+      needsReview: scoped.filter((vendor) => vendor.eligibility === "NEEDS_REVIEW").length,
+      ineligible: scoped.filter((vendor) => vendor.eligibility === "INELIGIBLE").length,
+      expiringSoon: scoped.filter((vendor) => vendor.contract.state === "EXPIRING_SOON" || vendor.insurance.state === "EXPIRING_SOON").length
+    };
+    const view = query.eligibility?.toUpperCase().replace(/ /g, "_");
+    const viewed = scoped.filter((vendor) => {
+      if (view === "ELIGIBLE" || view === "NEEDS_REVIEW" || view === "INELIGIBLE") {
+        if (vendor.eligibility !== view) return false;
+      }
+      if (query.document === "expiring" && vendor.contract.state !== "EXPIRING_SOON" && vendor.insurance.state !== "EXPIRING_SOON") {
+        return false;
+      }
+      return true;
+    });
+    return {
+      items: viewed.slice((page - 1) * pageSize, page * pageSize),
+      counts,
+      page,
+      pageSize,
+      total: viewed.length,
+      evaluatedAt: now.toISOString()
+    };
   }
 
   async mappingQueue(actor: Actor) {

@@ -2318,6 +2318,9 @@ model Supplier {
   blacklisted       Boolean  @default(false)
   blacklistReason   String?
   isActive          Boolean  @default(true)
+  /// Optional. Insurance blocks assignment only when this is true.
+  insuranceRequired Boolean  @default(false)
+  insuranceExpiresAt DateTime?
   notes             String?
   createdById       String?  @db.NVarChar(36)
   createdAt         DateTime @default(now())

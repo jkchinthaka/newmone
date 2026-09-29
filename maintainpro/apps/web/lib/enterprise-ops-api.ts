@@ -114,8 +114,13 @@ export async function fetchAssetHealth() {
 }
 
 export async function fetchVendorEligibility() {
-  const response = await apiClient.get<{ data: Array<Record<string, unknown>> }>("/enterprise-ops/vendors");
-  return response.data.data ?? [];
+  const response = await apiClient.get<{ data: { items?: Array<Record<string, unknown>> } }>("/enterprise-ops/vendors");
+  return (response.data.data?.items ?? []).map((item) => ({
+    ...item,
+    allowed: item.assignmentAllowed,
+    code: item.eligibility,
+    contractCoverage: (item.contract as { state?: string } | undefined)?.state
+  }));
 }
 
 export async function fetchMasterDataMappings() {

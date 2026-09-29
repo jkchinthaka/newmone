@@ -28,6 +28,7 @@ import {
   VENDOR_HIGH_COST_QUOTATIONS_REQUIRED
 } from "../../common/utils/vendor-repair-governance";
 import { PrismaService } from "../../database/prisma.service";
+import { evaluateVendorEligibility } from "../policies/governance-policies";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -491,9 +492,27 @@ export class VendorRepairService {
       where: { id: supplierId, tenantId: requireTenantId(actor?.tenantId) }
     });
     if (!supplier) throw new NotFoundException("Vendor not found.");
-    if (!supplier.isActive) throw new BadRequestException("Vendor is inactive.");
-    if (supplier.blacklisted && !overrideReason?.trim() && !this.isAdmin(actor)) {
-      throw new BadRequestException("Blacklisted vendor cannot be selected.");
+    const contracts = await this.prisma.vendorContract.findMany({
+      where: { tenantId: supplier.tenantId, supplierId: supplier.id, isActive: true },
+      select: { startDate: true, endDate: true, isActive: true, reminderDays: true }
+    });
+    const decision = evaluateVendorEligibility({
+      tenantId: supplier.tenantId,
+      active: supplier.isActive,
+      blacklisted: supplier.blacklisted,
+      insuranceRequired: supplier.insuranceRequired,
+      insuranceExpiresAt: supplier.insuranceExpiresAt,
+      contracts
+    });
+    const blocked = decision.reasons.filter((reason) => reason.blocksAssignment);
+    const blacklistOnly = blocked.length > 0 && blocked.every((reason) => reason.code === "VENDOR_BLOCKED");
+    if (blacklistOnly && overrideReason?.trim() && this.isAdmin(actor)) return;
+    if (!decision.assignmentAllowed) {
+      throw new BadRequestException({
+        code: "VENDOR_NOT_ASSIGNABLE",
+        message: blocked.map((reason) => reason.message).join(" "),
+        reasons: blocked
+      });
     }
   }
 
