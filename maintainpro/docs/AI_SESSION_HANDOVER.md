@@ -24,16 +24,16 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~17:20 IST. Requests list/detail is locally complete. Release readiness stays blocked. Next local page is `/login`.
+**Last updated:** 2026-09-29 ~17:40 IST. `/login` is locally verified on `feature/phase-01-login`. Do not start the next page until CONTINUE.
 
 Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. Active local phase is now 01.
 
 | Item | Value |
 | --- | --- |
 | Current phase | 01 Login, session, invitation onboarding |
-| Current page | `/login` — not yet walked under this programme |
-| Requests list/detail | **LOCAL DEVELOPMENT COMPLETE**. Initial load resource timing 200 for auth, tenant, summary, and list. No application error overlay. Release readiness **BLOCKED** (MinIO E2E, Vercel, Workers). |
-| Local Git | `ci/jest-heap-oom` at `c4426037`, which contains `04dc017c` and `8e999fde`. Ahead of origin. Not pushed. Do not merge PR #62. |
+| Current page | `/login` — LOCAL DEVELOPMENT COMPLETE |
+| Next page | `/forgot-password` — do not start until the next CONTINUE |
+| Local Git | `feature/phase-01-login`, created with `--no-track` from `ci/jest-heap-oom` at `4c41d269`. Ancestors include `04dc017c` and `8e999fde`. `ci/jest-heap-oom` was not moved. Not pushed. |
 | `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
 | Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
 | Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
@@ -152,9 +152,7 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The earliest unfinished local page is `/login`. Do not rebuild Requests. Do not start Phase 02 or `/requests/new`. Do not push, force-push, reset, or merge PR #62.
+The earliest unfinished local page is `/forgot-password`, but do not open it until the next CONTINUE. `/login` is locally complete on `feature/phase-01-login`.
 
-1. Read the existing login page, BFF session cookies, `POST /auth/login`, `GET /auth/me`, and the return-path behaviour.
-2. Validate `/login` locally: session persistence, a failed login, and the return path. Do not write secrets into these files.
-3. Continue to forgot-password, accept-invite, register, and splash only after `/login` is locally complete.
-4. Vercel, Cloudflare, and Netlify failures are DEPLOYMENT / RELEASE READINESS only. They do not stop localhost phase work. Do not delete or disconnect those hosting configs. Still required locally: typecheck and relevant tests, database safety, RBAC, local integration checks, and browser UAT. Do not record `full-stack-e2e`, MinIO, Vercel, Cloudflare, or Netlify as passed.
+1. Preserve `ci/jest-heap-oom` at `4c41d269`. Do not push or merge PR #62. Do not mix login commits back onto that branch.
+2. Vercel, Cloudflare, and Netlify stay under release readiness and do not block the next local page.

@@ -129,7 +129,7 @@ Out of the product surface, retained for deep links or server RBAC only, and not
 ## C. Current phase and page
 
 - **Current phase:** 01 Login, session, and invitation onboarding.
-- **Current page:** `/login` (not started under this local programme).
+- **Current page:** `/login` — LOCAL DEVELOPMENT COMPLETE. Do not start `/forgot-password` until the next CONTINUE.
 - **Previous page:** `/requests` and `/requests/[id]` — LOCAL DEVELOPMENT COMPLETE. Release readiness remains BLOCKED.
 - **Do not start** Phase 02, and do not open `/requests/new` during Phase 01.
 
@@ -149,7 +149,7 @@ Required pages that exist in the current tree. "Implemented" means a route file 
 
 | Page | Route | Local status | Notes |
 | --- | --- | --- | --- |
-| Login | `/login` | IMPLEMENTED — NOT VERIFIED | Next local page. API `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`. Return path exists (`returnTo`). |
+| Login | `/login` | LOCAL DEVELOPMENT COMPLETE | Existing login kept. Failed sign-in stays on the page with “Incorrect email or password.” An external `returnTo` is ignored and lands on `/action-center`. Reload keeps the session. Access and refresh cookies are HttpOnly. Tokens are not stored in localStorage. |
 | Forgot password | `/forgot-password` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/forgot-password` and `POST /auth/reset-password`. |
 | Accept invitation | `/accept-invite` | IMPLEMENTED — NOT VERIFIED | API `GET /auth/invite/verify` and `POST /auth/invite/accept`. Admin invitations page is Phase 13. |
 | Register | `/register` | IMPLEMENTED — NOT VERIFIED | API `POST /auth/register`. Confirm whether invitation policy already disables open registration before changing it. |
@@ -419,14 +419,12 @@ Overall release readiness: **BLOCKED**. Do not mark this passed. Do not disconne
 | 2026-09-29 | Requests list and detail pushed directly to main; local gates recorded; browser UAT not done | `89533ac0` then docs through `52311b8f` |
 | 2026-09-29 | Jest heap CI fix opened | PR #62, `39597a7f` and later handover commits through `a5f14019` |
 | 2026-09-29 | Phase 00 reconciliation. Confirmed Requests is on main. Expanded this ledger to the 15-phase format. No second Requests implementation. | `c4bb680e` |
-| 2026-09-29 | Local phases are not blocked by Vercel, Cloudflare, or Netlify. Those stay under deployment readiness. Next local page remains `/login`. | local docs |
+| 2026-09-29 | `/login` local verification on `feature/phase-01-login`. No login code change. `ci/jest-heap-oom` left at `4c41d269`. | not pushed |
 
 ---
 
 ## M. Exact NEXT ACTION
 
-Stay on Phase 01, page `/login`.
+`/login` is locally complete. Do not start another page in this session.
 
-1. Inspect the existing login, session cookie, tenant, and return-path behaviour. Do not rebuild it.
-2. Validate it locally. Vercel, Cloudflare, and Netlify failures do not delay this page.
-3. Do not push these local commits only to refresh hosting checks. Do not merge PR #62. Do not remove or disconnect hosting config. Do not start Phase 02 or `/requests/new`.
+The next CONTINUE should open `/forgot-password` on `feature/phase-01-login`, without moving `ci/jest-heap-oom` or pushing.
