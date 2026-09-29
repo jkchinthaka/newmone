@@ -16,3 +16,12 @@
 | Recommendation | **DELAYED** |
 | Human decision | **PENDING_AUTHORIZED_HUMAN_DECISION** |
 | Phase 8 | **not executed** |
+## Phase 7A closeout note
+
+| Field | Value |
+| --- | --- |
+| Technical status | RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED |
+| App SHA | `5e3c470f3d7bc2fa15d84252db6492b7c4b65522` |
+| Workflow | `30740626683` |
+| Recommendation | **DELAYED** (unchanged) |
+| Phase 8 | not started |

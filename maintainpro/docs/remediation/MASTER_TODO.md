@@ -865,7 +865,7 @@ Preserve Phase 5B/5C/5D/6A/6B evidence SHAs unchanged.
 
 ## Phase 7A - release candidate test stability
 
-**Status:** SOURCE_IMPLEMENTED — awaiting CI `RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED`.
+**Status:** **RELEASE_CANDIDATE_TEST_STABILITY_VALIDATED** — workflow `30740626683` / SHA `5e3c470f3d7bc2fa15d84252db6492b7c4b65522`. Recommendation: DELAYED.
 **Base:** Phase 7 evidence tip `346572ee88fa3f8cf95a823e0fe0304d63263fa4`.
 **Scope:** Stabilize E2E-AUTH-012 post-logout protected-route redirect (client-side login redirect race / `net::ERR_ABORTED`).
 **Recommendation:** remains DELAYED. Phase 8 not started.
