@@ -263,18 +263,20 @@ Phase 09 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-09-assets`. Release rea
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Plans | `/maintenance/plans` | IN PROGRESS | Generation duplicate protection and status transitions are verified. Page layout was not re-walked in this pass. |
+| Plans | `/maintenance/plans` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED | Signed-in page showed Active 1, Due in 7 days 0, Overdue 1, and 1 plan. The overdue filter still listed that plan. Next due 1 Sep 2026, every 30 days, work order WO-2026-0252. |
 | Planning redirect | `/maintenance/planning` | IMPLEMENTED — NOT VERIFIED |
-| Forecast | `/maintenance/forecast` | IMPLEMENTED — NOT VERIFIED |
-| Inspections | `/maintenance/inspections`, `/maintenance/inspections/[id]` | IMPLEMENTED — NOT VERIFIED |
-| Reliability | `/maintenance/reliability`, `/maintenance/reliability/rca/[id]` | IMPLEMENTED — NOT VERIFIED |
-| Job codes | `/maintenance/job-codes` | route not re-listed in this session's glob of inspected paths; treat as IMPLEMENTED — NOT VERIFIED only if the file is present when the phase starts |
+| Forecast | `/maintenance/forecast` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED | Page loaded with no error. The forecast table is empty, matching SQL `MaintenanceForecast` count 0. Due preventive plans stay on the plans page, not in this schedule-forecast table. |
+| Inspections | `/maintenance/inspections`, `/maintenance/inspections/[id]` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED | Ad hoc inspection scheduled, started, and completed as PASS. Re-inspection created a new row and left the original COMPLETED/PASS. The page showed Completed this week 1 and 2 inspections. |
+| Reliability | `/maintenance/reliability`, `/maintenance/reliability/rca/[id]` | LOCAL DEVELOPMENT COMPLETE for the existing summary. Release readiness BLOCKED | Page showed repeat failures 0, open RCAs 2, overdue CAPAs 0. API summary 200. Cleaner summary 403. RCA detail was not re-opened. |
+| Job codes | `/maintenance/job-codes` | IMPLEMENTED — NOT VERIFIED | Page file exists. It was not re-walked in this pass. |
 
-Generation claims `PmAutoGeneration` before creating the work order. SQL Server filtered unique index `WorkOrder_pm_occurrence_key` was applied (`20260930120000_pm_occurrence_work_order_unique`) with no existing duplicate rows. Plan status moves only DRAFT to ACTIVE or INACTIVE, ACTIVE to INACTIVE or RETIRED, and INACTIVE to ACTIVE or RETIRED. There is no separate paused status. Closing the generated work order sets the occurrence to completed and `PmPlan.lastCompletionAt`. The existing trigger engine recalculates the next due date from that baseline. No PM bulk upload was added. Inspection evidence upload stays BLOCKED / NOT VERIFIED while storage uploads are unset. A background scheduler was not run.
+BACKGROUND PM SCHEDULER — BLOCKED / NOT VERIFIED. Redis is unavailable, so no scheduled run was treated as success. The generate service was called directly.
 
-Disposable plan: the first generate call created work order `cmunqmdco001112eiwv1m2hss` and the second returned that same id with `DUPLICATE_OPEN_WO`. An inactive asset was rejected (400). Cleaner and technician plan list returned 403. Admin list returned 200. `planning-phase08.spec.ts` and `pm-plan-status.spec.ts` passed 21/21.
+INSPECTION EVIDENCE — BLOCKED / NOT VERIFIED. The evidence upload call returned 400 while storage uploads are unset. The rest of the inspection flow does not depend on that upload.
 
-Phase 10 is not locally complete yet. Inspections, forecast, reliability, and the plans page layout still need a signed-in pass. Do not start Phase 11.
+Filtered unique index `WorkOrder_pm_occurrence_key` is present with filter `pmPlanId IS NOT NULL AND pmOccurrenceKey IS NOT NULL`. Duplicate groups: 0. Plan list total 1 matched SQL. Overdue list total 1 matched the overdue summary. No PM bulk upload was added. Calendar recurrence is an interval in days, not a calendar-month rule, so month-end overflow does not apply. `planning-phase08.spec.ts` and `pm-plan-status.spec.ts` passed 21/21.
+
+Phase 10 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-10-preventive-maintenance` at the acceptance commit. Release readiness stays blocked (Vercel, Cloudflare, MinIO, Redis scheduler, inspection file storage). Do not merge this branch into main.
 
 ### Phase 11 — Fleet and gate
 

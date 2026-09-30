@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:20 IST. Phase 10 is in progress on `feature/phase-10-preventive-maintenance`. Duplicate PM work-order generation is blocked. Do not start Phase 11. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:25 IST. Phase 10 is LOCAL DEVELOPMENT COMPLETE. Phase 11 starts next. The background PM scheduler and inspection file upload stay blocked. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 10 Preventive maintenance — IN PROGRESS |
-| Next phase | Finish inspections, forecast, reliability, and the plans page, then Phase 11. |
+| Current phase | 10 Preventive maintenance — LOCAL DEVELOPMENT COMPLETE |
+| Next phase | Phase 11 fleet and gate, including Live Map retirement. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-10-preventive-maintenance` (not pushed), created with `--no-track` from `feature/phase-09-assets` at `9f4cf916`. |
@@ -149,11 +149,13 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Stay on `feature/phase-10-preventive-maintenance`. Do not start Phase 11. Do not edit Live Map yet.
+Continue on a new `--no-track` branch for Phase 11. Do not merge Phase 10 into main.
 
-Duplicate PM generation is fixed. `PmAutoGeneration` is claimed before the work order is created, and filtered unique index `WorkOrder_pm_occurrence_key` is applied. A disposable plan created work order `cmunqmdco001112eiwv1m2hss`; the second generate call returned that same id. Inactive assets cannot start a plan. `planning-phase08.spec.ts` and `pm-plan-status.spec.ts` passed 21/21.
+Phase 10 local acceptance: plans page Active 1 and Overdue 1 matched the API and SQL (1 plan). Second generate returned the same work order. Inspection completed PASS and re-inspection kept the original record. Forecast page matched an empty `MaintenanceForecast` table. Reliability summary returned 200 and cleaner returned 403. Index `WorkOrder_pm_occurrence_key` is applied and duplicate groups are 0.
 
-Next action: walk inspection schedule, completion, and re-inspection without storage, then the plans page and forecast counts. Evidence upload stays BLOCKED / NOT VERIFIED. Do not add PM bulk upload. Do not start live Bileeta integration.
+BACKGROUND PM SCHEDULER — BLOCKED / NOT VERIFIED. INSPECTION EVIDENCE — BLOCKED / NOT VERIFIED.
+
+Next action: Phase 11 fleet and gate. Retire Live Map from navigation, routes, UI, related APIs, unused RBAC, and tests, while preserving historical Fleet and Gate data. Do not start live Bileeta integration. Do not start production deployment.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
