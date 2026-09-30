@@ -96,6 +96,37 @@ First batch: 4 suites passed, 4 failed, 9 tests failed. After the fixture update
 
 Auth cookies in a live browser, every role's menu, Action Center count equality, dashboard cards, a full work-order journey, inspections, RCA, reports exports, search, and notification mark-read. Those need a later pass on a running session. No table was dropped.
 
+## Browser and API walk — 2026-09-30 continuation
+
+Signed in as `superadmin@maintainpro.local` and, before that, as `cleaner@maintainpro.local`. Desktop width 1440. Sidebar measured 264px. No Live Map label.
+
+| Page | Result |
+| --- | --- |
+| Action Center | Loaded for both roles. No horizontal overflow. |
+| Maintenance Dashboard | Heading present. No failed API calls on the page. |
+| All Jobs | Heading present. No failed API calls. |
+| Machinery Jobs | Heading present. No failed API calls. |
+| Maintenance Requests | Heading present. No failed API calls. |
+| Assets | Registry loaded. Total assets 7. No failed API calls. |
+| Fleet | Overview loaded. No Live Map. `blockedVehicles` 5 matches the "Cannot gate out" card. |
+| Reports | Dashboard loaded. No failed API calls. |
+| Inventory | Loaded. Page states Bileeta owns quantity. No failed API calls. |
+
+Cleaner API checks from the browser session:
+
+| Request | Status |
+| --- | --- |
+| `/api/backend/fleet/live-map` | 404 |
+| `/api/backend/reports/maintenance-exceptions` | 403 |
+| `/api/backend/admin/users` | 403 |
+| `/api/backend/inventory/parts` | 403 |
+| `/api/backend/work-orders` | 403 |
+
+Super Admin `/api/backend/fleet/live-map` is also 404. `/api/backend/inventory/parts`, notifications, admin users, PM plans, and the maintenance dashboard returned 200.
+
+Not yet opened in the browser: Service Jobs, Vehicle Jobs, My Jobs, sites, inspections, reliability, gate, ERP import, costs, history, administration screens, search, notification page, settings, 390/820/1024 layouts, and the other roles.
+
 ## Status
 
-FULL BUG HUNT COMPLETE is not claimed for every screen. The confirmed CI failures in this set were stale tests, and those tests now match the accepted product. Remaining release blockers stay infrastructure, not defects.
+The hunt is **not complete**. No new product defect was confirmed on the pages that loaded. BH-01 through BH-05 remain the accepted stale-test repairs. Infrastructure blockers are unchanged. Do not treat this file as a finished product-wide audit.
+
