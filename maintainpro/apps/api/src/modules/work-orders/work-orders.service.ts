@@ -191,6 +191,30 @@ export class WorkOrdersService {
     return expectedVersion != null ? { id: current.id, version: expectedVersion } : { id: current.id };
   }
 
+  /** Technicians and mechanics may execute only jobs assigned to their user. */
+  private async assertAssignedExecutor(workOrderId: string, tenantId: string, userId: string) {
+    const assigned = await this.prisma.workOrder.count({
+      where: {
+        id: workOrderId,
+        tenantId,
+        OR: [
+          { technicianId: userId },
+          {
+            assignees: {
+              some: {
+                assignmentStatus: { not: "REMOVED" },
+                employee: { linkedUserId: userId }
+              }
+            }
+          }
+        ]
+      }
+    });
+    if (!assigned) {
+      throw new ForbiddenException("You can only start or update jobs assigned to you.");
+    }
+  }
+
   private async closeActiveLabourSessions(
     workOrderId: string,
     technicianUserId: string | undefined,
@@ -1729,6 +1753,17 @@ export class WorkOrdersService {
     assertRoleCanSetStatus(actor?.role as RoleName | undefined, current.status, targetStatus, {
       emergencyCloseReason: data.emergencyCloseReason
     });
+    if (
+      actor &&
+      TECHNICIAN_EXECUTION_ROLES.has(actor.role as RoleName) &&
+      (
+        targetStatus === WorkOrderStatus.IN_PROGRESS ||
+        targetStatus === WorkOrderStatus.ON_HOLD ||
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+      )
+    ) {
+      await this.assertAssignedExecutor(id, tenantId, actor.sub);
+    }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
       await this.enforceConfigurableApproval({

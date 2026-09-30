@@ -21,6 +21,7 @@ import {
   type WorkOrderRiskFactors
 } from "../../common/utils/maintenance-risk-score";
 import { DASHBOARD_OPEN_STATUSES } from "../../common/utils/maintenance-dashboard.util";
+import { pendingQuantity } from "../../common/utils/work-order-parts-governance";
 import { evaluateEvidenceRequirements } from "../../common/utils/work-order-evidence-governance";
 import {
   ACTIVE_OPERATIONAL_STATUSES,
@@ -672,7 +673,15 @@ export class WorkOrderQueuesService {
       },
       take: 500
     });
-    const matched = rows.filter((row) =>
+    const assigned = rows;
+    const counts = {
+      active: assigned.filter((row) => matchesMyJobView(row, "active", now)).length,
+      overdue: assigned.filter((row) => matchesMyJobView(row, "overdue", now)).length,
+      dueToday: assigned.filter((row) => matchesMyJobView(row, "due-today", now)).length,
+      inProgress: assigned.filter((row) => matchesMyJobView(row, "in-progress", now)).length,
+      completed: assigned.filter((row) => matchesMyJobView(row, "completed", now)).length
+    };
+    const matched = assigned.filter((row) =>
       matchesMyJobFilters(
         {
           status: row.status,
@@ -687,13 +696,6 @@ export class WorkOrderQueuesService {
         now
       )
     );
-    const counts = {
-      active: matched.filter((row) => matchesMyJobView(row, "active", now)).length,
-      overdue: matched.filter((row) => matchesMyJobView(row, "overdue", now)).length,
-      dueToday: matched.filter((row) => matchesMyJobView(row, "due-today", now)).length,
-      inProgress: matched.filter((row) => matchesMyJobView(row, "in-progress", now)).length,
-      completed: matched.filter((row) => matchesMyJobView(row, "completed", now)).length
-    };
     const visible = matched
       .filter((row) => matchesMyJobView(row, view, now))
       .sort((left, right) => compareMyJobs(left, right, now));

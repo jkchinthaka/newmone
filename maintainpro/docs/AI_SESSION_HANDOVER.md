@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~21:10 IST. Phase 05 and Phase 06 are locally complete on `feature/phase-05-all-jobs`. Next is Phase 07 My Jobs. Do not wait for CONTINUE.
+**Last updated:** 2026-09-30 ~08:30 IST. Phase 07 is in progress on `feature/phase-07-my-jobs`. Do not wait for CONTINUE. Do not start Phase 08.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 07 Work order details / My Jobs — NOT STARTED yet. Phases 05 and 06 are locally complete on `feature/phase-05-all-jobs`. |
-| Next phase | 07 My Jobs (`/work-orders/my`) and work-order execution. Continue without waiting for CONTINUE. |
+| Current phase | 07 My Jobs and work-order execution — IN PROGRESS on `feature/phase-07-my-jobs` |
+| Next phase | Finish labour, parts, evidence, and closure UAT for Phase 07 before Phase 08. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-05-all-jobs` (not pushed). Phase 04 tip `5f393d65` is on `feature/phase-04-maintenance-dashboard`. PR **#62** is merged on `origin/main` at `0f355313`. |
+| Working branch | `feature/phase-07-my-jobs` (not pushed), created with `--no-track` from `feature/phase-05-all-jobs` at `38d4580a`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -149,7 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue Phase 07 My Jobs (`/work-orders/my`) and work-order execution. Do not reopen Phase 05 unless a new defect is found. Do not open `/requests/new`. Do not wait for CONTINUE.
+Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not open `/requests/new` yet.
+
+Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
+
+Still open: signed-in My Jobs browser UAT, labour entry persistence, spare-part usage against the ERP boundary, evidence upload (MinIO remains BLOCKED), verification/closure segregation, and a disposable assigned-job start. No schema migration. No permission grant.
 
 Phase 05: `/work-orders?queue=unassigned` resolves to `/maintenance/jobs?queue=unassigned`. Technician list of my-tasks returned 200 with total 3. Technician create returned 403. Cleaner list returned 403. Admin open-load total was 24 before a later login was rate-limited (429). Queue view no longer prints a second count strip.
 

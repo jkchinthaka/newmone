@@ -112,7 +112,7 @@ Cross-role browser denial was not repeated. The earlier API smoke remains the te
 | 04 | Maintenance dashboard | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 05 | All jobs / work orders | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | 06 | Machinery / service / vehicle jobs | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| 07 | Work order details / My Jobs | IMPLEMENTED — NOT VERIFIED |
+| 07 | Work order details / My Jobs | IN PROGRESS |
 | 08 | Maintenance requests | List and detail LOCAL DEVELOPMENT COMPLETE; `/requests/new` not started. Release readiness BLOCKED |
 | 09 | Assets, sites, locations | IMPLEMENTED — NOT VERIFIED |
 | 10 | Preventive maintenance | IMPLEMENTED — NOT VERIFIED |
@@ -208,8 +208,8 @@ Known overlap resolved: `/work-orders` redirects to `/maintenance/jobs` and keep
 
 | Page | Route | Status |
 | --- | --- | --- |
-| My Jobs | `/work-orders/my` | IMPLEMENTED — NOT VERIFIED |
-| Work order execution | `/work-orders` (detail is in the work-order UI, not a separate `page.tsx`) | IMPLEMENTED — NOT VERIFIED |
+| My Jobs | `/work-orders/my` | IN PROGRESS | Tab counts stay the assigned totals. List filters do not shrink those totals. Links open `/maintenance/jobs?wo=`. Capped notice after 500 rows. |
+| Work order execution | `/maintenance/jobs?wo=` | IN PROGRESS | Technicians and mechanics can start, hold, or complete only jobs assigned to them. Managers and admins are unchanged. Labour, parts, evidence storage, and closure UAT are not finished. |
 
 PR #59 merged at `6264948f`. Prior local browser check showed an empty assigned list for the seed admin. Full assignment, labour, parts, and closure UAT is not recorded.
 
