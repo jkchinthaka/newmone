@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -14,7 +14,7 @@ type ResetForm = { newPassword: string };
 
 const passwordRule = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const params = useSearchParams();
   const token = params.get("token")?.trim() ?? "";
   const [busy, setBusy] = useState(false);
@@ -106,5 +106,13 @@ export default function ResetPasswordPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<main className="grid min-h-[100dvh] place-items-center bg-slate-100 p-4">Loading reset form...</main>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
