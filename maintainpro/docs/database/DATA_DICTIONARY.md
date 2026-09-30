@@ -38,7 +38,9 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 | WorkOrder.version | Optimistic concurrency on status updates (existing) |
 | PmPlan.nextDueAt | PM due within 7 days |
 | MaintenanceRequest.status | Requests in NEW, UNDER_REVIEW, or APPROVED |
-| WorkOrderPart.lineStatus / pendingReturnQuantity / requestedQuantity / issuedQuantity and PartIssue | Waiting-parts membership shared with the work-order queue |
+| WorkOrderPart.lineStatus / pendingReturnQuantity / requestedQuantity / issuedQuantity and PartIssue | Waiting-parts membership shared with the work-order queue. Issuing a part updates the work-order line and cost only. `SparePart.quantityInStock` is not written on issue. Bileeta remains the stock source. |
+| WorkOrderLabourEntry | One open labour session per technician. Created when assigned work starts. Corrections are stored on the same row. |
+| EvidenceAttachment | Linked to the work order and tenant. Upload requires a configured storage mode and `STORAGE_UPLOADS_ENABLED`. Local MinIO upload is not verified. |
 | WorkOrderStatusHistory | Lifecycle audit trail | Work Mgmt | MaintainPro | id | Append-only |
 | PmPlan / PmPlanRevision | Recurring strategy + versioned config | Planning | MaintainPro | tenant+code / plan+revision | Retire; never rewrite published |
 | PmOccurrence | One scheduled occurrence | Planning | MaintainPro | tenant+plan+generationKey | Skip/Defer/Complete |

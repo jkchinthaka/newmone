@@ -153,7 +153,9 @@ Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not o
 
 Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
 
-Still open: signed-in My Jobs browser UAT, labour entry persistence, spare-part usage against the ERP boundary, evidence upload (MinIO remains BLOCKED), verification/closure segregation, and a disposable assigned-job start. No schema migration. No permission grant.
+Still open before LOCAL DEVELOPMENT COMPLETE: signed-in My Jobs browser UAT (browser is on the login page; password was not entered), a disposable assigned start through verification, and a parts-usage walk proving stock is unchanged. Evidence upload stays BLOCKED / NOT VERIFIED (`STORAGE_MODE` and `STORAGE_UPLOADS_ENABLED` are unset). MinIO stays a release issue. Do not start Phase 08.
+
+Live Map retirement is recorded for Phase 11 only. Do not change Fleet code until that phase.
 
 Phase 05: `/work-orders?queue=unassigned` resolves to `/maintenance/jobs?queue=unassigned`. Technician list of my-tasks returned 200 with total 3. Technician create returned 403. Cleaner list returned 403. Admin open-load total was 24 before a later login was rate-limited (429). Queue view no longer prints a second count strip.
 

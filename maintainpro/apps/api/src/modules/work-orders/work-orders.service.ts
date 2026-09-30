@@ -2719,7 +2719,7 @@ export class WorkOrdersService {
       throw new BadRequestException("Corrected duration must be zero or greater.");
     }
     const entry = await this.prisma.workOrderLabourEntry.findFirst({
-      where: { id: entryId, workOrderId }
+      where: { id: entryId, workOrderId, tenantId: requireTenantId(actor?.tenantId) }
     }) as
       | ({
           id: string;
