@@ -174,7 +174,8 @@ No ERP write/post/update methods exist in this adapter.
 Rules:
 
 - Dry-run is default; no local mutation in dry-run.
-- Apply updates `SparePart.quantityInStock` only and writes `StockMovement` type `ADJUSTMENT` with reference `erp-stock-sync`.
+- Apply updates `SparePart.quantityInStock` to the ERP snapshot and writes `StockMovement` type `ADJUSTMENT` with reference `erp-stock-sync`.
+- Work-order part issue does not decrement that quantity. It records `PartIssue` consumption and a `PENDING` `DomainEventOutbox` event (`WORK_ORDER_PART_CONSUMPTION`). A later apply can still set the mirror to the ERP snapshot.
 - No automatic scheduled sync in this task.
 - No part creation/deletion from ERP rows.
 

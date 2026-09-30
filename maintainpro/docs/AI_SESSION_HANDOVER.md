@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~11:05 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs`. Refresh rotation is an atomic claim. Do not start Phase 08. The disposable technician flow is still the completion gate.
+**Last updated:** 2026-09-30 ~11:40 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs`. Work-order part issue now records consumption without changing Bileeta-owned stock. Do not start Phase 08. The disposable technician flow is still the completion gate.
 
 | Item | Value |
 | --- | --- |
 | Current phase | 07 My Jobs and work-order execution — IN PROGRESS on `feature/phase-07-my-jobs` |
-| Next phase | Finish labour, parts, evidence, and closure UAT for Phase 07 before Phase 08. |
+| Next phase | Run the disposable assigned technician flow (start, labour, part issue, ERP quantity unchanged, complete, other-user verify, same-user rejection, close). Evidence upload stays blocked. Do not start Phase 08. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-07-my-jobs` (not pushed), created with `--no-track` from `feature/phase-05-all-jobs` at `38d4580a`. |
@@ -149,7 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not open `/requests/new` yet.
+Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08.
+
+ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
+
+Next action: the disposable flow was started and stopped before any stock write. Logins for the technician and manager succeeded; `superadmin@maintainpro.local` returned 429, so no work order was issued and no quantity was changed. Spare part `cmu3ujhmi014xoalkr8pg8eq6` still had quantity 10 when the create was rejected for a missing asset. Wait for the login limit to clear, then create a corrective work order on an existing asset, assign `tech@maintainpro.local`, start it, request and approve one part, issue it as a different storekeeper, and confirm quantity 10 is unchanged, the work-order line cost moved, and the outbox row is `PENDING`. Completion is expected to stay blocked while evidence storage is unset. Do not retry logins until the 429 clears. Do not start Phase 08. Do not edit Live Map.
 
 Side task 2026-09-30 (docs only, no schema change): `docs/DATABASE_REPO_MAP.md` now maps all 222 Prisma models to the code that uses them. 163 CORE, 53 RETIRED (Phase 01 domains still wired to API modules), 6 UNUSED (`OrganizationUnit`, `CustomFieldValue`, `EmployeeRosterEntry`, `VendorContact`, `RepairWarranty`, `UatScenarioExecution`). The live database was not inspected: the agent's DB read was blocked by the permission classifier. No table was dropped. Dropping the 6 unused models waits for the user to confirm live row counts and approve a migration.
 Correction, same day: `OrganizationUnit` is read by the view `vw_rpt_dim_branch_site`, so it is CORE (164 CORE, 5 UNUSED). The user asked to drop the 5 unused tables. The agent removed them from `schema.prisma` (valid), but writing the drop migration was blocked by the permission classifier, so the schema edit was reverted. **Nothing is dropped; repo and DB unchanged.** If the user creates the migration themselves, the same change must also update UAT-SAFE-011 in `scripts/validate-e2e-uat-go-live-controls.mjs`, `scripts/test/uat-result-contract.selftest.mjs`, and `scripts/mongo-to-sqlserver/registry.ts` (see map section 4.2). The user pasted a SQL Server `sa` password in chat; the agent did not use it or store it. Recommend rotating it.

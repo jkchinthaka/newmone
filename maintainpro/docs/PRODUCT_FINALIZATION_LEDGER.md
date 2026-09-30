@@ -219,7 +219,7 @@ Phase 07 evidence so far, branch `feature/phase-07-my-jobs`:
 - `tech@maintainpro.local` `GET /work-orders/my-jobs` returned 200, scope `assigned-to-me`, active 3, overdue 3, completed 2. `cleaner@maintainpro.local` returned 403.
 - Starting, holding, or technician-completing a job as a technician or mechanic requires assignment on that work order. Admins and managers are not restricted that way.
 - Starting an assigned job opens one labour session for that user and tenant, and refuses a second open session for the same technician.
-- Part issue updates the work-order part line and cost. It does not write `SparePart.quantityInStock`. Bileeta remains the stock source.
+- Part issue records work-order usage, quantity, cost, and a pending ERP event (`WORK_ORDER_PART_CONSUMPTION`). It does not write `SparePart.quantityInStock` or warehouse balances. Bileeta owns the stock quantity. `work-order-erp-stock-boundary.spec.ts` 7/7. The disposable assigned flow is still required before this phase is complete.
 - Supervisor verification refuses the person who completed the job, unless an admin records an override reason of at least 3 characters.
 - Evidence file upload is BLOCKED / NOT VERIFIED. `STORAGE_MODE` and `STORAGE_UPLOADS_ENABLED` are not set in local `.env`. MinIO remains a release failure. Evidence security was not disabled.
 - Signed-in browser as the seeded admin stayed on `/work-orders/my` after reload (`/auth/me` 200) and after opening `/maintenance`. Counts were 0 because that user has no assignments.

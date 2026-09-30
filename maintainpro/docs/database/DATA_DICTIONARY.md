@@ -15,7 +15,7 @@ Each entry: purpose, owner module, source of truth, keys, lifecycle/delete polic
 | Site / FunctionalLocation | Organizational & location tree | Organization | MaintainPro | tenant+code | Retire |
 | Asset | Maintainable physical identity | Assets | MaintainPro | tenant+assetTag | Retire/Dispose |
 | Vehicle | Fleet extension of Asset | Fleet | MaintainPro | tenant+registration | Retire/Dispose |
-| SparePart | Part catalog | Inventory | MaintainPro (+ ERP item map) | tenant+partNumber | Deactivate |
+| SparePart | Part catalog | Inventory | MaintainPro catalog; Bileeta owns stock quantity | tenant+partNumber | Deactivate |
 | Warehouse | Stock location | Inventory | MaintainPro (+ ERP warehouse map) | tenant+code | Deactivate |
 
 ## Work management
@@ -38,7 +38,7 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 | WorkOrder.version | Optimistic concurrency on status updates (existing) |
 | PmPlan.nextDueAt | PM due within 7 days |
 | MaintenanceRequest.status | Requests in NEW, UNDER_REVIEW, or APPROVED |
-| WorkOrderPart.lineStatus / pendingReturnQuantity / requestedQuantity / issuedQuantity and PartIssue | Waiting-parts membership shared with the work-order queue. Issuing a part updates the work-order line and cost only. `SparePart.quantityInStock` is not written on issue. Bileeta remains the stock source. |
+| WorkOrderPart.lineStatus / pendingReturnQuantity / requestedQuantity / issuedQuantity and PartIssue | Waiting-parts membership shared with the work-order queue. Issuing a part records work-order usage, quantity, cost snapshot, and a pending `DomainEventOutbox` row (`WORK_ORDER_PART_CONSUMPTION`). It does not write `SparePart.quantityInStock` or warehouse balances. |
 | WorkOrderLabourEntry | One open labour session per technician. Created when assigned work starts. Corrections are stored on the same row. |
 | EvidenceAttachment | Linked to the work order and tenant. Upload requires a configured storage mode and `STORAGE_UPLOADS_ENABLED`. Local MinIO upload is not verified. |
 | WorkOrderStatusHistory | Lifecycle audit trail | Work Mgmt | MaintainPro | id | Append-only |
@@ -50,7 +50,7 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 
 | Table | Purpose | Owner | SoT | Business key | Delete policy |
 |-------|---------|-------|-----|--------------|---------------|
-| WarehouseItemBalance | On-hand / reserved / available | Inventory | MaintainPro operational | tenant+warehouse+part | Never manual edit |
+| WarehouseItemBalance | On-hand cache by warehouse | Inventory | Bileeta for quantity; MaintainPro stores the last applied balance | tenant+warehouse+part | Never manual edit |
 | StockMovement | Immutable stock ledger | Inventory | MaintainPro | id | Reverse, never delete |
 | StockCountSession / StockCountLine | Governed physical count | Inventory | MaintainPro | session id / session+part | Cancel; post via ledger |
 | InventoryIdempotency | Retry-safe stock ops | Inventory | MaintainPro | tenant+key | Retain |
@@ -63,3 +63,13 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 | AuditLog | Security/compliance trail | Security | MaintainPro | Append-only; no secrets |
 
 See also: `DATABASE_OVERVIEW.md`, `STATUS_CATALOG.md`, `LEGACY_DISPOSITION.md`.
+
+## System ownership (Phase 07)
+
+| Concern | Owner | MaintainPro role |
+| --- | --- | --- |
+| Stock quantity | Bileeta | `SparePart.quantityInStock` is an ERP mirror. Approved work-order issue, reservation, and return do not change it. ERP stock sync apply is the writer. |
+| Part master | MaintainPro, with `erpCode` pointing at Bileeta | Catalog, classification, and technician alias stay local. |
+| Work-order consumption | MaintainPro | `PartIssue` and `WorkOrderPart.issuedQuantity` record the quantity used. |
+| Costing | MaintainPro | Issued quantity times `PartRequest.unitCostSnapshot` / line `unitCost`. |
+| ERP reconciliation | Bileeta, once posted | `DomainEventOutbox` stays `PENDING` or `FAILED` until processed. Those states are not success. |

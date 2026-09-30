@@ -1888,7 +1888,7 @@ model SparePart {
   maintenanceAlias    String?
   maintenanceCategory String?
   unit                String    @default("pcs")
-  /// ON_HAND (denormalized default-warehouse / company total for current single-warehouse tenants).
+  /// Cached on-hand quantity last written by Bileeta ERP sync. Work-order part issue does not change it.
   quantityInStock     Int       @default(0)
   /// RESERVED units held for approved work-order demand.
   reservedQuantity    Int       @default(0)

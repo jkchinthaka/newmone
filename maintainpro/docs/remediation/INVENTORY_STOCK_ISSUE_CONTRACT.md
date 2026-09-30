@@ -63,6 +63,12 @@ Do not treat 400/422 as success. Do not use `status < 500` as an authorization a
 
 Preferred: manager BrowserContext creates a Tenant A WO via BFF; capture `workOrderId` in memory; inventory keeper issues against it. No hardcoded ObjectIds; no direct Mongo from Playwright.
 
+## Work-order part requests
+
+`POST /inventory/parts/:id/stock-out` is the inventory stock-out endpoint and still follows the decrement rules above.
+
+The approved work-order path (`issuePartRequest`) does not call that decrement. Bileeta owns `SparePart.quantityInStock`. The work-order path records usage, the cost snapshot, and a pending ERP event. A pending or failed event stays visible and is not treated as a successful ERP post.
+
 ## Compatibility
 
 - Field name remains `notes` (not forced rename to `reason`).
