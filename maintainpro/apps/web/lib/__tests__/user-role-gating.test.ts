@@ -4,9 +4,7 @@ import { afterEach, describe, it } from "node:test";
 import { USER_KEY } from "../auth-storage";
 import {
   canCreateWorkOrder,
-  canReadFleetLiveMap,
   canReadInventoryAnalytics,
-  FLEET_LIVE_MAP_ROLES,
   INVENTORY_ANALYTICS_ROLES,
   WORK_ORDER_CREATE_ROLES,
   WORK_ORDERS_MANAGE_PERMISSION
@@ -44,19 +42,6 @@ describe("canReadInventoryAnalytics", () => {
   it("allows MECHANIC with inventory.manage", () => {
     stubUser({ role: "MECHANIC", permissions: ["inventory.manage"] });
     assert.equal(canReadInventoryAnalytics(), true);
-  });
-});
-
-describe("canReadFleetLiveMap", () => {
-  it("mirrors GET /fleet/live-map roles and excludes MANAGER", () => {
-    assert.equal(FLEET_LIVE_MAP_ROLES.includes("MANAGER"), false);
-    stubUser({ role: "MANAGER" });
-    assert.equal(canReadFleetLiveMap(), false);
-  });
-
-  it("allows SUPERVISOR for live map", () => {
-    stubUser({ role: "SUPERVISOR" });
-    assert.equal(canReadFleetLiveMap(), true);
   });
 });
 

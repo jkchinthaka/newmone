@@ -141,7 +141,7 @@ export function useInventoryMutations() {
   const stockInMutation = useMutation({
     mutationFn: (payload: StockAdjustmentPayload) => stockInPart(payload),
     onSuccess: async () => {
-      toast.success("Stock updated successfully.");
+      toast.success("Receipt recorded. ERP snapshot quantity was not changed.");
       await refreshInventoryData();
     },
     onError: (error) => {
@@ -152,7 +152,7 @@ export function useInventoryMutations() {
   const stockOutMutation = useMutation({
     mutationFn: (payload: StockAdjustmentPayload) => stockOutPart(payload),
     onSuccess: async () => {
-      toast.success("Stock updated successfully.");
+      toast.success("Consumption recorded. ERP snapshot quantity was not changed.");
       await refreshInventoryData();
     },
     onError: (error) => {

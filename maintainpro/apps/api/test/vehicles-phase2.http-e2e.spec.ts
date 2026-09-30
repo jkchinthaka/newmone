@@ -33,6 +33,7 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const tx = {
     vehicle: {
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       findFirst: jest.fn()
     },
@@ -89,7 +90,8 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
       create: jest.fn()
     },
     workOrder: {
-      findMany: jest.fn().mockResolvedValue([])
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0)
     },
     fuelLog: {
       create: jest.fn(),

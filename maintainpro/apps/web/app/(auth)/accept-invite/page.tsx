@@ -2,51 +2,74 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { Suspense, FormEvent, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 
-import { acceptInvite, verifyInviteToken } from "@/lib/people-api";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { acceptInvite, verifyInviteToken } from "@/lib/people-api";
+
+const passwordRule = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
 
 function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [verifyState, setVerifyState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [invitee, setInvitee] = useState<{ fullName: string; email: string } | null>(null);
+  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
-  const verifyQuery = useQuery({
-    queryKey: ["invite-verify", token],
-    queryFn: () => verifyInviteToken(token),
-    enabled: Boolean(token.trim()),
-    retry: false
-  });
+  useEffect(() => {
+    if (!token.trim()) return;
+    let cancelled = false;
+    setVerifyState("loading");
+    verifyInviteToken(token)
+      .then((data) => {
+        if (cancelled) return;
+        setInvitee({ fullName: data.fullName, email: data.email });
+        setVerifyState("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setVerifyMessage(getApiErrorMessage(error, "Invitation invalid"));
+        setVerifyState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
-  const acceptMutation = useMutation({
-    mutationFn: () => acceptInvite(token, password),
-    onSuccess: () => toast.success("Password set — you can sign in now."),
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not accept invitation"))
-  });
-
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    if (!passwordRule.test(password)) {
+      setFormError("Use at least 8 characters, with one uppercase letter, one number, and one special character.");
       return;
     }
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
+      setFormError("Passwords do not match");
       return;
     }
-    acceptMutation.mutate();
+    setFormError(null);
+    setBusy(true);
+    try {
+      await acceptInvite(token, password);
+      setAccepted(true);
+    } catch (error) {
+      setFormError(getApiErrorMessage(error, "Could not accept invitation"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!token.trim()) {
     return (
       <div className="mx-auto max-w-md space-y-3 p-6 text-center">
         <h1 className="text-xl font-semibold">Invalid invitation link</h1>
-        <Link href={"/login" as Route} className="text-sm underline">
+        <p className="text-sm text-slate-600">This link is missing its invitation token.</p>
+        <Link href={"/login" as Route} className="inline-flex min-h-11 items-center text-sm underline">
           Go to login
         </Link>
       </div>
@@ -54,42 +77,62 @@ function AcceptInviteContent() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-slate-900">Set your password</h1>
-      {verifyQuery.isLoading ? <p className="mt-2 text-sm text-slate-500">Verifying invitation…</p> : null}
-      {verifyQuery.isError ? (
-        <p className="mt-2 text-sm text-red-600">{getApiErrorMessage(verifyQuery.error, "Invitation invalid")}</p>
-      ) : null}
-      {verifyQuery.data ? (
-        <p className="mt-2 text-sm text-slate-600">
-          {verifyQuery.data.fullName} · {verifyQuery.data.email}
+      {verifyState === "loading" ? <p className="mt-2 text-sm text-slate-500">Verifying invitation…</p> : null}
+      {verifyState === "error" ? (
+        <p className="mt-2 text-sm text-rose-700" role="alert">
+          {verifyMessage}
         </p>
       ) : null}
-
-      <form onSubmit={onSubmit} method="post" className="mt-6 space-y-4">
-        <input
-          type="password"
-          placeholder="New password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded border px-3 py-2 text-sm"
-        />
-        <input
-          type="password"
-          placeholder="Confirm password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full rounded border px-3 py-2 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={acceptMutation.isPending || verifyQuery.isError}
-          className="w-full rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
-        >
-          Activate account
-        </button>
-      </form>
-      <Link href={"/login" as Route} className="mt-4 block text-center text-sm underline">
+      {invitee ? (
+        <p className="mt-2 text-sm text-slate-600">
+          {invitee.fullName} · {invitee.email}
+        </p>
+      ) : null}
+      {accepted ? (
+        <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+          Your account is active. Sign in with the password you just chose.
+        </p>
+      ) : (
+        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+          <label className="block text-sm" htmlFor="invite-password">
+            <span className="mb-1.5 block font-medium text-slate-700">New password</span>
+            <input
+              id="invite-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm" htmlFor="invite-password-confirm">
+            <span className="mb-1.5 block font-medium text-slate-700">Confirm password</span>
+            <input
+              id="invite-password-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          {formError ? (
+            <p className="text-sm text-rose-700" role="alert">
+              {formError}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={busy || verifyState === "error"}
+            className="min-h-11 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+          >
+            {busy ? "Activating…" : "Activate account"}
+          </button>
+        </form>
+      )}
+      <Link href={"/login" as Route} className="mt-4 inline-flex min-h-11 items-center justify-center text-sm underline">
         Back to login
       </Link>
     </div>

@@ -82,11 +82,12 @@ describe("fraud control (UAT-020)", () => {
       },
       workOrder: { findFirst: jest.fn() },
       stockMovement: { create: jest.fn() },
+      domainEventOutbox: { create: jest.fn().mockResolvedValue({ id: "outbox-1" }) },
       inventoryStockIssueIdempotency: {
         findUnique: jest.fn(),
         create: jest.fn()
       },
-      auditLog: { create: jest.fn() },
+      auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-1" }) },
       $transaction: jest.fn()
     };
 
@@ -117,19 +118,23 @@ describe("fraud control (UAT-020)", () => {
       expect(prisma.auditLog.create).toHaveBeenCalled();
     });
 
-    it("blocks negative stock", async () => {
+    it("does not lower the ERP mirror when stock would have gone negative", async () => {
       prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1", status: "IN_PROGRESS", woNumber: "WO-1" });
-      prisma.sparePart.updateMany.mockResolvedValue({ count: 0 });
-      prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
-      await expect(
-        service.stockOut(
-          "part-1",
-          20,
-          { workOrderId: "wo-1" },
-          { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
-        )
-      ).rejects.toThrow("Stock quantity cannot go below 0");
+      const result = await service.stockOut(
+        "part-1",
+        20,
+        { workOrderId: "wo-1" },
+        { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
+      );
+
+      expect(result.quantityInStock).toBe(10);
+      expect(stockEngine.issue).not.toHaveBeenCalled();
+      expect(prisma.domainEventOutbox.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PENDING", eventType: "WORK_ORDER_PART_CONSUMPTION" })
+        })
+      );
     });
 
     it("replays identical idempotent stock-out without a second deduction", async () => {

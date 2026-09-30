@@ -143,6 +143,14 @@ export class AssetListQueryDto {
   @IsBoolean()
   includeArchived?: boolean;
 
+  @ApiPropertyOptional({
+    description: "Exclude retired, disposed, and inactive assets from new work selection"
+  })
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  selectableForWork?: boolean;
+
   @ApiPropertyOptional({ description: "Only return archived items" })
   @IsOptional()
   @Transform(({ value }) => toOptionalBoolean(value))

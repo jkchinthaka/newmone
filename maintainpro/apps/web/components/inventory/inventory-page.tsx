@@ -17,8 +17,7 @@ import {
   loadSavedFilters,
   printInventoryReport,
   saveFilters,
-  toExportRows,
-  availableOf
+  toExportRows
 } from "./helpers";
 import { useInventoryMutations, useInventoryOverview, usePartDetailData } from "./hooks";
 import { InventoryAlerts } from "./inventory-alerts";
@@ -253,11 +252,6 @@ export default function InventoryManagementPage() {
       return;
     }
 
-    if (stockDialog.mode === "out" && quantity > availableOf(stockDialog.part)) {
-      toast.error("Deducted quantity cannot exceed available stock.");
-      return;
-    }
-
     if (stockDialog.mode === "in") {
       await stockInMutation.mutateAsync({
         id: stockDialog.part.id,
@@ -469,7 +463,7 @@ export default function InventoryManagementPage() {
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-sky-200">Inventory Control</p>
             <h1 className="mt-2 text-3xl font-semibold">Inventory Control Center</h1>
-            <p className="mt-2 text-sm text-sky-100">Authoritative stock control for receipts, issues, reservations, transfers, and ERP import.</p>
+            <p className="mt-2 text-sm text-sky-100">Bileeta owns stock quantity. The numbers here are the last ERP snapshot, plus maintenance requests that wait for reconciliation.</p>
           </div>
 
           {mutationBusy ? (
@@ -607,7 +601,7 @@ export default function InventoryManagementPage() {
 
       <ModalShell
         open={stockDialog.open}
-        title={stockDialog.mode === "in" ? "Add Stock" : "Deduct Stock"}
+        title={stockDialog.mode === "in" ? "Record ERP receipt" : "Record consumption"}
         onClose={() =>
           setStockDialog({ open: false, mode: "in", part: null, quantity: "", notes: "", workOrderId: "" })
         }
@@ -634,6 +628,9 @@ export default function InventoryManagementPage() {
       >
         <p className="text-sm text-slate-700">
           {stockDialog.part?.name} ({stockDialog.part?.partNumber})
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          This records a maintenance transaction for later Bileeta reconciliation. It does not change the ERP snapshot quantity.
         </p>
         <div className="mt-3 grid gap-3">
           <input

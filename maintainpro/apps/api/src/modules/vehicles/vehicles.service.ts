@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -519,6 +520,7 @@ export class VehiclesService {
         type: data.type,
         ownershipType: data.ownershipType,
         fuelType: data.fuelType,
+        status: VehicleStatus.AVAILABLE,
         serviceStatus: resolvedServiceStatus,
         fuelCapacity: data.fuelCapacity,
         currentMileage,
@@ -730,6 +732,9 @@ export class VehiclesService {
     } else if (vehicle.status !== VehicleStatus.AVAILABLE) {
       blockReasons.push(`Vehicle status '${rawStatus}' is not eligible for gate-out`);
     }
+    if (vehicle.gateBlocked) {
+      blockReasons.push("Vehicle is on a manual gate hold");
+    }
 
     const serviceEvaluation = this.evaluateServiceWindow(vehicle);
     if (serviceEvaluation.overdue) {
@@ -885,8 +890,8 @@ export class VehiclesService {
     });
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await tx.vehicle.update({
-        where: { id },
+      const claimed = await tx.vehicle.updateMany({
+        where: { id, tenantId, status: VehicleStatus.AVAILABLE },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,
@@ -894,6 +899,9 @@ export class VehiclesService {
           serviceStatus
         }
       });
+      if (claimed.count !== 1) {
+        throw new ConflictException("This vehicle already has an active gate movement");
+      }
 
       const movement = await tx.vehicleGateMovement.create({
         data: {
@@ -1018,14 +1026,17 @@ export class VehiclesService {
         });
       }
 
-      await tx.vehicle.update({
-        where: { id },
+      const claimed = await tx.vehicle.updateMany({
+        where: { id, status: VehicleStatus.IN_USE },
         data: {
           status: VehicleStatus.AVAILABLE,
           currentMileage: data.meterReading,
           serviceStatus
         }
       });
+      if (claimed.count !== 1) {
+        throw new BadRequestException("This vehicle is not currently gated out");
+      }
 
       const movementRecord = await tx.vehicleGateMovement.create({
         data: {
@@ -1934,6 +1945,37 @@ export class VehiclesService {
       (order) =>
         `Critical open work order ${order.woNumber} (${order.type}, ${order.status.replaceAll("_", " ")})`
     );
+  }
+
+  /** Same reasons gate-out uses, without writing a movement. */
+  async countCannotGateOut(tenantId: string) {
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        status: true,
+        gateBlocked: true,
+        currentMileage: true,
+        nextServiceDate: true,
+        nextServiceMileage: true,
+        serviceStatus: true,
+        registrationNo: true
+      }
+    });
+    let blocked = 0;
+    for (const vehicle of vehicles) {
+      const rawStatus = String(vehicle.status ?? "").trim();
+      const statusBlocked =
+        !rawStatus ||
+        vehicle.status !== VehicleStatus.AVAILABLE;
+      const serviceOverdue = this.evaluateServiceWindow(vehicle as never).overdue;
+      const compliance = await this.complianceService.evaluateForGateOut(vehicle.id);
+      const workOrders = await this.evaluateCriticalOpenWorkOrders(vehicle.id, tenantId);
+      if (statusBlocked || vehicle.gateBlocked || serviceOverdue || compliance.length > 0 || workOrders.length > 0) {
+        blocked += 1;
+      }
+    }
+    return blocked;
   }
 
   /**

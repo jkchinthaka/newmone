@@ -21,6 +21,7 @@ import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secret
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
 import { TenantFeaturesService } from "../maintenance-config/tenant-features.service";
 import { recordAuthSecurityEvent } from "./auth-security-event.util";
+import { isBenignRefreshRotationReplay, isRefreshRotationInProgress } from "./auth-refresh-replay";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -172,18 +173,17 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-
-    if (existing) {
-      throw new BadRequestException("Email already in use");
-    }
-
     let invitation: Awaited<ReturnType<typeof this.prisma.tenantInvitation.findUnique>> = null;
 
     if (dto.invitationToken) {
-      invitation = await this.prisma.tenantInvitation.findUnique({
-        where: { token: dto.invitationToken }
-      });
+      const tokenHash = this.hashToken(dto.invitationToken);
+      invitation =
+        (await this.prisma.tenantInvitation.findUnique({
+          where: { token: tokenHash }
+        })) ??
+        (await this.prisma.tenantInvitation.findUnique({
+          where: { token: dto.invitationToken }
+        }));
 
       const isUsable =
         invitation &&
@@ -198,10 +198,21 @@ export class AuthService {
       throw new ForbiddenException("Registration is by invitation only. Please contact your administrator.");
     }
 
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+
+    if (existing) {
+      throw new BadRequestException("Email already in use");
+    }
+
     const roleName = invitation
       ? this.roleNameForMembership(invitation.membershipRole as TenantMembershipRole)
       : RoleName.TECHNICIAN;
-    const role = await this.prisma.role.findFirst({ where: { name: roleName } });
+    const role = await this.prisma.role.findFirst({
+      where: {
+        name: roleName,
+        ...(invitation ? { tenantId: invitation.tenantId } : {})
+      }
+    });
 
     if (!role) {
       throw new NotFoundException("Default role not found. Run seed first.");
@@ -421,7 +432,31 @@ export class AuthService {
     }
 
     if (storedToken.revokedAt) {
-      // Reuse of a rotated refresh token: revoke the entire token family.
+      const successor = storedToken.replacedByTokenHash
+        ? await this.prisma.refreshToken.findUnique({
+            where: { tokenHash: storedToken.replacedByTokenHash }
+          })
+        : null;
+      if (
+        isBenignRefreshRotationReplay({
+          revokedAt: storedToken.revokedAt,
+          replacedByTokenHash: storedToken.replacedByTokenHash,
+          familyId: storedToken.familyId,
+          successor,
+          now
+        })
+      ) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: storedToken.userId },
+          include: { role: true }
+        });
+        if (!user || !user.isActive) {
+          throw new UnauthorizedException("Invalid refresh token");
+        }
+        throw new UnauthorizedException("Refresh token already rotated");
+      }
+
+      // Reuse of a rotated refresh token outside the race window: revoke the family.
       await this.prisma.refreshToken.updateMany({
         where: { familyId: storedToken.familyId, revokedAt: null },
         data: { revokedAt: now, lastUsedAt: now }
@@ -462,10 +497,40 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    await this.prisma.refreshToken.updateMany({
+    const claimed = await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: now, lastUsedAt: now }
     });
+    if (claimed.count !== 1) {
+      const raced = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+      if (
+        raced &&
+        isRefreshRotationInProgress(raced.revokedAt, raced.replacedByTokenHash, now)
+      ) {
+        throw new UnauthorizedException("Refresh token already rotated");
+      }
+      if (raced?.revokedAt && raced.replacedByTokenHash) {
+        const successor = await this.prisma.refreshToken.findUnique({
+          where: { tokenHash: raced.replacedByTokenHash }
+        });
+        if (
+          isBenignRefreshRotationReplay({
+            revokedAt: raced.revokedAt,
+            replacedByTokenHash: raced.replacedByTokenHash,
+            familyId: raced.familyId,
+            successor,
+            now
+          })
+        ) {
+          throw new UnauthorizedException("Refresh token already rotated");
+        }
+      }
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: storedToken.familyId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Refresh token reuse detected");
+    }
 
     const tokens = await this.generateTokens(
       {
@@ -711,6 +776,19 @@ export class AuthService {
     const ctx = requestContext.get();
 
     await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.userInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          acceptedAt: null,
+          status: { in: [UserInviteStatus.NOT_SENT, UserInviteStatus.SENT] },
+          expiresAt: { gt: now }
+        },
+        data: { status: UserInviteStatus.ACCEPTED, acceptedAt: now }
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Invitation already accepted");
+      }
+
       await tx.user.update({
         where: { id: invitation.userId },
         data: {
@@ -722,10 +800,6 @@ export class AuthService {
           failedLoginAttempts: 0,
           lockedUntil: null
         }
-      });
-      await tx.userInvitation.update({
-        where: { id: invitation.id },
-        data: { status: UserInviteStatus.ACCEPTED, acceptedAt: now }
       });
       await tx.auditLog.create({
         data: {

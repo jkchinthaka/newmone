@@ -178,7 +178,6 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       domainService
     );
   }, 120_000);

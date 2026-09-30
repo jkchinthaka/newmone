@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsMongoId, IsOptional, IsString, MinLength } from "class-validator";
+import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class CreateUserDto {
   @IsEmail()
@@ -14,7 +14,9 @@ export class CreateUserDto {
   @IsString()
   lastName!: string;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   roleId!: string;
 
   @IsOptional()
@@ -32,7 +34,8 @@ export class InviteUserDto {
   @IsString()
   lastName!: string;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
   roleId!: string;
 
   @IsOptional()
@@ -54,7 +57,9 @@ export class UpdateUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   roleId?: string;
 }
 

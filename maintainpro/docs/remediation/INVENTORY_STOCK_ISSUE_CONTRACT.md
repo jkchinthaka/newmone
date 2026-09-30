@@ -12,7 +12,7 @@
 | `workOrderId` | yes | selected work order | same tenant; missing → **400**; cross-tenant → **400** |
 | `notes` | optional | operator | safe text (not renamed from/to `reason`) |
 | `overrideReason` | conditional | authorized override | required when WO is COMPLETED/CANCELLED; audited |
-| `idempotencyKey` | optional | client / `Idempotency-Key` header | tenant-scoped unique; replay returns same success without second deduction |
+| `idempotencyKey` | optional | client / `Idempotency-Key` header | tenant-scoped unique; replay returns the current part without a second consumption record |
 
 ## Work-order linkage
 
@@ -23,10 +23,10 @@ Every normal stock-out must:
 3. Resolve part in the actor’s tenant.
 4. Block closed WO without `overrideReason`.
 5. Reject non-positive quantity.
-6. Atomically decrement only when `quantityInStock >= quantity` (`updateMany` conditional).
-7. Create a stock movement with tenant, part, WO, actor, quantity, notes/reference.
+6. Do not change `SparePart.quantityInStock`. Bileeta owns that quantity. The value is an ERP snapshot.
+7. Create a `PENDING` `DomainEventOutbox` row (`WORK_ORDER_PART_CONSUMPTION`) with the work order, part, quantity, and cost snapshot. Do not create a stock movement that lowers the mirror.
 8. Reject cross-tenant part/WO combinations (part 404/403; WO 400).
-9. Record audit metadata (no credentials).
+9. Record audit metadata with `quantityInStockMutated: false` (no credentials).
 
 ## HTTP status table
 
@@ -35,7 +35,7 @@ Every normal stock-out must:
 | Inventory list / detail / movements / low-stock (authorized) | 200 |
 | Work-order create | 201 |
 | Stock-out success / idempotent replay | **200** |
-| Missing `workOrderId` / invalid WO / negative stock | **400** |
+| Missing `workOrderId` / invalid WO | **400** |
 | Missing permission / role | **403** |
 | Missing authentication | **401** |
 | Missing CSRF (BFF) | **403** `CSRF_INVALID` |
@@ -46,7 +46,7 @@ Do not treat 400/422 as success. Do not use `status < 500` as an authorization a
 ## Idempotency policy
 
 - Model: `InventoryStockIssueIdempotency` with `@@unique([tenantId, key])`.
-- Same tenant + key + same payload → return current part (no second deduction).
+- Same tenant + key + same payload → return current part (no second consumption event from a replay that already stored the key).
 - Same key + different payload → **400**.
 - Keys are tenant-scoped (not global).
 - Concurrent first-writer wins (`P2002` → treat as replay).
@@ -55,13 +55,19 @@ Do not treat 400/422 as success. Do not use `status < 500` as an authorization a
 
 ## Atomicity / reconciliation
 
-- Conditional `quantityInStock: { gte: quantity }` + decrement inside `$transaction` with movement (+ optional idempotency row).
-- Opening − OUT + IN movements must equal current quantity for the E2E part after controlled issues.
-- Failure paths must not leave orphan movements without deduction (transactional).
+- Stock-out does not decrement `quantityInStock`. A later ERP Excel snapshot import is what updates the mirror.
+- Historical stock movements already stored are left as they are. This change does not rewrite them.
+- Failure paths must not write a stock movement that changes the mirror.
 
 ## E2E work-order strategy
 
 Preferred: manager BrowserContext creates a Tenant A WO via BFF; capture `workOrderId` in memory; inventory keeper issues against it. No hardcoded ObjectIds; no direct Mongo from Playwright.
+
+## Work-order part requests
+
+`POST /inventory/parts/:id/stock-out` records maintenance consumption for a work order. It does not decrement `SparePart.quantityInStock`. `POST /inventory/parts/:id/stock-in`, purchase receipt, local adjustment, transfer, movement reversal, stock-count post, tool return, and the transaction-style Excel apply also do not change that quantity. The approved writers are ERP stock sync apply and ERP Excel snapshot import.
+
+The approved work-order path (`issuePartRequest`) does not call that decrement. Bileeta owns `SparePart.quantityInStock`. The work-order path records usage, the cost snapshot, and a pending ERP event. A pending or failed event stays visible and is not treated as a successful ERP post.
 
 ## Compatibility
 

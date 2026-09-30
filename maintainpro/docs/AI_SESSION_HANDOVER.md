@@ -24,19 +24,19 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-29 ~16:50 IST (CONTINUE: CI recheck of `168694a2` and browser session check)
+**Last updated:** 2026-09-30. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). Release readiness is in progress on `release/readiness` and remains **RELEASE BLOCKED**. Not deployed. See `docs/RELEASE_READINESS_REPORT.md`. There is no Phase 16.
 
-Phase 00 compared the tracking files with `git fetch` and the tree. Requests iteration 01 is **already on `origin/main` at `52311b8f`**. It must not be reimplemented. The ledger now has the 15-phase checklist. Active page is still `/requests` and `/requests/[id]`.
+Local Redis on port 6380 is up (`docker compose -f docker-compose.dev.yml up -d redis`). The running API logged Redis and the notification queue as active. MinIO image pull is still `401 Unauthorized`. Email stays disabled. The PM generator is still an explicit `auto-wo` call, not a background clock.
+
+Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with `--no-track` from the acceptance commit). It changes the desktop shell look and favorite persistence only. Favorites are an explicit per-user list in `localStorage` (`maintainpro_nav_favorites:<userId>`). An empty saved list stays empty. Role defaults are not applied on load. Shell greens are recorded in `apps/web/lib/branding.ts` as an approximation, not an official Nelna specification. Navigation items, permissions, APIs, and workflows are unchanged.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 08 Maintenance Requests |
-| Current page | `/requests` and `/requests/[id]` |
-| Status | **PARTIALLY VERIFIED**. Browser UAT **NOT VERIFIED**. At 16:50 IST the Cursor browser opened `http://localhost:3001/requests` and showed “Session expired. Redirecting to sign in…”, then ` /login?reason=session_expired&returnTo=%2Frequests`. No password was typed. Signing in in a normal browser does not authenticate this Cursor browser. PR #62 head `168694a2`: `full-stack-e2e` failed again on MinIO `unauthorized` (run `36560675132`). `validate-monorepo`, `release-validate`, `fresh-sqlserver-migrate`, `build`, and `docker-build` were still pending on this head. The previous head `c4bb680e` had those app jobs green. Not merged. |
-| `origin/main` | `52311b8f`. Contains iteration 01 (`89533ac0`) + handover docs (`7878eb56`, `52311b8f`). **Arrived by direct push, not a PR.** |
-| Working branch | `ci/jest-heap-oom` (pushed, tracks `origin/ci/jest-heap-oom`), PR **#62** → `main`, not merged |
-| Old branch | `maintainpro/finalization-iter-01` @ `52311b8f` = `main`; upstream unset; can be deleted later |
-| Uncommitted changes | none after the commit that carries this file |
+| Current phase | 15 System-wide final acceptance — LOCAL ACCEPTANCE COMPLETE. RELEASE BLOCKED. Not deployed. |
+| Next phase | None. Do not start production deployment. |
+| Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
+| `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
+| Working branch | `integration/maintainpro-final-consolidation` (PR #63 to `main`). Acceptance remains `96b18385`. Do not deploy. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -139,6 +139,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Blockers / open decisions
 
+Phase 02 local shell work is complete. The items below remain release or product decisions, not open shell defects.
+
 1. **CI red on main** until PR #62 merges. PR #62's validate-monorepo is green; merge needs the
    user's approval. full-stack-e2e stays red (MinIO image pull, pre-existing) until the infra decision.
 2. **Browser UAT for /requests and /requests/[id] not done.** The user signs in at
@@ -151,20 +153,41 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 ## Exact next action for the next agent
 
-The earliest unfinished page is `/requests` and `/requests/[id]`. Do not start `/requests/new`,
-and do not rebuild the Requests slice that is already on `main` (`89533ac0` inside `52311b8f`).
+Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into main. Do not restore Live Map.
 
-1. Run the start-of-session checks. Expect `ci/jest-heap-oom`. `origin/main` stays `52311b8f` until PR #62 merges.
-2. Compare `gh pr checks 62` with head `168694a2` or later. App jobs were green on `c4bb680e`. On `168694a2`, `full-stack-e2e` failed again with `minio Error unauthorized` (run `36560675132`). Do not change the MinIO pin to skip the job. Do not merge while that check, Vercel, or Workers is failing, or while app jobs are still pending. Do not self-merge.
-3. Browser UAT is **NOT VERIFIED**. The Cursor browser must be signed in; a session in another browser is not shared. The last URL was
-   `http://localhost:3001/login?reason=session_expired&returnTo=%2Frequests`.
-   After sign-in on that Cursor browser, check `/requests` and one `/requests/<id>` at desktop (~1440), tablet (~820), and phone (~390):
-   - no horizontal scroll;
-   - no console errors;
-   - `GET /api/backend/maintenance-requests*` calls succeed;
-   - counter cards filter the list; Escape closes the row menu.
+Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-   Record the results in this file and in `PRODUCT_FINALIZATION_LEDGER.md`.
-4. Mark the page **VERIFIED COMPLETE** only when that UAT is recorded and main contains both
-   the Requests slice and a passing required CI result. The next page is then `/requests/new`,
-   on a new `--no-track` branch from updated `origin/main`.
+Next action: none for the feature roadmap. Shell refinement is verified on `ui/nelna-shell-refinement`. The acceptance summary is `docs/FINAL_ACCEPTANCE_SUMMARY.md`. Release stays blocked on Redis, file storage, email delivery, and the existing Vercel and Cloudflare build failures. Do not deploy. Do not merge this branch into main. Do not restore Live Map.
+
+Phase 14 local acceptance: cleaner signed in and `/reports` plus exceptions returned to the action center without job totals. Costs showed a permission error, not the recorded LKR 26. Report APIs returned 403. After signing back in as superadmin, reports still showed 258 jobs. Date range 2020-01-01 to 2026-09-30 kept overdue 3, evidence 1, and cancelled 227, and those exports matched. The single day 2026-09-30 made overdue 1 and evidence 0. The early range 2020-01-01 to 2020-01-02 made all three 0. A reversed range returned 400. Cancelled uses `updatedAt` in the last 30 days, not the selected start date. Jest: maintenance-cost-rollup and maintenance-reports, 11 passed.
+
+Phase 13 local acceptance: signed in as superadmin through the login page. `/auth/me` returned 200 and `/admin/users` still showed that user after reload. Search isolated the disposable technician. Effective permissions listed granted and not-granted keys. `/admin/roles` search for CLEANER showed the three cleaning and facility permissions. Deactivating that disposable user made the next login return 401. Changing the role to VIEWER made user administration and inventory parts return 403. The role was restored to TECHNICIAN. Jest: 27 passed across phase13-access, roles.guard, admin-users-access, admin-users-status, users-tenant-isolation, and admin-roles-access. Email delivery was not used. Bulk user import was not added.
+
+Phase 12 local acceptance: disposable part `P12-54005240` was issued on `WO-2026-0253` with cost snapshot 25 and a PENDING consumption event while quantity stayed 0. Admin acknowledgement stored reference `BIL-DEV-54005240` without changing quantity and without a Bileeta call. Cross-tenant read and acknowledgement were denied. Dirty Excel import was blocked. Clean Excel confirm changed the snapshot from 0 to 5 only after confirm, and the unmapped code created no part. Browser shows ERP Snapshot. Jest: 43 passed across the six inventory/ERP suites.
+
+ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
+
+Next action: the disposable flow was started and stopped before any stock write. Logins for the technician and manager succeeded; `superadmin@maintainpro.local` returned 429, so no work order was issued and no quantity was changed. Spare part `cmu3ujhmi014xoalkr8pg8eq6` still had quantity 10 when the create was rejected for a missing asset. Wait for the login limit to clear, then create a corrective work order on an existing asset, assign `tech@maintainpro.local`, start it, request and approve one part, issue it as a different storekeeper, and confirm quantity 10 is unchanged, the work-order line cost moved, and the outbox row is `PENDING`. Completion is expected to stay blocked while evidence storage is unset. Do not retry logins until the 429 clears. Do not start Phase 08. Do not edit Live Map.
+
+Side task 2026-09-30 (docs only, no schema change): `docs/DATABASE_REPO_MAP.md` now maps all 222 Prisma models to the code that uses them. 163 CORE, 53 RETIRED (Phase 01 domains still wired to API modules), 6 UNUSED (`OrganizationUnit`, `CustomFieldValue`, `EmployeeRosterEntry`, `VendorContact`, `RepairWarranty`, `UatScenarioExecution`). The live database was not inspected: the agent's DB read was blocked by the permission classifier. No table was dropped. Dropping the 6 unused models waits for the user to confirm live row counts and approve a migration.
+Correction, same day: `OrganizationUnit` is read by the view `vw_rpt_dim_branch_site`, so it is CORE (164 CORE, 5 UNUSED). The user asked to drop the 5 unused tables. The agent removed them from `schema.prisma` (valid), but writing the drop migration was blocked by the permission classifier, so the schema edit was reverted. **Nothing is dropped; repo and DB unchanged.** If the user creates the migration themselves, the same change must also update UAT-SAFE-011 in `scripts/validate-e2e-uat-go-live-controls.mjs`, `scripts/test/uat-result-contract.selftest.mjs`, and `scripts/mongo-to-sqlserver/registry.ts` (see map section 4.2). The user pasted a SQL Server `sa` password in chat; the agent did not use it or store it. Recommend rotating it.
+**Update, later same day: drop done.** The user confirmed the scope again. Migration `20260930090000_drop_unused_tables` removes the 5 models; it throws if any table has rows. It was applied to local `MaintainProDev` with `npm run db:migrate:deploy` (guard passed, so the tables were empty), and `db:migrate:status` is up to date (26 migrations). `migrate diff` DB→schema shows no mention of the 5 tables. The remaining drift is older: default-constraint names and NVARCHAR/DECIMAL bounds from the hardening migrations. It was not touched. UAT-SAFE-011 and `uat-result-contract.selftest.mjs` now check `UatEvidenceClass.FORMAL_BUSINESS_UAT` in `prisma-enums.ts`; the selftest had been failing before this change. Both pass, with 12/12 controls. `RepairWarranty` was removed from the Mongo registry.
+Results: API typecheck pass. Full API jest has 218 suites passed and 4 failed (5 tests), all `this.prisma.workOrder.count is not a function` in `assertAssignedExecutor`. That comes from earlier Phase 07 commit `3cc8d649`, whose older test mocks lack `workOrder.count`; it is not from the drop. The failing suites are `work-orders-status-transition`, `work-orders-approval`, `work-orders-governance`, and `work-order-d2-core`. Web typecheck fails on `"unassigned"` / `"open-load"` missing from `WorkOrderQueueKey` in `apps/web/lib/work-order-queues-api.ts`, which was already committed (Phase 04/05, `5f393d65`). **Next action for Phase 07:** add `count` to those work-order mocks and add the two queue keys to the web type.
+
+Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
+
+Phase 01 regression found during Phase 07, then fixed here: overlapping refresh used a token that had just been rotated, and the API revoked the whole refresh family (`REFRESH_TOKEN_REUSED` at 08:53:39 IST). A replay inside 15 seconds now issues a new token in the same family and does not revoke it. A replay after 15 seconds, or one whose successor is already revoked, still revokes the family. `auth-refresh-replay.spec.ts` 3/3. Redis being down did not cause the logout.
+
+After the user signed in as `superadmin@maintainpro.local`, reload of `/work-orders/my` kept the session (`/auth/me` 200). Navigation to `/maintenance` and back to `/work-orders/my` stayed authenticated. My Jobs showed Active 0 because that admin has no assignments. Disposable execution UAT is still open. Evidence upload stays BLOCKED / NOT VERIFIED. Do not start Phase 08.
+
+Live Map retirement is recorded for Phase 11 only. Do not change Fleet code until that phase.
+
+Phase 05: `/work-orders?queue=unassigned` resolves to `/maintenance/jobs?queue=unassigned`. Technician list of my-tasks returned 200 with total 3. Technician create returned 403. Cleaner list returned 403. Admin open-load total was 24 before a later login was rate-limited (429). Queue view no longer prints a second count strip.
+
+Phase 06: machinery, service, and vehicle routes all render the same board with `jobDomain`. Open-load lists previously matched the dashboard: 15, 3, and 6. A fresh signed-in browser pass was not repeated because the dashboard session had expired and the admin login was then rate-limited. No schema migration. No permission grant.
+
+Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seeded admin. API open-load 24, machinery 15, service 3, vehicle 6. `tech@maintainpro.local` dashboard 200 with inventory and approvals hidden; `cleaner@maintainpro.local` 403; `manager@maintainpro.local` 200. A later browser load of `/maintenance` redirected to login because the session had expired; the password was not entered. The dashboard request does not call readiness, so the Redis refusal does not hold those counts. No schema migration. No permission grant.
+
+1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
+2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.
+3. Phase 03 evidence is in `PRODUCT_FINALIZATION_LEDGER.md` section D. Web `lib/__tests__/action-center.test.ts` 24/24. API `action-center.spec.ts` and `work-order-queues.spec.ts` together 22/22. Browser, signed in as the seeded admin: overdue queue selected with 5 table rows; high-priority queue selected with 2 High rows and badge 2 (a concurrent summary can time out at 2.5s and flash 0, then recover); search "inventory" left only Inventory & procurement; facility zero card linked to `/facilities/reports`; `/dashboard` and `/workspace` landed on `/action-center`; document did not overflow at 390, 820, or 1440. No schema change. No permissions granted. Technicians cannot open the tenant-wide high-priority queue.

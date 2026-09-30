@@ -280,6 +280,24 @@ export class EnterpriseOpsController {
     return { data, message: "Master data mapping queue" };
   }
 
+  @Post("events/:id/acknowledge")
+  @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
+  @Permissions("operations.manage")
+  async acknowledgeErpEvent(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { externalReference?: string }
+  ) {
+    if (!req.user.tenantId) return { data: null, message: "Tenant required" };
+    const data = await this.events.acknowledgeErpEvent(
+      req.user.tenantId,
+      id,
+      body.externalReference ?? "",
+      req.user.sub
+    );
+    return { data, message: "ERP event acknowledged from a manual Bileeta reference" };
+  }
+
   @Get("events")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
   @Permissions("operations.view")

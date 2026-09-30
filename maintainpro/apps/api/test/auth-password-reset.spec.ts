@@ -142,4 +142,55 @@ describe("AuthService password reset flow", () => {
       message: "Password reset successful"
     });
   });
+
+  it("stores a hash, then rejects a second use of the same token", async () => {
+    const { createHash } = await import("node:crypto");
+    const prisma = buildPrisma();
+    prisma.user.findUnique.mockResolvedValue({ id: "user-1", email: "user@example.com" });
+    const stored = { tokenHash: "", expiresAt: new Date(), usedAt: null as Date | null, created: false };
+    prisma.passwordResetToken.create.mockImplementation(async ({ data }: { data: { tokenHash: string; expiresAt: Date } }) => {
+      stored.tokenHash = data.tokenHash;
+      stored.expiresAt = data.expiresAt;
+      stored.usedAt = null;
+      stored.created = true;
+      return stored;
+    });
+    prisma.passwordResetToken.findUnique.mockImplementation(async ({ where }: { where: { tokenHash: string } }) => {
+      if (!stored.created || where.tokenHash !== stored.tokenHash) return null;
+      return { id: "prt-1", userId: "user-1", tokenHash: stored.tokenHash, expiresAt: stored.expiresAt, usedAt: stored.usedAt };
+    });
+    prisma.$transaction.mockImplementation(async (handler: (tx: any) => Promise<void>) => {
+      const tx = {
+        user: { update: jest.fn() },
+        passwordResetToken: {
+          update: jest.fn(async () => {
+            stored.usedAt = new Date();
+          })
+        },
+        refreshToken: { updateMany: jest.fn() },
+        auditLog: { create: jest.fn() }
+      };
+      await handler(tx);
+      return tx;
+    });
+    const emailDispatchService = { dispatch: jest.fn().mockResolvedValue(undefined) };
+    const service = new AuthService(
+      prisma as any,
+      buildJwtService() as any,
+      buildConfigService() as any,
+      emailDispatchService as any
+    );
+
+    await service.forgotPassword({ email: "user@example.com" });
+    const message = String(emailDispatchService.dispatch.mock.calls[0][0].message);
+    const token = decodeURIComponent(message.match(/token=([^\s]+)/)?.[1] ?? "");
+    expect(token.length).toBeGreaterThan(20);
+    expect(stored.tokenHash).toBe(createHash("sha256").update(token).digest("hex"));
+    expect(stored.tokenHash).not.toBe(token);
+
+    await service.resetPassword({ token, newPassword: "StrongPass1!" });
+    await expect(service.resetPassword({ token, newPassword: "StrongPass1!" })).rejects.toThrow(
+      BadRequestException
+    );
+  });
 });

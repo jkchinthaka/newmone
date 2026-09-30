@@ -3,8 +3,6 @@ name: Full-Stack E2E
 on:
   pull_request:
     branches: ["main"]
-  push:
-    branches: ["test/phase4-*"]
   workflow_dispatch:
 
 permissions:
@@ -103,6 +101,13 @@ jobs:
         run: |
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml config --quiet
+
+      - name: Evidence storage status
+        run: |
+          mkdir -p artifacts/e2e-logs
+          echo "EVIDENCE_STORAGE=BLOCKED" | tee artifacts/e2e-logs/evidence-storage-status.txt
+          echo "Anonymous pull of quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z returns 401."
+          echo "This workflow does not treat a missing object store as a successful upload."
 
       - name: Build and start isolated E2E stack
         run: |
@@ -292,7 +297,6 @@ jobs:
           export DATABASE_PROVIDER=sqlserver
           export RECOVERY_ENGINE=sqlserver
           export RECOVERY_SQLSERVER_HOST=sqlserver
-          export RECOVERY_MONGO_HOST=mongo
           export RECOVERY_SOURCE_DATABASE="${PRIMARY_DATABASE_NAME:-maintainpro_e2e_primary}"
           export RECOVERY_TARGET_DATABASE="maintainpro_restore_${E2E_RUN_ID//[^a-zA-Z0-9_]/_}"
           export RECOVERY_WORK_DIR="$PWD/artifacts/recovery-tmp/$E2E_RUN_ID"
@@ -396,17 +400,19 @@ jobs:
           # Redact obvious secret patterns without printing values to workflow summary
           sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/compose.log || true
 
-      - name: Dump mongo/api logs on failure
+      - name: Dump SQL Server and API logs on failure
         if: failure()
         run: |
           mkdir -p artifacts/e2e-logs
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
-            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color mongo > artifacts/e2e-logs/mongo-failure.log || true
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color sqlserver > artifacts/e2e-logs/sqlserver-failure.log || true
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
+            -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color redis > artifacts/e2e-logs/redis-failure.log || true
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color api > artifacts/e2e-logs/api-failure.log || true
           docker compose -p "$COMPOSE_PROJECT_NAME" --env-file .env.e2e \
             -f docker-compose.yml -f docker-compose.e2e.yml ps > artifacts/e2e-logs/compose-ps.txt || true
-          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/mongo-failure.log artifacts/e2e-logs/api-failure.log || true
+          sed -i -E 's/(password|secret|token|authorization)=[^[:space:]]+/\1=REDACTED/Ig' artifacts/e2e-logs/sqlserver-failure.log artifacts/e2e-logs/redis-failure.log artifacts/e2e-logs/api-failure.log || true
 
       - name: Stop isolated E2E stack only
         if: always()

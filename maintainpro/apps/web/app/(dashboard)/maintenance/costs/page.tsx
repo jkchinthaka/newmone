@@ -124,7 +124,9 @@ export default function MaintenanceCostsPage() {
         <span>{loading ? "Loading results" : `${total} jobs`} · LKR · period spend · {summary?.dateBasis}</span>
         <div className="flex gap-2">
           <button type="button" className="min-h-11 rounded border px-3" onClick={() => void refresh()}>Refresh</button>
-          <button type="button" className="min-h-11 rounded border px-3" onClick={() => void exportCsv()}>Export</button>
+          {summary && !error ? (
+            <button type="button" className="min-h-11 rounded border px-3" onClick={() => void exportCsv()}>Export</button>
+          ) : null}
           {(search || status) ? <button type="button" className="min-h-11 rounded border px-3" onClick={() => { setSearchInput(""); writeQuery({ search: null, status: null }); }}>Clear filters</button> : null}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsArray, IsBoolean, IsEmail, IsMongoId, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { IsArray, IsBoolean, IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 
 /** Same policy as ResetPasswordDto (apps/api/src/modules/auth/dto/reset-password.dto.ts) — reused, not reinvented. */
 const PASSWORD_POLICY = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
@@ -18,7 +18,9 @@ export class CreateAdminUserDto {
   @MinLength(1)
   lastName!: string;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   roleId!: string;
 
   @IsOptional()
@@ -26,11 +28,15 @@ export class CreateAdminUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   tenantId?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   departmentId?: string;
 
   @IsOptional()
@@ -65,15 +71,21 @@ export class UpdateAdminUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   roleId?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   tenantId?: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   departmentId?: string;
 
   @IsOptional()
@@ -97,6 +109,6 @@ export class SetAdminUserPasswordDto {
 
 export class UpdateRolePermissionsDto {
   @IsArray()
-  @IsMongoId({ each: true })
+  @IsString({ each: true })
   permissionIds!: string[];
 }

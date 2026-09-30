@@ -15,6 +15,9 @@ export type WorkOrderQueueKey =
   | "supervisor-verification"
   | "rework-required"
   | "overdue"
+  | "unassigned"
+  | "open-load"
+  | "high-priority"
   | "high-risk"
   | "finance-vendor-pending"
   | "triage"
@@ -72,6 +75,9 @@ export const FALLBACK_QUEUE_SUMMARY: WorkOrderQueueSummary = {
     { key: "waiting-evidence", label: "Waiting Evidence", count: 0 },
     { key: "supervisor-verification", label: "Supervisor Verification", count: 0 },
     { key: "overdue", label: "Overdue", count: 0 },
+    { key: "unassigned", label: "Unassigned", count: 0 },
+    { key: "open-load", label: "Open Load", count: 0 },
+    { key: "high-priority", label: "High Priority", count: 0 },
     { key: "high-risk", label: "High Risk", count: 0 },
     { key: "triage", label: "Triage / Not Sure", count: 0 },
     { key: "completed", label: "Completed", count: 0 },
@@ -137,6 +143,9 @@ export type WorkOrderQueueFilters = {
   issueId: string;
   triageOnly: boolean;
   smartView?: string;
+  jobDomain?: string;
+  /** OPEN or PLANNED jobs with no technician. */
+  unassigned?: boolean;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -171,8 +180,76 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
-export async function fetchWorkOrderQueueSummary(): Promise<WorkOrderQueueSummary> {
-  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>("/work-orders/queues");
+const QUEUE_LINK_STATUSES = new Set([
+  "OPEN",
+  "PLANNED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "TECHNICIAN_COMPLETED",
+  "REWORK_REQUIRED",
+  "VERIFIED",
+  "CLOSED",
+  "COMPLETED",
+  "CANCELLED",
+  "OVERDUE"
+]);
+
+const QUEUE_LINK_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
+
+export function isWorkOrderQueueKey(value: string): value is WorkOrderQueueKey {
+  return (
+    FALLBACK_QUEUE_SUMMARY.queues.some((queue) => queue.key === value) ||
+    value === "rework-required" ||
+    value === "finance-vendor-pending" ||
+    value === "technician-completed" ||
+    value === "approved-planned"
+  );
+}
+
+/**
+ * Turns a maintenance-dashboard work-order link into queue filters.
+ * `smartView` and `status` are accepted because those are the links the dashboard already emits.
+ */
+export function queueFiltersFromSearch(params: {
+  queue?: string | null;
+  smartView?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  unassigned?: string | null;
+}): Partial<WorkOrderQueueFilters> {
+  const status = params.status && QUEUE_LINK_STATUSES.has(params.status) ? params.status : undefined;
+  const priority =
+    params.priority && QUEUE_LINK_PRIORITIES.has(params.priority) ? params.priority : undefined;
+  const unassigned = params.unassigned === "true";
+  const explicitQueue = params.queue && isWorkOrderQueueKey(params.queue) ? params.queue : undefined;
+  const smartQueue =
+    params.smartView && isWorkOrderQueueKey(params.smartView) ? params.smartView : undefined;
+
+  let queue = explicitQueue ?? smartQueue;
+  if (!queue && unassigned) queue = "open-requests";
+  if (!queue && status === "OPEN") queue = "open-requests";
+  if (!queue && (status === "IN_PROGRESS" || status === "ON_HOLD")) queue = "in-progress";
+  if (!queue && status === "REWORK_REQUIRED") queue = "rework-required";
+  if (!queue && status === "TECHNICIAN_COMPLETED") queue = "technician-completed";
+  if (!queue && priority === "CRITICAL") queue = "high-priority";
+
+  const patch: Partial<WorkOrderQueueFilters> = {};
+  if (queue) patch.queue = queue;
+  if (status) patch.status = status as WorkOrderQueueFilters["status"];
+  if (priority) patch.priority = priority as WorkOrderQueueFilters["priority"];
+  if (params.smartView) patch.smartView = params.smartView;
+  if (unassigned) patch.unassigned = true;
+  return patch;
+}
+
+export async function fetchWorkOrderQueueSummary(jobDomain?: string): Promise<WorkOrderQueueSummary> {
+  const params = new URLSearchParams();
+  if (jobDomain) params.set("jobDomain", jobDomain);
+  const query = params.toString();
+  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>(
+    query ? `/work-orders/queues?${query}` : "/work-orders/queues"
+  );
   return unwrap(response.data);
 }
 
@@ -192,6 +269,8 @@ export async function fetchWorkOrderQueue(
   if (filters.overdueOnly) params.set("overdueOnly", "true");
   if (filters.highRiskOnly) params.set("highRiskOnly", "true");
   if (filters.myAssignedOnly) params.set("myAssignedOnly", "true");
+  if (filters.unassigned) params.set("unassigned", "true");
+  if (filters.jobDomain) params.set("jobDomain", filters.jobDomain);
   if (filters.categoryId) params.set("categoryId", filters.categoryId);
   if (filters.typeId) params.set("typeId", filters.typeId);
   if (filters.issueId) params.set("issueId", filters.issueId);

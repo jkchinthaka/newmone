@@ -16,6 +16,7 @@ import {
   fetchSmartViews,
   fetchWorkOrderQueue,
   fetchWorkOrderQueueSummary,
+  queueFiltersFromSearch,
   type WorkOrderQueueFilters,
   type WorkOrderQueueItem,
   type WorkOrderQueueKey,
@@ -31,17 +32,8 @@ type Props = {
   onRefreshLegacy?: () => void;
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
+  jobDomain?: string;
 };
-
-function isWorkOrderQueueKey(value: string): value is WorkOrderQueueKey {
-  return (
-    FALLBACK_QUEUE_SUMMARY.queues.some((queue) => queue.key === value) ||
-    value === "rework-required" ||
-    value === "finance-vendor-pending" ||
-    value === "technician-completed" ||
-    value === "approved-planned"
-  );
-}
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
   if (isDatabaseUnavailableError(error)) {
@@ -71,12 +63,28 @@ export function WorkOrderQueuePanel({
   onOpenWorkOrder,
   onRefreshLegacy,
   selectedIds = [],
-  onSelectedIdsChange
+  onSelectedIdsChange,
+  jobDomain
 }: Props) {
   const currentUser = useCurrentUser();
   const searchParams = useSearchParams();
   const urlQueue = searchParams.get("queue");
+  const urlSmartView = searchParams.get("smartView");
+  const urlStatus = searchParams.get("status");
+  const urlPriority = searchParams.get("priority");
+  const urlUnassigned = searchParams.get("unassigned");
   const urlQuery = searchParams.get("q") ?? searchParams.get("search");
+  const linkedFilters = useMemo(
+    () =>
+      queueFiltersFromSearch({
+        queue: urlQueue,
+        smartView: urlSmartView,
+        status: urlStatus,
+        priority: urlPriority,
+        unassigned: urlUnassigned
+      }),
+    [urlQueue, urlSmartView, urlStatus, urlPriority, urlUnassigned]
+  );
   const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
   const [searchInput, setSearchInput] = useState(urlQuery ?? "");
   const [initialized, setInitialized] = useState(false);
@@ -103,8 +111,8 @@ export function WorkOrderQueuePanel({
   });
 
   const summaryQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue-summary"]),
-    queryFn: fetchWorkOrderQueueSummary,
+    queryKey: withTenantScope(["work-orders", "queue-summary", jobDomain ?? ""]),
+    queryFn: () => fetchWorkOrderQueueSummary(jobDomain),
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.error ? false : 30_000)
@@ -116,24 +124,36 @@ export function WorkOrderQueuePanel({
   useEffect(() => {
     if ((summaryQuery.data || summaryUnavailable) && !initialized) {
       setInitialized(true);
-      const requested = urlQueue && isWorkOrderQueueKey(urlQueue) ? urlQueue : undefined;
       setFilters((current) => ({
         ...current,
-        queue: requested ?? summaryQuery.data?.defaultQueue ?? FALLBACK_QUEUE_SUMMARY.defaultQueue,
-        query: urlQuery ?? current.query
+        ...linkedFilters,
+        queue:
+          linkedFilters.queue ??
+          summaryQuery.data?.defaultQueue ??
+          FALLBACK_QUEUE_SUMMARY.defaultQueue,
+        query: urlQuery ?? current.query,
+        jobDomain: jobDomain || undefined
       }));
       if (urlQuery) {
         setSearchInput(urlQuery);
       }
     }
-  }, [summaryQuery.data, summaryUnavailable, initialized, urlQueue, urlQuery]);
+  }, [summaryQuery.data, summaryUnavailable, initialized, linkedFilters, urlQuery]);
 
   useEffect(() => {
-    if (!initialized || !urlQueue || !isWorkOrderQueueKey(urlQueue)) {
+    if (!initialized || !linkedFilters.queue) {
       return;
     }
-    setFilters((current) => (current.queue === urlQueue ? current : { ...current, queue: urlQueue, page: 1 }));
-  }, [initialized, urlQueue]);
+    setFilters((current) => {
+      const unchanged =
+        current.queue === (linkedFilters.queue ?? current.queue) &&
+        current.status === (linkedFilters.status ?? current.status) &&
+        current.priority === (linkedFilters.priority ?? current.priority) &&
+        current.smartView === (linkedFilters.smartView ?? current.smartView) &&
+        Boolean(current.unassigned) === Boolean(linkedFilters.unassigned);
+      return unchanged ? current : { ...current, ...linkedFilters, page: 1 };
+    });
+  }, [initialized, linkedFilters]);
 
   const queueQuery = useQuery({
     queryKey: withTenantScope(["work-orders", "queue", filters]),

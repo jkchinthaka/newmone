@@ -25,6 +25,17 @@ import {
   resolveSheetStaging
 } from "./erp-excel-stock.parser";
 
+function parseStoredJson(value: unknown): unknown {
+  if (typeof value !== "string") return value ?? null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 type Actor = {
   sub?: string;
   tenantId?: string | null;
@@ -266,7 +277,7 @@ export class ErpExcelImportService {
 
     let sheetResolved: ReturnType<typeof resolveSheetStaging>;
     try {
-      sheetResolved = resolveSheetStaging(run.stagingRecords, body.sheetName ?? run.sheetName);
+      sheetResolved = resolveSheetStaging(parseStoredJson(run.stagingRecords), body.sheetName ?? run.sheetName);
     } catch (error) {
       const code = (error as { code?: string }).code ?? "IMPORT_NOT_READY";
       this.mapError(code, "Import staging data is missing; upload the workbook again.");
@@ -383,7 +394,7 @@ export class ErpExcelImportService {
     }
 
     const blocked = duplicateRows > 0 || invalidRows > 0;
-    const mappingSnapshot = run.mappingSnapshot as Record<string, unknown> | null;
+    const mappingSnapshot = (parseStoredJson(run.mappingSnapshot) as Record<string, unknown> | null) ?? null;
     const updated = await this.prisma.inventoryImportRun.update({
       where: { id: run.id },
       data: {
@@ -713,7 +724,9 @@ export class ErpExcelImportService {
     warehousesDetected: Prisma.JsonValue | null;
     stagingRecords: Prisma.JsonValue | null;
   }) {
-    const mappingSnapshot = (run.mappingSnapshot as Record<string, unknown> | null) ?? {};
+    const mappingSnapshot = (parseStoredJson(run.mappingSnapshot) as Record<string, unknown> | null) ?? {};
+    const sheetsDetected = parseStoredJson(run.sheetsDetected);
+    const warehousesStored = parseStoredJson(run.warehousesDetected);
     const sheetsByNameMeta =
       (mappingSnapshot.sheetsByName as Record<
         string,
@@ -726,8 +739,8 @@ export class ErpExcelImportService {
       > | null) ?? null;
     const selectedSheet = run.sheetName ?? "";
     const selectedMeta = sheetsByNameMeta?.[selectedSheet];
-    const sheetNames = Array.isArray(run.sheetsDetected)
-      ? (run.sheetsDetected as string[])
+    const sheetNames = Array.isArray(sheetsDetected)
+      ? (sheetsDetected as string[])
       : selectedSheet
         ? [selectedSheet]
         : [];
@@ -739,7 +752,7 @@ export class ErpExcelImportService {
       ((mappingSnapshot.suggestedMapping as Partial<ErpExcelColumnMapping> | undefined) ?? {});
     const warehousesDetected =
       selectedMeta?.warehousesDetected ??
-      (Array.isArray(run.warehousesDetected) ? (run.warehousesDetected as string[]) : []);
+      (Array.isArray(warehousesStored) ? (warehousesStored as string[]) : []);
 
     return {
       sheetNames,

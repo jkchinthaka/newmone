@@ -1,6 +1,5 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import type { Response } from "express";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -15,13 +14,6 @@ export class FleetController {
     @Inject(FleetService)
     private readonly fleetService: FleetService
   ) {}
-
-  @Get("live-map")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
-  async liveMap() {
-    const data = await this.fleetService.liveMap();
-    return { data, message: "Live fleet map fetched" };
-  }
 
   @Get("alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
@@ -66,31 +58,6 @@ export class FleetController {
   async removeGeofence(@Param("id") id: string) {
     const data = this.fleetService.removeGeofence(id);
     return { data, message: "Geofence removed" };
-  }
-
-  @Get("street-view")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
-  async streetView(
-    @Query("lat") lat: string,
-    @Query("lng") lng: string,
-    @Query("heading") heading: string | undefined,
-    @Query("pitch") pitch: string | undefined,
-    @Query("fov") fov: string | undefined,
-    @Query("size") size: string | undefined,
-    @Res() res: Response
-  ) {
-    const image = await this.fleetService.getStreetViewPreview({
-      lat,
-      lng,
-      heading,
-      pitch,
-      fov,
-      size
-    });
-
-    res.setHeader("Content-Type", image.contentType);
-    res.setHeader("Cache-Control", image.cacheControl);
-    res.send(image.buffer);
   }
 
   private toPositiveInt(value: string | undefined, fallback: number) {

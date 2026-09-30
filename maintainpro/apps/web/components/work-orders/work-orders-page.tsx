@@ -84,9 +84,10 @@ function LoadingSkeleton() {
 
 type WorkOrdersPageProps = {
   jobDomain?: string;
+  hideHeading?: boolean;
 };
 
-export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
+export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -394,6 +395,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
       return (
         <Suspense fallback={<LoadingSkeleton />}>
           <WorkOrderQueuePanel
+            jobDomain={jobDomain}
             onOpenWorkOrder={openEditModal}
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
@@ -506,7 +508,7 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         selectionCount={selectedIds.length}
         bulkLoading={bulkBusy}
         canCreate={canCreateWorkOrders}
-        showHeading={!jobDomain}
+        showHeading={!hideHeading && !jobDomain}
         onChange={updateFilters}
         onReset={resetFilters}
         onCreate={openCreateModal}
@@ -515,13 +517,15 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         onBulkDelete={() => void handleBulkDelete()}
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="All" value={workOrdersQuery.stats.total} />
-        <StatCard label="Open" value={workOrdersQuery.stats.open} />
-        <StatCard label="In Progress" value={workOrdersQuery.stats.inProgress} />
-        <StatCard label="Overdue" value={workOrdersQuery.stats.overdue} />
-        <StatCard label="Completed" value={workOrdersQuery.stats.completed} />
-      </section>
+      {view === "queues" ? null : (
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard label="All" value={workOrdersQuery.stats.total} />
+          <StatCard label="Open" value={workOrdersQuery.stats.open} />
+          <StatCard label="In Progress" value={workOrdersQuery.stats.inProgress} />
+          <StatCard label="Overdue" value={workOrdersQuery.stats.overdue} />
+          <StatCard label="Completed" value={workOrdersQuery.stats.completed} />
+        </section>
+      )}
 
       <motion.section
         layout
@@ -530,7 +534,11 @@ export default function WorkOrdersPage({ jobDomain }: WorkOrdersPageProps) {
         className="space-y-3"
       >
         <div className="flex items-center justify-between px-1 text-sm text-slate-500">
-          <p>{totalFiltered} work order(s) shown</p>
+          {view === "queues" ? (
+            <p>Queue counts and the list below use the same work-order rules.</p>
+          ) : (
+            <p>{totalFiltered} work order(s) shown</p>
+          )}
           {workOrdersQuery.isFetching ? (
             <p className="inline-flex items-center gap-1 text-brand-700">
               <Loader2 size={14} className="animate-spin" /> Syncing...

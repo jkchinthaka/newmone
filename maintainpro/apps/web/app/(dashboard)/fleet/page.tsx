@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -17,11 +16,6 @@ import {
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { getFleetOverview, type FleetOverviewSummary } from "@/lib/fleet-lifecycle-api";
-
-const FleetMap = dynamic(
-  () => import("@/components/charts/fleet-map").then((mod) => mod.FleetMap),
-  { ssr: false }
-);
 
 type OverviewCard = {
   label: string;
@@ -101,7 +95,7 @@ export default function FleetPage() {
           href: "/compliance"
         },
         {
-          label: "Gate-blocked vehicles",
+          label: "Cannot gate out",
           value: summary.blockedVehicles,
           icon: ShieldAlert,
           href: "/fleet/gate",
@@ -189,14 +183,6 @@ export default function FleetPage() {
           )}
         </section>
       )}
-
-      {/* Fleet map below overview */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Live map</h2>
-        <div className="-mx-4 sm:-mx-6">
-          <FleetMap />
-        </div>
-      </section>
     </div>
   );
 }

@@ -301,16 +301,25 @@ export class MaintenanceSupplyService {
     });
 
     if (this.stockEngine) {
-      await this.stockEngine.returnStock({
-        actor,
-        partId: issue.partId,
-        quantity: qty,
-        warehouseId: issue.warehouseId ?? undefined,
-        workOrderId: issue.workOrderId,
-        notes: input.notes ?? "Tool/part return",
-        sourceType: "PART_ISSUE_RETURN",
-        sourceDocument: `part-issue:${issueId}`,
-        idempotencyKey: `part-return:${issueId}:${nextReturned}`
+      await this.prisma.domainEventOutbox.create({
+        data: {
+          tenantId,
+          eventId: `part-return:${issueId}:${nextReturned}`,
+          eventType: "WORK_ORDER_PART_RETURN",
+          aggregateType: "PartIssue",
+          aggregateId: issueId,
+          payloadVersion: 1,
+          status: "PENDING",
+          payload: JSON.stringify({
+            owner: "BILEETA",
+            quantityInStockMutated: false,
+            source: "tool.return",
+            partId: issue.partId,
+            erpCode: issue.part.erpCode ?? null,
+            quantity: qty,
+            workOrderId: issue.workOrderId
+          })
+        }
       });
     }
 

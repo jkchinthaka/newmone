@@ -54,6 +54,7 @@ function mapErrorCode(status: number, message: string, dependencyFailure: boolea
   const lower = message.toLowerCase();
   if (lower.includes("csrf")) return "CSRF_INVALID";
   if (lower.includes("session") && lower.includes("expired")) return "SESSION_EXPIRED";
+  if (lower.includes("refresh token") && lower.includes("already rotated")) return "REFRESH_TOKEN_ROTATED";
   if (lower.includes("refresh token") && lower.includes("reus")) return "REFRESH_TOKEN_REUSED";
   if (lower.includes("tenant required") || lower.includes("no active tenant")) return "TENANT_REQUIRED";
   if (lower.includes("tenant access denied")) return "TENANT_ACCESS_DENIED";

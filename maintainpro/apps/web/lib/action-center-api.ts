@@ -52,7 +52,22 @@ export type FetchActionCenterOptions = {
   roleName: string | null;
   userId: string | null;
   permissions?: readonly string[];
+  /**
+   * When false, system health is omitted so a slow readiness check cannot hold the
+   * rest of the snapshot. The Action Center page loads it on its own query.
+   */
+  includeSystemHealth?: boolean;
 };
+
+export async function fetchActionCenterSystemHealth(): Promise<ActionCenterSnapshot["systemHealth"]> {
+  const response = await apiClient.get<ApiEnvelope<SystemHealthPayload>>("/health/readiness");
+  const health = response.data.data;
+  return {
+    status: health.status,
+    failed: health.summary.failed,
+    degraded: health.summary.degraded
+  };
+}
 
 /**
  * Classifies a failed request without leaking response bodies/headers into the
@@ -179,17 +194,11 @@ export async function fetchActionCenterSnapshot(
     );
   }
 
-  if (actionCenterShowsSystemHealth(variant)) {
+  if (options.includeSystemHealth !== false && actionCenterShowsSystemHealth(variant)) {
     tasks.push(
-      apiClient
-        .get<ApiEnvelope<SystemHealthPayload>>("/health/readiness")
-        .then((response) => {
-          const health = response.data.data;
-          snapshot.systemHealth = {
-            status: health.status,
-            failed: health.summary.failed,
-            degraded: health.summary.degraded
-          };
+      fetchActionCenterSystemHealth()
+        .then((health) => {
+          snapshot.systemHealth = health;
           snapshot.connections.systemHealth = true;
         })
         .catch((error) => {

@@ -90,9 +90,9 @@ import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
+import { buildWorkOrderPartConsumptionOutbox } from "./work-order-erp-consumption";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
 import { assertValidHoldReason } from "./work-order-lifecycle";
-import { InventoryTransactionEngine } from "../inventory/inventory-transaction.engine";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-templates.service";
@@ -122,14 +122,9 @@ export class WorkOrdersService {
     @Optional() private readonly warranties?: WarrantiesService,
     @Optional() private readonly reliability?: ReliabilityService,
     @Optional() private readonly approvalsService?: ApprovalsService,
-    @Optional() stockEngine?: InventoryTransactionEngine,
     @Optional() private readonly enterpriseOps?: EnterpriseOpsService,
     @Optional() private readonly workOrderDomain?: WorkOrderDomainService
-  ) {
-    this.stockEngine = stockEngine ?? new InventoryTransactionEngine(this.prisma);
-  }
-
-  private readonly stockEngine: InventoryTransactionEngine;
+  ) {}
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
@@ -189,6 +184,30 @@ export class WorkOrdersService {
   ): { id: string; version?: number } {
     assertVersionMatch(current.version, expectedVersion, "Work order");
     return expectedVersion != null ? { id: current.id, version: expectedVersion } : { id: current.id };
+  }
+
+  /** Technicians and mechanics may execute only jobs assigned to their user. */
+  private async assertAssignedExecutor(workOrderId: string, tenantId: string, userId: string) {
+    const assigned = await this.prisma.workOrder.count({
+      where: {
+        id: workOrderId,
+        tenantId,
+        OR: [
+          { technicianId: userId },
+          {
+            assignees: {
+              some: {
+                assignmentStatus: { not: "REMOVED" },
+                employee: { linkedUserId: userId }
+              }
+            }
+          }
+        ]
+      }
+    });
+    if (!assigned) {
+      throw new ForbiddenException("You can only start or update jobs assigned to you.");
+    }
   }
 
   private async closeActiveLabourSessions(
@@ -1729,6 +1748,17 @@ export class WorkOrdersService {
     assertRoleCanSetStatus(actor?.role as RoleName | undefined, current.status, targetStatus, {
       emergencyCloseReason: data.emergencyCloseReason
     });
+    if (
+      actor &&
+      TECHNICIAN_EXECUTION_ROLES.has(actor.role as RoleName) &&
+      (
+        targetStatus === WorkOrderStatus.IN_PROGRESS ||
+        targetStatus === WorkOrderStatus.ON_HOLD ||
+        targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED
+      )
+    ) {
+      await this.assertAssignedExecutor(id, tenantId, actor.sub);
+    }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
       await this.enforceConfigurableApproval({
@@ -2684,7 +2714,7 @@ export class WorkOrdersService {
       throw new BadRequestException("Corrected duration must be zero or greater.");
     }
     const entry = await this.prisma.workOrderLabourEntry.findFirst({
-      where: { id: entryId, workOrderId }
+      where: { id: entryId, workOrderId, tenantId: requireTenantId(actor?.tenantId) }
     }) as
       | ({
           id: string;
@@ -3153,45 +3183,44 @@ export class WorkOrdersService {
       throw new NotFoundException("Spare part not found");
     }
 
-    if ((part.availableQuantity ?? Math.max(0, part.quantityInStock - (part.reservedQuantity ?? 0))) < data.quantity) {
-      throw new BadRequestException("Parts used in a work order cannot exceed available stock");
-    }
-
     const totalCost = data.quantity * data.unitCost;
     const issuer = this.assertActor(actor);
 
-    const issued = await this.stockEngine.issue({
-      actor,
-      partId: data.partId,
-      quantity: data.quantity,
-      workOrderId: workOrder.id,
-      vehicleId: workOrder.vehicleId ?? undefined,
-      notes: "Deducted via work order add-part",
-      reason: data.overrideReason?.trim() || data.reason?.trim(),
-      sourceType: "WORK_ORDER",
-      sourceDocument: workOrder.woNumber,
-      sourceLineKey: `wo-add-part:${workOrder.id}:${data.partId}`
-    });
-
-    const createdPart = await this.prisma.workOrderPart.create({
-      data: {
-        tenantId,
-        workOrderId: id,
-        partId: data.partId,
-        quantity: data.quantity,
-        unitCost: data.unitCost,
-        totalCost,
-        lineStatus: "ISSUED",
-        requestedQuantity: data.quantity,
-        approvedQuantity: data.quantity,
-        issuedQuantity: data.quantity,
-        usedQuantity: 0,
-        returnedQuantity: 0,
-        requestedById: issuer.sub,
-        approvedById: null,
-        issuedById: issuer.sub,
-        issueReason: data.overrideReason?.trim() || data.reason?.trim() || null
-      }
+    const createdPart = await this.prisma.$transaction(async (tx) => {
+      const line = await tx.workOrderPart.create({
+        data: {
+          tenantId,
+          workOrderId: id,
+          partId: data.partId,
+          quantity: data.quantity,
+          unitCost: data.unitCost,
+          totalCost,
+          lineStatus: "ISSUED",
+          requestedQuantity: data.quantity,
+          approvedQuantity: data.quantity,
+          issuedQuantity: data.quantity,
+          usedQuantity: 0,
+          returnedQuantity: 0,
+          requestedById: issuer.sub,
+          approvedById: null,
+          issuedById: issuer.sub,
+          issueReason: data.overrideReason?.trim() || data.reason?.trim() || null
+        }
+      });
+      await tx.domainEventOutbox.create({
+        data: buildWorkOrderPartConsumptionOutbox({
+          tenantId,
+          issueId: line.id,
+          workOrderId: id,
+          partRequestId: line.id,
+          partId: data.partId,
+          erpCode: part.erpCode ?? null,
+          quantity: data.quantity,
+          unitCost: data.unitCost,
+          source: "DIRECT_ADD"
+        })
+      });
+      return line;
     });
 
     await this.recordAudit({
@@ -3199,7 +3228,7 @@ export class WorkOrdersService {
       entityId: createdPart.id,
       action: AuditAction.UPDATE,
       actor,
-      reason: "Stock issued from direct work-order part add",
+      reason: "Work-order consumption recorded; Bileeta quantity left for ERP sync",
       metadata: {
         workOrderId: workOrder.id,
         partId: data.partId,
@@ -3209,7 +3238,9 @@ export class WorkOrdersService {
         event: FRAUD_CONTROL_ENABLED ? FRAUD_AUDIT_EVENTS.PARTS_ISSUE_OVERRIDE : "parts_issued_against_work_order",
         overrideFlag: FRAUD_CONTROL_ENABLED,
         source: "work_orders.addPart",
-        movementId: issued.movement.id
+        stockQuantityOwner: "BILEETA",
+        quantityInStockMutated: false,
+        erpReconciliationStatus: "PENDING"
       }
     });
 
@@ -3748,34 +3779,25 @@ export class WorkOrdersService {
       throw new BadRequestException("Issue quantity cannot exceed remaining approved quantity");
     }
 
+    const tenantId = request.tenantId ?? this.resolveTenantId(actor);
     const line = await this.prisma.workOrderPart.findFirst({
-      where: { partRequestId: request.id, tenantId: request.tenantId ?? this.resolveTenantId(actor) }
+      where: { partRequestId: request.id, tenantId }
     });
     const consumeReservation = (line?.reservedQuantity ?? 0) >= issueQuantity;
-    const available = request.part.availableQuantity ?? Math.max(0, request.part.quantityInStock - (request.part.reservedQuantity ?? 0));
-    if (!consumeReservation && available < issueQuantity) {
-      throw new BadRequestException("Insufficient available stock for this issue request");
-    }
-    if (consumeReservation && (request.part.reservedQuantity ?? 0) < issueQuantity) {
-      throw new BadRequestException("Insufficient reserved stock for this issue request");
-    }
+    const unitCost = Number(request.unitCostSnapshot ?? request.part.unitCost ?? 0);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await this.stockEngine.issue(
-        {
-          actor,
-          partId: request.partId,
-          quantity: issueQuantity,
-          workOrderId: request.workOrderId,
-          vehicleId: request.workOrder?.vehicleId ?? undefined,
-          notes: data.notes?.trim() || "Issued via approved part request",
-          consumeReservation,
-          sourceType: "WORK_ORDER",
-          sourceDocument: `part-request:${request.id}`,
-          sourceLineKey: `wo-issue:${request.id}:${issueQuantity}:${request.issuedQuantity}`
-        },
-        tx
-      );
+      const fresh = await tx.partRequest.findFirst({
+        where: { id: request.id, tenantId, workOrderId }
+      });
+      if (!fresh) {
+        throw new NotFoundException("Part request not found");
+      }
+      const freshApproved = fresh.approvedQuantity ?? fresh.requestedQuantity;
+      const freshRemaining = freshApproved - fresh.issuedQuantity;
+      if (issueQuantity > freshRemaining) {
+        throw new ConflictException("This quantity was already issued against the part request");
+      }
 
       if (consumeReservation && line) {
         await tx.workOrderPart.update({
@@ -3786,17 +3808,36 @@ export class WorkOrdersService {
 
       const issue = await tx.partIssue.create({
         data: {
-          tenantId: request.tenantId,
+          tenantId,
           partRequestId: request.id,
           workOrderId: request.workOrderId,
           partId: request.partId,
           issuedById: issuer.sub,
           quantity: issueQuantity,
+          unitCostSnapshot: unitCost,
           notes: data.notes?.trim() || null
         }
       });
+      await tx.partIssue.update({
+        where: { id: issue.id },
+        data: { erpIssueReference: `PENDING:part-issue:${issue.id}` }
+      });
 
-      const issuedQuantity = request.issuedQuantity + issueQuantity;
+      await tx.domainEventOutbox.create({
+        data: buildWorkOrderPartConsumptionOutbox({
+          tenantId,
+          issueId: issue.id,
+          workOrderId: request.workOrderId,
+          partRequestId: request.id,
+          partId: request.partId,
+          erpCode: request.part.erpCode ?? null,
+          quantity: issueQuantity,
+          unitCost,
+          issuedById: issuer.sub
+        })
+      });
+
+      const issuedQuantity = fresh.issuedQuantity + issueQuantity;
       await tx.partRequest.update({
         where: { id: request.id },
         data: {
@@ -3831,14 +3872,18 @@ export class WorkOrdersService {
         workOrderId: request.workOrderId,
         partId: request.partId,
         quantity: issueQuantity,
-        remainingAfterIssue: remaining - issueQuantity
+        remainingAfterIssue: remaining - issueQuantity,
+        stockQuantityOwner: "BILEETA",
+        quantityInStockMutated: false,
+        erpReconciliationStatus: "PENDING",
+        erpIssueReference: `PENDING:part-issue:${result.id}`
       }
     });
 
     await this.notificationsService.createNotification({
       userId: request.requestedById,
       title: "Part issue completed",
-      message: "Stock has been issued against your approved request.",
+      message: "Part usage was recorded. ERP stock reconciliation is pending and the mirrored quantity was not changed.",
       type: NotificationType.PART_ISSUE_COMPLETED,
       priority: NotificationPriority.INFO,
       referenceId: request.id,
@@ -4228,62 +4273,20 @@ export class WorkOrdersService {
   }
 
   private async reserveApprovedPartRequest(workOrderId: string, requestId: string, quantity: number, actor?: Actor) {
-    const request = await this.getPartRequest(workOrderId, requestId, actor);
-    try {
-      await this.stockEngine.reserve({
-        actor,
-        partId: request.partId,
-        quantity,
-        workOrderId,
-        vehicleId: request.workOrder?.vehicleId ?? undefined,
-        sourceType: "WO_RESERVATION",
-        sourceDocument: request.id,
-        sourceLineKey: `wo-res:${request.id}`,
-        idempotencyKey: `wo-res:${request.id}`
-      });
-      await this.prisma.workOrderPart.updateMany({
-        where: { partRequestId: requestId },
-        data: { reservedQuantity: quantity }
-      });
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        await this.prisma.workOrderPart.updateMany({
-          where: { partRequestId: requestId },
-          data: { procurementRequired: true, reservedQuantity: 0 }
-        });
-        await this.recordAudit({
-          entity: "PART_REQUEST",
-          entityId: requestId,
-          action: AuditAction.UPDATE,
-          actor,
-          reason: "Reservation skipped — insufficient available stock",
-          metadata: {
-            event: "reservation_failed_procurement_required",
-            quantity,
-            fulfillment:
-              "PART_REQUEST_APPROVED + STOCK_NOT_RESERVED + PROCUREMENT_REQUIRED — part is not physically available"
-          }
-        });
-        return;
-      }
-      throw error;
-    }
+    await this.getPartRequest(workOrderId, requestId, actor);
+    await this.prisma.workOrderPart.updateMany({
+      where: { partRequestId: requestId, tenantId: this.resolveTenantId(actor) },
+      data: { reservedQuantity: quantity }
+    });
   }
 
   private async releaseReservedPartRequest(requestId: string, actor?: Actor) {
-    const line = await this.prisma.workOrderPart.findFirst({ where: { partRequestId: requestId } });
+    const line = await this.prisma.workOrderPart.findFirst({
+      where: { partRequestId: requestId, tenantId: this.resolveTenantId(actor) }
+    });
     if (!line || line.reservedQuantity <= 0) {
       return;
     }
-    await this.stockEngine.releaseReservation({
-      actor,
-      partId: line.partId,
-      quantity: line.reservedQuantity,
-      workOrderId: line.workOrderId,
-      sourceType: "WO_RESERVATION_RELEASE",
-      sourceLineKey: `wo-res-release:${requestId}`,
-      idempotencyKey: `wo-res-release:${requestId}`
-    });
     await this.prisma.workOrderPart.update({
       where: { id: line.id },
       data: { reservedQuantity: 0 }

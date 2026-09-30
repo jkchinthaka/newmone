@@ -90,7 +90,6 @@ export const DEPENDENCY_ORDER: string[] = [
   "VendorContract",
   "VendorContractAsset",
   "VendorContractSite",
-  "RepairWarranty",
   "VehicleTyre",
   "VehicleBattery",
   "VehicleAssignment",

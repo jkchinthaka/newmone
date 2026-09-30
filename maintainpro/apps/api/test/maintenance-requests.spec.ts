@@ -153,7 +153,7 @@ describe("MaintenanceRequestsService", () => {
     functionalLocation: { findFirst: jest.fn() },
     department: { findFirst: jest.fn() },
     assetDomain: { findFirst: jest.fn() },
-    workOrder: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    workOrder: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     evidenceAttachment: {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn(),
@@ -205,7 +205,9 @@ describe("MaintenanceRequestsService", () => {
       functionalLocationId: "fl-1",
       departmentId: null,
       domainId: null,
-      tenantId: tenantA
+      tenantId: tenantA,
+      status: "ACTIVE",
+      isActive: true
     });
     prisma.site.findFirst.mockResolvedValue({ id: "site-1", code: "S1", name: "Plant" });
   }
@@ -307,7 +309,9 @@ describe("MaintenanceRequestsService", () => {
       departmentId: null,
       domainId: null,
       tenantId: tenantA,
-      serialNumber: null
+      serialNumber: null,
+      status: "ACTIVE",
+      isActive: true
     });
     prisma.site.findFirst.mockResolvedValue({ id: "site-1", code: "S1", name: "Plant" });
     prisma.maintenanceRequest.findFirst

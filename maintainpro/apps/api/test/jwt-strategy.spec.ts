@@ -26,7 +26,10 @@ describe("JwtStrategy validate()", () => {
     const strategy = buildStrategy(findUnique);
 
     await expect(strategy.validate(payload)).resolves.toEqual(payload);
-    expect(findUnique).toHaveBeenCalledWith({ where: { id: payload.sub }, select: { isActive: true } });
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: payload.sub },
+      select: { isActive: true, lockedUntil: true }
+    });
   });
 
   it("rejects when the user is deactivated", async () => {

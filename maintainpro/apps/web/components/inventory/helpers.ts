@@ -80,9 +80,6 @@ export function stockProgress(part: InventoryPart): number {
 }
 
 export function availableOf(part: InventoryPart): number {
-  if (typeof part.availableQuantity === "number") {
-    return part.availableQuantity;
-  }
   return Math.max(0, part.quantityInStock - (part.reservedQuantity ?? 0));
 }
 
@@ -253,7 +250,7 @@ export function toExportRows(parts: InventoryPart[]) {
       Name: part.name,
       Category: part.category,
       Supplier: part.supplier?.name ?? "-",
-      "Current Stock": part.quantityInStock,
+      "ERP Snapshot": part.quantityInStock,
       "Minimum Stock": part.minimumStock,
       "Reorder Point": part.reorderPoint,
       Status: status,

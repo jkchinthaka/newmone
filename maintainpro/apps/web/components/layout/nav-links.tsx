@@ -57,7 +57,6 @@ import {
 
 import {
   FULL_NAVIGATION_ROLES,
-  getDefaultFavoriteNavIds,
   getNavigationGroups,
   isNavItemActive,
   type NavBadgeKey,
@@ -65,8 +64,11 @@ import {
   type NavigationItem
 } from "@/lib/navigation";
 import {
+  effectiveFavoriteIds,
+  NAV_FAVORITES_CHANGED_EVENT,
   readCollapsedNavGroups,
-  readFavoriteNavIds,
+  readFavoritePreference,
+  hydrateFavoriteIds,
   readFullNavigationMode,
   toggleFavoriteNavId,
   writeCollapsedNavGroups,
@@ -131,68 +133,68 @@ const GROUP_SURFACE: Record<
 > = {
   primary: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   secondary: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   workspace: {
     container: "rounded-xl border border-brand-200 bg-brand-50/60 p-2",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-700",
-    active: "bg-brand-600 text-white shadow-sm",
-    idle: "text-brand-900 hover:bg-brand-100"
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-brand-700",
+    active: "bg-brand-100 font-semibold text-brand-900",
+    idle: "text-brand-900 hover:bg-brand-50"
   },
   core: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   operations: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   compliance: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   reports: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   admin: {
     container: "",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500",
-    active: "bg-brand-100 text-brand-800 ring-1 ring-brand-200",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
   cleaning: {
     container: "rounded-xl border border-emerald-200 bg-emerald-50 p-2",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700",
-    active: "bg-emerald-600 text-white shadow-sm",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700",
+    active: "bg-emerald-100 font-semibold text-emerald-900",
     idle: "text-emerald-800 hover:bg-emerald-100"
   },
   farm: {
     container: "rounded-xl border border-amber-200 bg-amber-50 p-2",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700",
-    active: "bg-amber-600 text-white shadow-sm",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-amber-700",
+    active: "bg-amber-100 font-semibold text-amber-900",
     idle: "text-amber-900 hover:bg-amber-100"
   },
   legacy: {
     container: "rounded-xl border border-slate-300 bg-slate-50 p-2",
-    heading: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600",
-    active: "bg-slate-700 text-white shadow-sm",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-600",
+    active: "bg-slate-200 font-semibold text-slate-900",
     idle: "text-slate-700 hover:bg-slate-200"
   }
 };
@@ -200,6 +202,7 @@ const GROUP_SURFACE: Record<
 type NavLinksProps = {
   onNavigate?: () => void;
   className?: string;
+  compact?: boolean;
 };
 
 function NavBadge({ count }: { count: number }) {
@@ -222,7 +225,8 @@ function NavItemLink({
   badgeCount,
   isFavorite,
   onToggleFavorite,
-  onNavigate
+  onNavigate,
+  compact = false
 }: {
   item: NavigationItem;
   active: boolean;
@@ -232,6 +236,7 @@ function NavItemLink({
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onNavigate?: () => void;
+  compact?: boolean;
 }) {
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
 
@@ -241,28 +246,30 @@ function NavItemLink({
         href={item.href as Route}
         onClick={onNavigate}
         aria-current={toNavAriaCurrent(active)}
-        title={item.description}
-        className={`flex min-h-11 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
-          active ? activeClass : idleClass
-        }`}
+        title={item.label}
+        className={`flex min-h-11 flex-1 items-center gap-2.5 rounded-lg px-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+          compact ? "justify-center px-0" : ""
+        } ${active ? activeClass : idleClass}`}
       >
-        <Icon aria-hidden size={16} />
-        <span className="truncate">{item.label}</span>
-        {badgeCount != null ? <NavBadge count={badgeCount} /> : null}
+        <Icon aria-hidden size={18} />
+        {compact ? <span className="sr-only">{item.label}</span> : <span className="truncate">{item.label}</span>}
+        {!compact && badgeCount != null ? <NavBadge count={badgeCount} /> : null}
       </Link>
-      <button
-        type="button"
-        onClick={onToggleFavorite}
-        className="rounded-md p-1 text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-brand-700 group-hover:opacity-100 focus-visible:opacity-100"
-        aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
-      >
-        {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
-      </button>
+      {compact ? null : (
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-100 transition hover:bg-slate-100 hover:text-brand-700 focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100"
+          aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
+        >
+          {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
+        </button>
+      )}
     </div>
   );
 }
 
-export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
+export function NavLinks({ onNavigate, className = "", compact = false }: NavLinksProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
@@ -274,15 +281,20 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
 
   useEffect(() => {
     setFullNavigation(readFullNavigationMode());
-    setFavoriteIds(readFavoriteNavIds(user.id));
+    setFavoriteIds(hydrateFavoriteIds(readFavoritePreference(user.id)));
     setCollapsedGroups(readCollapsedNavGroups(user.id));
-  }, [user.id]);
 
-  useEffect(() => {
-    if (favoriteIds.length === 0 && user.id) {
-      setFavoriteIds(getDefaultFavoriteNavIds(roleName));
-    }
-  }, [favoriteIds.length, roleName, user.id]);
+    const onFavoritesChanged = (event: Event) => {
+      const changedUserId = (event as CustomEvent<string | null>).detail;
+      if (changedUserId !== (user.id ?? null)) {
+        return;
+      }
+      setFavoriteIds(hydrateFavoriteIds(readFavoritePreference(user.id)));
+    };
+
+    window.addEventListener(NAV_FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+    return () => window.removeEventListener(NAV_FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+  }, [user.id]);
 
   const groups = useMemo(
     () =>
@@ -295,13 +307,15 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
   );
 
   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);
-  const favoriteItems = useMemo(
-    () =>
-      favoriteIds
-        .map((id) => allItems.find((item) => item.id === id))
-        .filter((item): item is NavigationItem => Boolean(item)),
-    [allItems, favoriteIds]
-  );
+  const favoriteItems = useMemo(() => {
+    const visible = new Map(allItems.map((item) => [item.id, item]));
+    return effectiveFavoriteIds(
+      favoriteIds,
+      allItems.map((item) => item.id)
+    )
+      .map((id) => visible.get(id))
+      .filter((item): item is NavigationItem => Boolean(item));
+  }, [allItems, favoriteIds]);
 
   const showBadgeFetch = allItems.some((item) => item.badgeKey);
   const { badges } = useNavBadges(showBadgeFetch, roleName);
@@ -333,27 +347,30 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
             setFullNavigation(next);
             writeFullNavigationMode(next);
           }}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+          className={`min-h-11 rounded-lg border border-slate-200 bg-white text-left text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${compact ? "flex w-11 items-center justify-center px-0" : "w-full px-3 py-2"}`}
+          aria-pressed={fullNavigation}
+          aria-label={fullNavigation ? "Simplified navigation" : "Full navigation mode"}
         >
-          {fullNavigation ? "Simplified navigation" : "Full navigation mode"}
+          {compact ? <Layers aria-hidden size={16} /> : fullNavigation ? "Simplified navigation" : "Full navigation mode"}
         </button>
       ) : null}
 
       {favoriteItems.length > 0 ? (
         <div>
-          <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Favorites</p>
+          <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 ${compact ? "sr-only" : ""}`}>Favorites</p>
           <div className="mt-1 space-y-1">
             {favoriteItems.map((item) => (
               <NavItemLink
                 key={`favorite-${item.id}`}
                 item={item}
                 active={isNavItemActive(pathname, item, search)}
-                activeClass="bg-amber-100 text-amber-900 ring-1 ring-amber-200"
+                activeClass="bg-accent-100 font-semibold text-accent-700"
                 idleClass="text-slate-700 hover:bg-amber-50"
                 badgeCount={item.badgeKey ? badges[item.badgeKey as NavBadgeKey] : undefined}
                 isFavorite
                 onToggleFavorite={() => toggleFavorite(item.id)}
                 onNavigate={onNavigate}
+                compact={compact}
               />
             ))}
           </div>
@@ -362,19 +379,23 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
 
       {groups.map((group) => {
         const surface = GROUP_SURFACE[group.category];
-        const collapsed = collapsedGroups[group.category] ?? group.category !== "workspace";
+        const collapsed = compact ? false : collapsedGroups[group.category] ?? group.category !== "workspace";
 
         return (
-          <div key={group.category} className={surface.container}>
+          <div key={group.category} className={compact ? "" : surface.container}>
+            {compact ? (
+              <h2 className="sr-only">{group.label}</h2>
+            ) : (
             <button
               type="button"
               onClick={() => toggleGroup(group.category)}
-              className={`flex w-full items-center justify-between px-2 pt-1 ${surface.heading}`}
+              className={`flex min-h-11 w-full items-center justify-between px-2 ${surface.heading}`}
               aria-expanded={!collapsed}
             >
               <span>{group.label}</span>
-              <ChevronDown size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
+              <ChevronDown aria-hidden size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
             </button>
+            )}
             {!collapsed ? (
               <div className="mt-1 space-y-1">
                 {group.items.map((item) => (
@@ -388,6 +409,7 @@ export function NavLinks({ onNavigate, className = "" }: NavLinksProps) {
                     isFavorite={favoriteIds.includes(item.id)}
                     onToggleFavorite={() => toggleFavorite(item.id)}
                     onNavigate={onNavigate}
+                compact={compact}
                   />
                 ))}
               </div>

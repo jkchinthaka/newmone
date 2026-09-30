@@ -266,12 +266,12 @@ export function MaintenanceDashboardPage() {
 
       <Section title="Workload" description="Open load by lifecycle stage.">
         <div className="grid gap-3 grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <KpiCard label="Open maintenance" value={d.openJobs} href="/maintenance/jobs" />
+          <KpiCard label="Open maintenance" value={d.openJobs} href="/work-orders?queue=open-load" />
           <KpiCard label="Unplanned" value={d.unplannedJobs} href="/work-orders?status=OPEN" />
           <KpiCard
             label="Unassigned"
             value={d.unassignedJobs}
-            href="/work-orders?smartView=action-required"
+            href="/work-orders?queue=unassigned"
             tone={d.unassignedJobs > 0 ? "warn" : "default"}
           />
           <KpiCard
@@ -288,7 +288,7 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Verification required"
             value={d.verificationRequired}
-            href="/work-orders?smartView=supervisor-verification"
+            href="/work-orders?queue=technician-completed"
             tone={d.verificationRequired > 0 ? "warn" : "default"}
           />
           <KpiCard
@@ -314,10 +314,10 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Machinery"
             value={d.machineryJobs}
-            href="/maintenance/jobs/machinery"
+            href="/maintenance/jobs/machinery?queue=open-load"
           />
-          <KpiCard label="Service" value={d.serviceJobs} href="/maintenance/jobs/service" />
-          <KpiCard label="Vehicle" value={d.vehicleJobs} href="/maintenance/jobs/vehicle" />
+          <KpiCard label="Service" value={d.serviceJobs} href="/maintenance/jobs/service?queue=open-load" />
+          <KpiCard label="Vehicle" value={d.vehicleJobs} href="/maintenance/jobs/vehicle?queue=open-load" />
         </div>
       </Section>
 
@@ -326,13 +326,13 @@ export function MaintenanceDashboardPage() {
           <KpiCard
             label="Requests awaiting action"
             value={d.requestsOpen}
-            href="/requests"
+            href="/requests?stage=open"
             tone={d.requestsOpen > 0 ? "warn" : "default"}
           />
           <KpiCard
             label="PM due soon (7d)"
             value={d.pmDueSoon}
-            href="/maintenance/plans"
+            href="/maintenance/plans?view=due"
             tone={d.pmDueSoon > 0 ? "warn" : "default"}
           />
           <KpiCard

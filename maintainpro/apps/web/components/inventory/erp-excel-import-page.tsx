@@ -189,7 +189,7 @@ export function ErpExcelImportPage() {
       setPreview(data.preview);
       setResultMessage(data.message);
       setStep("done");
-      toast.success(data.reused ? "Returned existing apply result" : "Stock synchronized");
+      toast.success(data.reused ? "Returned existing apply result" : "ERP snapshot updated");
       void refreshHistory();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Apply failed");
@@ -205,8 +205,7 @@ export function ErpExcelImportPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">ERP Stock Import</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Upload the daily ERP Excel stock balance, map columns, preview differences, then synchronize
-            absolute quantities into MaintainPro.
+            Upload the Bileeta Excel stock snapshot, match ERP item codes, preview the previous mirror against the incoming quantity, then confirm. This is the way the ERP snapshot quantity is updated. The live Bileeta API is not connected.
           </p>
         </div>
         <Link href="/inventory" className="text-sm font-medium text-brand-700 hover:underline">

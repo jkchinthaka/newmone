@@ -96,7 +96,7 @@ export function buildAttentionQueues(input: {
     {
       key: "unassigned",
       label: "Unassigned",
-      href: "/work-orders?smartView=action-required",
+      href: "/work-orders?queue=unassigned",
       count: input.unassigned,
       tone: toneForCount(input.unassigned)
     },

@@ -41,8 +41,8 @@ else pass("UAT-SAFE-009", "synthetic evidence classed");
 if (!/model GoLiveDecision/.test(sch) || !/decisionStage/.test(sch) || !/GoLiveDecisionStage/.test(readFileSync(path.join(root, "apps/api/src/database/prisma-enums.ts"), "utf8"))) {
   fail("UAT-SAFE-010", "decision stage enum missing");
 } else pass("UAT-SAFE-010", "decision stage enum present");
-if (!/model UatScenarioExecution/.test(sch)) fail("UAT-SAFE-011", "UAT execution model missing");
-else pass("UAT-SAFE-011", "UAT execution model present");
+if (!/FORMAL_BUSINESS_UAT = "FORMAL_BUSINESS_UAT"/.test(readFileSync(path.join(root, "apps/api/src/database/prisma-enums.ts"), "utf8"))) fail("UAT-SAFE-011", "formal UAT evidence class missing");
+else pass("UAT-SAFE-011", "formal UAT evidence class present");
 
 const g = existsSync(gate) ? readFileSync(gate, "utf8") : "";
 if (/recommended_decision=GO(?!_WITH)/.test(g) && !/DELAYED|NO_GO/.test(g)) {

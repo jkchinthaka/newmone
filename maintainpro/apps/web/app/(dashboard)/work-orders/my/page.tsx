@@ -81,6 +81,7 @@ export default function MyJobsPage() {
   const [offline, setOffline] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
+  const [capped, setCapped] = useState(false);
 
   const writeQuery = (next: Record<string, string | null>, resetPage = true) => {
     const query = new URLSearchParams(params.toString());
@@ -117,12 +118,13 @@ export default function MyJobsPage() {
         }
       });
       const payload = response.data as {
-        data?: { items?: MyJob[]; counts?: Counts };
+        data?: { items?: MyJob[]; counts?: Counts; capped?: boolean };
         meta?: { total?: number };
       };
       setItems(payload.data?.items ?? []);
       setCounts(payload.data?.counts ?? null);
       setTotal(payload.meta?.total ?? payload.data?.items?.length ?? 0);
+      setCapped(Boolean(payload.data?.capped));
     } catch (err) {
       const statusCode = (err as { response?: { status?: number } })?.response?.status;
       if (statusCode === 401 || statusCode === 403) {
@@ -130,6 +132,7 @@ export default function MyJobsPage() {
         setItems([]);
         setCounts(null);
       }
+      setCapped(false);
       setError(getApiErrorMessage(err, "We couldn't load your jobs."));
     } finally {
       setLoading(false);
@@ -263,7 +266,7 @@ export default function MyJobsPage() {
         ) : null}
       </div>
 
-      {offline ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Offline. This list may be incomplete and changes are not saved.</p> : null}
+      {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
       {forbidden ? <ErrorState title="You cannot view assigned jobs." description={error || "Your role does not include this workspace."} onRetry={() => void refresh()} /> : null}
       {!forbidden && error ? <ErrorState title="We couldn't load your jobs." description={error} onRetry={() => void refresh()} /> : null}
@@ -314,7 +317,7 @@ export default function MyJobsPage() {
             {items.map((job) => (
               <tr key={job.id} className="border-b last:border-0">
                 <td className="px-3 py-3">
-                  <Link className="font-medium text-brand-700 underline" href={`/work-orders?wo=${job.id}` as Route}>{job.woNumber}</Link>
+                  <Link className="font-medium text-brand-700 underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>{job.woNumber}</Link>
                   <div className="text-slate-700">{job.title}</div>
                 </td>
                 <td className="px-3 py-3">{locationLabel(job)}</td>
@@ -343,7 +346,7 @@ function JobBody({ job, starting, onStart }: { job: MyJob; starting: boolean; on
   return (
     <div>
       <div className="flex items-start justify-between gap-2">
-        <Link className="font-semibold text-brand-700 underline" href={`/work-orders?wo=${job.id}` as Route}>{job.woNumber}</Link>
+        <Link className="font-semibold text-brand-700 underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>{job.woNumber}</Link>
         <span className="text-xs font-medium uppercase text-slate-600">{job.priority}</span>
       </div>
       <p className="mt-1 text-sm text-slate-800">{job.title}</p>
@@ -364,7 +367,7 @@ function JobAction({ job, starting, onStart }: { job: MyJob; starting: boolean; 
   }
   return (
     <div>
-      <Link className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline" href={`/work-orders?wo=${job.id}` as Route}>
+      <Link className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>
         {job.nextAction.label}
       </Link>
       {job.nextAction.reason ? <p className="mt-1 text-xs text-slate-600">{job.nextAction.reason}</p> : null}

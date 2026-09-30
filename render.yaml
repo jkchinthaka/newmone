@@ -8,7 +8,8 @@ services:
     runtime: node
     rootDir: maintainpro
     plan: free
-    autoDeploy: true
+    # Production deploys stay manual. autoDeploy true would publish the API on every main push.
+    autoDeploy: false
     buildCommand: npm install && npm run render:build
     startCommand: npm run render:start
     healthCheckPath: /health

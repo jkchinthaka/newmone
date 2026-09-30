@@ -89,18 +89,6 @@ export function canCreateWorkOrder(
   return resolvedPermissions.includes(WORK_ORDERS_MANAGE_PERMISSION);
 }
 
-/**
- * Mirrors @Roles on GET /fleet/live-map. Note the sibling routes /fleet/alerts and
- * /fleet/geofences additionally allow MANAGER, so a manager can open the fleet page but
- * cannot read live positions — requesting them anyway only yields 403.
- */
-export const FLEET_LIVE_MAP_ROLES: DashboardRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "ASSET_MANAGER",
-  "SUPERVISOR"
-];
-
 type StoredUserRole = {
   name?: string | null;
   permissions?: Array<{ key?: string | null } | string>;
@@ -182,14 +170,6 @@ export function getStoredPermissions(): string[] {
 
 export function hasStoredPermission(permissionKey: string): boolean {
   return getStoredPermissions().includes(permissionKey);
-}
-
-/**
- * Can this session read live fleet positions without being rejected by the API?
- * Mirrors `@Roles` on GET /fleet/live-map (MANAGER is intentionally excluded).
- */
-export function canReadFleetLiveMap(): boolean {
-  return FLEET_LIVE_MAP_ROLES.includes(getStoredRole());
 }
 
 /**

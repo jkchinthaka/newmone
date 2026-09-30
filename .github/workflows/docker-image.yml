@@ -1,18 +1,21 @@
 name: Docker Image CI
 
+# Retired as an automatic job. API and web images are built by Docker Build Check
+# and Release Validation. This file stays so the old workflow name is not deleted
+# silently. It does not deploy.
+
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-
-  build:
-
+  not-a-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - name: Production deploy is not enabled
+        run: |
+          echo "PRODUCTION_CD=NOT_ENABLED"
+          echo "This manual job does not build or publish an image and does not deploy."
+          echo "Use Docker Build Check for image builds."

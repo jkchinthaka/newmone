@@ -248,6 +248,47 @@ test("filterActionCenterSections: item-level match keeps only matching items, an
   assert.ok(filtered.some((s) => s.items.some((i) => i.id === "compliance")));
 });
 
+test("buildActionCenterSections: overdue and high-priority cards open the matching queues", () => {
+  const snapshot = emptySnapshot({
+    variant: "admin",
+    roleName: "ADMIN",
+    connections: {
+      workOrders: true,
+      inventory: false,
+      systemHealth: false,
+      invitations: false,
+      facilityIssues: true
+    },
+    workOrders: { open: 19, inProgress: 2, overdue: 5, highPriority: 2 },
+    facilityIssues: { open: 0, inProgress: 0, critical: 0 }
+  });
+  const sections = buildActionCenterSections(snapshot);
+  const work = sections.find((section) => section.id === "work-orders");
+  assert.equal(work?.items.find((item) => item.id === "overdue-work")?.href, "/work-orders?queue=overdue");
+  assert.equal(work?.items.find((item) => item.id === "priority-work")?.href, "/work-orders?queue=high-priority");
+  const clear = sections.find((section) => section.id === "facility")?.items.find((item) => item.id === "facility-issues-clear");
+  assert.equal(clear?.href, "/facilities/reports");
+  assert.equal(clear?.metricValue, "0");
+});
+
+test("buildActionCenterSections: a pending readiness check does not look like a failure", () => {
+  const snapshot = emptySnapshot({
+    variant: "admin",
+    roleName: "ADMIN",
+    pending: { systemHealth: true },
+    connections: {
+      workOrders: true,
+      inventory: false,
+      systemHealth: false,
+      invitations: false,
+      facilityIssues: false
+    }
+  });
+  const health = buildActionCenterSections(snapshot).find((section) => section.id === "system-health");
+  assert.equal(health?.emptyTitle, "Checking readiness");
+  assert.equal(health?.items.length, 0);
+});
+
 test("filterActionCenterSections: query matching nothing returns an empty array", () => {
   const snapshot = emptySnapshot({ variant: "admin", roleName: "ADMIN" });
   const sections = buildActionCenterSections(snapshot);

@@ -184,7 +184,8 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
       },
       pmAutoGeneration: {
         findUnique: jest.fn(),
-        create: jest.fn()
+        create: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: "gen-1" })
       },
       workOrder: {
         findFirst: jest.fn(),

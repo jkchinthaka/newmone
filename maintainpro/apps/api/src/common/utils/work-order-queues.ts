@@ -1,4 +1,4 @@
-import { RoleName, WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
+import { Prisma, RoleName, WorkOrderPartLineStatus, WorkOrderStatus, WorkOrderVerificationStatus } from "@prisma/client";
 
 import type { RiskSeverity } from "./maintenance-risk-score";
 import { TERMINAL_WORK_ORDER_STATUSES } from "./work-order-governance";
@@ -16,6 +16,9 @@ export const WORK_ORDER_QUEUE_KEYS = [
   "supervisor-verification",
   "rework-required",
   "overdue",
+  "unassigned",
+  "open-load",
+  "high-priority",
   "high-risk",
   "finance-vendor-pending",
   "triage",
@@ -39,6 +42,9 @@ export const WORK_ORDER_QUEUE_LABELS: Record<WorkOrderQueueKey, string> = {
   "supervisor-verification": "Supervisor Verification",
   "rework-required": "Rework Required",
   overdue: "Overdue",
+  unassigned: "Unassigned",
+  "open-load": "Open Load",
+  "high-priority": "High Priority",
   "high-risk": "High Risk",
   "finance-vendor-pending": "Finance / Vendor Pending",
   triage: "Triage / Not Sure",
@@ -127,13 +133,13 @@ export function roleCanAccessQueue(role: RoleName | string | undefined, queue: W
   const r = role as RoleName;
   if (ADMIN_ROLES.has(r) || MANAGER_ROLES.has(r) || SUPERVISOR_ROLES.has(r)) return true;
   if (INVENTORY_ROLES.has(r)) {
-    return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress"].includes(queue);
+    return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress", "unassigned", "open-load"].includes(queue);
   }
   if (FINANCE_ROLES.has(r)) {
     return ["finance-vendor-pending", "high-risk", "action-required", "completed", "cancelled"].includes(queue);
   }
   if (TECHNICIAN_ROLES.has(r)) {
-    return !["all", "finance-vendor-pending", "supervisor-verification"].includes(queue);
+    return !["all", "finance-vendor-pending", "supervisor-verification", "high-priority"].includes(queue);
   }
   return queue !== "all";
 }
@@ -179,6 +185,42 @@ export function severityWeight(severity: RiskSeverity | undefined): number {
     default:
       return 1;
   }
+}
+
+/** OPEN or PLANNED work with no technician. Assignment moves a job to ASSIGNED. */
+export function unassignedQueueWhere(): Prisma.WorkOrderWhereInput {
+  return {
+    status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED] },
+    technicianId: null
+  };
+}
+
+/** Same open-status set as the maintenance dashboard open-load cards. */
+export function openLoadQueueWhere(statuses: WorkOrderStatus[]): Prisma.WorkOrderWhereInput {
+  return { status: { in: statuses } };
+}
+export function waitingPartsQueueWhere(): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      { status: { notIn: TERMINAL_STATUSES } },
+      {
+        OR: [
+          { parts: { some: { lineStatus: WorkOrderPartLineStatus.REQUESTED } } },
+          { parts: { some: { pendingReturnQuantity: { gt: 0 } } } },
+          {
+            parts: {
+              some: {
+                lineStatus: WorkOrderPartLineStatus.APPROVED,
+                issuedQuantity: 0,
+                requestedQuantity: { gt: 0 }
+              }
+            }
+          },
+          { partIssues: { some: {} } }
+        ]
+      }
+    ]
+  };
 }
 
 export function isSupervisorVerificationPending(status: WorkOrderStatus, verificationStatus?: WorkOrderVerificationStatus | null) {

@@ -108,7 +108,7 @@ function NewRequestForm() {
     setSearching(true);
     try {
       const res = await apiClient.get("/assets", {
-        params: { search: query, limit: 10 }
+        params: { search: query, limit: 10, selectableForWork: true }
       });
       const data = (res.data as { data?: AssetHit[] }).data ?? [];
       setAssetHits(Array.isArray(data) ? data : []);

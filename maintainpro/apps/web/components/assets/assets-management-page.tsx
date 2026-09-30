@@ -1355,15 +1355,6 @@ export default function AssetsManagementPage() {
                 </div>
               )}
 
-              {canImport && (
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                >
-                  <FileUp size={16} /> Import
-                </button>
-              )}
-
               <BulkImportButton
                 entity="asset"
                 entityLabel="Assets"
@@ -1798,22 +1789,6 @@ export default function AssetsManagementPage() {
         busy={regenerateQrMutation.isPending}
         onClose={() => setQrTarget(null)}
         onRegenerate={(assetId) => regenerateQrMutation.mutate(assetId)}
-      />
-
-      <BulkImportModal
-        open={showImportModal}
-        busy={importMutation.isPending}
-        onClose={() => setShowImportModal(false)}
-        onImport={async (items, errorCount) => {
-          const result = await importMutation.mutateAsync(items);
-          const importedCount = (result.createdCount ?? 0) + (result.updatedCount ?? 0);
-          if (errorCount > 0) {
-            toast.warning(`${importedCount} assets imported, ${errorCount} errors`);
-          } else {
-            toast.success(`${importedCount} assets imported, 0 errors`);
-          }
-          return result;
-        }}
       />
 
       <AnimatePresence>

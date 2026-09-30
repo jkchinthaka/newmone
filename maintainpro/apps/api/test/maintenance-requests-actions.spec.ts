@@ -286,6 +286,8 @@ describe("MaintenanceRequestsService permissions, concurrency and counters", () 
 
       const filter = requestStageFilter(stage);
       expect(listWhere.status).toEqual({ in: filter.statuses });
+      expect(filter.statuses).not.toContain(MaintenanceRequestStatus.CANCELLED);
+      expect(filter.statuses).not.toContain(MaintenanceRequestStatus.CLOSED);
     }
   });
 

@@ -21,8 +21,13 @@ describe("work order queues", () => {
   });
 
   it("blocks technicians from all-company queue", () => {
+    expect(roleCanAccessQueue(RoleName.TECHNICIAN, "unassigned")).toBe(true);
+    expect(roleCanAccessQueue(RoleName.TECHNICIAN, "open-load")).toBe(true);
+    expect(roleCanAccessQueue(RoleName.INVENTORY_KEEPER, "unassigned")).toBe(true);
     expect(roleCanAccessQueue(RoleName.TECHNICIAN, "all")).toBe(false);
     expect(roleCanAccessQueue(RoleName.TECHNICIAN, "my-tasks")).toBe(true);
+    expect(roleCanAccessQueue(RoleName.TECHNICIAN, "high-priority")).toBe(false);
+    expect(roleCanAccessQueue(RoleName.ADMIN, "high-priority")).toBe(true);
     expect(roleCanAccessQueue(RoleName.ADMIN, "all")).toBe(true);
   });
 

@@ -80,8 +80,8 @@ export class WorkOrdersController {
     "VIEWER",
     "FINANCE"
   )
-  async queueSummary(@Req() req: AuthedRequest) {
-    const data = await this.workOrderQueuesService.getQueueSummary(req.user);
+  async queueSummary(@Req() req: AuthedRequest, @Query("jobDomain") jobDomain?: string) {
+    const data = await this.workOrderQueuesService.getQueueSummary(req.user, jobDomain);
     return { data, message: "Work order queue summary fetched" };
   }
 

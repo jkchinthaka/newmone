@@ -228,8 +228,12 @@ async function attemptAccessTokenRefresh(): Promise<boolean> {
         }
       );
       return response?.status >= 200 && response?.status < 300;
-    } catch {
-      return false;
+    } catch (error) {
+      const code = String(
+        (error as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code ?? ""
+      ).toUpperCase();
+      // A sibling request already rotated this token and stored the new cookies.
+      return code === "REFRESH_TOKEN_ROTATED";
     }
   })().finally(() => {
     refreshInFlight = null;

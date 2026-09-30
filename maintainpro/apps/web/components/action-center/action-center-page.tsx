@@ -7,15 +7,18 @@ import { Search } from "lucide-react";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
-import { fetchActionCenterSnapshot } from "@/lib/action-center-api";
+import { fetchActionCenterSnapshot, fetchActionCenterSystemHealth } from "@/lib/action-center-api";
 import {
   actionCenterIsReadOnly,
   actionCenterShowsKpis,
+  actionCenterShowsSystemHealth,
   buildActionCenterSections,
   filterActionCenterSections,
   getActionCenterDescription,
   getActionCenterTitle,
-  resolveActionCenterVariant
+  resolveActionCenterVariant,
+  type ActionCenterErrorKind,
+  type ActionCenterSnapshot
 } from "@/lib/action-center";
 import { fetchKpiOverview, type KpiOverviewItem } from "@/lib/reporting-kpis-api";
 import { filterRoleHomeCards, resolveRoleHome, type RoleHomeCard } from "@/lib/role-home";
@@ -25,6 +28,44 @@ import { useCurrentUser } from "@/lib/use-current-user";
 import { ActionSection } from "./action-section";
 
 const MANAGER_KPI_CODES = ["WO_OVERDUE", "WO_BACKLOG", "PM_COMPLIANCE", "MTTR"];
+
+function healthErrorKind(error: unknown): ActionCenterErrorKind {
+  const status = (error as { response?: { status?: number } } | null | undefined)?.response?.status;
+  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 404 || status === 501) return "unavailable";
+  if (typeof status === "number" && status >= 500) return "server";
+  if (status === undefined) return "network";
+  return "unknown";
+}
+
+function withSystemHealth(
+  snapshot: ActionCenterSnapshot,
+  health: {
+    show: boolean;
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+    data: ActionCenterSnapshot["systemHealth"];
+  }
+): ActionCenterSnapshot {
+  if (!health.show) return snapshot;
+  if (health.isLoading) {
+    return { ...snapshot, pending: { ...snapshot.pending, systemHealth: true } };
+  }
+  if (health.isError || !health.data) {
+    return {
+      ...snapshot,
+      systemHealth: null,
+      connections: { ...snapshot.connections, systemHealth: false },
+      errors: { ...snapshot.errors, systemHealth: healthErrorKind(health.error) }
+    };
+  }
+  return {
+    ...snapshot,
+    systemHealth: health.data,
+    connections: { ...snapshot.connections, systemHealth: true }
+  };
+}
 
 function KpiStrip({ items }: { items: KpiOverviewItem[] }) {
   const shown = items.filter((k) => MANAGER_KPI_CODES.includes(k.code));
@@ -119,6 +160,7 @@ export function ActionCenterPage() {
   const variant = resolveActionCenterVariant(roleName);
   const readOnly = actionCenterIsReadOnly(variant);
   const showKpis = actionCenterShowsKpis(roleName, user.permissions);
+  const showSystemHealth = actionCenterShowsSystemHealth(variant);
   const [query, setQuery] = useState("");
 
   const query_ = useQuery({
@@ -128,8 +170,17 @@ export function ActionCenterPage() {
         variant,
         roleName,
         userId: user.id,
-        permissions: user.permissions
+        permissions: user.permissions,
+        includeSystemHealth: false
       }),
+    refetchInterval: 60_000
+  });
+
+  const healthQuery = useQuery({
+    queryKey: ["action-center-system-health", user.tenantId],
+    queryFn: fetchActionCenterSystemHealth,
+    enabled: showSystemHealth,
+    staleTime: 60_000,
     refetchInterval: 60_000
   });
 
@@ -163,7 +214,15 @@ export function ActionCenterPage() {
     );
   }
 
-  const snapshot = query_.data;
+  const snapshot = query_.data
+    ? withSystemHealth(query_.data, {
+        show: showSystemHealth,
+        isLoading: healthQuery.isLoading,
+        isError: healthQuery.isError,
+        error: healthQuery.error,
+        data: healthQuery.data
+      })
+    : undefined;
   const sections = snapshot ? buildActionCenterSections(snapshot) : [];
   const filteredSections = filterActionCenterSections(sections, query);
 

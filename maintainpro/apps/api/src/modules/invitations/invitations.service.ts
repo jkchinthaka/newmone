@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleName, TenantInvitationStatus, TenantMembershipRole } from "@prisma/client";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -253,7 +253,8 @@ export class InvitationsService {
       }
     }
 
-    const token = randomUUID();
+    const rawToken = randomUUID();
+    const token = createHash("sha256").update(rawToken).digest("hex");
     const expiresInDays = dto.expiresInDays ?? 7;
     const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
 
@@ -300,7 +301,7 @@ export class InvitationsService {
         });
 
     const frontendBaseUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001";
-    const invitationLink = `${frontendBaseUrl}/register?invitationToken=${invitation.token}`;
+    const invitationLink = `${frontendBaseUrl}/register?invitationToken=${encodeURIComponent(rawToken)}`;
 
     return this.toCreateTenantInvitationResponse(invitation, tenant.name, invitationLink);
   }
