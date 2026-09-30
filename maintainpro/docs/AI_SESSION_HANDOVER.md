@@ -151,6 +151,8 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not open `/requests/new` yet.
 
+Side task 2026-09-30 (docs only, no schema change): `docs/DATABASE_REPO_MAP.md` now maps all 222 Prisma models to the code that uses them. 163 CORE, 53 RETIRED (Phase 01 domains still wired to API modules), 6 UNUSED (`OrganizationUnit`, `CustomFieldValue`, `EmployeeRosterEntry`, `VendorContact`, `RepairWarranty`, `UatScenarioExecution`). The live database was not inspected: the agent's DB read was blocked by the permission classifier. No table was dropped. Dropping the 6 unused models waits for the user to confirm live row counts and approve a migration.
+
 Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
 
 Phase 01 regression found during Phase 07, then fixed here: overlapping refresh used a token that had just been rotated, and the API revoked the whole refresh family (`REFRESH_TOKEN_REUSED` at 08:53:39 IST). A replay inside 15 seconds now issues a new token in the same family and does not revoke it. A replay after 15 seconds, or one whose successor is already revoked, still revokes the family. `auth-refresh-replay.spec.ts` 3/3. Redis being down did not cause the logout.
