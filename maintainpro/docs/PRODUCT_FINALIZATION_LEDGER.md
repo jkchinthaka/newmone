@@ -357,7 +357,7 @@ Costs: PR #61 merged `fd250e72`. Unit fixture 2,000 − 1,000 + 1,500 + 2,500 = 
 
 ### Phase 15 — Final acceptance
 
-NOT STARTED. Depends on phases 01–14.
+IN PROGRESS on `feature/phase-15-final-acceptance`. Include a pre-roadmap functionality regression. Production deployment has not started.
 
 ---
 
