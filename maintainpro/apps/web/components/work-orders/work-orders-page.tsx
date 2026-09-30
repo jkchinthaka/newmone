@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -105,6 +105,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
   const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const createIdempotencyKey = useRef<string | null>(null);
 
   const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
   const effectiveFilters = jobDomain ? { ...filters, jobDomain } : filters;
@@ -196,6 +197,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   };
 
   const closeEditorModal = () => {
+    createIdempotencyKey.current = null;
     setEditorState((current) => ({ ...current, open: false }));
     clearDeepLinkParam();
   };
@@ -576,10 +578,18 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
             return;
           }
 
+          if (createMutation.isPending) {
+            return;
+          }
+          if (!createIdempotencyKey.current) {
+            createIdempotencyKey.current = crypto.randomUUID();
+          }
+
           createMutation
             .mutateAsync({
               ...values,
-              createdById: currentUserId
+              createdById: currentUserId,
+              idempotencyKey: createIdempotencyKey.current
             })
             .then(() => {
               toast.success("Work order created");

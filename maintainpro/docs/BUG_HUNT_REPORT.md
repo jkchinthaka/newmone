@@ -14,7 +14,7 @@ This pass classified the previously failing CI suites. It did not browser-walk e
 | --- | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 |
-| P2 | 0 | 0 | 0 |
+| P2 | 6 | 6 | 0 |
 | P3 | 0 | 0 | 0 |
 | Stale tests (not product bugs) | 8 | 8 | 0 |
 
@@ -129,9 +129,13 @@ Not yet opened in the browser: Service Jobs, Vehicle Jobs, My Jobs, sites, inspe
 ## Confirmed product defects
 
 | ID | Area | Severity | Status |
-| --- | --- | --- | --- |
+| --- | --- | ---: | --- |
 | BH-06 | Navigation guard | P2 | Fixed |
 | BH-07 | Work order list | P2 | Fixed |
+| BH-08 | Spare Parts navigation | P2 | Fixed |
+| BH-09 | Work order create validation | P2 | Fixed |
+| BH-10 | Work order create idempotency | P2 | Fixed |
+| BH-11 | User delete | P2 | Fixed |
 
 ### BH-06 A cleaner could open every maintenance URL
 
@@ -149,11 +153,65 @@ The jobs list could request `queue=all`, which the API rejects for technicians a
 Expected: a technician list uses `my-tasks`, and the user directory is loaded only for roles that can assign work.  
 Fix: mechanics and technicians never send `queue=all`, and `useTechnicians` stays off for everyone else.
 
+### BH-08 Spare Parts was visible to roles the catalog rejects
+
+`PARTS_ROLES` included supervisor and technician. `GET /inventory/parts` does not. A supervisor stayed on Inventory while every parts call returned 403. `/work-orders/my` was also allowed for any role that could see All Jobs, so an inventory keeper opened My Jobs and the API returned 403.
+
+Expected: Spare Parts follows the catalog roles, and My Jobs follows the My Jobs item.  
+Fix: Spare Parts and ERP Mapping are limited to the catalog roles (mechanics stay). The exact My Jobs path requires the My Jobs item. Vendors still include the procurement officer because that API allows them.  
+Checked: supervisor `/inventory` and `/admin` land on Action Center. Inventory keeper `/work-orders/my` and `/admin` do the same. Inventory keeper `/inventory` stays. Navigation suite passed.
+
+### BH-09 Work order create stored invalid priority, type, and odometer
+
+Priority is a string column. The create body is not a validator class, so `NOT_A_PRIORITY`, `NOT_A_TYPE`, and a negative odometer were saved (HTTP 201).
+
+Expected: those values are rejected before a record exists.  
+Fix: `assertWorkOrderCreateShape` runs at the start of create. Recheck: all three now return 400 and create nothing.  
+Test: `work-order-create-guards.spec.ts`.
+
+### BH-10 Create stored an idempotency key but never reused it
+
+`lastIdempotencyKey` was written on insert and never looked up. Two posts with the same key created two work orders.
+
+Expected: the second post returns the first record.  
+Fix: create returns the existing tenant row when the trimmed key already exists. The jobs page keeps one key for the open create attempt. Recheck: both responses were 201 and the ids matched. The disposable row was deleted.  
+Stale `expectedVersion: 0` returned 409 and left the title unchanged. Two patches of the same version returned 200 and 409.
+
+### BH-11 Deleting a user who had signed in returned 500
+
+`user.delete` hit `RefreshToken_userId_fkey`, then `TenantMembership`. The API answered 500.
+
+Expected: a user with only a session and membership can be removed. Related business records still block delete with 409 instead of 500.  
+Fix: delete that user's refresh tokens and tenant memberships first, and map a remaining foreign-key failure to 409. Recheck: the disposable finance user deleted with 200.
+
+## Role checks
+
+| Role | Result |
+| --- | --- |
+| Finance | No seeded login. A disposable finance user was created, checked, and deleted. Users 403, live map 404, parts 403, purchase orders 200, exceptions 403, company work orders 403. |
+| Supervisor | Live map 404, admin users 403, parts 403, exceptions 200, company work orders 200. Inventory and Administration redirect. All Jobs stays. |
+| Inventory keeper | Live map 404, admin users 403, exceptions 403, parts 200, company work orders 200. My Jobs and Administration redirect. Inventory stays. |
+
+A work-order list sent with another tenant header returned 403. An unknown work-order id returned 404. Return paths already reject protocol-relative and external targets. PM auto-create called twice returned `DUPLICATE_OPEN_WO` both times. Parallel creates with different titles created two records, which is expected.
+
+## Still open
+
+Forms for assets, PM plans, inspections, gate, spare parts, ERP import, and users were not fully exercised. Double-submit was not completed for request conversion, gate, part issue, ERP acknowledgement, Excel confirm, or invitations. Concurrent request conversion, PM generation, gate-out, and part acknowledgement were not raced. Service jobs, vehicle jobs, sites, inspections, reliability, gate writes, ERP import, costs, and settings were not mutation-walked. Filter, count, and search reconciliation was not rechecked. Console and network were not recorded on every remaining page. Locked-user and stale-role sessions were not run. Prisma generate, tenant audit, RBAC audit, lint, both typechecks, the full test suite, and build were not run on this pass.
+
+## Status
+
+The hunt is **not complete**. BH-06 through BH-11 are fixed. Do not push, do not merge to main, and do not start the performance branch.
+
+The jobs list could request `queue=all`, which the API rejects for technicians and mechanics. The page also asked `/users` for an assignee list those roles cannot read.
+
+Expected: a technician list uses `my-tasks`, and the user directory is loaded only for roles that can assign work.  
+Fix: mechanics and technicians never send `queue=all`, and `useTechnicians` stays off for everyone else.
+
 ## Walk coverage
 
 Super admin, manager, mechanic, and cleaner were signed in. Widths 1440, 1024, 820, and 390 were checked for the main lists. No horizontal overflow was recorded. Live Map stayed 404 for every role. Manager and mechanic were sent away from Administration. Mechanic and cleaner were sent away from Reports. Cleaner was also sent away from inventory and assets. Exceptions, work orders, and parts returned 200 for the super admin and the expected 403 for the cleaner.
 
-Forms, double-submit, concurrent edits, finance, supervisor, and inventory-keeper sessions were not exercised.
+Forms, double-submit, concurrent edits, finance, supervisor, and inventory-keeper sessions were started. Finance, supervisor, and inventory keeper API checks are recorded below. The remaining form and concurrency items are still open.
 
 ## Status
 

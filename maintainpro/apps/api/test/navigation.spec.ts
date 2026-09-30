@@ -76,6 +76,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
       expect.arrayContaining(["home", "requests", "all-jobs", "preventive-maintenance"])
     );
     expect(ids).not.toContain("billing");
+    expect(ids).not.toContain("spare-parts");
+    expect(canAccessNavigationPath("/inventory", "SUPERVISOR", ["maintenance_requests.view_own"])).toBe(false);
   });
 
   it("hides Requests when the role lacks the request list permission (API would return 403)", () => {
@@ -185,6 +187,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(canAccessNavigationPath("/admin/users", "TECHNICIAN", [])).toBe(false);
     expect(canAccessNavigationPath("/maintenance/jobs", "TECHNICIAN", [])).toBe(true);
     expect(canAccessNavigationPath("/work-orders/my", "TECHNICIAN", [])).toBe(true);
+    expect(canAccessNavigationPath("/work-orders/my", "INVENTORY_KEEPER", [])).toBe(false);
+    expect(canAccessNavigationPath("/maintenance/jobs", "INVENTORY_KEEPER", [])).toBe(true);
     expect(canAccessNavigationPath("/maintenance/jobs", "CLEANER", [])).toBe(false);
     expect(canAccessNavigationPath("/maintenance", "CLEANER", [])).toBe(false);
   });

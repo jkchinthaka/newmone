@@ -24,6 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**Bug hunt in progress (2026-09-30, later session).** Branch `qa/full-project-bug-hunt`. Performance branch `perf/full-project-optimization` stays at `43f2363b` and must not be merged or edited until this hunt is finished, pushed, reviewed, and merged. Do not deploy. Do not push this branch until the hunt gate in `docs/BUG_HUNT_REPORT.md` is satisfied.
+
+BH-06 through BH-11 are fixed on this branch and must not be reverted. Finance, supervisor, and inventory keeper were checked through the API. Supervisor inventory and administration, and an inventory keeper's My Jobs URL, now leave for Action Center. A disposable finance user was created, probed, and deleted. Work-order create rejects an invalid priority, type, or negative odometer. A repeated create with the same idempotency key returns the original record. Stale `expectedVersion` returns 409. User delete removes that user's refresh tokens and tenant membership instead of returning 500.
+
+Still open: remaining create/edit forms, gate and part-issue double submit, concurrent request conversion and gate-out, mutation walks, filter/count reconciliation, and the full lint/typecheck/test/build gate. The hunt is not complete.
+
 **Last updated:** 2026-09-30. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). Release readiness is in progress on `release/readiness` and remains **RELEASE BLOCKED**. Not deployed. See `docs/RELEASE_READINESS_REPORT.md`. There is no Phase 16.
 
 Local Redis on port 6380 is up (`docker compose -f docker-compose.dev.yml up -d redis`). The running API logged Redis and the notification queue as active. MinIO image pull is still `401 Unauthorized`. Email stays disabled. The PM generator is still an explicit `auto-wo` call, not a background clock.
