@@ -344,6 +344,8 @@ Phase 13 is LOCAL DEVELOPMENT COMPLETE. The model stays one user, one role, and 
 
 ### Phase 14 — Reports, costs, history
 
+Phase 14 is IN PROGRESS on `feature/phase-14-reports-costs-history`. Reports, maintenance costs, and history remain to be walked. Historical work-order cost snapshots must stay stable.
+
 | Page | Route | Status |
 | --- | --- | --- |
 | Reports | `/reports`, `/reports/[module]`, exception and fraud-control routes | IMPLEMENTED — NOT VERIFIED |

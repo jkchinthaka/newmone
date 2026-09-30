@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~14:10 IST. Phase 13 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Email delivery stays NOT VERIFIED. Do not merge into main. Do not start production deployment.
+**Last updated:** 2026-09-30 ~14:15 IST. Phase 13 is LOCAL DEVELOPMENT COMPLETE at `043a2c9a`. Phase 14 has started on `feature/phase-14-reports-costs-history`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start production deployment.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 13 Administration — LOCAL DEVELOPMENT COMPLETE. |
-| Next phase | Phase 14 Reports, costs, and history. Do not start production deployment. |
+| Current phase | 14 Reports, costs, and history — IN PROGRESS. |
+| Next phase | Finish Phase 14 report, cost, and history checks. Do not start production deployment. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-13-administration` (not pushed). Verified access rules at `665eeb3d`, then the local administration walk. |
+| Working branch | `feature/phase-14-reports-costs-history` (not pushed), created with `--no-track` from `feature/phase-13-administration` at `043a2c9a`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -153,7 +153,7 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: start Phase 14 — Reports, Costs and History on a new `--no-track` branch. Do not merge Phase 13 into main. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
+Next action: walk reports, maintenance costs, and maintenance history. Do not rewrite historical cost snapshots. Do not post a production ERP journal. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
 
 Phase 13 local acceptance: signed in as superadmin through the login page. `/auth/me` returned 200 and `/admin/users` still showed that user after reload. Search isolated the disposable technician. Effective permissions listed granted and not-granted keys. `/admin/roles` search for CLEANER showed the three cleaning and facility permissions. Deactivating that disposable user made the next login return 401. Changing the role to VIEWER made user administration and inventory parts return 403. The role was restored to TECHNICIAN. Jest: 27 passed across phase13-access, roles.guard, admin-users-access, admin-users-status, users-tenant-isolation, and admin-roles-access. Email delivery was not used. Bulk user import was not added.
 
