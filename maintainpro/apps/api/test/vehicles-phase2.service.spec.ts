@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import {
   GateMovementStatus,
   GateMovementType,
@@ -21,6 +21,7 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
   const tx = {
     vehicle: {
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       findFirst: jest.fn()
     },
@@ -191,8 +192,8 @@ describe("VehiclesService Phase 2 critical flows", () => {
     expect(result.allowed).toBe(true);
     expect(result.blocked).toBe(false);
     expect(result.overrideUsed).toBe(false);
-    expect(tx.vehicle.update).toHaveBeenCalledWith({
-      where: { id: "veh-1" },
+    expect(tx.vehicle.updateMany).toHaveBeenCalledWith({
+      where: { id: "veh-1", tenantId: "tenant-1", status: VehicleStatus.AVAILABLE },
       data: expect.objectContaining({
         status: VehicleStatus.IN_USE,
         currentMileage: 1150
@@ -215,6 +216,14 @@ describe("VehiclesService Phase 2 critical flows", () => {
         source: "gate-out"
       })
     });
+  });
+
+  itT("rejects a second gate-out when the vehicle is no longer available", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle() as any);
+    tx.vehicle.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(service.gateOut("veh-1", { meterReading: 1150 })).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
   });
 
   itT("blocks gate-out when service is overdue and writes a blocked movement audit log", async () => {
@@ -468,6 +477,16 @@ describe("VehiclesService Phase 2 critical flows", () => {
         source: "gate-in"
       })
     });
+  });
+
+  itT("rejects gate-in when the vehicle is not currently out", async () => {
+    jest.spyOn(service, "findOne").mockResolvedValue(buildVehicle({ status: VehicleStatus.AVAILABLE, currentMileage: 1000 }) as any);
+    tx.vehicle.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(service.gateIn("veh-1", { meterReading: 1000 })).rejects.toThrow(
+      "This vehicle is not currently gated out"
+    );
+    expect(tx.vehicleGateMovement.create).not.toHaveBeenCalled();
   });
 
   itT("rejects gate-in readings below the last known/out mileage", async () => {

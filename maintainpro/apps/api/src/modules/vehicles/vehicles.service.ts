@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -885,8 +886,8 @@ export class VehiclesService {
     });
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await tx.vehicle.update({
-        where: { id },
+      const claimed = await tx.vehicle.updateMany({
+        where: { id, tenantId: tenantId ?? undefined, status: VehicleStatus.AVAILABLE },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,
@@ -894,6 +895,9 @@ export class VehiclesService {
           serviceStatus
         }
       });
+      if (claimed.count !== 1) {
+        throw new ConflictException("This vehicle already has an active gate movement");
+      }
 
       const movement = await tx.vehicleGateMovement.create({
         data: {
@@ -1018,14 +1022,17 @@ export class VehiclesService {
         });
       }
 
-      await tx.vehicle.update({
-        where: { id },
+      const claimed = await tx.vehicle.updateMany({
+        where: { id, status: VehicleStatus.IN_USE },
         data: {
           status: VehicleStatus.AVAILABLE,
           currentMileage: data.meterReading,
           serviceStatus
         }
       });
+      if (claimed.count !== 1) {
+        throw new BadRequestException("This vehicle is not currently gated out");
+      }
 
       const movementRecord = await tx.vehicleGateMovement.create({
         data: {

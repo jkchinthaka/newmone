@@ -291,7 +291,7 @@ Gate override attestation is in `1fc5d37f`. Live-map RBAC mismatch (RBAC-03) rem
 
 **Product decision, implemented in Phase 11:** Live Map is **RETIRED / NOT PRODUCT SCOPE**. The fleet home page no longer renders a map. `GET /fleet/live-map` and `GET /fleet/street-view` are removed. The map component, live socket hook, and live-map role helper are removed. `GpsLocation` rows are kept for vehicle history and are not dropped. Gate, vehicles, compliance, and maintenance links are unchanged. Phase 15 must not treat Live Map as unfinished work.
 
-Phase 11 gate-out, gate-in, and vehicle lifecycle UAT is still open. Do not start Phase 12 until that pass is recorded.
+Phase 11 gate-out claims a vehicle only while it is AVAILABLE, and gate-in claims it only while it is IN_USE. A second movement is rejected. Live gate-out on MH-01-AB-102 was blocked for missing REGISTRATION, INSURANCE, FITNESS, POLLUTION, and ROAD_TAX; mileage was unchanged. The allowed out-and-back path is covered by `vehicles-phase2.service.spec.ts` (18/18). Five vehicles do not justify a second bulk importer; the controlled vehicle import already exists. Gate-out and gate-in on a fully documented vehicle are still the remaining local pass. Do not start Phase 12.
 
 ### Phase 12 — Spare parts and ERP
 

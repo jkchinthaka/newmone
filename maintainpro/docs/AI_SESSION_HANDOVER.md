@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:40 IST. Phase 11 is in progress on `feature/phase-11-fleet-gate`. Live Map is retired. Gate-out and gate-in still need a signed-in pass. Do not start Phase 12. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:45 IST. Phase 11 is in progress on `feature/phase-11-fleet-gate`. Live Map stays retired. Gate movement claims are now exclusive. Do not start Phase 12. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
@@ -149,11 +149,13 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Stay on `feature/phase-11-fleet-gate`. Do not start Phase 12.
+Stay on `feature/phase-11-fleet-gate`. Do not start Phase 12. Do not restore Live Map.
 
-Live Map is retired. `/fleet` shows the fleet overview and links to vehicles, gate, accidents, claims, fines, and compliance. It does not render a map. `GET /fleet/live-map` and `GET /fleet/street-view` are removed. `GpsLocation` rows are kept for vehicle history. `user-role-gating.test.ts` passed 9/9 after the live-map helper was removed.
+Gate-out now claims the vehicle only while its status is AVAILABLE, and gate-in claims it only while it is IN_USE. A second claim returns a conflict or "not currently gated out". `vehicles-phase2.service.spec.ts` passed 18/18, including overdue service, critical work orders, unauthorized override, and a second movement while the vehicle is no longer available.
 
-Next action: validate gate-out, gate-in, duplicate movement rejection, maintenance blocks, and vehicle counts against SQL. Do not start live Bileeta integration. Do not restore Live Map.
+Live data: 5 vehicles. Four have a blank status and one is under maintenance. A disposable gate-out on MH-01-AB-102 was blocked for missing REGISTRATION, INSURANCE, FITNESS, POLLUTION, and ROAD_TAX. Mileage stayed 12400 and the blank status was restored. No vehicle currently has the documents needed for an allowed live gate-out, so that full out-and-back was proved in the service tests rather than on those rows. Fleet overview blocked count was 0. The gate page lists vehicles and does not call the retired map. Controlled vehicle bulk import already exists; five vehicles do not justify another importer.
+
+Next action: add valid disposable compliance documents only if a live allowed gate-out is still required, then gate in and confirm the vehicle returns to available. Do not start live Bileeta integration.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
