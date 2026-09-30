@@ -211,8 +211,8 @@ export class StockCountService {
   }
 
   /**
-   * Post variances through the Inventory Transaction Engine only.
-   * Never directly UPDATE WarehouseItemBalance.onHand.
+   * Records the physical count. Posting does not change the Bileeta stock mirror.
+   * Quantity updates come from an ERP stock snapshot import.
    */
   async post(actor: Actor, id: string) {
     this.assertWrite(actor);
@@ -233,30 +233,6 @@ export class StockCountService {
       if (line.countedQuantity == null) {
         throw new BadRequestException("All lines must have a counted quantity before posting");
       }
-      const variance = line.countedQuantity - line.expectedQuantity;
-      if (variance === 0 || line.adjustmentMovementId) continue;
-
-      const result = await this.engine.adjust({
-        actor: { sub: actor.sub, tenantId },
-        partId: line.partId,
-        warehouseId: session.warehouseId,
-        quantity: Math.abs(variance),
-        direction: variance > 0 ? "IN" : "OUT",
-        reason: "STOCK_COUNT",
-        notes: `Stock count ${session.id}`,
-        sourceType: "STOCK_COUNT",
-        sourceDocument: session.id,
-        sourceLineKey: line.id,
-        idempotencyKey: `stock-count:${session.id}:${line.id}`
-      });
-
-      await this.prisma.stockCountLine.update({
-        where: { id: line.id },
-        data: {
-          variance,
-          adjustmentMovementId: result.movement.id
-        }
-      });
     }
 
     return this.prisma.stockCountSession.update({

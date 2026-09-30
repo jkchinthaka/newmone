@@ -32,15 +32,15 @@ const cards: Array<{
   },
   {
     key: "all",
-    title: "On Hand",
+    title: "ERP Snapshot",
     accent: "from-emerald-500 to-teal-600",
     icon: Sparkles,
     renderValue: (summary) => String(summary.onHand),
-    subtitle: (summary) => `Available ${summary.available}`
+    subtitle: () => "Last synchronized Bileeta quantity"
   },
   {
     key: "all",
-    title: "Available",
+    title: "Advisory",
     accent: "from-cyan-500 to-sky-700",
     icon: ShieldAlert,
     renderValue: (summary) => String(summary.available),
@@ -60,7 +60,7 @@ const cards: Array<{
     accent: "from-amber-500 to-orange-600",
     icon: AlertTriangle,
     renderValue: (summary) => String(summary.lowStockCount),
-    subtitle: () => "Items below minimum stock"
+    subtitle: () => "Advisory, from the ERP snapshot"
   },
   {
     key: "out",
@@ -68,7 +68,7 @@ const cards: Array<{
     accent: "from-red-600 to-rose-700",
     icon: PackageSearch,
     renderValue: (summary) => String(summary.outOfStockCount),
-    subtitle: () => "Immediate replenishment needed"
+    subtitle: () => "ERP snapshot quantity is zero"
   }
 ];
 

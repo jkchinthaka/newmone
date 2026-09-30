@@ -95,7 +95,7 @@ export function InventoryDetailsDrawer({
 
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-semibold ${statusMeta?.tone ?? ""}`}>{statusMeta?.label}</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Stock: {part.quantityInStock}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">ERP snapshot: {part.quantityInStock}</span>
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Category: {part.category}</span>
               </div>
 
@@ -125,7 +125,7 @@ export function InventoryDetailsDrawer({
               {activeTab === "overview" ? (
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <MetricTile label="Current Stock" value={String(part.quantityInStock)} />
+                    <MetricTile label="ERP Snapshot" value={String(part.quantityInStock)} />
                     <MetricTile label="Unit Cost" value={formatCurrency(part.unitCost)} />
                     <MetricTile label="Estimated Value" value={formatCurrency(part.quantityInStock * part.unitCost)} />
                     <MetricTile label="Runout Estimate" value={runoutDays === null ? "Not enough data" : `${Math.ceil(runoutDays)} day(s)`} />

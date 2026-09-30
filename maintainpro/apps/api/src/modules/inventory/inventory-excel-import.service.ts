@@ -97,88 +97,10 @@ export class InventoryExcelImportService {
 
   async apply(importRunId: string, actor?: Actor) {
     this.assertActor(actor);
-    const tenantId = requireTenantId(actor?.tenantId);
-    const batch = await this.prisma.erpImportBatch.findFirst({
-      where: { id: importRunId, tenantId, importType: ErpImportType.STOCK_BALANCES },
-      include: { rows: true }
-    });
-    if (!batch) {
-      throw new NotFoundException("Inventory import run not found");
-    }
-    if (batch.status === ErpImportBatchStatus.IMPORTED) {
-      return this.serializeRun(batch);
-    }
-    if (batch.status !== ErpImportBatchStatus.READY_FOR_REVIEW && batch.status !== ErpImportBatchStatus.APPROVED) {
-      throw new BadRequestException("Import run is not ready to apply");
-    }
-
-    let applied = 0;
-    let failed = 0;
-    let ignored = 0;
-    const failedKeys: string[] = [];
-
-    for (const row of batch.rows) {
-      if (!row.selected) {
-        ignored += 1;
-        continue;
-      }
-      if (row.status === "APPLIED") {
-        applied += 1;
-        continue;
-      }
-      if (row.status !== "VALID" && row.status !== "REVERSAL_PENDING") {
-        failed += 1;
-        continue;
-      }
-
-      try {
-        await this.applyRow(row, actor, batch.id);
-        applied += 1;
-      } catch (error) {
-        failed += 1;
-        failedKeys.push(row.sourceLineKey);
-        await this.prisma.erpImportRow.update({
-          where: { id: row.id },
-          data: {
-            status: "FAILED",
-            errorCode: "APPLY_FAILED",
-            errorMessage: error instanceof Error ? error.message : "Apply failed"
-          }
-        });
-      }
-    }
-
-    const updated = await this.prisma.erpImportBatch.update({
-      where: { id: batch.id },
-      data: {
-        status: failed > 0 && applied === 0 ? ErpImportBatchStatus.FAILED : ErpImportBatchStatus.IMPORTED,
-        appliedRows: applied,
-        failedRows: failed,
-        ignoredRows: ignored,
-        applySummary: {
-          applied,
-          failed,
-          ignored,
-          failedSourceLineKeys: failedKeys
-        } as Prisma.InputJsonValue
-      },
-      include: { rows: true }
-    });
-
-    await this.prisma.auditLog.create({
-      data: {
-        tenantId,
-        actorId: actor?.sub,
-        module: "inventory",
-        entity: "InventoryImportRun",
-        entityId: batch.id,
-        action: AuditAction.UPDATE,
-        reason: "Excel inventory apply",
-        metadata: { applied, failed, ignored }
-      }
-    });
-
-    return this.serializeRun(updated);
+    void importRunId;
+    throw new BadRequestException(
+      "This workbook records inventory transactions and cannot update the Bileeta stock mirror. Use ERP Stock Import to apply a quantity snapshot."
+    );
   }
 
   async getRun(importRunId: string, actor?: Actor) {

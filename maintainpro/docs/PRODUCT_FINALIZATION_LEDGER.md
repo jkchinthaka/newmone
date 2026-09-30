@@ -310,9 +310,31 @@ Release readiness stays blocked (Vercel, Cloudflare, MinIO). Do not merge this b
 | Maintenance supply | `/maintenance-supply` | IMPLEMENTED — NOT VERIFIED |
 | ERP exceptions | `/erp/exceptions` | IMPLEMENTED — NOT VERIFIED |
 
-Bileeta remains the stock-valuation source. Vendor eligibility merge is PR #60. Nav-vs-API (RBAC-01) and unbounded parts fetch (F-07) are still open prior findings.
+Bileeta remains the stock-quantity owner. `SparePart.quantityInStock` is the ERP snapshot. Live Bileeta API is deferred. The current sync method is the ERP Excel snapshot import plus manual acknowledgement of pending events.
 
-Phase 12 audit (recorded during Phase 07, not changed): `POST /inventory/parts/:id/stock-out` still decrements local `SparePart.quantityInStock`. Work-order part issue does not. When Phase 12 starts, decide whether that inventory endpoint must stop writing the Bileeta-owned quantity and use the same pending ERP consumption path.
+Phase 12 stock-writer classification (2026-09-30):
+
+| Path | Class | Effect |
+| --- | --- | --- |
+| ERP stock sync apply and ERP Excel snapshot confirm | A. ERP mirror update | Sets the snapshot from the uploaded quantity |
+| Work-order issue, work-order return, inventory stock-out, inventory stock-in, purchase receipt, tool return | B. MaintainPro consumption or receipt record | Pending outbox. Mirror unchanged |
+| Historical `StockMovement` and warehouse balance rows | C. Legacy local inventory | Kept. New local adjustment, transfer, reversal, and stock-count post do not write them |
+| Transaction-style Excel apply | D. Removed as a stock writer | Preview remains. Apply tells the user to use ERP Stock Import |
+
+`fraud-control.spec.ts`, `work-order-erp-stock-boundary.spec.ts`, `stock-count.spec.ts`, `erp-excel-import.service.spec.ts`, `erp-stock-sync.spec.ts`, and `purchase-receiving.spec.ts` passed again (43 tests).
+
+Phase 12 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-12-spare-parts-erp`. Live Bileeta API remains deferred.
+
+Disposable proof, tenant `cmu3u90gn0000adjtqs1vhrs7`:
+
+- Part `P12-54005240` started at ERP snapshot 0. Work order `WO-2026-0253` (`cmunsp5r2000pefoxtrvxoxus`) had one part requested by the technician, approved by the manager, and issued by the inventory keeper.
+- `PartIssue` quantity 1, unit cost snapshot 25, work-order line total cost 25. Outbox `WORK_ORDER_PART_CONSUMPTION` stayed `PENDING`. Snapshot stayed 0. No warehouse balance row was created.
+- Admin listed the pending event. Technician and cleaner received 403. Acknowledgement with `BIL-DEV-54005240` stored the reference and an audit row, did not call Bileeta, and left the snapshot at 0. A second acknowledgement returned the same acknowledged event. A one-character reference was rejected.
+- A disposable second tenant could not be read or acknowledged by the first tenant's admin. A spoofed `X-Tenant-Id` was denied.
+- A dirty Excel file was blocked (1 invalid, 2 duplicates, 1 unmapped) and did not change quantity. A clean file previewed previous 0 against incoming 5, then confirm set the snapshot to 5. The unmapped code did not create a part. Import history shows `p12-clean-54005240.xlsx` as COMPLETED.
+- Browser, signed in as superadmin: `/inventory` labels the quantity ERP Snapshot (total 150 after the import, disposable part shows 5, Spare Part 1 still 19). `/inventory/erp-import` shows the Bileeta snapshot wording and both import files.
+
+Roles checked without widening permissions: admin and manager can list parts; inventory keeper can list parts and open ERP import history; mechanic can list parts but not import history or events; technician, supervisor, and cleaner cannot list parts or acknowledge events. Reconciliation events are visible through `GET /enterprise-ops/events` for admin, superadmin, and operations manager. There is no separate reconciliation page.
 
 ### Phase 13 — Administration
 

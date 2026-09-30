@@ -98,8 +98,8 @@ export function InventoryTable({
     },
     {
       id: "currentStock",
-      header: "On Hand",
-      mobileLabel: "On Hand",
+      header: "ERP Snapshot",
+      mobileLabel: "ERP Snapshot",
       cell: (part) => (
         <div>
           <p className="font-semibold text-slate-900">{part.quantityInStock}</p>
@@ -117,8 +117,8 @@ export function InventoryTable({
     },
     {
       id: "available",
-      header: "Available",
-      mobileLabel: "Available",
+      header: "Advisory",
+      mobileLabel: "Advisory",
       cell: (part) => availableOf(part)
     },
     {
@@ -216,7 +216,7 @@ export function InventoryTable({
           <button
             type="button"
             title="Add stock"
-            aria-label={`Add stock for ${part.name}`}
+            aria-label={`Record a receipt for ${part.name}`}
             onClick={() => onStockIn(part)}
             className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-emerald-200 text-emerald-700 transition hover:bg-emerald-50"
           >
@@ -225,7 +225,7 @@ export function InventoryTable({
           <button
             type="button"
             title="Deduct stock"
-            aria-label={`Deduct stock for ${part.name}`}
+            aria-label={`Record consumption for ${part.name}`}
             onClick={() => onStockOut(part)}
             className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-amber-200 text-amber-700 transition hover:bg-amber-50"
           >

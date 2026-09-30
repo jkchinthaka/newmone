@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:46 IST. Phase 11 is LOCAL DEVELOPMENT COMPLETE. Phase 12 starts on `feature/phase-12-spare-parts-erp`. Live Map stays retired. Do not merge into main.
+**Last updated:** 2026-09-30 ~13:20 IST. Phase 12 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-12-spare-parts-erp`. Live Bileeta API stays deferred. Live Map stays retired. Do not merge into main. Phase 13 starts only after this Phase 12 commit.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 11 Fleet and gate — LOCAL DEVELOPMENT COMPLETE. Live Map is RETIRED / NOT PRODUCT SCOPE. |
-| Next phase | Phase 12 spare parts and ERP. Do not start a live Bileeta connection. |
+| Current phase | 12 Spare parts and ERP — LOCAL DEVELOPMENT COMPLETE. |
+| Next phase | Phase 13 Administration. User-based access management. Do not start production deployment or a live Bileeta connection. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-12-spare-parts-erp` (not pushed), created with `--no-track` from `feature/phase-11-fleet-gate` at `e3d67559`. |
@@ -153,7 +153,9 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: Phase 12 spare parts and ERP, including the recorded follow-up that `POST /inventory/parts/:id/stock-out` still changes local quantity while Bileeta owns stock. Do not start a live Bileeta connection. Do not start production deployment.
+Next action: start Phase 13 — Administration on a new `--no-track` branch. Finalize user-based access management. Do not merge Phase 12 into main. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
+
+Phase 12 local acceptance: disposable part `P12-54005240` was issued on `WO-2026-0253` with cost snapshot 25 and a PENDING consumption event while quantity stayed 0. Admin acknowledgement stored reference `BIL-DEV-54005240` without changing quantity and without a Bileeta call. Cross-tenant read and acknowledgement were denied. Dirty Excel import was blocked. Clean Excel confirm changed the snapshot from 0 to 5 only after confirm, and the unmapped code created no part. Browser shows ERP Snapshot. Jest: 43 passed across the six inventory/ERP suites.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 

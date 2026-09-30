@@ -52,6 +52,8 @@ describe("ERP stock ownership boundary", () => {
     expect(describeErpSyncStatus("FAILED").treatedAsSuccess).toBe(false);
     expect(describeErpSyncStatus("FAILED").visible).toBe(true);
     expect(describeErpSyncStatus("PROCESSED").treatedAsSuccess).toBe(true);
+    expect(describeErpSyncStatus("ACKNOWLEDGED").treatedAsSuccess).toBe(true);
+    expect(describeErpSyncStatus("REQUIRES_REVIEW").treatedAsSuccess).toBe(false);
   });
 });
 

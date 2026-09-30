@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
-import { applyInventoryImport, getInventoryDashboard, listInventoryImports, previewInventoryImport } from "./api";
+import { getInventoryDashboard, listInventoryImports, previewInventoryImport } from "./api";
 import { getErrorMessage } from "./helpers";
 import { InventorySectionNav } from "./inventory-section-nav";
 import { InventoryDashboardKpis } from "./types";
@@ -47,13 +47,6 @@ export default function InventoryImportPage() {
     onError: (error) => toast.error(getErrorMessage(error))
   });
 
-  const applyMutation = useMutation({
-    mutationFn: (id: string) => applyInventoryImport(id),
-    onSuccess: () => {
-      toast.success("Selected released rows applied.");
-      void queryClient.invalidateQueries({ queryKey: ["inventory"] });
-    },
-    onError: (error) => toast.error(getErrorMessage(error))
   });
 
   const kpis = dashboardQuery.data as InventoryDashboardKpis | null;
@@ -117,14 +110,9 @@ export default function InventoryImportPage() {
             <p className="text-sm font-semibold">
               Preview {preview.importRunId} · selected {preview.selectedRows} · valid {preview.validRows}
             </p>
-            <button
-              type="button"
-              disabled={applyMutation.isPending}
-              onClick={() => applyMutation.mutate(preview.importRunId)}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-            >
-              Apply released rows
-            </button>
+            <p className="text-sm text-slate-600">
+              Preview only. This workbook does not update Bileeta stock. Apply a quantity snapshot from ERP Stock Import.
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

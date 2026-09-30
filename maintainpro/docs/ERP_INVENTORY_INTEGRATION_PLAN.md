@@ -174,10 +174,15 @@ No ERP write/post/update methods exist in this adapter.
 Rules:
 
 - Dry-run is default; no local mutation in dry-run.
-- Apply updates `SparePart.quantityInStock` to the ERP snapshot and writes `StockMovement` type `ADJUSTMENT` with reference `erp-stock-sync`.
+- Apply updates `SparePart.quantityInStock` to the ERP snapshot and writes `StockMovement` type `ADJUSTMENT` with reference `erp-stock-sync`. This is an approved mirror update.
 - Work-order part issue does not decrement that quantity. It records `PartIssue` consumption and a `PENDING` `DomainEventOutbox` event (`WORK_ORDER_PART_CONSUMPTION`). A later apply can still set the mirror to the ERP snapshot.
+- `POST /inventory/parts/:id/stock-out` and `POST /inventory/parts/:id/stock-in` record the same kind of pending event and do not change the mirror.
+- Purchase receipt records `STOCK_RECEIPT_PENDING` and updates purchase-order received quantities. It does not change the mirror.
+- Local adjustment, warehouse transfer, movement reversal, stock-count posting, and the older transaction Excel apply do not change the mirror. Use ERP Excel snapshot import for quantity updates.
+- Domain-event drain skips `WORK_ORDER_PART_CONSUMPTION`, `WORK_ORDER_PART_RETURN`, and `STOCK_RECEIPT_PENDING`. An authorized user can acknowledge one of those events with a real Bileeta reference (`POST /enterprise-ops/events/:id/acknowledge`). That does not call the Bileeta API.
 - No automatic scheduled sync in this task.
 - No part creation/deletion from ERP rows.
+- Excel import staging is stored as text. Validation parses that text before matching, so a confirmed snapshot is applied only after preview. An invalid quantity, a duplicate item code, or an unmapped code is shown and does not create a spare part.
 
 ### Item / stock mapping (deterministic)
 

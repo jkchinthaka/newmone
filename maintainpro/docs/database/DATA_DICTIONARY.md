@@ -70,8 +70,9 @@ See also: `DATABASE_OVERVIEW.md`, `STATUS_CATALOG.md`, `LEGACY_DISPOSITION.md`.
 
 | Concern | Owner | MaintainPro role |
 | --- | --- | --- |
-| Stock quantity | Bileeta | `SparePart.quantityInStock` is an ERP mirror. Approved work-order issue, reservation, and return do not change it. ERP stock sync apply is the writer. |
-| Part master | MaintainPro, with `erpCode` pointing at Bileeta | Catalog, classification, and technician alias stay local. |
+| Stock quantity | Bileeta | `SparePart.quantityInStock` is an ERP mirror / last synchronized snapshot. Work-order issue, stock-out, stock-in, purchase receipt, adjustment, transfer, reversal, stock-count post, and tool return do not change it. ERP stock sync apply and the ERP Excel snapshot import are the writers. |
+| Part master | MaintainPro, with `erpCode` pointing at Bileeta | Catalog, classification, and technician alias stay local. Duplicate `erpCode` values in one tenant are rejected by mapping. |
 | Work-order consumption | MaintainPro | `PartIssue` and `WorkOrderPart.issuedQuantity` record the quantity used. |
-| Costing | MaintainPro | Issued quantity times `PartRequest.unitCostSnapshot` / line `unitCost`. |
-| ERP reconciliation | Bileeta, once posted | `DomainEventOutbox` stays `PENDING` or `FAILED` until processed. Those states are not success. |
+| Costing | MaintainPro | Issued quantity times `PartRequest.unitCostSnapshot` / line `unitCost`. A later stock snapshot does not rewrite those snapshots. |
+| ERP reconciliation | Bileeta, once posted | `DomainEventOutbox` stays `PENDING` or `FAILED` until a person records a Bileeta reference (`ACKNOWLEDGED`). Drain does not mark stock events `PROCESSED`. Those pending and failed states are not success. |
+| Live Bileeta API | Deferred | Current sync method is the controlled Excel snapshot and manual acknowledgement. |

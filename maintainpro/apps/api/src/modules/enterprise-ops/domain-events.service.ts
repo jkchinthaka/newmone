@@ -1,7 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { ERP_QUANTITY_EVENT_TYPES } from "../work-orders/work-order-erp-consumption";
 
 export type DomainEventRecord = {
   tenantId: string;
@@ -53,6 +54,9 @@ export class DomainEventsService {
     });
     const processed: string[] = [];
     for (const event of pending) {
+      if (ERP_QUANTITY_EVENT_TYPES.has(event.eventType)) {
+        continue;
+      }
       try {
         await this.prisma.domainEventOutbox.update({
           where: { id: event.id },
@@ -77,6 +81,65 @@ export class DomainEventsService {
       }
     }
     return { drained: pending.length, processed: processed.length };
+  }
+
+  async acknowledgeErpEvent(tenantId: string, id: string, externalReference: string, actorId?: string) {
+    const reference = externalReference?.trim() ?? "";
+    if (reference.length < 3) {
+      throw new BadRequestException("A Bileeta posting reference is required. This does not call the Bileeta API.");
+    }
+    const event = await this.prisma.domainEventOutbox.findFirst({ where: { id, tenantId } });
+    if (!event) {
+      throw new NotFoundException("ERP event not found");
+    }
+    if (!ERP_QUANTITY_EVENT_TYPES.has(event.eventType)) {
+      throw new BadRequestException("Only stock consumption, return, and receipt events can be acknowledged here.");
+    }
+    if (event.status === "ACKNOWLEDGED" || event.status === "POSTED") {
+      return event;
+    }
+    let payload: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(event.payload);
+      if (parsed && typeof parsed === "object") payload = parsed as Record<string, unknown>;
+    } catch {
+      payload = {};
+    }
+    payload.externalReference = reference;
+    payload.acknowledgedAt = new Date().toISOString();
+    payload.acknowledgedById = actorId ?? null;
+    payload.quantityInStockMutated = false;
+    payload.bileetaApiCalled = false;
+    const updated = await this.prisma.domainEventOutbox.update({
+      where: { id: event.id },
+      data: {
+        status: "ACKNOWLEDGED",
+        processedAt: new Date(),
+        lastError: null,
+        payload: JSON.stringify(payload)
+      }
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        entity: "DomainEventOutbox",
+        entityId: event.id,
+        action: "UPDATE",
+        module: "enterprise-ops",
+        reason: reference,
+        actorId: actorId ?? null,
+        metadata: JSON.stringify({
+          event: "erp_event_acknowledged",
+          eventType: event.eventType,
+          externalReference: reference,
+          bileetaApiCalled: false,
+          quantityInStockMutated: false
+        }),
+        beforeData: JSON.stringify({ status: event.status }),
+        afterData: JSON.stringify({ status: "ACKNOWLEDGED" })
+      }
+    });
+    return updated;
   }
 
   async list(tenantId: string, status?: string) {

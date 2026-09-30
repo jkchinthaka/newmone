@@ -203,6 +203,12 @@ export class InventoryService {
       });
     }
 
+    if ((data.quantityInStock ?? 0) > 0) {
+      throw new BadRequestException(
+        "Opening quantity is not stored on the part. Bileeta owns stock. Import an ERP stock snapshot after the part exists."
+      );
+    }
+
     const created = await this.prisma.sparePart.create({
       data: {
         tenantId,
@@ -221,19 +227,6 @@ export class InventoryService {
         images: "[]"
       }
     });
-
-    const openingQty = data.quantityInStock ?? 0;
-    if (openingQty > 0 && actor) {
-      const received = await this.stockEngine.receive({
-        actor,
-        partId: created.id,
-        quantity: openingQty,
-        notes: "Opening balance",
-        sourceType: "OPENING_BALANCE",
-        sourceDocument: `part:${created.id}`
-      });
-      return this.prisma.sparePart.findFirstOrThrow({ where: { id: received.part.id, tenantId } });
-    }
 
     return created;
   }
@@ -326,18 +319,46 @@ export class InventoryService {
     actor?: Actor,
     options?: { idempotencyKey?: string; warehouseId?: string }
   ) {
-    await this.part(id, actor);
-    const result = await this.stockEngine.receive({
-      actor,
-      partId: id,
-      quantity,
-      notes,
-      warehouseId: options?.warehouseId,
-      idempotencyKey: options?.idempotencyKey,
-      sourceType: "MANUAL_RECEIPT",
-      sourceDocument: notes
+    const part = await this.part(id, actor);
+    const tenantId = this.resolveTenantId(actor);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new BadRequestException("Stock-in quantity must be greater than 0");
+    }
+    await this.prisma.domainEventOutbox.create({
+      data: {
+        tenantId,
+        eventId: `stock-in:${id}:${options?.idempotencyKey ?? Date.now()}`,
+        eventType: "STOCK_RECEIPT_PENDING",
+        aggregateType: "SparePart",
+        aggregateId: id,
+        payloadVersion: 1,
+        status: "PENDING",
+        payload: JSON.stringify({
+          owner: "BILEETA",
+          quantityInStockMutated: false,
+          source: "inventory.stockIn",
+          partId: id,
+          erpCode: part.erpCode ?? null,
+          quantity,
+          notes: notes ?? null,
+          warehouseId: options?.warehouseId ?? null
+        })
+      }
     });
-    return this.part(result.part.id, actor);
+    await this.recordAudit({
+      entity: "SPARE_PART",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: notes,
+      metadata: {
+        event: "stock_receipt_pending_erp",
+        quantity,
+        quantityInStockMutated: false,
+        erpReconciliationStatus: "PENDING"
+      }
+    });
+    return this.part(id, actor);
   }
 
   async stockOut(
@@ -416,102 +437,80 @@ export class InventoryService {
       throw new BadRequestException("Stock-out quantity must be greater than 0");
     }
 
-    try {
-      const issued = await this.stockEngine.issue({
-        actor,
-        partId: id,
-        quantity,
-        workOrderId: workOrder.id,
-        vehicleId: workOrder.vehicleId ?? undefined,
-        notes: options.notes,
-        reason: options.overrideReason,
-        idempotencyKey,
-        sourceType: "WORK_ORDER",
-        sourceDocument: workOrder.woNumber,
-        sourceLineKey: `wo-issue:${workOrder.id}:${id}:${idempotencyKey ?? ""}`
-      });
-
-      if (idempotencyKey && !issued.replayed) {
-        try {
-          await this.prisma.inventoryStockIssueIdempotency.create({
-            data: {
-              tenantId,
-              key: idempotencyKey,
-              partId: id,
-              movementId: issued.movement.id,
-              workOrderId: workOrder.id,
-              quantity
-            }
-          });
-        } catch (error) {
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-            const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
-              where: { tenantId_key: { tenantId, key: idempotencyKey } }
-            });
-            if (
-              raced &&
-              (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id)
-            ) {
-              throw new BadRequestException(
-                "Idempotency key was already used with a different stock-out payload for this tenant."
-              );
-            }
-          } else {
-            throw error;
-          }
-        }
-      }
-
-      await this.recordAudit({
-        entity: "PART_STOCK_ISSUE",
-        entityId: id,
-        action: AuditAction.UPDATE,
-        actor,
-        reason: options.overrideReason ?? options.notes,
-        metadata: {
-          quantity,
-          workOrderId: workOrder.id,
-          woNumber: workOrder.woNumber,
+    const unitCost = Number(part.unitCost ?? 0);
+    const eventId = `stock-out:${workOrder.id}:${id}:${idempotencyKey ?? Date.now()}`;
+    const outbox = await this.prisma.domainEventOutbox.create({
+      data: {
+        tenantId,
+        eventId,
+        eventType: "WORK_ORDER_PART_CONSUMPTION",
+        aggregateType: "WorkOrder",
+        aggregateId: workOrder.id,
+        payloadVersion: 1,
+        status: "PENDING",
+        payload: JSON.stringify({
+          owner: "BILEETA",
+          quantityInStockMutated: false,
           source: "inventory.stockOut",
-          event: options.overrideReason ? "parts_issue_override" : "parts_issued_against_work_order",
-          overrideFlag: Boolean(options.overrideReason?.trim()),
-          idempotencyKey: idempotencyKey ?? null,
-          movementId: issued.movement.id,
-          replayed: issued.replayed
-        }
-      });
-
-      return this.part(id, actor);
-    } catch (error) {
-      if (error instanceof BadRequestException && error.message.includes("cannot go below 0")) {
-        await this.recordAudit({
-          entity: "PART_STOCK_ISSUE",
-          entityId: id,
-          action: AuditAction.UPDATE,
-          actor,
-          reason: "negative_stock_blocked",
-          metadata: { event: "negative_stock_blocked", quantity, available: part.availableQuantity ?? part.quantityInStock }
-        });
+          workOrderId: workOrder.id,
+          partId: id,
+          erpCode: part.erpCode ?? null,
+          quantity,
+          unitCost,
+          lineCost: quantity * unitCost
+        })
       }
-      if (
-        idempotencyKey &&
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
-          where: { tenantId_key: { tenantId, key: idempotencyKey } }
+    });
+
+    if (idempotencyKey) {
+      try {
+        await this.prisma.inventoryStockIssueIdempotency.create({
+          data: {
+            tenantId,
+            key: idempotencyKey,
+            partId: id,
+            movementId: outbox.id,
+            workOrderId: workOrder.id,
+            quantity
+          }
         });
-        if (raced) {
-          if (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id) {
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
+            where: { tenantId_key: { tenantId, key: idempotencyKey } }
+          });
+          if (raced && (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id)) {
             throw new BadRequestException(
               "Idempotency key was already used with a different stock-out payload for this tenant."
             );
           }
-          return this.part(id, actor);
+        } else {
+          throw error;
         }
       }
-      throw error;
     }
+
+    await this.recordAudit({
+      entity: "PART_STOCK_ISSUE",
+      entityId: id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: options.overrideReason ?? options.notes,
+      metadata: {
+        quantity,
+        workOrderId: workOrder.id,
+        woNumber: workOrder.woNumber,
+        source: "inventory.stockOut",
+        event: "parts_consumption_pending_erp",
+        quantityInStockMutated: false,
+        erpReconciliationStatus: "PENDING",
+        outboxId: outbox.id,
+        overrideFlag: Boolean(options.overrideReason?.trim()),
+        idempotencyKey: idempotencyKey ?? null
+      }
+    });
+
+    return this.part(id, actor);
   }
 
   async movements(id: string, actor?: Actor) {
@@ -1406,18 +1405,26 @@ export class InventoryService {
           if (!poLine.partId) {
             throw new BadRequestException("Cannot receive stock for a line without partId");
           }
-          await this.stockEngine.receive(
-            {
-              actor: receiver,
-              partId: poLine.partId,
-              quantity: accepted,
-              notes: data.notes ?? "Purchase receipt",
-              sourceType: "PURCHASE_RECEIPT",
-              sourceDocument: `PO:${order.poNumber}/GRN:${data.receiptNumber}`,
-              sourceLineKey: `po-receipt:${createdReceipt.id}:${poLine.id}`
-            },
-            tx
-          );
+          await tx.domainEventOutbox.create({
+            data: {
+              tenantId,
+              eventId: `po-receipt:${createdReceipt.id}:${poLine.id}`,
+              eventType: "STOCK_RECEIPT_PENDING",
+              aggregateType: "PurchaseReceipt",
+              aggregateId: createdReceipt.id,
+              payloadVersion: 1,
+              status: "PENDING",
+              payload: JSON.stringify({
+                owner: "BILEETA",
+                quantityInStockMutated: false,
+                source: "purchase.receipt",
+                partId: poLine.partId,
+                quantity: accepted,
+                purchaseOrderId,
+                receiptNumber: data.receiptNumber
+              })
+            }
+          });
         }
       }
 
@@ -1986,18 +1993,11 @@ export class InventoryService {
     },
     actor?: Actor
   ) {
-    const result = await this.stockEngine.transfer({
-      actor,
-      partId: data.partId,
-      quantity: data.quantity,
-      warehouseId: data.sourceWarehouseId,
-      destWarehouseId: data.destWarehouseId,
-      notes: data.notes,
-      reason: data.notes,
-      idempotencyKey: data.idempotencyKey,
-      sourceType: "TRANSFER"
-    });
-    return result;
+    void data;
+    void actor;
+    throw new BadRequestException(
+      "Warehouse transfers no longer change stock. Bileeta owns quantity. Import an ERP stock snapshot to update the mirror."
+    );
   }
 
   async adjustStock(
@@ -2011,42 +2011,21 @@ export class InventoryService {
     },
     actor?: Actor
   ) {
-    if (!data.reason?.trim()) {
-      throw new BadRequestException("Adjustment reason is required");
-    }
-    return this.stockEngine.adjust({
-      actor,
-      partId: data.partId,
-      quantity: data.quantity,
-      direction: data.direction,
-      warehouseId: data.warehouseId,
-      reason: data.reason.trim(),
-      notes: data.reason.trim(),
-      idempotencyKey: data.idempotencyKey,
-      sourceType: "ADJUSTMENT"
-    });
+    void data;
+    void actor;
+    throw new BadRequestException(
+      "Local stock adjustments no longer change stock. Bileeta owns quantity. Import an ERP stock snapshot to update the mirror."
+    );
   }
 
   async reverseMovement(
     data: { movementId: string; quantity?: number; reason: string; idempotencyKey?: string },
     actor?: Actor
   ) {
-    const tenantId = this.resolveTenantId(actor);
-    const original = await this.prisma.stockMovement.findFirst({
-      where: { id: data.movementId, tenantId }
-    });
-    if (!original) {
-      throw new NotFoundException("Stock movement not found");
-    }
-    return this.stockEngine.reverse({
-      actor,
-      partId: original.partId,
-      quantity: data.quantity || original.quantity - (original.quantityReversed ?? 0),
-      warehouseId: original.warehouseId ?? undefined,
-      reason: data.reason,
-      reversalOfMovementId: original.id,
-      idempotencyKey: data.idempotencyKey,
-      sourceType: "REVERSAL"
-    });
+    void data;
+    void actor;
+    throw new BadRequestException(
+      "Reversing a stock movement no longer changes the ERP mirror. Record a return against the work order, or import a new ERP snapshot."
+    );
   }
 }

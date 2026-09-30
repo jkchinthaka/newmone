@@ -3832,7 +3832,8 @@ export class WorkOrdersService {
           partId: request.partId,
           erpCode: request.part.erpCode ?? null,
           quantity: issueQuantity,
-          unitCost
+          unitCost,
+          issuedById: issuer.sub
         })
       });
 
