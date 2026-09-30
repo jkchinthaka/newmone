@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:05 IST. Phase 09 is LOCAL DEVELOPMENT COMPLETE. Phase 10 starts next. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:10 IST. Phase 09 is LOCAL DEVELOPMENT COMPLETE. Phase 10 starts on `feature/phase-10-preventive-maintenance`. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
@@ -32,7 +32,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 | Next phase | Phase 10 preventive maintenance: plans, planning, forecast, inspections, and reliability. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-09-assets` (not pushed), created with `--no-track` from `feature/phase-08-requests` at `78775ee5`. |
+| Working branch | `feature/phase-10-preventive-maintenance` (not pushed), created with `--no-track` from `feature/phase-09-assets` at `9f4cf916`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
