@@ -208,8 +208,8 @@ Known overlap resolved: `/work-orders` redirects to `/maintenance/jobs` and keep
 
 | Page | Route | Status |
 | --- | --- | --- |
-| My Jobs | `/work-orders/my` | IN PROGRESS | Tab counts stay the assigned totals. List filters do not shrink those totals. Links open `/maintenance/jobs?wo=`. Capped notice after 500 rows. |
-| Work order execution | `/maintenance/jobs?wo=` | IN PROGRESS | Technicians and mechanics can start, hold, or complete only jobs assigned to them. Managers and admins are unchanged. Labour, parts, evidence storage, and closure UAT are not finished. |
+| My Jobs | `/work-orders/my` | LOCAL DEVELOPMENT COMPLETE | Assigned mechanic saw the disposable job. After close it left My Jobs. Superadmin My Jobs stays 0 because that user has no assignment. |
+| Work order execution | `/maintenance/jobs?wo=` | LOCAL DEVELOPMENT COMPLETE | Disposable inspection WO-2026-0249 went assigned, in progress, technician completed, verified, and closed. Evidence upload stays BLOCKED / NOT VERIFIED. |
 
 PR #59 merged at `6264948f`. Seed admin My Jobs can be empty because the list is assigned-to-me, not every tenant job.
 
@@ -227,7 +227,11 @@ A follow-up hardens that fix: the first refresh claims the token with an atomic 
 - Evidence file upload remains BLOCKED / NOT VERIFIED.
 - No schema migration. No permission grant.
 
-Still required before LOCAL DEVELOPMENT COMPLETE: browser UAT of My Jobs, a disposable assigned start through completion and verification, and a parts-usage walk that confirms stock is unchanged.
+- Disposable job `WO-2026-0249` (`cmunp5r4p001jq6w1gnojrpar`) was assigned to `mechanic@maintainpro.local`, appeared in My Jobs, started, opened one labour session, and rejected a second start with 409. `admin@maintainpro.local` issued one approved part. `PartIssue` quantity 1, line cost 1, outbox `WORK_ORDER_PART_CONSUMPTION` stayed `PENDING`. `SparePart.quantityInStock` stayed 19 and no warehouse balance row was created. A stale version returned 409. The mechanic verify call returned 403. `manager@maintainpro.local` verified and closed. Status history is CREATED, PLANNED, ASSIGNED, IN_PROGRESS, TECHNICIAN_COMPLETED, VERIFIED, CLOSED. `WorkOrder.version` ended at 7. The duplicate-labour job was cancelled. After close, board counts were assigned 3, in progress 2, supervisor verification 0, unassigned 19, overdue 5. Maintenance dashboard showed overdue 5, open load 24, unassigned 19, verification 0, and no page error. Redis 6380 refusal remains unrelated.
+- Evidence file upload remains BLOCKED / NOT VERIFIED. Local development allowed completion with a note because storage uploads are unset and `NODE_ENV` is development. No photo was uploaded and evidence security was not disabled.
+- `POST /inventory/parts/:id/stock-out` is a Phase 12 audit item. Bileeta owns stock quantity, and that inventory endpoint still decrements local quantity. It was not changed in Phase 07.
+
+Phase 07 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-07-my-jobs` at the acceptance commit. Release readiness stays blocked (Vercel, Cloudflare, MinIO). Do not merge this branch into main.
 
 ### Phase 08 — Maintenance requests (active)
 
@@ -285,6 +289,8 @@ Gate override attestation is in `1fc5d37f`. Live-map RBAC mismatch (RBAC-03) rem
 | ERP exceptions | `/erp/exceptions` | IMPLEMENTED — NOT VERIFIED |
 
 Bileeta remains the stock-valuation source. Vendor eligibility merge is PR #60. Nav-vs-API (RBAC-01) and unbounded parts fetch (F-07) are still open prior findings.
+
+Phase 12 audit (recorded during Phase 07, not changed): `POST /inventory/parts/:id/stock-out` still decrements local `SparePart.quantityInStock`. Work-order part issue does not. When Phase 12 starts, decide whether that inventory endpoint must stop writing the Bileeta-owned quantity and use the same pending ERP consumption path.
 
 ### Phase 13 — Administration
 

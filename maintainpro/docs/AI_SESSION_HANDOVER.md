@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~11:40 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs`. Work-order part issue now records consumption without changing Bileeta-owned stock. Do not start Phase 08. The disposable technician flow is still the completion gate.
+**Last updated:** 2026-09-30 ~11:35 IST. Phase 07 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-07-my-jobs`. Evidence upload stays BLOCKED / NOT VERIFIED. Phase 08 starts next. Do not merge this branch into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 07 My Jobs and work-order execution — IN PROGRESS on `feature/phase-07-my-jobs` |
-| Next phase | Run the disposable assigned technician flow (start, labour, part issue, ERP quantity unchanged, complete, other-user verify, same-user rejection, close). Evidence upload stays blocked. Do not start Phase 08. |
+| Current phase | 07 My Jobs and work-order execution — LOCAL DEVELOPMENT COMPLETE |
+| Next phase | Phase 08 remaining pages: `/requests/new` and `/qr/report-issue`. List and detail stay complete. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-07-my-jobs` (not pushed), created with `--no-track` from `feature/phase-05-all-jobs` at `38d4580a`. |
@@ -149,7 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08.
+Continue on a new `--no-track` branch for Phase 08. Do not merge Phase 07 into main.
+
+Phase 07 local acceptance passed. Commit `d47a32eb` holds the ERP stock boundary. Disposable work order `WO-2026-0249` was executed by `mechanic@maintainpro.local`, issued by `admin@maintainpro.local`, verified and closed by `manager@maintainpro.local`. Stock quantity stayed 19. Outbox stayed PENDING. Evidence upload remains BLOCKED / NOT VERIFIED. `POST /inventory/parts/:id/stock-out` is a Phase 12 follow-up and was not changed.
+
+Next action: Phase 08 `/requests/new` and `/qr/report-issue` only. Preserve the completed request list and detail. Do not grant technician report-issue permission unless a later business decision says so. Do not edit Live Map.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
