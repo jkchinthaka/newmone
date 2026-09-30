@@ -1,19 +1,24 @@
 name: Develop Staging Deploy
 
+# Build-only until staging host credentials exist. The deploy job fails on purpose
+# so a green workflow cannot be read as a completed deployment.
+
 on:
+  workflow_dispatch:
   push:
     branches: ["develop"]
+
+permissions:
+  contents: read
 
 defaults:
   run:
     working-directory: maintainpro
 
 jobs:
-  staging-deploy:
+  staging-build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: staging
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,14 +38,19 @@ jobs:
 
       - name: Build monorepo
         run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3000/api
+          NEXT_PUBLIC_API_ORIGIN: http://localhost:3000
+          NEXT_PUBLIC_USE_BFF: "true"
 
-      - name: Build docker images
+  staging-cd:
+    needs: staging-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Staging deployment is blocked
         run: |
-          docker build -f apps/api/Dockerfile --target production -t maintainpro-api:staging .
-          docker build -f apps/web/Dockerfile --target production -t maintainpro-web:staging .
-
-      - name: Staging deploy placeholder
-        run: |
-          echo "Build completed for develop branch (sha=${GITHUB_SHA})."
-          echo "Configure GitHub Environment 'staging' secrets before enabling real deploy commands."
-          echo "Required operator secrets: STAGING_HOST, STAGING_USER, STAGING_SSH_KEY (or Render/Cloudflare tokens)."
+          echo "STAGING_CD=BLOCKED"
+          echo "No staging API host, database, Redis, storage, or mail credentials are configured in this workflow."
+          echo "Images were not pushed. Production was not deployed."
+          exit 1

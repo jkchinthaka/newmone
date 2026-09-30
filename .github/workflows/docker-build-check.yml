@@ -3,8 +3,9 @@ name: Docker Build Check
 on:
   pull_request:
     branches: ["main", "develop"]
-  push:
-    branches: ["main", "develop"]
+
+permissions:
+  contents: read
 
 defaults:
   run:

@@ -3,8 +3,9 @@ name: PR Validation
 on:
   pull_request:
     branches: ["main", "develop"]
-  push:
-    branches: ["main", "develop"]
+
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -55,8 +56,18 @@ jobs:
           CI: true
 
       - name: Security-sensitive Jest suites
-        run: npx jest --config ./jest.config.cjs test/sensitive-data-hardening.spec.ts test/security-rbac-audit.spec.ts test/work-orders-tenant-isolation.spec.ts test/users-tenant-isolation.spec.ts
+        run: npx jest --config ./jest.config.cjs --runInBand test/sensitive-data-hardening.spec.ts test/security-rbac-audit.spec.ts test/work-orders-tenant-isolation.spec.ts test/users-tenant-isolation.spec.ts
         working-directory: maintainpro/apps/api
+        env:
+          CI: true
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      - name: Critical product regression suites
+        run: npx jest --config ./jest.config.cjs --runInBand test/auth-refresh-replay.spec.ts test/nav-favorites.spec.ts test/phase13-access.spec.ts test/work-order-erp-stock-boundary.spec.ts test/maintenance-reports.spec.ts test/planning-phase08.spec.ts test/fleet-lifecycle-phase10.spec.ts
+        working-directory: maintainpro/apps/api
+        env:
+          CI: true
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Build
         run: npm run build

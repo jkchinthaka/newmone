@@ -70,6 +70,20 @@ jobs:
       - name: Phase 3 release self-tests
         run: npm run test:release
 
+      - name: Retired product regression
+        run: |
+          set -euo pipefail
+          test ! -e apps/web/components/charts/fleet-map.tsx
+          test ! -e apps/web/hooks/use-fleet-socket.ts
+          if grep -RIn --include='*.ts' --include='*.tsx' '/fleet/live-map' apps/api/src apps/web; then
+            echo "Live Map route is still present"
+            exit 1
+          fi
+          echo "No Flutter build step is part of this workflow."
+          echo "PM scheduler is not treated as passed by a direct service call."
+          echo "EMAIL_DELIVERY=BLOCKED (no production SMTP in CI)"
+          echo "EVIDENCE_STORAGE=BLOCKED (MinIO image pull is unauthorized; uploads are not faked)"
+
       - name: Build
         run: npm run build
         env:

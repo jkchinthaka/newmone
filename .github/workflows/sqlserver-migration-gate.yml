@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - "maintainpro/prisma/**"
+      - "maintainpro/package-lock.json"
       - "maintainpro/apps/api/**"
       - "maintainpro/package.json"
       - ".github/workflows/sqlserver-migration-gate.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   fresh-sqlserver-migrate:
