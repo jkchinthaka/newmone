@@ -113,7 +113,7 @@ export function Topbar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="flex h-[60px] items-center justify-between gap-3 px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -134,7 +134,7 @@ export function Topbar({
           </div>
           <button
             type="button"
-            aria-label="Open command palette"
+            aria-label="Search"
             aria-keyshortcuts="Control+K Meta+K"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:hidden"
             onClick={onOpenCommandPalette}
@@ -143,9 +143,9 @@ export function Topbar({
           </button>
           <button
             type="button"
-            aria-label="Open command palette"
+            aria-label="Search modules or records"
             aria-keyshortcuts="Control+K Meta+K"
-            className="hidden min-h-11 max-w-full items-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:inline-flex lg:min-w-[14rem]"
+            className="hidden min-h-11 w-full max-w-[16rem] items-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:inline-flex lg:max-w-xs"
             onClick={onOpenCommandPalette}
           >
             <Search aria-hidden size={16} />

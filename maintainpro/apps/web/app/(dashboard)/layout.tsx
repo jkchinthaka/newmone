@@ -21,6 +21,7 @@ import { safeInternalReturnPath } from "@/lib/role-redirect";
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { state, memberships, error, selectTenant, refresh } = useTenantSession();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
@@ -129,7 +130,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       </a>
       <NetworkStatusBanner />
       <div className="flex min-h-screen">
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((current) => !current)} />
         <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar

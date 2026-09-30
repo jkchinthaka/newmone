@@ -6,6 +6,7 @@ type AppBrandLockupProps = {
   logoSize?: "sm" | "md" | "lg";
   variant?: "default" | "onDark";
   centered?: boolean;
+  compact?: boolean;
   className?: string;
 };
 
@@ -23,10 +24,23 @@ export function AppBrandLockup({
   logoSize = "md",
   variant = "default",
   centered = false,
+  compact = false,
   className = ""
 }: AppBrandLockupProps) {
   const isOnDark = variant === "onDark";
   const titleClass = titleSizes[logoSize === "lg" ? "lg" : logoSize === "sm" ? "sm" : "md"];
+
+  if (compact) {
+    return (
+      <div className={`flex min-w-0 items-center gap-2 ${className}`.trim()}>
+        <NelnaLogo size="sm" className="max-h-8 max-w-[72px]" />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-tight text-slate-900">{PRODUCT_NAME}</p>
+          <p className="truncate text-xs text-slate-500">Nelna Farm</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

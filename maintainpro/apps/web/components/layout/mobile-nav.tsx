@@ -49,7 +49,7 @@ export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNa
         className="relative flex h-full w-[min(20rem,88vw)] flex-col border-r border-slate-200 bg-white shadow-xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
-          <AppBrandLockup logoSize="sm" showTagline />
+          <AppBrandLockup logoSize="sm" compact />
           <button
             type="button"
             aria-label="Close navigation menu"

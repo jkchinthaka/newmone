@@ -47,8 +47,6 @@ export default function InventoryImportPage() {
     onError: (error) => toast.error(getErrorMessage(error))
   });
 
-  });
-
   const kpis = dashboardQuery.data as InventoryDashboardKpis | null;
 
   if (runsQuery.isLoading && !runsQuery.data) {

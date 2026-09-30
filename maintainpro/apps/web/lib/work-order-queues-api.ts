@@ -15,6 +15,8 @@ export type WorkOrderQueueKey =
   | "supervisor-verification"
   | "rework-required"
   | "overdue"
+  | "unassigned"
+  | "open-load"
   | "high-priority"
   | "high-risk"
   | "finance-vendor-pending"
