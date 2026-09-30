@@ -15,6 +15,7 @@ Each entry: purpose, owner module, source of truth, keys, lifecycle/delete polic
 | Site / FunctionalLocation | Organizational & location tree | Organization | MaintainPro | tenant+code | Retire |
 | Asset | Maintainable physical identity | Assets | MaintainPro | tenant+assetTag | Retire/Dispose. Inactive, retired, and disposed assets are not selectable for new requests. |
 | Vehicle | Fleet extension of Asset | Fleet | MaintainPro | tenant+registration | Retire/Dispose |
+| GpsLocation | Historical vehicle position samples | Fleet | MaintainPro | id | Retain. Live Map is retired and no longer reads this table. Vehicle history may still query it. |
 | SparePart | Part catalog | Inventory | MaintainPro catalog; Bileeta owns stock quantity | tenant+partNumber | Deactivate |
 | Warehouse | Stock location | Inventory | MaintainPro (+ ERP warehouse map) | tenant+code | Deactivate |
 

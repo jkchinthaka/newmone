@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:30 IST. Phase 10 is LOCAL DEVELOPMENT COMPLETE. Phase 11 starts on `feature/phase-11-fleet-gate`. Live Map retirement is the first task. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:40 IST. Phase 11 is in progress on `feature/phase-11-fleet-gate`. Live Map is retired. Gate-out and gate-in still need a signed-in pass. Do not start Phase 12. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 10 Preventive maintenance — LOCAL DEVELOPMENT COMPLETE |
-| Next phase | Phase 11 fleet and gate, including Live Map retirement. |
+| Current phase | 11 Fleet and gate — IN PROGRESS. Live Map is RETIRED / NOT PRODUCT SCOPE. |
+| Next phase | Finish gate-out, gate-in, vehicle lifecycle, and compliance counts before Phase 12. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-11-fleet-gate` (not pushed), created with `--no-track` from `feature/phase-10-preventive-maintenance` at `037495d2`. |
@@ -149,13 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue on a new `--no-track` branch for Phase 11. Do not merge Phase 10 into main.
+Stay on `feature/phase-11-fleet-gate`. Do not start Phase 12.
 
-Phase 10 local acceptance: plans page Active 1 and Overdue 1 matched the API and SQL (1 plan). Second generate returned the same work order. Inspection completed PASS and re-inspection kept the original record. Forecast page matched an empty `MaintenanceForecast` table. Reliability summary returned 200 and cleaner returned 403. Index `WorkOrder_pm_occurrence_key` is applied and duplicate groups are 0.
+Live Map is retired. `/fleet` shows the fleet overview and links to vehicles, gate, accidents, claims, fines, and compliance. It does not render a map. `GET /fleet/live-map` and `GET /fleet/street-view` are removed. `GpsLocation` rows are kept for vehicle history. `user-role-gating.test.ts` passed 9/9 after the live-map helper was removed.
 
-BACKGROUND PM SCHEDULER — BLOCKED / NOT VERIFIED. INSPECTION EVIDENCE — BLOCKED / NOT VERIFIED.
-
-Next action: Phase 11 fleet and gate. Retire Live Map from navigation, routes, UI, related APIs, unused RBAC, and tests, while preserving historical Fleet and Gate data. Do not start live Bileeta integration. Do not start production deployment.
+Next action: validate gate-out, gate-in, duplicate movement rejection, maintenance blocks, and vehicle counts against SQL. Do not start live Bileeta integration. Do not restore Live Map.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 

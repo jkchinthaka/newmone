@@ -289,7 +289,9 @@ Phase 10 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-10-preventive-maintenan
 
 Gate override attestation is in `1fc5d37f`. Live-map RBAC mismatch (RBAC-03) remains an open prior finding.
 
-**Product decision recorded 2026-09-30, not implemented yet:** Live Map is not required for MaintainPro and must be retired from the supported product scope when Phase 11 starts. At that time, remove Live Map from navigation, routes, UI, related APIs and integrations, unused RBAC and configuration, and tests where safe. Preserve any historical data that other Fleet or Gate workflows still need. Do not change Phase 11 code before that phase.
+**Product decision, implemented in Phase 11:** Live Map is **RETIRED / NOT PRODUCT SCOPE**. The fleet home page no longer renders a map. `GET /fleet/live-map` and `GET /fleet/street-view` are removed. The map component, live socket hook, and live-map role helper are removed. `GpsLocation` rows are kept for vehicle history and are not dropped. Gate, vehicles, compliance, and maintenance links are unchanged. Phase 15 must not treat Live Map as unfinished work.
+
+Phase 11 gate-out, gate-in, and vehicle lifecycle UAT is still open. Do not start Phase 12 until that pass is recorded.
 
 ### Phase 12 — Spare parts and ERP
 
