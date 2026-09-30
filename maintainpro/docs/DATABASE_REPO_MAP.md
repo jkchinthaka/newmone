@@ -10,8 +10,8 @@ One page that ties the SQL Server database design to the code that uses it. Read
 
 | Layer | Location | Notes |
 | --- | --- | --- |
-| Schema | `prisma/schema.prisma` | `provider = "sqlserver"`, one schema for the whole API, 222 models, 0 enums (statuses are strings). |
-| Migrations | `prisma/migrations/` (25 folders, `20260915120000` → `20260929120000`) | The only rollout path. Apply with `npm run db:migrate:deploy`. Never `db push` against staging or production. |
+| Schema | `prisma/schema.prisma` | `provider = "sqlserver"`, one schema for the whole API, 217 models, 0 enums (statuses are strings). |
+| Migrations | `prisma/migrations/` (26 folders, `20260915120000` → `20260930090000`) | The only rollout path. Apply with `npm run db:migrate:deploy`. Never `db push` against staging or production. |
 | Legacy | `prisma/migrations_legacy_postgresql/`, `infra/mongo/`, MongoDB text in older docs | Historical. Not applied. |
 | Views | `vw_rpt_dim_branch_site`, `vw_rpt_dim_date`, `vw_rpt_fact_downtime`, `vw_rpt_fact_maintenance` | Created in `20260917230000_reporting_views`, hardened in `20260917240000`. Power BI reads these and must filter by `tenantId`. |
 | Triggers | `trg_Asset_no_hierarchy_cycle`, `trg_AuditLog_immutable`, `trg_ConfigChangeHistory_immutable`, `trg_MaintenanceRequest_tenant_asset`, `trg_MeterCorrection_tenant_meter`, `trg_OrganizationUnit_tenant_parent`, `trg_PartRequest_tenant_wo`, `trg_VendorPortalAccess_tenant`, `trg_WorkOrder_tenant_refs` | Tenant integrity and append-only audit. Created in `20260917240000_database_integrity_hardening`. |
@@ -26,8 +26,8 @@ A table that exists in the live database but not in `schema.prisma` is not part 
 | --- | ---: | --- | --- |
 | **CORE** | 164 | In product scope (CMMS, fleet, spare parts, vendors, ERP, reports, admin) and used by API code. | Keep. Secure with tenant scoping and RBAC. |
 | **RETIRED** | 53 | Domain removed from the product surface in Phase 01 (`docs/PHASE_01_SCOPE_CLEANUP.md`), but API modules still read and write it. | Keep for now. Dropping needs the module removed first, data exported, and business sign-off (`docs/DATA_DISPOSITION_REPORT.md`). |
-| **UNUSED** | 5 | In the schema, but no API, web, test, script, or view reads or writes it. | Candidate for removal through a migration, after checking the live row count is 0. |
-| **Total** | 222 | | |
+| **REMOVED** | 5 | Had no code or view using it. Dropped by migration `20260930090000_drop_unused_tables` on 2026-09-30. | Gone from schema and database. |
+| **Total in schema** | 217 | | |
 
 "Used" means a Prisma call (`prisma.x.findMany`, `tx.x.create`, …) or a nested relation write/include from a parent model. The count column is the number of API source files with a direct call.
 
@@ -387,21 +387,21 @@ Notes:
 - `FacilityIssue` stays until `apps/api/scripts/migrate-facility-issues-to-requests.ts` has been applied and verified (see `DATA_DISPOSITION_REPORT.md` section 1).
 - `ErpMockSyncRun` belongs to the mock ERP provider, which is blocked in production.
 
-### 4.2 Unused (no code or view reads or writes them)
+### 4.2 Removed on 2026-09-30
 
-| Model | SQL table | Why it is unused | Recommendation |
-| --- | --- | --- | --- |
-| CustomFieldValue | `CustomFieldValue` | `CustomFieldDefinition` is managed in enterprise-governance, but no code stores values. | Keep if custom fields are on the roadmap; otherwise drop both. |
-| EmployeeRosterEntry | `EmployeeRosterEntry` | Workforce uses `EmployeeLeaveRequest`; rostering was never built. | Drop. |
-| VendorContact | `VendorContact` | Supplier contact details live on `Supplier`. | Drop. |
-| RepairWarranty | `RepairWarranty` | Duplicates `EntityWarranty` / `WarrantyClaim`, which the warranties module uses. | Drop. |
-| UatScenarioExecution | `UatScenarioExecution` | Delivery-phase tracking; no module uses it. | Drop. |
+Migration `prisma/migrations/20260930090000_drop_unused_tables` dropped these tables. It refuses to run if any of them holds rows, so no environment can lose data silently. It was applied to local `MaintainProDev`, and all 5 tables were empty.
 
-Before dropping these:
+| Former model | Why it was removed |
+| --- | --- |
+| EmployeeRosterEntry | Rostering was never built; workforce uses `EmployeeLeaveRequest`. |
+| VendorContact | Supplier contact details live on `Supplier`. |
+| RepairWarranty | Duplicated `EntityWarranty` / `WarrantyClaim`, which the warranties module uses. |
+| CustomFieldValue | No code stored custom field values. `CustomFieldDefinition` stays. |
+| UatScenarioExecution | No module wrote UAT results to it. Go-live check UAT-SAFE-011 now checks the `FORMAL_BUSINESS_UAT` evidence class instead. |
 
-- `scripts/validate-e2e-uat-go-live-controls.mjs` (check UAT-SAFE-011, run by `full-stack-e2e`) and `scripts/test/uat-result-contract.selftest.mjs` look for the text `model UatScenarioExecution` in the schema. Remove or repoint those checks in the same change. The selftest already fails today: it looks for `FORMAL_BUSINESS_UAT` in the schema, but that value lives in `apps/api/src/database/prisma-enums.ts`.
-- `scripts/mongo-to-sqlserver/registry.ts` lists `RepairWarranty` for the legacy Mongo copy tool.
-- `OrganizationUnit` is not in this list: `vw_rpt_dim_branch_site` joins it, so dropping it would break that view.
+`OrganizationUnit` was kept: `vw_rpt_dim_branch_site` joins it.
+
+Other environments (staging, production) get the drop on their next `npm run db:migrate:deploy`. If one of them has rows in these tables, the migration stops and nothing changes.
 
 ## 5. Compare the live database with this map
 
@@ -436,7 +436,7 @@ Run these yourself (they are read-only). They answer: are there tables in the da
    ORDER BY type_desc, name;
    ```
 
-   Expect 222 model tables plus `_prisma_migrations`, the 4 views, and the 9 triggers above. Anything else was not created by this repo.
+   Expect 217 model tables plus `_prisma_migrations`, the 4 views, and the 9 triggers above. Anything else was not created by this repo.
 
 ## 6. Rules for changing tables
 

@@ -696,7 +696,7 @@ describe("Phase 9 MaintenanceSupplyService", () => {
 
 describe("Phase 9 schema contract smoke (repair warranty / compatibility / critical)", () => {
   it("documents repair warranty and part compatibility field expectations", () => {
-    // RepairWarranty and PartCompatibility are Prisma models; runtime CRUD may use admin/API later.
+    // Repair warranties are stored as EntityWarranty (subjectType VENDOR_REPAIR); PartCompatibility is a Prisma model.
     const warranty = {
       workOrderId: "wo-1",
       supplierId: "sup-1",
