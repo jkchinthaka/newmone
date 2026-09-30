@@ -340,7 +340,7 @@ Roles checked without widening permissions: admin and manager can list parts; in
 
 Implemented `page.tsx` files under `/admin`: `page`, `users`, `roles`, `tenants`, `people`, `people/new`, `invitations`, `organization`, `security`, `audit`, `approvals`, `asset-masters`, `bulk-imports`, `data-quality`, `job-categories`, `maintenance-config`, `maintenance-templates`, `checklist-templates`, `fault-codes`, `reason-codes`, `priority-sla`, `reliability`, `work-permits`, `condition-monitoring`, `warranties`, `feature-flags`, `config-history`, `integrations`.
 
-All are **IMPLEMENTED — NOT VERIFIED**. Config consumption into work orders has not been walked field by field.
+Phase 13 is IN PROGRESS on `feature/phase-13-administration`. The admin screens exist and are **IMPLEMENTED — NOT VERIFIED**. The next check is user and role administration against the server, without widening permissions.
 
 ### Phase 14 — Reports, costs, history
 

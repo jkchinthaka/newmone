@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~13:20 IST. Phase 12 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-12-spare-parts-erp`. Live Bileeta API stays deferred. Live Map stays retired. Do not merge into main. Phase 13 starts only after this Phase 12 commit.
+**Last updated:** 2026-09-30 ~13:25 IST. Phase 12 is LOCAL DEVELOPMENT COMPLETE at `39e24ae1`. Phase 13 has started on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start production deployment.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 12 Spare parts and ERP — LOCAL DEVELOPMENT COMPLETE. |
-| Next phase | Phase 13 Administration. User-based access management. Do not start production deployment or a live Bileeta connection. |
+| Current phase | 13 Administration — IN PROGRESS. User-based access is implemented in the admin screens and is not yet verified. |
+| Next phase | Finish Phase 13 user, role, and permission administration. Do not start production deployment. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-12-spare-parts-erp` (not pushed), created with `--no-track` from `feature/phase-11-fleet-gate` at `e3d67559`. |
+| Working branch | `feature/phase-13-administration` (not pushed), created with `--no-track` from `feature/phase-12-spare-parts-erp` at `39e24ae1`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -153,7 +153,7 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: start Phase 13 — Administration on a new `--no-track` branch. Finalize user-based access management. Do not merge Phase 12 into main. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
+Next action: walk `/admin/users` and `/admin/roles` against the server. Confirm an administrator can grant and remove a permission, a non-admin cannot, and the API enforces the same check. Do not widen permissions to make the walk pass. Do not merge into main. Do not restore Live Map. Do not connect the live Bileeta API.
 
 Phase 12 local acceptance: disposable part `P12-54005240` was issued on `WO-2026-0253` with cost snapshot 25 and a PENDING consumption event while quantity stayed 0. Admin acknowledgement stored reference `BIL-DEV-54005240` without changing quantity and without a Bileeta call. Cross-tenant read and acknowledgement were denied. Dirty Excel import was blocked. Clean Excel confirm changed the snapshot from 0 to 5 only after confirm, and the unmapped code created no part. Browser shows ERP Snapshot. Jest: 43 passed across the six inventory/ERP suites.
 
