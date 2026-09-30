@@ -26,7 +26,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 **Last updated:** 2026-09-30. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). The product is not release-ready and is not deployed. Live Map stays retired. Do not merge into main. Do not start production deployment. There is no Phase 16.
 
-Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with `--no-track` from the acceptance commit). It changes only the desktop shell look: sidebar width and collapse, top bar, and a restrained green taken from the Nelna logo artwork. Those greens are recorded in `apps/web/lib/branding.ts` as an approximation, not an official Nelna specification. Navigation items, permissions, APIs, and workflows are unchanged.
+Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with `--no-track` from the acceptance commit). It changes the desktop shell look and favorite persistence only. Favorites are an explicit per-user list in `localStorage` (`maintainpro_nav_favorites:<userId>`). An empty saved list stays empty. Role defaults are not applied on load. Shell greens are recorded in `apps/web/lib/branding.ts` as an approximation, not an official Nelna specification. Navigation items, permissions, APIs, and workflows are unchanged.
 
 | Item | Value |
 | --- | --- |

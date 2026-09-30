@@ -57,7 +57,6 @@ import {
 
 import {
   FULL_NAVIGATION_ROLES,
-  getDefaultFavoriteNavIds,
   getNavigationGroups,
   isNavItemActive,
   type NavBadgeKey,
@@ -65,8 +64,11 @@ import {
   type NavigationItem
 } from "@/lib/navigation";
 import {
+  effectiveFavoriteIds,
+  NAV_FAVORITES_CHANGED_EVENT,
   readCollapsedNavGroups,
-  readFavoriteNavIds,
+  readFavoritePreference,
+  hydrateFavoriteIds,
   readFullNavigationMode,
   toggleFavoriteNavId,
   writeCollapsedNavGroups,
@@ -279,15 +281,20 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
 
   useEffect(() => {
     setFullNavigation(readFullNavigationMode());
-    setFavoriteIds(readFavoriteNavIds(user.id));
+    setFavoriteIds(hydrateFavoriteIds(readFavoritePreference(user.id)));
     setCollapsedGroups(readCollapsedNavGroups(user.id));
-  }, [user.id]);
 
-  useEffect(() => {
-    if (favoriteIds.length === 0 && user.id) {
-      setFavoriteIds(getDefaultFavoriteNavIds(roleName));
-    }
-  }, [favoriteIds.length, roleName, user.id]);
+    const onFavoritesChanged = (event: Event) => {
+      const changedUserId = (event as CustomEvent<string | null>).detail;
+      if (changedUserId !== (user.id ?? null)) {
+        return;
+      }
+      setFavoriteIds(hydrateFavoriteIds(readFavoritePreference(user.id)));
+    };
+
+    window.addEventListener(NAV_FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+    return () => window.removeEventListener(NAV_FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+  }, [user.id]);
 
   const groups = useMemo(
     () =>
@@ -300,13 +307,15 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
   );
 
   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);
-  const favoriteItems = useMemo(
-    () =>
-      favoriteIds
-        .map((id) => allItems.find((item) => item.id === id))
-        .filter((item): item is NavigationItem => Boolean(item)),
-    [allItems, favoriteIds]
-  );
+  const favoriteItems = useMemo(() => {
+    const visible = new Map(allItems.map((item) => [item.id, item]));
+    return effectiveFavoriteIds(
+      favoriteIds,
+      allItems.map((item) => item.id)
+    )
+      .map((id) => visible.get(id))
+      .filter((item): item is NavigationItem => Boolean(item));
+  }, [allItems, favoriteIds]);
 
   const showBadgeFetch = allItems.some((item) => item.badgeKey);
   const { badges } = useNavBadges(showBadgeFetch, roleName);

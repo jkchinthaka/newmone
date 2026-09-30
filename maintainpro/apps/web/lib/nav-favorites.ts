@@ -1,51 +1,115 @@
 const FAVORITES_STORAGE_PREFIX = "maintainpro_nav_favorites";
 
+export const NAV_FAVORITES_CHANGED_EVENT = "maintainpro-nav-favorites-changed";
+
+export type FavoritePreference = {
+  /** False when this user has never saved a favorite list. */
+  saved: boolean;
+  ids: string[];
+};
+
 export function favoritesStorageKey(userId: string | null | undefined): string {
   const id = userId?.trim() || "anonymous";
   return `${FAVORITES_STORAGE_PREFIX}:${id}`;
 }
 
-export function readFavoriteNavIds(userId: string | null | undefined): string[] {
-  if (typeof window === "undefined") {
-    return [];
+function uniqueIds(ids: readonly string[]): string[] {
+  return [...new Set(ids.filter((id) => id.trim().length > 0))];
+}
+
+function browserWindow(): Window | null {
+  if (typeof globalThis.window === "undefined") {
+    return null;
+  }
+  return globalThis.window;
+}
+
+function resolveStorage(storage?: Storage | null): Storage | null {
+  if (storage) {
+    return storage;
+  }
+  return browserWindow()?.localStorage ?? null;
+}
+
+export function readFavoritePreference(
+  userId: string | null | undefined,
+  storage?: Storage | null
+): FavoritePreference {
+  const target = resolveStorage(storage);
+  if (!target) {
+    return { saved: false, ids: [] };
   }
 
   try {
-    const raw = window.localStorage.getItem(favoritesStorageKey(userId));
-    if (!raw) {
-      return [];
+    const raw = target.getItem(favoritesStorageKey(userId));
+    if (raw == null) {
+      return { saved: false, ids: [] };
     }
 
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) {
-      return [];
+      return { saved: false, ids: [] };
     }
 
-    return parsed.filter((entry): entry is string => typeof entry === "string");
+    return {
+      saved: true,
+      ids: uniqueIds(parsed.filter((entry): entry is string => typeof entry === "string"))
+    };
   } catch {
-    return [];
+    return { saved: false, ids: [] };
   }
 }
 
-export function writeFavoriteNavIds(userId: string | null | undefined, ids: string[]): void {
-  if (typeof window === "undefined") {
-    return;
+/**
+ * A missing preference and a saved empty list both display as no favorites.
+ * Neither case is filled from role defaults.
+ */
+export function hydrateFavoriteIds(preference: FavoritePreference): string[] {
+  return preference.saved ? preference.ids : [];
+}
+
+export function readFavoriteNavIds(userId: string | null | undefined, storage?: Storage | null): string[] {
+  return hydrateFavoriteIds(readFavoritePreference(userId, storage));
+}
+
+/**
+ * Saved pins stay in storage. Effective favorites are that list intersected
+ * with routes the current user can see. Access that returns later shows the
+ * same saved pin again. A newly available route is not added.
+ */
+export function effectiveFavoriteIds(savedIds: readonly string[], visibleIds: readonly string[]): string[] {
+  const visible = new Set(visibleIds);
+  return uniqueIds(savedIds).filter((id) => visible.has(id));
+}
+
+export function writeFavoriteNavIds(
+  userId: string | null | undefined,
+  ids: string[],
+  storage?: Storage | null
+): string[] {
+  const next = uniqueIds(ids);
+  const target = resolveStorage(storage);
+  if (!target) {
+    return next;
   }
 
-  window.localStorage.setItem(favoritesStorageKey(userId), JSON.stringify([...new Set(ids)]));
+  target.setItem(favoritesStorageKey(userId), JSON.stringify(next));
+  browserWindow()?.dispatchEvent(new CustomEvent(NAV_FAVORITES_CHANGED_EVENT, { detail: userId ?? null }));
+  return next;
 }
 
 export function toggleFavoriteNavId(
   userId: string | null | undefined,
   navId: string,
-  current: string[]
+  current: string[],
+  storage?: Storage | null
 ): string[] {
-  const next = current.includes(navId)
-    ? current.filter((id) => id !== navId)
-    : [...current, navId];
+  const normalized = uniqueIds(current);
+  const next = normalized.includes(navId)
+    ? normalized.filter((id) => id !== navId)
+    : [...normalized, navId];
 
-  writeFavoriteNavIds(userId, next);
-  return next;
+  return writeFavoriteNavIds(userId, next, storage);
 }
 
 const FULL_NAV_STORAGE_KEY = "maintainpro_nav_full_mode";
