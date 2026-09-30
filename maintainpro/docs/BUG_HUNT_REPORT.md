@@ -269,19 +269,23 @@ A disposable user started as Viewer (`GET /users` 403). After an admin role chan
 | Viewports | 390, 820, 1024, 1440 |
 | Bugs found | 13 product defects, P0 0, P1 0, P2 13, P3 0 |
 | Fixed | 13 |
-| Blocked | Web production build was not started while `next dev` is serving port 3001. The full Jest suite was not re-run. |
-| Stale tests | 8, fixed earlier |
-| Infrastructure | MinIO image pull 401, email disabled, no PM clock. Not application bugs. |
+| Blocked product defects | 0 |
+| Stale tests | 9. Eight were fixed before this gate. The ninth expected the old `partNumber: data.partNumber` source text. The lookup is still tenant-scoped, now using the trimmed part number. The assertion was updated and that suite passed (21). |
+| Infrastructure | MinIO image pull 401, email disabled, no PM clock. Not application bugs. Hosting preview failures stay outside this source gate. |
+| Prisma generate | Passed. Client v5.22.0. No schema change. Tracked files stayed clean. |
 | Tenant audit | 50 matches, 0 unapproved |
 | RBAC audit | 950 routes, 0 violations |
+| Lint | Passed. API and web lint are typecheck. |
 | Typecheck | API and web `tsc --noEmit` passed |
-| Targeted tests | navigation and create-guard, 27 passed |
+| Jest | 227 suites passed and 1 failed on the first full run (1,970 passed, 1 failed, 10 skipped, 1,981 total). The failure was the stale part-number assertion. After that update, `tenant-uniqueness-inventory.spec.ts` passed 21 tests. Navigation and create-guard stayed inside the passing set. |
+| Production build | Passed. Shared types, UI components, API, and web. Dev servers were stopped first. |
+| BH-06 through BH-18 | Source checks still match the fixes. Navigation and create-guard tests passed inside the full run. |
 | Browser | Six roles, no page errors, no horizontal overflow. Cleaner and mechanic administration returned to Action Center. Cleaner All Jobs returned to Action Center. |
 | Branch | `qa/full-project-bug-hunt` |
 | Fixes commit | `02f4f543` |
 
 ## Status
 
-FULL BUG HUNT COMPLETE — REMAINING BLOCKED ITEMS DOCUMENTED
+FULL BUG HUNT COMPLETE — ALL CONFIRMED FIXABLE PRODUCT BUGS RESOLVED
 
-BH-06 through BH-18 are fixed. Do not push, do not merge to main, and do not start the performance branch. Release stays blocked for the existing infrastructure items. The performance branch remains `43f2363b`.
+Infrastructure blockers remain separate: MinIO image pull 401, email delivery disabled, no PM background clock, and hosting preview failures. Release stays blocked. Production is not deployed. The performance branch remains `43f2363b` and is not part of this work.
