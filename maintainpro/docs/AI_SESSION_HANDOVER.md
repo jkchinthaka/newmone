@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~08:30 IST. Phase 07 is in progress on `feature/phase-07-my-jobs`. Do not wait for CONTINUE. Do not start Phase 08.
+**Last updated:** 2026-09-30 ~08:35 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs` at `4df0ca50`. Browser UAT is waiting for a manual sign-in. Do not type the password. Do not start Phase 08.
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +153,7 @@ Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not o
 
 Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
 
-Still open before LOCAL DEVELOPMENT COMPLETE: signed-in My Jobs browser UAT (browser is on the login page; password was not entered), a disposable assigned start through verification, and a parts-usage walk proving stock is unchanged. Evidence upload stays BLOCKED / NOT VERIFIED (`STORAGE_MODE` and `STORAGE_UPLOADS_ENABLED` are unset). MinIO stays a release issue. Do not start Phase 08.
+Signed-in browser UAT is blocked until the user signs in. On 2026-09-30 the Cursor browser tab was `http://localhost:3001/login?reason=session_expired&returnTo=%2Fmaintenance`. The email and password fields were empty. The password was not entered. After sign-in, open `/work-orders/my` for the assigned technician and continue the disposable work-order flow. Do not start Phase 08.
 
 Live Map retirement is recorded for Phase 11 only. Do not change Fleet code until that phase.
 
