@@ -21,7 +21,7 @@ import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secret
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
 import { TenantFeaturesService } from "../maintenance-config/tenant-features.service";
 import { recordAuthSecurityEvent } from "./auth-security-event.util";
-import { isBenignRefreshRotationReplay } from "./auth-refresh-replay";
+import { isBenignRefreshRotationReplay, isRefreshRotationInProgress } from "./auth-refresh-replay";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -448,19 +448,7 @@ export class AuthService {
         if (!user || !user.isActive) {
           throw new UnauthorizedException("Invalid refresh token");
         }
-        const tokens = await this.generateTokens(
-          {
-            sub: user.id,
-            email: user.email,
-            role: user.role.name as RoleName,
-            tenantId: user.tenantId ?? null
-          },
-          { familyId: storedToken.familyId }
-        );
-        return {
-          data: tokens,
-          message: "Token refreshed"
-        };
+        throw new UnauthorizedException("Refresh token already rotated");
       }
 
       // Reuse of a rotated refresh token outside the race window: revoke the family.
@@ -504,10 +492,40 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    await this.prisma.refreshToken.updateMany({
+    const claimed = await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: now, lastUsedAt: now }
     });
+    if (claimed.count !== 1) {
+      const raced = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+      if (
+        raced &&
+        isRefreshRotationInProgress(raced.revokedAt, raced.replacedByTokenHash, now)
+      ) {
+        throw new UnauthorizedException("Refresh token already rotated");
+      }
+      if (raced?.revokedAt && raced.replacedByTokenHash) {
+        const successor = await this.prisma.refreshToken.findUnique({
+          where: { tokenHash: raced.replacedByTokenHash }
+        });
+        if (
+          isBenignRefreshRotationReplay({
+            revokedAt: raced.revokedAt,
+            replacedByTokenHash: raced.replacedByTokenHash,
+            familyId: raced.familyId,
+            successor,
+            now
+          })
+        ) {
+          throw new UnauthorizedException("Refresh token already rotated");
+        }
+      }
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: storedToken.familyId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Refresh token reuse detected");
+    }
 
     const tokens = await this.generateTokens(
       {

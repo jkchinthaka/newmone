@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~09:05 IST. Phase 07 is still in progress. The session drop is a Phase 01 refresh-token race, fixed on `feature/phase-07-my-jobs`. Do not start Phase 08.
+**Last updated:** 2026-09-30 ~11:05 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs`. Refresh rotation is an atomic claim. Do not start Phase 08. The disposable technician flow is still the completion gate.
 
 | Item | Value |
 | --- | --- |

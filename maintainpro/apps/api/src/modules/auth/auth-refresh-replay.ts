@@ -1,4 +1,14 @@
-/** How long a just-rotated refresh token may be presented again without killing the session family. */
+export function isRefreshRotationInProgress(
+  revokedAt: Date | null,
+  replacedByTokenHash: string | null,
+  now: Date
+): boolean {
+  if (!revokedAt || replacedByTokenHash) {
+    return false;
+  }
+  const ageMs = now.getTime() - revokedAt.getTime();
+  return ageMs >= 0 && ageMs <= REFRESH_ROTATION_REPLAY_GRACE_MS;
+}
 export const REFRESH_ROTATION_REPLAY_GRACE_MS = 15_000;
 
 export type RefreshRotationReplayInput = {
