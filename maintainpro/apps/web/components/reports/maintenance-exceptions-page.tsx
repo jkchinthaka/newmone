@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Download, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Download, Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -114,10 +114,14 @@ export function MaintenanceExceptionsPage() {
           </label>
           <button
             type="button"
-            onClick={() => void loadSummary()}
-            className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-500"
+            onClick={() => {
+              setFilters(defaultMaintenanceFilters());
+              setSelectedType(null);
+              setRows([]);
+            }}
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <RefreshCw size={14} /> Apply
+            Clear filters
           </button>
           {generatedAt ? (
             <p className="text-xs text-slate-500">Last updated {new Date(generatedAt).toLocaleString()}</p>

@@ -344,7 +344,7 @@ Phase 13 is LOCAL DEVELOPMENT COMPLETE. The model stays one user, one role, and 
 
 ### Phase 14 — Reports, costs, history
 
-Phase 14 is IN PROGRESS. Nonzero exception cards now match their drill-down totals, including overdue 3 and its 3-row export. Cleaner report APIs return 403. A tenant admin cannot spoof another tenant. The signed-in cleaner page walk and a date-range filter check are still open, so Phase 14 is not local-complete and Phase 15 has not started.
+Phase 14 is LOCAL DEVELOPMENT COMPLETE. The cleaner is sent away from report pages and gets 403 from the report APIs. Date ranges, exports, and the cancelled 30-day window were checked against the same predicates. Details are in `docs/PRE_ROADMAP_RECONCILIATION.md`. Jest 11 passed. Phase 15 has not started on this commit.
 
 | Page | Route | Status |
 | --- | --- | --- |

@@ -758,7 +758,7 @@ export class MaintenanceReportsService {
     }
 
     const page = Math.max(1, Number(query.page ?? 1));
-    const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? 25)));
+    const pageSize = Math.min(500, Math.max(1, Number(query.pageSize ?? 25)));
     const tenantId = this.resolveTenantId(user);
     const { start, end } = this.resolveDateRange(query);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
