@@ -30,6 +30,7 @@ import {
 } from "../../common/utils/tenant-scope.util";
 import { evaluateVendorEligibility } from "../policies/governance-policies";
 import { assertVersionMatch } from "../../common/utils/optimistic-concurrency.util";
+import { assertWorkOrderCreateShape } from "../../common/utils/work-order-create.guards";
 import { parseJobDomain, resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   assertDomainTestAllowsCompletion,
@@ -775,6 +776,7 @@ export class WorkOrdersService {
     if (!data.description?.trim()) {
       throw new BadRequestException("Description is required");
     }
+    assertWorkOrderCreateShape(data);
 
     const assetId = assertValidOptionalObjectId("assetId", data.assetId);
     const vehicleId = assertValidOptionalObjectId("vehicleId", data.vehicleId);
@@ -790,6 +792,16 @@ export class WorkOrdersService {
     const actorId = actor?.sub;
     if (!actorId) {
       throw new ForbiddenException("Authenticated actor is required to create a work order.");
+    }
+
+    const idempotencyKey = data.idempotencyKey?.trim();
+    if (idempotencyKey) {
+      const existing = await db.workOrder.findFirst({
+        where: { tenantId, lastIdempotencyKey: idempotencyKey }
+      });
+      if (existing) {
+        return existing;
+      }
     }
 
     // Prefer authenticated actor. Client-supplied createdById is accepted for compatibility.

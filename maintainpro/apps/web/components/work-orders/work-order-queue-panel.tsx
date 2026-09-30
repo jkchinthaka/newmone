@@ -9,6 +9,7 @@ import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Loader2, Refresh
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
+import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   DEFAULT_QUEUE_FILTERS,
@@ -155,9 +156,13 @@ export function WorkOrderQueuePanel({
     });
   }, [initialized, linkedFilters]);
 
+  const roleName = extractRoleName(currentUser);
+  const isTechnician = roleName === "TECHNICIAN" || roleName === "MECHANIC";
+  const listFilters = isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters;
+
   const queueQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue", filters]),
-    queryFn: () => fetchWorkOrderQueue(filters),
+    queryKey: withTenantScope(["work-orders", "queue", listFilters]),
+    queryFn: () => fetchWorkOrderQueue(listFilters),
     enabled: initialized,
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,

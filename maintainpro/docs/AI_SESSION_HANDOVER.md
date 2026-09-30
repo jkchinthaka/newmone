@@ -24,6 +24,8 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**Bug hunt regression gate passed (2026-09-30).** Branch `qa/full-project-bug-hunt`. Status: FULL BUG HUNT COMPLETE — ALL CONFIRMED FIXABLE PRODUCT BUGS RESOLVED. Prisma generate, tenant audit, RBAC audit, lint, both typechecks, the API Jest suite, and the production build passed after the local Next.js and Nest dev servers were stopped. One stale uniqueness assertion was updated. Infrastructure blockers remain separate. Do not start performance work until this branch is on main. Performance branch `perf/full-project-optimization` stays at `43f2363b`.
+
 **Last updated:** 2026-09-30. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). Release readiness is in progress on `release/readiness` and remains **RELEASE BLOCKED**. Not deployed. See `docs/RELEASE_READINESS_REPORT.md`. There is no Phase 16.
 
 Local Redis on port 6380 is up (`docker compose -f docker-compose.dev.yml up -d redis`). The running API logged Redis and the notification queue as active. MinIO image pull is still `401 Unauthorized`. Email stays disabled. The PM generator is still an explicit `auto-wo` call, not a background clock.

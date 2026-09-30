@@ -184,12 +184,14 @@ export class AssetListQueryDto {
 
 export class CreateAssetDto {
   @ApiProperty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(2)
   @MaxLength(60)
   assetTag!: string;
 
   @ApiProperty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(2)
   @MaxLength(160)

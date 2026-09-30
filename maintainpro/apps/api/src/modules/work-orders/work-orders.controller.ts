@@ -343,6 +343,7 @@ export class WorkOrdersController {
       maintenanceTemplateId?: string;
       currentOdometer?: number;
       jobCategoryId?: string;
+      idempotencyKey?: string;
     }
   ) {
     const data = await this.workOrdersService.create(body, req.user);

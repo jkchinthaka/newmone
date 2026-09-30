@@ -155,6 +155,7 @@ export interface CreateWorkOrderInput {
   jobDomain?: string;
   currentOdometer?: number;
   jobCategoryId?: string;
+  idempotencyKey?: string;
 }
 
 export interface UpdateWorkOrderInput {

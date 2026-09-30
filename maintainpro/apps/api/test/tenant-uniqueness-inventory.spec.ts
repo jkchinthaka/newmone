@@ -212,7 +212,7 @@ describe("MP-003: application code no longer performs bare lookups on migrated b
       join(root, "apps/api/src/modules/inventory/inventory.service.ts"),
       "utf8"
     );
-    expect(inventoryService).toMatch(/partNumber:\s*data\.partNumber,\s*\n\s*tenantId/);
+    expect(inventoryService).toMatch(/where:\s*\{\s*\n\s*partNumber,\s*\n\s*tenantId/);
   });
 
   it("WorkOrdersService.nextWoNumber scopes its latest-number lookup by tenantId", () => {

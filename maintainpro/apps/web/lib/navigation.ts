@@ -171,13 +171,14 @@ const FLEET_NAV_ROLES = mergeRoles(
   READ_ONLY_ROLES
 );
 
+// Keep this aligned with inventory parts read roles. Supervisor and technician get 403
+// on the catalog, so the Spare Parts and ERP Mapping entries must not be shown to them.
 const PARTS_ROLES = mergeRoles(
   ADMIN_ROLES,
   MANAGEMENT_ROLES,
+  ASSET_ROLES,
   INVENTORY_ROLES,
-  PROCUREMENT_ROLES,
-  TECHNICIAN_ROLES,
-  SUPERVISOR_ROLES
+  ["MECHANIC"]
 );
 
 const REPORT_ROLES = mergeRoles(
@@ -456,7 +457,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: "Vendors / External Repairs",
     href: "/procurement/vendors",
     icon: "Users",
-    allowedRoles: mergeRoles(PARTS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    allowedRoles: mergeRoles(PARTS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, PROCUREMENT_ROLES),
     category: "operations",
     description: "Suppliers and external repair cases",
     activeMatch: "startsWith"
@@ -853,6 +854,10 @@ export function canAccessNavigationPath(
     return true;
   }
 
+  if (normalizedPath === "/work-orders/my" || normalizedPath.startsWith("/work-orders/my/")) {
+    return visible.some((item) => item.id === "my-jobs");
+  }
+
   if (normalizedPath.startsWith("/work-orders")) {
     return visible.some((item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs");
   }
@@ -874,7 +879,10 @@ export function canAccessNavigationPath(
   }
 
   if (normalizedPath.startsWith("/maintenance")) {
-    return visible.some((item) => item.id === "preventive-maintenance" || item.id === "home");
+    return visible.some((item) => {
+      const href = item.href.split("?")[0];
+      return normalizedPath === href || normalizedPath.startsWith(`${href}/`);
+    });
   }
 
   return FULL_NAVIGATION_ROLES.has(normalized ?? "");

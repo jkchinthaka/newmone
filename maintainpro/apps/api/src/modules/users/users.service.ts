@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AuditAction, RoleName, TenantMembershipRole } from "@prisma/client";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { AuditAction, Prisma, RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomBytes, randomUUID } from "node:crypto";
 
@@ -601,7 +601,17 @@ export class UsersService {
       throw new BadRequestException("Cannot delete user with assigned open work orders");
     }
 
-    await this.prisma.user.delete({ where: { id } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+    await this.prisma.tenantMembership.deleteMany({ where: { userId: id } });
+
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+        throw new ConflictException("This user still has related records. Deactivate the account instead of deleting it.");
+      }
+      throw error;
+    }
 
     return {
       deleted: true
