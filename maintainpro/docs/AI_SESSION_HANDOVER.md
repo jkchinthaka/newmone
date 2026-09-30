@@ -32,7 +32,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 | Next phase | Phase 08 remaining pages: `/requests/new` and `/qr/report-issue`. List and detail stay complete. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-07-my-jobs` (not pushed), created with `--no-track` from `feature/phase-05-all-jobs` at `38d4580a`. |
+| Working branch | `feature/phase-08-requests` (not pushed), created with `--no-track` from `feature/phase-07-my-jobs` at `e9b0a43b`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -153,7 +153,7 @@ Continue on a new `--no-track` branch for Phase 08. Do not merge Phase 07 into m
 
 Phase 07 local acceptance passed. Commit `d47a32eb` holds the ERP stock boundary. Disposable work order `WO-2026-0249` was executed by `mechanic@maintainpro.local`, issued by `admin@maintainpro.local`, verified and closed by `manager@maintainpro.local`. Stock quantity stayed 19. Outbox stayed PENDING. Evidence upload remains BLOCKED / NOT VERIFIED. `POST /inventory/parts/:id/stock-out` is a Phase 12 follow-up and was not changed.
 
-Next action: Phase 08 `/requests/new` and `/qr/report-issue` only. Preserve the completed request list and detail. Do not grant technician report-issue permission unless a later business decision says so. Do not edit Live Map.
+Next action: `/requests/new` rendered for the signed-in superadmin as Report Issue, with Machine, Vehicle, Facility, and Not Sure. Walk a disposable request through submit, then confirm `/qr/report-issue` keeps its query and lands on that form. Preserve list and detail. Do not grant technician report-issue permission. Do not edit Live Map.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
