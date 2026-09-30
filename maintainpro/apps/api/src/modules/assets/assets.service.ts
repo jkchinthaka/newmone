@@ -1167,78 +1167,12 @@ export class AssetsService {
     actorId: string,
     items: BulkImportAssetItemDto[]
   ) {
-    const tid = requireTenantId(tenantId);
-    const created = [];
-    const updated = [];
-
-    for (const item of items) {
-      // MP-003: assetTag is tenant-scoped (@@unique([tenantId, assetTag])) — a different
-      // tenant using the same tag is expected and no longer a conflict, so the lookup itself
-      // (via the compound selector) is the isolation boundary; no separate cross-tenant
-      // "already exists for another tenant" check is needed anymore.
-      const existing = await this.prisma.asset.findUnique({
-        where: { tenantId_assetTag: { tenantId: tid, assetTag: item.assetTag.trim() } }
-      });
-
-      if (existing) {
-        const before = await this.findOne(existing.id, tenantId);
-        const departmentFields = await this.resolveDepartmentFields(tenantId, item);
-        const next = await this.prisma.asset.update({
-          where: { id: existing.id },
-          data: {
-            ...this.buildAssetMutationInput(item),
-            ...departmentFields,
-            archivedAt: null
-          }
-        });
-
-        await this.recordAudit({
-          tenantId: next.tenantId,
-          actorId,
-          entityId: next.id,
-          action: AuditAction.UPDATE,
-          beforeData: before,
-          afterData: next
-        });
-
-        updated.push(next);
-        continue;
-      }
-
-      const departmentFields = await this.resolveDepartmentFields(tenantId, item);
-      const base = await this.prisma.asset.create({
-        data: {
-          ...this.buildAssetCreateInput(tenantId, item),
-          ...departmentFields
-        }
-      });
-
-      const next = await this.prisma.asset.update({
-        where: { id: base.id },
-        data: {
-          qrCodeUrl: await this.qrCodeService.toDataUrl(this.getAssetScanUrl(base.id), {
-            margin: 1,
-            errorCorrectionLevel: "H"
-          })
-        }
-      });
-
-      await this.recordAudit({
-        tenantId: next.tenantId,
-        actorId,
-        entityId: next.id,
-        action: AuditAction.CREATE,
-        afterData: next
-      });
-
-      created.push(next);
-    }
-
-    return {
-      createdCount: created.length,
-      updatedCount: updated.length,
-      items: [...created, ...updated]
-    };
+    void tenantId;
+    void actorId;
+    void items;
+    throw new BadRequestException(
+      "Asset spreadsheets must be validated first. Use POST /bulk-import/asset/preview, review CREATE, UPDATE, SKIP, and ERROR rows, then confirm the import."
+    );
   }
 
   private buildWhere(
@@ -1263,12 +1197,20 @@ export class AssetsService {
       | "supplier"
       | "ownerName"
       | "includeArchived"
+      | "selectableForWork"
       | "archivedOnly"
     >
   ): Prisma.AssetWhereInput {
     const where: Prisma.AssetWhereInput = {
       tenantId: requireTenantId(tenantId)
     };
+
+    if (query.selectableForWork) {
+      where.isActive = true;
+      where.status = {
+        notIn: [AssetStatus.RETIRED, AssetStatus.DISPOSED, AssetStatus.INACTIVE]
+      };
+    }
 
     if (query.archivedOnly) {
       where.archivedAt = { not: null };

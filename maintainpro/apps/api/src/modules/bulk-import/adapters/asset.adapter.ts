@@ -45,8 +45,8 @@ export class AssetBulkImportAdapter implements BulkImportAdapter {
   readonly entityType = BulkImportEntity.ASSET;
   readonly label = "Asset";
   readonly naturalKeyLabel = "Asset Tag";
-  /** Asset.assetTag is globally unique in the schema, not per-tenant. */
-  readonly naturalKeyTenantScoped = false;
+  /** Asset.assetTag is unique per tenant (@@unique([tenantId, assetTag])). */
+  readonly naturalKeyTenantScoped = true;
   readonly templateColumns = TEMPLATE_COLUMNS;
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -87,10 +87,10 @@ export class AssetBulkImportAdapter implements BulkImportAdapter {
     };
   }
 
-  async findExisting(_tenantId: string, naturalKeys: string[]): Promise<Map<string, BulkImportExistingRecord>> {
+  async findExisting(tenantId: string, naturalKeys: string[]): Promise<Map<string, BulkImportExistingRecord>> {
     if (naturalKeys.length === 0) return new Map();
     const assets = await this.prisma.asset.findMany({
-      where: { assetTag: { in: naturalKeys } },
+      where: { tenantId, assetTag: { in: naturalKeys } },
       select: { id: true, tenantId: true, assetTag: true, name: true, category: true, status: true }
     });
     const map = new Map<string, BulkImportExistingRecord>();

@@ -1454,10 +1454,20 @@ export class MaintenanceRequestsService {
           functionalLocationId: true,
           departmentId: true,
           domainId: true,
-          tenantId: true
+          tenantId: true,
+          status: true,
+          isActive: true
         }
       });
       if (!asset) throw new BadRequestException("Asset not found for this organization");
+      if (
+        !asset.isActive ||
+        asset.status === "RETIRED" ||
+        asset.status === "DISPOSED" ||
+        asset.status === "INACTIVE"
+      ) {
+        throw new BadRequestException("Retired or inactive assets cannot be selected for new maintenance work");
+      }
       siteId = siteId ?? asset.siteId;
       functionalLocationId = functionalLocationId ?? asset.functionalLocationId;
       departmentId = departmentId ?? asset.departmentId;

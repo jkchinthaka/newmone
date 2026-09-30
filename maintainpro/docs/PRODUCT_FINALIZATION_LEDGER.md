@@ -251,11 +251,13 @@ Phase 08 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-08-requests`. Release r
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Assets | `/assets` | IMPLEMENTED — NOT VERIFIED |
+| Assets | `/assets` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 | Asset health | `/assets/health` | IMPLEMENTED — NOT VERIFIED |
-| Organization / facilities | `/admin/organization` | IMPLEMENTED — NOT VERIFIED |
+| Organization / facilities | `/admin/organization` | LOCAL DEVELOPMENT COMPLETE for the current one-site hierarchy. Release readiness BLOCKED |
 
-Known from prior audit, not re-tested here: Facilities nav can point at an admin-only page.
+The tenant has 1 site, 1 functional location, and 7 assets. SQL asset count matched `GET /assets` total 7, and the signed-in assets page showed Total assets 7. `POST /assets/bulk-import` now returns 400 and does not write rows. Spreadsheet import stays on `POST /bulk-import/asset/preview` then commit, with CREATE, UPDATE, SKIP, and ERROR. Asset tag lookup is tenant-scoped. Sites and functional locations are not bulk-imported: one of each does not justify a second importer, and parent moves already reject a parent on another site or an inactive parent. Inactive assets cannot be used on a new maintenance request (400). Technician asset create and cleaner asset list returned 403. `asset-bulk-import-tenant.spec.ts`, `bulk-import.service.spec.ts`, and `organization-locations.spec.ts` passed 22/22. No schema migration. Asset health was not re-walked in this pass.
+
+Phase 09 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-09-assets`. Release readiness stays blocked (Vercel, Cloudflare, MinIO). Do not merge this branch into main.
 
 ### Phase 10 — Preventive maintenance
 

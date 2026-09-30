@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~11:55 IST. Phase 08 is LOCAL DEVELOPMENT COMPLETE. Phase 09 starts on `feature/phase-09-assets`. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:05 IST. Phase 09 is LOCAL DEVELOPMENT COMPLETE. Phase 10 starts next. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 08 Maintenance requests — LOCAL DEVELOPMENT COMPLETE |
-| Next phase | Phase 09 assets, sites, and locations, including bulk upload validate → preview → confirm → import → audit. |
+| Current phase | 09 Assets, sites, and locations — LOCAL DEVELOPMENT COMPLETE |
+| Next phase | Phase 10 preventive maintenance: plans, planning, forecast, inspections, and reliability. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-09-assets` (not pushed), created with `--no-track` from `feature/phase-08-requests` at `78775ee5`. |
@@ -149,11 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue on a new `--no-track` branch for Phase 09. Do not merge Phase 08 into main.
+Continue on a new `--no-track` branch for Phase 10. Do not merge Phase 09 into main.
 
-Phase 08 local acceptance passed. `MR-2026-00003` converted to `WO-2026-0251`. QR entry drops external redirect input and keeps `assetTag`. Request attachments remain BLOCKED / NOT VERIFIED. API request tests 42/42. QR unit tests 3/3.
+Phase 09 local acceptance: asset list total 7 matched SQL and the assets page. Unchecked `POST /assets/bulk-import` returns 400. Checked import remains preview then commit, and asset tags are matched inside the tenant. One site and one functional location stay on the manual hierarchy. Inactive assets are rejected for new requests. Asset health was not re-walked.
 
-Next action: Phase 09 assets, sites, functional locations, and bulk upload for high-volume master data (validate, preview, confirm, import, audit). Do not start live Bileeta integration. Do not edit Live Map.
+Next action: Phase 10 preventive maintenance, starting with `/maintenance/plans`. Known prior defects to inspect first: soft PM occurrence uniqueness and the PM status machine. Do not start live Bileeta integration. Do not edit Live Map.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
