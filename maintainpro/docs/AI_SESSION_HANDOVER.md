@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~11:50 IST. Phase 08 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-08-requests`. Request attachments stay BLOCKED / NOT VERIFIED. Phase 09 starts next. Do not merge this branch into main.
+**Last updated:** 2026-09-30 ~11:55 IST. Phase 08 is LOCAL DEVELOPMENT COMPLETE. Phase 09 starts on `feature/phase-09-assets`. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
@@ -32,7 +32,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 | Next phase | Phase 09 assets, sites, and locations, including bulk upload validate → preview → confirm → import → audit. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-08-requests` (not pushed), created with `--no-track` from `feature/phase-07-my-jobs` at `e9b0a43b`. |
+| Working branch | `feature/phase-09-assets` (not pushed), created with `--no-track` from `feature/phase-08-requests` at `78775ee5`. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
