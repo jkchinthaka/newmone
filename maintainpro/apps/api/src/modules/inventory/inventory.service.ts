@@ -180,9 +180,17 @@ export class InventoryService {
     actor?: Actor
   ) {
     const tenantId = this.resolveTenantId(actor);
+    const partNumber = data.partNumber?.trim();
+    const name = data.name?.trim();
+    if (!partNumber || !name) {
+      throw new BadRequestException("Part number and name are required");
+    }
+    if (!Number.isFinite(Number(data.unitCost)) || Number(data.unitCost) < 0) {
+      throw new BadRequestException("Unit cost cannot be negative");
+    }
     const existing = await this.prisma.sparePart.findFirst({
       where: {
-        partNumber: data.partNumber,
+        partNumber,
         tenantId
       }
     });
@@ -212,8 +220,8 @@ export class InventoryService {
     const created = await this.prisma.sparePart.create({
       data: {
         tenantId,
-        partNumber: data.partNumber,
-        name: data.name,
+        partNumber,
+        name,
         category: data.category,
         unitCost: data.unitCost,
         unit: data.unit ?? "pcs",

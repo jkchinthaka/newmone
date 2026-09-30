@@ -29,7 +29,7 @@ export class FleetLifecycleController {
   // ── Overview ──────────────────────────────────────────────────────────────
 
   @Get("overview")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "OPERATIONS_MANAGER", "VIEWER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "OPERATIONS_MANAGER", "VIEWER", "TECHNICIAN", "MECHANIC")
   @Permissions("fleet.view")
   async overview(@Req() req: AuthedRequest) {
     const data = await this.fleet.fleetHomeSummary(req.user);

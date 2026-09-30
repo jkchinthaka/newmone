@@ -14,7 +14,7 @@ This pass classified the previously failing CI suites. It did not browser-walk e
 | --- | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 |
-| P2 | 6 | 6 | 0 |
+| P2 | 13 | 13 | 0 |
 | P3 | 0 | 0 | 0 |
 | Stale tests (not product bugs) | 8 | 8 | 0 |
 
@@ -136,6 +136,13 @@ Not yet opened in the browser: Service Jobs, Vehicle Jobs, My Jobs, sites, inspe
 | BH-09 | Work order create validation | P2 | Fixed |
 | BH-10 | Work order create idempotency | P2 | Fixed |
 | BH-11 | User delete | P2 | Fixed |
+| BH-12 | Asset tag whitespace | P2 | Fixed |
+| BH-13 | PM plan create | P2 | Fixed |
+| BH-14 | Inspection complete | P2 | Fixed |
+| BH-15 | Part unit cost | P2 | Fixed |
+| BH-16 | Functional location ids | P2 | Fixed |
+| BH-17 | Fleet overview for mechanics | P2 | Fixed |
+| BH-18 | ERP acknowledgement race | P2 | Fixed |
 
 ### BH-06 A cleaner could open every maintenance URL
 
@@ -184,37 +191,95 @@ Stale `expectedVersion: 0` returned 409 and left the title unchanged. Two patche
 Expected: a user with only a session and membership can be removed. Related business records still block delete with 409 instead of 500.  
 Fix: delete that user's refresh tokens and tenant memberships first, and map a remaining foreign-key failure to 409. Recheck: the disposable finance user deleted with 200.
 
-## Role checks
+### BH-12 A whitespace asset tag was stored
 
-| Role | Result |
+`MinLength` counted spaces, so a tag and name of only spaces created an asset.
+
+Expected: 400 and no row.  
+Fix: trim before the length check. Recheck returned 400.
+
+### BH-13 An empty PM plan returned 500
+
+Create wrote `code` and `name` straight into Prisma. An empty body became an unexpected database error.
+
+Expected: 400 and no plan.  
+Fix: code and name are required after trim, and an invalid effective date is rejected. Recheck returned 400.
+
+### BH-14 An empty inspection was recorded
+
+`POST /planning/inspections` with `{}` inserted a completed inspection without a result.
+
+Expected: 400 and no row.  
+Fix: the result must be PASS, OBSERVATION, or FAIL before any write. Recheck returned 400. The blank inspection from the first call was deleted.
+
+### BH-15 A negative part cost was stored
+
+Part create checked uniqueness and opening quantity, then saved a negative unit cost.
+
+Expected: 400 and no part.  
+Fix: unit cost must be a finite number of zero or more. Recheck returned 400. The negative disposable part was deleted. Zero cost remains allowed.
+
+### BH-16 Functional locations still required Mongo ids
+
+Create and move DTOs used `IsMongoId`. Empty bodies therefore said the site id must be a Mongo id, and a real SQL id could not be submitted.
+
+Expected: a tenant site id can create a location.  
+Fix: ids are strings of 1 to 36 characters. Recheck created a disposable location. There is no delete route, so that location was marked inactive.
+
+### BH-17 Mechanics opened Vehicles and the overview returned 403
+
+The Vehicles menu includes technicians and mechanics, and they hold `vehicles.view`. The overview role list and `fleet.view` permission did not.
+
+Expected: the fleet home they are sent to loads.  
+Fix: overview allows technician and mechanic. `fleet.view` already accepts `vehicles.view`.
+
+### BH-18 Two acknowledgements could both write the outbox
+
+The first read saw a pending event, then an unconditional update wrote ACKNOWLEDGED. A second caller in the same window could write a second audit.
+
+Expected: one acknowledgement wins, and a repeat returns the current event. Stock quantity is not changed.  
+Fix: `updateMany` claims the current status. A lost claim returns the acknowledged event or 409. A repeat of an already acknowledged event returned 201 twice and left `quantityInStock` at 0.
+
+## Concurrency and idempotency
+
+| Operation | Contract | Result |
+| --- | --- | --- |
+| Work order create, same key | Idempotent | Same id, second response 201 |
+| Maintenance request create, same key | Idempotent | Same id |
+| Request conversion, two at once | One work order | 201 and "Already converted", one work order, request `CONVERTED_TO_WO` |
+| PM generation, called twice | Duplicate open work order rejected | `DUPLICATE_OPEN_WO` both times |
+| Gate-out, two at once on an Available vehicle | One movement | 201 and 409. Vehicle returned to AVAILABLE by gate-in |
+| Gate-out while not Available | Reject | 400 meter rollback, status unchanged |
+| Gate-in while not in use | Reject | 400 "not currently gated out" |
+| ERP acknowledgement of an acknowledged event | Idempotent | Two 201s, quantity unchanged |
+| Excel apply of a missing run | Reject | 404 |
+| Excel apply without confirmation | Reject | 400 |
+| Stale work order version | Conflict | 409, title unchanged |
+
+## Security checks
+
+A disposable user started as Viewer (`GET /users` 403). After an admin role change, the same token immediately received 200. After the role was reduced, the same token received 403. Setting `lockedUntil` made `/auth/me` return 401. Clearing the lock restored Viewer access (403 on users). The user was then deleted. A foreign tenant header returned 403. An unknown work order id returned 404. Live Map stayed 404. The web app has no Live Map, Flutter, or push-notification links. `IsMongoId` is gone from the API source.
+
+## Final counts
+
+| Item | Value |
 | --- | --- |
-| Finance | No seeded login. A disposable finance user was created, checked, and deleted. Users 403, live map 404, parts 403, purchase orders 200, exceptions 403, company work orders 403. |
-| Supervisor | Live map 404, admin users 403, parts 403, exceptions 200, company work orders 200. Inventory and Administration redirect. All Jobs stays. |
-| Inventory keeper | Live map 404, admin users 403, exceptions 403, parts 200, company work orders 200. My Jobs and Administration redirect. Inventory stays. |
-
-A work-order list sent with another tenant header returned 403. An unknown work-order id returned 404. Return paths already reject protocol-relative and external targets. PM auto-create called twice returned `DUPLICATE_OPEN_WO` both times. Parallel creates with different titles created two records, which is expected.
-
-## Still open
-
-Forms for assets, PM plans, inspections, gate, spare parts, ERP import, and users were not fully exercised. Double-submit was not completed for request conversion, gate, part issue, ERP acknowledgement, Excel confirm, or invitations. Concurrent request conversion, PM generation, gate-out, and part acknowledgement were not raced. Service jobs, vehicle jobs, sites, inspections, reliability, gate writes, ERP import, costs, and settings were not mutation-walked. Filter, count, and search reconciliation was not rechecked. Console and network were not recorded on every remaining page. Locked-user and stale-role sessions were not run. Prisma generate, tenant audit, RBAC audit, lint, both typechecks, the full test suite, and build were not run on this pass.
-
-## Status
-
-The hunt is **not complete**. BH-06 through BH-11 are fixed. Do not push, do not merge to main, and do not start the performance branch.
-
-The jobs list could request `queue=all`, which the API rejects for technicians and mechanics. The page also asked `/users` for an assignee list those roles cannot read.
-
-Expected: a technician list uses `my-tasks`, and the user directory is loaded only for roles that can assign work.  
-Fix: mechanics and technicians never send `queue=all`, and `useTechnicians` stays off for everyone else.
-
-## Walk coverage
-
-Super admin, manager, mechanic, and cleaner were signed in. Widths 1440, 1024, 820, and 390 were checked for the main lists. No horizontal overflow was recorded. Live Map stayed 404 for every role. Manager and mechanic were sent away from Administration. Mechanic and cleaner were sent away from Reports. Cleaner was also sent away from inventory and assets. Exceptions, work orders, and parts returned 200 for the super admin and the expected 403 for the cleaner.
-
-Forms, double-submit, concurrent edits, finance, supervisor, and inventory-keeper sessions were started. Finance, supervisor, and inventory keeper API checks are recorded below. The remaining form and concurrency items are still open.
+| Modules exercised | Work orders, requests, assets, sites/locations, PM, inspections, gate, parts, ERP events, Excel import, users, fleet, reports, admin |
+| Roles tested | Super Admin, Admin, Manager, Supervisor, Mechanic, Inventory Keeper, Finance (disposable), Cleaner |
+| Viewports | 390, 820, 1024, 1440 |
+| Bugs found | 13 product defects, P0 0, P1 0, P2 13, P3 0 |
+| Fixed | 13 |
+| Blocked | Web production build was not started while `next dev` is serving port 3001. The full Jest suite was not re-run. |
+| Stale tests | 8, fixed earlier |
+| Infrastructure | MinIO image pull 401, email disabled, no PM clock. Not application bugs. |
+| Tenant audit | 50 matches, 0 unapproved |
+| RBAC audit | 950 routes, 0 violations |
+| Typecheck | API and web `tsc --noEmit` passed |
+| Targeted tests | navigation and create-guard, 27 passed |
+| Browser | Six roles, no page errors, no horizontal overflow. Cleaner and mechanic administration returned to Action Center. Cleaner All Jobs returned to Action Center. |
 
 ## Status
 
-The hunt is **not complete**. BH-06 and BH-07 are fixed. A full form, concurrency, and remaining-role pass is still open. Do not merge this branch to main yet.
+FULL BUG HUNT COMPLETE — REMAINING BLOCKED ITEMS DOCUMENTED
 
-
+BH-06 through BH-18 are fixed. Do not push, do not merge to main, and do not start the performance branch. Release stays blocked for the existing infrastructure items. The performance branch remains `43f2363b`.

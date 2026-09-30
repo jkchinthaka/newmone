@@ -1,16 +1,22 @@
-import { IsBoolean, IsEnum, IsMongoId, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { FunctionalLocationType } from "@prisma/client";
 
 export class CreateFunctionalLocationDto {
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   siteId!: string;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   parentId?: string | null;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   departmentId?: string | null;
 
   @IsString()
@@ -55,7 +61,9 @@ export class UpdateFunctionalLocationDto {
   description?: string | null;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   departmentId?: string | null;
 
   @IsOptional()
@@ -65,11 +73,15 @@ export class UpdateFunctionalLocationDto {
 
 export class MoveFunctionalLocationDto {
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   parentId?: string | null;
 
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
   siteId?: string;
 
   @IsString()

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -110,8 +110,12 @@ export class DomainEventsService {
     payload.acknowledgedById = actorId ?? null;
     payload.quantityInStockMutated = false;
     payload.bileetaApiCalled = false;
-    const updated = await this.prisma.domainEventOutbox.update({
-      where: { id: event.id },
+    const claimed = await this.prisma.domainEventOutbox.updateMany({
+      where: {
+        id: event.id,
+        tenantId,
+        status: event.status
+      },
       data: {
         status: "ACKNOWLEDGED",
         processedAt: new Date(),
@@ -119,6 +123,17 @@ export class DomainEventsService {
         payload: JSON.stringify(payload)
       }
     });
+    if (claimed.count !== 1) {
+      const current = await this.prisma.domainEventOutbox.findFirst({ where: { id, tenantId } });
+      if (current && (current.status === "ACKNOWLEDGED" || current.status === "POSTED")) {
+        return current;
+      }
+      throw new ConflictException("ERP event was acknowledged by someone else. Refresh and retry.");
+    }
+    const updated = await this.prisma.domainEventOutbox.findFirst({ where: { id: event.id, tenantId } });
+    if (!updated) {
+      throw new NotFoundException("ERP event not found");
+    }
     await this.prisma.auditLog.create({
       data: {
         tenantId,

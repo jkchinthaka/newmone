@@ -231,6 +231,14 @@ export class PlanningService {
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
+    const code = input.code?.trim();
+    const name = input.name?.trim();
+    if (!code || !name) {
+      throw new BadRequestException("PM plan code and name are required");
+    }
+    if (input.effectiveFrom && Number.isNaN(input.effectiveFrom.getTime())) {
+      throw new BadRequestException("PM plan effective date is not valid");
+    }
     if (input.assetId) {
       const asset = await this.prisma.asset.findFirst({
         where: { id: input.assetId, tenantId },
@@ -244,8 +252,8 @@ export class PlanningService {
     const plan = await this.prisma.pmPlan.create({
       data: {
         tenantId,
-        code: input.code,
-        name: input.name,
+        code,
+        name,
         description: input.description,
         status: (input as { status?: PmPlanStatus }).status ?? PmPlanStatus.ACTIVE,
         assetId: input.assetId,
@@ -1508,6 +1516,13 @@ export class PlanningService {
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
+    if (
+      input.result !== InspectionResult.PASS &&
+      input.result !== InspectionResult.OBSERVATION &&
+      input.result !== InspectionResult.FAIL
+    ) {
+      throw new BadRequestException("Inspection result must be PASS, OBSERVATION, or FAIL");
+    }
     if (input.inspectionId) {
       const existing = await this.prisma.inspection.findFirst({
         where: { id: input.inspectionId, tenantId },
