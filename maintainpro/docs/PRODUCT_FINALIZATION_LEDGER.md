@@ -238,10 +238,14 @@ Phase 07 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-07-my-jobs` at the acce
 | Page | Route | Status |
 | --- | --- | --- |
 | Request list and detail | `/requests`, `/requests/[id]` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
-| Report issue | `/requests/new` | IMPLEMENTED — NOT VERIFIED |
-| QR report redirect | `/qr/report-issue` | IMPLEMENTED — NOT VERIFIED |
+| Report issue | `/requests/new` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
+| QR report redirect | `/qr/report-issue` | LOCAL DEVELOPMENT COMPLETE. Release readiness BLOCKED |
 
-List and detail evidence is §E and §G. Browser UAT is not done. GitHub validation for the slice is blocked: it is already on `main` without a PR, and PR #62 (CI heap only) is not merged.
+Disposable request `MR-2026-00003` was reported by `supervisor@maintainpro.local`, triaged and accepted by `manager@maintainpro.local`, and converted to `WO-2026-0251` (Machinery, High, same asset and tenant). Parallel conversion returned one new work order and one already-converted result for the same id. The requester could not review or accept their own request (403). Technician and cleaner list/create returned 403. A not-sure request required a site, stored no job domain, and cancelled. A duplicate closed onto its canonical request. Closed and cancelled records rejected further triage. Summary counts matched the list: open 0, awaiting triage 0, high/critical 0, converted 2. The converted card listed 2 of 2, then clearing it restored 7 of 7. QR `assetTag=AST-1001` with an external `next` landed on `/requests/new?assetTag=AST-1001`. Request attachments stay BLOCKED / NOT VERIFIED because storage uploads are unset. Evidence upload security was not disabled.
+
+`maintenance-requests.spec.ts`, `maintenance-requests-actions.spec.ts`, and `request-lifecycle.spec.ts` passed 42/42. `lib/__tests__/qr-report-redirect.test.ts` passed 3/3. No schema migration.
+
+Phase 08 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-08-requests`. Release readiness stays blocked (Vercel, Cloudflare, MinIO). Do not merge this branch into main.
 
 ### Phase 09 — Assets, sites, locations
 

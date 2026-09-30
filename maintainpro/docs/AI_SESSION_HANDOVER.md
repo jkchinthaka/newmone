@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~11:35 IST. Phase 07 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-07-my-jobs`. Evidence upload stays BLOCKED / NOT VERIFIED. Phase 08 starts next. Do not merge this branch into main.
+**Last updated:** 2026-09-30 ~11:50 IST. Phase 08 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-08-requests`. Request attachments stay BLOCKED / NOT VERIFIED. Phase 09 starts next. Do not merge this branch into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 07 My Jobs and work-order execution — LOCAL DEVELOPMENT COMPLETE |
-| Next phase | Phase 08 remaining pages: `/requests/new` and `/qr/report-issue`. List and detail stay complete. |
+| Current phase | 08 Maintenance requests — LOCAL DEVELOPMENT COMPLETE |
+| Next phase | Phase 09 assets, sites, and locations, including bulk upload validate → preview → confirm → import → audit. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-08-requests` (not pushed), created with `--no-track` from `feature/phase-07-my-jobs` at `e9b0a43b`. |
@@ -149,11 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue on a new `--no-track` branch for Phase 08. Do not merge Phase 07 into main.
+Continue on a new `--no-track` branch for Phase 09. Do not merge Phase 08 into main.
 
-Phase 07 local acceptance passed. Commit `d47a32eb` holds the ERP stock boundary. Disposable work order `WO-2026-0249` was executed by `mechanic@maintainpro.local`, issued by `admin@maintainpro.local`, verified and closed by `manager@maintainpro.local`. Stock quantity stayed 19. Outbox stayed PENDING. Evidence upload remains BLOCKED / NOT VERIFIED. `POST /inventory/parts/:id/stock-out` is a Phase 12 follow-up and was not changed.
+Phase 08 local acceptance passed. `MR-2026-00003` converted to `WO-2026-0251`. QR entry drops external redirect input and keeps `assetTag`. Request attachments remain BLOCKED / NOT VERIFIED. API request tests 42/42. QR unit tests 3/3.
 
-Next action: `/requests/new` rendered for the signed-in superadmin as Report Issue, with Machine, Vehicle, Facility, and Not Sure. Walk a disposable request through submit, then confirm `/qr/report-issue` keeps its query and lands on that form. Preserve list and detail. Do not grant technician report-issue permission. Do not edit Live Map.
+Next action: Phase 09 assets, sites, functional locations, and bulk upload for high-volume master data (validate, preview, confirm, import, audit). Do not start live Bileeta integration. Do not edit Live Map.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 
