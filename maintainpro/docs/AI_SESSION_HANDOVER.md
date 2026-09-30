@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:10 IST. Phase 09 is LOCAL DEVELOPMENT COMPLETE. Phase 10 starts on `feature/phase-10-preventive-maintenance`. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:20 IST. Phase 10 is in progress on `feature/phase-10-preventive-maintenance`. Duplicate PM work-order generation is blocked. Do not start Phase 11. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 09 Assets, sites, and locations — LOCAL DEVELOPMENT COMPLETE |
-| Next phase | Phase 10 preventive maintenance: plans, planning, forecast, inspections, and reliability. |
+| Current phase | 10 Preventive maintenance — IN PROGRESS |
+| Next phase | Finish inspections, forecast, reliability, and the plans page, then Phase 11. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-10-preventive-maintenance` (not pushed), created with `--no-track` from `feature/phase-09-assets` at `9f4cf916`. |
@@ -149,11 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Continue on a new `--no-track` branch for Phase 10. Do not merge Phase 09 into main.
+Stay on `feature/phase-10-preventive-maintenance`. Do not start Phase 11. Do not edit Live Map yet.
 
-Phase 09 local acceptance: asset list total 7 matched SQL and the assets page. Unchecked `POST /assets/bulk-import` returns 400. Checked import remains preview then commit, and asset tags are matched inside the tenant. One site and one functional location stay on the manual hierarchy. Inactive assets are rejected for new requests. Asset health was not re-walked.
+Duplicate PM generation is fixed. `PmAutoGeneration` is claimed before the work order is created, and filtered unique index `WorkOrder_pm_occurrence_key` is applied. A disposable plan created work order `cmunqmdco001112eiwv1m2hss`; the second generate call returned that same id. Inactive assets cannot start a plan. `planning-phase08.spec.ts` and `pm-plan-status.spec.ts` passed 21/21.
 
-Next action: Phase 10 preventive maintenance, starting with `/maintenance/plans`. Known prior defects to inspect first: soft PM occurrence uniqueness and the PM status machine. Do not start live Bileeta integration. Do not edit Live Map.
+Next action: walk inspection schedule, completion, and re-inspection without storage, then the plans page and forecast counts. Evidence upload stays BLOCKED / NOT VERIFIED. Do not add PM bulk upload. Do not start live Bileeta integration.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 

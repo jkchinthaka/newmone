@@ -58,6 +58,21 @@ function isUniqueConflict(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+const PM_PLAN_STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["ACTIVE", "INACTIVE"],
+  ACTIVE: ["INACTIVE", "RETIRED"],
+  INACTIVE: ["ACTIVE", "RETIRED"],
+  RETIRED: []
+};
+
+export function assertPmPlanStatusTransition(from: string, to: string) {
+  if (from === to) return;
+  const allowed = PM_PLAN_STATUS_TRANSITIONS[from] ?? [];
+  if (!allowed.includes(to)) {
+    throw new BadRequestException(`PM plan cannot move from ${from} to ${to}`);
+  }
+}
+
 function parseInspectionMeta(raw: string | null | undefined): Record<string, unknown> {
   if (!raw) return {};
   try {
@@ -216,6 +231,16 @@ export class PlanningService {
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
+    if (input.assetId) {
+      const asset = await this.prisma.asset.findFirst({
+        where: { id: input.assetId, tenantId },
+        select: { status: true, isActive: true }
+      });
+      if (!asset) throw new BadRequestException("Asset not found for this organization");
+      if (!asset.isActive || asset.status === "RETIRED" || asset.status === "DISPOSED" || asset.status === "INACTIVE") {
+        throw new BadRequestException("Retired or inactive assets cannot be the target of a new PM plan");
+      }
+    }
     const plan = await this.prisma.pmPlan.create({
       data: {
         tenantId,
@@ -304,6 +329,11 @@ export class PlanningService {
       updatedAt: _updatedAt,
       ...safePatch
     } = patch;
+
+    const nextStatus = typeof safePatch.status === "string" ? safePatch.status : undefined;
+    if (nextStatus) {
+      assertPmPlanStatusTransition(existing.status, nextStatus);
+    }
 
     const updated = await this.prisma.pmPlan.update({
       where: { id: planId },
@@ -485,13 +515,45 @@ export class PlanningService {
         }
       }
     });
-    if (priorGen) {
+    if (priorGen?.workOrderId) {
       return {
         created: false,
-        workOrderId: priorGen.workOrderId ?? undefined,
+        workOrderId: priorGen.workOrderId,
         reason: "DUPLICATE_GENERATION_KEY",
         evaluation
       };
+    }
+
+    let generationId = priorGen?.id ?? null;
+    if (!generationId) {
+      try {
+        const claimed = await this.prisma.pmAutoGeneration.create({
+          data: {
+            tenantId,
+            planId: plan.id,
+            generationKey,
+            triggerSummary: evaluation as object
+          }
+        });
+        generationId = claimed.id;
+      } catch (error) {
+        if (!isUniqueConflict(error)) throw error;
+        const winner = await this.prisma.pmAutoGeneration.findUnique({
+          where: {
+            tenantId_planId_generationKey: {
+              tenantId,
+              planId: plan.id,
+              generationKey
+            }
+          }
+        });
+        return {
+          created: false,
+          workOrderId: winner?.workOrderId ?? undefined,
+          reason: "DUPLICATE_GENERATION_KEY",
+          evaluation
+        };
+      }
     }
 
     const woType =
@@ -534,11 +596,12 @@ export class PlanningService {
     }
 
     try {
-      await this.prisma.pmAutoGeneration.create({
+      if (!generationId) {
+        throw new ConflictException("PM generation claim was lost before the work order was stored");
+      }
+      await this.prisma.pmAutoGeneration.update({
+        where: { id: generationId },
         data: {
-          tenantId,
-          planId: plan.id,
-          generationKey,
           workOrderId: workOrder.id,
           triggerSummary: evaluation as object
         }

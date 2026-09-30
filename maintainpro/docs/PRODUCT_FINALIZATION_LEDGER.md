@@ -263,14 +263,18 @@ Phase 09 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-09-assets`. Release rea
 
 | Page | Route | Status |
 | --- | --- | --- |
-| Plans | `/maintenance/plans` | IMPLEMENTED — NOT VERIFIED |
+| Plans | `/maintenance/plans` | IN PROGRESS | Generation duplicate protection and status transitions are verified. Page layout was not re-walked in this pass. |
 | Planning redirect | `/maintenance/planning` | IMPLEMENTED — NOT VERIFIED |
 | Forecast | `/maintenance/forecast` | IMPLEMENTED — NOT VERIFIED |
 | Inspections | `/maintenance/inspections`, `/maintenance/inspections/[id]` | IMPLEMENTED — NOT VERIFIED |
 | Reliability | `/maintenance/reliability`, `/maintenance/reliability/rca/[id]` | IMPLEMENTED — NOT VERIFIED |
 | Job codes | `/maintenance/job-codes` | route not re-listed in this session's glob of inspected paths; treat as IMPLEMENTED — NOT VERIFIED only if the file is present when the phase starts |
 
-Known open defects from the earlier audit, not fixed in this session: soft PM occurrence uniqueness (F-03), PM status machine (F-05).
+Generation claims `PmAutoGeneration` before creating the work order. SQL Server filtered unique index `WorkOrder_pm_occurrence_key` was applied (`20260930120000_pm_occurrence_work_order_unique`) with no existing duplicate rows. Plan status moves only DRAFT to ACTIVE or INACTIVE, ACTIVE to INACTIVE or RETIRED, and INACTIVE to ACTIVE or RETIRED. There is no separate paused status. Closing the generated work order sets the occurrence to completed and `PmPlan.lastCompletionAt`. The existing trigger engine recalculates the next due date from that baseline. No PM bulk upload was added. Inspection evidence upload stays BLOCKED / NOT VERIFIED while storage uploads are unset. A background scheduler was not run.
+
+Disposable plan: the first generate call created work order `cmunqmdco001112eiwv1m2hss` and the second returned that same id with `DUPLICATE_OPEN_WO`. An inactive asset was rejected (400). Cleaner and technician plan list returned 403. Admin list returned 200. `planning-phase08.spec.ts` and `pm-plan-status.spec.ts` passed 21/21.
+
+Phase 10 is not locally complete yet. Inspections, forecast, reliability, and the plans page layout still need a signed-in pass. Do not start Phase 11.
 
 ### Phase 11 — Fleet and gate
 

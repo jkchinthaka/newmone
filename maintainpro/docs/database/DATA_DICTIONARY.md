@@ -44,7 +44,8 @@ Phase 04 dashboard reads these existing columns. No new table or migration in th
 | WorkOrderStatusHistory | Lifecycle audit trail | Work Mgmt | MaintainPro | id | Append-only |
 | PmPlan / PmPlanRevision | Recurring strategy + versioned config | Planning | MaintainPro | tenant+code / plan+revision | Retire; never rewrite published |
 | PmOccurrence | One scheduled occurrence | Planning | MaintainPro | tenant+plan+generationKey | Skip/Defer/Complete |
-| PmAutoGeneration | Idempotent WO generation ledger | Planning | MaintainPro | tenant+plan+generationKey | Append-only |
+| PmAutoGeneration | Idempotent WO generation ledger | Planning | MaintainPro | tenant+plan+generationKey | Append-only. Claimed before the work order is created. |
+| WorkOrder PM occurrence | One work order per PM due key | Planning | MaintainPro | filtered unique tenant+plan+pmOccurrenceKey | Null keys stay excluded so ordinary work orders are unaffected. |
 
 ## Inventory ledger
 
