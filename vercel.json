@@ -2,5 +2,6 @@
   "version": 2,
   "installCommand": "cd maintainpro && npm install",
   "buildCommand": "cd maintainpro && npm run vercel:build",
-  "outputDirectory": "maintainpro/apps/web/.next"
+  "outputDirectory": "maintainpro/apps/web/.next",
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then exit 0; else exit 1; fi"
 }
