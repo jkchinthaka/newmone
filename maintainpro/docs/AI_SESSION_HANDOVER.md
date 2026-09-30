@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~08:55 IST. Phase 07 is still in progress on `feature/phase-07-my-jobs` at `b588557f`. Opening `/work-orders/my` returned to login with `reason=session_expired`. Do not type the password. Do not start Phase 08.
+**Last updated:** 2026-09-30 ~09:05 IST. Phase 07 is still in progress. The session drop is a Phase 01 refresh-token race, fixed on `feature/phase-07-my-jobs`. Do not start Phase 08.
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +153,9 @@ Continue Phase 07 on `feature/phase-07-my-jobs`. Do not start Phase 08. Do not o
 
 Done this pass: My Jobs view counts are the assigned totals, not the filtered list. Job links go to `/maintenance/jobs?wo=`. A technician or mechanic who starts, holds, or completes a job must be the assignee (`technicianId` or a non-removed assignee linked to the user). Admins and managers are not restricted that way. `my-jobs-view.spec.ts` and `work-order-lifecycle-phase06.spec.ts` passed (11 tests). `work-order-create-rbac.spec.ts` passed 7/7 after restoring `pendingQuantity`.
 
-On 2026-09-30 about 08:55 IST, after the user said they had signed in, opening `/work-orders/my` landed on `http://localhost:3001/login?reason=session_expired&returnTo=%2Fwork-orders%2Fmy`. The page said “Your session has expired. Please sign in again.” No `/api/backend/auth` call was recorded on that navigation. The password was not entered. Sign in again on that same MaintainPro tab, then continue. Do not start Phase 08.
+Phase 01 regression found during Phase 07, then fixed here: overlapping refresh used a token that had just been rotated, and the API revoked the whole refresh family (`REFRESH_TOKEN_REUSED` at 08:53:39 IST). A replay inside 15 seconds now issues a new token in the same family and does not revoke it. A replay after 15 seconds, or one whose successor is already revoked, still revokes the family. `auth-refresh-replay.spec.ts` 3/3. Redis being down did not cause the logout.
+
+After the user signed in as `superadmin@maintainpro.local`, reload of `/work-orders/my` kept the session (`/auth/me` 200). Navigation to `/maintenance` and back to `/work-orders/my` stayed authenticated. My Jobs showed Active 0 because that admin has no assignments. Disposable execution UAT is still open. Evidence upload stays BLOCKED / NOT VERIFIED. Do not start Phase 08.
 
 Live Map retirement is recorded for Phase 11 only. Do not change Fleet code until that phase.
 

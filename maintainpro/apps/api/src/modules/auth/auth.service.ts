@@ -21,6 +21,7 @@ import { getAccessJwtSecret, getRefreshJwtSecret } from "../../config/jwt-secret
 import { EmailDispatchService } from "../notifications/email-dispatch.service";
 import { TenantFeaturesService } from "../maintenance-config/tenant-features.service";
 import { recordAuthSecurityEvent } from "./auth-security-event.util";
+import { isBenignRefreshRotationReplay } from "./auth-refresh-replay";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -426,7 +427,43 @@ export class AuthService {
     }
 
     if (storedToken.revokedAt) {
-      // Reuse of a rotated refresh token: revoke the entire token family.
+      const successor = storedToken.replacedByTokenHash
+        ? await this.prisma.refreshToken.findUnique({
+            where: { tokenHash: storedToken.replacedByTokenHash }
+          })
+        : null;
+      if (
+        isBenignRefreshRotationReplay({
+          revokedAt: storedToken.revokedAt,
+          replacedByTokenHash: storedToken.replacedByTokenHash,
+          familyId: storedToken.familyId,
+          successor,
+          now
+        })
+      ) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: storedToken.userId },
+          include: { role: true }
+        });
+        if (!user || !user.isActive) {
+          throw new UnauthorizedException("Invalid refresh token");
+        }
+        const tokens = await this.generateTokens(
+          {
+            sub: user.id,
+            email: user.email,
+            role: user.role.name as RoleName,
+            tenantId: user.tenantId ?? null
+          },
+          { familyId: storedToken.familyId }
+        );
+        return {
+          data: tokens,
+          message: "Token refreshed"
+        };
+      }
+
+      // Reuse of a rotated refresh token outside the race window: revoke the family.
       await this.prisma.refreshToken.updateMany({
         where: { familyId: storedToken.familyId, revokedAt: null },
         data: { revokedAt: now, lastUsedAt: now }

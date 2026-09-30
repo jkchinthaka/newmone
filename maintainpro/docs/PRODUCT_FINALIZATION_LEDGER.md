@@ -222,7 +222,9 @@ Phase 07 evidence so far, branch `feature/phase-07-my-jobs`:
 - Part issue updates the work-order part line and cost. It does not write `SparePart.quantityInStock`. Bileeta remains the stock source.
 - Supervisor verification refuses the person who completed the job, unless an admin records an override reason of at least 3 characters.
 - Evidence file upload is BLOCKED / NOT VERIFIED. `STORAGE_MODE` and `STORAGE_UPLOADS_ENABLED` are not set in local `.env`. MinIO remains a release failure. Evidence security was not disabled.
-- Signed-in browser UAT of My Jobs was not run. The open browser tab is on the login page after session expiry. The password was not entered.
+- Signed-in browser as the seeded admin stayed on `/work-orders/my` after reload (`/auth/me` 200) and after opening `/maintenance`. Counts were 0 because that user has no assignments.
+- Session drop root cause: `POST /api/auth/refresh` returned `REFRESH_TOKEN_REUSED` and revoked the refresh family when a just-rotated token was presented again. A 15-second replay now keeps the family. `auth-refresh-replay.spec.ts` passed 3/3. This is a Phase 01 regression found during Phase 07. Redis refusal did not cause it.
+- Evidence file upload remains BLOCKED / NOT VERIFIED.
 - No schema migration. No permission grant.
 
 Still required before LOCAL DEVELOPMENT COMPLETE: browser UAT of My Jobs, a disposable assigned start through completion and verification, and a parts-usage walk that confirms stock is unchanged.
