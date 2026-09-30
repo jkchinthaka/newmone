@@ -340,7 +340,7 @@ Roles checked without widening permissions: admin and manager can list parts; in
 
 Implemented `page.tsx` files under `/admin`: `page`, `users`, `roles`, `tenants`, `people`, `people/new`, `invitations`, `organization`, `security`, `audit`, `approvals`, `asset-masters`, `bulk-imports`, `data-quality`, `job-categories`, `maintenance-config`, `maintenance-templates`, `checklist-templates`, `fault-codes`, `reason-codes`, `priority-sla`, `reliability`, `work-permits`, `condition-monitoring`, `warranties`, `feature-flags`, `config-history`, `integrations`.
 
-Phase 13 is IN PROGRESS. Server checks passed for user listing, super-admin assignment denial, invitation-only registration, and a disposable invitation that became a technician in the same tenant. The access matrix is `docs/RBAC_ACCESS_MATRIX.md`. Browser UAT of `/admin/users` stopped on a session-expired login page, so Phase 13 is not local-complete and Phase 14 has not started.
+Phase 13 is LOCAL DEVELOPMENT COMPLETE. The model stays one user, one role, and tenant membership. Browser UAT covered `/admin/users` and `/admin/roles`. A disposable user was deactivated (login 401) and then changed to VIEWER (administration and inventory parts 403) before the technician role was restored. The access matrix and admin-screen classification are in `docs/RBAC_ACCESS_MATRIX.md`. Jest 27 passed. Email delivery remains NOT VERIFIED. Bulk user import was not added. Phase 14 has not started on this commit.
 
 ### Phase 14 — Reports, costs, history
 

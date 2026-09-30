@@ -24,15 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~13:30 IST. Phase 13 is in progress on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start Phase 14 or production deployment.
+**Last updated:** 2026-09-30 ~14:10 IST. Phase 13 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Email delivery stays NOT VERIFIED. Do not merge into main. Do not start production deployment.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 13 Administration — IN PROGRESS. User-based access is implemented in the admin screens and is not yet verified. |
-| Next phase | Finish Phase 13 user, role, and permission administration. Do not start production deployment. |
+| Current phase | 13 Administration — LOCAL DEVELOPMENT COMPLETE. |
+| Next phase | Phase 14 Reports, costs, and history. Do not start production deployment. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `feature/phase-13-administration` (not pushed), created with `--no-track` from `feature/phase-12-spare-parts-erp` at `39e24ae1`. |
+| Working branch | `feature/phase-13-administration` (not pushed). Verified access rules at `665eeb3d`, then the local administration walk. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
@@ -153,9 +153,9 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: sign the browser back in and finish `/admin/users` and `/admin/roles` in the UI. Classify the remaining `/admin` screens as working configuration, read-only information, or unused. Do not mark Phase 13 complete until that browser walk is done. Do not start Phase 14. Do not restore Live Map. Do not connect the live Bileeta API.
+Next action: start Phase 14 — Reports, Costs and History on a new `--no-track` branch. Do not merge Phase 13 into main. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
 
-Phase 13 checks already passed: tenant admin list of users returns 200 and cannot assign `SUPER_ADMIN` (403). Cleaner cannot open users administration (403). Open registration is 403. A disposable invitation was accepted as `TECHNICIAN` in the inviting tenant; that user cannot open administration. Extra tenant and role fields on acceptance were rejected. Role ids are no longer validated as Mongo ids. `docs/RBAC_ACCESS_MATRIX.md` records this. Jest: phase13-access, roles.guard, roles-legacy-hardening, admin-users-access, users-tenant-isolation — 15 passed. The signed-in browser session expired before `/admin/users` rendered. Email delivery was not used.
+Phase 13 local acceptance: signed in as superadmin through the login page. `/auth/me` returned 200 and `/admin/users` still showed that user after reload. Search isolated the disposable technician. Effective permissions listed granted and not-granted keys. `/admin/roles` search for CLEANER showed the three cleaning and facility permissions. Deactivating that disposable user made the next login return 401. Changing the role to VIEWER made user administration and inventory parts return 403. The role was restored to TECHNICIAN. Jest: 27 passed across phase13-access, roles.guard, admin-users-access, admin-users-status, users-tenant-isolation, and admin-roles-access. Email delivery was not used. Bulk user import was not added.
 
 Phase 12 local acceptance: disposable part `P12-54005240` was issued on `WO-2026-0253` with cost snapshot 25 and a PENDING consumption event while quantity stayed 0. Admin acknowledgement stored reference `BIL-DEV-54005240` without changing quantity and without a Bileeta call. Cross-tenant read and acknowledgement were denied. Dirty Excel import was blocked. Clean Excel confirm changed the snapshot from 0 to 5 only after confirm, and the unmapped code created no part. Browser shows ERP Snapshot. Jest: 43 passed across the six inventory/ERP suites.
 
