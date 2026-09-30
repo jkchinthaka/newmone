@@ -520,6 +520,7 @@ export class VehiclesService {
         type: data.type,
         ownershipType: data.ownershipType,
         fuelType: data.fuelType,
+        status: VehicleStatus.AVAILABLE,
         serviceStatus: resolvedServiceStatus,
         fuelCapacity: data.fuelCapacity,
         currentMileage,
@@ -730,6 +731,9 @@ export class VehiclesService {
       blockReasons.push(`Vehicle status is ${vehicle.status.replaceAll("_", " ")}`);
     } else if (vehicle.status !== VehicleStatus.AVAILABLE) {
       blockReasons.push(`Vehicle status '${rawStatus}' is not eligible for gate-out`);
+    }
+    if (vehicle.gateBlocked) {
+      blockReasons.push("Vehicle is on a manual gate hold");
     }
 
     const serviceEvaluation = this.evaluateServiceWindow(vehicle);
@@ -1941,6 +1945,37 @@ export class VehiclesService {
       (order) =>
         `Critical open work order ${order.woNumber} (${order.type}, ${order.status.replaceAll("_", " ")})`
     );
+  }
+
+  /** Same reasons gate-out uses, without writing a movement. */
+  async countCannotGateOut(tenantId: string) {
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        status: true,
+        gateBlocked: true,
+        currentMileage: true,
+        nextServiceDate: true,
+        nextServiceMileage: true,
+        serviceStatus: true,
+        registrationNo: true
+      }
+    });
+    let blocked = 0;
+    for (const vehicle of vehicles) {
+      const rawStatus = String(vehicle.status ?? "").trim();
+      const statusBlocked =
+        !rawStatus ||
+        vehicle.status !== VehicleStatus.AVAILABLE;
+      const serviceOverdue = this.evaluateServiceWindow(vehicle as never).overdue;
+      const compliance = await this.complianceService.evaluateForGateOut(vehicle.id);
+      const workOrders = await this.evaluateCriticalOpenWorkOrders(vehicle.id, tenantId);
+      if (statusBlocked || vehicle.gateBlocked || serviceOverdue || compliance.length > 0 || workOrders.length > 0) {
+        blocked += 1;
+      }
+    }
+    return blocked;
   }
 
   /**

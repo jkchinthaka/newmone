@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~12:45 IST. Phase 11 is in progress on `feature/phase-11-fleet-gate`. Live Map stays retired. Gate movement claims are now exclusive. Do not start Phase 12. Do not merge into main.
+**Last updated:** 2026-09-30 ~12:45 IST. Phase 11 is LOCAL DEVELOPMENT COMPLETE. Phase 12 starts next. Live Map stays retired. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 11 Fleet and gate — IN PROGRESS. Live Map is RETIRED / NOT PRODUCT SCOPE. |
-| Next phase | Finish gate-out, gate-in, vehicle lifecycle, and compliance counts before Phase 12. |
+| Current phase | 11 Fleet and gate — LOCAL DEVELOPMENT COMPLETE. Live Map is RETIRED / NOT PRODUCT SCOPE. |
+| Next phase | Phase 12 spare parts and ERP. Do not start a live Bileeta connection. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-11-fleet-gate` (not pushed), created with `--no-track` from `feature/phase-10-preventive-maintenance` at `037495d2`. |
@@ -149,13 +149,11 @@ Phase 02 local shell work is complete. The items below remain release or product
 
 ## Exact next action for the next agent
 
-Stay on `feature/phase-11-fleet-gate`. Do not start Phase 12. Do not restore Live Map.
+Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into main. Do not restore Live Map.
 
-Gate-out now claims the vehicle only while its status is AVAILABLE, and gate-in claims it only while it is IN_USE. A second claim returns a conflict or "not currently gated out". `vehicles-phase2.service.spec.ts` passed 18/18, including overdue service, critical work orders, unauthorized override, and a second movement while the vehicle is no longer available.
+Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Live data: 5 vehicles. Four have a blank status and one is under maintenance. A disposable gate-out on MH-01-AB-102 was blocked for missing REGISTRATION, INSURANCE, FITNESS, POLLUTION, and ROAD_TAX. Mileage stayed 12400 and the blank status was restored. No vehicle currently has the documents needed for an allowed live gate-out, so that full out-and-back was proved in the service tests rather than on those rows. Fleet overview blocked count was 0. The gate page lists vehicles and does not call the retired map. Controlled vehicle bulk import already exists; five vehicles do not justify another importer.
-
-Next action: add valid disposable compliance documents only if a live allowed gate-out is still required, then gate in and confirm the vehicle returns to available. Do not start live Bileeta integration.
+Next action: Phase 12 spare parts and ERP, including the recorded follow-up that `POST /inventory/parts/:id/stock-out` still changes local quantity while Bileeta owns stock. Do not start a live Bileeta connection. Do not start production deployment.
 
 ERP ownership is decided: Bileeta owns stock quantity. `SparePart.quantityInStock` is the ERP mirror. Approved work-order issue records `PartIssue`, cost, and a `PENDING` `DomainEventOutbox` row, and does not call the stock engine. `apps/api/test/work-order-erp-stock-boundary.spec.ts` passed 7/7. No inventory reset and no schema migration.
 

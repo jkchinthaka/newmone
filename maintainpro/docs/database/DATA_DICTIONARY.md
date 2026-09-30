@@ -14,7 +14,7 @@ Each entry: purpose, owner module, source of truth, keys, lifecycle/delete polic
 | User / TenantMembership | Identity & access | Identity | MaintainPro (+ IdP when configured) | email / membership | Deactivate |
 | Site / FunctionalLocation | Organizational & location tree | Organization | MaintainPro | tenant+code | Retire |
 | Asset | Maintainable physical identity | Assets | MaintainPro | tenant+assetTag | Retire/Dispose. Inactive, retired, and disposed assets are not selectable for new requests. |
-| Vehicle | Fleet extension of Asset | Fleet | MaintainPro | tenant+registration | Retire/Dispose |
+| Vehicle | Fleet extension of Asset | Fleet | MaintainPro | tenant+registration | Retire/Dispose. New rows default to AVAILABLE. Existing blank status stays blank and cannot gate out until a person sets a real status. |
 | GpsLocation | Historical vehicle position samples | Fleet | MaintainPro | id | Retain. Live Map is retired and no longer reads this table. Vehicle history may still query it. |
 | SparePart | Part catalog | Inventory | MaintainPro catalog; Bileeta owns stock quantity | tenant+partNumber | Deactivate |
 | Warehouse | Stock location | Inventory | MaintainPro (+ ERP warehouse map) | tenant+code | Deactivate |

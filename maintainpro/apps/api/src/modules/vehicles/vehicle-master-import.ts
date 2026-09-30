@@ -213,17 +213,16 @@ export function mapStatusSafe(raw: unknown): {
     return { status: VehicleStatus.OUT_OF_SERVICE };
   }
   if (lower.includes("in use") || lower === "in_use") return { status: VehicleStatus.IN_USE };
-  if (lower.includes("available") || lower === "") {
+  if (lower.includes("available")) return { status: VehicleStatus.AVAILABLE };
+  if (s.trim() === "") {
     return {
-      status: VehicleStatus.AVAILABLE,
-      warning: lower === ""
-        ? {
-            severity: "WARNING",
-            code: "UNKNOWN_STATUS",
-            message: "Blank status defaulted to AVAILABLE for review.",
-            field: "Status"
-          }
-        : undefined
+      status: null,
+      error: {
+        severity: "ERROR",
+        code: "STATUS_REQUIRED",
+        message: "Status is required. Blank status is not treated as available.",
+        field: "Status"
+      }
     };
   }
   return {

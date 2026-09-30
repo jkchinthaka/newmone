@@ -95,7 +95,7 @@ export default function FleetPage() {
           href: "/compliance"
         },
         {
-          label: "Gate-blocked vehicles",
+          label: "Cannot gate out",
           value: summary.blockedVehicles,
           icon: ShieldAlert,
           href: "/fleet/gate",

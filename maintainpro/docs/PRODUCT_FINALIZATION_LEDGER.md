@@ -291,7 +291,15 @@ Gate override attestation is in `1fc5d37f`. Live-map RBAC mismatch (RBAC-03) rem
 
 **Product decision, implemented in Phase 11:** Live Map is **RETIRED / NOT PRODUCT SCOPE**. The fleet home page no longer renders a map. `GET /fleet/live-map` and `GET /fleet/street-view` are removed. The map component, live socket hook, and live-map role helper are removed. `GpsLocation` rows are kept for vehicle history and are not dropped. Gate, vehicles, compliance, and maintenance links are unchanged. Phase 15 must not treat Live Map as unfinished work.
 
-Phase 11 gate-out claims a vehicle only while it is AVAILABLE, and gate-in claims it only while it is IN_USE. A second movement is rejected. Live gate-out on MH-01-AB-102 was blocked for missing REGISTRATION, INSURANCE, FITNESS, POLLUTION, and ROAD_TAX; mileage was unchanged. The allowed out-and-back path is covered by `vehicles-phase2.service.spec.ts` (18/18). Five vehicles do not justify a second bulk importer; the controlled vehicle import already exists. Gate-out and gate-in on a fully documented vehicle are still the remaining local pass. Do not start Phase 12.
+Phase 11 is LOCAL DEVELOPMENT COMPLETE on `feature/phase-11-fleet-gate`. Live Map remains RETIRED — NOT PRODUCT SCOPE. `GpsLocation` is retained.
+
+Blank vehicle status is the old database default, not Available. The four legacy blank vehicles were not rewritten. New vehicles default to AVAILABLE, and a blank spreadsheet status is now an import error. Gate-out still rejects a blank status.
+
+The fleet overview card **Cannot gate out** uses the same reasons as the gate-out API: status, manual hold, overdue service, required documents, and critical open work orders. It showed **5**, matching the API, after a disposable van with valid documents was added.
+
+Disposable vehicle `PHASE11-*` (`cmunrs60n0005nzw375tb1joy`) gated out at 1100 km, rejected a rollback to 1000 km, rejected a second active gate-out, gated in at 1300 km, and rejected a second gate-in. It returned to AVAILABLE with mileage 1300. The original blank vehicles and MH-01-AB-102 were not used for that trip. `vehicles-phase2.service.spec.ts` and `vehicle-master-import.spec.ts` passed 27/27.
+
+Release readiness stays blocked (Vercel, Cloudflare, MinIO). Do not merge this branch into main.
 
 ### Phase 12 — Spare parts and ERP
 

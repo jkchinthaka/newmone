@@ -26,6 +26,7 @@ import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { VehiclesService } from "../vehicles/vehicles.service";
 import {
   authorizeGateOverride,
   costPerKm as computeCostPerKmPure,
@@ -50,8 +51,8 @@ const GATE_OVERRIDE_APPROVER_ROLES = new Set([
 export class FleetLifecycleService {
   constructor(
     private readonly prisma: PrismaService,
-    // ApprovalsService is optional — gate override uses it when configured
-    @Optional() private readonly approvalsService?: ApprovalsService
+    @Optional() private readonly approvalsService?: ApprovalsService,
+    @Optional() private readonly vehicles?: VehiclesService
   ) {}
 
   // ── Vehicle ↔ Asset backfill ──────────────────────────────────────────────
@@ -702,7 +703,7 @@ export class FleetLifecycleService {
           ]
         }
       }),
-      this.prisma.vehicle.count({ where: { tenantId, gateBlocked: true } }),
+      this.vehicles?.countCannotGateOut(tenantId) ?? this.prisma.vehicle.count({ where: { tenantId, gateBlocked: true } }),
       this.prisma.workOrder.count({
         where: {
           tenantId,

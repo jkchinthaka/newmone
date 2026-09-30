@@ -962,7 +962,7 @@ model Vehicle {
   year                      Int
   type                      String      @db.NVarChar(64)
   ownershipType             String      @default("") @db.NVarChar(64)
-  status                    String      @default("") @db.NVarChar(64)
+  status                    String      @default("AVAILABLE") @db.NVarChar(64)
   serviceStatus             String      @default("") @db.NVarChar(64)
   color                     String?
   /// VINs are 17 chars under ISO 3779 (older/legacy formats can be shorter); 32 leaves slack for
