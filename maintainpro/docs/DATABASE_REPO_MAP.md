@@ -24,9 +24,9 @@ A table that exists in the live database but not in `schema.prisma` is not part 
 
 | Status | Models | Meaning | What to do |
 | --- | ---: | --- | --- |
-| **CORE** | 163 | In product scope (CMMS, fleet, spare parts, vendors, ERP, reports, admin) and used by API code. | Keep. Secure with tenant scoping and RBAC. |
+| **CORE** | 164 | In product scope (CMMS, fleet, spare parts, vendors, ERP, reports, admin) and used by API code. | Keep. Secure with tenant scoping and RBAC. |
 | **RETIRED** | 53 | Domain removed from the product surface in Phase 01 (`docs/PHASE_01_SCOPE_CLEANUP.md`), but API modules still read and write it. | Keep for now. Dropping needs the module removed first, data exported, and business sign-off (`docs/DATA_DISPOSITION_REPORT.md`). |
-| **UNUSED** | 6 | In the schema, but no API, web, test, or script code reads or writes it. | Candidate for removal through a migration, after checking the live row count is 0. |
+| **UNUSED** | 5 | In the schema, but no API, web, test, script, or view reads or writes it. | Candidate for removal through a migration, after checking the live row count is 0. |
 | **Total** | 222 | | |
 
 "Used" means a Prisma call (`prisma.x.findMany`, `tx.x.create`, …) or a nested relation write/include from a parent model. The count column is the number of API source files with a direct call.
@@ -65,7 +65,7 @@ A table that exists in the live database but not in `schema.prisma` is not part 
 | SoDPolicy | `SoDPolicy` | 1 | enterprise-governance |
 | ServiceApiKey | `ServiceApiKey` | 1 | enterprise-governance |
 
-### Organization and locations (7)
+### Organization and locations (8)
 
 | Model | SQL table | API files | Used by |
 | --- | --- | ---: | --- |
@@ -76,6 +76,7 @@ A table that exists in the live database but not in `schema.prisma` is not part 
 | Building | `Building` | 1 | facilities |
 | Floor | `Floor` | 1 | facilities |
 | Room | `Room` | 4 | cleaning, facilities |
+| OrganizationUnit | `OrganizationUnit` | 0 | no API code; read by the Power BI view `vw_rpt_dim_branch_site` |
 
 ### People and workforce (2)
 
@@ -386,16 +387,21 @@ Notes:
 - `FacilityIssue` stays until `apps/api/scripts/migrate-facility-issues-to-requests.ts` has been applied and verified (see `DATA_DISPOSITION_REPORT.md` section 1).
 - `ErpMockSyncRun` belongs to the mock ERP provider, which is blocked in production.
 
-### 4.2 Unused (no code reads or writes them)
+### 4.2 Unused (no code or view reads or writes them)
 
 | Model | SQL table | Why it is unused | Recommendation |
 | --- | --- | --- | --- |
-| OrganizationUnit | `OrganizationUnit` | Designed as the recursive org hierarchy (`DATABASE_MAPPING_AUDIT.md`) and protected by `trg_OrganizationUnit_tenant_parent`, but the app uses `Department` and `Site` instead. | Decide: wire it in, or drop it together with its trigger. |
 | CustomFieldValue | `CustomFieldValue` | `CustomFieldDefinition` is managed in enterprise-governance, but no code stores values. | Keep if custom fields are on the roadmap; otherwise drop both. |
 | EmployeeRosterEntry | `EmployeeRosterEntry` | Workforce uses `EmployeeLeaveRequest`; rostering was never built. | Drop. |
 | VendorContact | `VendorContact` | Supplier contact details live on `Supplier`. | Drop. |
 | RepairWarranty | `RepairWarranty` | Duplicates `EntityWarranty` / `WarrantyClaim`, which the warranties module uses. | Drop. |
 | UatScenarioExecution | `UatScenarioExecution` | Delivery-phase tracking; no module uses it. | Drop. |
+
+Before dropping these:
+
+- `scripts/validate-e2e-uat-go-live-controls.mjs` (check UAT-SAFE-011, run by `full-stack-e2e`) and `scripts/test/uat-result-contract.selftest.mjs` look for the text `model UatScenarioExecution` in the schema. Remove or repoint those checks in the same change. The selftest already fails today: it looks for `FORMAL_BUSINESS_UAT` in the schema, but that value lives in `apps/api/src/database/prisma-enums.ts`.
+- `scripts/mongo-to-sqlserver/registry.ts` lists `RepairWarranty` for the legacy Mongo copy tool.
+- `OrganizationUnit` is not in this list: `vw_rpt_dim_branch_site` joins it, so dropping it would break that view.
 
 ## 5. Compare the live database with this map
 
