@@ -791,7 +791,7 @@ export class MaintenanceReportsService {
           {
             ...this.baseWorkOrderWhere(user, query),
             status: WorkOrderStatus.COMPLETED,
-            evidenceAttachments: { none: {} }
+            evidenceAttachments: { none: { status: "UPLOADED", deletedAt: null } }
           },
           "Work order completed without uploaded evidence."
         );
@@ -1068,8 +1068,82 @@ export class MaintenanceReportsService {
         rows = result.rows;
         break;
       }
+      case "parts-not-accounted": {
+        const lines = await this.prisma.workOrderPart.findMany({
+          where: {
+            ...(tenantId !== undefined ? { tenantId } : {}),
+            issuedQuantity: { gt: 0 },
+            createdAt: { gte: start, lte: end }
+          },
+          include: { workOrder: { include: workOrderDetailInclude } }
+        });
+        const unmatched = lines.filter(
+          (line) =>
+            pendingQuantity({
+              requestedQuantity: 0,
+              issuedQuantity: line.issuedQuantity,
+              usedQuantity: line.usedQuantity,
+              returnedQuantity: line.returnedQuantity,
+              damagedQuantity: line.damagedQuantity,
+              pendingReturnQuantity: line.pendingReturnQuantity
+            }) > 0
+        );
+        total = unmatched.length;
+        const pageLines = unmatched.slice((page - 1) * pageSize, page * pageSize);
+        rows = await Promise.all(
+          pageLines.map(async (line) => {
+            const factors = await this.computeWorkOrderRiskFactors(line.workOrder.id, tenantId);
+            return this.mapWorkOrderRow(
+              line.workOrder,
+              exceptionType,
+              "Issued parts are not fully used, returned, or marked damaged.",
+              calculateWorkOrderRiskScore(factors)
+            );
+          })
+        );
+        break;
+      }
+      case "repeated-breakdowns": {
+        const breakdowns = await this.prisma.workOrder.findMany({
+          where: {
+            ...(tenantId !== undefined ? { tenantId } : {}),
+            assetId: { not: null },
+            type: { in: ["CORRECTIVE", "EMERGENCY"] },
+            createdAt: { gte: thirtyDaysAgo, lte: end }
+          },
+          include: workOrderDetailInclude,
+          orderBy: { createdAt: "desc" }
+        });
+        const counts = new Map<string, number>();
+        for (const row of breakdowns) {
+          if (!row.assetId) continue;
+          counts.set(row.assetId, (counts.get(row.assetId) ?? 0) + 1);
+        }
+        const assetIds = [...counts.entries()].filter(([, count]) => count >= 3).map(([id]) => id);
+        total = assetIds.length;
+        const pageAssets = assetIds.slice((page - 1) * pageSize, page * pageSize);
+        const latest = new Map<string, (typeof breakdowns)[number]>();
+        for (const row of breakdowns) {
+          if (row.assetId && pageAssets.includes(row.assetId) && !latest.has(row.assetId)) {
+            latest.set(row.assetId, row);
+          }
+        }
+        rows = await Promise.all(
+          [...latest.values()].map(async (workOrder) => {
+            const factors = await this.computeWorkOrderRiskFactors(workOrder.id, tenantId);
+            return this.mapWorkOrderRow(
+              workOrder,
+              exceptionType,
+              "This asset has three or more corrective or emergency jobs in the last 30 days.",
+              calculateWorkOrderRiskScore(factors)
+            );
+          })
+        );
+        break;
+      }
       default:
-        total = await fetchWorkOrders(this.baseWorkOrderWhere(user, query), MAINTENANCE_EXCEPTION_LABELS[exceptionType]);
+        total = await this.countException(exceptionType, user, query);
+        rows = [];
     }
 
     if (query.severity) {

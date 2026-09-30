@@ -50,4 +50,6 @@ Machinery, Service, and Vehicle Jobs stay filters on the shared Work Order list.
 
 Signed in as superadmin. Reports showed 258 jobs and consumed maintenance cost LKR 2,797. Exceptions included overdue 3, parts issued but not completed 1, and completed without evidence 1. Costs showed recorded LKR 26.00 equal to parts LKR 26.00 plus labour 0. History opened as a timeline hub. `maintenance-cost-rollup.spec.ts` and `maintenance-reports.spec.ts` passed, 11 tests.
 
-KPI cards were not each compared to a separate SQL count in this pass. Report access for the cleaner role was not re-walked in the browser.
+Exception cards with a count above zero now match their drill-down totals. `parts-not-accounted` and `repeated-breakdowns` no longer open the unfiltered work-order list. A completed job is an evidence exception only when it has no uploaded evidence.
+
+Checked against the API on 2026-09-30: completed without evidence 1 = 1, parts issued but job not completed 1 = 1, parts not accounted 1 = 1, repeated breakdowns 1 = 1, overdue 3 = 3, cancelled in 30 days 227 = 227. The overdue CSV export has 3 data rows. Cleaner received 403 on exceptions, costs, and export. A tenant admin who sent another tenant id received 403. Inventory keeper is not given the full exception report. Manager received 200.

@@ -344,7 +344,7 @@ Phase 13 is LOCAL DEVELOPMENT COMPLETE. The model stays one user, one role, and 
 
 ### Phase 14 — Reports, costs, history
 
-Phase 14 is IN PROGRESS. Signed-in checks covered `/reports`, `/reports/maintenance-exceptions`, `/maintenance/costs`, and `/maintenance/history`. Cost rollup and maintenance report tests passed, 11 tests. The reconciliation list is `docs/PRE_ROADMAP_RECONCILIATION.md`. Each KPI count has not yet been matched to its drill-down list, so Phase 14 is not local-complete and Phase 15 has not started.
+Phase 14 is IN PROGRESS. Nonzero exception cards now match their drill-down totals, including overdue 3 and its 3-row export. Cleaner report APIs return 403. A tenant admin cannot spoof another tenant. The signed-in cleaner page walk and a date-range filter check are still open, so Phase 14 is not local-complete and Phase 15 has not started.
 
 | Page | Route | Status |
 | --- | --- | --- |
