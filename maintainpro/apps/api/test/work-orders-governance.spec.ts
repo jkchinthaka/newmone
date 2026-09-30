@@ -16,7 +16,7 @@ const createPrismaMock = () => ({
   workOrder: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
-    count: jest.fn(),
+    count: jest.fn().mockResolvedValue(1),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn()

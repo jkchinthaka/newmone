@@ -160,7 +160,8 @@ describe("Phase 9 MaintenanceSupplyService", () => {
     const prisma = {
       workOrder: {
         findFirst: jest.fn().mockResolvedValue({ id: "wo-1", tenantId: "tenant-1" }),
-        update: jest.fn()
+        update: jest.fn(),
+        count: jest.fn().mockResolvedValue(1)
       },
       workOrderCostSnapshot: {
         findUnique: jest
@@ -203,7 +204,8 @@ describe("Phase 9 MaintenanceSupplyService", () => {
     const prisma = {
       workOrder: {
         findFirst: jest.fn().mockResolvedValue({ id: "wo-1", tenantId: "tenant-1" }),
-        update: jest.fn()
+        update: jest.fn(),
+        count: jest.fn().mockResolvedValue(1)
       },
       workOrderCostSnapshot: {
         findUnique: jest.fn().mockResolvedValue(snapshot),
@@ -346,12 +348,15 @@ describe("Phase 9 MaintenanceSupplyService", () => {
           quantityReturned: 0,
           expectsReturn: true,
           returnedAt: null,
-          part: { classification: SparePartClassification.SPARE_PART }
+          part: { classification: SparePartClassification.SPARE_PART, erpCode: "ERP-1" }
         }),
         update: jest.fn().mockResolvedValue({
           id: "issue-9",
           quantityReturned: 1
         })
+      },
+      domainEventOutbox: {
+        create: jest.fn().mockResolvedValue({ id: "outbox-1" })
       }
     };
     const service = new MaintenanceSupplyService(
@@ -360,10 +365,14 @@ describe("Phase 9 MaintenanceSupplyService", () => {
       undefined
     );
     await service.returnToolIssue(actor, "issue-9", { quantityReturned: 1 });
-    expect(returnStock).toHaveBeenCalledWith(
+    expect(returnStock).not.toHaveBeenCalled();
+    expect(prisma.domainEventOutbox.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        idempotencyKey: "part-return:issue-9:1",
-        sourceType: "PART_ISSUE_RETURN"
+        data: expect.objectContaining({
+          eventId: "part-return:issue-9:1",
+          eventType: "WORK_ORDER_PART_RETURN",
+          status: "PENDING"
+        })
       })
     );
   });
@@ -442,7 +451,8 @@ describe("Phase 9 MaintenanceSupplyService", () => {
         update: jest
           .fn()
           .mockResolvedValueOnce({ id: "wo-1", executionMode: WorkOrderExecutionMode.INTERNAL })
-          .mockResolvedValueOnce({ id: "wo-1", executionMode: WorkOrderExecutionMode.MIXED })
+          .mockResolvedValueOnce({ id: "wo-1", executionMode: WorkOrderExecutionMode.MIXED }),
+        count: jest.fn().mockResolvedValue(1)
       }
     };
     const service = new MaintenanceSupplyService(prisma as any, undefined, undefined);

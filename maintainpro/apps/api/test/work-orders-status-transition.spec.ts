@@ -12,7 +12,8 @@ import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonom
 const createPrismaMock = () => ({
   workOrder: {
     findFirst: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    count: jest.fn().mockResolvedValue(1)
   },
   workOrderLabourEntry: {
     findMany: jest.fn().mockResolvedValue([]),

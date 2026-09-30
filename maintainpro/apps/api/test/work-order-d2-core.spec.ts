@@ -95,7 +95,8 @@ describe("work order D2 core", () => {
           technicianId: "admin-1"
         }),
         update: jest.fn(),
-        updateMany: jest.fn()
+        updateMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(1)
       },
       workOrderStatusHistory: {
         findFirst: jest.fn().mockResolvedValue({ actorId: "admin-1" }),
@@ -202,7 +203,8 @@ describe("work order D2 core", () => {
           actualHours: 1,
           woNumber: "WO-2026-0100"
         }),
-        updateMany: jest.fn()
+        updateMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(1)
       },
       workOrderLabourEntry: {
         findMany: jest

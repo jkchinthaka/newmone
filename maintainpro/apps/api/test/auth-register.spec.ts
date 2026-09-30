@@ -210,7 +210,9 @@ describe("AuthService.register", () => {
 
     const result = await service.register({ ...baseDto, invitationToken: "token-1" });
 
-    expect(prisma.role.findFirst).toHaveBeenCalledWith({ where: { name: RoleName.ADMIN } });
+    expect(prisma.role.findFirst).toHaveBeenCalledWith({
+      where: { name: RoleName.ADMIN, tenantId: "tenant-a" }
+    });
     expect(prisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ roleId: ADMIN_ROLE.id, tenantId: "tenant-a" })
