@@ -24,12 +24,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~15:25 IST. Phase 14 is LOCAL DEVELOPMENT COMPLETE at `5497bceb`. Phase 15 has started on `feature/phase-15-final-acceptance`. Live Map stays retired. Do not merge into main. Do not start production deployment.
+**Last updated:** 2026-09-30 ~15:30 IST. Phase 15 local acceptance is complete on `feature/phase-15-final-acceptance`. The product is not release-ready and is not deployed. Live Map stays retired. Do not merge into main. Do not start production deployment. There is no Phase 16.
 
 | Item | Value |
 | --- | --- |
-| Current phase | 15 System-wide final acceptance — IN PROGRESS. Include the pre-roadmap regression. |
-| Next phase | Finish Phase 15. Do not start production deployment. |
+| Current phase | 15 System-wide final acceptance — LOCAL ACCEPTANCE COMPLETE. RELEASE BLOCKED. Not deployed. |
+| Next phase | None. Do not start production deployment. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `feature/phase-15-final-acceptance` (not pushed), created with `--no-track` from `feature/phase-14-reports-costs-history` at `5497bceb`. |
@@ -153,7 +153,7 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: run the Phase 15 system-wide acceptance pass, including a pre-roadmap functionality regression against `docs/PRE_ROADMAP_RECONCILIATION.md`. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
+Next action: none. Autonomous feature work stops here. The acceptance summary is `docs/FINAL_ACCEPTANCE_SUMMARY.md`. Release stays blocked on Redis, file storage, email delivery, and the existing Vercel and Cloudflare build failures. Do not deploy. Do not merge this branch into main. Do not restore Live Map.
 
 Phase 14 local acceptance: cleaner signed in and `/reports` plus exceptions returned to the action center without job totals. Costs showed a permission error, not the recorded LKR 26. Report APIs returned 403. After signing back in as superadmin, reports still showed 258 jobs. Date range 2020-01-01 to 2026-09-30 kept overdue 3, evidence 1, and cancelled 227, and those exports matched. The single day 2026-09-30 made overdue 1 and evidence 0. The early range 2020-01-01 to 2020-01-02 made all three 0. A reversed range returned 400. Cancelled uses `updatedAt` in the last 30 days, not the selected start date. Jest: maintenance-cost-rollup and maintenance-reports, 11 passed.
 

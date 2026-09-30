@@ -357,7 +357,9 @@ Costs: PR #61 merged `fd250e72`. Unit fixture 2,000 − 1,000 + 1,500 + 2,500 = 
 
 ### Phase 15 — Final acceptance
 
-IN PROGRESS on `feature/phase-15-final-acceptance`. Include a pre-roadmap functionality regression. Production deployment has not started.
+LOCAL ACCEPTANCE COMPLETE. RELEASE BLOCKED. Not deployed. Summary: `docs/FINAL_ACCEPTANCE_SUMMARY.md`.
+
+This pass rechecked health, confirmed `GET /api/fleet/live-map` is 404, confirmed `/auth/me` for the signed-in administrator, denied the cleaner on the exception report, and denied a tenant-admin spoof of another tenant. Jest: 5 suites, 27 tests, passed (`work-order-erp-stock-boundary`, `phase13-access`, `maintenance-reports`, `maintenance-cost-rollup`, `roles.guard`). Redis, storage, email, Vercel, and Cloudflare remain release blockers. Production deployment was not started. There is no Phase 16.
 
 ---
 
