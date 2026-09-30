@@ -283,6 +283,7 @@ A disposable user started as Viewer (`GET /users` 403). After an admin role chan
 | Browser | Six roles, no page errors, no horizontal overflow. Cleaner and mechanic administration returned to Action Center. Cleaner All Jobs returned to Action Center. |
 | Branch | `qa/full-project-bug-hunt` |
 | Fixes commit | `02f4f543` |
+| Regression evidence | `76faf3f6` |
 
 ## Status
 
