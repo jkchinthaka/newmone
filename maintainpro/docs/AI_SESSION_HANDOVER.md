@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~13:25 IST. Phase 12 is LOCAL DEVELOPMENT COMPLETE at `39e24ae1`. Phase 13 has started on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start production deployment.
+**Last updated:** 2026-09-30 ~13:30 IST. Phase 13 is in progress on `feature/phase-13-administration`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start Phase 14 or production deployment.
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +153,9 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: walk `/admin/users` and `/admin/roles` against the server. Confirm an administrator can grant and remove a permission, a non-admin cannot, and the API enforces the same check. Do not widen permissions to make the walk pass. Do not merge into main. Do not restore Live Map. Do not connect the live Bileeta API.
+Next action: sign the browser back in and finish `/admin/users` and `/admin/roles` in the UI. Classify the remaining `/admin` screens as working configuration, read-only information, or unused. Do not mark Phase 13 complete until that browser walk is done. Do not start Phase 14. Do not restore Live Map. Do not connect the live Bileeta API.
+
+Phase 13 checks already passed: tenant admin list of users returns 200 and cannot assign `SUPER_ADMIN` (403). Cleaner cannot open users administration (403). Open registration is 403. A disposable invitation was accepted as `TECHNICIAN` in the inviting tenant; that user cannot open administration. Extra tenant and role fields on acceptance were rejected. Role ids are no longer validated as Mongo ids. `docs/RBAC_ACCESS_MATRIX.md` records this. Jest: phase13-access, roles.guard, roles-legacy-hardening, admin-users-access, users-tenant-isolation — 15 passed. The signed-in browser session expired before `/admin/users` rendered. Email delivery was not used.
 
 Phase 12 local acceptance: disposable part `P12-54005240` was issued on `WO-2026-0253` with cost snapshot 25 and a PENDING consumption event while quantity stayed 0. Admin acknowledgement stored reference `BIL-DEV-54005240` without changing quantity and without a Bileeta call. Cross-tenant read and acknowledgement were denied. Dirty Excel import was blocked. Clean Excel confirm changed the snapshot from 0 to 5 only after confirm, and the unmapped code created no part. Browser shows ERP Snapshot. Jest: 43 passed across the six inventory/ERP suites.
 

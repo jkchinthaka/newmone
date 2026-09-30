@@ -340,7 +340,7 @@ Roles checked without widening permissions: admin and manager can list parts; in
 
 Implemented `page.tsx` files under `/admin`: `page`, `users`, `roles`, `tenants`, `people`, `people/new`, `invitations`, `organization`, `security`, `audit`, `approvals`, `asset-masters`, `bulk-imports`, `data-quality`, `job-categories`, `maintenance-config`, `maintenance-templates`, `checklist-templates`, `fault-codes`, `reason-codes`, `priority-sla`, `reliability`, `work-permits`, `condition-monitoring`, `warranties`, `feature-flags`, `config-history`, `integrations`.
 
-Phase 13 is IN PROGRESS on `feature/phase-13-administration`. The admin screens exist and are **IMPLEMENTED — NOT VERIFIED**. The next check is user and role administration against the server, without widening permissions.
+Phase 13 is IN PROGRESS. Server checks passed for user listing, super-admin assignment denial, invitation-only registration, and a disposable invitation that became a technician in the same tenant. The access matrix is `docs/RBAC_ACCESS_MATRIX.md`. Browser UAT of `/admin/users` stopped on a session-expired login page, so Phase 13 is not local-complete and Phase 14 has not started.
 
 ### Phase 14 — Reports, costs, history
 

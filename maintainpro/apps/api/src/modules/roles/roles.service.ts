@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName } from "@prisma/client";
 
+import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 
 export type PublicPermissionSummary = {
@@ -74,7 +75,9 @@ export class RolesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(): Promise<PublicRoleResponse[]> {
+    const ctx = requestContext.get();
     const roles = await this.prisma.role.findMany({
+      where: ctx?.tenantId ? { tenantId: ctx.tenantId } : {},
       select: {
         id: true,
         name: true,
@@ -194,11 +197,19 @@ export class RolesService {
 
   async create(data: { name: string; tenantId?: string | null; permissionIds?: string[] }) {
     const roleName = this.toRoleName(data.name);
+    const ctx = requestContext.get();
+    if (ctx && ctx.actorRole !== RoleName.SUPER_ADMIN && roleName === RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("Only a super admin can create the super admin role");
+    }
+    if (ctx?.tenantId && data.tenantId && data.tenantId !== ctx.tenantId && ctx.actorRole !== RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("Role tenant does not match the active tenant");
+    }
+    const tenantId = ctx?.actorRole === RoleName.SUPER_ADMIN ? (data.tenantId ?? ctx.tenantId ?? null) : (ctx?.tenantId ?? data.tenantId ?? null);
 
     const role = await this.prisma.role.create({
       data: {
         name: roleName,
-        tenantId: data.tenantId ?? null
+        tenantId
       },
       select: { id: true }
     });
@@ -211,13 +222,24 @@ export class RolesService {
   }
 
   async update(id: string, data: { name?: string; permissionIds?: string[] }) {
-    const existing = await this.prisma.role.findUnique({
+    const current = await this.prisma.role.findUnique({
       where: { id },
-      select: { id: true }
+      select: { id: true, name: true, tenantId: true }
     });
 
-    if (!existing) {
+    if (!current) {
       throw new NotFoundException("Role not found");
+    }
+
+    const ctx = requestContext.get();
+    if (ctx?.tenantId && current.tenantId && current.tenantId !== ctx.tenantId) {
+      throw new NotFoundException("Role not found");
+    }
+    if (current.name === RoleName.SUPER_ADMIN && ctx?.actorRole !== RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("The super admin role cannot be changed here");
+    }
+    if (data.name && current.name === RoleName.SUPER_ADMIN && this.toRoleName(data.name) !== RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("The super admin role cannot be renamed");
     }
 
     if (data.name) {
@@ -246,6 +268,10 @@ export class RolesService {
 
     if (!existing) {
       throw new NotFoundException("Role not found");
+    }
+
+    if (existing.name === RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("The super admin role cannot be deleted");
     }
 
     if (existing.users.length > 0) {

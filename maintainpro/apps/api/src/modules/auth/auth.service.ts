@@ -207,7 +207,12 @@ export class AuthService {
     const roleName = invitation
       ? this.roleNameForMembership(invitation.membershipRole as TenantMembershipRole)
       : RoleName.TECHNICIAN;
-    const role = await this.prisma.role.findFirst({ where: { name: roleName } });
+    const role = await this.prisma.role.findFirst({
+      where: {
+        name: roleName,
+        ...(invitation ? { tenantId: invitation.tenantId } : {})
+      }
+    });
 
     if (!role) {
       throw new NotFoundException("Default role not found. Run seed first.");

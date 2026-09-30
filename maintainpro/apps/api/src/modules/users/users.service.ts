@@ -10,6 +10,7 @@ import type { JwtPayload } from "../auth/auth.types";
 import { CreateAdminUserDto, SetAdminUserPasswordDto, UpdateAdminUserDto } from "../admin/dto/admin-user-mutations.dto";
 import { evaluateUserDeactivation } from "../admin-governance/admin-safety";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
+import { assertRoleAssignmentAllowed } from "./role-assignment";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -135,6 +136,11 @@ export class UsersService {
     if (!isSuperAdmin && role.tenantId && role.tenantId !== tenantId) {
       throw new BadRequestException("Role not found");
     }
+
+    assertRoleAssignmentAllowed({
+      actorRole: requestContext.get()?.actorRole,
+      nextRoleName: role.name
+    });
 
     return { id: role.id, name: role.name };
   }
@@ -533,7 +539,20 @@ export class UsersService {
     await this.findOne(id);
 
     if (data.roleId) {
-      await this.ensureRoleExists(data.roleId);
+      const current = await this.prisma.user.findUnique({
+        where: { id },
+        select: { roleId: true, role: { select: { name: true } } }
+      });
+      if (current && current.roleId !== data.roleId) {
+        const role = await this.ensureRoleExists(data.roleId);
+        assertRoleAssignmentAllowed({
+          actorRole: requestContext.get()?.actorRole,
+          actorId: requestContext.getActorId(),
+          targetUserId: id,
+          currentRoleName: current.role.name,
+          nextRoleName: role.name
+        });
+      }
     }
 
     const user = await this.prisma.user.update({
@@ -704,6 +723,13 @@ export class UsersService {
     let nextRole: { id: string; name: RoleName } | undefined;
     if (dto.roleId && dto.roleId !== target.roleId) {
       nextRole = await this.ensureRoleExists(dto.roleId);
+      assertRoleAssignmentAllowed({
+        actorRole: requestContext.get()?.actorRole ?? actor.role,
+        actorId: actor.sub,
+        targetUserId: id,
+        currentRoleName: target.role.name,
+        nextRoleName: nextRole.name
+      });
       if (target.role.name === RoleName.SUPER_ADMIN && nextRole.name !== RoleName.SUPER_ADMIN) {
         await this.assertNotLastActiveSuperAdmin(target);
       }
