@@ -21,7 +21,7 @@ import {
   type WorkOrderRiskFactors
 } from "../../common/utils/maintenance-risk-score";
 import { DASHBOARD_OPEN_STATUSES } from "../../common/utils/maintenance-dashboard.util";
-import { pendingQuantity } from "../../common/utils/work-order-parts-governance";
+import { pendingQuantity, PART_APPROVAL_HIGH_THRESHOLD } from "../../common/utils/work-order-parts-governance";
 import { evaluateEvidenceRequirements } from "../../common/utils/work-order-evidence-governance";
 import {
   ACTIVE_OPERATIONAL_STATUSES,
@@ -868,7 +868,7 @@ export class WorkOrderQueuesService {
     const factors: WorkOrderRiskFactors = {
       overdue: isWorkOrderOverdue(row),
       requiredEvidenceMissing: this.resolveEvidenceStatus(row) === "Missing",
-      highCostPartIssue: row.parts.some((line) => line.issuedQuantity * line.unitCost >= 10_000)
+      highCostPartIssue: row.parts.some((line) => line.issuedQuantity * Number(line.unitCost) >= PART_APPROVAL_HIGH_THRESHOLD)
     };
     const riskScore = calculateWorkOrderRiskScore(factors);
     const riskSeverity = resolveRiskSeverity(riskScore);

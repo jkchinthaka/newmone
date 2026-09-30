@@ -344,7 +344,7 @@ Phase 13 is LOCAL DEVELOPMENT COMPLETE. The model stays one user, one role, and 
 
 ### Phase 14 — Reports, costs, history
 
-Phase 14 is IN PROGRESS on `feature/phase-14-reports-costs-history`. Reports, maintenance costs, and history remain to be walked. Historical work-order cost snapshots must stay stable.
+Phase 14 is IN PROGRESS. Signed-in checks covered `/reports`, `/reports/maintenance-exceptions`, `/maintenance/costs`, and `/maintenance/history`. Cost rollup and maintenance report tests passed, 11 tests. The reconciliation list is `docs/PRE_ROADMAP_RECONCILIATION.md`. Each KPI count has not yet been matched to its drill-down list, so Phase 14 is not local-complete and Phase 15 has not started.
 
 | Page | Route | Status |
 | --- | --- | --- |

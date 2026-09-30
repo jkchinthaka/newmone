@@ -24,7 +24,7 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Last updated:** 2026-09-30 ~14:15 IST. Phase 13 is LOCAL DEVELOPMENT COMPLETE at `043a2c9a`. Phase 14 has started on `feature/phase-14-reports-costs-history`. Live Map stays retired. Live Bileeta API stays deferred. Do not merge into main. Do not start production deployment.
+**Last updated:** 2026-09-30 ~14:50 IST. Phase 14 is in progress on `feature/phase-14-reports-costs-history`. Reports, costs, exceptions, and history were opened while signed in as superadmin. The high-cost risk flag now uses the same threshold as the exception report. Phase 14 is not local-complete. Do not start Phase 15. Live Map stays retired. Do not merge into main.
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +153,9 @@ Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into m
 
 Phase 11 local acceptance: disposable van gated out to In use, rejected a second active gate-out and a mileage rollback, gated in back to Available, and rejected a second gate-in. Overview **Cannot gate out** is 5 and matches the gate-out rules. Four legacy vehicles still have a blank status and were not rewritten to Available. New vehicles default to AVAILABLE.
 
-Next action: walk reports, maintenance costs, and maintenance history. Do not rewrite historical cost snapshots. Do not post a production ERP journal. Do not restore Live Map. Do not connect the live Bileeta API. Do not start production deployment.
+Next action: compare each remaining report card count with its drill-down list, and confirm a cleaner cannot open reports. Do not start Phase 15. Do not restore Live Map. Do not connect the live Bileeta API. Do not rewrite historical cost snapshots.
+
+Pre-roadmap decisions are in `docs/PRE_ROADMAP_RECONCILIATION.md`. Maintenance menu domain jobs stay views of the shared work-order engine. Signed-in checks: reports 258 jobs and consumed cost LKR 2,797; exceptions overdue 3; costs recorded LKR 26 equal to parts LKR 26; history page opened. Jest: maintenance-cost-rollup and maintenance-reports, 11 passed. Queue high-cost risk now uses `PART_APPROVAL_HIGH_THRESHOLD`.
 
 Phase 13 local acceptance: signed in as superadmin through the login page. `/auth/me` returned 200 and `/admin/users` still showed that user after reload. Search isolated the disposable technician. Effective permissions listed granted and not-granted keys. `/admin/roles` search for CLEANER showed the three cleaning and facility permissions. Deactivating that disposable user made the next login return 401. Changing the role to VIEWER made user administration and inventory parts return 403. The role was restored to TECHNICIAN. Jest: 27 passed across phase13-access, roles.guard, admin-users-access, admin-users-status, users-tenant-isolation, and admin-roles-access. Email delivery was not used. Bulk user import was not added.
 
