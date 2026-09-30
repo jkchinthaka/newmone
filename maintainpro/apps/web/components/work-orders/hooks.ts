@@ -238,10 +238,11 @@ export function useWorkOrder(id: string | null) {
   });
 }
 
-export function useTechnicians(rows: WorkOrder[]) {
+export function useTechnicians(rows: WorkOrder[], enabled = true) {
   return useQuery({
     queryKey: withTenantScope(WORK_ORDER_TECHNICIANS_QUERY_KEY),
     queryFn: fetchTechnicians,
+    enabled,
     staleTime: 5 * 60 * 1000,
     select: (apiRows): TechnicianOption[] => {
       const map = new Map<string, TechnicianOption>();

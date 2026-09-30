@@ -126,7 +126,37 @@ Super Admin `/api/backend/fleet/live-map` is also 404. `/api/backend/inventory/p
 
 Not yet opened in the browser: Service Jobs, Vehicle Jobs, My Jobs, sites, inspections, reliability, gate, ERP import, costs, history, administration screens, search, notification page, settings, 390/820/1024 layouts, and the other roles.
 
+## Confirmed product defects
+
+| ID | Area | Severity | Status |
+| --- | --- | --- | --- |
+| BH-06 | Navigation guard | P2 | Fixed |
+| BH-07 | Work order list | P2 | Fixed |
+
+### BH-06 A cleaner could open every maintenance URL
+
+`canAccessNavigationPath` treated any `/maintenance` path as allowed when Action Center (`home`) was visible. A cleaner therefore stayed on All Jobs while the API returned 403.
+
+Expected: a role without work-order access is sent away from `/maintenance` and `/maintenance/jobs`.  
+Actual: the jobs page rendered.  
+Fix: a maintenance URL is allowed only when a visible item's own href is that path or a parent of it. Technician access to `/maintenance/jobs` stays.  
+Test: `navigation.spec.ts` now expects cleaner denial. Suite passed.
+
+### BH-07 Technicians were offered the company-wide queue
+
+The jobs list could request `queue=all`, which the API rejects for technicians and mechanics. The page also asked `/users` for an assignee list those roles cannot read.
+
+Expected: a technician list uses `my-tasks`, and the user directory is loaded only for roles that can assign work.  
+Fix: mechanics and technicians never send `queue=all`, and `useTechnicians` stays off for everyone else.
+
+## Walk coverage
+
+Super admin, manager, mechanic, and cleaner were signed in. Widths 1440, 1024, 820, and 390 were checked for the main lists. No horizontal overflow was recorded. Live Map stayed 404 for every role. Manager and mechanic were sent away from Administration. Mechanic and cleaner were sent away from Reports. Cleaner was also sent away from inventory and assets. Exceptions, work orders, and parts returned 200 for the super admin and the expected 403 for the cleaner.
+
+Forms, double-submit, concurrent edits, finance, supervisor, and inventory-keeper sessions were not exercised.
+
 ## Status
 
-The hunt is **not complete**. No new product defect was confirmed on the pages that loaded. BH-01 through BH-05 remain the accepted stale-test repairs. Infrastructure blockers are unchanged. Do not treat this file as a finished product-wide audit.
+The hunt is **not complete**. BH-06 and BH-07 are fixed. A full form, concurrency, and remaining-role pass is still open. Do not merge this branch to main yet.
+
 

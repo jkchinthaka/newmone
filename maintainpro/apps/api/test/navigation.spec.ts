@@ -185,6 +185,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(canAccessNavigationPath("/admin/users", "TECHNICIAN", [])).toBe(false);
     expect(canAccessNavigationPath("/maintenance/jobs", "TECHNICIAN", [])).toBe(true);
     expect(canAccessNavigationPath("/work-orders/my", "TECHNICIAN", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance/jobs", "CLEANER", [])).toBe(false);
+    expect(canAccessNavigationPath("/maintenance", "CLEANER", [])).toBe(false);
   });
 
   it("blocks retired product paths for non-admin roles", () => {

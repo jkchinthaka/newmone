@@ -874,7 +874,10 @@ export function canAccessNavigationPath(
   }
 
   if (normalizedPath.startsWith("/maintenance")) {
-    return visible.some((item) => item.id === "preventive-maintenance" || item.id === "home");
+    return visible.some((item) => {
+      const href = item.href.split("?")[0];
+      return normalizedPath === href || normalizedPath.startsWith(`${href}/`);
+    });
   }
 
   return FULL_NAVIGATION_ROLES.has(normalized ?? "");

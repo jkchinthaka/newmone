@@ -122,7 +122,11 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
     }
   }, [jobDomain, filters.jobDomain, updateFilters]);
 
-  const techniciansQuery = useTechnicians(workOrdersQuery.sourceRows);
+  const currentUser = useCurrentUser();
+  const canLoadTechnicians = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR"].includes(
+    currentUser.role ?? ""
+  );
+  const techniciansQuery = useTechnicians(workOrdersQuery.sourceRows, canLoadTechnicians);
 
   const createMutation = useCreateWorkOrder();
   const updateMutation = useUpdateWorkOrder();
@@ -133,7 +137,6 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   const bulkStatusMutation = useBulkUpdateWorkOrderStatus();
   const approveMutation = useApproveWorkOrder();
   const rejectMutation = useRejectWorkOrder();
-  const currentUser = useCurrentUser();
   const canApproveWorkOrders = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"].includes(
     currentUser.role ?? ""
   );
