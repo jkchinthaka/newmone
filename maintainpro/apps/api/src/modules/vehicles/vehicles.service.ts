@@ -891,7 +891,7 @@ export class VehiclesService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.vehicle.updateMany({
-        where: { id, tenantId: tenantId ?? undefined, status: VehicleStatus.AVAILABLE },
+        where: { id, tenantId, status: VehicleStatus.AVAILABLE },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,

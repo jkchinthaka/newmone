@@ -36,7 +36,7 @@ Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with
 | Next phase | None. Do not start production deployment. |
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
-| Working branch | `release/readiness` (not pushed), from `ui/nelna-shell-refinement` at `c9341b4c`. Acceptance remains `96b18385`. |
+| Working branch | `integration/maintainpro-final-consolidation` (PR #63 to `main`). Acceptance remains `96b18385`. Do not deploy. |
 | Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
 | Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
