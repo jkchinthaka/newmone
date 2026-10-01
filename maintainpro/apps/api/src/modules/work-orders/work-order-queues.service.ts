@@ -852,15 +852,22 @@ export class WorkOrderQueuesService {
     warnings: WorkOrderQueueSummaryWarning[],
     mode: "summary" | "full" = "full"
   ): Promise<EnrichedQueueRow[]> {
-    const enriched: EnrichedQueueRow[] = [];
-    for (const row of rows) {
-      try {
-        enriched.push(mode === "summary" ? this.enrichRowLight(row) : await this.enrichRow(row, tenantId));
-      } catch (error) {
-        this.logger.warn(`Skipping work order ${row.id} in queue enrichment`, error instanceof Error ? error.message : String(error));
-        warnings.push({ queue: row.id, message: "Work order skipped during queue calculation" });
-      }
-    }
+    const enriched: EnrichedQueueRow[] = (
+      await Promise.all(
+        rows.map(async (row) => {
+          try {
+            return mode === "summary" ? this.enrichRowLight(row) : await this.enrichRow(row, tenantId);
+          } catch (error) {
+            this.logger.warn(
+              `Skipping work order ${row.id} in queue enrichment`,
+              error instanceof Error ? error.message : String(error)
+            );
+            warnings.push({ queue: row.id, message: "Work order skipped during queue calculation" });
+            return null;
+          }
+        })
+      )
+    ).filter((row): row is EnrichedQueueRow => row !== null);
     return enriched;
   }
 
@@ -1022,7 +1029,7 @@ export class WorkOrderQueuesService {
   private async buildListSummary(actor: Actor, baseWhere: Prisma.WorkOrderWhereInput) {
     const tenantWhere = { ...baseWhere };
     const now = new Date();
-    const [total, open, assigned, inProgress, overdue, triage] = await Promise.all([
+    const [total, open, assigned, inProgress, overdue, triage, highRisk] = await Promise.all([
       this.prisma.workOrder.count({ where: tenantWhere }),
       this.prisma.workOrder.count({ where: { ...tenantWhere, status: WorkOrderStatus.OPEN } }),
       this.prisma.workOrder.count({
@@ -1044,21 +1051,20 @@ export class WorkOrderQueuesService {
           OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: now }, status: { notIn: TERMINAL_STATUSES } }]
         }
       }),
-      this.prisma.workOrder.count({ where: { ...tenantWhere, isTriage: true, status: { notIn: TERMINAL_STATUSES } } })
+      this.prisma.workOrder.count({ where: { ...tenantWhere, isTriage: true, status: { notIn: TERMINAL_STATUSES } } }),
+      this.prisma.workOrder.count({
+        where: {
+          ...tenantWhere,
+          status: { notIn: TERMINAL_STATUSES },
+          OR: [
+            { priority: Priority.CRITICAL },
+            { status: WorkOrderStatus.OVERDUE },
+            { slaBreached: true },
+            { priority: Priority.HIGH, dueDate: { lt: now } }
+          ]
+        }
+      })
     ]);
-
-    const highRiskWhere = {
-      ...tenantWhere,
-      status: { notIn: TERMINAL_STATUSES },
-      OR: [
-        { priority: Priority.CRITICAL },
-        { status: WorkOrderStatus.OVERDUE },
-        { slaBreached: true },
-        { priority: Priority.HIGH, dueDate: { lt: now } }
-      ]
-    };
-
-    const highRisk = await this.prisma.workOrder.count({ where: highRiskWhere });
 
     return { total, open, assigned, inProgress, overdue, highRisk, triage };
   }

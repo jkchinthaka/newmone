@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isDatabaseUnavailableError } from "@/lib/api-client";
 import { fetchWorkOrderQueueSummary } from "@/lib/work-order-queues-api";
 import type { NavBadgeKey } from "@/lib/navigation";
+import { withTenantScope } from "@/lib/tenant-query";
 
 export type NavBadgeCounts = Partial<Record<NavBadgeKey, number>>;
 
@@ -39,10 +40,11 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
 
 export function useNavBadges(enabled: boolean, roleName?: string | null) {
   const query = useQuery({
-    queryKey: ["navigation", "badges"],
-    queryFn: async () => mapQueueSummaryToBadges(await fetchWorkOrderQueueSummary()),
+    queryKey: withTenantScope(["work-orders", "queue-summary", ""]),
+    queryFn: () => fetchWorkOrderQueueSummary(),
+    select: mapQueueSummaryToBadges,
     enabled: enabled && canRoleFetchNavBadges(roleName),
-    staleTime: 60_000,
+    staleTime: 30_000,
     retry: (failureCount, error) => {
       if (isDatabaseUnavailableError(error)) {
         return false;
