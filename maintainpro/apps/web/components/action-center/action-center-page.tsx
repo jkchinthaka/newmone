@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -23,7 +23,9 @@ import {
 import { fetchKpiOverview, type KpiOverviewItem } from "@/lib/reporting-kpis-api";
 import { filterRoleHomeCards, resolveRoleHome, type RoleHomeCard } from "@/lib/role-home";
 import { extractRoleName } from "@/lib/role-redirect";
+import { withTenantScope } from "@/lib/tenant-query";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { fetchWorkOrderQueueSummary } from "@/lib/work-order-queues-api";
 
 import { ActionSection } from "./action-section";
 
@@ -156,6 +158,7 @@ function ActionCenterSearch({
 
 export function ActionCenterPage() {
   const user = useCurrentUser();
+  const queryClient = useQueryClient();
   const roleName = extractRoleName(user);
   const variant = resolveActionCenterVariant(roleName);
   const readOnly = actionCenterIsReadOnly(variant);
@@ -171,7 +174,13 @@ export function ActionCenterPage() {
         roleName,
         userId: user.id,
         permissions: user.permissions,
-        includeSystemHealth: false
+        includeSystemHealth: false,
+        loadWorkOrderSummary: () =>
+          queryClient.fetchQuery({
+            queryKey: withTenantScope(["work-orders", "queue-summary", ""]),
+            queryFn: () => fetchWorkOrderQueueSummary(),
+            staleTime: 30_000
+          })
       }),
     refetchInterval: 60_000
   });

@@ -57,6 +57,11 @@ export type FetchActionCenterOptions = {
    * rest of the snapshot. The Action Center page loads it on its own query.
    */
   includeSystemHealth?: boolean;
+  /**
+   * Optional shared loader so the sidebar and this snapshot reuse one queue summary.
+   * Defaults to a direct fetch. Callers must keep the cache key tenant-scoped.
+   */
+  loadWorkOrderSummary?: () => Promise<Awaited<ReturnType<typeof fetchWorkOrderQueueSummary>>>;
 };
 
 export async function fetchActionCenterSystemHealth(): Promise<ActionCenterSnapshot["systemHealth"]> {
@@ -94,7 +99,7 @@ function queueCount(
 export async function fetchActionCenterSnapshot(
   options: FetchActionCenterOptions
 ): Promise<ActionCenterSnapshot> {
-  const { variant, roleName, userId, permissions } = options;
+  const { variant, roleName, userId, permissions, loadWorkOrderSummary } = options;
   void userId; // work-order queue summary is already actor-scoped server-side for "my-tasks"
 
   const snapshot: ActionCenterSnapshot = {
@@ -116,7 +121,7 @@ export async function fetchActionCenterSnapshot(
   const needsWorkOrderSummary = actionCenterShowsWorkOrders(variant) || actionCenterShowsFinanceSignals(variant);
   if (needsWorkOrderSummary) {
     tasks.push(
-      fetchWorkOrderQueueSummary()
+      (loadWorkOrderSummary ?? fetchWorkOrderQueueSummary)()
         .then((queueSummary) => {
           const summary = queueSummary.summary;
           const isTechnician = variant === "technician";
