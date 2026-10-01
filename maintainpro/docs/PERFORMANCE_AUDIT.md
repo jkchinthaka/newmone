@@ -1,8 +1,10 @@
 # Performance audit
 
-Measured on 2026-10-01 against local MaintainProDev. Branch `perf/final-full-project-optimization`, based on `main` `95f44ca6`. The older checkpoint `43f2363b` was not merged. Only its tenant-scoped queue-summary cache was copied by hand, because the jobs page already used that cache key.
+Measured on 2026-10-01 against local MaintainProDev. Branch `perf/final-full-project-optimization`, based on `main` `95f44ca6`. The older checkpoint `43f2363b` was not merged. Its measurements live in the same path, `maintainpro/docs/PERFORMANCE_AUDIT.md`, at that commit. Only its tenant-scoped queue-summary cache was copied by hand, because the jobs page already used that cache key.
 
-Lab timings are a single local API process talking to local SQL Server. They are not production user metrics. Ten warm samples follow one cold call. Load rows are one simultaneous burst, not a sustained soak.
+The API on port 3000 was already healthy. A second API start exited because that port was taken. These numbers are from the process that was already listening. The web app on port 3001 answered 200. Docker Desktop was not running, so Redis was not pinged. The API health endpoint still returned 200.
+
+Lab timings are a single local API process talking to local SQL Server. They are not production user metrics. Ten warm samples follow one cold call unless a row says eleven calls. Load rows from the earlier burst in this file are one simultaneous burst, not a sustained soak.
 
 ## What changed
 
@@ -38,6 +40,18 @@ BH-06 through BH-18 are unchanged by this cache. Navigation ownership, validatio
 | Spare parts | 28 | 59 | 69 |
 | ERP events | 23 | 53 | 68 |
 | Admin users | 23 | 19 | 21 |
+| Maintenance requests, page 20 (`limit`, not `pageSize`) | 55 | 42 | 45 |
+| Maintenance costs, 1–30 Sep 2026, page 25 | 121 | 40 | 44 |
+| Reports dashboard | 231 | 126 | 134 |
+| One existing work-order history | 32 | 34 | 42 |
+| One existing request history | 60 | 26 | 59 |
+| Global search `pump`, limit 10, super admin | 33 | 36 | 38 |
+
+p99 matched p95 on these small samples. Admin `GET /search` returned 403 because that route requires `assets.view`. That is authorization, not a slow query. Global search waits 250 ms between keystrokes, keeps 20 results by default, and drops a response that is older than the latest keystroke. It does not cancel the HTTP call. Tenant and permission filters stay on the server.
+
+Work-order list warm p99 on the optimized page of 20 was 92 ms, the same as p95 in that ten-sample set. Machinery, service, and vehicle p95 values above are also the p99 for those samples.
+
+Historical warm numbers from commit `43f2363b`, before the bug-hunt merge and before this list change: work orders p50 203 ms and p95 469 ms; queue summary p50 47 ms and p95 60 ms. The cold duplicate queue calls in that log were 315 ms and 212 ms. This pass remeasured the bug-fixed process instead of reusing those numbers as the after column.
 
 Simple and normal reads are under the 300 ms and 500 ms engineering targets for a single user. The exceptions report stays under 1000 ms alone and misses that target when many requests run together.
 
@@ -69,7 +83,7 @@ No shell or bundle redesign. The only client change is the shared queue-summary 
 
 ## Web Vitals (lab, Next dev, not production)
 
-PerformanceObserver on a local dev server after an API login and a stored tenant. CLS stayed under 0.1. INP was not scored. Desktop LCP on later routes includes dev compilation and should not be quoted as production LCP.
+PerformanceObserver on a local dev server after an API login and a stored tenant. CLS stayed under 0.1. INP was not scored: the lab click was not read by a production interaction observer. Desktop LCP on later routes includes dev compilation and should not be quoted as production LCP.
 
 | Screen | 1440 LCP ms | 1440 CLS | 390 LCP ms | 390 CLS |
 | --- | ---: | ---: | ---: | ---: |
