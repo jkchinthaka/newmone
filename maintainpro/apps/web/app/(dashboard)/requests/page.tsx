@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -29,7 +30,8 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
-  requestValueLabel
+  requestValueLabel,
+  resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
 
 type View = "all" | "mine" | "triage";
@@ -115,7 +117,30 @@ function ActionMenu({
   onClose: () => void;
   onRun: (action: RowAction) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const place = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = 240;
+      setPosition({
+        top: rect.bottom + 4,
+        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -123,7 +148,9 @@ function ActionMenu({
       if (event.key === "Escape") onClose();
     };
     const onPointer = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) onClose();
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onClose();
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onPointer);
@@ -133,38 +160,61 @@ function ActionMenu({
     };
   }, [open, onClose]);
 
-  const itemClass = "block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none";
+  function activate(event: ReactMouseEvent, action: RowAction) {
+    event.preventDefault();
+    event.stopPropagation();
+    const plan = resolveRequestMenuActivation(action);
+    onClose();
+    if (plan.navigateTo) {
+      router.push(plan.navigateTo as Route);
+      return;
+    }
+    if (plan.runCommand) onRun(action);
+  }
+
+  const itemClass =
+    "block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none";
+
+  const menu =
+    open && position ? (
+      <div
+        ref={menuRef}
+        role="menu"
+        style={{ top: position.top, left: position.left }}
+        className="fixed z-[80] w-60 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+      >
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            role="menuitem"
+            type="button"
+            className={itemClass}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => activate(event, action)}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   return (
-    <div ref={containerRef} className="relative inline-block">
+    <div className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         aria-label={`Actions for ${item.requestNumber}`}
         aria-haspopup="menu"
         aria-expanded={open}
         className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white"
-        onClick={onToggle}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
       >
         <MoreHorizontal size={16} aria-hidden />
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-10 mt-1 w-60 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-        >
-          {actions.map((action) =>
-            action.href ? (
-              <Link key={action.id} role="menuitem" href={action.href as Route} className={itemClass} onClick={onClose}>
-                {action.label}
-              </Link>
-            ) : (
-              <button key={action.id} role="menuitem" type="button" className={itemClass} onClick={() => onRun(action)}>
-                {action.label}
-              </button>
-            )
-          )}
-        </div>
-      ) : null}
+      {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
 }

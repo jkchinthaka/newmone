@@ -10,7 +10,8 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
-  requestValueLabel
+  requestValueLabel,
+  resolveRequestMenuActivation
 } from "../maintenance-request-ui";
 import { getVisibleNavigationItems, REQUEST_LIST_PERMISSIONS } from "../navigation";
 
@@ -124,5 +125,21 @@ describe("Requests navigation visibility", () => {
     assert.equal(hasRequests("TECHNICIAN", ["work_orders.view_own", "work_orders.update_status"]), false);
     // SECURITY_OFFICER is not in the API read roles at all.
     assert.equal(hasRequests("SECURITY_OFFICER", [...REQUEST_LIST_PERMISSIONS]), false);
+  });
+});
+
+describe("request action menu activation", () => {
+  it("opens a request by route and does not also run a command", () => {
+    const plan = resolveRequestMenuActivation({ href: "/requests/req-1" });
+    assert.equal(plan.closeMenu, true);
+    assert.equal(plan.navigateTo, "/requests/req-1");
+    assert.equal(plan.runCommand, false);
+  });
+
+  it("runs cancel as a command so the reason prompt can open", () => {
+    const plan = resolveRequestMenuActivation({});
+    assert.equal(plan.closeMenu, true);
+    assert.equal(plan.navigateTo, null);
+    assert.equal(plan.runCommand, true);
   });
 });

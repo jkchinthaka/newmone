@@ -189,6 +189,22 @@ export const REQUEST_STAGE_LABELS: Record<RequestStage, string> = {
   converted: "Converted to work orders"
 };
 
+/**
+ * Menu items navigate or run a command. Navigation must not depend on a Link
+ * nested in a clickable table row, and the row click must not run as well.
+ */
+export function resolveRequestMenuActivation(action: { href?: string }): {
+  closeMenu: true;
+  navigateTo: string | null;
+  runCommand: boolean;
+} {
+  return {
+    closeMenu: true,
+    navigateTo: action.href ?? null,
+    runCommand: !action.href
+  };
+}
+
 export function isRequestStage(value: string | null | undefined): value is RequestStage {
   return value === "open" || value === "awaiting_triage" || value === "urgent" || value === "converted";
 }
