@@ -24,9 +24,11 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**Performance pass in progress (2026-10-01).** Branch `perf/final-full-project-optimization`, created from `main` `95f44ca6` with `--no-track`. The old branch `perf/full-project-optimization` stays at `43f2363b` and was not merged. Do not push this branch in this task. Do not deploy.
+**Request action menu verified (2026-10-01).** Branch `fix/request-action-menu`, head `e3313446`, parent `origin/main` `f8e79b25`. Live checks used disposable `menu-verify` requests: My Requests cancel returned 201 once and became `CANCELLED` with history action `CANCELLED` and an audit `UPDATE` that stores the reason; a second cancel is no longer offered. Start review on a separate disposable request returned 201 once and stayed on the list URL. Open work order for `MR-2026-00009` opened `/work-orders?wo=cmuo4kjap001b2annlv19asoq` (`WO-2026-0262`). Web typecheck passed. Maintenance request UI tests 14 passed. Navigation tests 23 passed. Production is not deployed.
 
-**Last updated:** 2026-09-30. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). Release readiness is in progress on `release/readiness` and remains **RELEASE BLOCKED**. Not deployed. See `docs/RELEASE_READINESS_REPORT.md`. There is no Phase 16.
+The performance branch `perf/final-full-project-optimization` is already merged as PR #65 (`f8e79b25`). The older `perf/full-project-optimization` stays at `43f2363b`. Do not deploy.
+
+**Last updated:** 2026-10-01. Phase 15 local acceptance stays complete on `feature/phase-15-final-acceptance` (`96b18385`). Release readiness is in progress on `release/readiness` and remains **RELEASE BLOCKED**. Not deployed. See `docs/RELEASE_READINESS_REPORT.md`. There is no Phase 16.
 
 Local Redis on port 6380 is up (`docker compose -f docker-compose.dev.yml up -d redis`). The running API logged Redis and the notification queue as active. MinIO image pull is still `401 Unauthorized`. Email stays disabled. The PM generator is still an explicit `auto-wo` call, not a background clock.
 
