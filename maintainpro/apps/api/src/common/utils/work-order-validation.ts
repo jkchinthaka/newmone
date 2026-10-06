@@ -124,31 +124,87 @@ export function parseWorkOrderDateField(field: string, value?: string | null): D
   return parsed;
 }
 
-export function assertWorkOrderScheduleDates(input: {
-  plannedStartAt?: Date | null;
-  plannedEndAt?: Date | null;
-  dueDate?: Date | null;
-  expectedCompletionDate?: Date | null;
-}) {
+function utcDayStartMs(value: Date): number {
+  return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+}
+
+function assertNotEarlier(laterLabel: string, later: Date | null | undefined, earlierLabel: string, earlier: Date | null | undefined) {
+  if (later && earlier && later.getTime() < earlier.getTime()) {
+    throw new BadRequestException(`${laterLabel} must not be earlier than ${earlierLabel}`);
+  }
+}
+
+/**
+ * Validates work-order schedule field combinations.
+ * - Sequence rules always apply when both sides of a pair are present.
+ * - Equal dates are allowed.
+ * - When `rejectPastDates` is true (create), due / expected / planned start / planned end
+ *   cannot be before the current UTC calendar day.
+ */
+export function assertWorkOrderScheduleDates(
+  input: {
+    plannedStartAt?: Date | null;
+    plannedEndAt?: Date | null;
+    dueDate?: Date | null;
+    expectedCompletionDate?: Date | null;
+  },
+  options?: { rejectPastDates?: boolean; now?: Date }
+) {
   const { plannedStartAt, plannedEndAt, dueDate, expectedCompletionDate } = input;
+  const now = options?.now ?? new Date();
 
-  if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() < plannedStartAt.getTime()) {
-    throw new BadRequestException("Planned end must not be earlier than planned start");
-  }
-
-  if (!plannedStartAt) {
-    return;
-  }
-
-  const comparisons: Array<{ field: string; value?: Date | null }> = [
-    { field: "Due date", value: dueDate },
-    { field: "Expected completion", value: expectedCompletionDate },
-    { field: "Planned end", value: plannedEndAt }
-  ];
-
-  for (const { field, value } of comparisons) {
-    if (value && value.getTime() < plannedStartAt.getTime()) {
-      throw new BadRequestException(`${field} must not be earlier than planned start`);
+  if (options?.rejectPastDates) {
+    const today = utcDayStartMs(now);
+    const pastChecks: Array<{ label: string; value?: Date | null }> = [
+      { label: "Planned start", value: plannedStartAt },
+      { label: "Planned end", value: plannedEndAt },
+      { label: "Due date", value: dueDate },
+      { label: "Expected completion", value: expectedCompletionDate }
+    ];
+    for (const { label, value } of pastChecks) {
+      if (value && utcDayStartMs(value) < today) {
+        throw new BadRequestException(`${label} cannot be in the past`);
+      }
     }
   }
+
+  assertNotEarlier("Planned end", plannedEndAt, "planned start", plannedStartAt);
+  assertNotEarlier("Due date", dueDate, "planned start", plannedStartAt);
+  assertNotEarlier("Expected completion", expectedCompletionDate, "planned start", plannedStartAt);
+  assertNotEarlier("Due date", dueDate, "planned end", plannedEndAt);
+  assertNotEarlier("Expected completion", expectedCompletionDate, "planned end", plannedEndAt);
+  // Expected completion is the operational finish target; it must not land after the due date.
+  assertNotEarlier("Due date", dueDate, "expected completion", expectedCompletionDate);
+}
+
+/** Non-negative finite money/quantity fields (0 allowed). Undefined/null skipped. */
+export function assertWorkOrderNonNegativeNumber(field: string, value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new BadRequestException(`${field} must be a valid number`);
+  }
+  if (numeric < 0) {
+    throw new BadRequestException(`${field} cannot be negative`);
+  }
+
+  return numeric;
+}
+
+export function assertWorkOrderCostFields(input: {
+  estimatedCost?: unknown;
+  estimatedHours?: unknown;
+}) {
+  const estimatedCost = assertWorkOrderNonNegativeNumber("Estimated cost", input.estimatedCost);
+  // Hours remain strictly greater than 0 when provided (existing product rule).
+  if (input.estimatedHours !== undefined && input.estimatedHours !== null && input.estimatedHours !== "") {
+    const hours = typeof input.estimatedHours === "number" ? input.estimatedHours : Number(input.estimatedHours);
+    if (!Number.isFinite(hours) || hours <= 0) {
+      throw new BadRequestException("Estimated hours must be greater than 0");
+    }
+  }
+  return { estimatedCost };
 }

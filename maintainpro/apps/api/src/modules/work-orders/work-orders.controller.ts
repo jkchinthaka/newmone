@@ -332,6 +332,10 @@ export class WorkOrdersController {
       createdById: string;
       dueDate?: string;
       expectedCompletionDate?: string;
+      plannedStartAt?: string;
+      plannedEndAt?: string;
+      estimatedCost?: number | null;
+      estimatedHours?: number | null;
       requiresApproval?: boolean;
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;

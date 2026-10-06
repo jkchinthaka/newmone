@@ -162,11 +162,31 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
     parseDate(dueDate, "dueDate");
     parseDate(expectedCompletionDate, "expectedCompletionDate");
 
+    if (!next.dueDate && dueDate.trim()) {
+      const due = new Date(dueDate);
+      const today = new Date();
+      const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      if (dueDay < todayDay) {
+        next.dueDate = "Due date cannot be in the past.";
+      }
+    }
+
+    if (!next.expectedCompletionDate && expectedCompletionDate.trim()) {
+      const expected = new Date(expectedCompletionDate);
+      const today = new Date();
+      const expectedDay = Date.UTC(expected.getUTCFullYear(), expected.getUTCMonth(), expected.getUTCDate());
+      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      if (expectedDay < todayDay) {
+        next.expectedCompletionDate = "Expected completion cannot be in the past.";
+      }
+    }
+
     if (!next.dueDate && !next.expectedCompletionDate && dueDate.trim() && expectedCompletionDate.trim()) {
       const due = new Date(dueDate);
       const expected = new Date(expectedCompletionDate);
-      if (expected.getTime() < due.getTime()) {
-        next.expectedCompletionDate = "Expected completion must not be earlier than due date.";
+      if (due.getTime() < expected.getTime()) {
+        next.expectedCompletionDate = "Expected completion must not be later than due date.";
       }
     }
 

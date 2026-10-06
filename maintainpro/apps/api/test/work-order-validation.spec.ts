@@ -3,6 +3,7 @@ import { WorkOrderType } from "@prisma/client";
 
 import {
   assertWorkOrderAssetRules,
+  assertWorkOrderCostFields,
   assertWorkOrderScheduleDates,
   assertValidEntityId,
   assertValidOptionalObjectId,
@@ -122,5 +123,71 @@ describe("work order validation", () => {
         plannedEndAt: new Date("2026-10-09T00:00:00.000Z")
       })
     ).toThrow(new BadRequestException("Planned end must not be earlier than planned start"));
+  });
+
+  it("rejects expected completion later than due date", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates({
+        dueDate: new Date("2026-10-10T00:00:00.000Z"),
+        expectedCompletionDate: new Date("2026-10-20T00:00:00.000Z")
+      })
+    ).toThrow(new BadRequestException("Due date must not be earlier than expected completion"));
+  });
+
+  it("allows equal due and expected completion dates", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates({
+        plannedStartAt: new Date("2026-10-10T00:00:00.000Z"),
+        dueDate: new Date("2026-10-20T00:00:00.000Z"),
+        expectedCompletionDate: new Date("2026-10-20T00:00:00.000Z")
+      })
+    ).not.toThrow();
+  });
+
+  it("allows missing optional dates", () => {
+    expect(() => assertWorkOrderScheduleDates({})).not.toThrow();
+  });
+
+  it("rejects past due dates on create", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates(
+        { dueDate: new Date("2020-01-01T00:00:00.000Z") },
+        { rejectPastDates: true, now: new Date("2026-10-06T12:00:00.000Z") }
+      )
+    ).toThrow(new BadRequestException("Due date cannot be in the past"));
+  });
+
+  it("allows today as due date across timezone day boundary", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates(
+        { dueDate: new Date("2026-10-06T00:00:00.000Z") },
+        { rejectPastDates: true, now: new Date("2026-10-06T23:30:00.000Z") }
+      )
+    ).not.toThrow();
+  });
+
+  it("rejects negative estimated cost", () => {
+    expect(() => assertWorkOrderCostFields({ estimatedCost: -10 })).toThrow(
+      new BadRequestException("Estimated cost cannot be negative")
+    );
+  });
+
+  it("rejects non-finite estimated cost", () => {
+    expect(() => assertWorkOrderCostFields({ estimatedCost: Number.NaN })).toThrow(
+      new BadRequestException("Estimated cost must be a valid number")
+    );
+    expect(() => assertWorkOrderCostFields({ estimatedCost: "abc" })).toThrow(
+      new BadRequestException("Estimated cost must be a valid number")
+    );
+  });
+
+  it("allows zero estimated cost", () => {
+    expect(assertWorkOrderCostFields({ estimatedCost: 0 }).estimatedCost).toBe(0);
+  });
+
+  it("rejects non-positive estimated hours when provided", () => {
+    expect(() => assertWorkOrderCostFields({ estimatedHours: 0 })).toThrow(
+      new BadRequestException("Estimated hours must be greater than 0")
+    );
   });
 });
