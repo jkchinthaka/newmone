@@ -27,6 +27,8 @@ apps/web/playwright-report/
 .env.render
 .env.vercel
 .env.backup
+.seed-password.local
+.tmp-installers/
 
 # Deployment state and uploaded runtime files
 .vercel/
