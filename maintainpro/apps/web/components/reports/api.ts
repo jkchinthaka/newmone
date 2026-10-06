@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatPercent
 } from "@/lib/localization";
+import { formatDisplayValue } from "@/lib/display-labels";
 
 import {
   ReportExportFormat,
@@ -127,7 +128,7 @@ export function formatReportValue(value: string | number | null | undefined, typ
     return formatDateTime(value, { fallback: "-" });
   }
 
-  return String(value);
+  return typeof value === "string" ? formatDisplayValue(value) : String(value);
 }
 
 export function toInputDate(date: Date) {

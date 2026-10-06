@@ -12,6 +12,7 @@ import { EntityPicker } from "@/components/ui/entity-picker";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { formatEnumLabel } from "@/lib/display-labels";
 import {
   autoCreatePmWorkOrder,
   createPmPlan,
@@ -28,7 +29,13 @@ function statusLabel(status: string) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
+const VALIDITY_ISSUE_LABELS: Record<string, string> = {
+  NO_ASSET_ASSIGNED: "No asset or vehicle assigned",
+  NO_TRIGGER: "No active trigger"
+};
+
 function dueLabel(state?: string) {
+  if (state === "INVALID") return "Invalid — fix required";
   if (state === "DUE_SOON") return "Due Soon";
   if (state === "NEEDS_ATTENTION") return "Needs Attention";
   if (state === "ON_TRACK") return "On Track";
@@ -52,6 +59,22 @@ function scopeLabel(plan: PmPlan) {
   if (plan.vehicle) return `${plan.vehicle.make} ${plan.vehicle.vehicleModel}`.trim() || plan.vehicle.registrationNo;
   if (plan.asset) return plan.asset.name;
   return "No asset assigned";
+}
+
+function pmEvaluationMessage(result: { created?: boolean; reason?: string } | null | undefined) {
+  if (result?.created) return "Preventive work order created.";
+  switch (result?.reason) {
+    case "NOT_DUE":
+      return "Not due yet — no work order created.";
+    case "DUPLICATE_OPEN_WO":
+      return "An open work order already exists for this plan.";
+    case "DUPLICATE_GENERATION_KEY":
+      return "A work order was already generated for this due date.";
+    case "AUTO_WO_DISABLED":
+      return "Automatic work orders are disabled for this plan.";
+    default:
+      return result?.reason ? formatEnumLabel(result.reason) : "Plan evaluated.";
+  }
 }
 
 function scopeCode(plan: PmPlan) {
@@ -273,18 +296,35 @@ export default function PreventiveMaintenancePage() {
                     <div className="text-slate-700">{plan.name}</div>
                   </td>
                   <td className="px-3 py-3">
-                    <div>{scopeLabel(plan)}</div>
+                    <div className={plan.validityIssues?.includes("NO_ASSET_ASSIGNED") ? "font-semibold text-rose-700" : undefined}>
+                      {scopeLabel(plan)}
+                    </div>
                     {scopeCode(plan) ? <div className="text-xs text-slate-500">{scopeCode(plan)}</div> : null}
+                    {plan.validityIssues?.length ? (
+                      <div
+                        role="status"
+                        className="mt-1 inline-block rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700"
+                      >
+                        Invalid plan: {plan.validityIssues.map((issue) => VALIDITY_ISSUE_LABELS[issue] ?? issue).join(", ")}.
+                        Assign an asset or pause this plan.
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">{triggerLabel(plan)}</td>
                   <td className="px-3 py-3">
                     <div>{plan.nextDueAt ? new Date(plan.nextDueAt).toLocaleDateString() : "—"}</div>
+                    {plan.nextDueSource === "PROJECTED" ? (
+                      <div className="text-xs text-slate-500">Calculated from schedule</div>
+                    ) : null}
                     <div className="text-xs text-slate-500">{dueLabel(plan.dueState)}</div>
                     {plan.remainingDays != null ? (
                       <div className="text-xs text-slate-500">{Math.round(plan.remainingDays)} days</div>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3">{statusLabel(plan.status)}</td>
+                  <td className="px-3 py-3">
+                    {statusLabel(plan.status)}
+                    {plan.validityIssues?.length ? <div className="text-xs font-semibold text-rose-700">Needs remediation</div> : null}
+                  </td>
                   <td className="px-3 py-3">{plan.autoCreateWorkOrder ? "Enabled" : "Disabled"}</td>
                   <td className="px-3 py-3">
                     <div className="flex flex-col items-start gap-1">
@@ -313,14 +353,14 @@ export default function PreventiveMaintenancePage() {
                           Archive
                         </button>
                       ) : null}
-                      {canManage && plan.autoCreateWorkOrder && plan.status === "ACTIVE" ? (
+                      {canManage && plan.autoCreateWorkOrder && plan.status === "ACTIVE" && !plan.validityIssues?.length ? (
                         <button
                           type="button"
                           className="text-brand-700"
                           onClick={async () => {
                             try {
                               const result = await autoCreatePmWorkOrder(plan.id);
-                              toast.success(String((result as { reason?: string })?.reason ?? "Evaluated"));
+                              toast.success(pmEvaluationMessage(result as { created?: boolean; reason?: string }));
                               write({ refresh: String(Date.now()) });
                             } catch (err) {
                               toast.error(getApiErrorMessage(err, "Auto work order failed"));

@@ -1,5 +1,7 @@
 import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
+import { IsNotBlank } from "../../../common/validation/not-blank";
+
 export class CreateUserDto {
   @IsEmail()
   email!: string;
@@ -46,10 +48,12 @@ export class InviteUserDto {
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
+  @IsNotBlank()
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @IsNotBlank()
   lastName?: string;
 
   @IsOptional()

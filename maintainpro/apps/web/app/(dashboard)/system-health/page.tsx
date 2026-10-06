@@ -24,6 +24,8 @@ import { InventoryErpSyncPanel } from "@/components/admin/inventory-erp-sync-pan
 import { NelnaLogo } from "@/components/brand/nelna-logo";
 import { formatRequiredChecksAttention } from "@/lib/display-labels";
 
+import { resolveDisplayCheckStatus } from "@/lib/system-health-status";
+
 type CheckStatus =
   | "operational"
   | "degraded"
@@ -166,8 +168,8 @@ function CheckCard({ check }: { check: SystemCheck }) {
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">{check.message}</p>
         </div>
-        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[check.status]}`}>
-          {statusLabels[check.status]}
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[resolveDisplayCheckStatus(check)]}`}>
+          {statusLabels[resolveDisplayCheckStatus(check)]}
         </span>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -219,8 +221,8 @@ function ReplicationStatusCard({ check }: { check: SystemCheck }) {
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{check.message}</p>
         </div>
-        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[check.status]}`}>
-          {statusLabels[check.status]}
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[resolveDisplayCheckStatus(check)]}`}>
+          {statusLabels[resolveDisplayCheckStatus(check)]}
         </span>
       </div>
 

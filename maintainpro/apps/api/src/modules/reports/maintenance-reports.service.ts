@@ -24,6 +24,7 @@ import {
 import { pendingQuantity } from "../../common/utils/work-order-parts-governance";
 import {
   evaluateEvidenceRequirements,
+  isEvidenceAbsent,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { isHighCostVendorRepair, VENDOR_APPROVAL_MANAGER_MAX } from "../../common/utils/vendor-repair-governance";
@@ -305,9 +306,7 @@ export class MaintenanceReportsService {
     return {
       completedWithoutEvidence: wo.status === WorkOrderStatus.COMPLETED && uploadedEvidence.length === 0,
       requiredEvidenceMissing:
-        evidenceChecklist.required &&
-        !evidenceChecklist.complete &&
-        ACTIVE_STATUSES.includes(wo.status),
+        isEvidenceAbsent(evidenceChecklist.displayStatus) && ACTIVE_STATUSES.includes(wo.status),
       qrMismatch: wo.qrVerificationStatus === QrVerificationStatus.MISMATCH,
       qrOverride: wo.qrVerificationStatus === QrVerificationStatus.OVERRIDDEN,
       evidenceRejected: wo.evidenceAttachments.some(
@@ -396,7 +395,7 @@ export class MaintenanceReportsService {
               verificationStatus: item.verificationStatus
             }))
           );
-          return checklist.required && !checklist.complete;
+          return isEvidenceAbsent(checklist.displayStatus);
         }).length;
       }
       case "technician-completed-without-evidence":

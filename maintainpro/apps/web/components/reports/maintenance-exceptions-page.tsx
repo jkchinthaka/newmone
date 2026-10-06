@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Download, Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+
+import { formatDisplayValue } from "@/lib/display-labels";
 
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
@@ -20,6 +24,10 @@ import {
 } from "./maintenance-reports-api";
 
 export function MaintenanceExceptionsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get("type");
   const [filters, setFilters] = useState<MaintenanceReportFilters>(defaultMaintenanceFilters);
   const [cards, setCards] = useState<MaintenanceExceptionCard[]>([]);
   const [kpis, setKpis] = useState<Record<string, unknown> | null>(null);
@@ -69,6 +77,28 @@ export function MaintenanceExceptionsPage() {
     void loadSummary();
   }, [loadSummary]);
 
+  // The URL owns the selected exception (?type=repeated-breakdowns) so deep links,
+  // refresh, and browser back/forward all show the intended detail.
+  useEffect(() => {
+    if (typeParam) {
+      void loadDetail(typeParam as MaintenanceExceptionType);
+    } else {
+      setSelectedType(null);
+      setRows([]);
+    }
+  }, [typeParam, loadDetail]);
+
+  const selectType = useCallback(
+    (type: MaintenanceExceptionType | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (type) params.set("type", type);
+      else params.delete("type");
+      const query = params.toString();
+      router.push(`${pathname}${query ? `?${query}` : ""}` as Route, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   const woKpis = useMemo(() => {
     const workOrders = (kpis?.workOrders ?? {}) as Record<string, number>;
     return [
@@ -116,8 +146,7 @@ export function MaintenanceExceptionsPage() {
             type="button"
             onClick={() => {
               setFilters(defaultMaintenanceFilters());
-              setSelectedType(null);
-              setRows([]);
+              selectType(null);
             }}
             className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
@@ -156,10 +185,10 @@ export function MaintenanceExceptionsPage() {
               <button
                 key={card.type}
                 type="button"
-                onClick={() => void loadDetail(card.type)}
+                onClick={() => selectType(card.type)}
                 className={`rounded-lg border px-3 py-2 text-left transition hover:shadow-sm ${severityClass(card.severity)} ${selectedType === card.type ? "ring-2 ring-brand-500" : ""}`}
               >
-                <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">{card.severity}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">{formatDisplayValue(card.severity)}</p>
                 <p className="mt-1 text-xs">{card.label}</p>
                 <p className="mt-1 text-2xl font-semibold">{card.count}</p>
               </button>
@@ -210,15 +239,15 @@ export function MaintenanceExceptionsPage() {
                     <td className="py-2 pr-3 font-medium">{row.woNumber}</td>
                     <td className="py-2 pr-3">{row.title}</td>
                     <td className="py-2 pr-3">{row.assetName ?? "—"}</td>
-                    <td className="py-2 pr-3">{row.status}</td>
+                    <td className="py-2 pr-3">{formatDisplayValue(row.status)}</td>
                     <td className="py-2 pr-3">
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${severityClass(row.riskSeverity)}`}>
-                        {row.riskScore} · {row.riskSeverity}
+                        {row.riskScore} · {formatDisplayValue(row.riskSeverity)}
                       </span>
                     </td>
                     <td className="py-2 pr-3 text-slate-600">{row.exceptionReason}</td>
                     <td className="py-2">
-                      <Link href={`/work-orders?open=${row.workOrderId}`} className="font-semibold text-brand-700 hover:underline">
+                      <Link href={`/work-orders?wo=${row.workOrderId}` as Route} className="font-semibold text-brand-700 hover:underline">
                         Open
                       </Link>
                     </td>

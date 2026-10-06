@@ -206,14 +206,14 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "pm-compliance",
         title: "PM Compliance",
-        href: "/reports/performance?search=preventive",
+        href: "/reports/performance?focus=pm-compliance",
         description: "Preventive maintenance compliance",
         kpiCodes: ["PM_COMPLIANCE"]
       },
       {
         id: "downtime",
         title: "Downtime",
-        href: "/reports/assets?search=downtime",
+        href: "/reports/assets?focus=downtime",
         description: "Asset downtime hours",
         kpiCodes: ["DOWNTIME", "AVAILABILITY"]
       },
@@ -227,7 +227,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "repeat-failures",
         title: "Repeat Failures",
-        href: "/reports/maintenance-exceptions",
+        href: "/reports/maintenance-exceptions?type=repeated-breakdowns",
         description: "Assets with recurring problems",
         kpiCodes: ["REPEAT_FAILURE"]
       },

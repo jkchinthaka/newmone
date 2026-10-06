@@ -322,7 +322,8 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
       lastCompletionAt: null,
       nextDueAt: new Date("2026-09-01T00:00:00.000Z"),
       nextDueMeterValue: null,
-      assetId: null,
+      // Active plans must target an asset (asset-less ACTIVE plans are flagged invalid).
+      assetId: "asset-1",
       vehicleId: null,
       priority: "MEDIUM",
       workType: WorkOrderType.PREVENTIVE,

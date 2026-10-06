@@ -5,6 +5,7 @@ import { Permissions } from "../../common/decorators/permissions.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { UpdateProfileSettingsDto } from "./dto/update-profile-settings.dto";
 import { SettingsService } from "./settings.service";
 
 type AuthedRequest = {
@@ -29,15 +30,7 @@ export class SettingsController {
   @SelfService()
   async updateProfile(
     @Req() req: AuthedRequest,
-    @Body()
-    body: Partial<{
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string;
-      currentPassword: string;
-      newPassword: string;
-    }>
+    @Body() body: UpdateProfileSettingsDto
   ) {
     const data = await this.settingsService.updateProfile(req.user.sub, body);
     return { data, message: "Profile settings updated" };

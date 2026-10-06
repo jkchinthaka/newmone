@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, Download, FileSpreadsheet, FileText, Loader2, Printer, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -21,7 +22,7 @@ import {
 } from "recharts";
 
 import { getApiErrorMessage } from "@/lib/api-client";
-import { formatReportCoverageNote } from "@/lib/display-labels";
+import { formatDisplayValue, formatReportCoverageNote, toEnumOptions } from "@/lib/display-labels";
 import { DepartmentMultiSelect } from "@/components/departments/department-select";
 
 import { downloadReportExport, formatReportValue } from "./api";
@@ -74,16 +75,32 @@ export function ReportHeader({
   );
 }
 
-export function SummaryCards({ cards }: { cards: ReportSummaryCard[] }) {
+export function SummaryCards({ cards, focusKey }: { cards: ReportSummaryCard[]; focusKey?: string }) {
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (focusKey && focusRef.current) {
+      focusRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [focusKey, cards]);
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
-      {cards.map((card) => (
-        <div key={card.label} className={`rounded-xl border p-4 shadow-sm ${toneClasses[card.tone ?? "neutral"]}`}>
+      {cards.map((card) => {
+        const focused = Boolean(focusKey && card.key === focusKey);
+        return (
+        <div
+          key={card.key ?? card.label}
+          ref={focused ? focusRef : undefined}
+          data-focused={focused ? "true" : undefined}
+          aria-current={focused ? "true" : undefined}
+          className={`rounded-xl border p-4 shadow-sm ${toneClasses[card.tone ?? "neutral"]} ${focused ? "ring-2 ring-brand-500 ring-offset-2" : ""}`}
+        >
           <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{card.label}</p>
           <p className="mt-2 break-words text-2xl font-bold leading-tight">{card.value}</p>
           {card.subLabel ? <p className="mt-1 text-xs text-slate-600">{card.subLabel}</p> : null}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -121,9 +138,9 @@ export function ReportFiltersBar({
         <SelectFilter label="Driver" value={filters.driverId} onChange={(value) => patch({ driverId: value })} options={options?.drivers ?? []} />
         <SelectFilter label="Vehicle" value={filters.vehicleId} onChange={(value) => patch({ vehicleId: value })} options={options?.vehicles ?? []} />
         {!compact ? <SelectFilter label="Asset" value={filters.assetId} onChange={(value) => patch({ assetId: value })} options={options?.assets ?? []} /> : null}
-        <SelectFilter label="Status" value={filters.status} onChange={(value) => patch({ status: value })} options={(options?.statuses ?? []).map((status) => ({ id: status, label: status }))} />
+        <SelectFilter label="Status" value={filters.status} onChange={(value) => patch({ status: value })} options={toEnumOptions(options?.statuses)} />
         {!compact ? <SelectFilter label="Supplier" value={filters.supplierId} onChange={(value) => patch({ supplierId: value })} options={options?.suppliers ?? []} /> : null}
-        {!compact ? <SelectFilter label="Category" value={filters.category} onChange={(value) => patch({ category: value })} options={(options?.categories ?? []).map((category) => ({ id: category, label: category }))} /> : null}
+        {!compact ? <SelectFilter label="Category" value={filters.category} onChange={(value) => patch({ category: value })} options={toEnumOptions(options?.categories)} /> : null}
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="relative block flex-1 text-xs font-medium text-slate-600">
@@ -215,7 +232,8 @@ export function ReportCharts({ charts }: { charts: ReportChart[] }) {
   );
 }
 
-function ChartRenderer({ chart }: { chart: ReportChart }) {
+function ChartRenderer({ chart: rawChart }: { chart: ReportChart }) {
+  const chart = humanizeChartLabels(rawChart);
   if (!chart.data.length) {
     return <div className="grid h-full place-items-center text-sm text-slate-500">No chart data for this filter.</div>;
   }
@@ -389,4 +407,18 @@ export function StatePanel({ type, title, message, onRetry }: { type: "loading" 
   }
 
   return <EmptyState title={title} description={message} />;
+}
+/** Category axes / pie slices carry enum codes (IN_PROGRESS); show business labels. */
+function humanizeChartLabels(chart: ReportChart): ReportChart {
+  const labelKeys = [chart.nameKey ?? "name", chart.xKey ?? "name"];
+  return {
+    ...chart,
+    data: chart.data.map((row) => {
+      const next: Record<string, unknown> = { ...row };
+      for (const key of labelKeys) {
+        if (typeof next[key] === "string") next[key] = formatDisplayValue(next[key] as string);
+      }
+      return next as typeof row;
+    })
+  };
 }

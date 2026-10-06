@@ -41,11 +41,18 @@ export type ManagementReportKey =
   | "repair-vs-replace"
   | "downtime-cost";
 
+export type ManagementMetricUnit = "currency" | "hours" | "count" | "text";
+
 export interface ManagementSummaryCard {
   key: string;
   label: string;
   value: number | string;
+  /** How the value must be shown. Only real money is "currency" (QA MI unit defect). */
+  unit: ManagementMetricUnit;
   subLabel?: string;
+  /** Numeric amount behind subLabel, with its unit, so the UI can format it. */
+  subValue?: number;
+  subUnit?: ManagementMetricUnit;
   severity?: RiskSeverity;
   href?: string;
 }

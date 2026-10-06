@@ -157,11 +157,42 @@ export class PlanningService {
 
     const now = Date.now();
     const decorated = rows.map((plan) => {
-      const due = plan.nextDueAt ? plan.nextDueAt.getTime() : null;
+      const validityIssues = pmPlanValidityIssues(plan);
+      // Show the real next due date even when it was never stored: calendar plans project
+      // from the last completion, or from the schedule start when never completed.
+      const projected =
+        plan.nextDueAt ??
+        this.evaluatePlanDue(
+          {
+            id: plan.id,
+            gracePeriodDays: plan.gracePeriodDays,
+            combineMode: plan.combineMode,
+            lastCompletionAt: plan.lastCompletionAt,
+            lastCompletionMileage: plan.lastCompletionMileage,
+            lastCompletionHours: plan.lastCompletionHours,
+            nextDueAt: plan.nextDueAt,
+            nextDueMeterValue: plan.nextDueMeterValue,
+            effectiveFrom: plan.effectiveFrom,
+            createdAt: plan.createdAt,
+            triggers: (plan.triggers ?? []).map((t) => ({
+              id: t.id,
+              kind: t.kind as TriggerDefinition["kind"],
+              intervalDays: t.intervalDays,
+              intervalValue: t.intervalValue,
+              referenceKey: t.referenceKey,
+              isActive: t.isActive
+            }))
+          },
+          { now: new Date(now) }
+        ).results.filter((result) => result.kind === "CALENDAR" && result.dueAt)
+          .map((result) => result.dueAt as Date)
+          .sort((a, b) => a.getTime() - b.getTime())[0] ??
+        null;
+      const due = projected ? projected.getTime() : null;
       const days = due == null ? null : (due - now) / 86400000;
       let dueState = "ON_TRACK";
-      if (plan.status === "ACTIVE" && (!plan.triggers?.length || (!plan.assetId && !plan.vehicleId))) {
-        dueState = "NEEDS_ATTENTION";
+      if (plan.status === "ACTIVE" && validityIssues.length > 0) {
+        dueState = "INVALID";
       } else if (plan.status === "ACTIVE" && due == null && plan.triggers?.some((trigger) => trigger.kind === "CALENDAR")) {
         dueState = "NEEDS_ATTENTION";
       } else if (days != null && days < 0) {
@@ -169,20 +200,29 @@ export class PlanningService {
       } else if (days != null && days <= 7) {
         dueState = "DUE_SOON";
       }
-      return { ...plan, dueState, remainingDays: days };
+      return {
+        ...plan,
+        nextDueAt: projected,
+        nextDueSource: plan.nextDueAt ? "STORED" : projected ? "PROJECTED" : null,
+        validityIssues,
+        dueState,
+        remainingDays: days
+      };
     });
 
     const summary = {
       active: decorated.filter((plan) => plan.status === "ACTIVE").length,
       dueIn7: decorated.filter((plan) => plan.dueState === "DUE_SOON").length,
       overdue: decorated.filter((plan) => plan.dueState === "OVERDUE").length,
-      needsAttention: decorated.filter((plan) => plan.dueState === "NEEDS_ATTENTION").length
+      needsAttention: decorated.filter((plan) => plan.dueState === "NEEDS_ATTENTION" || plan.dueState === "INVALID").length,
+      invalid: decorated.filter((plan) => plan.dueState === "INVALID").length
     };
 
     const windowed = decorated.filter((plan) => {
       if (filters?.dueWindow === "overdue") return plan.dueState === "OVERDUE";
       if (filters?.dueWindow === "7") return plan.dueState === "DUE_SOON";
-      if (filters?.dueWindow === "attention") return plan.dueState === "NEEDS_ATTENTION";
+      if (filters?.dueWindow === "attention") return plan.dueState === "NEEDS_ATTENTION" || plan.dueState === "INVALID";
+      if (filters?.dueWindow === "invalid") return plan.dueState === "INVALID";
       return true;
     });
 
@@ -366,6 +406,21 @@ export class PlanningService {
       assertPmPlanStatusTransition(existing.status, nextStatus);
     }
 
+    // A revision may not leave (or put) an ACTIVE plan without an asset/vehicle target.
+    const resultingStatus = nextStatus ?? existing.status;
+    const resultingAssetId = "assetId" in safePatch ? (safePatch.assetId as string | null | undefined) : existing.assetId;
+    const resultingVehicleId =
+      "vehicleId" in safePatch ? (safePatch.vehicleId as string | null | undefined) : existing.vehicleId;
+    if (
+      resultingStatus === PmPlanStatus.ACTIVE &&
+      !String(resultingAssetId ?? "").trim() &&
+      !String(resultingVehicleId ?? "").trim()
+    ) {
+      throw new BadRequestException(
+        "Active PM plans require an asset or vehicle assignment. Assign one, or pause the plan, before saving."
+      );
+    }
+
     const updated = await this.prisma.pmPlan.update({
       where: { id: planId },
       data: {
@@ -409,6 +464,8 @@ export class PlanningService {
       lastCompletionHours?: number | null;
       nextDueAt?: Date | null;
       nextDueMeterValue?: number | null;
+      effectiveFrom?: Date | null;
+      createdAt?: Date | null;
       triggers: TriggerDefinition[];
     },
     ctx: Omit<
@@ -418,6 +475,7 @@ export class PlanningService {
       | "nextDueAt"
       | "nextDueMeterValue"
       | "lastCompletionMeter"
+      | "scheduleStartAt"
     >
   ) {
     return evaluateCombinedTriggers(
@@ -426,6 +484,7 @@ export class PlanningService {
         ...ctx,
         gracePeriodDays: plan.gracePeriodDays ?? 0,
         lastCompletionAt: plan.lastCompletionAt,
+        scheduleStartAt: plan.effectiveFrom ?? plan.createdAt ?? null,
         lastCompletionMeter: plan.lastCompletionMileage ?? plan.lastCompletionHours,
         nextDueAt: plan.nextDueAt,
         nextDueMeterValue: plan.nextDueMeterValue
@@ -454,6 +513,8 @@ export class PlanningService {
           lastCompletionHours: plan.lastCompletionHours,
           nextDueAt: plan.nextDueAt,
           nextDueMeterValue: plan.nextDueMeterValue,
+          effectiveFrom: plan.effectiveFrom,
+          createdAt: plan.createdAt,
           triggers: plan.triggers.map((t) => ({
             id: t.id,
             kind: t.kind as TriggerDefinition["kind"],
@@ -492,6 +553,11 @@ export class PlanningService {
     if (!plan.autoCreateWorkOrder) {
       return { created: false, reason: "AUTO_WO_DISABLED" };
     }
+    const validityIssues = pmPlanValidityIssues(plan);
+    if (validityIssues.length > 0) {
+      // Legacy invalid plans must be remediated, never silently generate work.
+      return { created: false, reason: `PLAN_INVALID_${validityIssues[0]}` };
+    }
 
     const evaluation = this.evaluatePlanDue(
       {
@@ -503,6 +569,8 @@ export class PlanningService {
         lastCompletionHours: plan.lastCompletionHours,
         nextDueAt: plan.nextDueAt,
         nextDueMeterValue: plan.nextDueMeterValue,
+        effectiveFrom: plan.effectiveFrom,
+        createdAt: plan.createdAt,
         triggers: plan.triggers.map((t) => ({
           id: t.id,
           kind: t.kind as TriggerDefinition["kind"],
@@ -1926,4 +1994,23 @@ export class PlanningService {
 
     return created;
   }
+}
+
+export type PmPlanValidityIssue = "NO_ASSET_ASSIGNED" | "NO_TRIGGER";
+
+/**
+ * Active PM plans must target an asset or vehicle and have at least one active trigger.
+ * Legacy rows that predate this rule are flagged (never silently treated as valid).
+ */
+export function pmPlanValidityIssues(plan: {
+  status?: string | null;
+  assetId?: string | null;
+  vehicleId?: string | null;
+  triggers?: Array<{ isActive?: boolean | null }> | null;
+}): PmPlanValidityIssue[] {
+  if (plan.status !== "ACTIVE") return [];
+  const issues: PmPlanValidityIssue[] = [];
+  if (!plan.assetId && !plan.vehicleId) issues.push("NO_ASSET_ASSIGNED");
+  if (!(plan.triggers ?? []).some((trigger) => trigger.isActive !== false)) issues.push("NO_TRIGGER");
+  return issues;
 }

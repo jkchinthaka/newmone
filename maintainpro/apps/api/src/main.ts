@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
 import { ValidationPipe } from "@nestjs/common";
+import { NotBlankStringsPipe } from "./common/validation/not-blank";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -78,7 +79,9 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true
-    })
+    }),
+    // Required strings must not be whitespace-only (trim(value).length > 0).
+    new NotBlankStringsPipe()
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());

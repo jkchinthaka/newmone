@@ -21,6 +21,12 @@ export type TriggerContext = {
   now?: Date;
   /** Last completion / baseline for calendar intervals */
   lastCompletionAt?: Date | null;
+  /**
+   * Schedule start (plan effectiveFrom / createdAt) used when the plan has never been
+   * completed. Without it a calendar plan's due date was "now + interval" forever and the
+   * plan never became due.
+   */
+  scheduleStartAt?: Date | null;
   /** Explicit next due date if already computed */
   nextDueAt?: Date | null;
   gracePeriodDays?: number;
@@ -69,7 +75,7 @@ export function evaluateCalendarTrigger(
   const grace = ctx.gracePeriodDays ?? 0;
   let dueAt = ctx.nextDueAt ?? null;
   if (!dueAt && trigger.intervalDays && trigger.intervalDays > 0) {
-    const baseline = ctx.lastCompletionAt ?? now;
+    const baseline = ctx.lastCompletionAt ?? ctx.scheduleStartAt ?? now;
     dueAt = addDays(baseline, trigger.intervalDays);
   }
   if (!dueAt) {

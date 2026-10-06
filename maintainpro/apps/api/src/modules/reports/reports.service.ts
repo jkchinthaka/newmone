@@ -110,6 +110,8 @@ interface ReportChart {
 }
 
 interface ReportSummaryCard {
+  /** Stable id used by deep links (?focus=<key>) to target a card. */
+  key?: string;
   label: string;
   value: string | number;
   subLabel?: string;
@@ -1511,7 +1513,7 @@ export class ReportsService {
       summaryCards: [
         { label: "Assets & Vehicles", value: assetRows.length, subLabel: `${assets.length} assets, ${vehicles.length} vehicles`, tone: "info" },
         { label: "Breakdowns", value: assetRows.reduce((sum, item) => sum + item.breakdowns, 0), subLabel: "Corrective and emergency jobs", tone: "warning" },
-        { label: "Downtime", value: `${downtimeHours.toFixed(1)}h`, subLabel: "Work order start to completion", tone: downtimeHours > 0 ? "warning" : "success" },
+        { key: "downtime", label: "Downtime", value: `${downtimeHours.toFixed(1)}h`, subLabel: "Work order start to completion", tone: downtimeHours > 0 ? "warning" : "success" },
         { label: "Maintenance Cost", value: this.formatCurrency(totalCost), subLabel: "Maintenance logs", tone: "neutral" },
         { label: "Upcoming", value: upcoming.length, subLabel: "Due within 30 days", tone: upcoming.length > 0 ? "warning" : "success" }
       ],
@@ -1702,7 +1704,17 @@ export class ReportsService {
         { label: "Avg Completion", value: `${avgCompletion.toFixed(1)}h`, subLabel: "Start to complete", tone: "neutral" },
         { label: "Avg Response", value: `${avgResponse.toFixed(1)}h`, subLabel: "Create to start", tone: avgResponse > 24 ? "warning" : "success" },
         { label: "Overdue", value: this.formatPercent(this.safeRatio(overdue.length, orders.length)), subLabel: `${overdue.length} jobs`, tone: overdue.length > 0 ? "danger" : "success" },
-        { label: "SLA Compliance", value: this.formatPercent(this.safeRatio(orders.filter((item) => !item.slaBreached).length, orders.length)), subLabel: "Non-breached jobs", tone: "info" }
+        { label: "SLA Compliance", value: this.formatPercent(this.safeRatio(orders.filter((item) => !item.slaBreached).length, orders.length)), subLabel: "Non-breached jobs", tone: "info" },
+        (() => {
+          const pm = computePmComplianceFromOrders(orders, now);
+          return {
+            key: "pm-compliance",
+            label: "PM Compliance",
+            value: pm.due === 0 ? "No PM due" : this.formatPercent(this.safeRatio(pm.onTime, pm.due)),
+            subLabel: pm.due === 0 ? "No preventive jobs were due in this range" : `${pm.onTime}/${pm.due} preventive jobs done by due date`,
+            tone: pm.due === 0 ? "neutral" : pm.onTime === pm.due ? "success" : "warning"
+          } satisfies ReportSummaryCard;
+        })()
       ],
       charts: [
         { id: "monthly-kpis", title: "Monthly KPI Trends", type: "line", data: monthlyKpis, xKey: "period", yKeys: ["completionRate", "overdueRate", "avgCompletionHours"] },
@@ -2633,4 +2645,31 @@ export class ReportsService {
       doc.end();
     });
   }
+}
+const PM_DONE_STATUSES = new Set<string>([
+  WorkOrderStatus.TECHNICIAN_COMPLETED,
+  WorkOrderStatus.COMPLETED,
+  WorkOrderStatus.VERIFIED,
+  WorkOrderStatus.CLOSED
+]);
+
+/**
+ * PM compliance for the performance report: preventive jobs whose due date has passed,
+ * and how many of them were finished on or before that due date.
+ */
+export function computePmComplianceFromOrders(
+  orders: Array<{ type?: string | null; status: string; dueDate?: Date | null; completedDate?: Date | null }>,
+  now: Date
+): { due: number; onTime: number } {
+  let due = 0;
+  let onTime = 0;
+  for (const order of orders) {
+    if (order.type !== "PREVENTIVE" || !order.dueDate || order.status === WorkOrderStatus.CANCELLED) continue;
+    if (order.dueDate.getTime() > now.getTime()) continue;
+    due += 1;
+    if (PM_DONE_STATUSES.has(order.status) && order.completedDate && order.completedDate.getTime() <= order.dueDate.getTime()) {
+      onTime += 1;
+    }
+  }
+  return { due, onTime };
 }

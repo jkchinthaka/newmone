@@ -15,11 +15,16 @@ export type ManagementReportFilters = {
   pageSize?: number;
 };
 
+export type ManagementMetricUnit = "currency" | "hours" | "count" | "text";
+
 export type ManagementSummaryCard = {
   key: string;
   label: string;
   value: number | string;
+  unit?: ManagementMetricUnit;
   subLabel?: string;
+  subValue?: number;
+  subUnit?: ManagementMetricUnit;
   severity?: RiskSeverity;
 };
 
@@ -175,4 +180,44 @@ export function severityClass(severity: RiskSeverity): string {
 
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "LKR", maximumFractionDigits: 0 }).format(value);
+}
+
+/** Fallback units for API responses that predate `unit` — never default to currency. */
+const CARD_UNIT_BY_KEY: Record<string, ManagementMetricUnit> = {
+  "total-cost": "currency",
+  "parts-cost": "currency",
+  "vendor-cost": "currency",
+  "downtime-hours": "hours",
+  "high-cost-assets": "count",
+  "high-cost-vehicles": "count",
+  "repeated-breakdowns": "count",
+  "repair-vs-replace": "count",
+  "top-department": "text",
+  "top-branch": "text"
+};
+
+export function formatMetricValue(value: number | string | null | undefined, unit: ManagementMetricUnit | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "string" || unit === "text") return String(value);
+  if (!Number.isFinite(value)) return "—";
+  switch (unit) {
+    case "currency":
+      return formatCurrency(value);
+    case "hours":
+      return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)} h`;
+    case "count":
+    default:
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+  }
+}
+
+export function formatSummaryCardValue(card: ManagementSummaryCard): string {
+  return formatMetricValue(card.value, card.unit ?? CARD_UNIT_BY_KEY[card.key] ?? "count");
+}
+
+export function formatSummaryCardSubLabel(card: ManagementSummaryCard): string | undefined {
+  if (typeof card.subValue === "number") {
+    return formatMetricValue(card.subValue, card.subUnit ?? "count");
+  }
+  return card.subLabel;
 }

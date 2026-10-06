@@ -364,7 +364,14 @@ export function WorkOrderEvidencePanel({
 
       {requirements ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-          <p className="font-medium text-slate-900">Evidence requirements checklist</p>
+          <p className="font-medium text-slate-900">
+            Evidence requirements checklist
+            {requirements.displayStatus ? (
+              <span className="ml-2 rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                Evidence: {requirements.displayStatus}
+              </span>
+            ) : null}
+          </p>
           <ul className="mt-2 space-y-1">
             <li>{requirements.hasBefore ? "✓" : "○"} Before photo ({requirements.beforeCount})</li>
             <li>{requirements.hasAfter ? "✓" : "○"} After photo ({requirements.afterCount})</li>
@@ -380,6 +387,12 @@ export function WorkOrderEvidencePanel({
           </ul>
           {!requirements.complete && requirements.required ? (
             <p className="mt-2 font-medium text-amber-800">Required evidence missing.</p>
+          ) : null}
+          {requirements.evidenceWaivedForStorage ? (
+            <p className="mt-2 font-medium text-amber-800">
+              No photo evidence captured. Completion is allowed here only because file storage is not configured
+              (non-production). Reports count this job as having no evidence.
+            </p>
           ) : null}
           {requirements.rejectedCount > 0 ? (
             <p className="mt-1 font-medium text-red-700">Evidence rejected. Rework required.</p>

@@ -17,7 +17,7 @@ export interface ReplicationStatusSnapshot {
   mode: string;
   primaryDatabaseName: string;
   backupDatabaseName: string;
-  backupStatus: "operational" | "degraded" | "unconfigured";
+  backupStatus: "operational" | "degraded" | "unconfigured" | "disabled";
   strictModeActive: boolean;
   pendingEvents: number;
   processingEvents: number;
@@ -155,7 +155,8 @@ export class ReplicationSyncService implements OnApplicationBootstrap, OnApplica
         mode: config.mode,
         primaryDatabaseName: config.primaryDatabaseName,
         backupDatabaseName: config.backupDatabaseName,
-        backupStatus: configured ? "operational" : "unconfigured",
+        // A disabled service is never "operational" (QA System Health defect).
+        backupStatus: configured ? "disabled" : "unconfigured",
         strictModeActive: false,
         pendingEvents: 0,
         processingEvents: 0,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,18 +10,23 @@ import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
+import { applyReportUrlState, resolveReportFocus } from "./report-focus";
 import { defaultReportFilters, getReportModule, isReportModuleSlug, REPORT_MODULES } from "./api";
 import { ExportActions, InsightsPanel, ReportCharts, ReportFiltersBar, ReportHeader, ReportTableView, StatePanel, SummaryCards } from "./report-ui";
 import { ReportFilters, ReportModuleSlug } from "./types";
 
 export function ReportModulePage({ module }: { module: string }) {
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<ReportFilters>(() => {
-    const initial = defaultReportFilters();
-    const search = searchParams.get("search");
-    if (search) initial.search = search;
-    return initial;
-  });
+  const urlState = searchParams.toString();
+  const [filters, setFilters] = useState<ReportFilters>(() =>
+    applyReportUrlState(defaultReportFilters(), module, searchParams)
+  );
+  const focus = resolveReportFocus(module, searchParams.get("focus"));
+
+  // The URL drives search/focus, including browser back/forward between deep links.
+  useEffect(() => {
+    setFilters((current) => applyReportUrlState(current, module, new URLSearchParams(urlState)));
+  }, [module, urlState]);
   const [isExporting, setIsExporting] = useState(false);
   const moduleSlug = isReportModuleSlug(module) ? module : "operations";
   const definition = REPORT_MODULES.find((item) => item.slug === moduleSlug) ?? REPORT_MODULES[0];
@@ -88,7 +93,7 @@ export function ReportModulePage({ module }: { module: string }) {
         />
       ) : report ? (
         <>
-          <SummaryCards cards={report.summaryCards} />
+          <SummaryCards cards={report.summaryCards} focusKey={focus?.cardKey} />
           <InsightsPanel insights={report.insights} notes={report.coverageNotes} />
           <ReportCharts charts={report.charts} />
           <ReportTableView table={report.table} filters={filters} onChange={updateFilters} />

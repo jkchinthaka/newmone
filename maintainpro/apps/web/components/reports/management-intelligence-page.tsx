@@ -18,6 +18,8 @@ import {
   fetchTopHighCostVehicles,
   fetchVendorCostComparison,
   formatCurrency,
+  formatSummaryCardSubLabel,
+  formatSummaryCardValue,
   severityClass,
   type CostEntityRow,
   type ManagementReportFilters,
@@ -207,12 +209,12 @@ function FilterField({
 }
 
 function SummaryCardView({ card }: { card: ManagementSummaryCard }) {
-  const numeric = typeof card.value === "number";
+  const subLabel = formatSummaryCardSubLabel(card);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{numeric ? formatCurrency(card.value as number) : card.value}</p>
-      {card.subLabel ? <p className="mt-1 text-xs text-slate-500">{card.subLabel}</p> : null}
+      <p className="mt-1 text-2xl font-semibold text-slate-900">{formatSummaryCardValue(card)}</p>
+      {subLabel ? <p className="mt-1 text-xs text-slate-500">{subLabel}</p> : null}
     </div>
   );
 }

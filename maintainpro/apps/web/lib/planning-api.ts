@@ -9,6 +9,10 @@ export type PmPlan = {
   dueState?: string;
   remainingDays?: number | null;
   nextDueAt?: string | null;
+  /** STORED = saved schedule; PROJECTED = calculated from last completion / schedule start. */
+  nextDueSource?: "STORED" | "PROJECTED" | null;
+  /** Legacy invalid ACTIVE plans (e.g. NO_ASSET_ASSIGNED) that require remediation. */
+  validityIssues?: string[];
   nextDueMeterValue?: number | null;
   combineMode?: string;
   assetId?: string | null;

@@ -60,6 +60,7 @@ export function evaluateEvidenceRequirements(
   const photoComplete = hasBefore && hasAfter;
   const evidenceSatisfied = storageEnabled ? photoComplete : !isProduction;
   const complete = required && evidenceSatisfied && !storageBlocksCompletion;
+  const rejectedCount = active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length;
 
   return {
     required,
@@ -72,8 +73,45 @@ export function evaluateEvidenceRequirements(
     missingAfter: required && storageEnabled && !hasAfter,
     storageUnavailableBlocking: storageBlocksCompletion,
     complete,
-    rejectedCount: active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length
+    /** True only when both before and after photos actually exist (never waived). */
+    photoEvidenceComplete: photoComplete,
+    /** Non-production completion allowed without photos because storage is off. */
+    evidenceWaivedForStorage: required && !storageEnabled && !isProduction && !photoComplete,
+    displayStatus: evidenceDisplayStatus({
+      required,
+      photoComplete,
+      rejectedCount,
+      waivedForStorage: required && !storageEnabled && !isProduction && !photoComplete
+    }),
+    rejectedCount
   };
+}
+
+export type EvidenceDisplayStatus = "Not required" | "Rejected" | "Complete" | "Missing" | "Waived (no storage)";
+
+/**
+ * Single display semantic for evidence across list, detail, reports and exceptions
+ * (QA-MANUAL evidence defect): "Complete" only when the photos really exist. A dev/staging
+ * waiver for disabled storage is a workflow allowance, not evidence: it shows
+ * "Waived (no storage)" — never "Complete". It does not block the Waiting Evidence queue,
+ * but evidence-integrity reports count it as evidence absent.
+ */
+export function evidenceDisplayStatus(input: {
+  required: boolean;
+  photoComplete: boolean;
+  rejectedCount: number;
+  waivedForStorage?: boolean;
+}): EvidenceDisplayStatus {
+  if (!input.required) return "Not required";
+  if (input.rejectedCount > 0) return "Rejected";
+  if (input.photoComplete) return "Complete";
+  if (input.waivedForStorage) return "Waived (no storage)";
+  return "Missing";
+}
+
+/** Evidence is absent for integrity reporting (missing or only waived). */
+export function isEvidenceAbsent(status: EvidenceDisplayStatus): boolean {
+  return status === "Missing" || status === "Waived (no storage)";
 }
 
 export function assertEvidenceForTechnicianCompletion(input: {

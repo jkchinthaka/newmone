@@ -156,16 +156,16 @@ export class ManagementIntelligenceService {
     const topBranch = [...byBranch.entries()].sort((a, b) => b[1].total - a[1].total)[0];
 
     const cards: ManagementSummaryCard[] = [
-      { key: "total-cost", label: "Total maintenance cost", value: totalCost, subLabel: this.trendLabel(totalCost, prevTotal) },
-      { key: "parts-cost", label: "Parts cost", value: partsCost },
-      { key: "vendor-cost", label: "Vendor / external repair cost", value: vendorCost },
-      { key: "downtime-hours", label: "Downtime hours", value: Number(this.sum(orders, (o) => o.downtimeHours).toFixed(1)) },
-      { key: "high-cost-assets", label: "High-cost assets", value: this.countHighCostEntities(orders, "asset") },
-      { key: "high-cost-vehicles", label: "High-cost vehicles", value: this.countHighCostEntities(orders, "vehicle") },
-      { key: "repeated-breakdowns", label: "Repeated breakdowns", value: this.countRepeatedBreakdowns(orders, 60).length },
-      { key: "repair-vs-replace", label: "Repair vs replace reviews", value: this.buildRepairVsReplaceRows(orders).length },
-      { key: "top-department", label: "Top cost department", value: topDept?.[0] ?? "—", subLabel: topDept ? String(topDept[1].total) : undefined },
-      { key: "top-branch", label: "Top cost branch", value: topBranch?.[0] ?? "—", subLabel: topBranch ? String(topBranch[1].total) : undefined }
+      { key: "total-cost", label: "Total maintenance cost", value: totalCost, unit: "currency", subLabel: this.trendLabel(totalCost, prevTotal) },
+      { key: "parts-cost", label: "Parts cost", value: partsCost, unit: "currency" },
+      { key: "vendor-cost", label: "Vendor / external repair cost", value: vendorCost, unit: "currency" },
+      { key: "downtime-hours", label: "Downtime hours", value: Number(this.sum(orders, (o) => o.downtimeHours).toFixed(1)), unit: "hours" },
+      { key: "high-cost-assets", label: "High-cost assets", value: this.countHighCostEntities(orders, "asset"), unit: "count" },
+      { key: "high-cost-vehicles", label: "High-cost vehicles", value: this.countHighCostEntities(orders, "vehicle"), unit: "count" },
+      { key: "repeated-breakdowns", label: "Repeated breakdowns", value: this.countRepeatedBreakdowns(orders, 60).length, unit: "count" },
+      { key: "repair-vs-replace", label: "Repair vs replace reviews", value: this.buildRepairVsReplaceRows(orders).length, unit: "count" },
+      { key: "top-department", label: "Top cost department", value: topDept?.[0] ?? "—", unit: "text", subValue: topDept?.[1].total, subUnit: topDept ? "currency" : undefined },
+      { key: "top-branch", label: "Top cost branch", value: topBranch?.[0] ?? "—", unit: "text", subValue: topBranch?.[1].total, subUnit: topBranch ? "currency" : undefined }
     ];
 
     return {

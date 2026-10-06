@@ -43,6 +43,12 @@ export type WorkOrderEvidenceRequirements = {
   missingBefore: boolean;
   missingAfter: boolean;
   complete: boolean;
+  /** Both photos actually exist (never waived). */
+  photoEvidenceComplete?: boolean;
+  /** Non-production allowance: completion permitted without photos because storage is off. */
+  evidenceWaivedForStorage?: boolean;
+  /** Shared semantic with the list/reports: Not required | Rejected | Complete | Missing. */
+  displayStatus?: "Not required" | "Rejected" | "Complete" | "Missing" | "Waived (no storage)";
   rejectedCount: number;
   completionNoteProvided: boolean;
   qrVerificationStatus: string;

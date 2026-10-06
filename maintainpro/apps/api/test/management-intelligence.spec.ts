@@ -150,6 +150,23 @@ describe("management intelligence (UAT-021)", () => {
       expect(result.disclaimer).toContain("Rule-based");
     });
 
+    it("labels every summary card with its real unit (only money is currency)", async () => {
+      const result = await service.getProfitabilitySummary(manager, {
+        dateFrom: "2026-01-01",
+        dateTo: "2026-01-31"
+      });
+      const unitByKey = Object.fromEntries(result.cards.map((card) => [card.key, card.unit]));
+      expect(unitByKey["total-cost"]).toBe("currency");
+      expect(unitByKey["parts-cost"]).toBe("currency");
+      expect(unitByKey["vendor-cost"]).toBe("currency");
+      expect(unitByKey["downtime-hours"]).toBe("hours");
+      expect(unitByKey["repeated-breakdowns"]).toBe("count");
+      expect(unitByKey["repair-vs-replace"]).toBe("count");
+      expect(unitByKey["high-cost-assets"]).toBe("count");
+      expect(unitByKey["high-cost-vehicles"]).toBe("count");
+      expect(unitByKey["top-department"]).toBe("text");
+    });
+
     it("aggregates cost by department", async () => {
       const result = await service.getCostByDepartment(manager, { dateFrom: "2026-01-01", dateTo: "2026-01-31" });
       expect(result.rows[0]?.departmentName).toBe("Logistics");

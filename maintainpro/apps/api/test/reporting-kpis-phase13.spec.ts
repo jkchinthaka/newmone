@@ -573,10 +573,10 @@ describe("ROLE_HOME_PROFILES", () => {
     const profile = ROLE_HOME_PROFILES.find((p) => p.roleKey === "MANAGER")!;
     const hrefById = Object.fromEntries(profile.cards.map((card) => [card.id, card.href]));
     expect(hrefById["kpi-reports"]).toBe("/reports/performance");
-    expect(hrefById["pm-compliance"]).toBe("/reports/performance?search=preventive");
-    expect(hrefById["downtime"]).toBe("/reports/assets?search=downtime");
+    expect(hrefById["pm-compliance"]).toBe("/reports/performance?focus=pm-compliance");
+    expect(hrefById["downtime"]).toBe("/reports/assets?focus=downtime");
     expect(hrefById["cost"]).toBe("/reports/financials");
-    expect(hrefById["repeat-failures"]).toBe("/reports/maintenance-exceptions");
+    expect(hrefById["repeat-failures"]).toBe("/reports/maintenance-exceptions?type=repeated-breakdowns");
   });
 
   it("MANAGEMENT_VIEWER profile is read-only (links to /reports)", () => {

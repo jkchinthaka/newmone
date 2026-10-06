@@ -33,6 +33,8 @@ export type ReportFilters = {
 };
 
 export type ReportSummaryCard = {
+  /** Stable id for deep links (?focus=<key>). */
+  key?: string;
   label: string;
   value: string | number;
   subLabel?: string;
