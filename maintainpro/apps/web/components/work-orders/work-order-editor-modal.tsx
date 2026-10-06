@@ -98,6 +98,7 @@ export function WorkOrderEditorModal({
   );
 
   const [formState, setFormState] = useState(initialState);
+  const [formError, setFormError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>("overview");
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
@@ -116,6 +117,7 @@ export function WorkOrderEditorModal({
     }
 
     setFormState(initialState);
+    setFormError(null);
     setActiveTab("overview");
   }, [initialState, open]);
 
@@ -283,25 +285,26 @@ export function WorkOrderEditorModal({
                   const due = new Date(`${formState.dueDate}T00:00:00.000Z`);
                   const expected = new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`);
                   if (due.getTime() < expected.getTime()) {
-                    window.alert("Expected completion must not be later than due date.");
+                    setFormError("Expected completion must not be later than due date.");
                     return;
                   }
                 }
                 if (formState.estimatedCost.trim() !== "") {
                   const cost = Number(formState.estimatedCost);
                   if (!Number.isFinite(cost) || cost < 0) {
-                    window.alert("Estimated cost cannot be negative.");
+                    setFormError("Estimated cost cannot be negative.");
                     return;
                   }
                 }
                 if (formState.estimatedHours.trim() !== "") {
                   const hours = Number(formState.estimatedHours);
                   if (!Number.isFinite(hours) || hours <= 0) {
-                    window.alert("Estimated hours must be greater than 0.");
+                    setFormError("Estimated hours must be greater than 0.");
                     return;
                   }
                 }
 
+                setFormError(null);
                 onEdit({
                   title: formState.title.trim(),
                   description: formState.description.trim(),
@@ -321,6 +324,11 @@ export function WorkOrderEditorModal({
               }}
               className="space-y-4 px-5 py-4"
             >
+              {formError ? (
+                <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
+                  {formError}
+                </p>
+              ) : null}
               {!isCreateMode && activeTab !== "overview" ? null : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">

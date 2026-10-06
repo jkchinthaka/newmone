@@ -129,8 +129,19 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       select: { id: true }
     });
     if (!location) {
-      const site = await prisma.site.findFirst({ where: { tenantId }, select: { id: true } });
-      if (!site) throw new Error("No Site to create FunctionalLocation fixture");
+      let site = await prisma.site.findFirst({ where: { tenantId }, select: { id: true } });
+      if (!site) {
+        site = await prisma.site.create({
+          data: {
+            tenantId,
+            code: `SITE-D3D5-${Date.now()}`,
+            name: "D3-D5 Closeout Site",
+            type: "FACILITY",
+            isActive: true
+          },
+          select: { id: true }
+        });
+      }
       location = await prisma.functionalLocation.create({
         data: {
           tenantId,
