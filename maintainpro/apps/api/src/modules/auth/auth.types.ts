@@ -23,6 +23,12 @@ export interface JwtPayload {
 export interface RefreshTokenPayload {
   sub: string;
   tenantId?: string | null;
+  /**
+   * Unique token id. Without it two refreshes for the same user/tenant inside
+   * the same second sign byte-identical JWTs, which collide on the unique
+   * RefreshToken.tokenHash column (P2002 -> HTTP 409) and break the session.
+   */
+  jti?: string;
 }
 
 export interface AuthTokens {

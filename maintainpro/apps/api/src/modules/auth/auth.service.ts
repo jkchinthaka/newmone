@@ -127,7 +127,10 @@ export class AuthService {
     // RefreshToken row it corresponds to.
     const refreshPayload: RefreshTokenPayload = {
       sub: payload.sub,
-      tenantId: payload.tenantId ?? null
+      tenantId: payload.tenantId ?? null,
+      // Unique per issue: rotations within the same second must never produce an
+      // identical token (and therefore an identical tokenHash). See QA-MANUAL-001.
+      jti: randomUUID()
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -532,15 +535,29 @@ export class AuthService {
       throw new UnauthorizedException("Refresh token reuse detected");
     }
 
-    const tokens = await this.generateTokens(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role.name as RoleName,
-        tenantId: user.tenantId ?? null
-      },
-      { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
-    );
+    let tokens: AuthTokens;
+    try {
+      tokens = await this.generateTokens(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role.name as RoleName,
+          tenantId: user.tenantId ?? null
+        },
+        { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
+      );
+    } catch (error) {
+      // The old token was claimed above but no successor was stored. Release the
+      // claim so a failed rotation never strands a still-valid session (which would
+      // otherwise be treated as reuse and revoke the whole family on the next call).
+      await this.prisma.refreshToken
+        .updateMany({
+          where: { tokenHash, replacedByTokenHash: null },
+          data: { revokedAt: null }
+        })
+        .catch(() => undefined);
+      throw error;
+    }
 
     return {
       data: tokens,

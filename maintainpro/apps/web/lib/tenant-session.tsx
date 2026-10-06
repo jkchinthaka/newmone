@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage, isTransientSessionError } from "@/lib/api-client";
 import { clearAuthSession, clearStoredTokens, mergeStoredPublicUserProfile } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
@@ -107,7 +107,7 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
       mergeStoredPublicUserProfile(meData);
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 401) {
+      if (status === 401 && !isTransientSessionError(err)) {
         clearAuthSession();
         setState("SESSION_EXPIRED");
         return;

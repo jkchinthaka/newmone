@@ -2,6 +2,13 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession } from "@/lib/auth-storage";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
+import {
+  classifyRefreshFailure,
+  createRefreshCoordinator,
+  shouldRedirectToLogin,
+  TRANSIENT_SESSION_ERROR_FLAG,
+  type RefreshOutcome
+} from "@/lib/session-refresh-policy";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
@@ -202,44 +209,48 @@ function handleSessionExpiredRedirect() {
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
+  _sentAt?: number;
+  _sessionProbe?: boolean;
 };
 
-let refreshInFlight: Promise<boolean> | null = null;
-
-async function attemptAccessTokenRefresh(): Promise<boolean> {
-  if (refreshInFlight) {
-    return refreshInFlight;
+/**
+ * One owner for token rotation (QA-MANUAL-001). Concurrent 401s share the in-flight
+ * refresh; a 401 for a request sent before a just-completed rotation reuses it instead of
+ * rotating again. Failures are classified so only a proven-invalid session logs out.
+ */
+const refreshCoordinator = createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
+  const csrfToken = getCsrfTokenFromCookie();
+  try {
+    const response = await apiClient.post(
+      "/auth/refresh",
+      {},
+      {
+        headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+      }
+    );
+    return response?.status >= 200 && response?.status < 300 ? "refreshed" : "transient";
+  } catch (error) {
+    const axiosError = error as AxiosError<{ error?: { code?: string } }>;
+    return classifyRefreshFailure(axiosError.response?.status, axiosError.response?.data?.error?.code);
   }
+});
 
-  refreshInFlight = (async () => {
-    const csrfToken = getCsrfTokenFromCookie();
-    if (!csrfToken) {
-      return false;
-    }
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-    try {
-      const response = await apiClient.post(
-        "/auth/refresh",
-        {},
-        {
-          headers: {
-            [CSRF_HEADER]: csrfToken
-          }
-        }
-      );
-      return response?.status >= 200 && response?.status < 300;
-    } catch (error) {
-      const code = String(
-        (error as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code ?? ""
-      ).toUpperCase();
-      // A sibling request already rotated this token and stored the new cookies.
-      return code === "REFRESH_TOKEN_ROTATED";
-    }
-  })().finally(() => {
-    refreshInFlight = null;
-  });
+/** Independent check: is the current cookie session still accepted by the API? */
+async function probeSessionStatus(): Promise<number | undefined> {
+  try {
+    const response = await apiClient.get("/auth/me", { _sessionProbe: true, _retry: true } as never);
+    return response.status;
+  } catch (error) {
+    return (error as AxiosError).response?.status;
+  }
+}
 
-  return refreshInFlight;
+function markTransient(error: AxiosError) {
+  (error as unknown as Record<string, unknown>)[TRANSIENT_SESSION_ERROR_FLAG] = true;
 }
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -260,6 +271,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   }
 
   attachCsrfHeader(config);
+  (config as RetriableRequestConfig)._sentAt = Date.now();
 
   return config;
 });
@@ -291,25 +303,46 @@ apiClient.interceptors.response.use(
       typeof window !== "undefined" &&
       status === 401 &&
       originalRequest &&
-      !originalRequest._retry &&
+      !originalRequest._sessionProbe &&
       !isCredentialAuthRequest(originalRequest.url)
     ) {
+      if (originalRequest._retry) {
+        // Second 401 after a refresh: never loop; leave it to the caller without logout.
+        markTransient(error);
+        return Promise.reject(error);
+      }
       originalRequest._retry = true;
-      const refreshed = await attemptAccessTokenRefresh();
-      if (refreshed) {
+      const outcome = await refreshCoordinator.refresh(originalRequest._sentAt);
+      if (outcome === "refreshed") {
         return apiClient(originalRequest);
       }
-    }
 
-    if (
-      typeof window !== "undefined" &&
-      status === 401 &&
-      originalRequest &&
-      !isCredentialAuthRequest(originalRequest.url)
-    ) {
-      handleSessionExpiredRedirect();
+      if (outcome === "transient") {
+        // 409/429/stale CSRF/5xx: the cookies may still be valid (a sibling rotation may
+        // have just landed). Retry once after a short pause, and never redirect here.
+        await wait(400);
+        try {
+          return await apiClient(originalRequest);
+        } catch (retryError) {
+          markTransient(retryError as AxiosError);
+          return Promise.reject(retryError);
+        }
+      }
+
+      // Refresh says invalid. Confirm with an independent probe before logging out.
+      const probeStatus = await probeSessionStatus();
+      if (probeStatus !== undefined && probeStatus >= 200 && probeStatus < 300) {
+        return apiClient(originalRequest);
+      }
+      if (shouldRedirectToLogin(outcome, probeStatus)) {
+        handleSessionExpiredRedirect();
+      } else {
+        markTransient(error);
+      }
     }
 
     return Promise.reject(error);
   }
 );
+
+export { isTransientSessionError } from "@/lib/session-refresh-policy";
