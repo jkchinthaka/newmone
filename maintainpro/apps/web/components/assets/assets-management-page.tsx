@@ -29,8 +29,7 @@ import {
   Trash2,
   Upload,
   Wrench,
-  X,
-  FileCheck2
+  X
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -270,28 +269,69 @@ const COLUMN_OPTIONS: Array<{ key: AssetColumnKey; label: string }> = [
   { key: "actions", label: "Actions" }
 ];
 
-const formSchema = z.object({
-  assetTag: z
-    .string()
-    .trim()
-    .min(1, "Asset tag is required")
-    .regex(/^AST-[A-Z0-9]{4,}$/i, "Asset tag must match AST-XXXX format"),
-  name: z.string().trim().min(2, "Name is required"),
-  category: z.enum(["MACHINE", "TOOL", "INFRASTRUCTURE", "EQUIPMENT", "VEHICLE", "OTHER"]),
-  status: z.enum(["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "DISPOSED", "RETIRED"]),
-  location: z.string().trim().min(1, "Location is required"),
-  description: z.string().max(1000).optional().default(""),
-  condition: z.enum(["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"]),
-  purchaseDate: z.string().optional().default(""),
-  warrantyExpiry: z.string().optional().default(""),
-  supplier: z.string().optional().default(""),
-  department: z.string().optional().default(""),
-  departmentId: z.string().trim().min(1, "Department is required"),
-  ownerName: z.string().optional().default(""),
-  lastServiceDate: z.string().optional().default(""),
-  nextServiceDate: z.string().optional().default(""),
-  meterReading: z.string().optional().default("")
-});
+const formSchema = z
+  .object({
+    assetTag: z
+      .string()
+      .trim()
+      .min(1, "Asset tag is required")
+      .regex(/^AST-[A-Z0-9]{4,}$/i, "Asset tag must match AST-XXXX format"),
+    name: z.string().trim().min(2, "Name is required"),
+    category: z.enum(["MACHINE", "TOOL", "INFRASTRUCTURE", "EQUIPMENT", "VEHICLE", "OTHER"]),
+    status: z.enum(["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "DISPOSED", "RETIRED"]),
+    location: z.string().trim().min(1, "Location is required"),
+    description: z.string().max(1000).optional().default(""),
+    condition: z.enum(["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"]),
+    purchaseDate: z.string().optional().default(""),
+    warrantyExpiry: z.string().optional().default(""),
+    supplier: z.string().optional().default(""),
+    department: z.string().optional().default(""),
+    departmentId: z.string().trim().min(1, "Department is required"),
+    ownerName: z.string().optional().default(""),
+    lastServiceDate: z.string().optional().default(""),
+    nextServiceDate: z.string().optional().default(""),
+    meterReading: z.string().optional().default("")
+  })
+  .superRefine((values, ctx) => {
+    if (values.meterReading.trim()) {
+      const reading = Number(values.meterReading);
+      if (!Number.isFinite(reading) || reading < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["meterReading"],
+          message: "Meter reading must be zero or greater"
+        });
+      }
+    }
+
+    if (values.purchaseDate.trim() && values.warrantyExpiry.trim()) {
+      const purchase = new Date(values.purchaseDate);
+      const warranty = new Date(values.warrantyExpiry);
+      if (!Number.isNaN(purchase.getTime()) && !Number.isNaN(warranty.getTime()) && warranty < purchase) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["warrantyExpiry"],
+          message: "Warranty expiry must be on or after purchase date"
+        });
+      }
+    }
+
+    if (values.lastServiceDate.trim() && values.nextServiceDate.trim()) {
+      const lastService = new Date(values.lastServiceDate);
+      const nextService = new Date(values.nextServiceDate);
+      if (
+        !Number.isNaN(lastService.getTime()) &&
+        !Number.isNaN(nextService.getTime()) &&
+        nextService < lastService
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["nextServiceDate"],
+          message: "Next service date must be on or after last service date"
+        });
+      }
+    }
+  });
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -798,8 +838,6 @@ function collectActivityChanges(event: AssetActivityEvent) {
 export default function AssetsManagementPage() {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
-  const canOpenFg =
-    currentUser.role === "SUPER_ADMIN" || currentUser.permissions.includes("fg.access");
   const {
     filters,
     setFilters,
@@ -1271,18 +1309,10 @@ export default function AssetsManagementPage() {
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Assets</h2>
+              <h1 className="text-2xl font-semibold text-slate-900">Assets</h1>
               <p className="mt-1 text-sm text-slate-500">Centralized asset lifecycle and maintenance tracking.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {canOpenFg ? (
-                <Link
-                  href={"/fg" as Route}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                >
-                  <FileCheck2 size={16} /> Open FG Digital Records
-                </Link>
-              ) : null}
               <button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ["assets-list"] });

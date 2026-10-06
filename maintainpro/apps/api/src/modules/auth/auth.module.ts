@@ -6,7 +6,6 @@ import { MaintenanceConfigModule } from "../maintenance-config/maintenance-confi
 
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
-import { FgSsoService } from "./fg-sso.service";
 import { GoogleStrategy } from "./google.strategy";
 import { JwtStrategy } from "./jwt.strategy";
 
@@ -18,7 +17,7 @@ import { JwtStrategy } from "./jwt.strategy";
     MaintenanceConfigModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, FgSsoService, JwtStrategy, GoogleStrategy],
-  exports: [AuthService, FgSsoService]
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  exports: [AuthService]
 })
 export class AuthModule {}

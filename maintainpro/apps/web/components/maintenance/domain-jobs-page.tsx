@@ -22,7 +22,7 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
       : "All executable maintenance jobs across machinery, service, and vehicle domains.");
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2 overflow-x-hidden">
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Maintenance

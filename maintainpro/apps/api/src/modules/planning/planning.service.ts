@@ -239,9 +239,32 @@ export class PlanningService {
     if (input.effectiveFrom && Number.isNaN(input.effectiveFrom.getTime())) {
       throw new BadRequestException("PM plan effective date is not valid");
     }
-    if (input.assetId) {
+    const status = (input as { status?: PmPlanStatus }).status ?? PmPlanStatus.ACTIVE;
+    const assetId = input.assetId?.trim() || undefined;
+    const vehicleId = input.vehicleId?.trim() || undefined;
+
+    if (status === PmPlanStatus.ACTIVE && !assetId && !vehicleId) {
+      throw new BadRequestException("Active PM plans require an asset or vehicle assignment");
+    }
+
+    if (input.triggers?.length) {
+      for (const trigger of input.triggers) {
+        if (trigger.kind === "CALENDAR") {
+          if (trigger.intervalDays == null || trigger.intervalDays <= 0) {
+            throw new BadRequestException("Calendar trigger intervalDays must be greater than 0");
+          }
+        }
+        if (trigger.kind === "METER") {
+          if (trigger.intervalValue == null || trigger.intervalValue <= 0) {
+            throw new BadRequestException("Meter trigger intervalValue must be greater than 0");
+          }
+        }
+      }
+    }
+
+    if (assetId) {
       const asset = await this.prisma.asset.findFirst({
-        where: { id: input.assetId, tenantId },
+        where: { id: assetId, tenantId },
         select: { status: true, isActive: true }
       });
       if (!asset) throw new BadRequestException("Asset not found for this organization");
@@ -255,9 +278,9 @@ export class PlanningService {
         code,
         name,
         description: input.description,
-        status: (input as { status?: PmPlanStatus }).status ?? PmPlanStatus.ACTIVE,
-        assetId: input.assetId,
-        vehicleId: input.vehicleId,
+        status,
+        assetId,
+        vehicleId,
         location: input.location,
         teamId: input.teamId,
         estimatedDurationMinutes: input.estimatedDurationMinutes,

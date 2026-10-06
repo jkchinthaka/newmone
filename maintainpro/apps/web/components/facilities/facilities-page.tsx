@@ -31,6 +31,7 @@ import {
   canViewFacilityReports,
   formatFacilityRoomType,
   getFacilityLevelLabel,
+  getFacilityLevelSingularLabel,
   type FacilityBuilding,
   type FacilityFloor,
   type FacilityHierarchyLevel,
@@ -113,6 +114,7 @@ export function FacilitiesPage() {
   });
 
   const currentLevelLabel = getFacilityLevelLabel(level);
+  const currentLevelSingular = getFacilityLevelSingularLabel(level);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
@@ -312,7 +314,7 @@ export function FacilitiesPage() {
             roomType: values.roomType || undefined
           });
         }
-        toast.success(`${currentLevelLabel.slice(0, -1)} created`);
+        toast.success(`${currentLevelSingular} created`);
       } else if (dialog.entityId) {
         if (level === "property") {
           await updateProperty(dialog.entityId, {
@@ -468,7 +470,7 @@ export function FacilitiesPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
             >
               <Plus size={16} aria-hidden="true" />
-              Add {currentLevelLabel.slice(0, -1).toLowerCase()}
+              Add {currentLevelSingular.toLowerCase()}
             </button>
           ) : null}
         </div>

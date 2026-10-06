@@ -15,8 +15,14 @@ import {
   IsString,
   MaxLength,
   Min,
-  MinLength
+  MinLength,
+  Validate
 } from "class-validator";
+
+import {
+  NextServiceAfterLastServiceConstraint,
+  WarrantyAfterPurchaseConstraint
+} from "./asset-date.validators";
 
 const assetSortFields = [
   "createdAt",
@@ -336,6 +342,7 @@ export class CreateAssetDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
   meterReading?: number;
 
   @ApiPropertyOptional()
@@ -346,11 +353,13 @@ export class CreateAssetDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
+  @Validate(NextServiceAfterLastServiceConstraint)
   nextServiceDate?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
+  @Validate(WarrantyAfterPurchaseConstraint)
   warrantyExpiry?: string;
 
   @ApiPropertyOptional()

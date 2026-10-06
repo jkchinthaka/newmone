@@ -130,7 +130,8 @@ export class ComplianceService {
       this.prisma.vehicle.count({ where: { ...where, complianceStatus: ComplianceStatus.NON_COMPLIANT } }),
       this.prisma.vehicle.count({ where })
     ]);
-    return { total, compliant, attention, nonCompliant };
+    const notAssessed = Math.max(0, total - compliant - attention - nonCompliant);
+    return { total, compliant, attention, nonCompliant, notAssessed };
   }
 
   async listExpiringDocuments(actor?: Phase4Actor, withinDays = 30) {

@@ -155,23 +155,56 @@ export class HealthService {
   }
 
   async getReadiness() {
-    const [database, backupReplication, queueChecks, queueHealthDetails, objectStorage] = await Promise.all([
+    const dependencyTimeoutMs = this.configService.get<number>("HEALTHCHECK_DEPENDENCY_TIMEOUT_MS", 5000);
+    const queueHealthDetails = await this.withTimeout(
+      this.getQueueHealthDetails(),
+      dependencyTimeoutMs,
+      "Queue health check timed out"
+    ).catch((error) => {
+      this.logger.warn(`Queue health check failed: ${this.safeErrorMessage(error)}`);
+      return null;
+    });
+
+    const [database, backupReplication, objectStorage] = await Promise.all([
       this.checkDatabase(),
       this.checkBackupReplication(),
-      this.checkQueues(),
-      this.getQueueHealthDetails(),
       this.checkObjectStorage()
     ]);
+
+    const queueChecks = queueHealthDetails
+      ? this.buildQueueChecks(queueHealthDetails)
+      : [
+          {
+            key: "redis",
+            label: "Redis queues",
+            status: "degraded" as CheckStatus,
+            required: this.configService.get<boolean>("REDIS_REQUIRED_FOR_READINESS", false),
+            message: "Queue health could not be verified within the readiness timeout.",
+            action: "Check REDIS_URL and queue worker connectivity, or increase HEALTHCHECK_DEPENDENCY_TIMEOUT_MS."
+          }
+        ];
 
     const dependencies = [database, backupReplication, ...queueChecks, objectStorage];
     const configuration = this.getConfigurationChecks();
     const allChecks = [...dependencies, ...configuration];
-    const requiredDown = allChecks.some(
+    const requiredAttention = allChecks.filter(
       (check) => check.required && check.status !== "operational"
-    );
+    ).length;
+    const requiredDown = requiredAttention > 0;
     const status: OverallStatus = requiredDown ? "degraded" : "operational";
 
-    const queueReadiness = this.buildQueueReadinessView(queueHealthDetails);
+    const queueReadiness = this.buildQueueReadinessView(
+      queueHealthDetails ?? {
+        mode: "degraded",
+        redis: {
+          status: "degraded",
+          lastErrorAt: null,
+          lastErrorMessageSafe: "Queue health check timed out or failed."
+        },
+        queues: {},
+        totals: { waitingJobs: 0, activeJobs: 0, delayedJobs: 0, failedJobs: 0 }
+      }
+    );
     const notificationReadiness = this.notificationReadinessService?.getSummary();
     const inventoryErpReadiness = this.inventoryErpAdapterService?.describeReadiness();
     const deploymentReadiness = this.deploymentReadinessService?.getSummary({
@@ -204,7 +237,8 @@ export class HealthService {
         misconfigured: allChecks.filter((check) => check.status === "misconfigured").length,
         unconfigured: allChecks.filter((check) => check.status === "unconfigured").length,
         disabled: allChecks.filter((check) => check.status === "disabled").length,
-        required: allChecks.filter((check) => check.required).length
+        required: allChecks.filter((check) => check.required).length,
+        requiredAttention
       },
       dependencies,
       configuration,
@@ -334,9 +368,8 @@ export class HealthService {
     }
   }
 
-  private async checkQueues(): Promise<DependencyCheck[]> {
+  private buildQueueChecks(queueHealth: Awaited<ReturnType<HealthService["getQueueHealthDetails"]>>): DependencyCheck[] {
     const required = this.configService.get<boolean>("REDIS_REQUIRED_FOR_READINESS", false);
-    const queueHealth = await this.getQueueHealthDetails();
     const redisStatus = this.toCheckStatus(queueHealth.redis.status);
     const redisMessage = queueHealth.redis.lastErrorMessageSafe
       ? `Redis queue transport status is ${queueHealth.redis.status}: ${queueHealth.redis.lastErrorMessageSafe}`
@@ -388,6 +421,10 @@ export class HealthService {
     }
 
     return checks;
+  }
+
+  private async checkQueues(): Promise<DependencyCheck[]> {
+    return this.buildQueueChecks(await this.getQueueHealthDetails());
   }
 
   private async checkObjectStorage(): Promise<DependencyCheck> {

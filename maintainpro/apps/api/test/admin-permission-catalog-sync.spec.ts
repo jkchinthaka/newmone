@@ -55,7 +55,7 @@ describe("Permission catalog sync (SUPER_ADMIN)", () => {
 
     expect(result.existingCount).toBe(preExisting.length);
     expect(result.createdCount).toBe(PERMISSION_CATALOG.length - preExisting.length);
-    expect(result.createdKeys).toContain("fg.nonconformance.manage");
+    expect(result.createdKeys).toContain("work_orders.manage");
     expect(permissions.size).toBe(PERMISSION_CATALOG.length);
     expect(auditEntries).toHaveLength(1);
     const metadata = auditJsonField(auditEntries[0].metadata, {} as { event?: string; createdCount?: number });

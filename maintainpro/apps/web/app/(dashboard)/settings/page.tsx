@@ -736,7 +736,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <section className="card bg-gradient-to-r from-slate-800 via-slate-900 to-cyan-900 text-white">
-        <h2 className="text-2xl font-semibold tracking-tight">My Profile & Preferences</h2>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-slate-200">
           Manage your personal account details and notification preferences. Business and technical administration live under Administration.
         </p>

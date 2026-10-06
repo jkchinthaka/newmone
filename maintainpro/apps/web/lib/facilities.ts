@@ -127,6 +127,21 @@ export function getFacilityLevelLabel(level: FacilityHierarchyLevel): string {
   }
 }
 
+export function getFacilityLevelSingularLabel(level: FacilityHierarchyLevel): string {
+  switch (level) {
+    case "property":
+      return "Property";
+    case "building":
+      return "Building";
+    case "floor":
+      return "Floor";
+    case "room":
+      return "Room";
+    default:
+      return "Facility";
+  }
+}
+
 export function formatFacilityRoomType(value: FacilityRoomType | null | undefined): string {
   if (!value) {
     return "—";

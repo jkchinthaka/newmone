@@ -17,7 +17,7 @@ export function ErpDashboardPage() {
     <div className="space-y-5">
       <PageBreadcrumbs />
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">ERP Integration Readiness</h2>
+        <h1 className="text-2xl font-semibold text-slate-900">ERP Integration</h1>
         <p className="mt-1 text-sm text-slate-500">
           Bileeta ERP foundation — mock sync and file import only. Live API not configured.
         </p>

@@ -1496,10 +1496,10 @@ export class WorkOrderQueuesService {
         verificationStatus: item.verificationStatus
       }))
     );
+    if (!checklist.required) return "Not required";
     if (row.evidenceAttachments.some((item) => item.verificationStatus === "REJECTED")) return "Rejected";
-    if (checklist.required && !checklist.complete) return "Missing";
-    if (checklist.complete) return "Complete";
-    return checklist.required ? "Required" : "Not required";
+    if (!checklist.complete) return "Missing";
+    return "Complete";
   }
 
   private matchesQueue(

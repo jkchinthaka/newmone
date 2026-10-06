@@ -569,6 +569,16 @@ describe("ROLE_HOME_PROFILES", () => {
     expect(kpiCard).toBeDefined();
   });
 
+  it("MANAGER report cards deep-link to distinct report views", () => {
+    const profile = ROLE_HOME_PROFILES.find((p) => p.roleKey === "MANAGER")!;
+    const hrefById = Object.fromEntries(profile.cards.map((card) => [card.id, card.href]));
+    expect(hrefById["kpi-reports"]).toBe("/reports/performance");
+    expect(hrefById["pm-compliance"]).toBe("/reports/performance?search=preventive");
+    expect(hrefById["downtime"]).toBe("/reports/assets?search=downtime");
+    expect(hrefById["cost"]).toBe("/reports/financials");
+    expect(hrefById["repeat-failures"]).toBe("/reports/maintenance-exceptions");
+  });
+
   it("MANAGEMENT_VIEWER profile is read-only (links to /reports)", () => {
     const profile = ROLE_HOME_PROFILES.find((p) => p.roleKey === "MANAGEMENT_VIEWER");
     const reportCard = profile!.cards.find((c) => c.href.startsWith("/reports"));

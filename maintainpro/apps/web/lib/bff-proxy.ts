@@ -84,20 +84,6 @@ function applySessionCookies(
     response.cookies.set(ACCESS_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(REFRESH_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(CSRF_COOKIE, "", { ...csrfCookieOptions(0), maxAge: 0 });
-    response.cookies.set("fg_sessionid", "", {
-      httpOnly: true,
-      secure: cookiesShouldBeSecure(),
-      sameSite: "lax",
-      path: "/fg",
-      maxAge: 0
-    });
-    response.cookies.set("fg_sso_assertion", "", {
-      httpOnly: true,
-      secure: cookiesShouldBeSecure(),
-      sameSite: "lax",
-      path: "/fg",
-      maxAge: 0
-    });
     return;
   }
 

@@ -15,6 +15,7 @@ interface Summary {
   compliant: number;
   attention: number;
   nonCompliant: number;
+  notAssessed?: number;
 }
 
 interface ExpiringDoc {
@@ -72,7 +73,7 @@ export default function CompliancePage() {
         </button>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <SummaryCard
           label="Total Vehicles"
           value={summary?.total ?? 0}
@@ -96,6 +97,12 @@ export default function CompliancePage() {
           value={summary?.nonCompliant ?? 0}
           icon={<ShieldX size={18} />}
           tone="bg-rose-100 text-rose-700"
+        />
+        <SummaryCard
+          label="Not Assessed"
+          value={summary?.notAssessed ?? 0}
+          icon={<FileWarning size={18} />}
+          tone="bg-sky-100 text-sky-700"
         />
       </section>
 

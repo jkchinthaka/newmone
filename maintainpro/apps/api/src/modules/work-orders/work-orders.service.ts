@@ -70,7 +70,10 @@ import {
   assertValidEntityId,
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
-  calculateSlaRisk
+  assertWorkOrderCostFields,
+  assertWorkOrderScheduleDates,
+  calculateSlaRisk,
+  parseWorkOrderDateField
 } from "../../common/utils/work-order-validation";
 import {
   assertIssueQuantity,
@@ -747,6 +750,10 @@ export class WorkOrdersService {
       createdById: string;
       dueDate?: string;
       expectedCompletionDate?: string;
+      plannedStartAt?: string;
+      plannedEndAt?: string;
+      estimatedCost?: number | null;
+      estimatedHours?: number | null;
       requiresApproval?: boolean;
       taxonomyCategoryId?: string;
       taxonomyTypeId?: string;
@@ -787,6 +794,21 @@ export class WorkOrdersService {
     );
     const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
     assertWorkOrderAssetRules({ type: data.type as WorkOrderType, assetId, vehicleId, functionalLocationId });
+
+    const dueDate = parseWorkOrderDateField("dueDate", data.dueDate);
+    const expectedCompletionDate = parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate);
+    const plannedStartAt = parseWorkOrderDateField("plannedStartAt", data.plannedStartAt);
+    const plannedEndAt = parseWorkOrderDateField("plannedEndAt", data.plannedEndAt);
+    const reportedAt = parseWorkOrderDateField("reportedAt", data.reportedAt);
+    const failedAt = parseWorkOrderDateField("failedAt", data.failedAt);
+    assertWorkOrderScheduleDates(
+      { plannedStartAt, plannedEndAt, dueDate, expectedCompletionDate },
+      { rejectPastDates: true }
+    );
+    const { estimatedCost } = assertWorkOrderCostFields({
+      estimatedCost: data.estimatedCost,
+      estimatedHours: data.estimatedHours
+    });
 
     const tenantId = this.resolveTenantId(actor);
     const actorId = actor?.sub;
@@ -1034,14 +1056,13 @@ export class WorkOrdersService {
           jobDomain: resolvedJobDomain,
           jobCategoryId,
           ...taxonomyFields,
-          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-          expectedCompletionDate: data.expectedCompletionDate
-            ? new Date(data.expectedCompletionDate)
-            : data.dueDate
-              ? new Date(data.dueDate)
-              : undefined,
-          reportedAt: data.reportedAt ? new Date(data.reportedAt) : new Date(),
-          failedAt: data.failedAt ? new Date(data.failedAt) : undefined,
+          dueDate,
+          expectedCompletionDate: expectedCompletionDate ?? dueDate,
+          plannedStartAt,
+          plannedEndAt,
+          estimatedCost,
+          reportedAt: reportedAt ?? new Date(),
+          failedAt,
           lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
           status: WorkOrderStatus.OPEN,
           approvalStatus,
@@ -1054,7 +1075,7 @@ export class WorkOrdersService {
           maintenanceTemplateId: templateFields.maintenanceTemplateId,
           maintenanceTemplateVersion: templateFields.maintenanceTemplateVersion,
           maintenanceTemplateSnapshot: templateFields.maintenanceTemplateSnapshot,
-          estimatedHours: templateFields.estimatedHours,
+          estimatedHours: data.estimatedHours ?? templateFields.estimatedHours,
           executionMode: templateFields.executionMode || undefined,
           permitReference: templateFields.permitReference,
           lotoRequired: templateFields.lotoRequired ?? false,
@@ -1156,15 +1177,31 @@ export class WorkOrdersService {
       { overrideReason: data.overrideReason, actorRole: actor?.role as RoleName | undefined }
     );
 
-    if (data.estimatedHours !== undefined && (!Number.isFinite(data.estimatedHours) || data.estimatedHours <= 0)) {
-      throw new BadRequestException("Estimated hours must be greater than 0");
-    }
+    const plannedStartAt =
+      data.plannedStartAt !== undefined
+        ? parseWorkOrderDateField("plannedStartAt", data.plannedStartAt)
+        : existing.plannedStartAt;
+    const plannedEndAt =
+      data.plannedEndAt !== undefined
+        ? parseWorkOrderDateField("plannedEndAt", data.plannedEndAt)
+        : existing.plannedEndAt;
+    const dueDate =
+      data.dueDate !== undefined ? parseWorkOrderDateField("dueDate", data.dueDate) : existing.dueDate;
+    const expectedCompletionDate =
+      data.expectedCompletionDate !== undefined
+        ? parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate)
+        : existing.expectedCompletionDate;
 
-    const plannedStartAt = data.plannedStartAt ? new Date(data.plannedStartAt) : existing.plannedStartAt;
-    const plannedEndAt = data.plannedEndAt ? new Date(data.plannedEndAt) : existing.plannedEndAt;
-    if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() < plannedStartAt.getTime()) {
-      throw new BadRequestException("Planned end must not be earlier than planned start");
-    }
+    assertWorkOrderScheduleDates({
+      plannedStartAt,
+      plannedEndAt,
+      dueDate,
+      expectedCompletionDate
+    });
+    const { estimatedCost } = assertWorkOrderCostFields({
+      estimatedCost: data.estimatedCost,
+      estimatedHours: data.estimatedHours
+    });
 
     assertVersionMatch(
       (existing as { version?: number }).version,
@@ -1182,13 +1219,11 @@ export class WorkOrdersService {
       data: {
         title: data.title,
         description: data.description,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-        expectedCompletionDate: data.expectedCompletionDate
-          ? new Date(data.expectedCompletionDate)
-          : undefined,
-        plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : undefined,
-        plannedEndAt: data.plannedEndAt ? new Date(data.plannedEndAt) : undefined,
-        estimatedCost: data.estimatedCost,
+        dueDate: data.dueDate !== undefined ? dueDate : undefined,
+        expectedCompletionDate: data.expectedCompletionDate !== undefined ? expectedCompletionDate : undefined,
+        plannedStartAt: data.plannedStartAt !== undefined ? plannedStartAt : undefined,
+        plannedEndAt: data.plannedEndAt !== undefined ? plannedEndAt : undefined,
+        estimatedCost: data.estimatedCost !== undefined ? estimatedCost : undefined,
         estimatedHours: data.estimatedHours,
         version: { increment: 1 }
       }
@@ -1271,20 +1306,20 @@ export class WorkOrdersService {
       throw new BadRequestException("Work planning is only allowed from OPEN or PLANNED status.");
     }
 
-    const plannedStartAt = new Date(data.plannedStartAt);
-    const dueDate = data.dueDate ? new Date(data.dueDate) : current.dueDate;
-    const expectedCompletionDate = data.expectedCompletionDate
-      ? new Date(data.expectedCompletionDate)
-      : current.expectedCompletionDate;
-    if (Number.isNaN(plannedStartAt.getTime())) {
+    const plannedStartAt = parseWorkOrderDateField("plannedStartAt", data.plannedStartAt);
+    if (!plannedStartAt) {
       throw new BadRequestException("A valid planned start date is required.");
     }
-    if (dueDate && dueDate.getTime() < plannedStartAt.getTime()) {
-      throw new BadRequestException("Due date must not be earlier than planned start.");
-    }
-    if (expectedCompletionDate && expectedCompletionDate.getTime() < plannedStartAt.getTime()) {
-      throw new BadRequestException("Expected completion must not be earlier than planned start.");
-    }
+    const dueDate = data.dueDate ? parseWorkOrderDateField("dueDate", data.dueDate) : current.dueDate;
+    const expectedCompletionDate = data.expectedCompletionDate
+      ? parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate)
+      : current.expectedCompletionDate;
+    assertWorkOrderScheduleDates({
+      plannedStartAt,
+      plannedEndAt: current.plannedEndAt,
+      dueDate,
+      expectedCompletionDate
+    });
     if (data.vendorSupplierId && data.vendorSupplierId !== current.vendorSupplierId) {
       await this.assertVendorAssignable(data.vendorSupplierId, actor);
     }

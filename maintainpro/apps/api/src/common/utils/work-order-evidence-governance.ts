@@ -58,9 +58,8 @@ export function evaluateEvidenceRequirements(
   // Non-production may proceed with completion note only when storage is explicitly disabled.
   const storageBlocksCompletion = required && !storageEnabled && isProduction;
   const photoComplete = hasBefore && hasAfter;
-  const complete =
-    !required ||
-    (storageEnabled ? photoComplete : !isProduction);
+  const evidenceSatisfied = storageEnabled ? photoComplete : !isProduction;
+  const complete = required && evidenceSatisfied && !storageBlocksCompletion;
 
   return {
     required,
@@ -72,7 +71,7 @@ export function evaluateEvidenceRequirements(
     missingBefore: required && storageEnabled && !hasBefore,
     missingAfter: required && storageEnabled && !hasAfter,
     storageUnavailableBlocking: storageBlocksCompletion,
-    complete: complete && !storageBlocksCompletion,
+    complete,
     rejectedCount: active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length
   };
 }

@@ -150,6 +150,46 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
         next.currentOdometer = "Enter the current odometer reading.";
       }
     }
+
+    const parseDate = (value: string, field: string) => {
+      if (!value.trim()) return;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        next[field] = "Enter a valid date.";
+      }
+    };
+
+    parseDate(dueDate, "dueDate");
+    parseDate(expectedCompletionDate, "expectedCompletionDate");
+
+    if (!next.dueDate && dueDate.trim()) {
+      const due = new Date(dueDate);
+      const today = new Date();
+      const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      if (dueDay < todayDay) {
+        next.dueDate = "Due date cannot be in the past.";
+      }
+    }
+
+    if (!next.expectedCompletionDate && expectedCompletionDate.trim()) {
+      const expected = new Date(expectedCompletionDate);
+      const today = new Date();
+      const expectedDay = Date.UTC(expected.getUTCFullYear(), expected.getUTCMonth(), expected.getUTCDate());
+      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      if (expectedDay < todayDay) {
+        next.expectedCompletionDate = "Expected completion cannot be in the past.";
+      }
+    }
+
+    if (!next.dueDate && !next.expectedCompletionDate && dueDate.trim() && expectedCompletionDate.trim()) {
+      const due = new Date(dueDate);
+      const expected = new Date(expectedCompletionDate);
+      if (due.getTime() < expected.getTime()) {
+        next.expectedCompletionDate = "Expected completion must not be later than due date.";
+      }
+    }
+
     setFieldErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -495,6 +535,11 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
                   onChange={(event) => setDueDate(event.target.value)}
                   className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
                 />
+                {fieldErrors.dueDate ? (
+                  <span className="text-xs text-rose-700" role="alert">
+                    {fieldErrors.dueDate}
+                  </span>
+                ) : null}
               </label>
               <label className="block space-y-1 text-sm text-slate-700">
                 <span className="font-medium">Expected completion</span>
@@ -504,6 +549,11 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
                   onChange={(event) => setExpectedCompletionDate(event.target.value)}
                   className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
                 />
+                {fieldErrors.expectedCompletionDate ? (
+                  <span className="text-xs text-rose-700" role="alert">
+                    {fieldErrors.expectedCompletionDate}
+                  </span>
+                ) : null}
               </label>
             </div>
             {domain === "SERVICE" ? (

@@ -97,12 +97,11 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
     }
   });
 
-  it("does not invent FG Digital Records in palette (external FG SSO only)", () => {
+  it("does not expose FG Digital Records in the command palette", () => {
     const without = getCommandPaletteItems("ADMIN");
     expect(without.some((item) => item.href === "/fg")).toBe(false);
-
-    const withFg = getCommandPaletteItems("ADMIN", { permissions: ["fg.access"] });
-    expect(withFg.some((item) => item.href === "/fg")).toBe(false);
+    const filtered = filterCommandPaletteItems(without, "fg digital records");
+    expect(filtered.some((item) => item.href === "/fg")).toBe(false);
   });
 
   it("adds a work-order search jump for typed queries", () => {

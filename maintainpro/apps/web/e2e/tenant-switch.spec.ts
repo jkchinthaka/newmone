@@ -26,7 +26,7 @@ const adminUser = {
     id: "role-admin",
     name: "ADMIN"
   },
-  permissions: ["vehicles.view", "work_orders.manage", "fg.access"]
+  permissions: ["vehicles.view", "work_orders.manage"]
 };
 
 async function mockMultiTenantShell(page: Page, state: { switchedTo: string; tenantHeaders: string[] }) {

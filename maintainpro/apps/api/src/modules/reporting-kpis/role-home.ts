@@ -192,7 +192,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "kpi-reports",
         title: "KPI Reports",
-        href: "/reports",
+        href: "/reports/performance",
         description: "Maintenance and fleet KPI dashboard",
         kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"]
       },
@@ -206,28 +206,28 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "pm-compliance",
         title: "PM Compliance",
-        href: "/reports",
+        href: "/reports/performance?search=preventive",
         description: "Preventive maintenance compliance",
         kpiCodes: ["PM_COMPLIANCE"]
       },
       {
         id: "downtime",
         title: "Downtime",
-        href: "/reports",
+        href: "/reports/assets?search=downtime",
         description: "Asset downtime hours",
         kpiCodes: ["DOWNTIME", "AVAILABILITY"]
       },
       {
         id: "cost",
         title: "Maintenance Cost",
-        href: "/reports",
+        href: "/reports/financials",
         description: "Period maintenance spend",
         kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"]
       },
       {
         id: "repeat-failures",
         title: "Repeat Failures",
-        href: "/reports",
+        href: "/reports/maintenance-exceptions",
         description: "Assets with recurring problems",
         kpiCodes: ["REPEAT_FAILURE"]
       },

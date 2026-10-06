@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
+
 import type { WorkOrderQueueItem } from "@/lib/work-order-queues-api";
 
 import {
@@ -49,7 +52,8 @@ export function WorkOrderCompactTable({
   const allSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
 
   return (
-    <div className="hidden overflow-x-auto md:block">
+    <div className="hidden md:block">
+      <div className="overflow-x-auto">
       <table className="min-w-full text-xs">
         <thead className="sticky top-0 z-10 bg-slate-50 text-left uppercase tracking-wide text-slate-500">
           <tr>
@@ -93,7 +97,14 @@ export function WorkOrderCompactTable({
                     />
                   </td>
                 ) : null}
-                <td className="px-3 py-2 font-semibold text-brand-700">{row.woNumber}</td>
+                <td className="px-3 py-2">
+                  <Link
+                    href={`/work-orders?wo=${row.id}` as Route}
+                    className="font-semibold text-brand-700 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  >
+                    {row.woNumber}
+                  </Link>
+                </td>
                 <td className="max-w-[12rem] truncate px-3 py-2 font-medium text-slate-900">{row.title}</td>
                 <td className="max-w-[10rem] truncate px-3 py-2 text-slate-600">{categoryPath(row)}</td>
                 <td className="px-3 py-2">
@@ -138,6 +149,7 @@ export function WorkOrderCompactTable({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

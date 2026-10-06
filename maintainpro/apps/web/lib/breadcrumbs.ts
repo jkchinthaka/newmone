@@ -54,39 +54,6 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Inventory", href: "/inventory" },
     { label: "ERP / Excel Import" }
   ],
-  "/fg": [{ label: "FG Digital Records" }],
-  "/fg/dashboard": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Dashboard" }
-  ],
-  "/fg/records": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Today's Records" }
-  ],
-  "/fg/records/new": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Open Record" }
-  ],
-  "/fg/review": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Supervisor Review" }
-  ],
-  "/fg/qa": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "QA Review" }
-  ],
-  "/fg/history": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "History" }
-  ],
-  "/fg/reports": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Reports" }
-  ],
-  "/fg/sso/denied": [
-    { label: "FG Digital Records", href: "/fg" },
-    { label: "Access denied" }
-  ],
   "/inventory/warranty": [
     { label: "Inventory", href: "/inventory" },
     { label: "Warranty" }
@@ -154,30 +121,6 @@ const DYNAMIC_ROUTE_PATTERNS: RoutePattern[] = [
     build: ([, id]) => [
       { label: "Requests", href: "/requests" },
       { label: id === "new" ? "Report Issue" : "Request Detail" }
-    ]
-  },
-  {
-    pattern: /^\/fg\/records\/([^/]+)\/?$/,
-    build: ([, id]) => [
-      { label: "FG Digital Records", href: "/fg" },
-      { label: "Records", href: "/fg/records" },
-      { label: id === "new" ? "Open Record" : "Record" }
-    ]
-  },
-  {
-    pattern: /^\/fg\/review\/([^/]+)\/?$/,
-    build: () => [
-      { label: "FG Digital Records", href: "/fg" },
-      { label: "Supervisor Review", href: "/fg/review" },
-      { label: "Decision" }
-    ]
-  },
-  {
-    pattern: /^\/fg\/qa\/([^/]+)\/?$/,
-    build: () => [
-      { label: "FG Digital Records", href: "/fg" },
-      { label: "QA Review", href: "/fg/qa" },
-      { label: "Disposition" }
     ]
   },
   {

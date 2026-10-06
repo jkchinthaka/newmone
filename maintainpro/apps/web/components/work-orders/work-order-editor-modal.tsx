@@ -279,6 +279,29 @@ export function WorkOrderEditorModal({
                   return;
                 }
 
+                if (formState.dueDate && formState.expectedCompletionDate) {
+                  const due = new Date(`${formState.dueDate}T00:00:00.000Z`);
+                  const expected = new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`);
+                  if (due.getTime() < expected.getTime()) {
+                    window.alert("Expected completion must not be later than due date.");
+                    return;
+                  }
+                }
+                if (formState.estimatedCost.trim() !== "") {
+                  const cost = Number(formState.estimatedCost);
+                  if (!Number.isFinite(cost) || cost < 0) {
+                    window.alert("Estimated cost cannot be negative.");
+                    return;
+                  }
+                }
+                if (formState.estimatedHours.trim() !== "") {
+                  const hours = Number(formState.estimatedHours);
+                  if (!Number.isFinite(hours) || hours <= 0) {
+                    window.alert("Estimated hours must be greater than 0.");
+                    return;
+                  }
+                }
+
                 onEdit({
                   title: formState.title.trim(),
                   description: formState.description.trim(),
@@ -286,8 +309,14 @@ export function WorkOrderEditorModal({
                   expectedCompletionDate: formState.expectedCompletionDate
                     ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
                     : undefined,
-                  estimatedCost: formState.estimatedCost ? Number(formState.estimatedCost) : undefined,
-                  estimatedHours: formState.estimatedHours ? Number(formState.estimatedHours) : undefined
+                  estimatedCost:
+                    formState.estimatedCost.trim() === ""
+                      ? undefined
+                      : Number(formState.estimatedCost),
+                  estimatedHours:
+                    formState.estimatedHours.trim() === ""
+                      ? undefined
+                      : Number(formState.estimatedHours)
                 });
               }}
               className="space-y-4 px-5 py-4"
