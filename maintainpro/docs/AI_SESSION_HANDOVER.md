@@ -24,6 +24,28 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**MANUAL QA CONTINUATION — 2026-10-06 (Claude, cloud clone).** Branch `fix/manual-qa-blockers`
+from `main@05db2bb0` (created `--no-track`). Commits: `e4759c56` (QA-MANUAL-001 refresh 409
+false logout: unique refresh `jti`, claim release, single-flight client refresh, redirect only
+when refresh invalid AND `/auth/me` probe 401) and `86300990` (interim regressions: enum
+labels, MI units, report deep links `?focus=`/`?type=`, evidence display status, PM projected
+next due + INVALID legacy plans + never-due calendar baseline, System Health disabled status,
+global `NotBlankStringsPipe` + `@IsNotBlank`, typed settings profile DTO). QA-MANUAL-002 NOT
+REPRODUCED. Report: `docs/MaintainPro_Manual_QA_Report_2026-10-06.md` (rebuilt; IDs 001–021
+preserved, new from 022; next new ID QA-MANUAL-030).
+
+Gates in cloud clone: typecheck PASS (api+web), web tests 151/151, API Jest 1962 passed /
+22 skipped / 1 env failure (`phase3-workflow.http-e2e` needs the real Prisma engine, blocked
+download in the sandbox — re-run on PC), `npm run build` PASS. Playwright not run.
+No DB/schema change, no migration, no permission change. Not merged to main.
+
+The QA admin browser session was revoked while reproducing 001 (reuse detection). Next
+action: owner pulls the branch, restarts `npm run dev`, signs in; then live re-test of
+001/002/R1–R8/023/025 and the blocked areas listed in the QA report §3.
+
+### Previous state
+
+
 **MAIN CONSOLIDATION COMPLETE — READY FOR QA/UAT (2026-10-06).** Canonical branch `main` at `8a672350` (local = `origin/main`). Working tree clean. Obsolete remotes deleted after 0-unique-commit ancestry proof. Not production-ready until separate UAT sign-off.
 
 ### Landed on main
