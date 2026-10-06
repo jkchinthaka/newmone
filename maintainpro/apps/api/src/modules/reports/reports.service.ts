@@ -2541,10 +2541,10 @@ export class ReportsService {
 
   private systemCoverageNotes() {
     return [
-      "Dashboard KPIs are calculated server-side with explicit coverage status per source.",
-      "Failed login attempts are persisted as SecurityEvent records without passwords or tokens.",
-      "Financial Total Expenses uses consumed_maintenance basis (work-order actualCost + utilities + farm) and excludes PO/parts double-counting.",
-      "MTBF returns INSUFFICIENT_DATA (value null) when breakdown intervals are unavailable.",
+      "Dashboard KPIs are calculated on the server with a clear data availability status for each metric.",
+      "Failed sign-in attempts are recorded in the security audit log without passwords or tokens.",
+      "Financial total expenses use consumed maintenance costs (work-order actual cost plus utilities and farm) and exclude purchase-order or parts double-counting.",
+      "Mean time between failures is shown as unavailable when there is insufficient breakdown history.",
       `Reporting timezone: ${REPORTING_TIMEZONE}; currency: ${REPORTING_CURRENCY_CODE}.`
     ];
   }

@@ -69,6 +69,13 @@ export function QrScanner({
     }
   }, []);
 
+  // Keep latest onScan without re-binding the camera effect on every parent render
+  // (e.g. typing in the Report Issue description recreates an inline onScan).
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
   const emitScan = useCallback(
     (raw: string) => {
       if (handledRef.current) {
@@ -80,17 +87,26 @@ export function QrScanner({
         return;
       }
       handledRef.current = true;
-      void stopScanner().then(() => onScan(value));
+      void stopScanner().then(() => onScanRef.current(value));
     },
-    [normalizeQrValue, onScan, stopScanner]
+    [normalizeQrValue, stopScanner]
   );
 
+  const prevOpenRef = useRef(open);
   useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+
     if (!open) {
       handledRef.current = false;
-      setError(null);
-      setUnsupported(false);
-      void stopScanner();
+      // Only reset UI state when transitioning open→closed to avoid update loops
+      // when parent re-renders with a new onScan identity while the dialog is closed.
+      if (wasOpen) {
+        setError(null);
+        setUnsupported(false);
+        setCameraBusy(false);
+        void stopScanner();
+      }
       return;
     }
 

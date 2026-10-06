@@ -201,14 +201,13 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(canAccessNavigationPath("/farm", "ADMIN", [])).toBe(true);
   });
 
-  it("does not invent FG Digital Records from role alone", () => {
-    const adminWithoutFg = getVisibleNavigationItems("ADMIN", { permissions: [] });
-    expect(adminWithoutFg.some((item) => item.id === "fg-digital-recording")).toBe(false);
-    const withFg = getVisibleNavigationItems("MANAGER", { permissions: ["fg.access"] });
-    expect(withFg.some((item) => item.href === "/fg")).toBe(false);
+  it("does not expose FG Digital Records navigation or path access", () => {
+    const adminItems = getVisibleNavigationItems("ADMIN", { permissions: [] });
+    expect(adminItems.some((item) => item.id === "fg-digital-recording")).toBe(false);
+    expect(adminItems.some((item) => item.href === "/fg" || String(item.href).startsWith("/fg/"))).toBe(false);
     expect(canAccessNavigationPath("/fg", "MANAGER", [])).toBe(false);
-    expect(canAccessNavigationPath("/fg", "MANAGER", ["fg.access"])).toBe(true);
-    expect(canAccessNavigationPath("/fg/sso/denied", "VIEWER", [])).toBe(true);
+    expect(canAccessNavigationPath("/fg", "SUPER_ADMIN", [])).toBe(false);
+    expect(canAccessNavigationPath("/fg/sso/denied", "VIEWER", [])).toBe(false);
   });
 
   it("provides role default favorites", () => {

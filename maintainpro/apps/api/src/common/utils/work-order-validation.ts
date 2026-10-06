@@ -110,3 +110,45 @@ export function calculateSlaRisk(input: {
 
   return { level: "FUTURE", delayDays: 0, targetDate: target };
 }
+
+export function parseWorkOrderDateField(field: string, value?: string | null): Date | undefined {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return undefined;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${field} is not a valid date.`);
+  }
+
+  return parsed;
+}
+
+export function assertWorkOrderScheduleDates(input: {
+  plannedStartAt?: Date | null;
+  plannedEndAt?: Date | null;
+  dueDate?: Date | null;
+  expectedCompletionDate?: Date | null;
+}) {
+  const { plannedStartAt, plannedEndAt, dueDate, expectedCompletionDate } = input;
+
+  if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() < plannedStartAt.getTime()) {
+    throw new BadRequestException("Planned end must not be earlier than planned start");
+  }
+
+  if (!plannedStartAt) {
+    return;
+  }
+
+  const comparisons: Array<{ field: string; value?: Date | null }> = [
+    { field: "Due date", value: dueDate },
+    { field: "Expected completion", value: expectedCompletionDate },
+    { field: "Planned end", value: plannedEndAt }
+  ];
+
+  for (const { field, value } of comparisons) {
+    if (value && value.getTime() < plannedStartAt.getTime()) {
+      throw new BadRequestException(`${field} must not be earlier than planned start`);
+    }
+  }
+}

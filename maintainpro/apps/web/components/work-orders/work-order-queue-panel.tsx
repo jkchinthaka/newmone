@@ -264,8 +264,9 @@ export function WorkOrderQueuePanel({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <div className="flex min-w-max gap-1 border-b border-slate-200 px-2 py-2">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto border-b border-slate-200">
+        <div className="flex min-w-max gap-1 px-2 py-2">
           {visibleQueues.map((queue) => {
             const selected = filters.queue === queue.key;
             return (
@@ -284,6 +285,7 @@ export function WorkOrderQueuePanel({
               </button>
             );
           })}
+        </div>
         </div>
 
         <div className="grid gap-3 border-b border-slate-200 px-4 py-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">

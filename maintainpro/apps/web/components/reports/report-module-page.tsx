@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -14,7 +15,13 @@ import { ExportActions, InsightsPanel, ReportCharts, ReportFiltersBar, ReportHea
 import { ReportFilters, ReportModuleSlug } from "./types";
 
 export function ReportModulePage({ module }: { module: string }) {
-  const [filters, setFilters] = useState<ReportFilters>(() => defaultReportFilters());
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<ReportFilters>(() => {
+    const initial = defaultReportFilters();
+    const search = searchParams.get("search");
+    if (search) initial.search = search;
+    return initial;
+  });
   const [isExporting, setIsExporting] = useState(false);
   const moduleSlug = isReportModuleSlug(module) ? module : "operations";
   const definition = REPORT_MODULES.find((item) => item.slug === moduleSlug) ?? REPORT_MODULES[0];

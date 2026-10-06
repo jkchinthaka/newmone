@@ -133,6 +133,11 @@ export default function FleetPage() {
     <div className="space-y-6 p-4 md:p-6">
       <PageBreadcrumbs />
 
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-900">Fleet</h1>
+        <p className="mt-1 text-sm text-slate-600">Overview of vehicles, service due dates, compliance, and gate readiness.</p>
+      </header>
+
       {/* Fleet secondary navigation */}
       <nav className="flex flex-wrap gap-2 text-sm">
         {[

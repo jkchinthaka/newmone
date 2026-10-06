@@ -19,6 +19,7 @@ type SystemHealthPayload = {
     degraded: number;
     failed: number;
     required: number;
+    requiredAttention?: number;
   };
 };
 
@@ -89,7 +90,11 @@ export function SystemHealthSummary({ enabled = true }: SystemHealthSummaryProps
           />
           <DashboardCard label="Operational checks" value={formatNumber(health.summary.operational, { fallback: "0" })} tone="success" />
           <DashboardCard label="Degraded checks" value={formatNumber(health.summary.degraded, { fallback: "0" })} tone="warning" />
-          <DashboardCard label="Failed checks" value={formatNumber(health.summary.failed, { fallback: "0" })} tone="danger" />
+          <DashboardCard
+            label="Checks needing attention"
+            value={formatNumber(health.summary.requiredAttention ?? health.summary.failed, { fallback: "0" })}
+            tone="danger"
+          />
         </div>
       </div>
     </DashboardSection>

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, apiClient } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/localization";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { listInspectionTemplates, listInspections, scheduleInspection } from "@/lib/planning-api";
 import { listLocations } from "@/lib/organization-api";
@@ -246,6 +247,7 @@ export default function MaintenanceInspectionsPage() {
 
       {createOpen ? (
         <CreateInspectionWizard
+          canManageTemplates={canManage || user.permissions.includes("planning.manage")}
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
             setCreateOpen(false);
@@ -258,7 +260,15 @@ export default function MaintenanceInspectionsPage() {
   );
 }
 
-function CreateInspectionWizard({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateInspectionWizard({
+  canManageTemplates,
+  onClose,
+  onCreated
+}: {
+  canManageTemplates: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [inspectionType, setInspectionType] = useState("Safety Inspection");
@@ -311,6 +321,26 @@ function CreateInspectionWizard({ onClose, onCreated }: { onClose: () => void; o
   const checklistCount = Array.isArray((template?.checklistTemplate as { items?: unknown[] } | undefined)?.items)
     ? ((template?.checklistTemplate as { items: unknown[] }).items.length)
     : 0;
+
+  const continueFromStep = () => {
+    if (step === 1 && title.trim().length < 3) {
+      toast.error("Enter a title with at least 3 characters.");
+      return;
+    }
+    if (step === 2 && !subjectId) {
+      toast.error("Select a subject before continuing.");
+      return;
+    }
+    if (step === 3 && !templateId) {
+      toast.error("Select an active inspection template before continuing.");
+      return;
+    }
+    if (step === 5 && !due) {
+      toast.error("Choose a due date before continuing.");
+      return;
+    }
+    setStep((current) => current + 1);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -382,7 +412,21 @@ function CreateInspectionWizard({ onClose, onCreated }: { onClose: () => void; o
               <span className="block text-slate-500">Version {String(item.version ?? 1)} · {(item.checklistTemplate as { items?: unknown[] } | null)?.items?.length ?? 0} checklist items</span>
             </button>
           ))}
-          {!templates.length ? <p className="text-sm text-slate-600">No active inspection templates in this workspace.</p> : null}
+          {!templates.length ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p>No active inspection templates are available.</p>
+              {canManageTemplates ? (
+                <Link href={"/admin/checklist-templates" as Route} className="mt-2 inline-block font-medium text-brand-700 underline">
+                  Manage checklist templates
+                </Link>
+              ) : (
+                <p className="mt-2 text-amber-800">Ask an administrator to publish an active template.</p>
+              )}
+            </div>
+          ) : null}
+          {templates.length > 0 && !templateId ? (
+            <p className="text-sm text-amber-700">Select a template to continue.</p>
+          ) : null}
         </div>
       ) : null}
       {step === 4 ? (
@@ -408,12 +452,21 @@ function CreateInspectionWizard({ onClose, onCreated }: { onClose: () => void; o
           <div>Subject: {subjects.find((item) => item.id === subjectId)?.label || "Not selected"}</div>
           <div>Template: {String(template?.name ?? "Not selected")} · {checklistCount} items</div>
           <div>Inspector: signed-in user</div>
-          <div>Due: {due || "Not set"}</div>
+          <div>Due: {due ? formatDateTime(new Date(due).toISOString()) : "Not set"}</div>
         </dl>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {step > 1 ? <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => setStep((current) => current - 1)}>Back</button> : null}
-        {step < 6 ? <button type="button" className="min-h-11 rounded-lg bg-slate-900 px-3 text-white" onClick={() => setStep((current) => current + 1)}>Continue</button> : (
+        {step < 6 ? (
+          <button
+            type="button"
+            className="min-h-11 rounded-lg bg-slate-900 px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={step === 3 && !templateId}
+            onClick={continueFromStep}
+          >
+            Continue
+          </button>
+        ) : (
           <button type="submit" className="min-h-11 rounded-lg bg-brand-600 px-3 text-white" disabled={busy}>Create Inspection</button>
         )}
       </div>

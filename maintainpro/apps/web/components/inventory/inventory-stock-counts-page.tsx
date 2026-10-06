@@ -15,6 +15,13 @@ import {
   upsertStockCountLine
 } from "./api";
 import { InventorySectionNav } from "./inventory-section-nav";
+import {
+  computeErpLedgerGap,
+  formatStockCountQuantity,
+  formatStockCountVariance,
+  STOCK_COUNT_SOURCE_HELP,
+  stockCountVarianceTone
+} from "./stock-count-display";
 
 type StockCountRow = {
   id: string;
@@ -34,14 +41,14 @@ type StockCountLine = {
   countedQuantity: number | null;
   variance: number | null;
   notes?: string | null;
-  part?: { partNumber?: string; name?: string };
+  part?: { partNumber?: string; name?: string; quantityInStock?: number };
 };
 
 type StockCountDetail = StockCountRow & {
   lines?: StockCountLine[];
 };
 
-type PartOption = { id: string; partNumber?: string; name?: string };
+type PartOption = { id: string; partNumber?: string; name?: string; quantityInStock?: number };
 
 export default function InventoryStockCountsPage() {
   const queryClient = useQueryClient();
@@ -168,9 +175,11 @@ export default function InventoryStockCountsPage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Stock Counts</h1>
         <p className="max-w-3xl text-sm text-slate-600">
-          Physical counts post through the inventory ledger as adjustments. Balances are never overwritten directly.
+          Physical counts post through the MaintainPro warehouse ledger as adjustments. ERP snapshot quantities are shown
+          for comparison only and are never copied into the ledger automatically.
           Flow: Draft → Open → Counting → Review → Approved → Posted.
         </p>
+        <p className="max-w-3xl text-xs text-slate-500">{STOCK_COUNT_SOURCE_HELP}</p>
       </header>
 
       <section className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -289,11 +298,17 @@ export default function InventoryStockCountsPage() {
                       className="block min-w-[240px] rounded-lg border border-slate-300 px-3 py-2"
                     >
                       <option value="">Select part</option>
-                      {parts.map((part) => (
-                        <option key={part.id} value={part.id}>
-                          {part.partNumber ?? part.id} — {part.name ?? "Part"}
-                        </option>
-                      ))}
+                      {parts.map((part) => {
+                        const erpQty = part.quantityInStock;
+                        const erpHint =
+                          erpQty != null && Number.isFinite(erpQty) ? ` · ERP snapshot ${erpQty}` : "";
+                        return (
+                          <option key={part.id} value={part.id}>
+                            {part.partNumber ?? part.id} — {part.name ?? "Part"}
+                            {erpHint}
+                          </option>
+                        );
+                      })}
                     </select>
                   </label>
                   <label className="space-y-1 text-sm text-slate-700">
@@ -328,24 +343,48 @@ export default function InventoryStockCountsPage() {
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-3 py-2">Part</th>
-                        <th className="px-3 py-2">Expected</th>
-                        <th className="px-3 py-2">Counted</th>
-                        <th className="px-3 py-2">Variance</th>
+                        <th className="px-3 py-2" title="Warehouse ledger on-hand for this count session">
+                          MaintainPro Ledger Qty
+                        </th>
+                        <th className="px-3 py-2" title="Last imported ERP mirror (informational)">
+                          ERP Snapshot Qty
+                        </th>
+                        <th className="px-3 py-2">Counted Qty</th>
+                        <th className="px-3 py-2" title="Counted minus MaintainPro ledger qty">
+                          Count Variance
+                        </th>
+                        <th className="px-3 py-2" title="ERP snapshot minus ledger (informational)">
+                          ERP vs Ledger
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {lines.map((line) => (
-                        <tr key={line.id} className="border-t border-slate-100">
-                          <td className="px-3 py-2">
-                            {line.part?.partNumber
-                              ? `${line.part.partNumber} · ${line.part.name ?? ""}`
-                              : line.partId}
-                          </td>
-                          <td className="px-3 py-2">{detail?.blindCount ? "—" : line.expectedQuantity}</td>
-                          <td className="px-3 py-2">{line.countedQuantity ?? "—"}</td>
-                          <td className="px-3 py-2">{detail?.blindCount ? "—" : (line.variance ?? "—")}</td>
-                        </tr>
-                      ))}
+                      {lines.map((line) => {
+                        const erpSnapshot = line.part?.quantityInStock;
+                        const erpLedgerGap = computeErpLedgerGap(erpSnapshot, line.expectedQuantity);
+                        return (
+                          <tr key={line.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2">
+                              {line.part?.partNumber
+                                ? `${line.part.partNumber} · ${line.part.name ?? ""}`
+                                : line.partId}
+                            </td>
+                            <td className="px-3 py-2">
+                              {detail?.blindCount ? "—" : formatStockCountQuantity(line.expectedQuantity)}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {detail?.blindCount ? "—" : formatStockCountQuantity(erpSnapshot)}
+                            </td>
+                            <td className="px-3 py-2">{formatStockCountQuantity(line.countedQuantity)}</td>
+                            <td className={`px-3 py-2 ${detail?.blindCount ? "" : stockCountVarianceTone(line.variance)}`}>
+                              {detail?.blindCount ? "—" : formatStockCountVariance(line.variance)}
+                            </td>
+                            <td className={`px-3 py-2 ${detail?.blindCount ? "" : stockCountVarianceTone(erpLedgerGap)}`}>
+                              {detail?.blindCount ? "—" : formatStockCountVariance(erpLedgerGap)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -29,8 +29,11 @@ type SystemHealthPayload = {
     degraded: number;
     failed: number;
     required: number;
+    requiredAttention?: number;
   };
 };
+
+const READINESS_CLIENT_TIMEOUT_MS = 12_000;
 
 type FacilityIssueRow = {
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -65,10 +68,21 @@ export type FetchActionCenterOptions = {
 };
 
 export async function fetchActionCenterSystemHealth(): Promise<ActionCenterSnapshot["systemHealth"]> {
-  const response = await apiClient.get<ApiEnvelope<SystemHealthPayload>>("/health/readiness");
+  const response = await Promise.race([
+    apiClient.get<ApiEnvelope<SystemHealthPayload>>("/health/readiness", {
+      timeout: READINESS_CLIENT_TIMEOUT_MS
+    }),
+    new Promise<never>((_resolve, reject) => {
+      window.setTimeout(() => reject(new Error("Readiness check timed out")), READINESS_CLIENT_TIMEOUT_MS);
+    })
+  ]);
   const health = response.data.data;
+  const requiredAttention =
+    health.summary.requiredAttention ??
+    Math.max(0, health.summary.required - health.summary.operational);
   return {
     status: health.status,
+    requiredAttention,
     failed: health.summary.failed,
     degraded: health.summary.degraded
   };

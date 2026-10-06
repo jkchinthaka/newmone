@@ -138,7 +138,7 @@ function AdminConsoleAuthorized({
   return (
     <>
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">Admin Console</h2>
+        <h1 className="text-2xl font-semibold text-slate-900">Administration</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">
           Maintenance operations administration. Backend RBAC remains authoritative for all API access.
         </p>

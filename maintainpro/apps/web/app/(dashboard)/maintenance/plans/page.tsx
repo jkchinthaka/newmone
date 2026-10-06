@@ -8,6 +8,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -352,17 +353,19 @@ export default function PreventiveMaintenancePage() {
                 name: values.name,
                 description: values.description,
                 status: activate ? "ACTIVE" : "DRAFT",
+                assetId: values.assetId || undefined,
+                vehicleId: values.vehicleId || undefined,
                 autoCreateWorkOrder: values.autoWo,
                 combineMode: values.trigger === "HYBRID" ? "EARLIEST" : "EARLIEST",
                 triggers:
                   values.trigger === "HYBRID"
                     ? [
-                        { kind: "CALENDAR", intervalDays: Number(values.intervalDays) || 30 },
-                        { kind: "METER", intervalValue: Number(values.intervalValue) || 250, unit: values.unit || "hrs" }
+                        { kind: "CALENDAR", intervalDays: values.intervalDays },
+                        { kind: "METER", intervalValue: values.intervalValue, unit: values.unit || "hrs" }
                       ]
                     : values.trigger === "METER"
-                      ? [{ kind: "METER", intervalValue: Number(values.intervalValue) || 250, unit: values.unit || "hrs" }]
-                      : [{ kind: "CALENDAR", intervalDays: Number(values.intervalDays) || 30 }]
+                      ? [{ kind: "METER", intervalValue: values.intervalValue, unit: values.unit || "hrs" }]
+                      : [{ kind: "CALENDAR", intervalDays: values.intervalDays }]
               });
               toast.success(activate ? "Plan activated" : "Draft saved");
               setWizard(false);
@@ -386,24 +389,103 @@ function CreatePlanWizard({
 }: {
   busy: boolean;
   onClose: () => void;
-  onSubmit: (values: { name: string; description: string; trigger: string; intervalDays: string; intervalValue: string; unit: string; autoWo: boolean }, activate: boolean) => Promise<void>;
+  onSubmit: (
+    values: {
+      name: string;
+      description: string;
+      assetId: string;
+      vehicleId: string;
+      trigger: string;
+      intervalDays: number;
+      intervalValue: number;
+      unit: string;
+      autoWo: boolean;
+    },
+    activate: boolean
+  ) => Promise<void>;
 }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [assetId, setAssetId] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
+  const [assetLabel, setAssetLabel] = useState("");
+  const [vehicleLabel, setVehicleLabel] = useState("");
   const [trigger, setTrigger] = useState("CALENDAR");
   const [intervalDays, setIntervalDays] = useState("30");
   const [intervalValue, setIntervalValue] = useState("250");
   const [unit, setUnit] = useState("hrs");
   const [autoWo, setAutoWo] = useState(true);
 
+  const parsePositiveInterval = (raw: string, label: string): number | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      toast.error(`Enter a ${label}.`);
+      return null;
+    }
+    const value = Number(trimmed);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error(`${label} must be greater than 0.`);
+      return null;
+    }
+    return value;
+  };
+
+  const validateStep = (currentStep: number, activate: boolean) => {
+    if (currentStep === 1 && name.trim().length < 3) {
+      toast.error("Enter a plan name.");
+      return false;
+    }
+    if (currentStep === 2 && activate && !assetId.trim() && !vehicleId.trim()) {
+      toast.error("Select an asset or vehicle before activating the plan.");
+      return false;
+    }
+    if (currentStep === 3) {
+      if (trigger !== "METER") {
+        if (parsePositiveInterval(intervalDays, "calendar interval (days)") == null) return false;
+      }
+      if (trigger !== "CALENDAR") {
+        if (parsePositiveInterval(intervalValue, "meter interval") == null) return false;
+      }
+    }
+    return true;
+  };
+
   const submit = (event: FormEvent, activate: boolean) => {
     event.preventDefault();
-    if (name.trim().length < 3) {
-      toast.error("Enter a plan name.");
+    if (!validateStep(1, activate)) return;
+    if (activate && !assetId.trim() && !vehicleId.trim()) {
+      toast.error("Select an asset or vehicle before activating the plan.");
       return;
     }
-    void onSubmit({ name: name.trim(), description, trigger, intervalDays, intervalValue, unit, autoWo }, activate);
+
+    let parsedIntervalDays = 0;
+    let parsedIntervalValue = 0;
+    if (trigger !== "METER") {
+      const days = parsePositiveInterval(intervalDays, "calendar interval (days)");
+      if (days == null) return;
+      parsedIntervalDays = days;
+    }
+    if (trigger !== "CALENDAR") {
+      const meter = parsePositiveInterval(intervalValue, "meter interval");
+      if (meter == null) return;
+      parsedIntervalValue = meter;
+    }
+
+    void onSubmit(
+      {
+        name: name.trim(),
+        description,
+        assetId: assetId.trim(),
+        vehicleId: vehicleId.trim(),
+        trigger,
+        intervalDays: parsedIntervalDays,
+        intervalValue: parsedIntervalValue,
+        unit,
+        autoWo
+      },
+      activate
+    );
   };
 
   return (
@@ -426,9 +508,54 @@ function CreatePlanWizard({
         </div>
       ) : null}
       {step === 2 ? (
-        <p className="mt-4 text-sm text-slate-600">
-          Asset assignment stays on the plan after creation. Each plan keeps its own last completion, next due, and generated work order.
-        </p>
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-slate-600">
+            Assign the asset or vehicle this plan maintains. Required before activation; drafts may be saved without a target.
+          </p>
+          <div className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Asset</span>
+            <EntityPicker
+              endpoint="/assets"
+              searchParam="search"
+              pageSizeParam="limit"
+              pageSize={20}
+              extraParams={{ selectableForWork: true, status: "ACTIVE" }}
+              value={assetId || null}
+              displayField="name"
+              secondaryField="assetTag"
+              initialDisplay={assetLabel}
+              placeholder="Search asset by name or tag..."
+              onChange={(id, entity) => {
+                setAssetId(id ?? "");
+                if (id) setVehicleId("");
+                const tag = entity ? String(entity.assetTag ?? "") : "";
+                const assetName = entity ? String(entity.name ?? "") : "";
+                setAssetLabel([tag, assetName].filter(Boolean).join(" — ") || assetName);
+                if (id) setVehicleLabel("");
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Vehicle</span>
+            <EntityPicker
+              endpoint="/vehicles"
+              value={vehicleId || null}
+              displayField="registrationNo"
+              secondaryField="vehicleModel"
+              initialDisplay={vehicleLabel}
+              placeholder="Search vehicle by registration..."
+              onChange={(id, entity) => {
+                setVehicleId(id ?? "");
+                if (id) setAssetId("");
+                setVehicleLabel(entity ? String(entity.registrationNo ?? "") : "");
+                if (id) {
+                  setAssetId("");
+                  setAssetLabel("");
+                }
+              }}
+            />
+          </div>
+        </div>
       ) : null}
       {step === 3 ? (
         <div className="mt-4 space-y-3">
@@ -443,13 +570,27 @@ function CreatePlanWizard({
           {trigger !== "METER" ? (
             <label className="block text-sm">
               Calendar interval (days)
-              <input className="mt-1 min-h-11 w-full rounded-lg border px-3" value={intervalDays} onChange={(event) => setIntervalDays(event.target.value)} />
+              <input
+                type="number"
+                min={1}
+                required
+                className="mt-1 min-h-11 w-full rounded-lg border px-3"
+                value={intervalDays}
+                onChange={(event) => setIntervalDays(event.target.value)}
+              />
             </label>
           ) : null}
           {trigger !== "CALENDAR" ? (
             <label className="block text-sm">
               Meter interval
-              <input className="mt-1 min-h-11 w-full rounded-lg border px-3" value={intervalValue} onChange={(event) => setIntervalValue(event.target.value)} />
+              <input
+                type="number"
+                min={1}
+                required
+                className="mt-1 min-h-11 w-full rounded-lg border px-3"
+                value={intervalValue}
+                onChange={(event) => setIntervalValue(event.target.value)}
+              />
             </label>
           ) : null}
         </div>
@@ -471,7 +612,14 @@ function CreatePlanWizard({
           </button>
         ) : null}
         {step < 4 ? (
-          <button type="button" className="min-h-11 rounded-lg bg-slate-900 px-3 text-white" onClick={() => setStep((current) => current + 1)}>
+          <button
+            type="button"
+            className="min-h-11 rounded-lg bg-slate-900 px-3 text-white"
+            onClick={() => {
+              if (!validateStep(step, false)) return;
+              setStep((current) => current + 1);
+            }}
+          >
             Continue
           </button>
         ) : (

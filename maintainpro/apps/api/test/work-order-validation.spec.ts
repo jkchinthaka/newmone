@@ -3,9 +3,11 @@ import { WorkOrderType } from "@prisma/client";
 
 import {
   assertWorkOrderAssetRules,
+  assertWorkOrderScheduleDates,
   assertValidEntityId,
   assertValidOptionalObjectId,
-  calculateSlaRisk
+  calculateSlaRisk,
+  parseWorkOrderDateField
 } from "../src/common/utils/work-order-validation";
 
 describe("work order validation", () => {
@@ -85,5 +87,40 @@ describe("work order validation", () => {
       status: "CLOSED"
     });
     expect(risk.level).toBe("NONE");
+  });
+
+  it("rejects invalid date strings", () => {
+    expect(() => parseWorkOrderDateField("dueDate", "not-a-date")).toThrow(BadRequestException);
+  });
+
+  it("returns undefined for blank date strings", () => {
+    expect(parseWorkOrderDateField("dueDate", "  ")).toBeUndefined();
+  });
+
+  it("rejects due date earlier than planned start", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates({
+        plannedStartAt: new Date("2026-10-10T00:00:00.000Z"),
+        dueDate: new Date("2026-10-01T00:00:00.000Z")
+      })
+    ).toThrow(new BadRequestException("Due date must not be earlier than planned start"));
+  });
+
+  it("rejects expected completion earlier than planned start", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates({
+        plannedStartAt: new Date("2026-10-10T00:00:00.000Z"),
+        expectedCompletionDate: new Date("2026-10-05T00:00:00.000Z")
+      })
+    ).toThrow(new BadRequestException("Expected completion must not be earlier than planned start"));
+  });
+
+  it("rejects planned end earlier than planned start", () => {
+    expect(() =>
+      assertWorkOrderScheduleDates({
+        plannedStartAt: new Date("2026-10-10T00:00:00.000Z"),
+        plannedEndAt: new Date("2026-10-09T00:00:00.000Z")
+      })
+    ).toThrow(new BadRequestException("Planned end must not be earlier than planned start"));
   });
 });

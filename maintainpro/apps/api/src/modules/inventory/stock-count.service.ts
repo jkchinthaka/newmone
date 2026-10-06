@@ -68,7 +68,17 @@ export class StockCountService {
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         lines: {
-          include: { part: { select: { id: true, partNumber: true, name: true, unit: true } } },
+          include: {
+            part: {
+              select: {
+                id: true,
+                partNumber: true,
+                name: true,
+                unit: true,
+                quantityInStock: true
+              }
+            }
+          },
           orderBy: { createdAt: "asc" }
         }
       }
@@ -190,7 +200,7 @@ export class StockCountService {
     const expected = balance?.onHand ?? 0;
     const variance = input.countedQuantity - expected;
 
-    return this.prisma.stockCountLine.upsert({
+    const line = await this.prisma.stockCountLine.upsert({
       where: { sessionId_partId: { sessionId, partId: input.partId } },
       create: {
         tenantId,
@@ -206,8 +216,20 @@ export class StockCountService {
         countedQuantity: input.countedQuantity,
         variance,
         notes: input.notes?.trim() || null
+      },
+      include: {
+        part: {
+          select: {
+            id: true,
+            partNumber: true,
+            name: true,
+            unit: true,
+            quantityInStock: true
+          }
+        }
       }
     });
+    return line;
   }
 
   /**
@@ -247,7 +269,17 @@ export class StockCountService {
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         lines: {
-          include: { part: { select: { id: true, partNumber: true, name: true, unit: true } } }
+          include: {
+            part: {
+              select: {
+                id: true,
+                partNumber: true,
+                name: true,
+                unit: true,
+                quantityInStock: true
+              }
+            }
+          }
         }
       }
     });

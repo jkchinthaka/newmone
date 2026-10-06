@@ -21,6 +21,7 @@ import {
 } from "recharts";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatReportCoverageNote } from "@/lib/display-labels";
 import { DepartmentMultiSelect } from "@/components/departments/department-select";
 
 import { downloadReportExport, formatReportValue } from "./api";
@@ -63,7 +64,7 @@ export function ReportHeader({
             Reports Dashboard
           </Link>
         ) : null}
-        <h2 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h2>
+        <h1 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">{description}</p>
       </div>
       {generatedAt ? (
@@ -367,7 +368,7 @@ export function InsightsPanel({ insights, notes }: { insights: string[]; notes?:
           <p className="text-sm font-semibold text-amber-950">Data Coverage</p>
           <div className="mt-3 space-y-2 text-sm text-amber-900">
             {notes.map((note) => (
-              <p key={note}>{note}</p>
+              <p key={note}>{formatReportCoverageNote(note)}</p>
             ))}
           </div>
         </div>

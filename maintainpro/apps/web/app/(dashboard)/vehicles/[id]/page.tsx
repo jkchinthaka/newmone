@@ -14,7 +14,6 @@ import {
   CarFront,
   CircleAlert,
   ClipboardList,
-  FileCheck2,
   Fuel,
   Loader2,
   Route,
@@ -174,8 +173,6 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const currentUser = useCurrentUser();
   const vehicleId = params.id;
-  const canOpenFg =
-    currentUser.role === "SUPER_ADMIN" || currentUser.permissions.includes("fg.access");
 
   const [role, setRole] = useState<DashboardRole>("VIEWER");
   const canEdit = VEHICLE_WRITE_ROLES.includes(role);
@@ -644,14 +641,6 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                 <Trash2 size={14} /> Delete Vehicle
               </button>
             )}
-            {canOpenFg ? (
-              <Link
-                href={"/fg" as NextRoute}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <FileCheck2 size={14} /> Open FG Digital Records
-              </Link>
-            ) : null}
           </div>
         </div>
       </section>

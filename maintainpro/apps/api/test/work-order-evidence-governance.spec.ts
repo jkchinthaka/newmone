@@ -39,6 +39,27 @@ describe("work order evidence governance", () => {
     expect(checklist.complete).toBe(false);
   });
 
+  it("marks complete only when required before and after photos are present", () => {
+    const incomplete = evaluateEvidenceRequirements(WorkOrderType.CORRECTIVE, [beforePhoto], {
+      storageEnabled: true
+    });
+    const complete = evaluateEvidenceRequirements(WorkOrderType.CORRECTIVE, [beforePhoto, afterPhoto], {
+      storageEnabled: true
+    });
+
+    expect(incomplete.complete).toBe(false);
+    expect(complete.complete).toBe(true);
+  });
+
+  it("does not mark complete when evidence is not required", () => {
+    const checklist = evaluateEvidenceRequirements(WorkOrderType.BREAKDOWN, [], {
+      storageEnabled: true
+    });
+
+    expect(checklist.required).toBe(false);
+    expect(checklist.complete).toBe(false);
+  });
+
   it("blocks technician completion when before photo missing", () => {
     expect(() =>
       assertEvidenceForTechnicianCompletion({

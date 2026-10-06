@@ -90,17 +90,6 @@ export function buildEntityJumpCommands(
     });
   }
 
-  if (hrefs.has("/fg") && /fg|cl\s*\d|nms|digital record/i.test(trimmed)) {
-    extras.push({
-      id: `entity-fg-${trimmed.toLowerCase()}`,
-      label: "Open FG Digital Records",
-      description: "Controlled production records, review, and QA",
-      href: "/fg",
-      category: "Search",
-      keywords: ["fg", "checklist", "records"]
-    });
-  }
-
   return extras;
 }
 

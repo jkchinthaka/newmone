@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Loader2, Truck } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Plus, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { downloadBulkImportTemplate, triggerBlobDownload } from "@/lib/bulk-import-api";
+import { extractRoleName } from "@/lib/role-redirect";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 interface Supplier {
   id: string;
@@ -20,9 +23,19 @@ interface Supplier {
   blacklisted: boolean;
 }
 
+const CREATE_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER", "OPERATIONS_MANAGER"]);
+
 export default function SuppliersPage() {
+  const user = useCurrentUser();
+  const roleName = extractRoleName(user);
+  const canCreate = CREATE_ROLES.has(roleName ?? "");
+  const isSuperAdmin = roleName === "SUPER_ADMIN";
+
   const [items, setItems] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ vendorCode: "", name: "", contactName: "", email: "", phone: "" });
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -40,6 +53,41 @@ export default function SuppliersPage() {
     void refresh();
   }, [refresh]);
 
+  const downloadTemplate = async () => {
+    try {
+      const blob = await downloadBulkImportTemplate("supplier");
+      triggerBlobDownload(blob, "suppliers-import-template.csv");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not download the import template."));
+    }
+  };
+
+  const submitSupplier = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim()) {
+      toast.error("Supplier name is required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiClient.post("/suppliers", {
+        name: form.name.trim(),
+        vendorCode: form.vendorCode.trim() || undefined,
+        contactName: form.contactName.trim() || undefined,
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined
+      });
+      toast.success("Supplier created");
+      setDialogOpen(false);
+      setForm({ vendorCode: "", name: "", contactName: "", email: "", phone: "" });
+      await refresh();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not create supplier."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <header>
@@ -53,10 +101,37 @@ export default function SuppliersPage() {
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Suppliers</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Parts and service providers referenced by inventory, purchase orders and work orders.
+              MaintainPro owns supplier master data for inventory, purchase orders, and work orders. Optional ERP sync
+              can refresh vendor records — see{" "}
+              <Link href={"/erp/mock-sync" as Route} className="font-medium text-brand-700 hover:underline">
+                ERP mock sync
+              </Link>
+              .
             </p>
           </div>
-          <BulkImportButton entity="supplier" entityLabel="Suppliers" onImported={refresh} />
+          <div className="flex flex-wrap gap-2">
+            {canCreate ? (
+              <button
+                type="button"
+                onClick={() => setDialogOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                <Plus size={14} aria-hidden /> Add Supplier
+              </button>
+            ) : null}
+            {isSuperAdmin ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void downloadTemplate()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Download size={14} aria-hidden /> Download Template
+                </button>
+                <BulkImportButton entity="supplier" entityLabel="Suppliers" onImported={refresh} />
+              </>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -74,8 +149,12 @@ export default function SuppliersPage() {
             <Loader2 size={16} className="mr-2 animate-spin" aria-hidden /> Loading…
           </div>
         ) : items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-400">
-            No suppliers yet. Use Bulk Upload to import your supplier master list.
+          <div className="py-12 text-center text-sm text-slate-500">
+            {canCreate
+              ? isSuperAdmin
+                ? "No suppliers yet. Add one manually, or use Bulk Upload with the CSV template."
+                : "No suppliers yet. Use Add Supplier to create your first record."
+              : "No suppliers are available for your tenant yet."}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -110,6 +189,73 @@ export default function SuppliersPage() {
           </div>
         )}
       </section>
+
+      {dialogOpen ? (
+        <form
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onSubmit={(event) => void submitSupplier(event)}
+        >
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-900">Add Supplier</h2>
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm">
+                Name *
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={form.name}
+                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  required
+                />
+              </label>
+              <label className="block text-sm">
+                Vendor code
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={form.vendorCode}
+                  onChange={(event) => setForm((current) => ({ ...current, vendorCode: event.target.value }))}
+                />
+              </label>
+              <label className="block text-sm">
+                Contact name
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={form.contactName}
+                  onChange={(event) => setForm((current) => ({ ...current, contactName: event.target.value }))}
+                />
+              </label>
+              <label className="block text-sm">
+                Email
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={form.email}
+                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                />
+              </label>
+              <label className="block text-sm">
+                Phone
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={form.phone}
+                  onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="rounded-lg border px-3 py-2 text-sm" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {busy ? "Saving…" : "Create Supplier"}
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

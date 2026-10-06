@@ -45,9 +45,9 @@ export function RolePermissionEditor({ open, onClose, onSaved, role, matrix }: R
   /**
    * Every way to leave this dialog (backdrop click, X, Cancel, Escape) must go
    * through here. Unsaved checkbox changes must never be discarded silently —
-   * that produced a real production incident: an admin toggled TECHNICIAN's
-   * fg.* checkboxes, closed the dialog believing it saved, and no request (and
-   * therefore no audit entry) was ever sent.
+   * that produced a real production incident: an admin toggled TECHNICIAN
+   * permission checkboxes, closed the dialog believing it saved, and no request
+   * (and therefore no audit entry) was ever sent.
    */
   async function requestClose() {
     if (submitting) return;

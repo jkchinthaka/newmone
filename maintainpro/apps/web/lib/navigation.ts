@@ -4,8 +4,9 @@
  * Frontend UX only — backend RBAC remains authoritative for API access.
  *
  * Retired from normal product surface (routes may remain for compatibility; not in primary nav):
- * Farm Operations, Cleaning workforce, FG product UI, SaaS Billing, Predictive AI,
+ * Farm Operations, Cleaning workforce, SaaS Billing, Predictive AI,
  * QA/Delivery/Go-Live/Post-Go-Live business admin clutter.
+ * FG Digital Records integration was removed from MaintainPro entirely.
  */
 
 import { LEGACY_FMS_HOME_PATH } from "./role-redirect";
@@ -824,15 +825,9 @@ export function canAccessNavigationPath(
   const normalized = normalizeNavigationRole(roleName);
   const normalizedPath = pathname.split("?")[0];
 
-  // FG SSO bridge must remain reachable for external FG system handoff.
-  if (normalizedPath.startsWith("/fg/sso")) {
-    return true;
-  }
+  // FG Digital Records was removed from MaintainPro; deny all roles including admins.
   if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
-    return (
-      permissions.includes("fg.access") ||
-      FULL_NAVIGATION_ROLES.has(normalized ?? "")
-    );
+    return false;
   }
 
   const isRetired = RETIRED_PATH_PREFIXES.some(

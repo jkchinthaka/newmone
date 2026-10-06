@@ -70,7 +70,9 @@ import {
   assertValidEntityId,
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
-  calculateSlaRisk
+  assertWorkOrderScheduleDates,
+  calculateSlaRisk,
+  parseWorkOrderDateField
 } from "../../common/utils/work-order-validation";
 import {
   assertIssueQuantity,
@@ -788,6 +790,12 @@ export class WorkOrdersService {
     const scheduleId = assertValidOptionalObjectId("scheduleId", data.scheduleId);
     assertWorkOrderAssetRules({ type: data.type as WorkOrderType, assetId, vehicleId, functionalLocationId });
 
+    const dueDate = parseWorkOrderDateField("dueDate", data.dueDate);
+    const expectedCompletionDate = parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate);
+    const reportedAt = parseWorkOrderDateField("reportedAt", data.reportedAt);
+    const failedAt = parseWorkOrderDateField("failedAt", data.failedAt);
+    assertWorkOrderScheduleDates({ dueDate, expectedCompletionDate });
+
     const tenantId = this.resolveTenantId(actor);
     const actorId = actor?.sub;
     if (!actorId) {
@@ -1034,14 +1042,10 @@ export class WorkOrdersService {
           jobDomain: resolvedJobDomain,
           jobCategoryId,
           ...taxonomyFields,
-          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-          expectedCompletionDate: data.expectedCompletionDate
-            ? new Date(data.expectedCompletionDate)
-            : data.dueDate
-              ? new Date(data.dueDate)
-              : undefined,
-          reportedAt: data.reportedAt ? new Date(data.reportedAt) : new Date(),
-          failedAt: data.failedAt ? new Date(data.failedAt) : undefined,
+          dueDate,
+          expectedCompletionDate: expectedCompletionDate ?? dueDate,
+          reportedAt: reportedAt ?? new Date(),
+          failedAt,
           lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
           status: WorkOrderStatus.OPEN,
           approvalStatus,
@@ -1160,11 +1164,27 @@ export class WorkOrdersService {
       throw new BadRequestException("Estimated hours must be greater than 0");
     }
 
-    const plannedStartAt = data.plannedStartAt ? new Date(data.plannedStartAt) : existing.plannedStartAt;
-    const plannedEndAt = data.plannedEndAt ? new Date(data.plannedEndAt) : existing.plannedEndAt;
-    if (plannedStartAt && plannedEndAt && plannedEndAt.getTime() < plannedStartAt.getTime()) {
-      throw new BadRequestException("Planned end must not be earlier than planned start");
-    }
+    const plannedStartAt =
+      data.plannedStartAt !== undefined
+        ? parseWorkOrderDateField("plannedStartAt", data.plannedStartAt)
+        : existing.plannedStartAt;
+    const plannedEndAt =
+      data.plannedEndAt !== undefined
+        ? parseWorkOrderDateField("plannedEndAt", data.plannedEndAt)
+        : existing.plannedEndAt;
+    const dueDate =
+      data.dueDate !== undefined ? parseWorkOrderDateField("dueDate", data.dueDate) : existing.dueDate;
+    const expectedCompletionDate =
+      data.expectedCompletionDate !== undefined
+        ? parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate)
+        : existing.expectedCompletionDate;
+
+    assertWorkOrderScheduleDates({
+      plannedStartAt,
+      plannedEndAt,
+      dueDate,
+      expectedCompletionDate
+    });
 
     assertVersionMatch(
       (existing as { version?: number }).version,
@@ -1182,12 +1202,10 @@ export class WorkOrdersService {
       data: {
         title: data.title,
         description: data.description,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-        expectedCompletionDate: data.expectedCompletionDate
-          ? new Date(data.expectedCompletionDate)
-          : undefined,
-        plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : undefined,
-        plannedEndAt: data.plannedEndAt ? new Date(data.plannedEndAt) : undefined,
+        dueDate: data.dueDate !== undefined ? dueDate : undefined,
+        expectedCompletionDate: data.expectedCompletionDate !== undefined ? expectedCompletionDate : undefined,
+        plannedStartAt: data.plannedStartAt !== undefined ? plannedStartAt : undefined,
+        plannedEndAt: data.plannedEndAt !== undefined ? plannedEndAt : undefined,
         estimatedCost: data.estimatedCost,
         estimatedHours: data.estimatedHours,
         version: { increment: 1 }

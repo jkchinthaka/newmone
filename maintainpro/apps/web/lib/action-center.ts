@@ -51,6 +51,8 @@ export type ActionCenterInventoryStats = {
 
 export type ActionCenterSystemHealthStats = {
   status: "operational" | "degraded";
+  /** Required checks that are not operational (failed, degraded, misconfigured, etc.). */
+  requiredAttention: number;
   failed: number;
   degraded: number;
 };
@@ -240,13 +242,6 @@ export function actionCenterShowsDriverLinks(variant: ActionCenterVariant): bool
   return variant === "driver";
 }
 
-export function actionCenterShowsFg(permissions: readonly string[] | undefined, roleName: string | null): boolean {
-  if (extractRoleName(roleName) === "SUPER_ADMIN") {
-    return true;
-  }
-  return Boolean(permissions?.includes("fg.access"));
-}
-
 export function actionCenterIsReadOnly(variant: ActionCenterVariant): boolean {
   return variant === "viewer" || variant === "minimal" || variant === "finance";
 }
@@ -339,10 +334,6 @@ export function buildActionCenterSections(snapshot: ActionCenterSnapshot): Actio
 
   if (actionCenterShowsFinanceSignals(snapshot.variant)) {
     sections.push(buildFinanceSection(snapshot));
-  }
-
-  if (actionCenterShowsFg(snapshot.permissions, snapshot.roleName)) {
-    sections.push(buildFgSection());
   }
 
   if (actionCenterShowsDriverLinks(snapshot.variant)) {
@@ -454,7 +445,8 @@ function buildSystemHealthSection(snapshot: ActionCenterSnapshot): ActionCenterS
   }
 
   const health = snapshot.systemHealth;
-  const needsAttention = health.status !== "operational" || health.failed > 0 || health.degraded > 0;
+  const needsAttention =
+    health.status !== "operational" || health.requiredAttention > 0 || health.failed > 0 || health.degraded > 0;
 
   return {
     id: "system-health",
@@ -469,8 +461,8 @@ function buildSystemHealthSection(snapshot: ActionCenterSnapshot): ActionCenterS
           : "All required readiness checks are operational.",
         href: "/system-health",
         tone: needsAttention ? "warning" : "success",
-        metricLabel: "Failed checks",
-        metricValue: String(health.failed),
+        metricLabel: "Checks needing attention",
+        metricValue: String(health.requiredAttention),
         statusLabel: health.status === "operational" ? "Operational" : "Needs attention"
       }
     ]
@@ -904,37 +896,6 @@ function buildFinanceSection(snapshot: ActionCenterSnapshot): ActionCenterSectio
     title: "Vendor & finance attention",
     description: "Vendor repair invoices needing finance review. This view is read-only.",
     items
-  };
-}
-
-function buildFgSection(): ActionCenterSection {
-  return {
-    id: "fg-digital-records",
-    title: "FG Digital Records",
-    description: "Controlled production records and verification. Counts come from the FG module, not this board.",
-    items: [
-      {
-        id: "fg-dashboard",
-        title: "Open FG Digital Records",
-        description: "Start or continue today's controlled production records.",
-        href: "/fg",
-        tone: "info"
-      },
-      {
-        id: "fg-review",
-        title: "Supervisor review",
-        description: "Open the FG review queue.",
-        href: "/fg/review",
-        tone: "warning"
-      },
-      {
-        id: "fg-qa",
-        title: "QA verification",
-        description: "Open the FG QA verification queue.",
-        href: "/fg/qa",
-        tone: "warning"
-      }
-    ]
   };
 }
 

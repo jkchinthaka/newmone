@@ -29,7 +29,7 @@ const KPI_ITEMS: Array<{ key: keyof EnterpriseDashboard; label: string }> = [
 ];
 
 function formatValue(key: keyof EnterpriseDashboard, value: number | null, coverage?: string) {
-  if (value == null || coverage === "INSUFFICIENT_DATA") {
+  if (value == null || coverage === "INSUFFICIENT_DATA" || coverage === "UNAVAILABLE") {
     return "Insufficient data";
   }
   if (key === "fleetAvailability") {

@@ -11,7 +11,6 @@ import { JwtAuthGuard } from "../src/common/guards/jwt-auth.guard";
 import { resolveTrustedClientIp, sanitizeCanonicalClientIp } from "../src/common/security/client-ip.util";
 import { AuthController } from "../src/modules/auth/auth.controller";
 import { AuthService } from "../src/modules/auth/auth.service";
-import { FgSsoService } from "../src/modules/auth/fg-sso.service";
 
 const LOGIN_LIMIT = 5;
 const LOGIN_TTL_MS = 60_000;
@@ -92,10 +91,6 @@ function buildThrottleModule(defaultLimit: number) {
       {
         provide: AuthService,
         useValue: authServiceMock
-      },
-      {
-        provide: FgSsoService,
-        useValue: { createAssertion: jest.fn() }
       },
       {
         provide: APP_GUARD,

@@ -10,8 +10,10 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
+import { formatReportCoverageNote } from "@/lib/display-labels";
+
 import { defaultReportFilters, getReportsDashboard, REPORT_MODULES } from "./api";
-import { ReportFiltersBar, ReportHeader, StatePanel, SummaryCards } from "./report-ui";
+import { ReportFiltersBar, StatePanel, SummaryCards } from "./report-ui";
 import { ReportFilters } from "./types";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -37,11 +39,18 @@ export function ReportsDashboardPage() {
     <div className="space-y-5 print:bg-white">
       <PageBreadcrumbs />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <ReportHeader
-          title="Reports"
-          description="A decision dashboard for operations, financials, user activity, assets, inventory, performance KPIs, driver intelligence, fuel analytics, vehicle costs, and audit activity."
-          generatedAt={dashboard?.generatedAt}
-        />
+        <header>
+          <h1 className="text-2xl font-semibold text-slate-950">Reports</h1>
+          <p className="mt-1 max-w-3xl text-sm text-slate-600">
+            A decision dashboard for operations, financials, user activity, assets, inventory, performance KPIs, driver
+            intelligence, fuel analytics, vehicle costs, and audit activity.
+          </p>
+          {dashboard?.generatedAt ? (
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Last updated {new Date(dashboard.generatedAt).toLocaleString()}
+            </p>
+          ) : null}
+        </header>
         <button type="button" onClick={() => query.refetch()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 print:hidden">
           <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} /> Refresh
         </button>
@@ -134,7 +143,7 @@ export function ReportsDashboardPage() {
                 <p className="font-semibold text-amber-950">Data Coverage Notes</p>
                 <div className="mt-2 space-y-1">
                   {notes.map((note) => (
-                    <p key={note}>{note}</p>
+                    <p key={note}>{formatReportCoverageNote(note)}</p>
                   ))}
                 </div>
                 {dashboard.currencyCode || dashboard.reportingTimezone ? (

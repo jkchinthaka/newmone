@@ -22,6 +22,7 @@ import { NotificationUatPanel } from "@/components/admin/notification-uat-panel"
 import { ProviderReadinessPanel } from "@/components/admin/provider-readiness-panel";
 import { InventoryErpSyncPanel } from "@/components/admin/inventory-erp-sync-panel";
 import { NelnaLogo } from "@/components/brand/nelna-logo";
+import { formatRequiredChecksAttention } from "@/lib/display-labels";
 
 type CheckStatus =
   | "operational"
@@ -76,6 +77,7 @@ type SystemHealth = {
     unconfigured: number;
     disabled: number;
     required: number;
+    requiredAttention?: number;
   };
   dependencies: SystemCheck[];
   configuration: SystemCheck[];
@@ -281,6 +283,8 @@ export default function SystemHealthPage() {
   );
 
   const criticalIssues = checks.filter((check) => check.required && check.status !== "operational");
+  const requiredAttentionCount =
+    healthQuery.data?.summary.requiredAttention ?? criticalIssues.length;
 
   return (
     <div className="space-y-6">
@@ -375,9 +379,9 @@ export default function SystemHealthPage() {
         ) : null}
       </section>
 
-      {criticalIssues.length > 0 ? (
+      {requiredAttentionCount > 0 ? (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">{criticalIssues.length} required dependency check needs attention.</p>
+          <p className="font-semibold">{formatRequiredChecksAttention(requiredAttentionCount)}</p>
           <p className="mt-1 leading-6">Resolve required checks before relying on production login, sync, file upload, or notification workflows.</p>
           <a href="/qa/issues/new" className="mt-2 inline-block text-sm font-medium underline">
             Report issue in QA & Incidents

@@ -38,7 +38,8 @@ function baseSnapshot(overrides: Partial<ActionCenterSnapshot> = {}): ActionCent
     systemHealth: {
       status: "operational",
       failed: 0,
-      degraded: 0
+      degraded: 0,
+      requiredAttention: 0
     },
     invitations: {
       pending: 1,
@@ -199,15 +200,13 @@ describe("action center section builders", () => {
     expect(getActionCenterTitle("inventory")).toBe("Home");
   });
 
-  it("adds FG workflow links when fg.access is granted and does not invent metrics", () => {
-    const sections = buildActionCenterSections(baseSnapshot({ permissions: ["fg.access"] }));
-    const fg = sections.find((section) => section.id === "fg-digital-records");
-    expect(fg?.items.map((item) => item.href)).toEqual(["/fg", "/fg/review", "/fg/qa"]);
-    expect(fg?.items.every((item) => item.metricValue == null)).toBe(true);
-  });
-
-  it("hides FG links when fg.access is missing", () => {
-    const sections = buildActionCenterSections(baseSnapshot());
-    expect(sections.some((section) => section.id === "fg-digital-records")).toBe(false);
+  it("never exposes FG Digital Records sections after product removal", () => {
+    const withLegacyPermission = buildActionCenterSections(baseSnapshot({ permissions: ["fg.access"] }));
+    const without = buildActionCenterSections(baseSnapshot());
+    expect(withLegacyPermission.some((section) => section.id === "fg-digital-records")).toBe(false);
+    expect(without.some((section) => section.id === "fg-digital-records")).toBe(false);
+    expect(
+      withLegacyPermission.some((section) => section.items.some((item) => item.href.startsWith("/fg")))
+    ).toBe(false);
   });
 });
