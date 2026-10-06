@@ -24,30 +24,31 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**QA regression retest complete (2026-10-06) — FAIL — BLOCKING DEFECTS.** Branch `fix/qa-remediation-pass` (from local `main` `f262f14d`). Uncommitted remediations still on disk. Not pushed. Not deployed. No production readiness claim.
+**MAIN CONSOLIDATION COMPLETE — READY FOR QA/UAT (2026-10-06).** Canonical branch `main` at `8a672350` (local = `origin/main`). Working tree clean. Obsolete remotes deleted after 0-unique-commit ancestry proof. Not production-ready until separate UAT sign-off.
 
-Retest method: no-code end-user browser + authenticated API probes with `QA-RETEST-*` records; then automated gates. Full findings live in the latest agent chat (structured failure reports). Do **not** start fixes until the product owner confirms the findings list.
+### Landed on main
+- FG Digital Records removed from MaintainPro (apps/API/nav/env/nginx/compose)
+- WO date/cost validation on create+update (past dates, reversed sequences, negative/NaN costs; zero allowed)
+- PM/asset/evidence/compliance/stock/report/a11y QA remediations
+- D3-D5 Site fixture + WO editor inline validation (no `window.alert`)
 
-### Gate results (retest)
-
+### Gates on main (`8a672350`)
 | Gate | Result |
 | --- | --- |
-| API Jest | FAIL — 226 suites pass / 1 fail (`work-order-domain-d3-d5-lifecycle.integration.spec.ts`, 11 tests: missing Site fixture) — 1949 pass / 11 fail / 10 skipped |
-| Web unit tests | PASS — 128/128 |
-| API + web typecheck | PASS |
-| Lint (typecheck alias) | PASS |
-| Next.js production build | PASS on retry (first attempt flaked `PageNotFoundError: /admin/config-history`; OneDrive `.next` race) — Next 14.2.35 |
-| Playwright E2E | FAIL — 28 pass / 12 fail / 44 skipped (auth nav visibility, bulk-import Choose file strict mode, reliability login 409, inspection smoke) |
+| API Jest | PASS — 227 suites / 1969 tests (10 skipped) |
+| Web tests | PASS — 128/128 |
+| typecheck / lint | PASS |
+| Next build | PASS |
+| Live API WO probes | PASS — bad dates / past due / neg cost rejected; valid `WO-2026-0029` cost=0 |
+| Playwright chromium | Partial — 14 pass / 6 fail (nav expectations, bulk-import selector, login 409) |
 
-### Priority retest snapshot
+### Remaining risks
+- E2E flakes / auth throttle 409
+- Asset tag format still permissive; some report enum labels; evidence “secret-like fields” warning
 
-- PASS: FG routes/nav/cards absent; `/requests/new` description no max-depth; PM interval 0/neg + ACTIVE without asset rejected; valid PM ACTIVE with asset; asset meter/warranty/service dates; duplicate tag; whitespace description; evidence WO shows checklist / no Complete; inspection no-template blocks Continue; compliance totals incl. Not Assessed; readiness returns (~5s, `requiredAttention` 2); planning `/maintenance/planning` client redirect no `NEXT_REDIRECT`; stock Ledger vs ERP copy; WO numbers clickable; no jobs overflow; report cards deep-link (`/reports/operations`); XSS title not executed as HTML.
-- FAIL / unresolved: WO create accepts `plannedStartAt` after `dueDate` and past-only `dueDate` (ids `cmuw6z7d300f1gudy8bk8vb1f`, `cmuw6z7ej00flgudyw14gdmr5`); negative `estimatedCost` accepted; asset tag `bad tag!!` accepted (`cmuw6z79400ebgudyeykt084w`); reports Status filter + Job Status Breakdown show raw enums (`OPEN`, `IN_PROGRESS`, …); evidence panel shows “Unexpected secret-like fields detected”.
-- Partial / env: suppliers Add visible for ADMIN, Bulk Upload not shown (role restriction OK); inspection review-date N/A (no completed inspections); SoD multi-role not fully exercised; first Next build flake.
+`systems/fg-digital-recording` may remain as a separate system only — do not re-wire into MaintainPro.
 
-`systems/fg-digital-recording` Django subtree remains on disk (separate system). Production is not deployed.
-
-**Next action:** fix blocking WO create date + negative cost validation first, then asset tag format / report enum labels / Jest Site fixture / E2E flakes; re-run this retest checklist. Do not merge to `main`.
+**Next action:** full UAT on `main`; triage E2E flakes and remaining medium defects separately.
 
 **Prior note — Request action menu verified (2026-10-01).** Branch `fix/request-action-menu`, head `e3313446`, parent `origin/main` `f8e79b25`. Live checks used disposable `menu-verify` requests: My Requests cancel returned 201 once and became `CANCELLED` with history action `CANCELLED` and an audit `UPDATE` that stores the reason; a second cancel is no longer offered. Start review on a separate disposable request returned 201 once and stayed on the list URL. Open work order for `MR-2026-00009` opened `/work-orders?wo=cmuo4kjap001b2annlv19asoq` (`WO-2026-0262`). Web typecheck passed. Maintenance request UI tests 14 passed. Navigation tests 23 passed. Production is not deployed.
 
