@@ -30,10 +30,10 @@ application code, schema, migration, API, RBAC, or workflow change.
 | Item | Value |
 | --- | --- |
 | Current branch | `chore/ai-hybrid-workflow` (upstream `origin/chore/ai-hybrid-workflow`, not `origin/main`) |
-| Current commit | `3a9c73f9` `chore(ai): add Cursor repository rules` (pushed) |
+| Current commit | `9bf8e743` `chore(ai): align agent governance and repo guidance` |
 | `main` baseline | `05db2bb0` (local `main` = `origin/main`; `HEAD..origin/main` empty at session start) |
 | Checkout | Fresh clone at `C:/Dev/newmone`. One worktree. **No stashes.** |
-| Uncommitted edits (this session) | `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file. **Not committed or pushed** — the user asked for review first. |
+| Edits this session | `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file. **Committed locally in `9bf8e743`; not pushed yet.** |
 
 Done this session:
 - `AGENTS.md` now has a **Git policy** section that is the single source of truth for commit, push,
