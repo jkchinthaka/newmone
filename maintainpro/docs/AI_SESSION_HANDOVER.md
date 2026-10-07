@@ -24,7 +24,15 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**CI GATE FIX — COMMITTED LOCALLY, NOT PUSHED (2026-10-07).** Branch `fix/ci-release-e2e-gates`, created
+**PR #68 OPEN (2026-10-07).** `fix/ci-release-e2e-gates` pushed; PR #68 to `main`. First CI run:
+validate-monorepo, release-validate, docker-build pass. full-stack-e2e now passes Compose validation
+and fails on `minio Error unauthorized` (pull of `quay.io/minio/minio`). Verified: Quay returns 401
+anonymously and Docker Hub `minio/minio` no longer exists (404). Follow-up commit builds the same
+pinned MinIO/mc releases from upstream GitHub source (`docker/minio/Dockerfile`, tag-to-commit
+checked) for the E2E overlay only. Production `docker-compose.yml` still references Quay: open
+infra item. Branch `main` has no protection and no rulesets (API 404 / `[]`).
+
+**CI GATE FIX — first commit `3690a6e5` (2026-10-07).** Branch `fix/ci-release-e2e-gates`, created
 with `--no-track` from `origin/main` `05db2bb0`. No upstream. Not pushed, no PR. PR #67
 (`chore/ai-hybrid-workflow`, agent governance docs) is separate, open, and **not merged**; its
 `release-validate` and `full-stack-e2e` failures are the pre-existing `main` defects fixed here.
