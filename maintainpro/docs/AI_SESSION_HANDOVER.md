@@ -24,16 +24,26 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**AI HYBRID WORKFLOW SETUP — IN PROGRESS (2026-10-07).** Docs and agent configuration only. No
-application code, schema, migration, API, RBAC, or workflow change.
+**AI HYBRID WORKFLOW SETUP — PR OPEN, AWAITING REVIEW (2026-10-07).** Docs and agent configuration
+only. No application code, schema, migration, API, RBAC, or workflow change.
 
 | Item | Value |
 | --- | --- |
 | Current branch | `chore/ai-hybrid-workflow` (upstream `origin/chore/ai-hybrid-workflow`, not `origin/main`) |
-| Current commit | `9bf8e743` `chore(ai): align agent governance and repo guidance` |
-| `main` baseline | `05db2bb0` (local `main` = `origin/main`; `HEAD..origin/main` empty at session start) |
+| Pushed head | `f2fa0994` `docs(ai): sync hybrid workflow handover state` (pushed with user approval). This handover-sync commit follows it and is **local only until the user approves a push**. |
+| `main` baseline | `05db2bb0` (local `main` = `origin/main`; `HEAD..origin/main` empty before the push) |
 | Checkout | Fresh clone at `C:/Dev/newmone`. One worktree. **No stashes.** |
-| Edits this session | `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file. **Committed locally in `9bf8e743`; not pushed yet.** |
+| Commits this session | `9bf8e743` (AGENTS.md, CLAUDE.md, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file), `f2fa0994` (this file) |
+| Pull request | **#67** https://github.com/jkchinthaka/newmone/pull/67 — base `main`, head `chore/ai-hybrid-workflow`, OPEN, auto-merge off. **Not merged; merge needs explicit user approval.** |
+
+PR #67 checks on `f2fa0994` (2026-10-07, while still running):
+
+| Check | Result |
+| --- | --- |
+| Vercel Preview Comments, Netlify deploy preview | pass |
+| Netlify header/redirect/pages rules | skipping |
+| `validate-monorepo`, `release-validate`, `docker-build`, Vercel, Workers Builds | pending at last look |
+| `full-stack-e2e` | **fail** — new cause, not MinIO: step "Validate E2E Compose config" reports `service "nginx" depends on undefined service "fg-collectstatic": invalid compose project`. The dangling dependency is `maintainpro/docker-compose.e2e.yml:223`, left over from the FG Digital Records removal already on `main`. Pre-existing; PR #67 does not touch it. Not fixed (out of scope). Run `37608135563`. |
 
 Done this session:
 - `AGENTS.md` now has a **Git policy** section that is the single source of truth for commit, push,
@@ -57,8 +67,12 @@ Remaining for this setup (not started, each needs user approval):
 - AGENTS.md "Continuous local execution" is tied to the finished 15-phase roadmap; the user should
   confirm whether that authorization still applies.
 
-**Next action:** user reviews the diff, then decides whether to commit these four files on
-`chore/ai-hybrid-workflow`.
+- Separate fix branch: remove the stale `fg-collectstatic` dependency from
+  `maintainpro/docker-compose.e2e.yml` so `full-stack-e2e` gets past Compose validation (the MinIO
+  image pull may still fail after that).
+
+**Next action:** user reviews PR #67 and the remaining CI results, approves (or not) pushing the
+local handover-sync commit, and decides on merge. Do not merge without explicit approval.
 
 ---
 
