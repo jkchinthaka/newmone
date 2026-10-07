@@ -296,7 +296,7 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     }
   });
 
-  test("E2E-WO-LC-010 stock issue deducts quantity exactly once", async ({ browser }) => {
+  test("E2E-WO-LC-010 stock issue replay is safe and leaves ERP-owned quantity unchanged", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
@@ -323,7 +323,8 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
       expect(afterRes.status()).toBe(200);
       const qtyAfter = Number(unwrapWorkOrder(await afterRes.json()).quantityInStock);
       expect(qtyAfter).toBe(qtyBefore);
-      expect(openingQty - 1).toBe(qtyBefore);
+      // Bileeta owns stock: the issue is recorded as PENDING ERP consumption, not a decrement.
+      expect(qtyBefore).toBe(openingQty);
     } finally {
       await context.close();
     }

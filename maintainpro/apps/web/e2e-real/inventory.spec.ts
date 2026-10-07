@@ -13,6 +13,13 @@ import { buildValidWorkOrderPayload } from "./helpers/work-order-payload";
 /** Canonical Nest stock-out action success status. */
 const STOCK_OUT_SUCCESS = 200 as const;
 
+/**
+ * Seeded ERP snapshot quantity for E2E-PART (scripts/e2e-seed.mjs).
+ * Bileeta owns stock: MaintainPro mirrors the snapshot and records work-order issues as
+ * PENDING ERP consumption, so quantityInStock must not move when parts are issued.
+ */
+const SEEDED_ERP_SNAPSHOT_QTY = 25;
+
 async function findTenantAPart(page: Page) {
   const list = await authenticatedGet(page, "/api/backend/inventory/parts");
   expect(list.status()).toBe(200);
@@ -69,8 +76,8 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     await loginViaUi(page, "inventory-a");
     const part = await findTenantAPart(page);
     const qty = Number(part.quantityInStock);
-    // Seed baseline is 25; focused inventory/lifecycle gates may deduct before this suite.
-    expect(qty).toBeGreaterThanOrEqual(10);
+    // ERP snapshot: issues in earlier gates must not have changed the seeded quantity.
+    expect(qty).toBe(SEEDED_ERP_SNAPSHOT_QTY);
     expect(qty).toBe(openingQty);
     partId = part.id;
     openingQty = qty;
@@ -99,16 +106,16 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     expect(JSON.stringify(body)).not.toMatch(/"accessToken"\s*:/);
   });
 
-  test("E2E-INV-004 successful issue deducts quantity exactly once", async ({ page }) => {
+  test("E2E-INV-004 successful issue leaves the ERP-owned quantity unchanged", async ({ page }) => {
     await loginViaUi(page, "inventory-a");
     const detail = await authenticatedGet(page, `/api/backend/inventory/parts/${partId}`);
     expect(detail.status()).toBe(200);
     const body = await detail.json();
     const qty = Number((body.data || body).quantityInStock);
-    expect(qty).toBe(openingQty - 1);
+    expect(qty).toBe(openingQty);
   });
 
-  test("E2E-INV-005 duplicate replay does not deduct twice", async ({ page }) => {
+  test("E2E-INV-005 duplicate replay is safe and key reuse with a new payload is rejected", async ({ page }) => {
     await loginViaUi(page, "inventory-a");
     const beforeRes = await authenticatedGet(page, `/api/backend/inventory/parts/${partId}`);
     const beforeBody = await beforeRes.json();
@@ -128,24 +135,41 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     const afterBody = await afterRes.json();
     const qtyAfter = Number((afterBody.data || afterBody).quantityInStock);
     expect(qtyAfter).toBe(qtyBefore);
-  });
 
-  test("E2E-INV-006 excess stock issue is rejected with exact 400", async ({ page }) => {
-    await loginViaUi(page, "inventory-a");
-    const negative = await authenticatedPost(page, `/api/backend/inventory/parts/${partId}/stock-out`, {
+    const conflict = await authenticatedPost(page, `/api/backend/inventory/parts/${partId}/stock-out`, {
       data: {
-        quantity: 999999,
+        quantity: 2,
         workOrderId,
-        notes: "E2E negative",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-negative`
+        notes: "E2E authorized issue",
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-primary`
       }
     });
-    expect(negative.status()).toBe(400);
-    const text = (await negative.text()).toLowerCase();
-    expect(text).toMatch(/stock|below|insufficient|cannot/);
+    expect(conflict.status()).toBe(400);
+    expect((await conflict.text()).toLowerCase()).toMatch(/idempotency key/);
   });
 
-  test("E2E-INV-007 stock movement history reconciles", async ({ page }) => {
+  // Over-issue is no longer asserted: Bileeta owns the authoritative quantity, so MaintainPro
+  // records consumption as PENDING for ERP reconciliation instead of rejecting on local stock.
+  test("E2E-INV-006 zero and negative issue quantities are rejected with exact 400", async ({ page }) => {
+    await loginViaUi(page, "inventory-a");
+    for (const [quantity, suffix] of [
+      [0, "zero"],
+      [-1, "negative"]
+    ] as const) {
+      const rejected = await authenticatedPost(page, `/api/backend/inventory/parts/${partId}/stock-out`, {
+        data: {
+          quantity,
+          workOrderId,
+          notes: "E2E invalid quantity",
+          idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${suffix}`
+        }
+      });
+      expect(rejected.status()).toBe(400);
+      expect((await rejected.text()).toLowerCase()).toMatch(/greater than 0/);
+    }
+  });
+
+  test("E2E-INV-007 stock movement history reconciles with the ERP snapshot", async ({ page }) => {
     await loginViaUi(page, "inventory-a");
     const detailRes = await authenticatedGet(page, `/api/backend/inventory/parts/${partId}`);
     const detailBody = await detailRes.json();
@@ -156,17 +180,18 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     const movBody = await movements.json();
     const rows = movBody.data || movBody || [];
     expect(Array.isArray(rows)).toBe(true);
-    expect(rows.length).toBeGreaterThan(0);
+    // Issues write PENDING ERP consumption, not local OUT movements.
+    expect(currentQty).toBe(SEEDED_ERP_SNAPSHOT_QTY);
     const outQty = (rows as Array<{ type?: string; quantity?: number }>)
       .filter((m) => m.type === "OUT")
       .reduce((sum, m) => sum + Number(m.quantity || 0), 0);
     const inQty = (rows as Array<{ type?: string; quantity?: number }>)
       .filter((m) => m.type === "IN")
       .reduce((sum, m) => sum + Number(m.quantity || 0), 0);
-    expect(25 - outQty + inQty).toBe(currentQty);
+    expect(SEEDED_ERP_SNAPSHOT_QTY - outQty + inQty).toBe(currentQty);
   });
 
-  test("E2E-INV-008 low-stock status updates when threshold crossed", async ({ page, browser }) => {
+  test("E2E-INV-008 low-stock follows the ERP snapshot, not work-order issues", async ({ page, browser }) => {
     const wo = await createTenantAWorkOrder(browser);
     await loginViaUi(page, "inventory-a");
     const part = await findTenantAPart(page);
@@ -185,6 +210,10 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     });
     expect(issue.status()).toBe(STOCK_OUT_SUCCESS);
 
+    const detailAfter = await (await authenticatedGet(page, `/api/backend/inventory/parts/${part.id}`)).json();
+    const qtyAfter = Number((detailAfter.data || detailAfter).quantityInStock);
+    expect(qtyAfter).toBe(qty);
+
     const low = await authenticatedGet(page, "/api/backend/inventory/low-stock");
     expect(low.status()).toBe(200);
     const lowBody = await low.json();
@@ -193,7 +222,9 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
       (p: { partNumber?: string; id?: string }) =>
         p.id === part.id || String(p.partNumber || "").includes(`E2E-PART-${e2eRunId()}`)
     );
-    expect(found).toBe(true);
+    // Seeded snapshot (25) is above the reorder point (8), so an issue cannot make it low stock.
+    expect(found).toBe(qtyAfter <= reorder);
+    expect(found).toBe(false);
   });
 
   test("E2E-INV-009 Inventory Keeper cannot delete inventory master data", async ({ page }) => {

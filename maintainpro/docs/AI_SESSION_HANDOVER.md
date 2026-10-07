@@ -24,6 +24,32 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PR #68 — E2E realigned to ERP stock ownership (2026-10-07).** With MinIO building from
+source (`c45c2631`), full-stack-e2e reached the inventory gate and failed: specs written on
+2026-09-23 still asserted the retired local-stock model (opening quantity on create, issue
+decrements, receipt increments, over-issue 400). Product decided on 2026-09-30 (`39e24ae1`) that
+Bileeta owns stock. User approved Option 1 (realign specs, no product change). Changed:
+- `e2e-real/inventory-diagnostic.spec.ts`: part created without opening qty; issue leaves qty
+  unchanged; replay 200; same key + different payload 400; quantity 0 → 400. Over-issue removed.
+- `e2e-real/inventory.spec.ts`: INV-002 seeded snapshot is exactly 25; INV-004 qty unchanged;
+  INV-005 adds key-reuse 400; INV-006 now 0 and -1 → 400 ("greater than 0"); INV-007 reconciles
+  against the snapshot; INV-008 issue does not move qty and part is not low stock (25 > 8).
+  INV-009..016 (RBAC, tenant, CSRF, token) unchanged.
+- `e2e-real/work-order-lifecycle.spec.ts` LC-010: qty equals opening after issue and replay.
+- `e2e-real/procurement.spec.ts` PROC-015: receipt leaves qty unchanged (PROC-016/018 already did).
+- `work-order-lifecycle-diagnostic.spec.ts`: no quantity assertion, unchanged.
+Local results: web `tsc --noEmit` pass (includes `e2e-real`); `test:release` chain run directly
+(npm wrapper hangs on Windows) exit 0, no FAIL; `git diff --check` clean. Local Playwright NOT run:
+Docker Desktop engine returned HTTP 500 for 30+ minutes; CI is the E2E evidence.
+
+**Security:** tracked `.claude/settings.local.json` contains a real-looking smoke-test password
+(also in Git history). Treat as **compromised**; the user must rotate that account password.
+Do not print it. History rewrite needs separate explicit approval (not granted).
+
+**Deferred:** QA-E2E-AUTH-REDIRECT exists only on unmerged `fix/manual-qa-blockers` /
+`test/playwright-qa-suite` (introduced by `e4759c56`); `main` redirects correctly. Not fixed on
+`main` by user decision until those branches are explicitly chosen to land.
+
 **PR #68 OPEN (2026-10-07).** `fix/ci-release-e2e-gates` pushed; PR #68 to `main`. First CI run:
 validate-monorepo, release-validate, docker-build pass. full-stack-e2e now passes Compose validation
 and fails on `minio Error unauthorized` (pull of `quay.io/minio/minio`). Verified: Quay returns 401
