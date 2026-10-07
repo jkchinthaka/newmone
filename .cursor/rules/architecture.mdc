@@ -1,0 +1,38 @@
+---
+description: MaintainPro architecture and repository working rules
+alwaysApply: true
+---
+
+# MaintainPro Architecture Rules
+
+Before making changes:
+
+1. Read `AGENTS.md`.
+2. Read `CLAUDE.md`.
+3. Read `maintainpro/docs/AI_SESSION_HANDOVER.md`.
+4. Read `maintainpro/docs/PRODUCT_FINALIZATION_LEDGER.md`.
+5. Run `git status -sb` and confirm the current branch before editing.
+
+Repository rules:
+
+- Most application work is under `maintainpro/`.
+- Treat `main` as protected.
+- Never force-push.
+- Never reset, clean, discard, or overwrite user work without explicit approval.
+- Never create a working branch with tracking inherited from `origin/main`.
+- Create branches using:
+  `git switch --no-track -c <branch-name>`
+- Push working branches explicitly:
+  `git push -u origin <branch-name>`
+- Do not merge automatically.
+- Do not modify or pop existing stashes unless explicitly requested.
+
+Architecture guidance:
+
+- Web: Next.js App Router + TypeScript.
+- API: NestJS + TypeScript.
+- Database: SQL Server through Prisma.
+- Follow the current repository implementation and authoritative project docs over older historical notes.
+- Preserve existing security, RBAC, tenant-isolation, audit, and validation behavior unless the task explicitly requires a reviewed change.
+
+When architecture or documentation conflicts are found, stop implementation and identify the conflict before making assumptions.

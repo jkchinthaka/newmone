@@ -1,0 +1,45 @@
+---
+description: MaintainPro testing, QA, regression, and evidence rules
+alwaysApply: true
+---
+
+# MaintainPro Testing Rules
+
+Before claiming a change is complete:
+
+- Run the most relevant targeted tests first.
+- Run broader regression tests when the change affects shared infrastructure, authentication, navigation, RBAC, tenant context, API contracts, or reusable components.
+- Do not weaken assertions simply to make tests pass.
+- Distinguish:
+  - product defects
+  - test defects
+  - environment/infrastructure flakes
+  - data/setup issues
+
+Playwright:
+
+- Preserve isolated, repeatable tests.
+- Avoid shared mutable authentication state between unrelated tests.
+- Use explicit role/session setup.
+- Do not hide known failures with excessive retries.
+- If a test fails, reproduce it in isolation before classifying it.
+- Keep generated Playwright artifacts and local run logs out of Git unless they are intentionally required evidence.
+
+Validation:
+
+- Run `git diff --cached --check` before commit.
+- Run `npm run validate:secret-safety` when security, environment, authentication, deployment, or configuration files are affected.
+- Run relevant typecheck, lint, unit, API, and E2E commands defined by the repository.
+- Do not claim the full suite is green unless the full suite actually completed successfully.
+
+Evidence:
+
+- Record exact commands and observed results.
+- Preserve historical test results but clearly label them as historical.
+- Update `maintainpro/docs/AI_SESSION_HANDOVER.md` after meaningful milestones.
+- Update QA documentation when the latest evidence changes the current project status.
+
+Git:
+
+- Do not commit generated test-results, HTML reports, traces, screenshots, or temporary QA logs unless explicitly required.
+- Never commit or push automatically unless the user has approved that step.
