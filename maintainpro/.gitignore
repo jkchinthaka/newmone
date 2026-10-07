@@ -71,6 +71,11 @@ artifacts/**
 apps/web/e2e-real-report/
 apps/web/e2e-real-results/
 apps/web/test-results/
+apps/web/playwright-report/
+apps/web/playwright/.auth/
+test-results/
+playwright-report/
+playwright/.auth/
 artifacts/e2e-evidence-manifest.json
 artifacts/e2e-logs/
 artifacts/deployment-evidence*.json

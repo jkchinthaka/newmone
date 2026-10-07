@@ -24,6 +24,37 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PLAYWRIGHT QA — LATEST EVIDENCE 2026-10-07 (docs update).** Branch
+`test/playwright-qa-suite` @ `6616b7d7` (suite work on disk; not claimed green). Report:
+`docs/PLAYWRIGHT_QA_STABILIZATION_REPORT.md`. Classification:
+`docs/PLAYWRIGHT_QA_FAILURE_CLASSIFICATION.md`.
+
+**Latest command:** `npm run test:e2e:qa` — **incomplete**. 90 discovered; **6 passed / 2
+failed / 82 did not run** (setup/early auth blocked downstream projects). Manager setup hit
+HTTP **502** in that run; isolated `authenticate manager` rerun **1/1 PASS** → class **D**
+transient flake, not a confirmed product defect. `session.unauth` direct protected-route
+redirect failed in the full run **and** isolated: `/action-center` stayed on `/action-center`
+(not `/login`); UI showed "Tenant access required" / "Unauthorized"; `GET /api/backend/auth/me`
+→ 401 `AUTHENTICATION_REQUIRED`; anonymous refresh → 403 `CSRF_INVALID`.
+**QA-E2E-AUTH-REDIRECT remains a confirmed product defect** — needs a separate production-code
+fix; **do not weaken** the Playwright assertion. Latest full suite is **not** green; do not
+claim 86/90 or 90/90.
+
+**Historical (earlier same day, completed controlled / full runs):** auth 11/13, requests 9/10,
+maintenance 22/22, RBAC 24/24, critical 7/7; full suite **85/5** then asset-status fixed in
+isolation (projected 86/4, never proven by a later completed 90-test run). Those results do
+not imply the latest `npm run test:e2e:qa` completed. Historically class-A: AUTH-REDIRECT
+(second logout test case), XSS-REQUEST, FLEET-ODO (latter two not re-executed in the latest
+incomplete run).
+
+No PR. Do not merge to `main`. Product WIP for qa-fresh-blocking remains stashed separately
+(`WIP qa-fresh-blocking product…`).
+
+Next action: production-code fix for QA-E2E-AUTH-REDIRECT, then XSS / fleet odo; re-run a
+**completed** `npm run test:e2e:qa` for a true baseline. Commit only when the owner asks.
+
+### Previous state
+
 **MANUAL QA CONTINUATION — 2026-10-06 (Claude, cloud clone).** Branch `fix/manual-qa-blockers`
 from `main@05db2bb0` (created `--no-track`). Commits: `e4759c56` (QA-MANUAL-001 refresh 409
 false logout: unique refresh `jti`, claim release, single-flight client refresh, redirect only

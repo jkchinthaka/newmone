@@ -13,6 +13,12 @@
     "lint": "npm run typecheck",
     "test": "tsx --test lib/__tests__/**/*.test.ts",
     "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --config playwright.qa.config.ts --ui",
+    "test:e2e:headed": "playwright test --config playwright.qa.config.ts --headed",
+    "test:e2e:qa": "playwright test --config playwright.qa.config.ts",
+    "test:e2e:maintenance": "playwright test --config playwright.qa.config.ts e2e/maintenance e2e/requests e2e/cross-module",
+    "test:e2e:rbac": "playwright test --config playwright.qa.config.ts e2e/rbac",
+    "test:e2e:report": "playwright show-report playwright-report",
     "test:e2e:staging": "playwright test --config playwright.staging.config.ts",
     "test:e2e:staging:uat002": "playwright test --config playwright.staging-uat002.config.ts",
     "test:e2e:staging:uat003": "playwright test --config playwright.staging-uat003.config.ts",
@@ -55,6 +61,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@types/leaflet": "^1.9.16",
     "@types/node": "^22.8.6",
     "@types/react": "^18.3.12",

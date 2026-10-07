@@ -53,3 +53,15 @@ Thumbs.db
 PrivateImports/
 **/MaintainPro_Vehicle_Master_Import.xlsx
 
+
+# Playwright local test artifacts
+test-results/
+playwright-report/
+
+# Local Playwright QA run logs
+e2e-qa-*.txt
+
+# Local Playwright QA run logs
+maintainpro/apps/web/e2e-qa-*.txt
+test-results/
+playwright-report/
