@@ -24,6 +24,46 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**AI HYBRID WORKFLOW SETUP — IN PROGRESS (2026-10-07).** Docs and agent configuration only. No
+application code, schema, migration, API, RBAC, or workflow change.
+
+| Item | Value |
+| --- | --- |
+| Current branch | `chore/ai-hybrid-workflow` (upstream `origin/chore/ai-hybrid-workflow`, not `origin/main`) |
+| Current commit | `3a9c73f9` `chore(ai): add Cursor repository rules` (pushed) |
+| `main` baseline | `05db2bb0` (local `main` = `origin/main`; `HEAD..origin/main` empty at session start) |
+| Checkout | Fresh clone at `C:/Dev/newmone`. One worktree. **No stashes.** |
+| Uncommitted edits (this session) | `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file. **Not committed or pushed** — the user asked for review first. |
+
+Done this session:
+- `AGENTS.md` now has a **Git policy** section that is the single source of truth for commit, push,
+  and merge: commit verified work on non-`main` branches, never push any branch without explicit
+  user approval, never push directly to `main`, never
+  merge into `main` without explicit user approval.
+- `.cursor/rules/testing.mdc` no longer says "never commit without approval". It refers to the
+  AGENTS.md policy. `CLAUDE.md` also refers to it.
+- `CLAUDE.md` architecture facts corrected against the repo: SQL Server is the Prisma provider;
+  `db:migrate` → `db:migrate:deploy`; `db:push` is disabled; MongoDB primary/replication text
+  replaced (replication code exists but `.env.example` ships it disabled); `apps/mobile` removed;
+  workflows live in root `.github/workflows/`.
+
+Tests: none run (docs-only change). `git diff --check` run after the edits.
+
+Remaining for this setup (not started, each needs user approval):
+- Untrack `.claude/settings.local.json` (committed; contains a personal path and broad permissions) and gitignore it.
+- Shared `.claude/settings.json` with deny rules; `.cursorignore` for `.env*`.
+- GitHub governance: `main` has **no branch protection and no rulesets**; no CODEOWNERS or PR
+  template; `maintainpro/.github/renovate.json` is likely not read by Renovate (not at repo root).
+- AGENTS.md "Continuous local execution" is tied to the finished 15-phase roadmap; the user should
+  confirm whether that authorization still applies.
+
+**Next action:** user reviews the diff, then decides whether to commit these four files on
+`chore/ai-hybrid-workflow`.
+
+---
+
+### Historical — main consolidation (2026-10-06)
+
 **MAIN CONSOLIDATION COMPLETE — READY FOR QA/UAT (2026-10-06).** Canonical branch `main` at `8a672350` (local = `origin/main`). Working tree clean. Obsolete remotes deleted after 0-unique-commit ancestry proof. Not production-ready until separate UAT sign-off.
 
 ### Landed on main
@@ -50,6 +90,12 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 **Next action:** full UAT on `main`; triage E2E flakes and remaining medium defects separately.
 
+### Historical — before main consolidation (2026-09-29 to 2026-10-01)
+
+> **Superseded. Do not act on the branch, worktree, or stash information below.** It describes an
+> older checkout. As of 2026-10-07 this clone has no stashes, a single worktree, and the working
+> branches named below are not current. Use the "Current state" table above.
+
 **Prior note — Request action menu verified (2026-10-01).** Branch `fix/request-action-menu`, head `e3313446`, parent `origin/main` `f8e79b25`. Live checks used disposable `menu-verify` requests: My Requests cancel returned 201 once and became `CANCELLED` with history action `CANCELLED` and an audit `UPDATE` that stores the reason; a second cancel is no longer offered. Start review on a separate disposable request returned 201 once and stayed on the list URL. Open work order for `MR-2026-00009` opened `/work-orders?wo=cmuo4kjap001b2annlv19asoq` (`WO-2026-0262`). Web typecheck passed. Maintenance request UI tests 14 passed. Navigation tests 23 passed. Production is not deployed.
 
 The performance branch `perf/final-full-project-optimization` is already merged as PR #65 (`f8e79b25`). The older `perf/full-project-optimization` stays at `43f2363b`. Do not deploy.
@@ -67,8 +113,8 @@ Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `integration/maintainpro-final-consolidation` (PR #63 to `main`). Acceptance remains `96b18385`. Do not deploy. |
-| Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
-| Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
+| Other worktrees | *(historical — not present in the 2026-10-07 clone)* `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
+| Stash | *(historical — no stashes in the 2026-10-07 clone)* `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
 
 ### How iteration 01 reached main (reconciled 2026-09-29)
@@ -153,7 +199,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 - **Never create a branch with `origin/main` as upstream** (`git switch -c x origin/main` does that).
   An IDE Sync then pushes straight to `main` (this happened on 2026-09-29). Use
-  `git switch --no-track -c <branch> origin/main` and push with `git push -u origin <branch>`.
+  `git switch --no-track -c <branch> origin/main`, and only after explicit user approval push with
+  `git push -u origin <branch>` (see the Git policy in `AGENTS.md`).
 - API Jest on a cold ts-jest cache needs more than 2 GB of heap. If running with `--no-cache`
   or on a fresh machine, set `NODE_OPTIONS=--max-old-space-size=6144`.
 
@@ -182,6 +229,9 @@ Phase 02 local shell work is complete. The items below remain release or product
    (`89533ac0`). Accepted as history; no rewrite.
 
 ## Exact next action for the next agent
+
+> **Historical.** The current next action is in "Current state" at the top of this file. The phase
+> notes below are kept as evidence only.
 
 Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into main. Do not restore Live Map.
 

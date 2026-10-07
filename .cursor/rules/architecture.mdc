@@ -22,8 +22,10 @@ Repository rules:
 - Never create a working branch with tracking inherited from `origin/main`.
 - Create branches using:
   `git switch --no-track -c <branch-name>`
-- Push working branches explicitly:
-  `git push -u origin <branch-name>`
+- Commit, push, and merge behavior follows the **Git policy** section of `AGENTS.md` (single source of truth):
+  - Agents may create and use non-`main` branches.
+  - Pushing any branch requires explicit user approval for that push.
+  - Never push directly to `main`.
 - Do not merge automatically.
 - Do not modify or pop existing stashes unless explicitly requested.
 

@@ -42,4 +42,4 @@ Evidence:
 Git:
 
 - Do not commit generated test-results, HTML reports, traces, screenshots, or temporary QA logs unless explicitly required.
-- Never commit or push automatically unless the user has approved that step.
+- Commit, push, and merge behavior follows the **Git policy** section of `AGENTS.md` (the single source of truth). Do not restate or override it here. In short: verified work may be committed on non-`main` branches; never push any branch without explicit user approval; never push directly to `main`; never merge into `main` without explicit user approval.
