@@ -24,6 +24,64 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CI GATE FIX — COMMITTED LOCALLY, NOT PUSHED (2026-10-07).** Branch `fix/ci-release-e2e-gates`, created
+with `--no-track` from `origin/main` `05db2bb0`. No upstream. Not pushed, no PR. PR #67
+(`chore/ai-hybrid-workflow`, agent governance docs) is separate, open, and **not merged**; its
+`release-validate` and `full-stack-e2e` failures are the pre-existing `main` defects fixed here.
+
+Root causes (both left behind by `6b6af0ab` "fix: remediate MaintainPro QA defects"):
+- **`release-validate` / AUD-COV-004:** `6b6af0ab` rewrote the user-facing coverage note in
+  `reports.service.ts` to plain language ("Failed sign-in attempts are recorded in the security audit
+  log without passwords or tokens."). The contract regex only matched the old wording
+  (`Failed login|SecurityEvent`). **Behavior was not lost:** `AuthService` still records
+  `LOGIN_FAILURE` / `ACCOUNT_LOCK` via `auth/auth-security-event.util.ts` (fingerprinted identifier,
+  metadata with password/token/cookie/csrf keys stripped). The contract was stale. Note that
+  AUD-COV-001..003 check `audit/security-events.service.ts`, which is not the runtime auth path.
+- **`full-stack-e2e`:** FG removal deleted the `fg` and `fg-collectstatic` services from
+  `docker-compose.yml` but not from the `docker-compose.e2e.yml` overlay. nginx still depended on
+  both, and an orphan `fg:` stub (environment only, no image) remained. Compose rejected the project
+  before any container started.
+
+Files changed (no application code):
+- `maintainpro/scripts/test/audit-event-coverage-contract.selftest.mjs` — AUD-COV-004 now accepts
+  "login" or "sign-in" but requires the note to state failed attempts are recorded **and** that
+  passwords/tokens are excluded (stricter than before). New AUD-COV-005 checks the real auth path:
+  `AuthService` records `LOGIN_FAILURE` through `recordAuthSecurityEvent`, and the util writes
+  `securityEvent`, fingerprints the identifier, and strips password/token metadata.
+- `maintainpro/docker-compose.e2e.yml` — removed the orphan `fg:` stub and the `fg` /
+  `fg-collectstatic` entries from nginx `depends_on`. No other Docker change.
+- This file.
+
+Checks actually run on this branch (2026-10-07, Windows, from `maintainpro/`):
+
+| Check | Result |
+| --- | --- |
+| `node scripts/test/audit-event-coverage-contract.selftest.mjs` | pass, AUD-COV-001..005 |
+| Original contract (`origin/main`) against this tree | AUD-COV-004 FAIL (reproduces CI) |
+| Mutation: note drops "without passwords or tokens" | AUD-COV-004 FAIL (caught) |
+| Mutation: auth `LOGIN_FAILURE` renamed | AUD-COV-005 FAIL (caught) |
+| Mutation: util stops stripping password/token keys | AUD-COV-005 FAIL (caught) |
+| Full `test:release` chain (stdin closed) | exit 0, 391 PASS, 0 FAIL |
+| Release "Retired product regression" step | pass |
+| Production compose structure fixture `config --quiet` | pass |
+| `origin/main` e2e overlay, `config --quiet` with `.env.e2e.example` | FAIL: `nginx depends on undefined service "fg-collectstatic"` (reproduces CI) |
+| Fixed e2e overlay, `config --quiet` (default and `--profile diagnostics`) | pass; nginx depends on `api`, `web` only |
+| `git diff --check` | clean |
+| API Jest | **not run locally** (fresh clone, no `node_modules`). No app code changed; full API Jest passed in CI on identical app code (PR #67 `validate-monorepo` and release-validate "Unit and integration tests"). |
+
+Not verified: the `full-stack-e2e` job beyond Compose validation. After this fix it may still fail
+on the MinIO image pull (`unauthorized`) recorded earlier. `npm run test:release` through `npm` hung
+when backgrounded on Windows; running the same chain with stdin closed passed.
+
+**Next action:** commit approved and made on `fix/ci-release-e2e-gates` (see `git log -1`). Awaiting
+separate user approval to push and open a PR.
+Merge this fix before re-running PR #67 checks. Do not merge PR #67 until its gates are re-run.
+Expect a handover merge conflict with PR #67 in this section; resolve by keeping both entries.
+
+---
+
+### Historical — main consolidation (2026-10-06)
+
 **MAIN CONSOLIDATION COMPLETE — READY FOR QA/UAT (2026-10-06).** Canonical branch `main` at `8a672350` (local = `origin/main`). Working tree clean. Obsolete remotes deleted after 0-unique-commit ancestry proof. Not production-ready until separate UAT sign-off.
 
 ### Landed on main
