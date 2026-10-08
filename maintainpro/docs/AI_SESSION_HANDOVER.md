@@ -24,6 +24,20 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-08) — asset tag format.** Branch `fix/asset-tag-format` (`--no-track` from
+`origin/main` `45a93ddc`). Defect: the asset form required `AST-` plus at least four letters or
+digits, but create, tag-availability, and asset bulk import accepted other tags. Fix: shared
+`ASSET_TAG_PATTERN` on `CreateAssetDto`, the tag-check query, and the asset bulk-import adapter
+(normalized to uppercase). `AssetsService.create` rejects a bad tag. `update` rejects only a
+**changed** tag that fails the pattern, so an existing legacy tag can still be saved unchanged.
+No schema, RBAC, or permission change.
+
+Tests: `assets-validation.spec.ts` and `asset-bulk-import-tenant.spec.ts` — 9 passed.
+Next open product item after this: report enum labels. Deferred: QA-E2E-AUTH-REDIRECT on unmerged
+QA branches; rotate the leaked smoke-test password; production compose still pins Quay MinIO.
+
+---
+
 **CURRENT (2026-10-08) — DEVELOPMENT READY.** `main` = `41e4946e` (PR #70 governance merged by
 the user). **Branch protection on `main` applied** via API: PR required (0 approvals, solo
 maintainer), required checks `validate-monorepo`, `release-validate`, `docker-build`,

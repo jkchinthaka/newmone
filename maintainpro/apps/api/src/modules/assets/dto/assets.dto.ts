@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from "@nestjs/swagger";
 import { AssetCategory, AssetCondition, AssetCriticality, AssetStatus } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
 import {
@@ -13,6 +13,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -23,6 +24,7 @@ import {
   NextServiceAfterLastServiceConstraint,
   WarrantyAfterPurchaseConstraint
 } from "./asset-date.validators";
+import { ASSET_TAG_FORMAT_MESSAGE, ASSET_TAG_PATTERN, normalizeAssetTag } from "./asset-tag";
 
 const assetSortFields = [
   "createdAt",
@@ -189,11 +191,12 @@ export class AssetListQueryDto {
 }
 
 export class CreateAssetDto {
-  @ApiProperty()
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @ApiProperty({ example: "AST-1001", description: ASSET_TAG_FORMAT_MESSAGE })
+  @Transform(({ value }) => normalizeAssetTag(value))
   @IsString()
   @MinLength(2)
   @MaxLength(60)
+  @Matches(ASSET_TAG_PATTERN, { message: ASSET_TAG_FORMAT_MESSAGE })
   assetTag!: string;
 
   @ApiProperty()
@@ -374,13 +377,27 @@ export class CreateAssetDto {
   disposalReason?: string;
 }
 
-export class UpdateAssetDto extends PartialType(CreateAssetDto) {}
-
-export class AssetTagValidationQueryDto {
-  @ApiProperty()
+/**
+ * Tag format is enforced when the tag changes (see AssetsService.update).
+ * An unchanged legacy tag can still be submitted so existing assets remain editable.
+ */
+export class UpdateAssetDto extends PartialType(OmitType(CreateAssetDto, ["assetTag"] as const)) {
+  @ApiPropertyOptional({ example: "AST-1001" })
+  @IsOptional()
+  @Transform(({ value }) => normalizeAssetTag(value))
   @IsString()
   @MinLength(2)
   @MaxLength(60)
+  assetTag?: string;
+}
+
+export class AssetTagValidationQueryDto {
+  @ApiProperty({ example: "AST-1001" })
+  @Transform(({ value }) => normalizeAssetTag(value))
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  @Matches(ASSET_TAG_PATTERN, { message: ASSET_TAG_FORMAT_MESSAGE })
   assetTag!: string;
 
   @ApiPropertyOptional()
