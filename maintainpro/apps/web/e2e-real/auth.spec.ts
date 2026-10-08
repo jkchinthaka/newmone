@@ -26,7 +26,7 @@ test.describe("E2E authentication @full-stack @security @smoke", () => {
     await page.locator("#login-email").fill(e2eEmail("admin-a"));
     await page.locator("#login-password").fill("DefinitelyWrongPass999!");
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
+    await expect(page.getByText(/incorrect email or password/i)).toBeVisible();
   });
 
   test("E2E-AUTH-003 unknown email returns same generic error pattern", async ({ page }) => {
@@ -34,7 +34,7 @@ test.describe("E2E authentication @full-stack @security @smoke", () => {
     await page.locator("#login-email").fill(`unknown.${Date.now()}@e2e.maintainpro.test`);
     await page.locator("#login-password").fill(e2ePassword());
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
+    await expect(page.getByText(/incorrect email or password/i)).toBeVisible();
   });
 
   test("E2E-AUTH-004..009 cookie flags and token non-exposure", async ({ page }) => {
