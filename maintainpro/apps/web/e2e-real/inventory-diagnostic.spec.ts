@@ -13,6 +13,8 @@ import { buildValidWorkOrderPayload } from "./helpers/work-order-payload";
  * Focused inventory gate fixture.
  * Uses a dedicated admin-created part so the shared seeded E2E-PART quantity stays intact
  * for E2E-INV-002. Unique idempotency keys avoid cross-invocation collisions.
+ * Bileeta (ERP) owns stock quantity: a part is created without an opening quantity, and a
+ * work-order-linked issue records a PENDING ERP consumption without changing quantityInStock.
  * Safe console output: statuses and yes/no flags only.
  */
 async function createGateFixtures(browser: Browser): Promise<{
@@ -46,8 +48,7 @@ async function createGateFixtures(browser: Browser): Promise<{
         unitCost: 5,
         unit: "pcs",
         minimumStock: 5,
-        reorderPoint: 2,
-        quantityInStock: 10
+        reorderPoint: 2
       }
     });
     if (createPart.status() !== 201) {
@@ -60,7 +61,7 @@ async function createGateFixtures(browser: Browser): Promise<{
     const part = partBody.data || partBody;
     const partId = String(part.id || part._id || "");
     expect(partId.length).toBeGreaterThan(0);
-    return { workOrderId, partId, openingQty: Number(part.quantityInStock ?? 10) };
+    return { workOrderId, partId, openingQty: Number(part.quantityInStock ?? 0) };
   } finally {
     await context.close();
   }
@@ -73,6 +74,7 @@ test.describe("E2E inventory diagnostic @inventory-gate", () => {
     const workOrderFound = fixtures.workOrderId.length > 0;
     const keyPrimary = `e2e-inv-gate-${e2eRunId()}-${Date.now()}-primary`;
     const keyNeg = `e2e-inv-gate-${e2eRunId()}-${Date.now()}-neg`;
+    const keyConflict = `e2e-inv-gate-${e2eRunId()}-${Date.now()}-conflict`;
 
     const login = await loginViaUi(page, "inventory-a");
     expect(login.loginResponse.status()).toBe(200);
@@ -124,10 +126,24 @@ test.describe("E2E inventory diagnostic @inventory-gate", () => {
         ? Number(((await after.json()).data || {}).quantityInStock)
         : null;
 
+    // A used idempotency key must not be reusable for a different payload.
+    const conflictFirst = workOrderFound
+      ? await authenticatedPost(page, `/api/backend/inventory/parts/${fixtures.partId}/stock-out`, {
+          data: { quantity: 1, workOrderId: fixtures.workOrderId, notes: "gate key conflict", idempotencyKey: keyConflict }
+        })
+      : null;
+    const conflictReuse = workOrderFound
+      ? await authenticatedPost(page, `/api/backend/inventory/parts/${fixtures.partId}/stock-out`, {
+          data: { quantity: 2, workOrderId: fixtures.workOrderId, notes: "gate key conflict", idempotencyKey: keyConflict }
+        })
+      : null;
+
+    // Non-positive quantities stay rejected. Over-issue is not asserted: Bileeta owns the
+    // authoritative quantity, so MaintainPro records consumption as PENDING for ERP reconciliation.
     const negative = workOrderFound
       ? await authenticatedPost(page, `/api/backend/inventory/parts/${fixtures.partId}/stock-out`, {
           data: {
-            quantity: 999999,
+            quantity: 0,
             workOrderId: fixtures.workOrderId,
             notes: "gate negative",
             idempotencyKey: keyNeg
@@ -148,12 +164,9 @@ test.describe("E2E inventory diagnostic @inventory-gate", () => {
         `work_order_found=${workOrderFound ? "yes" : "no"}`,
         `csrf_present=${names.csrf ? "yes" : "no"}`,
         `issue_status=${issue ? issue.status() : "n/a"}`,
-        `quantity_delta_valid=${afterQty !== null && afterQty === opening - 1 ? "yes" : "no"}`,
-        `duplicate_prevented=${
-          replay && afterQty !== null && replay.status() === 200 && afterQty === opening - 1
-            ? "yes"
-            : "no"
-        }`,
+        `quantity_unchanged_erp_owned=${afterQty !== null && afterQty === opening ? "yes" : "no"}`,
+        `duplicate_prevented=${replay && replay.status() === 200 && afterQty === opening ? "yes" : "no"}`,
+        `key_conflict_rejected=${conflictReuse && conflictReuse.status() === 400 ? "yes" : "no"}`,
         `negative_rejected=${negative && negative.status() === 400 ? "yes" : "no"}`,
         `movement_present=${movements.status() === 200 ? "yes" : "no"}`
       ].join(" ")
@@ -163,8 +176,10 @@ test.describe("E2E inventory diagnostic @inventory-gate", () => {
     expect(itemFound).toBe(true);
     expect(workOrderFound).toBe(true);
     expect(issue!.status()).toBe(200);
-    expect(afterQty).toBe(opening - 1);
+    expect(afterQty).toBe(opening);
     expect(replay!.status()).toBe(200);
+    expect(conflictFirst!.status()).toBe(200);
+    expect(conflictReuse!.status()).toBe(400);
     expect(negative!.status()).toBe(400);
     expect(movements.status()).toBe(200);
   });

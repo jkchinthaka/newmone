@@ -105,8 +105,9 @@ jobs:
       - name: Evidence storage status
         run: |
           mkdir -p artifacts/e2e-logs
-          echo "EVIDENCE_STORAGE=BLOCKED" | tee artifacts/e2e-logs/evidence-storage-status.txt
-          echo "Anonymous pull of quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z returns 401."
+          echo "EVIDENCE_STORAGE=MINIO_SOURCE_BUILD" | tee artifacts/e2e-logs/evidence-storage-status.txt
+          echo "MinIO images are no longer anonymously pullable (quay.io/minio returns 401)."
+          echo "docker-compose.e2e.yml builds the pinned MinIO and mc releases from upstream source."
           echo "This workflow does not treat a missing object store as a successful upload."
 
       - name: Build and start isolated E2E stack
