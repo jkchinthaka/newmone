@@ -1,7 +1,7 @@
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 
-import { CreateAssetDto } from "../src/modules/assets/dto/assets.dto";
+import { CreateAssetDto, UpdateAssetDto } from "../src/modules/assets/dto/assets.dto";
 
 describe("CreateAssetDto validation", () => {
   it("rejects negative meterReading", async () => {
@@ -52,5 +52,35 @@ describe("CreateAssetDto validation", () => {
 
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
+  });
+
+  it("rejects an asset tag that does not match AST-XXXX", async () => {
+    const dto = plainToInstance(CreateAssetDto, {
+      assetTag: "pump-1",
+      name: "Pump E"
+    });
+
+    const errors = await validate(dto);
+    expect(errors.some((error) => error.property === "assetTag")).toBe(true);
+  });
+
+  it("accepts a lowercase AST tag after normalizing it", async () => {
+    const dto = plainToInstance(CreateAssetDto, {
+      assetTag: "ast-1005",
+      name: "Pump F"
+    });
+
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.assetTag).toBe("AST-1005");
+  });
+
+  it("allows an update payload to keep a legacy tag", async () => {
+    const kept = plainToInstance(UpdateAssetDto, {
+      assetTag: "VF-01",
+      name: "Vacuum Filler"
+    });
+    expect(await validate(kept)).toHaveLength(0);
+    expect(kept.assetTag).toBe("VF-01");
   });
 });

@@ -9,13 +9,14 @@ import {
   BulkImportNormalizedRow,
   BulkImportTemplateColumn
 } from "../bulk-import-adapter";
+import { ASSET_TAG_FORMAT_MESSAGE, isValidAssetTag } from "../../assets/dto/asset-tag";
 import { normalizeEnumValue, requireTrimmedString, trimToNull } from "../util/bulk-import-normalize.util";
 
 const ASSET_CATEGORIES = Object.values(AssetCategory);
 const ASSET_CONDITIONS = Object.values(AssetCondition);
 
 const TEMPLATE_COLUMNS: BulkImportTemplateColumn[] = [
-  { key: "assetTag", header: "Asset Tag", required: true, example: "AT-1001" },
+  { key: "assetTag", header: "Asset Tag", required: true, example: "AST-1001", notes: ASSET_TAG_FORMAT_MESSAGE },
   { key: "name", header: "Name", required: true, example: "Backup Generator" },
   {
     key: "category",
@@ -55,7 +56,11 @@ export class AssetBulkImportAdapter implements BulkImportAdapter {
     const errors: BulkImportFieldIssue[] = [];
     const warnings: BulkImportFieldIssue[] = [];
 
-    const assetTag = requireTrimmedString(raw, "assetTag", errors, "Asset Tag");
+    const rawTag = requireTrimmedString(raw, "assetTag", errors, "Asset Tag");
+    const assetTag = rawTag ? rawTag.toUpperCase() : null;
+    if (assetTag && !isValidAssetTag(assetTag)) {
+      errors.push({ field: "assetTag", code: "INVALID_FORMAT", message: ASSET_TAG_FORMAT_MESSAGE });
+    }
     const name = requireTrimmedString(raw, "name", errors, "Name");
 
     const categoryParsed = normalizeEnumValue(raw.category, ASSET_CATEGORIES);

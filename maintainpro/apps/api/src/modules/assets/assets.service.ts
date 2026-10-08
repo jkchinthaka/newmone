@@ -26,6 +26,7 @@ import type {
   UpdateAssetDto,
   UpdateAssetStatusDto
 } from "./dto/assets.dto";
+import { ASSET_TAG_FORMAT_MESSAGE, isValidAssetTag, normalizeAssetTag } from "./dto/asset-tag";
 import { PrismaService } from "../../database/prisma.service";
 import { normalizeDepartmentName } from "../departments/department-master-list";
 import { AssetRegistryService } from "./asset-registry.service";
@@ -414,6 +415,7 @@ export class AssetsService {
 
   async create(tenantId: string | null | undefined, actorId: string, data: CreateAssetDto) {
     const tid = requireTenantId(tenantId);
+    data.assetTag = this.requireAssetTag(data.assetTag);
     await this.ensureUniqueAssetTag(tid, data.assetTag);
     const departmentFields = await this.resolveDepartmentFields(tenantId, data);
     const taxonomy = await this.registry.validateTaxonomy(tid, {
@@ -485,8 +487,15 @@ export class AssetsService {
     const current = await this.findOne(id, tenantId);
     const tid = requireTenantId(tenantId);
 
-    if (data.assetTag && data.assetTag !== current.assetTag) {
-      await this.ensureUniqueAssetTag(tid, data.assetTag, id);
+    if (data.assetTag) {
+      const nextTag = String(normalizeAssetTag(data.assetTag) ?? "");
+      data.assetTag = nextTag;
+      if (nextTag !== current.assetTag) {
+        if (!isValidAssetTag(nextTag)) {
+          throw new BadRequestException(ASSET_TAG_FORMAT_MESSAGE);
+        }
+        await this.ensureUniqueAssetTag(tid, nextTag, id);
+      }
     }
 
     this.validateStatusTransition(current.status, data.status, data.disposalReason ?? current.disposalReason ?? undefined);
@@ -1356,6 +1365,15 @@ export class AssetsService {
       images: "[]",
       documents: "[]"
     };
+  }
+
+  /** New tags must match the asset form. Unchanged stored tags are left alone. */
+  private requireAssetTag(assetTag: string): string {
+    const normalized = String(normalizeAssetTag(assetTag) ?? "");
+    if (!isValidAssetTag(normalized)) {
+      throw new BadRequestException(ASSET_TAG_FORMAT_MESSAGE);
+    }
+    return normalized;
   }
 
   /** MP-003: assetTag is tenant-scoped — see @@unique([tenantId, assetTag]). */
