@@ -24,6 +24,11 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PR #68 CI run 37723118973 (head `49aae03b`):** LC-019 PASS; full suite 99 passed / 4 failed (only
+E2E-AUTH-002/003 x2 projects). User approved updating them to the current generic copy
+`/incorrect email or password/i`; both cases still assert the same message (no enumeration).
+No product code changed. `test:release` exit 0.
+
 **PR #68 CI run 37720265000 (head `1cb18f4c`):** ALL focused gates PASS, incl. backup/restore
 and object recovery (DR-OBJECT-004), operations and auth-stability gates. Full Playwright suite:
 97 passed, 5 failed, 1 did not run. Failures:
