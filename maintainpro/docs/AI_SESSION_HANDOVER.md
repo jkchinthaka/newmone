@@ -24,6 +24,11 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PR #68 CI run 37719309950 (head `875f9248`):** DR-OBJECT-004 still failed but printed
+`expected_size=1642 restored_size=1642` for a ~50-byte fixture: compose build output was in the
+captured `mc cat` stdout because `pull_policy: build` rebuilt `minio-init` on every
+`docker compose run`. Removed `pull_policy: build` (images are still built once by `up --build`).
+
 **PR #68 CI run 37619813008 (head `4b9819d4`):** inventory, work-order lifecycle and procurement
 gates now PASS. SQL Server backup/restore rehearsal PASS (restore API boot, login, auth/me, work
 orders, inventory, POs, dashboard, audit all 200). Failed at object restore `DR-OBJECT-004`

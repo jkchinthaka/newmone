@@ -183,7 +183,6 @@ services:
     build:
       context: ./docker/minio
       target: server
-    pull_policy: build
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-e2e_minio_access_not_prod}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-e2e_minio_secret_not_for_production}
@@ -196,7 +195,6 @@ services:
     build:
       context: ./docker/minio
       target: client
-    pull_policy: build
     environment:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-e2e_minio_access_not_prod}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-e2e_minio_secret_not_for_production}
