@@ -9,8 +9,29 @@ for every agent:
 2. After every meaningful milestone, update `AI_SESSION_HANDOVER.md` (status, branch and SHA,
    changed files, tests actually run and their results, blockers, exact next action) and commit it
    on the working branch.
-3. Never force-push, reset or discard others' work, pop stashes you did not create, or push
-   unvalidated code to `main`. Never write secrets into these files.
+3. Follow the Git policy below. Never write secrets into these files.
+
+## Git policy (single source of truth)
+
+This section is the only authoritative rule for commit, push, and merge behavior. `CLAUDE.md`,
+`.cursor/rules/*.mdc`, and other agent instructions refer here and must not restate it differently.
+
+- **Commit:** agents may commit verified work (and handover/ledger updates) on non-`main` feature,
+  fix, or chore branches without asking first. "Verified" means the relevant checks were actually
+  run and their real results are recorded in the handover. Run `git diff --cached --check` before
+  each commit.
+- **Push:** agents must **not push any branch** without explicit user approval given for that push.
+  When approved, push only the named non-`main` branch, explicitly:
+  `git push -u origin <branch>`. **Never push directly to `main`.**
+- **Merge:** **never merge into `main`** (locally, via `gh pr merge`, or through the GitHub UI)
+  without explicit user approval given for that specific merge. Opening a PR is allowed; merging it
+  is not.
+- **Branches:** create with `git switch --no-track -c <branch>`. Never let `origin/main` become a
+  branch's upstream.
+- **Never:** force-push, `git reset --hard` or `git clean` over others' work, discard uncommitted
+  changes you did not make, or pop/drop stashes you did not create.
+- A user instruction in the current session that is stricter (for example "do not commit") always
+  overrides this default for that session.
 
 ## Continuous local execution
 

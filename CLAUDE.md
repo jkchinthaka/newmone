@@ -16,27 +16,33 @@ Any AI session can end abruptly (usage limits). Continuity lives in the repo, no
    and commit SHA, modified or uncommitted files, DB/API/RBAC/workflow changes, tests actually run
    with real results, errors and blockers, and the exact next action. Update the ledger when a
    page's status changes. Commit these doc updates on the working branch.
-3. Keep unfinished work committed on the current feature branch. Never force-push, never reset or
-   discard others' changes, never pop stashes you did not create, never push unvalidated code to `main`.
+3. Commit, push, and merge behavior is defined in one place: the **Git policy** section of
+   [`AGENTS.md`](AGENTS.md). In short: commit verified work on a non-`main` branch, never push
+   any branch without explicit user approval, never push directly to `main`, never merge into `main` without explicit user approval, never force-push,
+   never reset or discard others' changes, never pop stashes you did not create.
 4. Never record secrets (passwords, tokens, connection strings) in these files.
 
 ## Repository layout
 
-This git repo's root contains deployment glue (root `Dockerfile`, `vercel.json`, `wrangler.jsonc`, `render.yaml`, `.github/workflows/docker-image.yml`) that all point into the actual application, which lives entirely under `maintainpro/`. **Almost all work happens inside `maintainpro/`.** Run all commands below from `maintainpro/` unless otherwise noted.
+This git repo's root contains deployment glue (root `Dockerfile`, `vercel.json`, `wrangler.jsonc`, `render.yaml`) and the GitHub Actions workflows (root `.github/workflows/`), all pointing into the actual application, which lives entirely under `maintainpro/`. **Almost all work happens inside `maintainpro/`.** Run all commands below from `maintainpro/` unless otherwise noted.
 
 ```text
+.github/workflows/        # executable CI: pr-validation, release-validation, sqlserver-migration-gate,
+                          # docker-build-check, docker-image, full-stack-e2e, develop-staging-deploy
 maintainpro/
 ├── apps/
 │   ├── api/      # NestJS backend (TypeScript)
-│   ├── web/      # Next.js App Router dashboard
-│   └── mobile/   # Flutter app
+│   └── web/      # Next.js App Router dashboard / PWA
 ├── packages/
 │   ├── shared-types/   # types shared between api and web
 │   └── ui-components/  # shared React components
-├── prisma/schema.prisma  # single Prisma schema (SQL Server primary) for the whole platform
-├── docker-compose.yml / docker-compose.dev.yml
-└── .github/workflows/    # ci.yml, docker-build-check.yml, sqlserver-migration-gate.yml, …
+├── prisma/schema.prisma  # single Prisma schema (provider "sqlserver") for the whole platform
+├── prisma/migrations/    # SQL Server migrations (the rollout path)
+└── docker-compose.yml / docker-compose.dev.yml
 ```
+
+GitHub only loads workflows from the repository-root `.github/workflows/`. Do not add runnable workflow
+YAML under `maintainpro/.github/workflows/` (it holds only a pointer README).
 
 ## Commands (run from `maintainpro/`)
 
@@ -46,7 +52,7 @@ Setup:
 cp .env.example .env
 npm install
 npm run db:generate        # generate Prisma client (required before building/running api)
-npm run db:migrate:deploy  # SQL Server: apply migrations (never db:push in prod/staging)
+npm run db:migrate:deploy  # SQL Server: apply migrations (db:push is disabled)
 ```
 
 Dev servers:
@@ -83,20 +89,22 @@ npm run test:e2e --workspace @maintainpro/web
 Database:
 
 ```bash
-npm run db:push                       # push prisma/schema.prisma to MongoDB
+npm run db:migrate:deploy             # apply prisma/migrations to SQL Server (db:migrate is an alias)
+npm run db:migrate:status             # check applied vs. pending migrations
+npm run db:migrate:dev                # local only: create a new migration from schema changes
 npm run db:seed                       # requires MAINTAINPRO_SEED_PASSWORD
-npm run db:backup:resync -- --dry-run # dry run primary -> backup resync
-npm run db:backup:resync              # apply resync
-npm run db:backup:verify              # verify backup counts/checksums/outbox lag
 ```
 
-`db:migrate` is a compatibility alias for `db:push` — Prisma MongoDB has no SQL migration files; folders under `prisma/migrations/` are legacy and not the rollout path.
+SQL Server is the primary database. Schema changes ship as migration folders under `prisma/migrations/`
+and are applied with `db:migrate:deploy`. `db:push` is deliberately disabled (it exits with an error); do
+not use or reintroduce it.
 
 Docker:
 
 ```bash
 npm run docker:up:dev    # dev stack
-npm run docker:up        # production-like stack: nginx, api, web, mongo, redis, minio
+npm run docker:up        # production-like stack: nginx, api, web, sqlserver, redis, minio
+                         # (the compose `mongo` service is only a legacy migration source, not the API primary)
 ```
 
 ## Architecture
@@ -104,11 +112,11 @@ npm run docker:up        # production-like stack: nginx, api, web, mongo, redis,
 ### Backend (`apps/api`, NestJS)
 
 - **Modular monolith**: every domain (assets, vehicles, fleet, drivers, maintenance, work-orders, inventory, suppliers, fuel, trips, utilities, notifications, reports, predictive-ai, billing, farm/*, cleaning, compliance, accidents, insurance-claims, traffic-fines, etc.) is its own module under `src/modules/`, registered in `src/app.module.ts`. New domain features should follow the existing `*.module.ts` / `*.controller.ts` / `*.service.ts` pattern within a module directory.
-- **Single Prisma schema** at `prisma/schema.prisma` (MongoDB provider) shared by the whole API — `Tenant` is the root model and most domain models hang off `tenantId`.
+- **Single Prisma schema** at `prisma/schema.prisma` (SQL Server provider) shared by the whole API — `Tenant` is the root model and most domain models hang off `tenantId`.
 - **Multi-tenancy**: `TenantContextMiddleware` reads `X-Tenant-Id` and populates `req.tenantContext`; `TenantContextGuard` (in `modules/tenancy`) enforces it. Order of global guards in `app.module.ts` matters: `JwtAuthGuard` → `TenantContextGuard` → `RolesGuard` → `PermissionsGuard`.
 - **Auth/RBAC**: JWT-based (`@nestjs/passport` + `passport-jwt`). Controllers are decorated with `@UseGuards(JwtAuthGuard)`, `@Roles(...)` (checked by `RolesGuard`), and optionally `@Permissions(...)` (checked by `PermissionsGuard`, which falls back to a DB lookup of the user's role permissions when the JWT doesn't carry them — see `COMPATIBLE_PERMISSION_ALIASES` in `permissions.guard.ts` for legacy permission name mapping). Roles: `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `TECHNICIAN`, `SECURITY_OFFICER`, `DRIVER`, `VIEWER` (plus some legacy role names like `ASSET_MANAGER`/`MECHANIC` still referenced in places).
 - **Response envelope**: controllers return `{ data, message }` (or with `meta` for pagination); `ResponseInterceptor` wraps this into `{ success, data, message, meta }`. `HttpExceptionFilter` standardizes error responses. Both are registered globally in `main.ts`.
-- **Dual-database replication**: primary MongoDB Atlas (`nelna`, via `PRIMARY_DATABASE_URL`/`DATABASE_URL`) plus a local backup MongoDB (`bileeta_db`, via `BACKUP_DATABASE_URL`). Writes go through a `ReplicationOutbox`; `ReplicationSyncService` (in `src/database/`) drains it to the backup according to `DATABASE_REPLICATION_MODE` (`async_outbox` default, or `strict_dual_write`/`disabled`). See `DATABASE_MIGRATION_TO_MONGODB.md` and `DUAL_DATABASE_REPLICATION.md` for the full runbook.
+- **Database**: SQL Server via Prisma (`DATABASE_PROVIDER=sqlserver`, `DATABASE_URL`). An optional backup-replication path still exists in `src/database/` (`ReplicationOutbox`, `ReplicationSyncService`, `BACKUP_DATABASE_URL`, `DATABASE_REPLICATION_MODE`), but `.env.example` ships it **disabled** (`DATABASE_REPLICATION_ENABLED=false`, mode `disabled`). Code must not assume a backup database is present. `DATABASE_MIGRATION_TO_MONGODB.md` and `DUAL_DATABASE_REPLICATION.md` describe the earlier MongoDB setup and are historical.
 - **Background jobs**: Bull queues backed by Redis (`REDIS_URL`); if Redis is unreachable, `main.ts` deliberately swallows `ECONNREFUSED`/ioredis errors so the API still boots — queue-dependent code must degrade gracefully.
 - **External integrations are env-gated and optional** — see `env.validation.ts` and the README's "Optional backend integrations" section: SMTP/SMS notifications, ERP sync (mock provider blocked in prod unless explicitly allowed), push providers, RapidAPI-based QR/Street View/copilot, Cloudinary, MinIO. Code touching these must handle the disabled/no-op case.
 - Health endpoints (`/health`, `/health/readiness`, `/`) are mounted directly on the underlying Express instance in `main.ts`, bypassing the `/api` global prefix.
@@ -120,7 +128,7 @@ npm run docker:up        # production-like stack: nginx, api, web, mongo, redis,
 - Domain-specific API helper modules also exist (`audit-api.ts`, `driver-intelligence-api.ts`, `farm-api.ts`, `phase4-api.ts`) following the same axios-client pattern.
 - Shared UI primitives come from `@maintainpro/ui-components` and local `components/` (organized by domain: `work-orders/`, `inventory/`, `maintenance/`, `farm/`, etc., plus generic `ui/`, `forms/`, `tables/`, `layout/`, `charts/`).
 - Two deployment targets for the same Next.js app: Vercel (`npm run vercel:build`) and Cloudflare Workers via OpenNext (`npm run cloudflare:build` / `cloudflare:deploy`, config in `wrangler.jsonc`).
-- The supported client is this responsive web/PWA (`app/manifest.ts`, `public/sw.js`). The native Flutter app was discontinued; do not revive `apps/mobile`.
+- The supported client is this responsive web/PWA (`app/manifest.ts`, `public/sw.js`). The native Flutter app was removed (PR #58); there is no `apps/mobile` and it must not be revived.
 
 ### Shared packages
 
@@ -131,7 +139,7 @@ npm run docker:up        # production-like stack: nginx, api, web, mongo, redis,
 
 Validated centrally in `apps/api/src/config/env.validation.ts` (Joi schema) — any new env var consumed by the API must be added there or `ConfigModule` validation will fail at boot. `normalizeDatabaseEnvironment()` in `src/config/database-url-options.ts` runs before `ConfigModule` to reconcile equivalent deployment variable names (e.g. Render vs local).
 
-Critical vars for local dev: `PRIMARY_DATABASE_URL`/`DATABASE_URL`, `BACKUP_DATABASE_URL`, `JWT_SECRET` (or `JWT_ACCESS_SECRET`+`JWT_REFRESH_SECRET`), `CORS_ORIGIN`, `FRONTEND_URL`. See `.env.example` for the full reference and the README's environment section for what each optional integration unlocks.
+Critical vars for local dev: `DATABASE_URL` (SQL Server; `PRIMARY_DATABASE_URL` mirrors it), `JWT_SECRET` (or `JWT_ACCESS_SECRET`+`JWT_REFRESH_SECRET`), `CORS_ORIGIN`, `FRONTEND_URL`. See `.env.example` for the full reference and the README's environment section for what each optional integration unlocks.
 ## Working agreement
 
 - Act as a senior full-stack engineer: prioritize business value, UX, maintainability, and deployment readiness over tutorial-style code. This is a real platform for company use.

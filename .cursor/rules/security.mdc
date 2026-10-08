@@ -1,0 +1,42 @@
+---
+description: MaintainPro security, authentication, authorization, and secret-handling rules
+alwaysApply: true
+---
+
+# MaintainPro Security Rules
+
+Security-sensitive changes require extra caution.
+
+Authentication and session rules:
+
+- Do not weaken authentication checks to make tests pass.
+- Do not bypass session expiry, refresh-token, CSRF, or login redirect protections.
+- Treat `/auth/me`, `/auth/refresh`, logout, cookie rotation, and session recovery as security-sensitive flows.
+- Preserve the rule that users should only be redirected to login when the session is proven invalid.
+- Distinguish transient failures from confirmed authentication failures.
+- Keep HttpOnly session tokens out of browser storage.
+
+Authorization rules:
+
+- Preserve RBAC and tenant isolation.
+- Never remove permission checks without explicit product approval.
+- Server-side authorization is authoritative; UI hiding alone is not sufficient.
+- Do not expose tenant data across tenant boundaries.
+
+CSRF and mutations:
+
+- Mutating requests must keep CSRF protection unless explicitly exempted by the existing security design.
+- Do not convert `CSRF_INVALID` into a successful or silently ignored mutation.
+- Any changes to refresh/logout CSRF behavior must include regression tests.
+
+Secrets:
+
+- Never commit real passwords, API keys, tokens, private keys, production connection strings, or `.env` files.
+- Example credentials must be clearly disposable fixtures.
+- Run existing secret-safety validation when security/configuration files are changed.
+
+Validation:
+
+- Prefer fixing product behavior over weakening security-focused tests.
+- Add or update regression tests for authentication, authorization, CSRF, tenant isolation, and session lifecycle defects.
+- Clearly classify environment flakes separately from product defects.
