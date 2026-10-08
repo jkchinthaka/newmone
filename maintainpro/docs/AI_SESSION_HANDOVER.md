@@ -24,6 +24,128 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-08).** PR #68 (CI gates, MinIO source build, ERP-aligned E2E) was **merged by
+the user** at `49aae03b` → `main` `862e500e`. Its last commit (AUTH-002/003 login copy) missed the
+merge and is now PR #69 (`fix/e2e-auth-login-copy`, `dec0015b`). PR #67 (`chore/ai-hybrid-workflow`)
+was updated by merging `origin/main` `862e500e` (no rebase, no force-push); this handover conflict
+was resolved by keeping both histories below. Next: PR #69 + PR #67 CI green → merge; minimal
+governance PR; `main` protection with verified check names.
+
+---
+
+**PR #68 CI run 37720265000 (head `1cb18f4c`):** ALL focused gates PASS, incl. backup/restore
+and object recovery (DR-OBJECT-004), operations and auth-stability gates. Full Playwright suite:
+97 passed, 5 failed, 1 did not run. Failures:
+- E2E-WO-LC-019 (chromium): expected local stock-movement rows from the issue: same retired
+  local-stock assumption. Rewritten: movements 200, and the `PART_STOCK_ISSUE` audit trail for the
+  part records `parts_consumption_pending_erp` linked to this work order (admin-a has `audit.view`).
+- E2E-AUTH-002 / -003 (chromium + mobile-smoke): test looks for "invalid email or password"; the
+  login page shows "Incorrect email or password." since `80d7f0d2` (copy change, not ERP).
+  Same generic message for unknown email and wrong password, so no enumeration regression.
+  NOT changed: outside the approved ERP scope; reported to the user for a decision.
+
+**PR #68 CI run 37719309950 (head `875f9248`):** DR-OBJECT-004 still failed but printed
+`expected_size=1642 restored_size=1642` for a ~50-byte fixture: compose build output was in the
+captured `mc cat` stdout because `pull_policy: build` rebuilt `minio-init` on every
+`docker compose run`. Removed `pull_policy: build` (images are still built once by `up --build`).
+
+**PR #68 CI run 37619813008 (head `4b9819d4`):** inventory, work-order lifecycle and procurement
+gates now PASS. SQL Server backup/restore rehearsal PASS (restore API boot, login, auth/me, work
+orders, inventory, POs, dashboard, audit all 200). Failed at object restore `DR-OBJECT-004`
+(checksum mismatch between `mc cat` of source and restored object). First time MinIO was ever
+reachable in this job. Follow-up: MinIO/mc now built with upstream release ldflags (real version,
+not `DEVELOPMENT.GOGET`), and the restore check prints expected/restored byte sizes on mismatch.
+
+**PR #68 — E2E realigned to ERP stock ownership (2026-10-07).** With MinIO building from
+source (`c45c2631`), full-stack-e2e reached the inventory gate and failed: specs written on
+2026-09-23 still asserted the retired local-stock model (opening quantity on create, issue
+decrements, receipt increments, over-issue 400). Product decided on 2026-09-30 (`39e24ae1`) that
+Bileeta owns stock. User approved Option 1 (realign specs, no product change). Changed:
+- `e2e-real/inventory-diagnostic.spec.ts`: part created without opening qty; issue leaves qty
+  unchanged; replay 200; same key + different payload 400; quantity 0 → 400. Over-issue removed.
+- `e2e-real/inventory.spec.ts`: INV-002 seeded snapshot is exactly 25; INV-004 qty unchanged;
+  INV-005 adds key-reuse 400; INV-006 now 0 and -1 → 400 ("greater than 0"); INV-007 reconciles
+  against the snapshot; INV-008 issue does not move qty and part is not low stock (25 > 8).
+  INV-009..016 (RBAC, tenant, CSRF, token) unchanged.
+- `e2e-real/work-order-lifecycle.spec.ts` LC-010: qty equals opening after issue and replay.
+- `e2e-real/procurement.spec.ts` PROC-015: receipt leaves qty unchanged (PROC-016/018 already did).
+- `work-order-lifecycle-diagnostic.spec.ts`: no quantity assertion, unchanged.
+Local results: web `tsc --noEmit` pass (includes `e2e-real`); `test:release` chain run directly
+(npm wrapper hangs on Windows) exit 0, no FAIL; `git diff --check` clean. Local Playwright NOT run:
+Docker Desktop engine returned HTTP 500 for 30+ minutes; CI is the E2E evidence.
+
+**Security:** tracked `.claude/settings.local.json` contains a real-looking smoke-test password
+(also in Git history). Treat as **compromised**; the user must rotate that account password.
+Do not print it. History rewrite needs separate explicit approval (not granted).
+
+**Deferred:** QA-E2E-AUTH-REDIRECT exists only on unmerged `fix/manual-qa-blockers` /
+`test/playwright-qa-suite` (introduced by `e4759c56`); `main` redirects correctly. Not fixed on
+`main` by user decision until those branches are explicitly chosen to land.
+
+**PR #68 OPEN (2026-10-07).** `fix/ci-release-e2e-gates` pushed; PR #68 to `main`. First CI run:
+validate-monorepo, release-validate, docker-build pass. full-stack-e2e now passes Compose validation
+and fails on `minio Error unauthorized` (pull of `quay.io/minio/minio`). Verified: Quay returns 401
+anonymously and Docker Hub `minio/minio` no longer exists (404). Follow-up commit builds the same
+pinned MinIO/mc releases from upstream GitHub source (`docker/minio/Dockerfile`, tag-to-commit
+checked) for the E2E overlay only. Production `docker-compose.yml` still references Quay: open
+infra item. Branch `main` has no protection and no rulesets (API 404 / `[]`).
+
+**CI GATE FIX — first commit `3690a6e5` (2026-10-07).** Branch `fix/ci-release-e2e-gates`, created
+with `--no-track` from `origin/main` `05db2bb0`. No upstream. Not pushed, no PR. PR #67
+(`chore/ai-hybrid-workflow`, agent governance docs) is separate, open, and **not merged**; its
+`release-validate` and `full-stack-e2e` failures are the pre-existing `main` defects fixed here.
+
+Root causes (both left behind by `6b6af0ab` "fix: remediate MaintainPro QA defects"):
+- **`release-validate` / AUD-COV-004:** `6b6af0ab` rewrote the user-facing coverage note in
+  `reports.service.ts` to plain language ("Failed sign-in attempts are recorded in the security audit
+  log without passwords or tokens."). The contract regex only matched the old wording
+  (`Failed login|SecurityEvent`). **Behavior was not lost:** `AuthService` still records
+  `LOGIN_FAILURE` / `ACCOUNT_LOCK` via `auth/auth-security-event.util.ts` (fingerprinted identifier,
+  metadata with password/token/cookie/csrf keys stripped). The contract was stale. Note that
+  AUD-COV-001..003 check `audit/security-events.service.ts`, which is not the runtime auth path.
+- **`full-stack-e2e`:** FG removal deleted the `fg` and `fg-collectstatic` services from
+  `docker-compose.yml` but not from the `docker-compose.e2e.yml` overlay. nginx still depended on
+  both, and an orphan `fg:` stub (environment only, no image) remained. Compose rejected the project
+  before any container started.
+
+Files changed (no application code):
+- `maintainpro/scripts/test/audit-event-coverage-contract.selftest.mjs` — AUD-COV-004 now accepts
+  "login" or "sign-in" but requires the note to state failed attempts are recorded **and** that
+  passwords/tokens are excluded (stricter than before). New AUD-COV-005 checks the real auth path:
+  `AuthService` records `LOGIN_FAILURE` through `recordAuthSecurityEvent`, and the util writes
+  `securityEvent`, fingerprints the identifier, and strips password/token metadata.
+- `maintainpro/docker-compose.e2e.yml` — removed the orphan `fg:` stub and the `fg` /
+  `fg-collectstatic` entries from nginx `depends_on`. No other Docker change.
+- This file.
+
+Checks actually run on this branch (2026-10-07, Windows, from `maintainpro/`):
+
+| Check | Result |
+| --- | --- |
+| `node scripts/test/audit-event-coverage-contract.selftest.mjs` | pass, AUD-COV-001..005 |
+| Original contract (`origin/main`) against this tree | AUD-COV-004 FAIL (reproduces CI) |
+| Mutation: note drops "without passwords or tokens" | AUD-COV-004 FAIL (caught) |
+| Mutation: auth `LOGIN_FAILURE` renamed | AUD-COV-005 FAIL (caught) |
+| Mutation: util stops stripping password/token keys | AUD-COV-005 FAIL (caught) |
+| Full `test:release` chain (stdin closed) | exit 0, 391 PASS, 0 FAIL |
+| Release "Retired product regression" step | pass |
+| Production compose structure fixture `config --quiet` | pass |
+| `origin/main` e2e overlay, `config --quiet` with `.env.e2e.example` | FAIL: `nginx depends on undefined service "fg-collectstatic"` (reproduces CI) |
+| Fixed e2e overlay, `config --quiet` (default and `--profile diagnostics`) | pass; nginx depends on `api`, `web` only |
+| `git diff --check` | clean |
+| API Jest | **not run locally** (fresh clone, no `node_modules`). No app code changed; full API Jest passed in CI on identical app code (PR #67 `validate-monorepo` and release-validate "Unit and integration tests"). |
+
+Not verified: the `full-stack-e2e` job beyond Compose validation. After this fix it may still fail
+on the MinIO image pull (`unauthorized`) recorded earlier. `npm run test:release` through `npm` hung
+when backgrounded on Windows; running the same chain with stdin closed passed.
+
+**Next action:** commit approved and made on `fix/ci-release-e2e-gates` (see `git log -1`). Awaiting
+separate user approval to push and open a PR.
+Merge this fix before re-running PR #67 checks. Do not merge PR #67 until its gates are re-run.
+Expect a handover merge conflict with PR #67 in this section; resolve by keeping both entries.
+
+### Historical — PR #67 hybrid workflow setup (2026-10-07)
+
 **AI HYBRID WORKFLOW SETUP — PR OPEN, AWAITING REVIEW (2026-10-07).** Docs and agent configuration
 only. No application code, schema, migration, API, RBAC, or workflow change.
 

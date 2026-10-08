@@ -231,7 +231,8 @@ test.describe.serial("E2E procurement controls @procurement-gate", () => {
     expect(res.status()).toBe(201);
     const after = await authenticatedGet(page, `/api/backend/inventory/parts/${partId}`);
     const afterQty = Number(((await after.json()).data || {}).quantityInStock);
-    expect(afterQty).toBe(beforeQty + 1);
+    // Bileeta owns stock: the receipt is recorded as STOCK_RECEIPT_PENDING, not a local increment.
+    expect(afterQty).toBe(beforeQty);
     const detail = await authenticatedGet(page, `/api/backend/inventory/purchase-orders/${poId}`);
     expect(((await detail.json()).data || {}).status).toBe("PARTIALLY_RECEIVED");
   });
