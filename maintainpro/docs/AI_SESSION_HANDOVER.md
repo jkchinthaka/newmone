@@ -24,6 +24,13 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PR #68 CI run 37619813008 (head `4b9819d4`):** inventory, work-order lifecycle and procurement
+gates now PASS. SQL Server backup/restore rehearsal PASS (restore API boot, login, auth/me, work
+orders, inventory, POs, dashboard, audit all 200). Failed at object restore `DR-OBJECT-004`
+(checksum mismatch between `mc cat` of source and restored object). First time MinIO was ever
+reachable in this job. Follow-up: MinIO/mc now built with upstream release ldflags (real version,
+not `DEVELOPMENT.GOGET`), and the restore check prints expected/restored byte sizes on mismatch.
+
 **PR #68 — E2E realigned to ERP stock ownership (2026-10-07).** With MinIO building from
 source (`c45c2631`), full-stack-e2e reached the inventory gate and failed: specs written on
 2026-09-23 still asserted the retired local-stock model (opening quantity on create, issue

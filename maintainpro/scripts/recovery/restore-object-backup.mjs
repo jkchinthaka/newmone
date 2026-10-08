@@ -95,6 +95,8 @@ function main() {
   const digest = createHash("sha256").update(body).digest("hex");
   if (digest !== obj.checksum) {
     console.log("DR-OBJECT-004=FAIL");
+    // Sizes only (never object content) so a mismatch can be diagnosed from CI logs.
+    console.log(`expected_size=${obj.size} restored_size=${Buffer.byteLength(body)}`);
     throw new Error("object checksum mismatch");
   }
   console.log("DR-OBJECT-002=PASS");

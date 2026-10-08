@@ -5,6 +5,9 @@
 # docker-compose.yml pins, and checks each tag resolves to its known upstream commit (peeled, not the tag object) so a moved
 # tag fails the build instead of silently changing the binary.
 #
+# Binaries use the same release ldflags as upstream's Makefile, so they report the real release
+# version instead of DEVELOPMENT.GOGET.
+#
 # Targets: `server` (minio) and `client` (mc). Used only by docker-compose.e2e.yml.
 
 ARG GO_IMAGE=golang:1.24-alpine
@@ -19,14 +22,18 @@ ARG MINIO_RELEASE=RELEASE.2025-04-22T22-12-26Z
 ARG MINIO_COMMIT=0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
 RUN git clone --depth 1 --branch "$MINIO_RELEASE" https://github.com/minio/minio.git /src \
  && test "$(git -C /src rev-parse HEAD)" = "$MINIO_COMMIT" \
- && cd /src && go build -o /out/minio .
+ && cd /src \
+ && go build -tags kqueue -o /out/minio \
+      -ldflags "$(MINIO_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "${MINIO_RELEASE#RELEASE.}")" .
 
 FROM build-base AS build-client
 ARG MC_RELEASE=RELEASE.2025-04-16T18-13-26Z
 ARG MC_COMMIT=b00526b153a31b36767991a4f5ce2cced435ee8e
 RUN git clone --depth 1 --branch "$MC_RELEASE" https://github.com/minio/mc.git /src \
  && test "$(git -C /src rev-parse HEAD)" = "$MC_COMMIT" \
- && cd /src && go build -o /out/mc .
+ && cd /src \
+ && go build -tags kqueue -o /out/mc \
+      -ldflags "$(MC_RELEASE=RELEASE go run buildscripts/gen-ldflags.go "${MC_RELEASE#RELEASE.}")" .
 
 FROM ${RUNTIME_IMAGE} AS server
 RUN apk add --no-cache ca-certificates
