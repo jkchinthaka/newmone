@@ -24,6 +24,28 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-08) — governance.** PR #67 merged (`main` `33b5a6b4`, checks: validate-monorepo,
+release-validate, docker-build, full-stack-e2e all pass). Branch `chore/ci-ai-governance` (from
+`main`, `--no-track`) adds the minimal governance:
+- `.claude/settings.local.json` untracked (local copy kept) and gitignored. It held a real-looking
+  smoke-test password, which stays in Git history: **compromised, user must rotate it.** No history
+  rewrite (not approved).
+- `.claude/settings.json` (shared): denies force-push, `git push origin main`, `reset --hard`,
+  `clean -f*`, `stash pop/drop/clear`, `filter-branch/filter-repo`, `db:push`, reading real `.env`
+  and key files. Allows git read commands, npm test/lint/typecheck, npx tsc/jest/playwright, gh pr/run reads.
+- `.cursorignore`: `.env*` (templates kept), keys, local config, build output, Playwright reports.
+- `.github/pull_request_template.md`, `.github/CODEOWNERS` (`* @jkchinthaka`, the repo owner).
+- Renovate config moved to `.github/renovate.json` (Renovate does not read `maintainpro/.github/`).
+- Concurrency cancellation added to pr-validation, release-validation, docker-build-check,
+  sqlserver-migration-gate. docker-build-check also validates the E2E compose overlay.
+- `CLAUDE.md`: Vercel/Cloudflare marked retired (not merge gates); Netlify informational.
+Not changed (no proof of harm, out of minimal scope): `docker-image.yml` (manual no-op),
+`develop-staging-deploy.yml` (no `develop` branch exists), production compose still pins Quay MinIO.
+Checks run: YAML parse of all workflows, JSON parse of settings/renovate, E2E compose config,
+`validate:secret-safety` 12/0, `git diff --check`.
+
+---
+
 **CURRENT (2026-10-08).** `main` = `d452a0c1`. PR #68 merged by the user (`862e500e`); follow-up
 PR #69 (AUTH-002/003 login copy) merged by the user (`d452a0c1`). PR #69 CI: validate-monorepo,
 release-validate, docker-build and **full-stack-e2e all PASS** (first green full-stack E2E);
