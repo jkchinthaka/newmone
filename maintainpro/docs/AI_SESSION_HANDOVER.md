@@ -24,6 +24,28 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-08) — DEVELOPMENT READY.** `main` = `41e4946e` (PR #70 governance merged by
+the user). **Branch protection on `main` applied** via API: PR required (0 approvals, solo
+maintainer), required checks `validate-monorepo`, `release-validate`, `docker-build`,
+`full-stack-e2e` (GitHub Actions app 15368; all verified green on PR #67 and #69), branch must be
+up to date (strict), admins enforced, force-push and deletion blocked. `fresh-sqlserver-migrate` is
+path-filtered and therefore NOT required (it would block unrelated PRs).
+
+First development task: branch `fix/evidence-secret-warning` (`--no-track` from `main`).
+Defect: `evidencePayloadHasSecrets` (web `lib/work-order-evidence.ts`) regex-matched serialized
+values, so provider id `minio`, missing env names (`MINIO_SECRET_KEY`) or notes mentioning "token"
+showed "Unexpected secret-like fields detected in evidence data" on normal work orders. (Listed as
+"evidence secret-like fields warning" in Remaining risks.) Fix: recursive key-name check (mirrors
+server `containsUnredactedSecrets`). Regression test `lib/__tests__/work-order-evidence-secrets.test.ts`
+was red 3/6 before the fix, 6/6 after. Web `npm test` 134/134, web `tsc --noEmit` pass.
+No API, DB, RBAC or schema change.
+
+Still open (not started): asset tag format is enforced only in the web form; report enum labels;
+QA-E2E-AUTH-REDIRECT deferred with the unmerged QA branches; rotate the leaked smoke-test password;
+production `docker-compose.yml` still pins Quay MinIO images (anonymous pull returns 401).
+
+---
+
 **CURRENT (2026-10-08) — governance.** PR #67 merged (`main` `33b5a6b4`, checks: validate-monorepo,
 release-validate, docker-build, full-stack-e2e all pass). Branch `chore/ci-ai-governance` (from
 `main`, `--no-track`) adds the minimal governance:
