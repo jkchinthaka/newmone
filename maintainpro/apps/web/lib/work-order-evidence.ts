@@ -133,13 +133,26 @@ export function formatEvidenceFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Field names that must never reach the browser in evidence payloads (storage internals, credentials). */
+const SECRET_LIKE_EVIDENCE_KEY = /storage_?key|secret|token|presign|access_?key|password|credential|signature|cloudinary|minio/i;
+
+/**
+ * True when any field *name* in the payload looks like a leaked storage internal or credential.
+ * Values are not inspected: provider ids ("minio"), missing env var names, file names and
+ * technician notes legitimately contain these words.
+ */
 export function evidencePayloadHasSecrets(value: unknown): boolean {
-  if (!value) {
+  if (!value || typeof value !== "object") {
     return false;
   }
 
-  const serialized = JSON.stringify(value);
-  return /storagekey|storage_key|secret|token|presign|cloudinary|minio|access_key/i.test(serialized);
+  if (Array.isArray(value)) {
+    return value.some((entry) => evidencePayloadHasSecrets(entry));
+  }
+
+  return Object.entries(value as Record<string, unknown>).some(
+    ([key, nested]) => SECRET_LIKE_EVIDENCE_KEY.test(key) || evidencePayloadHasSecrets(nested)
+  );
 }
 
 export function evidenceUploadDisabledMessage(readiness: EvidenceStorageReadiness | null | undefined): string {
