@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: docker-build-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: maintainpro
@@ -31,6 +35,12 @@ jobs:
           cp .env.production.structure-fixture.example .env
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml config --quiet
           rm -f .env
+
+      - name: Validate compose config (E2E overlay)
+        run: |
+          cp .env.e2e.example .env.e2e
+          docker compose --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml config --quiet
+          rm -f .env.e2e
 
       - name: Secret and configuration safety
         run: node scripts/validate-secret-safety.mjs

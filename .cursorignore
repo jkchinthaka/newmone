@@ -1,0 +1,46 @@
+# Keep secrets, local personal config and generated output out of Cursor's index and context.
+# Source, config templates (.env.example, .env.*.example) and docs stay visible.
+
+# Environment files and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/
+**/secrets/
+PrivateImports/
+
+# Local personal agent/editor configuration
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Dependencies and build output
+node_modules/
+**/node_modules/
+**/.next/
+**/.open-next/
+**/dist/
+**/build/
+**/coverage/
+*.tsbuildinfo
+
+# Generated test output, Playwright reports and traces
+**/test-results/
+**/playwright-report/
+**/e2e-real-report/
+**/e2e-real-results/
+**/blob-report/
+**/*.trace.zip
+maintainpro/artifacts/
+
+# Logs and local data
+*.log
+uploads/
+**/uploads/
