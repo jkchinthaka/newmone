@@ -456,7 +456,23 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const body = await movements.json();
     const rows = body.data?.items || body.data || body.items || body || [];
     expect(Array.isArray(rows)).toBe(true);
-    expect(rows.length).toBeGreaterThan(0);
+
+    // Bileeta owns stock, so the issue writes no local stock movement. The work-order linkage
+    // is the PENDING ERP consumption, recorded in the part's stock-issue audit trail.
+    await loginViaUi(page, "admin-a");
+    const audit = await authenticatedGet(
+      page,
+      `/api/backend/audit-logs?entity=PART_STOCK_ISSUE&entityId=${encodeURIComponent(partId)}&pageSize=100`
+    );
+    expect(audit.status()).toBe(200);
+    const auditBody = await audit.json();
+    const entries: unknown[] = auditBody.data?.items || auditBody.data || [];
+    expect(Array.isArray(entries)).toBe(true);
+    const linked = entries.some((entry) => {
+      const text = JSON.stringify(entry);
+      return text.includes(workOrderId) && text.includes("parts_consumption_pending_erp");
+    });
+    expect(linked).toBe(true);
   });
 
   test("E2E-WO-LC-020 list contains verified WO by title match", async ({ page }) => {

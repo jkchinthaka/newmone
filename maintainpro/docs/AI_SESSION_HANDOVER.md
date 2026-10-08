@@ -24,6 +24,17 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**PR #68 CI run 37720265000 (head `1cb18f4c`):** ALL focused gates PASS, incl. backup/restore
+and object recovery (DR-OBJECT-004), operations and auth-stability gates. Full Playwright suite:
+97 passed, 5 failed, 1 did not run. Failures:
+- E2E-WO-LC-019 (chromium): expected local stock-movement rows from the issue: same retired
+  local-stock assumption. Rewritten: movements 200, and the `PART_STOCK_ISSUE` audit trail for the
+  part records `parts_consumption_pending_erp` linked to this work order (admin-a has `audit.view`).
+- E2E-AUTH-002 / -003 (chromium + mobile-smoke): test looks for "invalid email or password"; the
+  login page shows "Incorrect email or password." since `80d7f0d2` (copy change, not ERP).
+  Same generic message for unknown email and wrong password, so no enumeration regression.
+  NOT changed: outside the approved ERP scope; reported to the user for a decision.
+
 **PR #68 CI run 37719309950 (head `875f9248`):** DR-OBJECT-004 still failed but printed
 `expected_size=1642 restored_size=1642` for a ~50-byte fixture: compose build output was in the
 captured `mc cat` stdout because `pull_policy: build` rebuilt `minio-init` on every
