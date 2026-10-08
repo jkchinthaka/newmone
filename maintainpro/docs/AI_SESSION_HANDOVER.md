@@ -24,6 +24,16 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-08).** `main` = `d452a0c1`. PR #68 merged by the user (`862e500e`); follow-up
+PR #69 (AUTH-002/003 login copy) merged by the user (`d452a0c1`). PR #69 CI: validate-monorepo,
+release-validate, docker-build and **full-stack-e2e all PASS** (first green full-stack E2E);
+Netlify deploy preview failed (informational, not a repo-owned gate). PR #67
+(`chore/ai-hybrid-workflow`) updated from `main` by merge (no rebase, no force-push); handover
+conflicts resolved by keeping both histories. Next: PR #67 CI green → merge; minimal governance PR;
+`main` protection with verified check names.
+
+---
+
 **PR #68 CI run 37723118973 (head `49aae03b`):** LC-019 PASS; full suite 99 passed / 4 failed (only
 E2E-AUTH-002/003 x2 projects). User approved updating them to the current generic copy
 `/incorrect email or password/i`; both cases still assert the same message (no enumeration).
@@ -140,6 +150,58 @@ separate user approval to push and open a PR.
 Merge this fix before re-running PR #67 checks. Do not merge PR #67 until its gates are re-run.
 Expect a handover merge conflict with PR #67 in this section; resolve by keeping both entries.
 
+### Historical — PR #67 hybrid workflow setup (2026-10-07)
+
+**AI HYBRID WORKFLOW SETUP — PR OPEN, AWAITING REVIEW (2026-10-07).** Docs and agent configuration
+only. No application code, schema, migration, API, RBAC, or workflow change.
+
+| Item | Value |
+| --- | --- |
+| Current branch | `chore/ai-hybrid-workflow` (upstream `origin/chore/ai-hybrid-workflow`, not `origin/main`) |
+| Pushed head | `f2fa0994` `docs(ai): sync hybrid workflow handover state` (pushed with user approval). This handover-sync commit follows it and is **local only until the user approves a push**. |
+| `main` baseline | `05db2bb0` (local `main` = `origin/main`; `HEAD..origin/main` empty before the push) |
+| Checkout | Fresh clone at `C:/Dev/newmone`. One worktree. **No stashes.** |
+| Commits this session | `9bf8e743` (AGENTS.md, CLAUDE.md, `.cursor/rules/testing.mdc`, `.cursor/rules/architecture.mdc`, this file), `f2fa0994` (this file) |
+| Pull request | **#67** https://github.com/jkchinthaka/newmone/pull/67 — base `main`, head `chore/ai-hybrid-workflow`, OPEN, auto-merge off. **Not merged; merge needs explicit user approval.** |
+
+PR #67 checks on `f2fa0994` (2026-10-07, while still running):
+
+| Check | Result |
+| --- | --- |
+| Vercel Preview Comments, Netlify deploy preview | pass |
+| Netlify header/redirect/pages rules | skipping |
+| `validate-monorepo`, `release-validate`, `docker-build`, Vercel, Workers Builds | pending at last look |
+| `full-stack-e2e` | **fail** — new cause, not MinIO: step "Validate E2E Compose config" reports `service "nginx" depends on undefined service "fg-collectstatic": invalid compose project`. The dangling dependency is `maintainpro/docker-compose.e2e.yml:223`, left over from the FG Digital Records removal already on `main`. Pre-existing; PR #67 does not touch it. Not fixed (out of scope). Run `37608135563`. |
+
+Done this session:
+- `AGENTS.md` now has a **Git policy** section that is the single source of truth for commit, push,
+  and merge: commit verified work on non-`main` branches, never push any branch without explicit
+  user approval, never push directly to `main`, never
+  merge into `main` without explicit user approval.
+- `.cursor/rules/testing.mdc` no longer says "never commit without approval". It refers to the
+  AGENTS.md policy. `CLAUDE.md` also refers to it.
+- `CLAUDE.md` architecture facts corrected against the repo: SQL Server is the Prisma provider;
+  `db:migrate` → `db:migrate:deploy`; `db:push` is disabled; MongoDB primary/replication text
+  replaced (replication code exists but `.env.example` ships it disabled); `apps/mobile` removed;
+  workflows live in root `.github/workflows/`.
+
+Tests: none run (docs-only change). `git diff --check` run after the edits.
+
+Remaining for this setup (not started, each needs user approval):
+- Untrack `.claude/settings.local.json` (committed; contains a personal path and broad permissions) and gitignore it.
+- Shared `.claude/settings.json` with deny rules; `.cursorignore` for `.env*`.
+- GitHub governance: `main` has **no branch protection and no rulesets**; no CODEOWNERS or PR
+  template; `maintainpro/.github/renovate.json` is likely not read by Renovate (not at repo root).
+- AGENTS.md "Continuous local execution" is tied to the finished 15-phase roadmap; the user should
+  confirm whether that authorization still applies.
+
+- Separate fix branch: remove the stale `fg-collectstatic` dependency from
+  `maintainpro/docker-compose.e2e.yml` so `full-stack-e2e` gets past Compose validation (the MinIO
+  image pull may still fail after that).
+
+**Next action:** user reviews PR #67 and the remaining CI results, approves (or not) pushing the
+local handover-sync commit, and decides on merge. Do not merge without explicit approval.
+
 ---
 
 ### Historical — main consolidation (2026-10-06)
@@ -170,6 +232,12 @@ Expect a handover merge conflict with PR #67 in this section; resolve by keeping
 
 **Next action:** full UAT on `main`; triage E2E flakes and remaining medium defects separately.
 
+### Historical — before main consolidation (2026-09-29 to 2026-10-01)
+
+> **Superseded. Do not act on the branch, worktree, or stash information below.** It describes an
+> older checkout. As of 2026-10-07 this clone has no stashes, a single worktree, and the working
+> branches named below are not current. Use the "Current state" table above.
+
 **Prior note — Request action menu verified (2026-10-01).** Branch `fix/request-action-menu`, head `e3313446`, parent `origin/main` `f8e79b25`. Live checks used disposable `menu-verify` requests: My Requests cancel returned 201 once and became `CANCELLED` with history action `CANCELLED` and an audit `UPDATE` that stores the reason; a second cancel is no longer offered. Start review on a separate disposable request returned 201 once and stayed on the list URL. Open work order for `MR-2026-00009` opened `/work-orders?wo=cmuo4kjap001b2annlv19asoq` (`WO-2026-0262`). Web typecheck passed. Maintenance request UI tests 14 passed. Navigation tests 23 passed. Production is not deployed.
 
 The performance branch `perf/final-full-project-optimization` is already merged as PR #65 (`f8e79b25`). The older `perf/full-project-optimization` stays at `43f2363b`. Do not deploy.
@@ -187,8 +255,8 @@ Post-acceptance shell refinement is on `ui/nelna-shell-refinement` (created with
 | Local Git | `feature/phase-05-all-jobs`, fast-forwarded to Phase 04 `5f393d65`, then the jobs-board start. Do not merge directly into main. Not pushed. |
 | `origin/main` | `0f355313`. PR **#62** merged (`Merge pull request #62`). `git diff HEAD...origin/main` has no file changes; the CI heap history was already in this branch. Do not merge this feature branch into main. |
 | Working branch | `integration/maintainpro-final-consolidation` (PR #63 to `main`). Acceptance remains `96b18385`. Do not deploy. |
-| Other worktrees | `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
-| Stash | `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
+| Other worktrees | *(historical — not present in the 2026-10-07 clone)* `C:/Dev/newmone-maintenance-costs`, `C:/Dev/newmone-vendor-eligibility`: already merged; leave alone |
+| Stash | *(historical — no stashes in the 2026-10-07 clone)* `stash@{0}` "pre-main-handover-20260929": not ours, do not pop or drop |
 | Local dev stack | User's `npm run dev` in this tree (API :3000 `node --watch`, web :3001 `next dev`), DB `MaintainProDev` (local SQL Server) |
 
 ### How iteration 01 reached main (reconciled 2026-09-29)
@@ -273,7 +341,8 @@ Details and defect table: `PRODUCT_FINALIZATION_LEDGER.md` section E. Summary:
 
 - **Never create a branch with `origin/main` as upstream** (`git switch -c x origin/main` does that).
   An IDE Sync then pushes straight to `main` (this happened on 2026-09-29). Use
-  `git switch --no-track -c <branch> origin/main` and push with `git push -u origin <branch>`.
+  `git switch --no-track -c <branch> origin/main`, and only after explicit user approval push with
+  `git push -u origin <branch>` (see the Git policy in `AGENTS.md`).
 - API Jest on a cold ts-jest cache needs more than 2 GB of heap. If running with `--no-cache`
   or on a fresh machine, set `NODE_OPTIONS=--max-old-space-size=6144`.
 
@@ -302,6 +371,9 @@ Phase 02 local shell work is complete. The items below remain release or product
    (`89533ac0`). Accepted as history; no rewrite.
 
 ## Exact next action for the next agent
+
+> **Historical.** The current next action is in "Current state" at the top of this file. The phase
+> notes below are kept as evidence only.
 
 Continue on a new `--no-track` branch for Phase 12. Do not merge Phase 11 into main. Do not restore Live Map.
 
