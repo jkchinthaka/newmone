@@ -127,7 +127,7 @@ npm run docker:up        # production-like stack: nginx, api, web, sqlserver, re
 - API access goes through `lib/api-client.ts` (axios instance, base URL from `lib/api-url.ts`, auth token from `lib/auth-storage.ts`, active tenant from `lib/tenant-context.ts`, sent as `X-Tenant-Id`). `getApiErrorMessage()` in the same file normalizes axios errors (network, timeout, `DATABASE_UNAVAILABLE`) into user-facing messages — reuse it rather than re-deriving error strings.
 - Domain-specific API helper modules also exist (`audit-api.ts`, `driver-intelligence-api.ts`, `farm-api.ts`, `phase4-api.ts`) following the same axios-client pattern.
 - Shared UI primitives come from `@maintainpro/ui-components` and local `components/` (organized by domain: `work-orders/`, `inventory/`, `maintenance/`, `farm/`, etc., plus generic `ui/`, `forms/`, `tables/`, `layout/`, `charts/`).
-- Two deployment targets for the same Next.js app: Vercel (`npm run vercel:build`) and Cloudflare Workers via OpenNext (`npm run cloudflare:build` / `cloudflare:deploy`, config in `wrangler.jsonc`).
+- Vercel and Cloudflare Workers are **retired** deployment targets. `vercel.json`, `wrangler.jsonc` and the `vercel:build` / `cloudflare:*` scripts remain for history only; their GitHub checks are not merge gates. Netlify deploy previews are informational.
 - The supported client is this responsive web/PWA (`app/manifest.ts`, `public/sw.js`). The native Flutter app was removed (PR #58); there is no `apps/mobile` and it must not be revived.
 
 ### Shared packages
