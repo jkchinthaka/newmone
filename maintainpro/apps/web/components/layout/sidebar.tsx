@@ -11,7 +11,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: 
   return (
     <aside
       aria-label="Sidebar navigation"
-      className={`sticky top-0 hidden h-screen shrink-0 flex-col bg-brand-900 text-white xl:flex ${collapsed ? "w-20" : "w-[248px]"}`}
+      className={`hidden h-full min-h-0 shrink-0 flex-col overflow-hidden bg-brand-900 text-white xl:flex ${collapsed ? "w-20" : "w-[248px]"}`}
     >
       <div className={`flex gap-2 border-b border-white/10 px-2 py-2 ${collapsed ? "flex-col items-center" : "flex-row items-center justify-between px-3"}`}>
         {collapsed ? <NelnaLogo decorative size="compact" /> : <AppBrandLockup logoSize="sm" variant="onDark" />}
@@ -25,7 +25,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: 
           <PanelLeft aria-hidden size={18} />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-3">
         <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>
           <NavLinks compact={collapsed} tone="inverse" />
         </Suspense>

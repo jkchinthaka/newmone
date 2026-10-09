@@ -112,7 +112,7 @@ export function Topbar({
   const userLabel = formatUserLabel(currentUser.email, currentUser.role);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-brand-100 bg-white">
+    <header className="z-20 shrink-0 border-b border-brand-100 bg-white">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
           <button
