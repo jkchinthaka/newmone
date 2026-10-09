@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 const adminUser = {
   id: "user-e2e-admin",
@@ -242,7 +244,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center");
+    await page.waitForURL("**/action-center", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
 
@@ -347,9 +349,24 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center");
+    await page.waitForURL("**/action-center", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
+  });
+
+  test("redirects unauthenticated action-center access before calling the API", async ({ page }) => {
+    const apiCalls: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/backend/")) apiCalls.push(request.url());
+    });
+
+    await page.goto("/action-center", { waitUntil: "domcontentloaded" });
+
+    await expect(page).toHaveURL(/\/login\?reason=session_expired&returnTo=%2Faction-center/);
+    expect(apiCalls).toEqual([]);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login\?reason=session_expired/);
+    expect(apiCalls).toEqual([]);
   });
 
   test("redirects unauthenticated protected-route access to login", async ({ page }) => {
@@ -481,5 +498,31 @@ test.describe("authentication", () => {
 
     await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
     await assertNoLegacyTokenStorage(page);
+  });
+
+  test("logout then Back does not restore a protected page", async ({ page }) => {
+    test.setTimeout(60_000);
+    const envPath = path.resolve(__dirname, "../../../.env");
+    const env = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+    const password = env.match(/^MAINTAINPRO_SEED_PASSWORD=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, "") ?? "";
+    test.skip(!password, "Local seed password is not available");
+
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.locator("#login-email").waitFor({ state: "visible" });
+    await page.waitForFunction(() => {
+      const input = document.querySelector("#login-email");
+      return Boolean(input && Object.keys(input).some((key) => key.startsWith("__react")));
+    });
+    await page.locator("#login-email").fill("admin@maintainpro.local");
+    await page.locator("#login-password").fill(password);
+    await page.getByRole("button", { name: /^Sign in$/ }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { waitUntil: "commit", timeout: 20_000 });
+
+    await page.goto("/inventory", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Logout" }).click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 });

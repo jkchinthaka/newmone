@@ -10,7 +10,11 @@
 #
 # Nginx is bound to 127.0.0.1 only. API/Web stay unpublished.
 # SQL Server is loopback-only for host-side migrate/seed.
-# Mongo remains for FG / migration-source only (not API primary).
+# Mongo is a legacy migration source, not the SQL Server E2E path.
+# The API overlay forces DATABASE_PROVIDER=sqlserver, replication off, and
+# does not depend on mongo. Default `up` skips it (profile migration-source)
+# so a crash-looping mongod cannot consume the isolated stack. Start it only
+# with `--profile migration-source` when a migration-source drill is intended.
 
 name: ${COMPOSE_PROJECT_NAME:-maintainpro-e2e-local}
 
@@ -141,6 +145,7 @@ services:
       start_period: 40s
 
   mongo:
+    profiles: ["migration-source"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-e2e_root_not_prod}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-e2e_root_password_not_for_production_use}

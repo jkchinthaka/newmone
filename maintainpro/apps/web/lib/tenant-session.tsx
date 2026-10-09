@@ -44,6 +44,9 @@ type TenantSessionContextValue = {
 
 const TenantSessionContext = createContext<TenantSessionContextValue | null>(null);
 
+/** Share one /auth/me probe across React strict-mode's double mount. */
+let sessionProbe: Promise<void> | null = null;
+
 function normalizeMemberships(payload: unknown): TenantMembershipSummary[] {
   if (!payload || typeof payload !== "object") {
     return [];
@@ -185,7 +188,16 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   useEffect(() => {
-    void refresh();
+    const probe = sessionProbe ?? refresh();
+    sessionProbe = probe;
+    void probe.finally(() => {
+      if (sessionProbe === probe) sessionProbe = null;
+    });
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void refresh();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, [refresh]);
 
   const value = useMemo<TenantSessionContextValue>(

@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Bind-mounted into Mongo. CRLF makes `set -o pipefail` fail inside the container.
+maintainpro/infra/mongo/docker-entrypoint-e2e.sh text eol=lf
