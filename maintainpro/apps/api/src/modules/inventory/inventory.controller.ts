@@ -73,7 +73,34 @@ export class InventoryController {
   @Get("parts")
   @Roles(...INVENTORY_READ_ROLES)
   @Permissions("inventory.manage")
-  async parts(@Req() req: AuthedRequest) {
+  async parts(
+    @Req() req: AuthedRequest,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string,
+    @Query("q") q?: string,
+    @Query("category") category?: string,
+    @Query("supplierId") supplierId?: string,
+    @Query("location") location?: string,
+    @Query("mapped") mapped?: string,
+    @Query("stock") stock?: string,
+    @Query("sortBy") sortBy?: string,
+    @Query("sortDir") sortDir?: string
+  ) {
+    if (pageRaw != null && pageRaw !== "") {
+      const data = await this.inventoryService.partsPage(req.user, {
+        page: Number(pageRaw),
+        pageSize: pageSizeRaw ? Number(pageSizeRaw) : 25,
+        q,
+        category,
+        supplierId,
+        location,
+        mapped: mapped === "yes" || mapped === "no" ? mapped : undefined,
+        stock: stock === "out" ? "out" : undefined,
+        sortBy: sortBy === "name" || sortBy === "partNumber" || sortBy === "quantityInStock" || sortBy === "updatedAt" ? sortBy : undefined,
+        sortDir: sortDir === "asc" ? "asc" : "desc"
+      });
+      return { data, message: "Parts fetched" };
+    }
     const data = await this.inventoryService.parts(req.user);
     return { data, message: "Parts fetched" };
   }

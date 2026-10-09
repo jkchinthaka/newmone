@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import { existsSync } from "fs";
+import path from "path";
 import { AuditAction, ExpenseCategory, Prisma, PurchaseOrderWorkflowStatus, RoleName, WorkOrderApprovalStatus, WorkOrderStatus } from "@prisma/client";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
@@ -8,7 +10,7 @@ import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { PrismaService } from "../../database/prisma.service";
 import { DriverIntelligenceService } from "../driver-intelligence/driver-intelligence.service";
 import { VehiclesService } from "../vehicles/vehicles.service";
-import { assertCanExportReport, assertCanViewReportModule, resolveDashboardRoleVariant } from "./report-access.matrix";
+import { assertCanExportReport, assertCanViewReportModule, canViewReportModule, resolveDashboardRoleVariant } from "./report-access.matrix";
 import {
   formatReportCurrency,
   MAX_EXPORT_ROWS,
@@ -90,6 +92,8 @@ interface ReportColumn {
   key: string;
   label: string;
   type?: "text" | "number" | "currency" | "date" | "datetime" | "percent";
+  /** False keeps the value on the row for drill-down and omits it from files and rendered tables. */
+  exportable?: boolean;
 }
 
 interface ReportTable {
@@ -663,7 +667,7 @@ export class ReportsService {
   async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile & { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }> {
     actor = await this.withCurrentPermissions(actor);
     assertCanExportReport(actor, module);
-    const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_PAGE_SIZE });
+    const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_EXPORT_ROWS });
     const totalMatchedCount = report.table.pagination.total;
     const truncated = totalMatchedCount > report.table.rows.length;
     const filename = safeExportFilename(module, format);
@@ -1226,6 +1230,7 @@ export class ReportsService {
         .filter((item) => item.completedDate)
         .map((item) => this.hoursBetween(item.createdAt, item.completedDate ?? item.createdAt))
     );
+    const showMoney = canViewReportModule(actor, "financials");
     const statusBreakdown = this.countBy(allOrders, (item) => item.status);
     const priorityBreakdown = this.countBy(allOrders, (item) => item.priority);
     const departmentSummary = this.summarizeByDepartment(allOrders);
@@ -1258,11 +1263,13 @@ export class ReportsService {
           { key: "priority", label: "Priority" },
           { key: "department", label: "Department" },
           { key: "technician", label: "Technician" },
+          { key: "workOrderId", label: "Work order id", exportable: false },
           { key: "dueDate", label: "Due Date", type: "date" },
           { key: "completionHours", label: "Completion Hours", type: "number" },
-          { key: "actualCost", label: "Actual Cost", type: "currency" }
+          ...(showMoney ? [{ key: "actualCost", label: "Actual Cost", type: "currency" as const }] : [])
         ],
         rows: pageRows.map((item) => ({
+          workOrderId: item.id,
           woNumber: item.woNumber,
           title: item.title,
           status: item.status,
@@ -1271,7 +1278,7 @@ export class ReportsService {
           technician: this.userLabel(item.technician),
           dueDate: this.isoDate(item.dueDate),
           completionHours: item.completedDate ? Number(this.hoursBetween(item.createdAt, item.completedDate).toFixed(1)) : null,
-          actualCost: item.actualCost ?? 0
+          ...(showMoney ? { actualCost: item.actualCost == null ? null : Number(item.actualCost) } : {})
         })),
         pagination: this.paginationMeta(pagination, total)
       },
@@ -1841,7 +1848,10 @@ export class ReportsService {
 
   private resolvePagination(query: ReportQuery) {
     const page = Math.max(1, Math.floor(Number(query.page ?? 1)) || 1);
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(query.pageSize ?? DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE));
+    const requested = Math.floor(Number(query.pageSize ?? DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE;
+    // Interactive requests stay at 100. Export calls moduleReport directly with the export cap.
+    const cap = requested > MAX_PAGE_SIZE ? MAX_EXPORT_ROWS : MAX_PAGE_SIZE;
+    const pageSize = Math.min(cap, Math.max(1, requested));
     return { page, pageSize };
   }
 
@@ -2549,20 +2559,25 @@ export class ReportsService {
     ];
   }
 
+  private exportColumns(columns: ReportColumn[]) {
+    return columns.filter((column) => column.exportable !== false);
+  }
+
   private toCsvBuffer(
     columns: ReportColumn[],
     rows: Array<Record<string, string | number | null>>,
     meta?: { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }
   ) {
-    const headers = columns.map((column) => column.label);
+    const exportColumns = this.exportColumns(columns);
+    const headers = exportColumns.map((column) => column.label);
     const lines = [headers.map((h) => csvEscapeCell(h)).join(",")];
     for (const row of rows) {
-      lines.push(columns.map((column) => csvEscapeCell(row[column.key])).join(","));
+      lines.push(exportColumns.map((column) => csvEscapeCell(row[column.key])).join(","));
     }
     if (meta?.truncated) {
       lines.push(
         csvEscapeCell(
-          `TRUNCATED: exported ${meta.exportedRowCount} of ${meta.totalMatchedCount} matched rows (max page ${MAX_PAGE_SIZE}; hard cap ${MAX_EXPORT_ROWS}).`
+          `TRUNCATED: exported ${meta.exportedRowCount} of ${meta.totalMatchedCount} matched rows (hard cap ${MAX_EXPORT_ROWS}).`
         )
       );
     }
@@ -2574,14 +2589,15 @@ export class ReportsService {
     workbook.creator = "MaintainPro";
     workbook.created = new Date();
     const sheet = workbook.addWorksheet("Report");
-    sheet.columns = report.table.columns.map((column) => ({
+    const exportColumns = this.exportColumns(report.table.columns);
+    sheet.columns = exportColumns.map((column) => ({
       header: column.label,
       key: column.key,
       width: Math.max(14, column.label.length + 4)
     }));
     for (const row of report.table.rows) {
       const safeRow: Record<string, string | number | null> = {};
-      for (const column of report.table.columns) {
+      for (const column of exportColumns) {
         const value = row[column.key];
         if (column.type === "number" || column.type === "currency" || typeof value === "number") {
           safeRow[column.key] = typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0;
@@ -2605,14 +2621,21 @@ export class ReportsService {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      doc.fontSize(18).text(report.title, { continued: false });
+      const logoPath = path.join(process.cwd(), "assets", "brand", "nelna-group-logo.jpg");
+      if (existsSync(logoPath)) {
+        doc.image(logoPath, { width: 96 });
+        doc.moveDown(0.25);
+      }
+      doc.fontSize(9).fillColor("#263238").text("MaintainPro");
+      doc.moveDown(0.15);
+      doc.fontSize(18).fillColor("#0f172a").text(report.title, { continued: false });
       doc.moveDown(0.25);
       doc.fontSize(9).fillColor("#475569").text(`Generated ${new Date(report.generatedAt).toLocaleString()}`);
       doc.moveDown(0.75);
       doc.fillColor("#0f172a").fontSize(10).text(report.summaryCards.map((card) => `${card.label}: ${card.value}`).join("   "));
       doc.moveDown();
 
-      const columns = report.table.columns.slice(0, 7);
+      const columns = this.exportColumns(report.table.columns).slice(0, 7);
       const rowHeight = 20;
       const startX = doc.x;
       let y = doc.y;

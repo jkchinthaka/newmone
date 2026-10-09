@@ -73,7 +73,7 @@ export default function MaintenanceHomePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
                 Legacy FMS · Archived
               </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Pending Requests</h2>
+              <h2 className="mt-2 page-title">Pending Requests</h2>
               <p className="mt-2 text-sm text-slate-500">Overdue items are automatically pinned to the top so the team acts on the oldest commitments first.</p>
             </div>
             <span className="rounded-full bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700">{requests.length} active requests</span>
@@ -171,7 +171,7 @@ export default function MaintenanceHomePage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Create Job</p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-900">{selectedRequest.mainJob}</h3>
+                <h3 className="mt-2 page-title">{selectedRequest.mainJob}</h3>
                 <p className="mt-2 text-sm text-slate-500">Convert the selected pending request into a live maintenance job.</p>
               </div>
               <button type="button" onClick={() => setSelectedRequest(null)} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Close</button>

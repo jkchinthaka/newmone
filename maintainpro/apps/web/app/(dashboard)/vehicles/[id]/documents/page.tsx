@@ -176,7 +176,7 @@ export default function VehicleDocumentsPage({
           >
             <ArrowLeft size={12} /> Back to vehicle
           </Link>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="page-title">
             Vehicle Documents
           </h1>
           <p className="text-sm text-slate-600">

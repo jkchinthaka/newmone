@@ -33,19 +33,27 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
 import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
+import { OperationalPageHeader } from "@/components/operational/operational-page-header";
+import {
+  ASSET_EMPTY,
+  assetCreateWorkOrderHref,
+  assetFiltersFromSearch,
+  assetSearchFromFilters
+} from "@/lib/asset-list";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { canCreateWorkOrder as userCanCreateWorkOrder } from "@/lib/user-role";
 import { withTenantScope } from "@/lib/tenant-query";
 import { AssetsTable } from "./assets-table";
 import {
-  hasActiveFilters,
   useAssetPageStore,
   type AssetCategoryFilter,
   type AssetColumnKey,
@@ -236,10 +244,11 @@ const SORT_OPTIONS: Array<{ label: string; value: AssetSortField }> = [
   { label: "Category", value: "category" },
   { label: "Status", value: "status" },
   { label: "Created Date", value: "createdAt" },
+  { label: "Last Service", value: "lastServiceDate" },
   { label: "Location", value: "location" }
 ];
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 const STATUS_STYLES: Record<AssetStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
@@ -265,7 +274,6 @@ const COLUMN_OPTIONS: Array<{ key: AssetColumnKey; label: string }> = [
   { key: "location", label: "Location" },
   { key: "condition", label: "Condition" },
   { key: "lastServiceDate", label: "Last Service" },
-  { key: "qr", label: "QR" },
   { key: "actions", label: "Actions" }
 ];
 
@@ -440,6 +448,9 @@ function toQueryParams(filters: ReturnType<typeof useAssetPageStore.getState>["f
   }
   if (filters.departmentId) {
     params.departmentId = filters.departmentId;
+  }
+  if (filters.condition) {
+    params.condition = filters.condition;
   }
 
   return params;
@@ -838,6 +849,11 @@ function collectActivityChanges(event: AssetActivityEvent) {
 export default function AssetsManagementPage() {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const urlReady = useRef(false);
+  const lastWrittenQuery = useRef<string | null>(null);
   const {
     filters,
     setFilters,
@@ -855,6 +871,7 @@ export default function AssetsManagementPage() {
   } = useAssetPageStore();
 
   const [searchDraft, setSearchDraft] = useState(filters.search);
+  const [moreFilters, setMoreFilters] = useState(false);
   const debouncedSearch = useDebouncedValue(searchDraft, 300);
   const [roleTier, setRoleTier] = useState<RoleTier>("viewer");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -895,6 +912,32 @@ export default function AssetsManagementPage() {
   }, []);
 
   useEffect(() => {
+    const current = params.toString();
+    const parsed = assetFiltersFromSearch(params);
+    const asset = params.get("asset");
+    if (!urlReady.current) {
+      urlReady.current = true;
+      setFilters(parsed);
+      setSearchDraft(parsed.search);
+      if (asset) setDetailsAssetId(asset);
+      lastWrittenQuery.current = assetSearchFromFilters(parsed, asset);
+      return;
+    }
+    const fromFilters = assetSearchFromFilters(filters, detailsAssetId);
+    if (current !== lastWrittenQuery.current && current !== fromFilters) {
+      setFilters(parsed);
+      setSearchDraft(parsed.search);
+      setDetailsAssetId(asset);
+      lastWrittenQuery.current = current;
+      return;
+    }
+    if (fromFilters !== current) {
+      lastWrittenQuery.current = fromFilters;
+      router.replace((fromFilters ? `${pathname}?${fromFilters}` : pathname) as Route);
+    }
+  }, [detailsAssetId, filters, params, pathname, router, setFilters]);
+
+  useEffect(() => {
     if (filters.search !== debouncedSearch) {
       setFilters({ search: debouncedSearch });
     }
@@ -929,6 +972,21 @@ export default function AssetsManagementPage() {
     },
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: true
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: withTenantScope(["assets-summary", filters.search, filters.category, filters.location, filters.departmentId, filters.condition]),
+    queryFn: async () => {
+      const summaryFilters = { ...filters, status: "" as const, page: 1 };
+      const response = await apiClient.get("/assets/summary", { params: toQueryParams(summaryFilters) });
+      return (response.data?.data ?? null) as {
+        totalAssets?: number;
+        activeAssets?: number;
+        underMaintenanceAssets?: number;
+        retiredAssets?: number;
+        disposedAssets?: number;
+      } | null;
+    }
   });
 
   const optionsQuery = useQuery<{ locations: string[] }>({
@@ -1177,25 +1235,13 @@ export default function AssetsManagementPage() {
 
   const selectedCount = selectedIds.length;
 
-  const summaryCounts = useMemo(() => {
-    return rows.reduce(
-      (accumulator, asset) => {
-        accumulator.total += 1;
-        if (asset.status === "ACTIVE") accumulator.active += 1;
-        if (asset.status === "UNDER_MAINTENANCE") accumulator.maintenance += 1;
-        if (asset.status === "RETIRED") accumulator.retired += 1;
-        if (asset.status === "DISPOSED") accumulator.disposed += 1;
-        return accumulator;
-      },
-      {
-        total: 0,
-        active: 0,
-        maintenance: 0,
-        retired: 0,
-        disposed: 0
-      }
-    );
-  }, [rows]);
+  const summaryCounts = {
+    total: summaryQuery.data?.totalAssets ?? 0,
+    active: summaryQuery.data?.activeAssets ?? 0,
+    maintenance: summaryQuery.data?.underMaintenanceAssets ?? 0,
+    retired: summaryQuery.data?.retiredAssets ?? 0,
+    disposed: summaryQuery.data?.disposedAssets ?? 0
+  };
 
   const filterSummary = useMemo(() => summarizeFilters(filters), [filters]);
   const pageNumbers = useMemo(() => buildPageNumbers(meta.page, meta.totalPages), [meta.page, meta.totalPages]);
@@ -1245,31 +1291,12 @@ export default function AssetsManagementPage() {
     }
   }
 
-  async function handleCreateWorkOrder(asset: AssetListItem | AssetDetail) {
+  function handleCreateWorkOrder(asset: AssetListItem | AssetDetail) {
     if (!canCreateWorkOrders) {
       toast.error("You do not have permission to create work orders.");
       return;
     }
-    if (!currentUserId) {
-      toast.error("Unable to identify current user for work order creation.");
-      return;
-    }
-
-    try {
-      await apiClient.post("/work-orders", {
-        title: `Work order for ${asset.name}`,
-        description: `Generated from asset ${asset.assetTag}`,
-        priority: "MEDIUM",
-        type: "CORRECTIVE",
-        assetId: asset.id,
-        createdById: currentUserId,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      });
-      toast.success("Work order created");
-      queryClient.invalidateQueries({ queryKey: ["asset-detail", asset.id] });
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
+    router.push(assetCreateWorkOrderHref(asset.id, `${asset.assetTag} — ${asset.name}`) as Route);
   }
 
   async function handleScheduleMaintenance(asset: AssetListItem | AssetDetail) {
@@ -1304,23 +1331,24 @@ export default function AssetsManagementPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-3 p-4 md:p-6">
         <PageBreadcrumbs />
-        <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Assets</h1>
-              <p className="mt-1 text-sm text-slate-500">Centralized asset lifecycle and maintenance tracking.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+        <OperationalPageHeader
+          eyebrow="Assets"
+          title="Assets"
+          description="Register of equipment, tools, and facilities."
+          actions={
+            <>
               <button
+                type="button"
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ["assets-list"] });
+                  queryClient.invalidateQueries({ queryKey: ["assets-summary"] });
                   if (detailsAssetId) {
                     queryClient.invalidateQueries({ queryKey: ["asset-detail", detailsAssetId] });
                   }
                 }}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
               >
                 <RefreshCw size={16} /> Refresh
               </button>
@@ -1332,7 +1360,7 @@ export default function AssetsManagementPage() {
                       setShowExportMenu((current) => !current);
                       setShowColumnPicker(false);
                     }}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
                   >
                     <FileDown size={16} /> Export <ChevronDown size={14} />
                   </button>
@@ -1388,124 +1416,185 @@ export default function AssetsManagementPage() {
               <BulkImportButton
                 entity="asset"
                 entityLabel="Assets"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
                 onImported={() => queryClient.invalidateQueries({ queryKey: ["assets-list"] })}
               />
 
               {canCreate && (
                 <button
+                  type="button"
                   onClick={() => {
                     setEditingAsset(null);
                     setShowFormModal(true);
                   }}
-                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white"
                 >
                   <Plus size={16} /> Create Asset
                 </button>
               )}
-            </div>
-          </div>
-        </section>
+            </>
+          }
+        />
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <MetricCard label="Total assets" value={summaryCounts.total} tone="slate" />
-          <MetricCard label="Active" value={summaryCounts.active} tone="green" />
-          <MetricCard label="Under maintenance" value={summaryCounts.maintenance} tone="amber" />
-          <MetricCard label="Retired" value={summaryCounts.retired} tone="gray" />
-          <MetricCard label="Disposed" value={summaryCounts.disposed} tone="red" />
-        </section>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-700" aria-label="Asset summary">
+          <span>Total {summaryQuery.isLoading ? "…" : summaryCounts.total}</span>
+          {(
+            [
+              ["ACTIVE", "Active", summaryCounts.active],
+              ["UNDER_MAINTENANCE", "Under Maintenance", summaryCounts.maintenance],
+              ["RETIRED", "Retired", summaryCounts.retired],
+              ["DISPOSED", "Disposed", summaryCounts.disposed]
+            ] as const
+          ).map(([status, label, value]) => (
+            <button
+              key={status}
+              type="button"
+              aria-pressed={filters.status === status}
+              className={`rounded px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${filters.status === status ? "font-semibold text-slate-900" : "text-slate-600"}`}
+              onClick={() => setFilters({ status: filters.status === status ? "" : status })}
+            >
+              {label} {summaryQuery.isLoading ? "…" : value}
+            </button>
+          ))}
+        </div>
 
-        <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 lg:grid-cols-[1.6fr,1fr,1fr,1fr,1.2fr,1fr,1fr,auto]">
-            <label className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <section className="rounded-xl border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-end gap-2 p-3">
+            <label className="min-w-[12rem] flex-1 text-sm">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Search</span>
               <input
                 value={searchDraft}
                 onChange={(event) => setSearchDraft(event.target.value)}
-                placeholder="Search by tag, name, category, location"
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                placeholder="Tag, name, category, location"
+                aria-label="Search assets"
+                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
               />
             </label>
-
-            <select
-              value={filters.status}
-              onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              {STATUS_FILTER_OPTIONS.map((option) => (
-                <option key={option.value || "ALL"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.category}
-              onChange={(event) => setFilters({ category: event.target.value as AssetCategoryFilter })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              {CATEGORY_FILTER_OPTIONS.map((option) => (
-                <option key={option.value || "ALL"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.location}
-              onChange={(event) => setFilters({ location: event.target.value })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              <option value="">All locations</option>
-              {locationOptions.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-
-            <DepartmentSelect
-              label="Department"
-              value={filters.departmentId || null}
-              onChange={(departmentId) => setFilters({ departmentId: departmentId ?? "" })}
-              placeholder="Select Department"
-            />
-
-            <select
-              value={filters.sortBy}
-              onChange={(event) => setFilters({ sortBy: event.target.value as AssetSortField })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => setFilters({ sortOrder: filters.sortOrder === "asc" ? "desc" : "asc" })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
-            >
-              {filters.sortOrder === "asc" ? "Asc" : "Desc"}
+            <label className="text-sm">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Status</span>
+              <select
+                aria-label="Status"
+                value={filters.status}
+                onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
+                className="h-10 rounded-md border border-slate-300 px-2 text-sm"
+              >
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Category</span>
+              <select
+                aria-label="Category"
+                value={filters.category}
+                onChange={(event) => setFilters({ category: event.target.value as AssetCategoryFilter })}
+                className="h-10 rounded-md border border-slate-300 px-2 text-sm"
+              >
+                {CATEGORY_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Location</span>
+              <select
+                aria-label="Location"
+                value={filters.location}
+                onChange={(event) => setFilters({ location: event.target.value })}
+                className="h-10 rounded-md border border-slate-300 px-2 text-sm"
+              >
+                <option value="">All locations</option>
+                {locationOptions.map((location) => (
+                  <option key={location} value={location}>{location}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="h-10 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={moreFilters} onClick={() => setMoreFilters((current) => !current)}>
+              More filters
             </button>
-
-            <div className="flex items-center justify-end">
-              {hasActiveFilters(filters) ? (
-                <button
-                  onClick={() => {
-                    clearFilters();
-                    setSearchDraft("");
-                  }}
-                  className="text-sm font-medium text-brand-700 underline decoration-brand-300 underline-offset-4"
-                >
-                  Clear filters
-                </button>
-              ) : (
-                <span className="text-xs text-slate-400">No active filters</span>
-              )}
-            </div>
+            <button
+              type="button"
+              className="h-10 px-2 text-sm font-medium text-brand-700"
+              onClick={() => {
+                clearFilters();
+                setSearchDraft("");
+              }}
+            >
+              Clear
+            </button>
           </div>
+          {moreFilters ? (
+            <div className="grid gap-2 border-t border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <DepartmentSelect
+                label="Department"
+                value={filters.departmentId || null}
+                onChange={(departmentId) => setFilters({ departmentId: departmentId ?? "" })}
+                placeholder="All departments"
+              />
+              <label className="text-sm">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Condition</span>
+                <select
+                  aria-label="Condition"
+                  value={filters.condition}
+                  onChange={(event) => setFilters({ condition: event.target.value })}
+                  className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
+                >
+                  <option value="">Any condition</option>
+                  {CONDITION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Sort by</span>
+                <select
+                  aria-label="Sort by"
+                  value={filters.sortBy}
+                  onChange={(event) => setFilters({ sortBy: event.target.value as AssetSortField })}
+                  className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Sort direction</span>
+                <select
+                  aria-label="Sort direction"
+                  value={filters.sortOrder}
+                  onChange={(event) => setFilters({ sortOrder: event.target.value as "asc" | "desc" })}
+                  className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+          <ActiveFilterChips
+            chips={[
+              filters.status ? { key: "status", label: filters.status.replace(/_/g, " ") } : null,
+              filters.category ? { key: "category", label: filters.category } : null,
+              filters.location ? { key: "location", label: filters.location } : null,
+              filters.departmentId ? { key: "departmentId", label: "Department" } : null,
+              filters.condition ? { key: "condition", label: filters.condition } : null,
+              filters.search ? { key: "search", label: filters.search } : null
+            ].filter((chip): chip is { key: string; label: string } => Boolean(chip))}
+            onRemove={(key) => {
+              if (key === "search") {
+                setSearchDraft("");
+                setFilters({ search: "" });
+                return;
+              }
+              setFilters({ [key]: "" });
+            }}
+            onClearAll={() => {
+              clearFilters();
+              setSearchDraft("");
+            }}
+          />
         </section>
 
         {selectedCount > 0 && (

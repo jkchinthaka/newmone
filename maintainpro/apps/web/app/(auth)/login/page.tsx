@@ -113,22 +113,22 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="grid min-h-[100dvh] bg-slate-100 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-      <div className="p-4 lg:p-6">
+    <main className="bg-brand-50 lg:grid lg:min-h-[100dvh] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="hidden lg:block lg:p-6">
         <AuthMarketingPanel />
-        <div className="mb-4 flex justify-center lg:hidden">
-          <AppBrandLockup centered logoSize="sm" />
-        </div>
       </div>
 
-      <section className="flex items-center justify-center px-4 py-8 sm:px-8">
-        <div className="w-full max-w-[440px] rounded-2xl border border-slate-200 bg-white px-8 py-10 shadow-sm sm:px-10">
+      <section className="flex min-h-[100dvh] items-center justify-center px-4 py-8 sm:px-8">
+        <div className="w-full max-w-[440px] rounded-2xl border border-brand-100 bg-white px-6 py-8 shadow-sm sm:px-10">
+          <div className="mb-4 flex justify-center lg:hidden">
+            <AppBrandLockup centered logoSize="sm" showTagline />
+          </div>
           <div className="hidden lg:block">
-            <AppBrandLockup logoSize="sm" />
+            <AppBrandLockup logoSize="sm" showTagline />
           </div>
 
           <header className="mt-0 lg:mt-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h1>
+            <h1 className="page-title">Welcome back</h1>
             <p className="mt-1 text-sm text-slate-600">Sign in to MaintainPro</p>
           </header>
 

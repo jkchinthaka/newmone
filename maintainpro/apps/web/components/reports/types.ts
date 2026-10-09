@@ -54,6 +54,7 @@ export type ReportColumn = {
   key: string;
   label: string;
   type?: "text" | "number" | "currency" | "date" | "datetime" | "percent";
+  exportable?: boolean;
 };
 
 export type ReportTable = {

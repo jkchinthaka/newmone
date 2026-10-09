@@ -56,7 +56,7 @@ export default function InventoryDailyPage() {
     <div className="space-y-5 pb-10">
       <PageBreadcrumbs />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Daily Inventory</h1>
+        <h1 className="page-title">Daily Inventory</h1>
         <p className="mt-1 text-sm text-slate-600">
           Closing = Opening + Receipts + Returns + Transfer In + Adjustment In + Reversal Restock − Issues − Transfer Out −
           Adjustment Out − Reversal Deduct. Reversals are opposite corrections of the original movement — not returns.

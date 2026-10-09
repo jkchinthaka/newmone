@@ -103,10 +103,11 @@ test("actionCenter inventory access mirrors endpoint role and permission guards"
   assert.equal(actionCenterShowsInventory("finance", "FINANCE", ["purchase_orders.view"]), false);
 });
 
-test("actionCenterShowsWorkOrders: admin/management/technician/viewer", () => {
-  for (const v of ["admin", "management", "technician", "viewer"] as ActionCenterVariant[]) {
+test("actionCenterShowsWorkOrders: admin/management/viewer, not technician", () => {
+  for (const v of ["admin", "management", "viewer"] as ActionCenterVariant[]) {
     assert.equal(actionCenterShowsWorkOrders(v), true, v);
   }
+  assert.equal(actionCenterShowsWorkOrders("technician"), false);
   assert.equal(actionCenterShowsWorkOrders("finance"), false);
   assert.equal(actionCenterShowsWorkOrders("procurement"), false);
 });
@@ -248,6 +249,42 @@ test("filterActionCenterSections: item-level match keeps only matching items, an
   assert.ok(filtered.some((s) => s.items.some((i) => i.id === "compliance")));
 });
 
+test("buildActionCenterSections: technician home does not render the work-order risk section", () => {
+  const snapshot = emptySnapshot({
+    variant: "technician",
+    roleName: "TECHNICIAN",
+    connections: {
+      workOrders: false,
+      inventory: false,
+      systemHealth: false,
+      invitations: false,
+      facilityIssues: false
+    },
+    errors: { workOrders: "server" },
+    workOrders: { open: 4, inProgress: 1, overdue: 2, highPriority: 1 }
+  });
+  const sections = buildActionCenterSections(snapshot);
+  assert.equal(sections.some((section) => section.id === "work-orders"), false);
+});
+
+test("buildActionCenterSections: other roles still get the open maintenance queue", () => {
+  const snapshot = emptySnapshot({
+    variant: "management",
+    roleName: "MANAGER",
+    connections: {
+      workOrders: true,
+      inventory: false,
+      systemHealth: false,
+      invitations: false,
+      facilityIssues: false
+    },
+    workOrders: { open: 4, inProgress: 1, overdue: 2, highPriority: 0 }
+  });
+  const work = buildActionCenterSections(snapshot).find((section) => section.id === "work-orders");
+  assert.equal(work?.items.find((item) => item.id === "open-work")?.href, "/work-orders");
+  assert.equal(work?.items.find((item) => item.id === "overdue-work")?.href, "/work-orders?queue=overdue");
+});
+
 test("buildActionCenterSections: overdue and high-priority cards open the matching queues", () => {
   const snapshot = emptySnapshot({
     variant: "admin",
@@ -274,7 +311,7 @@ test("buildActionCenterSections: overdue and high-priority cards open the matchi
 test("buildActionCenterSections: a pending readiness check does not look like a failure", () => {
   const snapshot = emptySnapshot({
     variant: "admin",
-    roleName: "ADMIN",
+    roleName: "SUPER_ADMIN",
     pending: { systemHealth: true },
     connections: {
       workOrders: true,

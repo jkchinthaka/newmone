@@ -21,15 +21,25 @@ export class VehiclesController {
     @Query("sortBy") sortByRaw?: string,
     @Query("sortDir") sortDirRaw?: string,
     @Query("page") pageRaw?: string,
-    @Query("pageSize") pageSizeRaw?: string
+    @Query("pageSize") pageSizeRaw?: string,
+    @Query("service") serviceRaw?: string,
+    @Query("gate") gateRaw?: string,
+    @Query("location") location?: string,
+    @Query("docs") docsRaw?: string
   ) {
+    const service = serviceRaw === "overdue" || serviceRaw === "due-soon" || serviceRaw === "current" ? serviceRaw : undefined;
+    const gate = gateRaw === "blocked" || gateRaw === "ready" ? gateRaw : undefined;
     const data = await this.vehiclesService.findAll({
       q,
       status: this.parseStatuses(statusRaw),
       sortBy: this.parseSortBy(sortByRaw),
       sortDir: sortDirRaw === "asc" ? "asc" : "desc",
       page: this.toPositiveInt(pageRaw, 1),
-      pageSize: this.toPositiveInt(pageSizeRaw, 12)
+      pageSize: this.toPositiveInt(pageSizeRaw, 12),
+      service,
+      gate,
+      location,
+      docs: docsRaw === "expiring" ? "expiring" : undefined
     });
 
     return { data, message: "Vehicles fetched" };
@@ -68,6 +78,30 @@ export class VehiclesController {
   async create(@Body() body: CreateVehicleDto) {
     const data = await this.vehiclesService.create(body);
     return { data, message: "Vehicle created" };
+  }
+
+  @Get("gate-queue")
+  @Permissions("vehicles.view")
+  async gateQueue(
+    @Query("state") stateRaw?: string,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string,
+    @Query("q") q?: string
+  ) {
+    const data = await this.vehiclesService.listGateQueue({
+      state: stateRaw === "ready" ? "ready" : "blocked",
+      page: this.toPositiveInt(pageRaw, 1),
+      pageSize: this.toPositiveInt(pageSizeRaw, 25),
+      q
+    });
+    return { data, message: "Gate queue fetched" };
+  }
+
+  @Get(":id/gate-block-reasons")
+  @Permissions("vehicles.view")
+  async gateBlockReasons(@Param("id") id: string) {
+    const data = await this.vehiclesService.gateBlockReasons(id);
+    return { data, message: "Gate block reasons fetched" };
   }
 
   @Get(":id")

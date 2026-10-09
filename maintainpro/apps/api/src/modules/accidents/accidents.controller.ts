@@ -18,8 +18,25 @@ export class AccidentsController {
 
   @Get()
   @Permissions("accidents.view")
-  async list(@Req() req: AuthedRequest, @Query("vehicleId") vehicleId?: string, @Query("status") status?: AccidentStatus) {
-    const data = await this.service.list(req.user, { vehicleId, status });
+  async list(
+    @Req() req: AuthedRequest,
+    @Query("vehicleId") vehicleId?: string,
+    @Query("status") status?: AccidentStatus,
+    @Query("repair") repair?: string,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string
+  ) {
+    const paged = pageRaw != null && pageRaw !== "";
+    const data = await this.service.list(req.user, {
+      vehicleId,
+      status,
+      repair: repair === "open" ? "open" : undefined,
+      page: paged ? Number(pageRaw) : undefined,
+      pageSize: pageSizeRaw ? Number(pageSizeRaw) : undefined
+    });
+    if (paged && data && typeof data === "object" && "items" in data) {
+      return { data: data.items, meta: data.meta, message: "Accidents fetched" };
+    }
     return { data, message: "Accidents fetched" };
   }
 

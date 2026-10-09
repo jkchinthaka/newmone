@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top_left,_rgba(20,118,214,0.16),_transparent_40%),linear-gradient(135deg,#f7fafc,#e2ebf5)] p-6">
+    <main className="grid min-h-screen place-items-center bg-brand-50 p-6">
       <section className="w-full max-w-lg rounded-[32px] border border-white/60 bg-white/92 p-8 shadow-[0_32px_80px_rgba(15,23,42,0.14)] backdrop-blur">
         <MaintainProLogo showTagline size="md" />
 

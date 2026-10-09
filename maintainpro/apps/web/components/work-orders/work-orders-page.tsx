@@ -4,12 +4,16 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { JobsViewSwitcher } from "@/components/operational/jobs-view-switcher";
+import { OperationalPageHeader } from "@/components/operational/operational-page-header";
+import { workOrderCreatePreset } from "@/lib/asset-list";
+import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
 import { USER_KEY } from "@/lib/auth-storage";
 import { canCreateWorkOrder } from "@/lib/user-role";
 import {
@@ -20,7 +24,7 @@ import {
 import { useCurrentUser } from "@/lib/use-current-user";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
-import { getErrorMessage } from "./helpers";
+import { getErrorMessage, toTitleCase } from "./helpers";
 import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
   useAssignWorkOrder,
@@ -42,7 +46,7 @@ import { WorkOrderQueuePanel } from "./work-order-queue-panel";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
-import type { WorkOrder, WorkOrderSortField, WorkOrderStatus, WorkOrderViewMode } from "./types";
+import { WORK_ORDER_STATUSES, type WorkOrder, type WorkOrderSortField, type WorkOrderStatus, type WorkOrderViewMode } from "./types";
 
 function readCurrentUserId(): string | null {
   if (typeof window === "undefined") {
@@ -62,15 +66,6 @@ function readCurrentUserId(): string | null {
   }
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
 function LoadingSkeleton() {
   return (
     <LoadingState
@@ -84,10 +79,11 @@ function LoadingSkeleton() {
 
 type WorkOrdersPageProps = {
   jobDomain?: string;
-  hideHeading?: boolean;
+  heading?: string;
+  description?: string;
 };
 
-export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkOrdersPageProps) {
+export default function WorkOrdersPage({ jobDomain, heading, description }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -96,10 +92,14 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
     open: boolean;
     mode: "create" | "edit";
     workOrder: WorkOrder | null;
+    presetAssetId?: string | null;
+    presetAssetLabel?: string | null;
   }>({
     open: false,
     mode: "create",
-    workOrder: null
+    workOrder: null,
+    presetAssetId: null,
+    presetAssetLabel: null
   });
   const [completionTarget, setCompletionTarget] = useState<WorkOrder | null>(null);
   const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
@@ -114,8 +114,13 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const deepLinkId = searchParams.get("wo");
-  const deepLinkQuery = useWorkOrder(deepLinkId);
+  const recordLink = parseWorkOrderRecordLink({
+    wo: searchParams.get("wo"),
+    open: searchParams.get("open"),
+    tab: searchParams.get("tab")
+  });
+  const deepLinkId = recordLink.id;
+  const deepLinkQuery = useWorkOrder(deepLinkId ?? null);
 
   useEffect(() => {
     if (jobDomain && filters.jobDomain !== jobDomain) {
@@ -155,6 +160,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   }, [canCreateWorkOrders, editorState.open, editorState.mode]);
 
   useEffect(() => {
+    if (view === "queues") return;
     const validIds = new Set(workOrdersQuery.workOrders.map((order) => order.id));
     setSelectedIds((current) => {
       const filtered = current.filter((id) => validIds.has(id));
@@ -162,7 +168,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
       // workOrders array reference flickers without content changes.
       return filtered.length === current.length ? current : filtered;
     });
-  }, [workOrdersQuery.workOrders]);
+  }, [view, workOrdersQuery.workOrders]);
 
   const technicians = techniciansQuery.data ?? [];
 
@@ -187,11 +193,16 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
   };
 
   const clearDeepLinkParam = () => {
-    if (!searchParams.get("wo")) {
+    if (!searchParams.get("wo") && !searchParams.get("open") && searchParams.get("create") !== "1") {
       return;
     }
     const params = new URLSearchParams(searchParams.toString());
     params.delete("wo");
+    params.delete("open");
+    params.delete("tab");
+    params.delete("create");
+    params.delete("assetId");
+    params.delete("assetLabel");
     const query = params.toString();
     router.replace((query ? `${pathname}?${query}` : pathname) as Route);
   };
@@ -209,6 +220,16 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
       setEditorState({ open: true, mode: "edit", workOrder: deepLinkQuery.data });
     }
   }, [deepLinkId, deepLinkQuery.data, editorState.workOrder?.id]);
+
+  useEffect(() => {
+    const preset = workOrderCreatePreset(searchParams);
+    if (!preset || deepLinkId || !canCreateWorkOrders) return;
+    setEditorState((current) =>
+      current.open && current.mode === "create" && current.presetAssetId === preset.assetId && current.presetAssetLabel === preset.assetLabel
+        ? current
+        : { open: true, mode: "create", workOrder: null, presetAssetId: preset.assetId, presetAssetLabel: preset.assetLabel }
+    );
+  }, [canCreateWorkOrders, deepLinkId, searchParams]);
 
   useEffect(() => {
     if (deepLinkId && deepLinkQuery.isError) {
@@ -405,6 +426,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
             onSelectedIdsChange={setSelectedIds}
+            technicians={technicians}
           />
         </Suspense>
       );
@@ -500,12 +522,70 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
     technicians,
     view,
     workOrdersQuery,
-    toggleSort
+    toggleSort,
+    technicians
   ]);
 
+  const pageHeading = heading ?? "Work Orders";
+  const pageDescription =
+    description ?? "All executable maintenance jobs across machinery, service, and vehicle domains.";
+
   return (
-    <div className="min-w-0 space-y-4 overflow-x-hidden">
-      <PageBreadcrumbs />
+    <div className="min-w-0 space-y-3">
+      <PageBreadcrumbs className="mb-1" />
+      <OperationalPageHeader
+        title={pageHeading}
+        description={pageDescription}
+        actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <JobsViewSwitcher view={view} onChange={setView} />
+          {canCreateWorkOrders ? (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            >
+              <Plus size={16} aria-hidden /> Create Work Order
+            </button>
+          ) : null}
+        </div>
+        }
+      />
+      {selectedIds.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span className="font-medium text-slate-700">{selectedIds.length} selected</span>
+          <label>
+            <span className="sr-only">Bulk status</span>
+            <select
+              disabled={bulkBusy}
+              defaultValue=""
+              onChange={(event) => {
+                const status = event.target.value as WorkOrderStatus;
+                if (!status) return;
+                void handleBulkStatusChange(status);
+                event.currentTarget.value = "";
+              }}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
+            >
+              <option value="">Bulk status</option>
+              {WORK_ORDER_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
+                <option key={status} value={status}>
+                  {toTitleCase(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={bulkBusy}
+            className="rounded-md border border-rose-300 px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+          >
+            Cancel selected
+          </button>
+        </div>
+      ) : null}
+      {view === "queues" ? null : (
       <WorkOrderFiltersBar
         filters={filters}
         technicians={technicians}
@@ -513,7 +593,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
         selectionCount={selectedIds.length}
         bulkLoading={bulkBusy}
         canCreate={canCreateWorkOrders}
-        showHeading={!hideHeading && !jobDomain}
+        showHeading={false}
         onChange={updateFilters}
         onReset={resetFilters}
         onCreate={openCreateModal}
@@ -521,15 +601,16 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
         onBulkStatusChange={(status) => void handleBulkStatusChange(status)}
         onBulkDelete={() => void handleBulkDelete()}
       />
+      )}
 
       {view === "queues" ? null : (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="All" value={workOrdersQuery.stats.total} />
-          <StatCard label="Open" value={workOrdersQuery.stats.open} />
-          <StatCard label="In Progress" value={workOrdersQuery.stats.inProgress} />
-          <StatCard label="Overdue" value={workOrdersQuery.stats.overdue} />
-          <StatCard label="Completed" value={workOrdersQuery.stats.completed} />
-        </section>
+        <p className="summary-strip" aria-label="Work order counts">
+          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.total}</span> all</span>
+          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.open}</span> open</span>
+          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.inProgress}</span> in progress</span>
+          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.overdue}</span> overdue</span>
+          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.completed}</span> completed</span>
+        </p>
       )}
 
       <motion.section
@@ -540,7 +621,7 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
       >
         <div className="flex items-center justify-between px-1 text-sm text-slate-500">
           {view === "queues" ? (
-            <p>Queue counts and the list below use the same work-order rules.</p>
+            <span className="sr-only">Work order queue</span>
           ) : (
             <p>{totalFiltered} work order(s) shown</p>
           )}
@@ -561,12 +642,15 @@ export default function WorkOrdersPage({ jobDomain, hideHeading = false }: WorkO
         }
         mode={editorState.mode}
         workOrder={editorState.workOrder}
+        presetAssetId={editorState.presetAssetId}
+        presetAssetLabel={editorState.presetAssetLabel}
         submitting={createMutation.isPending || updateMutation.isPending}
         createJobDomain={
           jobDomain === "MACHINERY" || jobDomain === "SERVICE" || jobDomain === "VEHICLE"
             ? jobDomain
             : undefined
         }
+        initialTab={recordLink.tab}
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!canCreateWorkOrders) {

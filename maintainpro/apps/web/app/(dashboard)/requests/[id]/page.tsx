@@ -180,7 +180,7 @@ export default function RequestDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4 md:p-6" aria-busy="true">
+      <div className="ops-page" aria-busy="true">
         <p className="sr-only">Loading request</p>
         <div className="h-8 w-48 animate-pulse rounded bg-slate-100" />
         <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
@@ -194,7 +194,7 @@ export default function RequestDetailPage() {
 
   if (error || !detail) {
     return (
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="ops-page">
         <PageBreadcrumbs />
         <ErrorState
           title="This request is unavailable"
@@ -267,7 +267,7 @@ export default function RequestDetailPage() {
     .find((reason) => reason && /segregation of duties/i.test(reason));
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <PageBreadcrumbs />
       <ResponsivePageHeader
         eyebrow="Maintenance request"

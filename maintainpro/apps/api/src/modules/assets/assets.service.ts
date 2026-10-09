@@ -142,6 +142,8 @@ export class AssetsService {
       totalAssets,
       activeAssets,
       underMaintenanceAssets,
+      retiredAssets,
+      disposedAssets,
       dueSoonAssets,
       criticalAssets,
       archivedAssets,
@@ -152,6 +154,12 @@ export class AssetsService {
       this.prisma.asset.count({ where: { ...where, status: AssetStatus.ACTIVE } }),
       this.prisma.asset.count({
         where: { ...where, status: AssetStatus.UNDER_MAINTENANCE }
+      }),
+      this.prisma.asset.count({
+        where: { ...where, status: AssetStatus.RETIRED }
+      }),
+      this.prisma.asset.count({
+        where: { ...where, status: AssetStatus.DISPOSED }
       }),
       this.prisma.asset.count({
         where: {
@@ -204,6 +212,8 @@ export class AssetsService {
       totalAssets,
       activeAssets,
       underMaintenanceAssets,
+      retiredAssets,
+      disposedAssets,
       dueSoonAssets,
       criticalAssets,
       archivedAssets,

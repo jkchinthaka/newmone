@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 
@@ -12,6 +12,8 @@ import { contentDispositionAttachment } from "./report-export-safety.util";
 import { assertReportModuleKey, parseExportFormat, parseValidatedReportQuery } from "./report-query.dto";
 import { ReportExportFormat, ReportModuleKey, ReportQuery, ReportsService } from "./reports.service";
 import { ErpMonitoringService } from "./erp-monitoring.service";
+import { ReportTemplatesService } from "./report-templates.service";
+import type { ReportTemplateDefinition } from "./report-kpi";
 import { MaintenanceCostQueryService } from "./maintenance-cost.query";
 
 type AuthedRequest = { user: JwtPayload };
@@ -42,7 +44,8 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly maintenanceCosts: MaintenanceCostQueryService,
-    private readonly erpMonitoringService: ErpMonitoringService
+    private readonly erpMonitoringService: ErpMonitoringService,
+    private readonly reportTemplates: ReportTemplatesService
   ) {}
 
   @Get("maintenance-costs/export")
@@ -150,6 +153,20 @@ export class ReportsController {
   async utilities(@Req() req: AuthedRequest) {
     const data = await this.reportsService.utilities(req.user);
     return { data, message: "Utilities report fetched" };
+  }
+
+  @Get("templates")
+  @Roles(...REPORT_READ_ROLES)
+  async templates(@Req() req: AuthedRequest) {
+    const data = await this.reportTemplates.list(req.user);
+    return { data, message: "Report templates fetched" };
+  }
+
+  @Post("templates")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  async saveTemplate(@Req() req: AuthedRequest, @Body() body: Partial<ReportTemplateDefinition>) {
+    const data = await this.reportTemplates.save(req.user, body);
+    return { data, message: "Report template saved" };
   }
 
   @Get(":module/export")

@@ -48,22 +48,41 @@ export class InsuranceClaimsService {
     return claim;
   }
 
-  async list(actor: Phase4Actor, filters?: { vehicleId?: string; status?: InsuranceClaimStatus }) {
+  async list(
+    actor: Phase4Actor,
+    filters?: { vehicleId?: string; status?: InsuranceClaimStatus; page?: number; pageSize?: number }
+  ) {
     const tenantId = requireTenantId(actor?.tenantId);
     const where: Prisma.InsuranceClaimWhereInput = {
       tenantId,
       ...(filters?.vehicleId ? { vehicleId: filters.vehicleId } : {}),
       ...(filters?.status ? { status: filters.status } : {})
     };
-    return this.prisma.insuranceClaim.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        vehicle: { select: { id: true, registrationNo: true } },
-        accident: { select: { id: true, reportNumber: true } }
-      },
-      take: 200
-    });
+    const include = {
+      vehicle: { select: { id: true, registrationNo: true } },
+      accident: { select: { id: true, reportNumber: true } }
+    };
+    if (filters?.page == null) {
+      return this.prisma.insuranceClaim.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include,
+        take: 200
+      });
+    }
+    const page = Math.max(1, filters.page);
+    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 25));
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.insuranceClaim.count({ where }),
+      this.prisma.insuranceClaim.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include,
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+    return { items, meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) } };
   }
 
   async findOne(id: string, actor: Phase4Actor) {

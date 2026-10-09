@@ -66,7 +66,7 @@ export default function AuditPage() {
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Audit Log</h2>
+          <h2 className="page-title">Audit Log</h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Read-only audit trail. Filter by entity type or browse all platform actions.
           </p>

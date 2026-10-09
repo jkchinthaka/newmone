@@ -602,48 +602,37 @@ export default function VehiclesPage() {
   return (
     <div className="space-y-5">
       <PageBreadcrumbs />
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-5 py-5 text-white shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">Fleet Operations</p>
-            <h2 className="mt-1 text-2xl font-semibold">Vehicle Management</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-200">
-              Search, filter, sort, and track your fleet with server-side performance controls, proactive service alerts,
-              and role-aware actions.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={refreshAll}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-500/70 bg-slate-600/40 px-3 py-2 text-sm text-white transition hover:bg-slate-500/60"
-            >
-              <RefreshCw size={14} /> Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              disabled={!canCreate}
-              title={!canCreate ? "Your permissions do not allow vehicle registration" : undefined}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-                canCreate
-                  ? "bg-white text-slate-900 hover:bg-slate-100"
-                  : "cursor-not-allowed bg-slate-500/50 text-slate-200"
-              }`}
-            >
-              <Plus size={14} /> Register Vehicle
-            </button>
-            <BulkImportButton entity="vehicle" entityLabel="Vehicles" variant="dark" onImported={refreshAll} />
-          </div>
-        </div>
-        {!canCreate && !canEdit && (
-          <p className="mt-3 rounded-lg border border-slate-500/70 bg-slate-800/60 px-3 py-2 text-xs text-slate-200">
-            View-only mode is active for your account. Edit and create actions are disabled by permissions.
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-brand-800">Fleet</p>
+          <h1 className="page-title">Vehicle Management</h1>
+          <p className="max-w-3xl text-sm text-brand-800">
+            Search, filter, and track vehicles. Actions stay limited to your role.
           </p>
-        )}
-      </section>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={refreshAll} className="btn-quiet">
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            disabled={!canCreate}
+            title={!canCreate ? "Your permissions do not allow vehicle registration" : undefined}
+            className="btn-primary disabled:cursor-not-allowed"
+          >
+            <Plus size={14} /> Register Vehicle
+          </button>
+          <BulkImportButton entity="vehicle" entityLabel="Vehicles" variant="dark" onImported={refreshAll} />
+        </div>
+      </header>
+      {!canCreate && !canEdit ? (
+        <p className="rounded-card border border-brand-100 bg-white px-3 py-2 text-sm text-ink">
+          View-only mode is active for your account. Edit and create actions are disabled by permissions.
+        </p>
+      ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="summary-strip">
         {summaryCards.map((card) => (
           <SummaryCard key={card.title} title={card.title} value={card.value} icon={card.icon} tone={card.tone} />
         ))}
@@ -1046,13 +1035,11 @@ function SummaryCard({
   tone: string;
 }) {
   return (
-    <article className={`rounded-xl p-4 ring-1 ${tone}`}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em]">{title}</p>
-        <Icon size={14} />
-      </div>
-      <p className="mt-2 text-2xl font-semibold">{value.toLocaleString()}</p>
-    </article>
+    <span className={`inline-flex items-center gap-2 text-sm text-ink ${tone}`}>
+      <Icon size={14} aria-hidden />
+      <span className="font-semibold tabular-nums">{value.toLocaleString()}</span>
+      <span>{title}</span>
+    </span>
   );
 }
 

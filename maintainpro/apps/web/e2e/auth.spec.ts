@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 const adminUser = {
   id: "user-e2e-admin",
@@ -15,6 +17,17 @@ const adminUser = {
 const e2ePassword = "E2eValidPass123!";
 
 async function mockAuthenticatedShell(page: Page) {
+  await page.route("**/api/backend/**", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Not mocked" }
+      })
+    });
+  });
+
   await page.context().addCookies([
     {
       name: "maintainpro_access",
@@ -231,7 +244,7 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center");
+    await page.waitForURL("**/action-center", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
 
@@ -336,9 +349,24 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center");
+    await page.waitForURL("**/action-center", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
     await assertNoLegacyTokenStorage(page);
+  });
+
+  test("redirects unauthenticated action-center access before calling the API", async ({ page }) => {
+    const apiCalls: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/backend/")) apiCalls.push(request.url());
+    });
+
+    await page.goto("/action-center", { waitUntil: "domcontentloaded" });
+
+    await expect(page).toHaveURL(/\/login\?reason=session_expired&returnTo=%2Faction-center/);
+    expect(apiCalls).toEqual([]);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login\?reason=session_expired/);
+    expect(apiCalls).toEqual([]);
   });
 
   test("redirects unauthenticated protected-route access to login", async ({ page }) => {
@@ -385,14 +413,12 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     const mainNav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(mainNav.getByRole("link", { name: "Home" }).first()).toBeVisible();
-    await expect(mainNav.getByRole("link", { name: "System Health" })).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
+    await expect(mainNav.getByRole("link", { name: "System Health" })).toHaveCount(0);
+    await mainNav.getByRole("button", { name: "Administration" }).click();
     await expect(mainNav.getByRole("link", { name: "Admin Console" })).toBeVisible();
 
-    await mainNav.getByRole("button", { name: "Overview" }).click();
-    await expect(mainNav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-
-    await mainNav.getByRole("button", { name: "Operations", exact: true }).click();
+    await mainNav.getByRole("button", { name: "Maintenance", exact: true }).click();
     await expect(mainNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
 
     await expect(mainNav.getByRole("link", { name: "Home", exact: true })).toHaveCount(0);
@@ -409,8 +435,8 @@ test.describe("authentication", () => {
 
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const mobileNav = page.getByRole("dialog", { name: "Mobile navigation" });
-    await expect(mobileNav.getByRole("link", { name: "Home" }).first()).toBeVisible();
-    await mobileNav.getByRole("button", { name: "Operations", exact: true }).click();
+    await expect(mobileNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
+    await mobileNav.getByRole("button", { name: "Maintenance", exact: true }).click();
     await expect(mobileNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
     await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
     await expect(page.getByRole("dialog", { name: "Mobile navigation" })).toHaveCount(0);
@@ -470,7 +496,33 @@ test.describe("authentication", () => {
 
     await page.goto("/action-center");
 
-    await expect(page.getByRole("heading", { name: /Home/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
     await assertNoLegacyTokenStorage(page);
+  });
+
+  test("logout then Back does not restore a protected page", async ({ page }) => {
+    test.setTimeout(60_000);
+    const envPath = path.resolve(__dirname, "../../../.env");
+    const env = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+    const password = env.match(/^MAINTAINPRO_SEED_PASSWORD=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, "") ?? "";
+    test.skip(!password, "Local seed password is not available");
+
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.locator("#login-email").waitFor({ state: "visible" });
+    await page.waitForFunction(() => {
+      const input = document.querySelector("#login-email");
+      return Boolean(input && Object.keys(input).some((key) => key.startsWith("__react")));
+    });
+    await page.locator("#login-email").fill("admin@maintainpro.local");
+    await page.locator("#login-password").fill(password);
+    await page.getByRole("button", { name: /^Sign in$/ }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { waitUntil: "commit", timeout: 20_000 });
+
+    await page.goto("/inventory", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Logout" }).click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 });

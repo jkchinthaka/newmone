@@ -10,13 +10,14 @@ import { MaintenanceReportsService } from "./maintenance-reports.service";
 import { ReportsController } from "./reports.controller";
 import { MaintenanceCostQueryService } from "./maintenance-cost.query";
 import { ReportsService } from "./reports.service";
+import { ReportTemplatesService } from "./report-templates.service";
 import { WorkOrderCategoryReportsController } from "./work-order-category-reports.controller";
 import { WorkOrderCategoryReportsService } from "./work-order-category-reports.service";
 
 @Module({
   imports: [DriverIntelligenceModule, VehiclesModule, WorkforceModule, InventoryModule],
   controllers: [ReportsController, MaintenanceReportsController, WorkOrderCategoryReportsController],
-  providers: [ReportsService, MaintenanceReportsService, WorkOrderCategoryReportsService, ErpMonitoringService, MaintenanceCostQueryService],
+  providers: [ReportsService, MaintenanceReportsService, WorkOrderCategoryReportsService, ErpMonitoringService, MaintenanceCostQueryService, ReportTemplatesService],
   exports: [ReportsService, MaintenanceReportsService, WorkOrderCategoryReportsService, ErpMonitoringService, MaintenanceCostQueryService]
 })
 export class ReportsModule {}

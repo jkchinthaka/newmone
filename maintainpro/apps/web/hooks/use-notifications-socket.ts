@@ -13,8 +13,8 @@ import {
 /**
  * Realtime notification stream (Nest gateway, namespace `/notifications` on the API
  * origin). Optional by design — the notification bell also polls `/notifications` through
- * the BFF — so a failed handshake is reported once, quietly, instead of a warning per
- * reconnection attempt. See lib/realtime.ts for the shared policy.
+ * the BFF. A failed handshake is reported once and the socket is closed, with no
+ * reconnect loop. See lib/realtime.ts.
  */
 const CHANNEL = "notifications";
 
@@ -46,10 +46,8 @@ export const useNotificationsSocket = (onEvent: (payload: unknown) => void) => {
       socket.on("notifications.updated", dispatch);
 
       socket.on("connect", () => clearRealtimeUnavailableReport(CHANNEL));
-      socket.on("connect_error", (err) => reportRealtimeUnavailable(CHANNEL, err.message));
-
-      // Stop the manager once attempts are exhausted so it does not keep retrying.
-      socket.io.on("reconnect_failed", () => {
+      socket.on("connect_error", (err) => {
+        reportRealtimeUnavailable(CHANNEL, err.message);
         socket?.close();
       });
     }, 0);

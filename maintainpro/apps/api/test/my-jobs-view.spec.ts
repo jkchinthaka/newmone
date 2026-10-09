@@ -2,7 +2,9 @@ import {
   assignedToActorScope,
   businessDayWindow,
   compareMyJobs,
+  isMyJobEvidenceNeeded,
   isMyJobOverdue,
+  isMyJobWaitingParts,
   matchesMyJobFilters,
   matchesMyJobView
 } from "../src/modules/work-orders/my-jobs.rules";
@@ -44,6 +46,34 @@ describe("my jobs assignment and views", () => {
     expect(matchesMyJobView(closed, "completed", now)).toBe(true);
     expect(matchesMyJobView(closed, "overdue", now)).toBe(false);
     expect(matchesMyJobView(closed, "active", now)).toBe(false);
+  });
+
+  it("keeps waiting parts, evidence, and rework as separate assigned-job filters", () => {
+    const waiting = {
+      status: "IN_PROGRESS",
+      parts: [{ lineStatus: "REQUESTED", pendingReturnQuantity: 0, issuedQuantity: 0, requestedQuantity: 1 }]
+    };
+    const issuedOnly = {
+      status: "IN_PROGRESS",
+      parts: [{ lineStatus: "ISSUED", pendingReturnQuantity: 0, issuedQuantity: 1, requestedQuantity: 1 }]
+    };
+    const rework = { status: "REWORK_REQUIRED", parts: [] };
+    const rejectedEvidence = {
+      status: "IN_PROGRESS",
+      type: "CORRECTIVE",
+      evidenceAttachments: [{ evidenceType: "BEFORE_PHOTO" as const, status: "UPLOADED", verificationStatus: "REJECTED" as const }]
+    };
+
+    expect(isMyJobWaitingParts(waiting)).toBe(true);
+    expect(matchesMyJobView(waiting, "waiting-parts", now)).toBe(true);
+    expect(matchesMyJobView(waiting, "due-today", now)).toBe(false);
+    expect(isMyJobWaitingParts(issuedOnly)).toBe(false);
+    expect(isMyJobWaitingParts({ status: "CLOSED", hasPartIssue: true })).toBe(false);
+    expect(matchesMyJobView(rework, "rework-required", now)).toBe(true);
+    expect(matchesMyJobView(rework, "active", now)).toBe(true);
+    expect(isMyJobEvidenceNeeded(rejectedEvidence)).toBe(true);
+    expect(matchesMyJobView(rejectedEvidence, "evidence-needed", now)).toBe(true);
+    expect(matchesMyJobView({ status: "CLOSED", type: "CORRECTIVE", evidenceAttachments: rejectedEvidence.evidenceAttachments }, "evidence-needed", now)).toBe(false);
   });
 
   it("applies search and status before view counts", () => {

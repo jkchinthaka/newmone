@@ -84,9 +84,8 @@ export function InventorySummaryCards({ summary, insights, dashboard, activeCard
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-6 md:grid-cols-2">
+      <div className="summary-strip">
         {cards.map((card, index) => {
-          const Icon = card.icon;
           const isActive = activeCard === card.key && (card.title === "Total Items" || card.title === "Low Stock" || card.title === "Out of Stock");
 
           return (
@@ -97,40 +96,25 @@ export function InventorySummaryCards({ summary, insights, dashboard, activeCard
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: index * 0.04 }}
               onClick={() => onCardSelect(card.key)}
-              className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition ${
-                isActive ? "border-brand-500 shadow-lg shadow-brand-100" : "border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-md"
+              className={`inline-flex min-h-10 items-center gap-2 rounded-md border border-brand-100 bg-white px-3 py-2 text-left text-sm text-ink ${
+                isActive ? "border-brand-600 bg-brand-50" : ""
               }`}
             >
-              <div className={`pointer-events-none absolute inset-0 opacity-90 bg-gradient-to-br ${card.accent}`} />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(255,255,255,0.35),transparent_45%)]" />
-              <div className="relative text-white">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/85">{card.title}</p>
-                  <span className="rounded-lg bg-white/20 p-2 backdrop-blur-sm">
-                    <Icon size={16} />
-                  </span>
-                </div>
-                <p className="mt-4 text-2xl font-semibold leading-none">{card.renderValue(summary)}</p>
-                <p className="mt-2 text-xs text-white/90">{card.subtitle(summary)}</p>
+              <div className="text-ink">
+                <p className="text-sm text-brand-800">{card.title}</p>
+                <p className="text-lg font-semibold tabular-nums">{card.renderValue(summary)}</p>
               </div>
             </motion.button>
           );
         })}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {operational.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
-                <Icon size={14} className="text-slate-400" />
-              </div>
-              <p className="mt-2 text-xl font-semibold text-slate-900">{item.value}</p>
-            </div>
-          );
-        })}
+      <div className="summary-strip">
+        {operational.map((item) => (
+          <span key={item.label} className="text-sm text-ink">
+            <span className="font-semibold tabular-nums">{item.value}</span> {item.label}
+          </span>
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

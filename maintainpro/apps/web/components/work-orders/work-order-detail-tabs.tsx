@@ -29,8 +29,8 @@ export function WorkOrderDetailTabs({ activeTab, onChange, showAudit }: Props) {
   const tabs = WORK_ORDER_DETAIL_TABS.filter((tab) => (tab.id === "audit" ? showAudit : true));
 
   return (
-    <div className="border-b border-slate-200 px-1">
-      <div className="flex gap-1 overflow-x-auto pb-px" role="tablist" aria-label="Work order sections">
+    <div className="sticky top-0 z-10 border-b border-brand-100 bg-white px-3">
+      <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Work order sections">
         {tabs.map((tab) => {
           const selected = activeTab === tab.id;
           return (
@@ -40,10 +40,10 @@ export function WorkOrderDetailTabs({ activeTab, onChange, showAudit }: Props) {
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(tab.id)}
-              className={`whitespace-nowrap rounded-t-lg px-3 py-2 text-sm font-medium transition ${
+              className={`min-h-10 whitespace-nowrap border-b-2 px-3 text-sm font-medium ${
                 selected
-                  ? "border border-b-white border-slate-200 bg-white text-brand-800"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "border-brand-600 text-brand-800"
+                  : "border-transparent text-ink hover:bg-brand-50"
               }`}
             >
               {tab.label}

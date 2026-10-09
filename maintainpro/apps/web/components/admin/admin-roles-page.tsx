@@ -94,7 +94,7 @@ export function AdminRolesPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">Roles & Permissions</h2>
+          <h2 className="mt-2 page-title">Roles & Permissions</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             {isSuperAdmin
               ? "Review permission coverage and edit any role's permissions directly. Changes take effect immediately for every user assigned that role."
@@ -143,11 +143,11 @@ export function AdminRolesPage() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Roles in scope</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{filteredMatrix.roles.length}</p>
+            <p className="mt-1 page-title">{filteredMatrix.roles.length}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Permissions shown</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{filteredMatrix.permissions.length}</p>
+            <p className="mt-1 page-title">{filteredMatrix.permissions.length}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2 xl:col-span-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Built-in roles</p>

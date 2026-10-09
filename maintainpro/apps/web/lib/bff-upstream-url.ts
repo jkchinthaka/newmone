@@ -103,6 +103,19 @@ export function resolveBffUpstreamApiBase(
   return { base, meta };
 }
 
+/**
+ * `localhost` resolves to IPv6 `::1` first on Windows, while the local API listens
+ * on IPv4. Undici then reports a failed fetch (HTTP 502) even though 127.0.0.1 is up.
+ * Docker and remote hostnames are left unchanged.
+ */
+export function useIpv4Loopback(absoluteUrl: string): string {
+  const parsed = new URL(absoluteUrl);
+  if (parsed.hostname === "localhost") {
+    parsed.hostname = "127.0.0.1";
+  }
+  return parsed.href;
+}
+
 export function joinUpstreamPath(base: string, pathSegments: string[]): string {
   const suffix = pathSegments.map((part) => encodeURIComponent(String(part))).join("/");
   const url = `${base.replace(/\/+$/, "")}/${suffix}`;

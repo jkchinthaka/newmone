@@ -70,7 +70,7 @@ export default function AdminConfigHistoryPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Configuration Change History</h1>
+        <h1 className="page-title">Configuration Change History</h1>
         <p className="mt-1 text-sm text-slate-600">
           Append-only trail of Admin master-data and policy changes (actor, version, before/after).
         </p>

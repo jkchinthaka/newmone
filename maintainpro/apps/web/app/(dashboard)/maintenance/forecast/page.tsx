@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { refreshMaintenanceForecasts } from "@/lib/enterprise-ops-api";
+import { MAINTENANCE_FORECAST_EMPTY_MESSAGE } from "@/lib/maintenance-forecast-copy";
 import { apiClient } from "@/lib/api-client";
 
 type ForecastItem = {
@@ -148,11 +149,11 @@ export default function MaintenanceForecastPage() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Maintenance Forecast</h1>
+          <h1 className="page-title">Maintenance Forecast</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-600">
             Estimate upcoming maintenance due dates using meter trends, usage history and preventive-maintenance rules.
           </p>
@@ -215,7 +216,7 @@ export default function MaintenanceForecastPage() {
             }
           >
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+            <p className="mt-1 page-title">{value}</p>
           </button>
         ))}
       </section>
@@ -284,7 +285,7 @@ export default function MaintenanceForecastPage() {
           <p className="mt-1 text-sm text-slate-600">
             {filtered
               ? "Try a different search or clear the current filters."
-              : "Forecasts require maintenance rules and sufficient meter or usage history."}
+              : MAINTENANCE_FORECAST_EMPTY_MESSAGE}
           </p>
         </div>
       ) : null}

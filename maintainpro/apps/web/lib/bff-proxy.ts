@@ -9,7 +9,8 @@ import {
 import {
   joinUpstreamPath,
   resolveBffUpstreamApiBase,
-  sanitizeRequestId
+  sanitizeRequestId,
+  useIpv4Loopback
 } from "./bff-upstream-url";
 import { assertProductionRuntimeSecurity } from "./runtime-security-config";
 import {
@@ -104,7 +105,7 @@ async function requestUpstreamTokenRefresh(
   requestId: string
 ): Promise<AuthTokenPayload | null> {
   try {
-    const refreshResponse = await fetch(new URL(joinUpstreamPath(upstreamBase, ["auth", "refresh"])), {
+    const refreshResponse = await fetch(useIpv4Loopback(joinUpstreamPath(upstreamBase, ["auth", "refresh"])), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -229,7 +230,7 @@ export async function proxyBffRequest(
     );
   }
 
-  const upstreamUrl = new URL(joinUpstreamPath(upstreamBase, pathSegments));
+  const upstreamUrl = new URL(useIpv4Loopback(joinUpstreamPath(upstreamBase, pathSegments)));
   request.nextUrl.searchParams.forEach((value, key) => {
     upstreamUrl.searchParams.set(key, value);
   });

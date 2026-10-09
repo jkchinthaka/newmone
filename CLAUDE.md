@@ -17,8 +17,10 @@ Any AI session can end abruptly (usage limits). Continuity lives in the repo, no
    with real results, errors and blockers, and the exact next action. Update the ledger when a
    page's status changes. Commit these doc updates on the working branch.
 3. Commit, push, and merge behavior is defined in one place: the **Git policy** section of
-   [`AGENTS.md`](AGENTS.md). In short: commit verified work on a non-`main` branch, never push
-   any branch without explicit user approval, never push directly to `main`, never merge into `main` without explicit user approval, never force-push,
+   [`AGENTS.md`](AGENTS.md). In short: after `qa-reviewer` PASS, commit on a non-`main` branch,
+   push that feature branch, open a non-draft PR to `main`, and enable GitHub auto-merge only when
+   branch protection and `allow_auto_merge` are already in place. Never push directly to `main`,
+   never force-push, never bypass protection, and never merge while review or required checks are failing.
    never reset or discard others' changes, never pop stashes you did not create.
 4. Never record secrets (passwords, tokens, connection strings) in these files.
 

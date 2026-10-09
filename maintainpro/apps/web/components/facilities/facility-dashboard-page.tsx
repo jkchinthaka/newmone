@@ -110,7 +110,7 @@ export function FacilityDashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-brand-700" aria-hidden="true" />
-            <h1 className="text-2xl font-semibold text-slate-900">Facility Reports</h1>
+            <h1 className="page-title">Facility Reports</h1>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Tenant-scoped hierarchy counts and facility issue KPIs from live data only. Generated{" "}

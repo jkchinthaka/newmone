@@ -95,7 +95,7 @@ export default function AdminPrioritySlaPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Priority / SLA Rules</h1>
+        <h1 className="page-title">Priority / SLA Rules</h1>
         <p className="mt-1 text-sm text-slate-600">
           Response and completion targets drive work-order SLA deadlines when a job starts. Changes
           are recorded in configuration history.

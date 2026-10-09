@@ -1,38 +1,45 @@
 import Image from "next/image";
 
-/** Intrinsic dimensions of `/brand/nelna-logo.png` — used for aspect ratio; rendered size is capped via CSS. */
-const LOGO_WIDTH = 1024;
-const LOGO_HEIGHT = 649;
+/** Pixel size of `public/brand/nelna-group-logo.jpg`. CSS caps the rendered size. */
+export const NELNA_LOGO_WIDTH = 725;
+export const NELNA_LOGO_HEIGHT = 563;
+export const NELNA_LOGO_SRC = "/brand/nelna-group-logo.jpg";
+export const NELNA_LOGO_ALT = "Nelna Group";
 
-type NelnaLogoSize = "sm" | "md" | "lg";
+type NelnaLogoSize = "compact" | "sm" | "md" | "lg";
 
 type NelnaLogoProps = {
   size?: NelnaLogoSize;
   priority?: boolean;
   className?: string;
+  /** Hide the name from assistive tech when the product name is already read nearby. */
+  decorative?: boolean;
 };
 
 const sizeClasses: Record<NelnaLogoSize, string> = {
-  sm: "max-h-10 max-w-[140px]",
-  md: "max-h-14 max-w-[180px]",
-  lg: "max-h-20 max-w-[240px]"
+  compact: "w-14",
+  sm: "w-[104px]",
+  md: "w-[132px]",
+  lg: "w-[160px]"
 };
 
 /**
- * Official Nelna Farm company mark.
- *
- * TODO(brand): Create a simplified square icon from this artwork for favicon / PWA manifest
- * (`public/favicon.svg`, `app/icon.png`). Do not reuse the full shield logo at favicon sizes.
+ * Official Nelna Group mark, used as supplied.
+ * The JPEG has a white field, so it sits on a white surface.
+ * A square favicon was not derived from this artwork.
  */
-export function NelnaLogo({ size = "md", priority = false, className = "" }: NelnaLogoProps) {
+export function NelnaLogo({ size = "md", priority = false, className = "", decorative = false }: NelnaLogoProps) {
   return (
-    <Image
-      alt="Nelna Farm logo"
-      className={`h-auto w-auto shrink-0 object-contain ${sizeClasses[size]} ${className}`.trim()}
-      height={LOGO_HEIGHT}
-      priority={priority}
-      src="/brand/nelna-logo.png"
-      width={LOGO_WIDTH}
-    />
+    <span className={`inline-flex shrink-0 rounded-md bg-white p-1 ${className}`.trim()}>
+      <Image
+        alt={decorative ? "" : NELNA_LOGO_ALT}
+        aria-hidden={decorative ? true : undefined}
+        className={`h-auto ${sizeClasses[size]} object-contain`}
+        height={NELNA_LOGO_HEIGHT}
+        priority={priority}
+        src={NELNA_LOGO_SRC}
+        width={NELNA_LOGO_WIDTH}
+      />
+    </span>
   );
 }

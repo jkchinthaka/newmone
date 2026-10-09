@@ -173,7 +173,7 @@ export default function InventoryStockCountsPage() {
       <InventorySectionNav />
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Stock Counts</h1>
+        <h1 className="page-title">Stock Counts</h1>
         <p className="max-w-3xl text-sm text-slate-600">
           Physical counts post through the MaintainPro warehouse ledger as adjustments. ERP snapshot quantities are shown
           for comparison only and are never copied into the ledger automatically.

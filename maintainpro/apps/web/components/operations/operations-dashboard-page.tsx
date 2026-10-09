@@ -17,7 +17,7 @@ export function OperationsDashboardPage() {
     <div className="space-y-5">
       <PageBreadcrumbs />
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">Post-Go-Live Operations</h2>
+        <h2 className="page-title">Post-Go-Live Operations</h2>
         <p className="mt-1 text-sm text-slate-500">Support, SLA, training, change control, releases, and hypercare.</p>
       </header>
 

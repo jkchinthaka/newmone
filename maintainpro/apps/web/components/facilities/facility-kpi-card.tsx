@@ -15,9 +15,9 @@ const toneClasses: Record<NonNullable<FacilityKpiCardProps["tone"]>, string> = {
 
 export function FacilityKpiCard({ label, value, hint, tone = "neutral" }: FacilityKpiCardProps) {
   return (
-    <article className={`rounded-xl border p-4 shadow-sm ${toneClasses[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+    <article className={`rounded-card border px-3 py-2 shadow-card ${toneClasses[tone]}`}>
+      <p className="text-sm font-medium">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-xs text-slate-600">{hint}</p> : null}
     </article>
   );

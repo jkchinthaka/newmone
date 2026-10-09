@@ -24,6 +24,397 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
+**CURRENT (2026-10-09) — isolated full-stack E2E green twice; qa-reviewer billing-blocked.** Mongo is not on the SQL Server E2E path (`DATABASE_PROVIDER=sqlserver`, replication off, no `depends_on` mongo). Default E2E compose puts mongo on profile `migration-source`. The crash was CRLF in `docker-entrypoint-e2e.sh` (`set -o pipefail` saw `pipefail\\r`); the script is LF and `.gitattributes` pins `eol=lf`. `npm run test:e2e:full-stack` after the test fixes: 103 passed, 0 failed, 2.5m, then a confirmation run 103 passed, 0 failed, 2.5m. Database `maintainpro_e2e_primary`, project `maintainpro-e2e-local-20261009`. Stack torn down with `compose down --remove-orphans` (named volumes kept). Docker server 29.8.2 still answered. Fixes: signed-in unknown routes must return 404; stock-issue idempotency keys include the work order id. qa-reviewer [Review](145ab38f-875a-4fdd-91de-9c276bd22abc) stopped on an unpaid invoice. That is not a PASS.
+
+**CURRENT (2026-10-09) — Docker engine recovered; isolated E2E stack was built.** Cause of the earlier failure: Docker Desktop backend disconnect during BuildKit (`vpnkit` multiplexer shutdown and `failed to receive status` EOF) while the api image was in `RUN npm ci`. Recovery was a graceful Docker Desktop restart only (`DockerCli.exe -Shutdown`, then `Docker Desktop.exe`). No Windows reboot, no `wsl --shutdown`, no prune. After restart: `docker version` client/server 29.8.2, `docker info` exit 0 (overlayfs, ~15.2 GB VM, 32 CPUs), hello-world and a second alpine container exit 0, buildx `desktop-linux` BuildKit v0.33.1 running, a tiny probe image built, then `docker compose -p maintainpro-e2e-local-20261009 --env-file .env.e2e -f docker-compose.yml -f docker-compose.e2e.yml up -d --build` exit 0 in about 6 minutes. Daemon still answered afterward (Containers=10, Images=12). WSL `docker-desktop` Running, version 2. Host free RAM after the stack started was about 1.1 GB of 32 GB. Mongo container is restarting because `/e2e-entrypoint.sh` uses `set -o pipefail` on a shell that rejects it; api, web, nginx, sqlserver, and redis reported healthy. Full-stack Playwright was not started. No commit, no pull request.
+
+**CURRENT (2026-10-09) — protected-route redirect and login 502 fix, not yet committed.** Unauthenticated `/action-center` now redirects in middleware to `/login?reason=session_expired&returnTo=%2Faction-center` before any API call. BFF upstream `localhost` is rewritten to `127.0.0.1` because the API listens on IPv4 only. Playwright `npx playwright test --workers=1 --reporter=line` three consecutive runs: each 96 tests, 52 passed, 0 failed, 44 skipped (about 2.2m). Web unit tests 203 passed. Web `tsc` exit 0. `npx next build` exit 0. `audit:rbac` 954 routes, 0 violations. Not pushed.
+
+**CURRENT (2026-10-09) — Docker-independent QA committed locally, not pushed.** Branch
+`fix/technician-home-cards`. Product commit `abe509fc`. Not pushed. Ahead of origin. Docker/full-stack E2E remains an infrastructure blocker:
+Docker Desktop cannot start because WSL has no installed distribution. Do not treat the
+earlier full-stack run (103 tests, 4 passed, 65 failed, 34 did not run) as a stack pass.
+qa-reviewer [Review](e85892bb-181e-4b6f-b8b6-02aad8435365) failed immediately on an unpaid
+invoice. That is not a PASS. `allow_auto_merge` is still false. No pull request.
+
+Local runtime after restoring dev: `/login` 200, CSS `text/css`, JS `application/javascript`,
+API `/health` 200. Signed-in console on Home, Work Orders (drawer opened), Assets, Fleet,
+Gate, Inventory, Reports, Administration, Notifications, and Settings: no hydration, React,
+socket, static-404, or unhandled-rejection problems. Topbar Nelna logo uses `priority`.
+
+P1: Fleet, Gate, Inventory, Admin, System Health page, Notifications, and brand viewport
+work stay as implemented. System Health page and nav are SUPER_ADMIN-only. Detailed
+`GET /health/readiness` still allows ADMIN and SUPER_ADMIN, and the readiness guard comment
+still names both roles. Product intent for narrowing that API is not explicit, so it was
+not changed. Settings already saves real notification preferences through
+`/notifications/preferences`; no extra Preferences feature was added. Favicon stays the
+existing SVG until an approved square Nelna source exists.
+
+Exact local results this session:
+- Web unit: `npx tsx --test lib/__tests__/*.test.ts` from `apps/web` — 199 passed, 0 failed.
+- Web `tsc --noEmit` exit 0. API `tsc --noEmit` exit 0. Root lint is the same typecheck.
+- `npx next build` from `apps/web` exit 0 (175 static pages) while the dev server was stopped.
+  Dev was restarted afterward and `/login` returned 200 again.
+- API `npm test`: 234 suites passed, 1 skipped; 2000 passed, 10 skipped, 0 failed.
+- Playwright full local: 92 tests, 46 passed, 2 failed, 44 skipped, exit 1. Both failures
+  were mobile login HTTP 502 (`UPSTREAM_UNAVAILABLE`) in inspection and reliability specs.
+  Isolated rerun of those two files: 4 passed, 0 failed. The 44 skips are staging UAT and
+  are not a pass.
+- `npm run audit:rbac`: 954 routes, violations=0.
+
+Not pushed. No pull request. Remaining blockers: full-stack E2E (Docker/WSL) and
+qa-reviewer billing.
+
+**CURRENT (2026-10-09) — full-stack E2E environment prepared, stack not started.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). Local-only
+`maintainpro/.env.e2e` was materialized from the example and is gitignored.
+Preflight PASS: `NODE_ENV=test`, `E2E_TEST_MODE=true`, `E2E_RUN_ID=local-20261009-1320`,
+`COMPOSE_PROJECT_NAME=maintainpro-e2e-local-20261009`, database `maintainpro_e2e_primary`,
+base `http://127.0.0.1:18080`. Docker CLI is not installed, so the isolated stack was
+not created. Seed failed: cannot reach `127.0.0.1:14333`. `npm run test:e2e:full-stack`:
+103 tests, 4 passed, 65 failed, 34 did not run, exit 1. Failures are
+`ECONNREFUSED 127.0.0.1:18080`. Classification: infrastructure/Docker. No E2E containers
+to tear down. Dev API on 3000 and web on 3001 were not stopped. qa-reviewer
+[Review](e9a042bd-ba32-4c40-aa3a-797f2377b7a8) failed immediately: unpaid invoice.
+Not committed. No pull request.
+
+**CURRENT (2026-10-09) — console stabilization.** Still on `fix/technician-home-cards`
+at `41cc1128` (uncommitted, not pushed). Nested assignment `<form>` inside
+`WorkOrderEditorModal` was replaced with a `<div>` and a `type="button"` add action.
+Realtime socket options no longer reconnect after a failed handshake; local
+`NEXT_PUBLIC_REALTIME_NOTIFICATIONS` is unset, so realtime stays enabled against
+`http://localhost:3000` (socket polling and websocket both answered). Inventory
+`parts` and `dashboard` returned 200 through the BFF while the API was healthy.
+A 502 is the BFF `UPSTREAM_UNAVAILABLE` response when that upstream fetch fails.
+Signed-in console probe of Home, Work Orders, Inventory, Notifications, and an
+assignment deep link showed no hydration, socket, or 502 messages. Web `tsc --noEmit` exit 0. `npx next build` exit 0. Not committed.
+
+**CURRENT (2026-10-09) — final QA stabilization, Playwright green locally.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). Full Playwright
+from `apps/web`: `npx playwright test --workers=1 --reporter=line` — 92 tests, 48 passed,
+0 failed, 44 skipped, exit 0. The 44 skips are staging UAT specs that require
+`MAINTAINPRO_WEB_URL`, `MAINTAINPRO_API_URL`, and smoke credentials. Empty-login copy
+is still "Please enter your email address." The earlier mass failure was a wedged Next
+server, then live-login rate limit (5/minute) and a pre-hydration fill. Signed-in specs
+now share one storage state per project and wait out a 429. Signed-in pages were opened
+at 1440, 1024, 768, and 390 for Home, Work Orders, Assets, Fleet, Gate, Inventory,
+Reports, Administration, Notifications, and Settings; scroll width matched the viewport.
+Work-order drawer visual spec passed with no overflow. Deep links for overdue,
+waiting-parts, supervisor-verification, gate `state=blocked`, asset history, and
+`tab=history` survived reload and back/forward. API RBAC jest: 3 suites, 33 passed.
+`npm run audit:rbac`: violations=0. Full-stack E2E was attempted and stopped before
+any test: `NODE_ENV must be exactly 'test'` and no `.env.e2e` (only `.env.e2e.example`).
+qa-reviewer [Review](d4be0325-f56b-4ab1-8982-53342d2f94a1) failed immediately: unpaid
+invoice. Not a PASS. Not committed. No pull request.
+
+**CURRENT (2026-10-09) — final QA stabilization.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). The wedged
+Next process on port 3001 was replaced; `/login` returned 200 and the API health
+check stayed 200. Signed-in work-order drawer check
+`e2e/wo-drawer-visual.spec.ts` passed on chromium and mobile-chromium: no
+horizontal overflow at 1440, 1024, 768, and 390; Overview, Save Overview, asset
+context, and the Assignment tab all rendered. Auth Playwright
+`e2e/auth.spec.ts` passed 26/26 after restoring the Admin Console and System
+Health labels, keeping the Action Center nav label, and stopping mocked sessions
+from calling the live API. Full Playwright
+`npx playwright test --workers=1 --reporter=line`: 86 tests, 36 passed, 6 failed,
+44 skipped, exit 1. Remaining failures: bulk-import file chooser redirected to
+session expiry; inspection and reliability live login returned 502 during the
+run (API and the web proxy both returned 200 afterward); tenant switch did not
+find the organization control. Not reclassified as pass. qa-reviewer was not
+rerun because the suite is not green. Not committed. No pull request.
+
+**CURRENT (2026-10-09) — operational visual rollout.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). Page titles,
+summary strips, vehicle heroes, request overview, utility/facility cards, login
+layout, and shared operational CSS now use the Nelna palette. Web unit tests:
+196 pass, 0 fail. Web `tsc` exit 0. Web production build exit 0. API Jest:
+234 suites passed, 1 skipped; 2000 tests passed, 10 skipped, 2010 total.
+Login checked in the browser at 390, 768, and 1024 with no horizontal overflow.
+A mobile gap above the sign-in card was fixed by keeping the marketing panel desktop-only.
+Playwright `npx playwright test --reporter=line`: 84 tests, 4 passed, 36 failed, 44 skipped, exit 1.
+The first failure was empty-login field errors not found within 10s. Not reclassified as pass.
+qa-reviewer [Review](0cb0759e-76b7-4961-b8f8-a4c578f04853) failed immediately:
+unpaid invoice. Not committed.
+
+**CURRENT (2026-10-09) — compact operational anatomy.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). Shared page
+headers, work-order counts, the maintenance dashboard queues, the home enterprise
+KPI board, and dashboard cards now use the compact summary-strip pattern. Table
+text in main is 14px charcoal. Web tests for dashboard links, brand, notifications,
+and deep links: 20 pass. Web `tsc --noEmit` exit 0. Browser viewport review, full
+API/Playwright/build, and qa-reviewer PASS were not completed. Not committed.
+
+**CURRENT (2026-10-09) — design tokens and shell.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted, not pushed). Tailwind `brand` /
+`accent` / `ink` now use the official Nelna palette. Desktop sidebar is dark green with
+inverse nav; mobile drawer stays light. Main canvas is light green. Notifications uses
+the compact summary strip, toolbar, and priority rows. Targeted web tests: brand-logo +
+notification-inbox 4 pass. Web `tsc --noEmit` exit 0. qa-reviewer [Review](590f4df2-00d4-41e7-8668-7687b0a0ce75)
+failed immediately: unpaid invoice. Verdict FAIL. Full-system page redesign, Playwright,
+and production build were not run. Not committed.
+
+**CURRENT (2026-10-09) — governance for safe auto-merge.** Still on
+`fix/technician-home-cards` at `41cc1128` (this docs change is uncommitted and was not pushed).
+`AGENTS.md` is the Git policy: after `qa-reviewer` PASS, commit, push the feature branch, open a
+non-draft PR, and enable auto-merge only when protection and `allow_auto_merge` are already on.
+GitHub API read today: `main` requires `validate-monorepo`, `release-validate`, `docker-build`,
+and `full-stack-e2e`; admins are enforced; force-push is off. `allow_auto_merge` is **false**, so
+this change was not pushed and auto-merge was not enabled. No application code changed.
+
+**CURRENT (2026-10-09) — Nelna Group logo.** Still on `fix/technician-home-cards`
+at `41cc1128` (uncommitted). Official artwork is
+`apps/web/public/brand/nelna-group-logo.jpg` (725×563) and the same file under
+`apps/api/assets/brand/` for PDF headers. Shared `NelnaLogo` / `AppBrandLockup`
+show it in the sidebar, mobile header, auth screens, splash, and PDF reports.
+CSV/XLSX stay unbranded. Favicon and PWA icons stay the existing square marks.
+Web `lib/__tests__/brand-logo.test.ts`: 1 passed. Web and API `tsc --noEmit` exit 0.
+Independent qa-reviewer did not run (billing block, agent e087388c). Verdict stays FAIL until a reviewer returns PASS. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — notifications inbox and personal settings.** Still on
+`fix/technician-home-cards` at `41cc1128` (uncommitted). `/notifications` is a
+paged inbox with a summary strip, one filter toolbar, and record deep links.
+Preferences, muted types, and channel rules moved to `/settings?tab=notifications`.
+Settings tabs are Profile, Notifications, and Security. Password change is on
+Security. Admin shortcuts sit at the bottom for ADMIN and SUPER_ADMIN.
+WhatsApp is hidden because it is not dispatched. Web
+`lib/__tests__/notification-inbox.test.ts`: 3 passed. API
+`test/notification-links.spec.ts`: 3 passed. Web and API `tsc --noEmit` exit 0.
+Playwright was not run. Independent qa-reviewer did not run (billing block, agent 518debdf). Verdict stays FAIL until a reviewer returns PASS. Not committed.
+Do not push or merge.
+
+**CURRENT (2026-10-09) — system health deprioritized.** Still on `fix/technician-home-cards`
+at `41cc1128` (uncommitted). `/system-health` is a compact status table for
+SUPER_ADMIN only: API, database, Redis, object storage, email/SMS, ERP, last
+check time, and configuration warnings that include an action. Normal ADMIN
+navigation, favorites, settings link, dashboard card, action-center section,
+and admin-console technical links no longer open it. Direct URL returns the
+permission state and does not fetch readiness. Health APIs, provider panels,
+and deployment-readiness code remain. Web `lib/__tests__/system-health-view.test.ts`,
+`admin-command.test.ts`, and `action-center.test.ts`: 30 passed. API
+`test/navigation.spec.ts`, `test/action-center.spec.ts`, `test/dashboard-roles.spec.ts`,
+and `test/admin-console.spec.ts`: 55 passed. Web `tsc --noEmit` exit 0.
+Independent qa-reviewer did not run (billing block, agent b93f4c31). Verdict
+stays FAIL until a reviewer returns PASS. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — admin command center.** Still on `fix/technician-home-cards`
+(uncommitted). `/admin` is a compact command center: search, five quick actions,
+a one-line summary, and grouped links. Technical modules stay collapsed.
+Invite User opens `/admin/invitations?create=1`. Web
+`lib/__tests__/admin-command.test.ts`: 2 passed. Web `tsc --noEmit` exit 0.
+Independent qa-reviewer did not run (billing block). Verdict stays FAIL until a reviewer returns PASS. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — inventory control.** Still on `fix/technician-home-cards`
+(uncommitted). `/inventory` is a compact snapshot list. Quantities are labeled
+as the Bileeta snapshot, reservations, and advisory available. ERP Sync and
+ERP Mapping moved from the inventory menu into Administration. Their routes
+remain. Web `lib/__tests__/inventory-control.test.ts`: 2 passed. API
+`test/navigation.spec.ts` and `test/inventory-list-query.spec.ts`: 29 passed.
+Web and API `tsc --noEmit` exit 0. Independent qa-reviewer did not run
+(billing block). Not committed. Do not push or merge. Verdict stays FAIL
+until a reviewer returns PASS.
+
+**CURRENT (2026-10-09) — fleet gate desk.** Still on `fix/technician-home-cards`
+(uncommitted). `/fleet/gate` is a compact desk: server-paged vehicle search,
+URL `?vehicle=`, Gate out only when Available, Gate in only when In Use.
+Readiness loads for the selected vehicle. No override from this screen.
+Web `lib/__tests__/gate-operations.test.ts`: 4 passed. Web `tsc --noEmit` exit 0.
+API `test/vehicles-phase2.service.spec.ts` gate-out: 5 passed. gate-in: 3 passed.
+Independent qa-reviewer did not run (billing block). Not committed. Do not push
+or merge. Verdict stays FAIL until a reviewer returns PASS.
+
+**CURRENT (2026-10-09) — fleet workspace.** Still on `fix/technician-home-cards`
+(uncommitted). `/fleet` is a compact workspace with URL views for vehicles, gate,
+accidents, claims, fines, and compliance. Service, document, and open-repair
+filters share the overview predicates. Gate blocked uses `explainGateBlock` for
+both the count and `/vehicles/gate-queue`. Overview failure no longer blanks the
+list. Web `lib/__tests__/fleet-workspace.test.ts`: 4 passed. API
+`test/fleet-list-filters.spec.ts`: 3 passed. Web and API `tsc --noEmit` exit 0.
+Independent qa-reviewer: FAIL d91b2764. Follow-up review did not run (billing
+block on the reviewer). Not committed. Do not push or merge. Verdict stays FAIL
+until that follow-up returns PASS.
+
+**CURRENT (2026-10-09) — organization locations.** Still on `fix/technician-home-cards`
+(uncommitted). `/admin/organization` is a compact site table plus a lazy location
+tree. Create and edit use dialogs. Departments goes to `/master-data/departments`.
+The facility migration dry-run sits under More actions. URL state is `?site=&location=`.
+Web `lib/__tests__/organization-workspace.test.ts`: 3 passed. API
+`test/organization-locations.spec.ts`: 4 passed. Web `tsc --noEmit` exit 0.
+Independent qa-reviewer: PASS 28dffd61, follow-up PASS 3c47dca9.
+Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — assets list.** Still on `fix/technician-home-cards`
+(uncommitted). `/assets` uses the compact operational header, a server summary
+strip, one filter row, and a narrower table. Counts come from `GET /assets/summary`.
+A row opens the asset (`?asset=`). Maintenance history uses the asset tag.
+Create Work Order opens `/maintenance/jobs?create=1&assetId=&assetLabel=` with
+the machine shown in the picker. Web `lib/__tests__/asset-list.test.ts`: 4 passed.
+Web and API `tsc --noEmit` exited 0. Independent qa-reviewer: FAIL a30dfa8f, then
+PASS 8600fa9c. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — advanced maintenance nav.** Still on `fix/technician-home-cards`
+(uncommitted). Maintenance Forecast, Inspections, and Reliability sit together
+under Advanced Maintenance. They are not in the Maintenance menu. Routes, roles,
+and APIs are unchanged. Approvals stays in that same section. The empty
+Reliability & Safety heading is omitted. `test/navigation.spec.ts`: 27 passed.
+Independent qa-reviewer verdict: PASS (7fbc3928). Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — reports workspace.** Still on `fix/technician-home-cards`
+(uncommitted). `/reports` is a compact workspace over the existing module APIs
+(operations, assets, performance, financials). Completion rate stays COMPLETED
+divided by all jobs created in the selected range. CSV and Excel export the
+filtered server dataset, capped at 5000 rows. Operations actual cost is omitted
+unless the actor can view financials. Templates are JSON definitions in
+AppSetting, validated against each report type's columns. No uploaded
+spreadsheet parser. Internal work-order ids stay on the row for drill-down and
+are marked non-exportable, so they are not table columns or file columns.
+API jest `test/report-templates.spec.ts test/report-operations-financial-columns.spec.ts test/reports-export-access.spec.ts`: 8 passed. API `tsc --noEmit` exit 0.
+Web `npx tsx --test lib/__tests__/report-workspace.test.ts`: 3 passed. Web `tsc --noEmit` exit 0.
+Independent qa-reviewer: FAIL fce1ba91, then PASS f9397911, then PASS
+b9b6361a after non-exportable columns were hidden on the legacy module table.
+Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — approvals nav.** Still on `fix/technician-home-cards`
+(uncommitted). Approvals left the Maintenance menu. The section is now labeled Advanced Maintenance.
+`/approvals` stays reachable for the same roles that hold `approvals.view`.
+Approval APIs, models, and in-module decide actions were not changed.
+`test/navigation.spec.ts`: 27 passed. Independent qa-reviewer verdict: PASS
+(a2325b54). Not committed. Do not push or merge.
+
+**CURRENT (2026-10-09) — maintenance history.** Still on `fix/technician-home-cards`
+(uncommitted). `/maintenance/history` is a compact register of COMPLETED and CLOSED
+work orders. Cancelled jobs appear only when that status is chosen, and they are
+not given a completion date. The list is `GET /work-orders/history` with server
+paging. A row opens `/work-orders?wo=<id>&tab=history`. Open jobs are excluded.
+API `test/maintenance-history-query.spec.ts`: 3 passed. Web
+`lib/__tests__/maintenance-history.test.ts`: 3 passed. API and web `tsc --noEmit`
+exited 0. Independent qa-reviewer verdict: PASS (3a8dff1b, second review).
+Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — reliability nav.** Still on `fix/technician-home-cards`
+(uncommitted). Reliability left the Maintenance menu. It now sits in Advanced
+Maintenance with Forecast and Inspections. `/maintenance/reliability` stays reachable for the same supervisor,
+manager, and admin roles. Route, API, models, and work-order permit/LOTO start
+checks were not changed. PM, Requests, Work Orders, and My Jobs stayed in
+Maintenance. `test/navigation.spec.ts`: 26 passed. Web `tsc --noEmit` exited 0.
+Independent qa-reviewer verdict: PASS (c26bdd48). Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — inspections nav.** Still on `fix/technician-home-cards`
+(uncommitted). Inspections left the Maintenance menu and sits in Advanced Maintenance with
+Maintenance Forecast. `/maintenance/inspections` stays reachable for the same
+work-order roles. Route, page, API, and models were not removed. PM, Requests,
+and Work Orders stayed in Maintenance. `test/navigation.spec.ts`: 25 passed.
+Independent qa-reviewer verdict: PASS (8080b5ed). Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — deep links.** Still on `fix/technician-home-cards`
+(uncommitted). Work-order links accept wo and the older open alias. tab= selects
+the editor section. /work-orders copies open into wo and drops open. PM due soon
+uses /maintenance/plans?due=soon. Evidence files and the activity timeline load
+on the Evidence tab. Overview loads evidence requirements only, for supervisor
+verification. History does not call the activity endpoint. Independent
+qa-reviewer verdict: PASS (ccff2e19, third review). From apps/web:
+`npx tsx --test lib/__tests__/operational-deep-link.test.ts lib/__tests__/pm-plan-list.test.ts lib/__tests__/work-order-queue-links.test.ts`
+— 15 passed. `npx tsc --noEmit -p tsconfig.json` — exit 0. Residual: no Playwright
+coverage for wo/tab/due; overview still requests evidence requirements for jobs
+that are not ready to verify. Not committed. Do not push or merge.
+
+
+**CURRENT (2026-10-08) — PM list.** Still on `fix/technician-home-cards`
+(uncommitted). Preventive Maintenance uses the compact list header, KPI chips, one
+toolbar, and a create drawer. Create used to render the form below the table.
+List queries page on the server when Prisma count is available. Activating a plan
+without an asset or vehicle is rejected. Independent qa-reviewer verdict: PASS
+(460d4038). Web pm-plan-list tests: 3 passed. API planning-validation, phase08, and
+pm-plan-query: 27 passed. Web tsc exited 0. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — forecast nav.** Still on `fix/technician-home-cards`
+(uncommitted). Maintenance Forecast left the Maintenance menu and sits in Advanced Maintenance.
+`/maintenance/planning` and `/maintenance/forecast` stay reachable for the same roles.
+Empty list copy says forecasts need meter, usage, and preventive maintenance history.
+`test/navigation.spec.ts`: 24 passed. Web `tsc --noEmit` exited 0 after the sidebar
+style map included the Planning group. Independent qa-reviewer verdict: PASS
+(909dbe6a). Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — domain job columns.** Still on `fix/technician-home-cards`
+(uncommitted). Machinery, Service, and Vehicle jobs use the same All Jobs layout. Columns
+differ: machinery shows the machine asset; service shows location, service type, and
+vendor; vehicle shows registration and odometer with the next action. Domain stays on the
+path and in `jobDomain`. Queue summary and list both send that domain. Service rows with no
+location fall back to the asset. Clearing a chip cannot drop the locked domain.
+Tests: domain-jobs-columns, queue nav, links, and search — 22 passed before the
+fallback; domain-jobs-columns 5 passed after it. Web and API `tsc --noEmit` exited 0. Full API Jest: 227 suites passed, 1 skipped;
+1974 tests passed, 10 skipped.
+Independent qa-reviewer verdict: PASS (7aaac194). Web unit tests are still not in
+root `npm test`. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — operational list pattern.** Still on `fix/technician-home-cards`
+(uncommitted). Shared list pieces: OperationalPageHeader, QueueTabBar, ActiveFilterChips,
+OperationalEmptyState, TableLoadingRows. All Jobs, Machinery, Service, and Vehicle jobs use
+them through WorkOrdersPage. My Jobs uses the same header and tab bar. Open tab is
+`open-requests` (status OPEN). Open Load stays the broader `open-load` queue in More.
+Dashboard `filter=open` still selects open-load. Queue requests stay server-paged; the
+request key includes page and filters. Not committed. Do not push or merge.
+
+Tests: web queue nav, links, search, and my-job-filters — 19 passed. Web `tsc --noEmit`
+passed after the empty-state View all fallback. Independent qa-reviewer verdict: PASS
+(08c340e2). View all uses `all` only when the summary lists it; otherwise it uses the
+server default queue. Residual: a failed summary still uses the client fallback, which
+can offer `all` to roles the server denies. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — All Jobs queue layout.** Still on `fix/technician-home-cards`
+(uncommitted; includes the dashboard and technician Home work). All Jobs header is compact,
+with Queues / Kanban / List and Create Work Order on that row. Primary queues stay as tabs;
+the rest are in More, with the same counts. Search, status, priority, assignee, and domain
+share one toolbar. Overdue, risk, triage, evidence, parts, created dates, category, and saved
+views are under More filters. The table is WO, Work/Asset, Status, Priority (wide screens),
+Assignee, Due, Next action. Low stock / ERP ownership was not changed. Queue keys and server
+definitions were not renamed. Assignee filter sends `technicianId` (user id or linked assignee).
+Not committed. Do not push or merge.
+
+Tests: web `work-order-queue-nav`, `work-order-queue-links`, and `work-order-queue-search` —
+16 passed. `npx tsc --noEmit -p apps/web/tsconfig.json` passed. Independent qa-reviewer
+verdict: PASS (ac0bfee8-0bd3-4601-9742-46ac2b7d6a92). Signed-in browser pass was blocked
+by an expired login. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — maintenance dashboard.** Still on `fix/technician-home-cards`
+(uncommitted, includes the earlier technician Home card work). Maintenance dashboard is
+action-first: managers see Overdue, Unassigned, Verification Required, and Waiting for Parts
+at `/work-orders?filter=...`. Those filters select the same queues as the counts (overdue
+queue, unassigned queue, technician-completed, waiting-parts). Overdue count now uses the
+overdue-queue definition (non-terminal), so a verified job with a past due date counts.
+Technicians see only My Jobs, Due Today, Overdue, and Waiting Parts from `/work-orders/my-jobs`
+counts. Low stock is not shown as an operational KPI because Bileeta owns stock. Not committed.
+Do not push or merge.
+
+Follow-up after the first dashboard review: inventory keepers no longer get Overdue or
+Verification Required links (those queues return 403 for that role). Priority work is loaded
+as two ordered windows (overdue by due date, then critical/high by priority and due date),
+merged, sorted, and sliced to 5. Overdue terminal statuses now come from `TERMINAL_STATUSES`.
+
+Tests after that follow-up: `test/maintenance-dashboard-d6.spec.ts` 9 passed. Web
+`maintenance-dashboard-view`, `work-order-queue-links`, and `work-order-queue-search` tests
+14 passed. Independent qa-reviewer verdict: PASS
+(a726adfb-6254-42c7-ac51-2e3a8b34ee6b). Residual: a past-due VERIFIED job counts on the
+Overdue card but is outside the open-status priority list; no signed-in browser pass yet;
+web unit tests are not wired into root `npm test`. Not committed. Do not push or merge.
+
+**CURRENT (2026-10-08) — technician Home cards.** Branch `fix/technician-home-cards`
+(`--no-track` from `fix/asset-tag-format` `41cc1128`). Technician My Work is four cards:
+My Jobs `/work-orders/my`, Due Today `?filter=due-today`, Overdue `?filter=overdue`,
+Waiting Parts `?filter=waiting-parts`. Evidence needed and rework required are My Jobs tabs,
+not Home cards. The technician Action Center no longer builds a work-order risk section
+(that section only appeared as an error empty-state after the duplicate cards were removed).
+Other roles keep overdue and open-queue cards. `listMyJobs` honors `filter` (legacy `view`
+still works) and stays assigned-to-actor plus tenant scoped. No schema, RBAC, or permission
+widening. Not committed. Do not push or merge.
+
+Tests: web `npx tsx --test lib/__tests__/**/*.test.ts` — 139 passed.
+API `npm run test` (`jest --runInBand`) — 227 suites passed, 1 suite skipped,
+1974 tests passed, 10 skipped. After removing leftover technician-only branches in
+`action-center.ts`, web `action-center`, `role-home`, and `my-job-filters` tests —
+41 passed. QA review PASS. No product assertion was weakened. Signed-in browser
+click-through stopped at login; `returnTo` kept `/work-orders/my?filter=due-today`.
+
 **CURRENT (2026-10-08) — asset tag format.** Branch `fix/asset-tag-format` (`--no-track` from
 `origin/main` `45a93ddc`). Defect: the asset form required `AST-` plus at least four letters or
 digits, but create, tag-availability, and asset bulk import accepted other tags. Fix: shared

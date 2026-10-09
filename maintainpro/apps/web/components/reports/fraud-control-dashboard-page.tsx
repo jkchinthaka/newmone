@@ -107,7 +107,7 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 page-title">{value}</p>
     </div>
   );
 }
@@ -124,7 +124,7 @@ function AlertCard({ alert }: { alert: FraudDashboardAlert }) {
           {alert.severity}
         </span>
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{alert.count}</p>
+      <p className="mt-2 page-title">{alert.count}</p>
       <p className="mt-1 text-xs text-slate-500">
         {alert.module} · owner {alert.actionOwner ?? "—"}
       </p>

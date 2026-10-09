@@ -1,6 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { FleetGatePanel } from "@/components/fleet/fleet-gate-panel";
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 const GATE_ACCESS_ROLES = new Set([
@@ -24,5 +27,12 @@ export default function FleetGatePage() {
     );
   }
 
-  return <FleetGatePanel />;
+  return (
+    <div className="ops-page">
+      <PageBreadcrumbs />
+      <Suspense fallback={<p className="text-sm text-slate-500">Loading gate operations…</p>}>
+        <FleetGatePanel />
+      </Suspense>
+    </div>
+  );
 }

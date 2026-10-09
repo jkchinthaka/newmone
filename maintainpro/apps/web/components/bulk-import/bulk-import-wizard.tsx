@@ -269,6 +269,8 @@ export function BulkImportWizard({ entity, entityLabel, open, onClose, onImporte
                   type="file"
                   accept=".csv,.xlsx"
                   className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) handleFile(file);

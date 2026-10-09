@@ -70,7 +70,7 @@ export function PartsMisuseReportPage() {
                   {card.severity}
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{card.count}</p>
+              <p className="mt-2 page-title">{card.count}</p>
             </div>
           ))}
         </section>

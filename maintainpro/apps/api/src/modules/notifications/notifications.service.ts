@@ -14,6 +14,7 @@ import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { QueueHealthService } from "../queues/queue-health.service";
 import { EmailDispatchService } from "./email-dispatch.service";
+import { notificationContextHref, notificationListPage, notificationListWhere, type NotificationListQuery } from "./notification-links";
 import { NotificationsGateway } from "./notifications.gateway";
 import { PushDeviceRegistration, PushDispatchService } from "./push-dispatch.service";
 import { SmsDispatchService } from "./sms-dispatch.service";
@@ -48,14 +49,9 @@ export type NotificationActionType =
   | "CREATE_WORK_ORDER"
   | "ASSIGN_USER";
 
-type NotificationQuery = {
-  status?: "ALL" | "READ" | "UNREAD";
-  type?: string;
-  priority?: string;
-  search?: string;
-  page?: number;
-  pageSize?: number;
+type NotificationQuery = NotificationListQuery & {
   includeAnalytics?: boolean;
+  includeBrief?: boolean;
 };
 
 type NotificationAction = {
@@ -136,50 +132,23 @@ export class NotificationsService {
   ) {}
 
   async findAll(userId: string, query: NotificationQuery) {
-    const page = Number.isFinite(query.page) && query.page && query.page > 0 ? query.page : 1;
-    const pageSize = Math.min(
-      100,
-      Number.isFinite(query.pageSize) && query.pageSize && query.pageSize > 0 ? query.pageSize : 20
-    );
+    const { page, pageSize } = notificationListPage(query);
+    const where = notificationListWhere(userId, query);
+    const now = new Date();
 
-    const where: Prisma.NotificationWhereInput = {
-      userId
-    };
-
-    if (query.status === "READ") {
-      where.isRead = true;
-    }
-
-    if (query.status === "UNREAD") {
-      where.isRead = false;
-    }
-
-    const parsedTypes = this.parseNotificationTypes(query.type);
-    if (parsedTypes.length > 0) {
-      where.type = { in: parsedTypes };
-    }
-
-    const parsedPriorities = this.parsePriorities(query.priority);
-    if (parsedPriorities.length > 0) {
-      where.priority = { in: parsedPriorities };
-    }
-
-    if (query.search && query.search.trim().length > 0) {
-      const term = query.search.trim();
-      where.OR = [
-        { title: { contains: term } },
-        { message: { contains: term } }
-      ];
-    }
-
-    const [rows, total] = await Promise.all([
+    const [rows, total, unread, critical, overdue] = await Promise.all([
       this.prisma.notification.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize
       }),
-      this.prisma.notification.count({ where })
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.count({ where: { AND: [where, { isRead: false }] } }),
+      this.prisma.notification.count({ where: { AND: [where, { priority: "CRITICAL" }] } }),
+      this.prisma.notification.count({
+        where: { AND: [where, { dueAt: { lt: now }, acknowledgedAt: null }] }
+      })
     ]);
 
     const items = await Promise.all(rows.map((row) => this.enrichNotification(row)));
@@ -192,8 +161,9 @@ export class NotificationsService {
         total,
         totalPages: Math.max(1, Math.ceil(total / pageSize))
       },
+      summary: { unread, critical, overdue },
       analytics: query.includeAnalytics ? await this.getNotificationAnalytics(userId) : null,
-      dailySummary: await this.getAiDailySummary(userId)
+      dailySummary: query.includeBrief ? await this.getAiDailySummary(userId) : null
     };
   }
 
@@ -575,6 +545,19 @@ export class NotificationsService {
     return enriched;
   }
 
+  async getChannelAvailability() {
+    const email = this.emailDispatchService.describeProvider();
+    const sms = this.smsDispatchService.describeProvider();
+    const push = this.pushDispatchService.describeProviders();
+    return {
+      inApp: true,
+      email: email.mode !== "disabled",
+      sms: sms.mode === "active" || sms.mode === "mock",
+      push: push.some((provider) => provider.configured && provider.mode !== "disabled"),
+      whatsapp: false
+    };
+  }
+
   async getPushReadiness(userId: string) {
     const preferences = await this.getPreferences(userId);
     const devices = await this.pushDispatchService.getRegisteredDevices(userId);
@@ -931,26 +914,7 @@ export class NotificationsService {
   }
 
   private resolveDeepLink(referenceType?: string | null, referenceId?: string | null) {
-    if (!referenceType || !referenceId) {
-      return "/notifications";
-    }
-
-    switch (referenceType) {
-      case "WorkOrder":
-        return `/work-orders?highlight=${referenceId}`;
-      case "Vehicle":
-        return `/vehicles/${referenceId}`;
-      case "UtilityMeter":
-        return `/utilities/meters/${referenceId}`;
-      case "UtilityBill":
-        return `/utilities?billId=${referenceId}`;
-      case "FacilityIssue":
-        return `/cleaning/issues?issueId=${referenceId}`;
-      case "CleaningVisit":
-        return `/cleaning/visits?visitId=${referenceId}`;
-      default:
-        return "/notifications";
-    }
+    return notificationContextHref({ referenceType, referenceId });
   }
 
   private async enrichNotification(
@@ -983,7 +947,12 @@ export class NotificationsService {
       dueAt,
       createdAt: notification.createdAt,
       module,
-      deepLink: context.deepLink ?? this.resolveDeepLink(notification.referenceType, notification.referenceId),
+      deepLink: notificationContextHref({
+        type: notification.type,
+        title: notification.title,
+        referenceType: notification.referenceType,
+        referenceId: notification.referenceId
+      }),
       context: {
         entityType: context.entityType,
         entityId: context.entityId,
@@ -1073,7 +1042,10 @@ export class NotificationsService {
         entityName: workOrder.title,
         deadline: workOrder.dueDate,
         preview: `${workOrder.woNumber} assigned to ${technicianName}${dueText}`,
-        deepLink: `/work-orders?highlight=${workOrder.id}`,
+        deepLink: notificationContextHref({
+          referenceType: "WorkOrder",
+          referenceId: workOrder.id
+        }),
         data: {
           woNumber: workOrder.woNumber,
           status: workOrder.status,

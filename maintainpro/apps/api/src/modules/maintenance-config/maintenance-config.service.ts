@@ -4,7 +4,9 @@ import { ApprovalRequestStatus, ApprovalStepStatus, Priority, WorkOrderStatus } 
 import { JOB_DOMAINS, parseJobDomain, type JobDomain } from "../../common/utils/job-domain.util";
 import {
   buildAttentionQueues,
-  DASHBOARD_OPEN_STATUSES
+  compareDashboardPriorityWork,
+  DASHBOARD_OPEN_STATUSES,
+  dashboardOverdueWhere
 } from "../../common/utils/maintenance-dashboard.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { unassignedQueueWhere, waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
@@ -156,11 +158,7 @@ export class MaintenanceConfigService {
         where: { tenantId, priority: Priority.CRITICAL, status: { in: OPEN_STATUSES } }
       }),
       this.prisma.workOrder.count({
-        where: {
-          tenantId,
-          status: { in: OPEN_STATUSES },
-          OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: now } }]
-        }
+        where: { tenantId, ...dashboardOverdueWhere(now) }
       }),
       this.prisma.workOrder.count({
         where: { AND: [{ tenantId }, waitingPartsQueueWhere()] }
@@ -228,28 +226,47 @@ export class MaintenanceConfigService {
     // Priority work list: same overdue/critical definition as the counts above,
     // but returns the actual work orders so supervisors can act directly from
     // the dashboard instead of only seeing a count.
-    const priorityWorkOrders = await this.prisma.workOrder.findMany({
-      where: {
-        tenantId,
-        status: { in: OPEN_STATUSES },
-        OR: [
-          { status: WorkOrderStatus.OVERDUE },
-          { dueDate: { lt: now } },
-          { priority: Priority.CRITICAL }
-        ]
-      },
-      select: {
-        id: true,
-        woNumber: true,
-        title: true,
-        jobDomain: true,
-        status: true,
-        priority: true,
-        dueDate: true
-      },
-      orderBy: [{ dueDate: "asc" }],
-      take: 8
-    });
+    const prioritySelect = {
+      id: true,
+      woNumber: true,
+      title: true,
+      jobDomain: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      asset: { select: { name: true, assetTag: true } },
+      vehicle: { select: { registrationNo: true } },
+      technician: { select: { firstName: true, lastName: true } }
+    } as const;
+    const [overdueCandidates, urgentPriorityCandidates] = await Promise.all([
+      this.prisma.workOrder.findMany({
+        where: {
+          tenantId,
+          status: { in: OPEN_STATUSES },
+          OR: [{ status: WorkOrderStatus.OVERDUE }, { dueDate: { lt: now } }]
+        },
+        select: prioritySelect,
+        orderBy: [{ dueDate: "asc" }, { woNumber: "asc" }],
+        take: 40
+      }),
+      this.prisma.workOrder.findMany({
+        where: {
+          tenantId,
+          status: { in: OPEN_STATUSES },
+          priority: { in: [Priority.CRITICAL, Priority.HIGH] }
+        },
+        select: prioritySelect,
+        orderBy: [{ priority: "asc" }, { dueDate: "asc" }, { woNumber: "asc" }],
+        take: 40
+      })
+    ]);
+    const priorityById = new Map<string, (typeof overdueCandidates)[number]>();
+    for (const row of [...overdueCandidates, ...urgentPriorityCandidates]) {
+      priorityById.set(row.id, row);
+    }
+    const priorityWorkOrders = [...priorityById.values()]
+      .sort((left, right) => compareDashboardPriorityWork(left, right, now))
+      .slice(0, 5);
 
     let lowStock: number | null = null;
     if (canViewInventory) {
@@ -301,7 +318,11 @@ export class MaintenanceConfigService {
         jobDomain: wo.jobDomain,
         status: wo.status,
         priority: wo.priority,
-        dueDate: wo.dueDate ? wo.dueDate.toISOString() : null
+        dueDate: wo.dueDate ? wo.dueDate.toISOString() : null,
+        assetName: wo.asset?.name ?? wo.vehicle?.registrationNo ?? null,
+        assigneeName: wo.technician
+          ? `${wo.technician.firstName} ${wo.technician.lastName}`.trim()
+          : null
       })),
       availability: {
         inventory: canViewInventory,

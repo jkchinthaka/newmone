@@ -18,6 +18,7 @@ import { requestContext } from "../../common/context/request-context";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
+import { inventoryPartsWhere, type InventoryListQuery } from "./inventory-list-query";
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -145,6 +146,32 @@ export class InventoryService {
         createdAt: "desc"
       }
     });
+  }
+
+  async partsPage(actor: Actor | undefined, query: InventoryListQuery & { page?: number; pageSize?: number }) {
+    const tenantId = this.resolveTenantId(actor);
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 25));
+    const sortBy = query.sortBy ?? "updatedAt";
+    const sortDir = query.sortDir === "asc" ? "asc" : "desc";
+    const where = inventoryPartsWhere(tenantId, query);
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.sparePart.count({ where }),
+      this.prisma.sparePart.findMany({
+        where,
+        include: {
+          supplier: { select: { id: true, name: true } },
+          stockMovements: { select: { createdAt: true, type: true }, orderBy: { createdAt: "desc" }, take: 1 }
+        },
+        orderBy: { [sortBy]: sortDir },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+    return {
+      items,
+      pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
   }
 
   async part(id: string, actor?: Actor) {

@@ -19,6 +19,8 @@ export type NavCategory =
   | "workspace"
   | "core"
   | "operations"
+  | "advanced"
+  | "safety"
   | "compliance"
   | "reports"
   | "admin"
@@ -290,6 +292,8 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
   workspace: "Home",
   core: "Assets",
   operations: "Maintenance",
+  advanced: "Advanced Maintenance",
+  safety: "Reliability & Safety",
   compliance: "Fleet",
   reports: "ERP & Inventory",
   admin: "Administration",
@@ -308,7 +312,7 @@ export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = 
   MANAGER: ["home", "reports", "all-jobs", "my-jobs"],
   OPERATIONS_MANAGER: ["home", "reports", "all-jobs", "my-jobs"],
   SUPER_ADMIN: ["home", "admin", "system-health"],
-  ADMIN: ["home", "admin", "system-health"],
+  ADMIN: ["home", "admin"],
   SECURITY_OFFICER: ["home", "fleet"],
   FLEET_MANAGER: ["home", "fleet", "vehicle-jobs"],
   DRIVER: ["home", "fleet"],
@@ -404,12 +408,43 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "planning",
-    label: "Planning & Scheduling",
+    label: "Maintenance Forecast",
     href: "/maintenance/planning",
     icon: "CalendarClock",
     allowedRoles: PM_ROLES,
-    category: "operations",
-    description: "Forecast and schedule maintenance work",
+    category: "advanced",
+    description: "Advanced forecast. Needs meter, usage, and preventive maintenance history.",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "inspections",
+    label: "Inspections",
+    href: "/maintenance/inspections",
+    icon: "ClipboardCheck",
+    allowedRoles: WO_ROLES,
+    category: "advanced",
+    description: "Phase 2. Overlaps with preventive maintenance, requests, and work orders.",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "reliability",
+    label: "Reliability",
+    href: "/maintenance/reliability",
+    icon: "Activity",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "advanced",
+    description: "Phase 2. Downtime, RCA, CAPA, criticality, and LOTO. Not a primary job workflow.",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "approvals",
+    label: "Approvals",
+    href: "/approvals",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
+    requiredPermissions: ["approvals.view"],
+    category: "advanced",
+    description: "Secondary inbox. Decide inside the work order, parts, vendor, request, or PM record.",
     activeMatch: "startsWith"
   },
   {
@@ -420,26 +455,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: PM_ROLES,
     category: "operations",
     description: "Planned / triggered maintenance",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "inspections",
-    label: "Inspections",
-    href: "/maintenance/inspections",
-    icon: "ClipboardCheck",
-    allowedRoles: WO_ROLES,
-    category: "operations",
-    description: "Configurable machinery and vehicle inspections",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "reliability",
-    label: "Reliability",
-    href: "/maintenance/reliability",
-    icon: "Activity",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "operations",
-    description: "Downtime, RCA, CAPA, and reliability policy",
     activeMatch: "startsWith"
   },
   {
@@ -481,19 +496,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: WO_ROLES,
     category: "operations",
     description: "Asset / vehicle / location timelines",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "approvals",
-    label: "Approvals",
-    href: "/approvals",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
-    requiredPermissions: ["approvals.view"],
-    category: "operations",
-    description: "Pending approval inbox",
-    mobilePriority: true,
-    badgeKey: "triage",
     activeMatch: "startsWith"
   },
   {
@@ -564,8 +566,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/erp",
     icon: "Database",
     allowedRoles: ADMIN_ROLES,
-    category: "reports",
-    description: "Bileeta mapping and reconciliation",
+    category: "admin",
+    description: "Bileeta mapping and reconciliation. Kept for administration, not daily inventory work.",
     activeMatch: "startsWith"
   },
   {
@@ -574,13 +576,13 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/maintenance-supply",
     icon: "Layers",
     allowedRoles: PARTS_ROLES,
-    category: "reports",
-    description: "ERP mapping status and tool returns",
+    category: "admin",
+    description: "ERP mapping status and tool returns. Kept for administration, not daily inventory work.",
     activeMatch: "exact"
   },
   {
     id: "admin",
-    label: "Administration",
+    label: "Admin Console",
     href: "/admin",
     icon: "ShieldCheck",
     allowedRoles: ADMIN_ROLES,
@@ -590,12 +592,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "system-health",
-    label: "Technical Administration",
+    label: "System Health",
     href: "/system-health",
     icon: "Activity",
-    allowedRoles: ADMIN_ROLES,
+    allowedRoles: ["SUPER_ADMIN"],
     category: "admin",
-    description: "System health, jobs, integrations, and recovery",
+    description: "Compact dependency status for technical administrators",
     badgeKey: "system-health",
     activeMatch: "startsWith"
   },
@@ -622,6 +624,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
 const NAV_CATEGORY_ORDER: NavCategory[] = [
   "workspace",
   "operations",
+  "advanced",
+  "safety",
   "core",
   "compliance",
   "reports",
@@ -836,6 +840,10 @@ export function canAccessNavigationPath(
   if (isRetired) {
     // Soft retire: only technical admins retain browser access for migration/ops.
     return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+  }
+
+  if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
+    return normalized === "SUPER_ADMIN";
   }
 
   const visible = getVisibleNavigationItems(roleName, { permissions });

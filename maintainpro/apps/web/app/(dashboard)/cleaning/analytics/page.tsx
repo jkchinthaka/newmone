@@ -361,7 +361,7 @@ function MetricCard({
         <p className="text-xs font-semibold uppercase tracking-wide">{title}</p>
         <div className="rounded-lg bg-white/70 p-2">{icon}</div>
       </div>
-      <p className="mt-3 text-3xl font-bold leading-none">{value}</p>
+      <p className="mt-3 text-lg font-semibold tabular-nums text-ink">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
     </div>
   );

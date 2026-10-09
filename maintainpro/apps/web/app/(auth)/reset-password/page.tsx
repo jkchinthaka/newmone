@@ -41,7 +41,7 @@ function ResetPasswordForm() {
       <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <MaintainProLogo showTagline size="md" />
         <header className="mt-6">
-          <h1 className="text-2xl font-semibold text-slate-900">Choose a new password</h1>
+          <h1 className="page-title">Choose a new password</h1>
           <p className="mt-2 text-sm text-slate-600">{PRODUCT_TAGLINE}</p>
         </header>
         {!token ? (

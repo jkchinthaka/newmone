@@ -546,9 +546,16 @@ describe("ROLE_HOME_PROFILES", () => {
     expect(keys).toContain("MANAGEMENT_VIEWER");
   });
 
-  it("TECHNICIAN profile has my-jobs card", () => {
+  it("TECHNICIAN profile has four distinct My Jobs filters", () => {
     const profile = ROLE_HOME_PROFILES.find((p) => p.roleKey === "TECHNICIAN");
-    expect(profile!.cards.map((c) => c.id)).toContain("my-jobs");
+    expect(profile!.cards.map((c) => c.id)).toEqual(["my-jobs", "due-today", "overdue", "waiting-parts"]);
+    expect(profile!.cards.map((c) => c.href)).toEqual([
+      "/work-orders/my",
+      "/work-orders/my?filter=due-today",
+      "/work-orders/my?filter=overdue",
+      "/work-orders/my?filter=waiting-parts"
+    ]);
+    expect(profile!.cards.some((c) => c.id === "evidence")).toBe(false);
   });
 
   it("SUPERVISOR profile has pm-due card", () => {

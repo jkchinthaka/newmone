@@ -41,8 +41,8 @@ function Field({ label, value }: { label: string; value: unknown }) {
         : String(value);
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="text-sm text-slate-900">{text}</dd>
+      <dt className="text-sm font-medium text-brand-800">{label}</dt>
+      <dd className="text-sm text-ink">{text}</dd>
     </div>
   );
 }
@@ -111,7 +111,7 @@ export function WorkOrderDomainPanel({
       <div className="flex items-start gap-2">
         <Wrench className="mt-0.5 h-4 w-4 text-brand-700" aria-hidden />
         <div>
-          <h4 className="text-sm font-semibold text-slate-900">
+          <h4 className="text-sm font-semibold text-ink">
             {domain === "VEHICLE"
               ? "Vehicle context"
               : domain === "SERVICE"
@@ -120,7 +120,7 @@ export function WorkOrderDomainPanel({
                   ? "Machinery context"
                   : "Domain context"}
           </h4>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-sm text-brand-800">
             Canonical target identity and domain readiness. Work Order status stays separate from
             asset/vehicle operational status.
           </p>
@@ -148,7 +148,7 @@ export function WorkOrderDomainPanel({
       ) : null}
 
       {data.identity.machinery ? (
-        <dl className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-xl border border-brand-100 bg-white p-3 sm:grid-cols-2">
           <Field label="Machine" value={data.identity.machinery.label} />
           <Field label="Operational status" value={data.identity.machinery.operationalStatus} />
           <Field label="Criticality" value={data.identity.machinery.criticality} />
@@ -159,7 +159,7 @@ export function WorkOrderDomainPanel({
       ) : null}
 
       {data.identity.service ? (
-        <dl className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-xl border border-brand-100 bg-white p-3 sm:grid-cols-2">
           <Field label="Location / facility" value={data.identity.service.label} />
           <Field label="Site" value={data.identity.service.site} />
           <Field label="Parent" value={data.identity.service.parent} />
@@ -168,7 +168,7 @@ export function WorkOrderDomainPanel({
       ) : null}
 
       {data.identity.vehicle ? (
-        <dl className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-xl border border-brand-100 bg-white p-3 sm:grid-cols-2">
           <Field label="Vehicle" value={data.identity.vehicle.label} />
           <Field label="Operational status" value={data.identity.vehicle.operationalStatus} />
           <Field label="Odometer" value={data.identity.vehicle.currentMileage} />
@@ -187,7 +187,7 @@ export function WorkOrderDomainPanel({
         </dl>
       ) : null}
 
-      <dl className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+      <dl className="grid gap-3 rounded-xl border border-brand-100 bg-brand-50 p-3 sm:grid-cols-2">
         <Field label="Open jobs on target" value={data.openJobsOnTarget} />
         <Field label="Critical open WOs" value={data.criticalOpenWorkOrders} />
         <Field label="Functional test" value={data.completion.functionalTestResult} />

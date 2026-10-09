@@ -13,6 +13,7 @@ import {
 import { assertTenantEntityExists, requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import { Phase4Actor, assertActor, isValidObjectId, recordPhase4Audit } from "../_phase4/phase4-audit.helper";
+import { openAccidentRepairWhere } from "../fleet-lifecycle/fleet-list-filters";
 
 export interface CreateAccidentInput {
   vehicleId: string;
@@ -79,24 +80,47 @@ export class AccidentsService {
     };
   }
 
-  async list(actor: Phase4Actor, filters?: { vehicleId?: string; status?: AccidentStatus }) {
+  async list(
+    actor: Phase4Actor,
+    filters?: { vehicleId?: string; status?: AccidentStatus; repair?: "open"; page?: number; pageSize?: number }
+  ) {
     const tenantId = requireTenantId(actor?.tenantId);
     const where: Prisma.AccidentReportWhereInput = {
       tenantId,
       ...(filters?.vehicleId ? { vehicleId: filters.vehicleId } : {}),
-      ...(filters?.status ? { status: filters.status } : {})
+      ...(filters?.status ? { status: filters.status } : {}),
+      ...(filters?.repair === "open" ? openAccidentRepairWhere() : {})
     };
-    return this.prisma.accidentReport.findMany({
-      where,
-      orderBy: { occurredAt: "desc" },
-      include: {
-        vehicle: { select: { id: true, registrationNo: true } },
-        driver: { select: { id: true, licenseNumber: true } },
-        evidence: true,
-        workOrders: { select: { id: true, woNumber: true, status: true } }
-      },
-      take: 200
-    }).then((rows) => rows.map((row) => this.withPrimaryWorkOrder(row)));
+    const include = {
+      vehicle: { select: { id: true, registrationNo: true } },
+      driver: { select: { id: true, licenseNumber: true } },
+      workOrders: { select: { id: true, woNumber: true, status: true } }
+    };
+    if (filters?.page == null) {
+      const rows = await this.prisma.accidentReport.findMany({
+        where,
+        orderBy: { occurredAt: "desc" },
+        include,
+        take: 200
+      });
+      return rows.map((row) => this.withPrimaryWorkOrder(row));
+    }
+    const page = Math.max(1, filters.page);
+    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 25));
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.accidentReport.count({ where }),
+      this.prisma.accidentReport.findMany({
+        where,
+        orderBy: { occurredAt: "desc" },
+        include,
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+    return {
+      items: rows.map((row) => this.withPrimaryWorkOrder(row)),
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
   }
 
   async findOne(id: string, actor: Phase4Actor) {

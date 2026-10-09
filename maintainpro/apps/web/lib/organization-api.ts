@@ -93,15 +93,51 @@ export async function listSites(params: {
   q?: string;
   type?: SiteType;
   includeInactive?: boolean;
+  page?: number;
+  pageSize?: number;
 } = {}): Promise<OrgSite[]> {
+  const page = await listSitesPage(params);
+  return page.items;
+}
+
+export async function listSitesPage(params: {
+  q?: string;
+  type?: SiteType;
+  includeInactive?: boolean;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{ items: OrgSite[]; meta: { page: number; pageSize: number; total: number; totalPages: number } }> {
   const response = await apiClient.get<ApiEnvelope<OrgSite[]>>("/organization/sites", {
     params: {
       q: params.q?.trim() || undefined,
       type: params.type,
-      includeInactive: params.includeInactive ? "true" : undefined
+      includeInactive: params.includeInactive ? "true" : undefined,
+      page: params.page,
+      pageSize: params.pageSize
     }
   });
+  const meta = response.data.meta as { page?: number; pageSize?: number; total?: number; totalPages?: number } | undefined;
+  return {
+    items: response.data.data ?? [],
+    meta: {
+      page: meta?.page ?? params.page ?? 1,
+      pageSize: meta?.pageSize ?? params.pageSize ?? 50,
+      total: meta?.total ?? (response.data.data ?? []).length,
+      totalPages: meta?.totalPages ?? 1
+    }
+  };
+}
+
+export async function fetchLocationChildren(locationId: string, includeInactive = false): Promise<OrgLocation[]> {
+  const response = await apiClient.get<ApiEnvelope<OrgLocation[]>>(`/organization/locations/${locationId}/children`, {
+    params: { includeInactive: includeInactive ? "true" : undefined }
+  });
   return response.data.data ?? [];
+}
+
+export async function fetchLocation(locationId: string): Promise<OrgLocation> {
+  const response = await apiClient.get<ApiEnvelope<OrgLocation>>(`/organization/locations/${locationId}`);
+  return response.data.data;
 }
 
 export async function createSite(payload: {

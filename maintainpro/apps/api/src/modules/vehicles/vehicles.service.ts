@@ -38,6 +38,7 @@ import { ApprovalsService } from "../approvals/approvals.service";
 import { ComplianceService } from "../compliance/compliance.service";
 import { EnterpriseOpsService } from "../enterprise-ops/enterprise-ops.service";
 import { FleetService } from "../fleet/fleet.service";
+import { fleetExpiringDocsWhere, fleetServiceListWhere } from "../fleet-lifecycle/fleet-list-filters";
 import { canMeterReadingAdvance } from "../policies/maintenance-policies";
 import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
 import { canVehicleGateOut } from "../policies/vehicle-policies";
@@ -53,6 +54,10 @@ interface VehicleListQuery {
   sortDir?: Prisma.SortOrder;
   page?: number;
   pageSize?: number;
+  service?: "overdue" | "due-soon" | "current";
+  gate?: "blocked" | "ready";
+  location?: string;
+  docs?: "expiring";
 }
 
 interface VehicleHistoryQuery {
@@ -130,6 +135,7 @@ export class VehiclesService {
         { vehicleModel: { contains: q } },
         { make: { contains: q } },
         { assetTag: { contains: q } },
+        { driver: { user: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }] } } },
         ...(flex
           ? [{ registrationNo: { contains: normalized } }]
           : [])
@@ -138,6 +144,26 @@ export class VehiclesService {
 
     if (query.status && query.status.length > 0) {
       where.status = { in: query.status };
+    }
+
+    const narrowed: Prisma.VehicleWhereInput[] = [];
+    if (query.service) {
+      narrowed.push(fleetServiceListWhere(query.service, new Date()));
+    }
+    if (query.docs === "expiring") {
+      narrowed.push(fleetExpiringDocsWhere(new Date()));
+    }
+    if (query.gate === "blocked") {
+      narrowed.push({ gateBlocked: true });
+    }
+    if (query.gate === "ready") {
+      narrowed.push({ gateBlocked: false, status: VehicleStatus.AVAILABLE });
+    }
+    if (query.location?.trim()) {
+      narrowed.push({ location: { contains: query.location.trim() } });
+    }
+    if (narrowed.length > 0) {
+      where.AND = narrowed;
     }
 
     const [total, items] = await this.prisma.$transaction([
@@ -1947,10 +1973,44 @@ export class VehiclesService {
     );
   }
 
+  private async explainGateBlock(
+    vehicle: {
+      id: string;
+      status?: string | null;
+      gateBlocked?: boolean | null;
+      currentMileage?: number | null;
+      nextServiceDate?: Date | null;
+      nextServiceMileage?: number | null;
+      serviceStatus?: VehicleServiceStatus | null;
+    },
+    tenantId: string
+  ) {
+    const reasons: string[] = [];
+    const rawStatus = String(vehicle.status ?? "").trim();
+    if (!rawStatus || vehicle.status !== VehicleStatus.AVAILABLE) {
+      reasons.push(rawStatus ? `Vehicle status is ${rawStatus.replaceAll("_", " ")}` : "Vehicle status is missing");
+    }
+    if (vehicle.gateBlocked) reasons.push("Gate block flag is set");
+    if (this.evaluateServiceWindow(vehicle as never).overdue) reasons.push("Vehicle service is overdue");
+    reasons.push(...(await this.complianceService.evaluateForGateOut(vehicle.id)));
+    reasons.push(...(await this.evaluateCriticalOpenWorkOrders(vehicle.id, tenantId)));
+    return reasons;
+  }
+
   /** Same reasons gate-out uses, without writing a movement. */
   async countCannotGateOut(tenantId: string) {
-    const vehicles = await this.prisma.vehicle.findMany({
-      where: { tenantId },
+    const queue = await this.listGateQueueForTenant(tenantId, { state: "blocked", page: 1, pageSize: 1 });
+    return queue.pagination.total;
+  }
+
+  async listGateQueue(query: { state: "blocked" | "ready"; page?: number; pageSize?: number; q?: string }) {
+    return this.listGateQueueForTenant(this.currentTenantId(), query);
+  }
+
+  async gateBlockReasons(id: string) {
+    const tenantId = this.currentTenantId();
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id, tenantId },
       select: {
         id: true,
         status: true,
@@ -1958,24 +2018,57 @@ export class VehiclesService {
         currentMileage: true,
         nextServiceDate: true,
         nextServiceMileage: true,
-        serviceStatus: true,
-        registrationNo: true
+        serviceStatus: true
       }
     });
-    let blocked = 0;
-    for (const vehicle of vehicles) {
-      const rawStatus = String(vehicle.status ?? "").trim();
-      const statusBlocked =
-        !rawStatus ||
-        vehicle.status !== VehicleStatus.AVAILABLE;
-      const serviceOverdue = this.evaluateServiceWindow(vehicle as never).overdue;
-      const compliance = await this.complianceService.evaluateForGateOut(vehicle.id);
-      const workOrders = await this.evaluateCriticalOpenWorkOrders(vehicle.id, tenantId);
-      if (statusBlocked || vehicle.gateBlocked || serviceOverdue || compliance.length > 0 || workOrders.length > 0) {
-        blocked += 1;
+    if (!vehicle) throw new NotFoundException("Vehicle not found");
+    const blockedReasons = await this.explainGateBlock(vehicle, tenantId);
+    return { vehicleId: id, blocked: blockedReasons.length > 0, blockedReasons };
+  }
+
+  private async listGateQueueForTenant(
+    tenantId: string,
+    query: { state: "blocked" | "ready"; page?: number; pageSize?: number; q?: string }
+  ) {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 25));
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        registrationNo: true,
+        make: true,
+        vehicleModel: true,
+        status: true,
+        gateBlocked: true,
+        currentMileage: true,
+        nextServiceDate: true,
+        nextServiceMileage: true,
+        serviceStatus: true
       }
+    });
+    const evaluated = [];
+    for (const vehicle of vehicles) {
+      const blockedReasons = await this.explainGateBlock(vehicle, tenantId);
+      evaluated.push({ ...vehicle, blocked: blockedReasons.length > 0, blockedReasons });
     }
-    return blocked;
+    const q = query.q?.trim().toLowerCase() ?? "";
+    const matched = evaluated.filter((vehicle) => {
+      const inState = query.state === "blocked" ? vehicle.blocked : !vehicle.blocked;
+      if (!inState) return false;
+      if (!q) return true;
+      return `${vehicle.registrationNo} ${vehicle.make} ${vehicle.vehicleModel}`.toLowerCase().includes(q);
+    });
+    const total = matched.length;
+    return {
+      items: matched.slice((page - 1) * pageSize, page * pageSize),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   /**

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, X, AlertTriangle } from "lucide-react";
+import { Loader2, MoreHorizontal, X, AlertTriangle } from "lucide-react";
 
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-link";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
@@ -63,6 +64,9 @@ type WorkOrderEditorModalProps = {
   submitting: boolean;
   /** When set (domain job lanes), create form locks that jobDomain. */
   createJobDomain?: "MACHINERY" | "SERVICE" | "VEHICLE";
+  initialTab?: WorkOrderDetailTab;
+  presetAssetId?: string | null;
+  presetAssetLabel?: string | null;
   onClose: () => void;
   onCreate: (values: WorkOrderCreateFormValue) => void;
   onEdit: (values: WorkOrderEditFormValue) => void;
@@ -74,6 +78,9 @@ export function WorkOrderEditorModal({
   workOrder,
   submitting,
   createJobDomain,
+  initialTab,
+  presetAssetId,
+  presetAssetLabel,
   onClose,
   onCreate,
   onEdit
@@ -88,18 +95,22 @@ export function WorkOrderEditorModal({
       type: workOrder?.type ?? "CORRECTIVE",
       dueDate: asDateInputValue(workOrder?.dueDate),
       expectedCompletionDate: asDateInputValue(workOrder?.expectedCompletionDate ?? workOrder?.dueDate),
-      assetId: workOrder?.assetId ?? "",
+      assetId: workOrder?.assetId || presetAssetId || "",
       vehicleId: workOrder?.vehicleId ?? "",
       scheduleId: workOrder?.scheduleId ?? "",
       estimatedCost: workOrder?.estimatedCost?.toString() ?? "",
       estimatedHours: workOrder?.estimatedHours?.toString() ?? ""
     }),
-    [workOrder]
+    [presetAssetId, workOrder]
   );
 
+  const currentUser = useCurrentUser();
+  const showAuditTab = canViewAuditHistoryForUser(currentUser);
   const [formState, setFormState] = useState(initialState);
   const [formError, setFormError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>(() => visibleWorkOrderTab(initialTab, showAuditTab));
+  const panelRef = useRef<HTMLDivElement>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
@@ -107,8 +118,6 @@ export function WorkOrderEditorModal({
   const [evidenceReadiness, setEvidenceReadiness] = useState<EvidenceStorageReadiness | null>(null);
   const [evidenceItems, setEvidenceItems] = useState<WorkOrderEvidenceItem[]>([]);
   const [evidenceRequirements, setEvidenceRequirements] = useState<WorkOrderEvidenceRequirements | null>(null);
-  const currentUser = useCurrentUser();
-  const showAuditTab = canViewAuditHistoryForUser(currentUser);
   const historySummary = useWorkOrderHistorySummary(!isCreateMode ? workOrder?.id : undefined);
 
   useEffect(() => {
@@ -118,8 +127,14 @@ export function WorkOrderEditorModal({
 
     setFormState(initialState);
     setFormError(null);
-    setActiveTab("overview");
-  }, [initialState, open]);
+    setActiveTab(visibleWorkOrderTab(initialTab, showAuditTab));
+  }, [initialState, initialTab, open, showAuditTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    const selected = panelRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    (selected ?? panelRef.current)?.focus();
+  }, [open, activeTab, workOrder?.id]);
 
   useEffect(() => {
     if (!open || isCreateMode || !workOrder?.id) {
@@ -135,6 +150,29 @@ export function WorkOrderEditorModal({
 
     let cancelled = false;
 
+    const applyEvidencePayload = (
+      evidenceData:
+        | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
+        | undefined
+    ) => {
+      setEvidenceItems(evidenceData?.items ?? []);
+      setEvidenceRequirements(evidenceData?.requirements ?? null);
+    };
+
+    const loadRequirements = async () => {
+      try {
+        const evidenceResponse = await apiClient.get(`/work-orders/${workOrder.id}/evidence`);
+        if (!cancelled) {
+          const evidenceData = evidenceResponse.data?.data as
+            | { requirements?: WorkOrderEvidenceRequirements }
+            | undefined;
+          setEvidenceRequirements(evidenceData?.requirements ?? null);
+        }
+      } catch {
+        if (!cancelled) setEvidenceRequirements(null);
+      }
+    };
+
     const loadEvidence = async () => {
       setEvidenceLoading(true);
       try {
@@ -144,11 +182,11 @@ export function WorkOrderEditorModal({
         ]);
         if (!cancelled) {
           setEvidenceReadiness(readinessResponse.data?.data as EvidenceStorageReadiness);
-          const evidenceData = evidenceResponse.data?.data as
-            | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
-            | undefined;
-          setEvidenceItems(evidenceData?.items ?? []);
-          setEvidenceRequirements(evidenceData?.requirements ?? null);
+          applyEvidencePayload(
+            evidenceResponse.data?.data as
+              | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
+              | undefined
+          );
         }
       } catch {
         if (!cancelled) {
@@ -185,13 +223,15 @@ export function WorkOrderEditorModal({
       }
     };
 
-    void loadActivity();
-    void loadEvidence();
+    const loads = workOrderTabLoads(activeTab);
+    if (loads.activity) void loadActivity();
+    if (loads.evidence) void loadEvidence();
+    else if (loads.requirements) void loadRequirements();
 
     return () => {
       cancelled = true;
     };
-  }, [open, isCreateMode, workOrder?.id]);
+  }, [open, isCreateMode, workOrder?.id, activeTab]);
 
   const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
 
@@ -202,45 +242,116 @@ export function WorkOrderEditorModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+          className="fixed inset-0 z-50 flex justify-end bg-[#104D2B]/45"
         >
           <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="work-order-editor-title"
+            tabIndex={-1}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
             transition={{ duration: 0.18 }}
-            className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto"
+            className="flex h-[100dvh] w-full max-w-4xl flex-col bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {isCreateMode ? "New work order" : `Work Order ${workOrder?.woNumber ?? ""}`}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {isCreateMode
-                    ? "Create an open work order. Planning can continue after creation."
-                    : "Review details, assignments, history, and audit events for this job."}
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-100 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-800">
+                  {isCreateMode ? "New work order" : workOrder?.woNumber || "Work order"}
                 </p>
+                <h3 id="work-order-editor-title" className="page-title truncate">
+                  {isCreateMode ? "Create an open job" : workOrder?.title || "Work order"}
+                </h3>
+                {!isCreateMode && workOrder ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink">
+                    <span className="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 font-medium">
+                      {toTitleCase(workOrder.status)}
+                    </span>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 font-medium ${
+                        workOrder.priority === "CRITICAL" || workOrder.priority === "HIGH"
+                          ? "border-amber-300 bg-accent-50 text-accent-700"
+                          : "border-brand-100 bg-white"
+                      }`}
+                    >
+                      {toTitleCase(workOrder.priority)}
+                    </span>
+                    {workOrder.slaBreached ? (
+                      <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 font-medium text-rose-800">
+                        SLA breached
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 truncate">
+                      {workOrder.asset?.name || workOrder.vehicle?.registrationNo || "No asset linked"}
+                      {workOrder.asset?.assetTag ? ` · ${workOrder.asset.assetTag}` : ""}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-brand-800">Planning can continue after creation.</p>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {!isCreateMode ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="btn-quiet h-10 px-2"
+                      aria-label="More actions"
+                      aria-expanded={menuOpen}
+                      onClick={() => setMenuOpen((openMenu) => !openMenu)}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {menuOpen ? (
+                      <div role="menu" className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-brand-100 bg-white p-1 shadow-sm">
+                        {(
+                          [
+                            ["history", "Open history"],
+                            ["evidence", "Open evidence"],
+                            ["assignment", "Open assignment"]
+                          ] as const
+                        ).map(([tab, label]) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            role="menuitem"
+                            className="block w-full rounded-md px-2 py-2 text-left text-sm text-ink hover:bg-brand-50"
+                            onClick={() => {
+                              setActiveTab(tab);
+                              setMenuOpen(false);
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="btn-quiet h-10 px-2"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </header>
 
             {!isCreateMode && workOrder?.id ? (
               <WorkOrderDetailTabs activeTab={activeTab} onChange={setActiveTab} showAudit={showAuditTab} />
             ) : null}
 
             {isCreateMode ? (
-              <div className="px-5 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 <WorkOrderGuidedCreate
                   submitting={submitting}
                   jobDomain={createJobDomain}
+                  initialAssetId={presetAssetId}
+                  initialAssetLabel={presetAssetLabel}
                   onCancel={onClose}
                   onSubmit={(values) => {
                     if (!values.description.trim() || submitting) {
@@ -322,7 +433,7 @@ export function WorkOrderEditorModal({
                       : Number(formState.estimatedHours)
                 });
               }}
-              className="space-y-4 px-5 py-4"
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
             >
               {formError ? (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
@@ -330,14 +441,16 @@ export function WorkOrderEditorModal({
                 </p>
               ) : null}
               {!isCreateMode && activeTab !== "overview" ? null : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <section className="space-y-3 rounded-xl border border-brand-100 bg-white p-3">
+                <h4 className="text-sm font-semibold text-ink">Details</h4>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
                   <input
                     required
                     value={formState.title}
                     onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                    className="field w-full"
                   />
                 </label>
 
@@ -348,7 +461,7 @@ export function WorkOrderEditorModal({
                     value={formState.description}
                     onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
                     rows={3}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                    className="field h-auto min-h-24 w-full py-2"
                   />
                 </label>
 
@@ -364,7 +477,7 @@ export function WorkOrderEditorModal({
                             priority: event.target.value as WorkOrderCreateFormValue["priority"]
                           }))
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                        className="field w-full"
                       >
                         {WORK_ORDER_PRIORITIES.map((priority) => (
                           <option key={priority} value={priority}>
@@ -384,7 +497,7 @@ export function WorkOrderEditorModal({
                             type: event.target.value as WorkOrderCreateFormValue["type"]
                           }))
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                        className="field w-full"
                       >
                         {WORK_ORDER_TYPES.map((type) => (
                           <option key={type} value={type}>
@@ -406,7 +519,7 @@ export function WorkOrderEditorModal({
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedCost: event.target.value }))
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                        className="field w-full"
                       />
                     </label>
 
@@ -420,7 +533,7 @@ export function WorkOrderEditorModal({
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedHours: event.target.value }))
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                        className="field w-full"
                       />
                     </label>
                   </>
@@ -432,7 +545,7 @@ export function WorkOrderEditorModal({
                     type="date"
                     value={formState.dueDate}
                     onChange={(event) => setFormState((current) => ({ ...current, dueDate: event.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                    className="field w-full"
                   />
                 </label>
 
@@ -444,7 +557,7 @@ export function WorkOrderEditorModal({
                     onChange={(event) =>
                       setFormState((current) => ({ ...current, expectedCompletionDate: event.target.value }))
                     }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                    className="field w-full"
                   />
                 </label>
 
@@ -454,7 +567,7 @@ export function WorkOrderEditorModal({
                       <span className="font-medium">
                         Asset {assetRequired ? "(required for this type — or link a vehicle)" : "(optional)"}
                       </span>
-                      <p className="text-xs text-slate-500">
+                    <p className="text-sm text-brand-800">
                         General CORRECTIVE/EMERGENCY tasks may omit asset and vehicle. PREVENTIVE, INSPECTION, and
                         INSTALLATION require at least one link.
                       </p>
@@ -492,12 +605,13 @@ export function WorkOrderEditorModal({
                       <input
                         value={formState.scheduleId}
                         onChange={(event) => setFormState((current) => ({ ...current, scheduleId: event.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                        className="field w-full"
                       />
                     </label>
                   </>
                 ) : null}
               </div>
+              </section>
               )}
 
               {!isCreateMode && workOrder && activeTab === "overview" ? (
@@ -528,13 +642,13 @@ export function WorkOrderEditorModal({
                 </div>
               ) : null}
 
-              {!isCreateMode && activeTab === "overview" && historySummary.data?.repeatIssueWarnings.length ? (
+              {!isCreateMode && activeTab === "overview" && historySummary.data?.repeatIssueWarnings?.length ? (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
                     <div>
                       <p className="font-semibold">Repeated issue detected for this asset/vehicle.</p>
-                      <p className="mt-1 text-xs">Open the History tab for prior maintenance context.</p>
+                      <p className="mt-1 text-sm">Open the History tab for prior maintenance context.</p>
                     </div>
                   </div>
                 </div>
@@ -597,18 +711,18 @@ export function WorkOrderEditorModal({
                 <WorkOrderAuditPanel workOrderId={workOrder.id} />
               ) : null}
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
+              <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-end gap-2 border-t border-brand-100 bg-white px-4 py-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="btn-quiet"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || (!isCreateMode && activeTab !== "overview")}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70"
+                  className="btn-primary disabled:opacity-70"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
                   {isCreateMode ? "Create" : "Save Overview"}

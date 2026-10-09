@@ -161,6 +161,18 @@ const GROUP_SURFACE: Record<
     active: "bg-brand-100 font-semibold text-brand-900",
     idle: "text-slate-600 hover:bg-slate-100"
   },
+  advanced: {
+    container: "",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
+    idle: "text-slate-600 hover:bg-slate-100"
+  },
+  safety: {
+    container: "",
+    heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
+    active: "bg-brand-100 font-semibold text-brand-900",
+    idle: "text-slate-600 hover:bg-slate-100"
+  },
   compliance: {
     container: "",
     heading: "text-xs font-semibold uppercase tracking-[0.14em] text-slate-500",
@@ -203,6 +215,7 @@ type NavLinksProps = {
   onNavigate?: () => void;
   className?: string;
   compact?: boolean;
+  tone?: "default" | "inverse";
 };
 
 function NavBadge({ count }: { count: number }) {
@@ -226,7 +239,8 @@ function NavItemLink({
   isFavorite,
   onToggleFavorite,
   onNavigate,
-  compact = false
+  compact = false,
+  tone = "default"
 }: {
   item: NavigationItem;
   active: boolean;
@@ -237,6 +251,7 @@ function NavItemLink({
   onToggleFavorite: () => void;
   onNavigate?: () => void;
   compact?: boolean;
+  tone?: "default" | "inverse";
 }) {
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
 
@@ -259,7 +274,9 @@ function NavItemLink({
         <button
           type="button"
           onClick={onToggleFavorite}
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-100 transition hover:bg-slate-100 hover:text-brand-700 focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100"
+          className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md opacity-100 transition focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100 ${
+            tone === "inverse" ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-slate-100 hover:text-brand-700"
+          }`}
           aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
         >
           {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
@@ -269,7 +286,7 @@ function NavItemLink({
   );
 }
 
-export function NavLinks({ onNavigate, className = "", compact = false }: NavLinksProps) {
+export function NavLinks({ onNavigate, className = "", compact = false, tone = "default" }: NavLinksProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
@@ -347,7 +364,11 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
             setFullNavigation(next);
             writeFullNavigationMode(next);
           }}
-          className={`min-h-11 rounded-lg border border-slate-200 bg-white text-left text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${compact ? "flex w-11 items-center justify-center px-0" : "w-full px-3 py-2"}`}
+          className={`min-h-11 rounded-lg border text-left text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
+          tone === "inverse"
+            ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-brand-600"
+        } ${compact ? "flex w-11 items-center justify-center px-0" : "w-full px-3 py-2"}`}
           aria-pressed={fullNavigation}
           aria-label={fullNavigation ? "Simplified navigation" : "Full navigation mode"}
         >
@@ -357,20 +378,21 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
 
       {favoriteItems.length > 0 ? (
         <div>
-          <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 ${compact ? "sr-only" : ""}`}>Favorites</p>
+          <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] ${tone === "inverse" ? "text-accent-500" : "text-slate-500"} ${compact ? "sr-only" : ""}`}>Favorites</p>
           <div className="mt-1 space-y-1">
             {favoriteItems.map((item) => (
               <NavItemLink
                 key={`favorite-${item.id}`}
                 item={item}
                 active={isNavItemActive(pathname, item, search)}
-                activeClass="bg-accent-100 font-semibold text-accent-700"
-                idleClass="text-slate-700 hover:bg-amber-50"
+                activeClass={tone === "inverse" ? "bg-accent-500 font-semibold text-brand-900" : "bg-accent-100 font-semibold text-accent-700"}
+                idleClass={tone === "inverse" ? "text-white/90 hover:bg-white/10" : "text-slate-700 hover:bg-amber-50"}
                 badgeCount={item.badgeKey ? badges[item.badgeKey as NavBadgeKey] : undefined}
                 isFavorite
                 onToggleFavorite={() => toggleFavorite(item.id)}
                 onNavigate={onNavigate}
                 compact={compact}
+                tone={tone}
               />
             ))}
           </div>
@@ -378,7 +400,14 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
       ) : null}
 
       {groups.map((group) => {
-        const surface = GROUP_SURFACE[group.category];
+        const surface = tone === "inverse"
+          ? {
+              container: "",
+              heading: "text-xs font-semibold uppercase tracking-[0.14em] text-white/60",
+              active: "bg-accent-500 font-semibold text-brand-900",
+              idle: "text-white/90 hover:bg-white/10"
+            }
+          : GROUP_SURFACE[group.category];
         const collapsed = compact ? false : collapsedGroups[group.category] ?? group.category !== "workspace";
 
         return (
@@ -410,6 +439,7 @@ export function NavLinks({ onNavigate, className = "", compact = false }: NavLin
                     onToggleFavorite={() => toggleFavorite(item.id)}
                     onNavigate={onNavigate}
                 compact={compact}
+                tone={tone}
                   />
                 ))}
               </div>

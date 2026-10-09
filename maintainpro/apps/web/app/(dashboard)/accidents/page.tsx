@@ -72,7 +72,7 @@ export default function AccidentsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Accident Reports</h1>
+          <h1 className="page-title">Accident Reports</h1>
           <p className="text-sm text-slate-600">Track and manage vehicle accident incidents.</p>
         </div>
         <div className="flex items-center gap-2">

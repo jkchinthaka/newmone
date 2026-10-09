@@ -3,9 +3,13 @@ import { loginViaUi } from "./helpers/auth";
 
 test.describe("E2E error handling @full-stack", () => {
   test("E2E-ERR-001 unknown frontend route shows controlled 404", async ({ page }) => {
+    // Anonymous non-public URLs redirect to login before Next can render 404.
+    // A signed-in session must still get the controlled not-found page.
+    await loginViaUi(page, "manager-a");
     const response = await page.goto("/this-route-should-not-exist-e2e");
-    expect(response?.status()).toBeGreaterThanOrEqual(200);
-    await expect(page.locator("body")).toContainText(/not found|404|page/i);
+    expect(response?.status()).toBe(404);
+    await expect(page.locator("body")).toContainText(/not found|404/i);
+    await expect(page.locator("body")).not.toContainText(/session has expired/i);
   });
 
   test("E2E-ERR-002 unknown API route returns controlled JSON 404", async ({ request }) => {

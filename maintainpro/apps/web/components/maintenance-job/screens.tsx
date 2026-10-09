@@ -242,7 +242,7 @@ function ItemRequestModal(props: {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Request Items</p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-900">Item Request Popup</h3>
+            <h3 className="mt-2 page-title">Item Request Popup</h3>
           </div>
           <button type="button" onClick={props.onClose} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
         </div>
@@ -339,7 +339,7 @@ export function ModuleJobListScreen({ module }: { module: ModuleKey }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Module 1</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">{meta.title}</h2>
+            <h2 className="mt-2 page-title">{meta.title}</h2>
             <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
           </div>
           <button type="button" onClick={() => window.location.assign(`/${module}/new`)} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
@@ -444,7 +444,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">{jobId ? "Job Detail" : "New Job"}</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">{meta.title} Workspace</h2>
+            <h2 className="mt-2 page-title">{meta.title} Workspace</h2>
             <p className="mt-2 text-sm text-slate-600">Use the tabs below to replicate the complete mobile workflow in a connected web flow.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -662,15 +662,15 @@ export function JobCostingReportScreen() {
     <div className="space-y-5">
       <section className="card rounded-[28px] p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">FMS Reports</p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-900">Job-wise Costing</h2>
+        <h2 className="mt-2 page-title">Job-wise Costing</h2>
         <p className="mt-2 text-sm text-slate-500">Cost breakdown by job with pending-request context and completed versus active workload.</p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Labor</p><p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(totals.labor)}</p></div>
-        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Parts</p><p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(totals.parts)}</p></div>
-        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Vendor</p><p className="mt-2 text-2xl font-semibold text-slate-900">{formatCurrency(totals.vendor)}</p></div>
-        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Pending Requests</p><p className="mt-2 text-2xl font-semibold text-slate-900">{pendingRequests.filter((entry) => entry.status === "PENDING").length}</p></div>
+        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Labor</p><p className="mt-2 page-title">{formatCurrency(totals.labor)}</p></div>
+        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Parts</p><p className="mt-2 page-title">{formatCurrency(totals.parts)}</p></div>
+        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Vendor</p><p className="mt-2 page-title">{formatCurrency(totals.vendor)}</p></div>
+        <div className="card rounded-[24px]"><p className="text-sm text-slate-500">Pending Requests</p><p className="mt-2 page-title">{pendingRequests.filter((entry) => entry.status === "PENDING").length}</p></div>
       </section>
 
       <section className="card rounded-[28px] p-5">

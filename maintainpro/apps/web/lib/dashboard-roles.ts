@@ -101,8 +101,8 @@ export function dashboardShowsAdminSections(variant: DashboardVariant): boolean 
   return variant === "admin";
 }
 
-export function dashboardShowsSystemHealthSummary(variant: DashboardVariant): boolean {
-  return variant === "admin";
+export function dashboardShowsSystemHealthSummary(roleName: string | null | undefined): boolean {
+  return extractRoleName(roleName) === "SUPER_ADMIN";
 }
 
 export function dashboardShowsDriverIntelligence(variant: DashboardVariant): boolean {

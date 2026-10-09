@@ -111,7 +111,7 @@ export default function MasterDataPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">
           Admin
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Master Data</h1>
+        <h1 className="mt-1 page-title">Master Data</h1>
         <p className="mt-1 text-sm text-slate-500">
           Single source of truth for all reference entities. Every transactional module
           references these records — never free-text.

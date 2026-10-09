@@ -49,7 +49,7 @@ export default function InventoryMovementsPage() {
     <div className="space-y-5 pb-10">
       <PageBreadcrumbs />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Stock Movements</h1>
+        <h1 className="page-title">Stock Movements</h1>
         <p className="mt-1 text-sm text-slate-600">Immutable ledger of receipts, issues, returns, transfers, adjustments, and reversals.</p>
       </div>
       <InventorySectionNav />
@@ -107,7 +107,7 @@ function Kpi({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 page-title">{value}</p>
     </div>
   );
 }

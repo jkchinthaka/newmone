@@ -397,7 +397,7 @@ export default function CleaningScanPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
           Smart Visit System
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Proof-based cleaning verification</h1>
+        <h1 className="mt-2 page-title">Proof-based cleaning verification</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
           Choose quick scan for rapid logging, or full visit mode for checklist completion,
           before/after photos, and duration tracking.

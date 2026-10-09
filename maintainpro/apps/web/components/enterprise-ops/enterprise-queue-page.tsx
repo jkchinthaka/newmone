@@ -210,7 +210,7 @@ export function EnterpriseQueuePage({
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
+          <h2 className="page-title">{title}</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>
         </div>
         <div className="flex flex-wrap gap-2">

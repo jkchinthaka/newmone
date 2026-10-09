@@ -138,7 +138,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenMobileNav={() => setMobileNavOpen(true)}
           />
-          <main id="main-content" className="flex-1 overflow-x-hidden p-4 pb-24 sm:p-6 xl:pb-6">
+          <main id="main-content" className="flex-1 overflow-x-hidden bg-brand-50 p-3 pb-24 sm:p-4 xl:pb-4">
             <NavigationRouteGuard>{children}</NavigationRouteGuard>
           </main>
         </div>

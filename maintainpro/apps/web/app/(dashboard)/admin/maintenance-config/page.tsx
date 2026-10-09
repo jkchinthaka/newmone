@@ -93,7 +93,7 @@ export default function AdminMaintenanceConfigPage() {
     <div className="space-y-6">
       <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Maintenance Configuration" }]} />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Maintenance Configuration</h1>
+        <h1 className="page-title">Maintenance Configuration</h1>
         <p className="mt-1 text-sm text-slate-600">
           Control center for job domains, categories, priorities, fault codes, and policy history.
           Operational changes here apply without code deployments.

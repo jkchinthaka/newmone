@@ -109,7 +109,7 @@ export default function AdminApprovalsPage() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },

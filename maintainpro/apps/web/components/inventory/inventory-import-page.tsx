@@ -68,7 +68,7 @@ export default function InventoryImportPage() {
     <div className="space-y-5 pb-10">
       <PageBreadcrumbs />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">ERP / Excel Import</h1>
+        <h1 className="page-title">ERP / Excel Import</h1>
         <p className="mt-1 text-sm text-slate-600">
           Yellow-filled cells select the entire row. Upload and preview never mutate stock.
         </p>

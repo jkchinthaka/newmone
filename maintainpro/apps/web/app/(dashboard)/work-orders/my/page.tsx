@@ -6,6 +6,9 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
+import { OperationalPageHeader } from "@/components/operational/operational-page-header";
+import { QueueTabBar } from "@/components/operational/queue-tab-bar";
+import { resolveMyJobFilter } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
@@ -28,12 +31,24 @@ type MyJob = {
   nextAction: NextAction;
 };
 
-type Counts = { active: number; overdue: number; dueToday: number; inProgress: number; completed: number };
+type Counts = {
+  active: number;
+  overdue: number;
+  dueToday: number;
+  waitingParts: number;
+  evidenceNeeded: number;
+  reworkRequired: number;
+  inProgress: number;
+  completed: number;
+};
 
 const VIEWS = [
   ["active", "Active", "active"],
-  ["overdue", "Overdue", "overdue"],
   ["due-today", "Due today", "dueToday"],
+  ["overdue", "Overdue", "overdue"],
+  ["waiting-parts", "Waiting parts", "waitingParts"],
+  ["evidence-needed", "Evidence needed", "evidenceNeeded"],
+  ["rework-required", "Rework required", "reworkRequired"],
   ["in-progress", "In progress", "inProgress"],
   ["completed", "Completed", "completed"]
 ] as const;
@@ -65,7 +80,7 @@ export default function MyJobsPage() {
   const pathname = usePathname();
   const params = useSearchParams();
   const user = useCurrentUser();
-  const view = params.get("view") || "active";
+  const view = resolveMyJobFilter({ filter: params.get("filter"), view: params.get("view") });
   const search = params.get("search") || "";
   const status = params.get("status") || "";
   const priority = params.get("priority") || "";
@@ -82,11 +97,12 @@ export default function MyJobsPage() {
   const [startingId, setStartingId] = useState<string | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
+  const [moreViewsOpen, setMoreViewsOpen] = useState(false);
 
   const writeQuery = (next: Record<string, string | null>, resetPage = true) => {
     const query = new URLSearchParams(params.toString());
     for (const [key, value] of Object.entries(next)) {
-      if (!value || (key === "view" && value === "active")) query.delete(key);
+      if (!value || (key === "filter" && value === "active") || (key === "view" && value === "active")) query.delete(key);
       else query.set(key, value);
     }
     if (resetPage) query.delete("page");
@@ -108,7 +124,7 @@ export default function MyJobsPage() {
     try {
       const response = await apiClient.get("/work-orders/my-jobs", {
         params: {
-          view,
+          filter: view,
           search: search || undefined,
           status: status || undefined,
           priority: priority || undefined,
@@ -142,6 +158,14 @@ export default function MyJobsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if ((searchInput || "") === (search || "")) return;
+      writeQuery({ search: searchInput || null });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, search]);
 
   useEffect(() => {
     const onChange = () => setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
@@ -182,39 +206,42 @@ export default function MyJobsPage() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">My Jobs</h1>
-          <p className="mt-1 text-sm text-slate-600">Work assigned to you, ordered by urgency.</p>
-          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Assigned to me</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {allWorkOrders ? (
-            <Link href={allWorkOrders.href as Route} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm">
-              All Work Orders
-            </Link>
-          ) : null}
-          <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
-            Refresh
-          </button>
-        </div>
-      </header>
+    <div className="ops-page">
+      <OperationalPageHeader
+        title="My Jobs"
+        description="Work assigned to you, ordered by urgency."
+        actions={
+          <>
+            {allWorkOrders ? (
+              <Link href={allWorkOrders.href as Route} className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-3 text-sm">
+                All Work Orders
+              </Link>
+            ) : null}
+            <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
+              Refresh
+            </button>
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Job views">
-        {VIEWS.map(([key, label, countKey]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={view === key}
-            className={`min-h-11 rounded-full border px-3 text-sm ${view === key ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
-            onClick={() => writeQuery({ view: key })}
-          >
-            {label}
-            <span className="ml-2 font-semibold">{counts ? counts[countKey] : "—"}</span>
-          </button>
-        ))}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <QueueTabBar
+          label="My jobs"
+          selectedKey={view}
+          moreOpen={moreViewsOpen}
+          onMoreOpenChange={setMoreViewsOpen}
+          onSelect={(key) => writeQuery({ filter: key, view: null })}
+          primary={VIEWS.slice(0, 4).map(([key, label, countKey]) => ({
+            key,
+            label,
+            count: counts ? counts[countKey] : undefined
+          }))}
+          more={VIEWS.slice(4).map(([key, label, countKey]) => ({
+            key,
+            label,
+            count: counts ? counts[countKey] : undefined
+          }))}
+        />
       </div>
 
       <form
@@ -260,7 +287,7 @@ export default function MyJobsPage() {
       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
         <span>{loading ? "Loading results" : `${total} job${total === 1 ? "" : "s"}`}</span>
         {filtersActive ? (
-          <button type="button" className="min-h-11 rounded border border-slate-300 px-3" onClick={() => { setSearchInput(""); writeQuery({ view: null, search: null, status: null, priority: null, due: null }); }}>
+          <button type="button" className="min-h-11 rounded border border-slate-300 px-3" onClick={() => { setSearchInput(""); writeQuery({ filter: null, view: null, search: null, status: null, priority: null, due: null }); }}>
             Clear filters
           </button>
         ) : null}
@@ -289,7 +316,7 @@ export default function MyJobsPage() {
       {!loading && !error && items.length === 0 && filtersActive ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold text-slate-900">No jobs match your filters</h2>
-          <button type="button" className="mt-3 min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => { setSearchInput(""); writeQuery({ view: null, search: null, status: null, priority: null, due: null }); }}>Clear filters</button>
+          <button type="button" className="mt-3 min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => { setSearchInput(""); writeQuery({ filter: null, view: null, search: null, status: null, priority: null, due: null }); }}>Clear filters</button>
         </div>
       ) : null}
 

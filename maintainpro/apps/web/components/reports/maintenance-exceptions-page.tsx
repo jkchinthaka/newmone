@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Download, Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import type { Route } from "next";
 import { toast } from "sonner";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { workOrderRecordHref } from "@/lib/operational-deep-link";
 import {
   defaultMaintenanceFilters,
   exportMaintenanceException,
@@ -137,7 +139,7 @@ export function MaintenanceExceptionsPage() {
         {woKpis.map((kpi) => (
           <div key={kpi.label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <p className="text-xs text-slate-500">{kpi.label}</p>
-            <p className="text-2xl font-semibold text-slate-900">{loading ? "…" : kpi.value}</p>
+            <p className="page-title">{loading ? "…" : kpi.value}</p>
           </div>
         ))}
       </section>
@@ -218,7 +220,7 @@ export function MaintenanceExceptionsPage() {
                     </td>
                     <td className="py-2 pr-3 text-slate-600">{row.exceptionReason}</td>
                     <td className="py-2">
-                      <Link href={`/work-orders?open=${row.workOrderId}`} className="font-semibold text-brand-700 hover:underline">
+                      <Link href={workOrderRecordHref(row.workOrderId) as Route} className="font-semibold text-brand-700 hover:underline">
                         Open
                       </Link>
                     </td>

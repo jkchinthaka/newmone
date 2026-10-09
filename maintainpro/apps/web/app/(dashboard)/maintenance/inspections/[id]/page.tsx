@@ -91,7 +91,7 @@ export default function InspectionDetailPage() {
   const subject = detail.asset?.name || [detail.vehicle?.make, detail.vehicle?.vehicleModel].filter(Boolean).join(" ") || detail.vehicle?.registrationNo || "Unassigned";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
+    <div className="mx-auto max-w-3xl ops-page">
       <PageBreadcrumbs />
       <Link href={"/maintenance/inspections" as Route} className="text-sm text-brand-700">Back to inspections</Link>
       <header>

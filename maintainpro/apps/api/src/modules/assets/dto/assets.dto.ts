@@ -36,6 +36,7 @@ const assetSortFields = [
   "status",
   "condition",
   "nextServiceDate",
+  "lastServiceDate",
   "purchaseDate",
   "criticalityLevel"
 ] as const;

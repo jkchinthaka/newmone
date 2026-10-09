@@ -99,7 +99,7 @@ export default function SuppliersPage() {
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Suppliers</h1>
+            <h1 className="page-title">Suppliers</h1>
             <p className="mt-1 text-sm text-slate-500">
               MaintainPro owns supplier master data for inventory, purchase orders, and work orders. Optional ERP sync
               can refresh vendor records — see{" "}

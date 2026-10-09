@@ -15,9 +15,15 @@ test.describe("inspection signed-in smoke", () => {
     const password = seedPassword();
     test.skip(!password, "Local seed password is not available");
 
-    await page.goto("/login");
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.locator("#login-email").waitFor({ state: "visible" });
+    await page.waitForFunction(() => {
+      const input = document.querySelector("#login-email");
+      return Boolean(input && Object.keys(input).some((key) => key.startsWith("__react")));
+    });
     await page.locator("#login-email").fill("admin@maintainpro.local");
     await page.locator("#login-password").fill(password);
+    await expect(page.locator("#login-email")).toHaveValue("admin@maintainpro.local");
     const login = page.waitForResponse(
       (response) => response.url().includes("/auth/login") && response.request().method() === "POST"
     );

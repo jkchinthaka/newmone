@@ -146,7 +146,7 @@ export default function AdminChecklistTemplatesPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Checklist Templates</h1>
+        <h1 className="page-title">Checklist Templates</h1>
         <p className="mt-1 text-sm text-slate-600">
           Versioned checklists for PM and work orders. Starting a checklist freezes the template
           snapshot so later revisions do not change historical results.

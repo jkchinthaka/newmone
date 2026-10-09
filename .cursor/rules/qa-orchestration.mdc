@@ -1,0 +1,21 @@
+---
+description: Require an independent qa-reviewer pass before an implementation or fix is complete
+alwaysApply: true
+---
+
+# QA orchestration
+
+For implementation and fix tasks, use this order. Do not skip a step.
+
+1. Implement the smallest correct change.
+2. Run targeted tests and record the real result.
+3. Launch the `qa-reviewer` subagent (`.cursor/agents/qa-reviewer.md`) on the completed diff. It is read-only and independent.
+4. Fix only findings the reviewer confirmed.
+5. Re-run the targeted tests.
+6. Launch `qa-reviewer` again on the updated diff.
+
+Repeat steps 4–6 until the latest `qa-reviewer` verdict is **PASS**. A FAIL blocks completion, commit, push, and auto-merge. Do not weaken tests or product checks to obtain that PASS.
+
+After PASS, follow the **Git policy** in `AGENTS.md`: commit, push the feature branch, open a non-draft pull request to `main`, and enable GitHub auto-merge only when branch protection and repository auto-merge are already enabled. Required GitHub Actions checks stay the merge authority. If those checks fail, fix the feature branch and push again. Never push to `main`, force-push, bypass protection, or use an admin override.
+
+This rule does not replace `AGENTS.md`, `CLAUDE.md`, or the other Cursor rules. `main` stays protected.

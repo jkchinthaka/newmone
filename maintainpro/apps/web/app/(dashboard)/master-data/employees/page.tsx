@@ -213,7 +213,7 @@ export default function WorkforceEmployeesPage() {
             <ArrowLeft size={14} aria-hidden /> Master Data
           </Link>
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Workforce</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Employees & Technicians</h1>
+          <h1 className="mt-1 page-title">Employees & Technicians</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Maintain workforce members for work order assignment. Login access is optional — employees without
             accounts can still be assigned to jobs.

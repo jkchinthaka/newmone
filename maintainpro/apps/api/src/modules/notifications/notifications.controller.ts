@@ -37,23 +37,36 @@ export class NotificationsController {
     @Query("type") type?: string,
     @Query("priority") priority?: string,
     @Query("search") search?: string,
+    @Query("module") module?: string,
+    @Query("acknowledged") acknowledged?: "yes" | "no",
+    @Query("overdue") overdue?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
     @Query("page") pageRaw?: string,
     @Query("pageSize") pageSizeRaw?: string,
-    @Query("includeAnalytics") includeAnalyticsRaw?: string
+    @Query("includeAnalytics") includeAnalyticsRaw?: string,
+    @Query("includeBrief") includeBriefRaw?: string
   ) {
     const result = await this.notificationsService.findAll(req.user.sub, {
       status,
       type,
       priority,
       search,
+      module,
+      acknowledged,
+      overdue: overdue === "1" || overdue === "true",
+      from,
+      to,
       page: Number(pageRaw ?? 1),
       pageSize: Number(pageSizeRaw ?? 20),
-      includeAnalytics: includeAnalyticsRaw === "true"
+      includeAnalytics: includeAnalyticsRaw === "true",
+      includeBrief: includeBriefRaw === "true"
     });
 
     return {
       data: {
         items: result.items,
+        summary: result.summary,
         analytics: result.analytics,
         dailySummary: result.dailySummary
       },
@@ -110,6 +123,13 @@ export class NotificationsController {
   async aiSummary(@Req() req: AuthedRequest) {
     const data = await this.notificationsService.getAiDailySummary(req.user.sub);
     return { data, message: "AI daily summary fetched" };
+  }
+
+  @Get("channels")
+  @SelfService()
+  async channels() {
+    const data = await this.notificationsService.getChannelAvailability();
+    return { data, message: "Notification channels fetched" };
   }
 
   @Get("preferences")

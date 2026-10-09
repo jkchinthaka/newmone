@@ -24,9 +24,9 @@ Repository rules:
   `git switch --no-track -c <branch-name>`
 - Commit, push, and merge behavior follows the **Git policy** section of `AGENTS.md` (single source of truth):
   - Agents may create and use non-`main` branches.
-  - Pushing any branch requires explicit user approval for that push.
-  - Never push directly to `main`.
-- Do not merge automatically.
+  - After `qa-reviewer` PASS, push the feature branch and open a non-draft PR to `main`.
+  - Enable GitHub auto-merge only when protection and `allow_auto_merge` are already on.
+  - Never push directly to `main`, force-push, or bypass failing checks.
 - Do not modify or pop existing stashes unless explicitly requested.
 
 Architecture guidance:

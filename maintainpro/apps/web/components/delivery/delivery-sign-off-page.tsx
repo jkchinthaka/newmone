@@ -49,7 +49,7 @@ export function DeliverySignOffPage() {
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Client Sign-off</h2>
+          <h2 className="page-title">Client Sign-off</h2>
           <p className="mt-1 text-sm text-slate-500">
             Formal delivery acceptance. Blocked while critical items fail or open QA critical issues exist.
           </p>

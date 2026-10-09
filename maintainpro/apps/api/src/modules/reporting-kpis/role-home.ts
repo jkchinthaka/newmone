@@ -78,26 +78,20 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "due-today",
         title: "Due Today",
-        href: "/work-orders?due=today",
-        description: "Jobs due today"
+        href: "/work-orders/my?filter=due-today",
+        description: "Your jobs due today"
       },
       {
         id: "overdue",
         title: "Overdue",
-        href: "/work-orders",
-        description: "Past-due open jobs (apply queue=overdue filter)"
+        href: "/work-orders/my?filter=overdue",
+        description: "Your past-due jobs"
       },
       {
         id: "waiting-parts",
         title: "Waiting Parts",
-        href: "/work-orders?status=ON_HOLD",
-        description: "Jobs blocked on parts"
-      },
-      {
-        id: "evidence",
-        title: "Evidence Needed",
-        href: "/work-orders",
-        description: "Jobs needing photos or evidence uploads"
+        href: "/work-orders/my?filter=waiting-parts",
+        description: "Your jobs blocked on parts"
       }
     ]
   },

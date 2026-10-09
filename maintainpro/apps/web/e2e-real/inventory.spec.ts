@@ -97,7 +97,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 1,
         workOrderId,
         notes: "E2E authorized issue",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-primary`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${workOrderId}-primary`
       }
     });
     expect(issue.status()).toBe(STOCK_OUT_SUCCESS);
@@ -126,7 +126,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 1,
         workOrderId,
         notes: "E2E authorized issue",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-primary`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${workOrderId}-primary`
       }
     });
     expect(replay.status()).toBe(STOCK_OUT_SUCCESS);
@@ -141,7 +141,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 2,
         workOrderId,
         notes: "E2E authorized issue",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-primary`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${workOrderId}-primary`
       }
     });
     expect(conflict.status()).toBe(400);
@@ -205,7 +205,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: need,
         workOrderId: wo,
         notes: "E2E low-stock cross",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-lowstock`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${wo}-lowstock`
       }
     });
     expect(issue.status()).toBe(STOCK_OUT_SUCCESS);
@@ -279,7 +279,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 1,
         workOrderId: wo,
         notes: "cross-tenant blocked",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-xtenant-part`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${wo}-xtenant-part`
       }
     });
     expect([403, 404]).toContain(issue.status());
@@ -312,7 +312,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 1,
         workOrderId: bWoId,
         notes: "cross-tenant wo blocked",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-xtenant-wo`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${bWoId}-xtenant-wo`
       }
     });
     expect(issue.status()).toBe(400);
@@ -343,7 +343,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
         quantity: 1,
         workOrderId: wo,
         notes: "csrf ok business path",
-        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-csrf-ok`
+        idempotencyKey: `e2e-inv-issue-${e2eRunId()}-${wo}-csrf-ok`
       }
     });
     expect(response.status()).not.toBe(403);
