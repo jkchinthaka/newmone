@@ -121,7 +121,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div data-app-shell className="flex h-dvh flex-col overflow-hidden bg-slate-100">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-slate-900 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-brand-500"
@@ -129,16 +129,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <NetworkStatusBanner />
-      <div className="flex min-h-screen">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((current) => !current)} />
         <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar
             mobileNavOpen={mobileNavOpen}
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenMobileNav={() => setMobileNavOpen(true)}
           />
-          <main id="main-content" className="flex-1 overflow-x-hidden bg-brand-50 p-3 pb-24 sm:p-4 xl:pb-4">
+          <main id="main-content" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-brand-50 p-3 pb-24 sm:p-4 xl:pb-4">
             <NavigationRouteGuard>{children}</NavigationRouteGuard>
           </main>
         </div>

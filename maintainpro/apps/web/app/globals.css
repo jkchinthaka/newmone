@@ -27,6 +27,15 @@ body {
   overflow-x: clip;
 }
 
+/* overflow-x: clip computes overflow-y to auto, so a nested scroller
+   makes the document itself scroll and drags the sidebar. The dashboard
+   shell owns scrolling instead. */
+html:has([data-app-shell]),
+html:has([data-app-shell]) body {
+  height: 100%;
+  overflow: hidden;
+}
+
 :focus-visible {
   outline: 2px solid var(--nelna-green);
   outline-offset: 2px;
