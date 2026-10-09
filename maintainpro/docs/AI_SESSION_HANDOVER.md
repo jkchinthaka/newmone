@@ -24,8 +24,8 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**CURRENT (2026-10-09) — Docker-independent QA, commit prepared, not pushed.** Branch
-`fix/technician-home-cards`. Docker/full-stack E2E remains an infrastructure blocker:
+**CURRENT (2026-10-09) — Docker-independent QA committed locally, not pushed.** Branch
+`fix/technician-home-cards` at `abe509fc` (ahead of origin by 1). Docker/full-stack E2E remains an infrastructure blocker:
 Docker Desktop cannot start because WSL has no installed distribution. Do not treat the
 earlier full-stack run (103 tests, 4 passed, 65 failed, 34 did not run) as a stack pass.
 qa-reviewer [Review](e85892bb-181e-4b6f-b8b6-02aad8435365) failed immediately on an unpaid
