@@ -64,7 +64,7 @@ export default function WorkspacePage() {
       />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-slate-900">My Workspace</h1>
+        <h1 className="page-title">My Workspace</h1>
         <p className="text-sm text-slate-600">
           Role-based shortcuts for {roleName?.replaceAll("_", " ") ?? "your account"}. Start with Action Center for
           today&apos;s priorities.

@@ -279,6 +279,27 @@ export class WorkOrdersController {
     return { data, message: "Work orders fetched" };
   }
 
+  @Get("history")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER",
+    "SECURITY_OFFICER",
+    "FLEET_MANAGER",
+    "FACILITY_MANAGER",
+    "BUILDING_SUPERVISOR"
+  )
+  async maintenanceHistory(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
+    const data = await this.workOrderQueuesService.listMaintenanceHistory(req.user, query);
+    return { data, message: "Maintenance history fetched" };
+  }
+
   @Post("bulk/assign")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   @Permissions("work_orders.manage")

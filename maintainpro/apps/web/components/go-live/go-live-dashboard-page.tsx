@@ -17,7 +17,7 @@ export function GoLiveDashboardPage() {
     <div className="space-y-5">
       <PageBreadcrumbs />
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">Go-Live Control Center</h2>
+        <h2 className="page-title">Go-Live Control Center</h2>
         <p className="mt-1 text-sm text-slate-500">Pilot rollout, cutover checklist, waves, go/no-go, and sign-off.</p>
       </header>
 

@@ -33,7 +33,7 @@ export function QaDashboardPage() {
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">QA & Incidents</h2>
+          <h2 className="page-title">QA & Incidents</h2>
           <p className="mt-1 text-sm text-slate-500">
             Software quality register, incident tracking, RCA, regression, and release readiness.
           </p>

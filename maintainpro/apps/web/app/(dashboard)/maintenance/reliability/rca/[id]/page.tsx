@@ -129,7 +129,7 @@ export default function RcaDetailPage() {
     <div className="space-y-6 p-4 md:p-6">
       <Link href="/maintenance/reliability?tab=rca" className="text-sm text-brand-700 underline">Back to reliability</Link>
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">RCA {rca.id.slice(0, 8)}</h1>
+        <h1 className="page-title">RCA {rca.id.slice(0, 8)}</h1>
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div><dt className="text-slate-500">Status</dt><dd>{rca.status}</dd></div>
           <div><dt className="text-slate-500">Source</dt><dd>{rca.source || "—"}</dd></div>

@@ -26,7 +26,7 @@ export function QaReleaseReportPage() {
       ) : (
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Verdict</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{data?.verdict ?? "—"}</p>
+          <p className="mt-1 page-title">{data?.verdict ?? "—"}</p>
           <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(data?.summary ?? {}).map(([key, value]) => (
               <div key={key} className="rounded-lg border p-3">

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { resolveRoleHome, filterRoleHomeCards, ROLE_HOME_PROFILES } from "../role-home";
+import { myJobFilterHref } from "../my-job-filters";
 
 test("resolveRoleHome: PROCUREMENT_OFFICER resolves to the PROCUREMENT profile, not the REQUESTER fallback", () => {
   const profile = resolveRoleHome("PROCUREMENT_OFFICER");
@@ -16,6 +17,27 @@ test("resolveRoleHome: PROCUREMENT_OFFICER resolves to the PROCUREMENT profile, 
 test("resolveRoleHome: technician-bucket roles -> TECHNICIAN profile", () => {
   assert.equal(resolveRoleHome("TECHNICIAN").roleKey, "TECHNICIAN");
   assert.equal(resolveRoleHome("MECHANIC").roleKey, "TECHNICIAN");
+});
+
+test("technician My Work has four distinct job filters and no evidence or rework cards", () => {
+  const profile = resolveRoleHome("TECHNICIAN");
+  assert.equal(profile.title, "My Work");
+  assert.deepEqual(
+    profile.cards.map((card) => card.id),
+    ["my-jobs", "due-today", "overdue", "waiting-parts"]
+  );
+  assert.deepEqual(
+    profile.cards.map((card) => card.href),
+    [
+      myJobFilterHref("active"),
+      myJobFilterHref("due-today"),
+      myJobFilterHref("overdue"),
+      myJobFilterHref("waiting-parts")
+    ]
+  );
+  const hrefs = profile.cards.map((card) => card.href);
+  assert.equal(new Set(hrefs).size, hrefs.length);
+  assert.equal(profile.cards.some((card) => /evidence|rework/i.test(card.title)), false);
 });
 
 test("resolveRoleHome: supervisor-bucket roles -> SUPERVISOR profile", () => {

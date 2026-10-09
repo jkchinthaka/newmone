@@ -5,10 +5,21 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { EmptyState, ErrorState, LoadingCardSkeleton, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { jobDomainLabel } from "@/lib/job-domain";
+import { PM_DUE_SOON_HREF } from "@/lib/operational-deep-link";
+import {
+  actionCardTone,
+  dashboardCardsForRole,
+  isTechnicianMaintenanceDashboard,
+  MANAGER_ACTION_CARDS,
+  TECHNICIAN_ACTION_CARDS,
+  WORKLOAD_CARDS
+} from "@/lib/maintenance-dashboard-view";
 import { withTenantScope } from "@/lib/tenant-query";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 type PriorityWorkOrder = {
   id: string;
@@ -18,14 +29,8 @@ type PriorityWorkOrder = {
   status: string;
   priority: string;
   dueDate: string | null;
-};
-
-type DashboardQueueLink = {
-  key: string;
-  label: string;
-  href: string;
-  count: number;
-  tone: "default" | "warn" | "critical";
+  assetName?: string | null;
+  assigneeName?: string | null;
 };
 
 type MaintenanceDashboard = {
@@ -33,21 +38,16 @@ type MaintenanceDashboard = {
   machineryJobs: number;
   serviceJobs: number;
   vehicleJobs: number;
-  criticalJobs: number;
   overdueJobs: number;
   waitingParts: number;
-  externalJobs: number;
   pendingApprovals: number | null;
   pmDueSoon: number;
   lowStock: number | null;
   requestsOpen: number;
-  unplannedJobs: number;
   unassignedJobs: number;
   inProgressJobs: number;
   onHoldJobs: number;
   verificationRequired: number;
-  reworkRequired: number;
-  attentionQueues: DashboardQueueLink[];
   priorityWorkList: PriorityWorkOrder[];
   availability: {
     inventory: boolean;
@@ -61,55 +61,58 @@ type MaintenanceDashboard = {
   generatedAt: string;
 };
 
-function KpiCard({
+type MyJobCounts = {
+  active: number;
+  overdue: number;
+  dueToday: number;
+  waitingParts: number;
+};
+
+const cardTones = {
+  default: "border-slate-200 bg-white",
+  warn: "border-amber-300 bg-amber-50",
+  critical: "border-red-200 bg-red-50"
+};
+
+function ActionCard({
   label,
   value,
   href,
-  tone = "default",
-  unavailable
+  tone = "default"
 }: {
   label: string;
-  value: number | null | undefined;
-  href?: string;
+  value: number;
+  href: string;
   tone?: "default" | "warn" | "critical";
-  unavailable?: string;
 }) {
-  const tones = {
-    default: "border-slate-200 bg-white",
-    warn: "border-amber-200 bg-amber-50",
-    critical: "border-red-200 bg-red-50"
-  };
-  const display =
-    unavailable != null
-      ? unavailable
-      : value == null
-        ? "Not Available"
-        : String(value);
-  const body = (
-    <>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p
-        className={`mt-2 font-bold text-slate-900 ${unavailable || value == null ? "text-lg" : "text-3xl"}`}
-      >
-        {display}
-      </p>
-    </>
-  );
-  if (!href || unavailable != null || value == null) {
-    return (
-      <div className={`rounded-xl border p-4 shadow-sm ${tones[tone]}`} aria-label={label}>
-        {body}
-      </div>
-    );
-  }
+  const empty = value === 0;
   return (
     <Link
-      href={href as any}
-      className={`rounded-xl border p-4 shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${tones[tone]}`}
-      aria-label={`${label}: ${display}`}
+      href={href as never}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm text-ink transition hover:border-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${cardTones[tone]}`}
+      aria-label={empty ? `${label}: none right now` : `${label}: ${value}`}
     >
-      {body}
+      <span className="font-semibold tabular-nums">{value}</span>
+      <span>{label}</span>
     </Link>
+  );
+}
+
+function Section({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
+  const id = title.replace(/\s+/g, "-").toLowerCase();
+  return (
+    <section className="space-y-3" aria-labelledby={id}>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id={id} className="text-lg font-semibold text-slate-900">
+            {title}
+          </h2>
+          {description ? <p className="text-sm text-slate-600">{description}</p> : null}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -118,42 +121,41 @@ async function fetchDashboard(): Promise<MaintenanceDashboard> {
   return res.data.data;
 }
 
-function Section({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3" aria-labelledby={title.replace(/\s+/g, "-").toLowerCase()}>
-      <div>
-        <h2
-          id={title.replace(/\s+/g, "-").toLowerCase()}
-          className="text-lg font-semibold text-slate-900"
-        >
-          {title}
-        </h2>
-        <p className="text-sm text-slate-600">{description}</p>
-      </div>
-      {children}
-    </section>
-  );
+async function fetchMyJobCounts(): Promise<MyJobCounts> {
+  const res = await apiClient.get<{ data?: { counts?: MyJobCounts } }>("/work-orders/my-jobs", {
+    params: { page: 1, pageSize: 1 }
+  });
+  return res.data.data?.counts ?? { active: 0, overdue: 0, dueToday: 0, waitingParts: 0 };
+}
+
+function formatDue(value: string | null) {
+  if (!value) return "No due date";
+  return new Date(value).toLocaleDateString();
 }
 
 export function MaintenanceDashboardPage() {
-  const query = useQuery({
+  const user = useCurrentUser();
+  const technicianView = isTechnicianMaintenanceDashboard(user.role);
+  const dashboardQuery = useQuery({
     queryKey: withTenantScope(["maintenance", "dashboard", "d6"]),
     queryFn: fetchDashboard,
+    enabled: !technicianView,
+    staleTime: 30_000,
+    refetchInterval: 60_000
+  });
+  const myJobsQuery = useQuery({
+    queryKey: withTenantScope(["maintenance", "dashboard", "my-jobs", user.id]),
+    queryFn: fetchMyJobCounts,
+    enabled: technicianView,
     staleTime: 30_000,
     refetchInterval: 60_000
   });
 
+  const query = technicianView ? myJobsQuery : dashboardQuery;
+
   if (query.isLoading) {
     return (
-      <LoadingState title="Loading maintenance dashboard" description="Fetching operational KPIs.">
+      <LoadingState title="Loading maintenance dashboard" description="Fetching the work that needs attention.">
         <LoadingCardSkeleton rows={4} />
       </LoadingState>
     );
@@ -169,218 +171,190 @@ export function MaintenanceDashboardPage() {
     );
   }
 
-  const d = query.data;
-  // Only surface queue links here that aren't already shown as their own card
-  // in Workload or Pipeline & Signals below — avoids showing the same count twice.
-  const UNIQUE_ATTENTION_KEYS = new Set(["overdue", "critical"]);
-  const attention = (d.attentionQueues ?? []).filter(
-    (q) => q.count > 0 && UNIQUE_ATTENTION_KEYS.has(q.key)
-  );
-  const priorityWorkList = d.priorityWorkList ?? [];
-
   return (
-    <div className="space-y-8">
-      <PageBreadcrumbs
-        items={[
-          { label: "Home", href: "/action-center" },
-          { label: "Maintenance" }
-        ]}
-      />
+    <div className="ops-page">
+      <PageBreadcrumbs items={[{ label: "Home", href: "/action-center" }, { label: "Maintenance" }]} />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Maintenance Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          What needs attention now across Machinery, Service, and Vehicle work — decision support
-          only. Day-to-day priorities stay on Action Center.
+        <h1 className="page-title">Maintenance Dashboard</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">
+          {technicianView ? "Your jobs that need attention now." : "What needs attention now."}
         </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Updated {new Date(d.generatedAt).toLocaleString()}
-        </p>
+        {!technicianView && dashboardQuery.data ? (
+          <p className="mt-1 text-xs text-slate-500">Updated {new Date(dashboardQuery.data.generatedAt).toLocaleString()}</p>
+        ) : null}
       </div>
 
-      <Section
-        title="Needs attention now"
-        description="Overdue and critical-priority open work — the two signals not already broken out below."
-      >
-        {attention.length === 0 ? (
-          <EmptyState
-            title="Nothing urgent"
-            description="No overdue or critical-priority work orders right now."
-          />
-        ) : (
-          <div className="grid gap-3 grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {attention.map((q) => (
-              <KpiCard key={q.key} label={q.label} value={q.count} href={q.href} tone={q.tone} />
-            ))}
-          </div>
-        )}
-      </Section>
-
-      <Section
-        title="Priority work list"
-        description="The most urgent open work orders — overdue or critical priority — open one to act on it."
-      >
-        {priorityWorkList.length === 0 ? (
-          <EmptyState
-            title="Nothing urgent"
-            description="No overdue or critical-priority work orders right now."
-          />
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <ul className="divide-y divide-slate-100">
-              {priorityWorkList.map((wo) => (
-                <li key={wo.id}>
-                  <Link
-                    href={`/work-orders?wo=${wo.id}` as any}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="font-medium text-slate-900">{wo.woNumber}</span>
-                      <span className="ml-2 text-slate-600">{wo.title}</span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-                        {jobDomainLabel(wo.jobDomain)}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 font-medium ${
-                          wo.priority === "CRITICAL"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {wo.priority}
-                      </span>
-                      <span className="text-slate-500">
-                        {wo.dueDate
-                          ? `Due ${new Date(wo.dueDate).toLocaleDateString()}`
-                          : "No due date"}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Workload" description="Open load by lifecycle stage.">
-        <div className="grid gap-3 grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <KpiCard label="Open maintenance" value={d.openJobs} href="/work-orders?queue=open-load" />
-          <KpiCard label="Unplanned" value={d.unplannedJobs} href="/work-orders?status=OPEN" />
-          <KpiCard
-            label="Unassigned"
-            value={d.unassignedJobs}
-            href="/work-orders?queue=unassigned"
-            tone={d.unassignedJobs > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="In progress"
-            value={d.inProgressJobs}
-            href="/work-orders?status=IN_PROGRESS"
-          />
-          <KpiCard
-            label="On hold"
-            value={d.onHoldJobs}
-            href="/work-orders?status=ON_HOLD"
-            tone={d.onHoldJobs > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="Verification required"
-            value={d.verificationRequired}
-            href="/work-orders?queue=technician-completed"
-            tone={d.verificationRequired > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="Rework required"
-            value={d.reworkRequired}
-            href="/work-orders?status=REWORK_REQUIRED"
-            tone={d.reworkRequired > 0 ? "critical" : "default"}
-          />
-          <KpiCard
-            label="Waiting for parts"
-            value={d.waitingParts}
-            href="/work-orders?smartView=waiting-parts"
-            tone={d.waitingParts > 0 ? "warn" : "default"}
-          />
-        </div>
-      </Section>
-
-      <Section
-        title="Domain breakdown"
-        description="Open jobs by Machinery, Service, and Vehicle domains."
-      >
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-          <KpiCard
-            label="Machinery"
-            value={d.machineryJobs}
-            href="/maintenance/jobs/machinery?queue=open-load"
-          />
-          <KpiCard label="Service" value={d.serviceJobs} href="/maintenance/jobs/service?queue=open-load" />
-          <KpiCard label="Vehicle" value={d.vehicleJobs} href="/maintenance/jobs/vehicle?queue=open-load" />
-        </div>
-      </Section>
-
-      <Section title="Pipeline & signals" description="Requests, planning, and stock where permitted.">
-        <div className="grid gap-3 grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <KpiCard
-            label="Requests awaiting action"
-            value={d.requestsOpen}
-            href="/requests?stage=open"
-            tone={d.requestsOpen > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="PM due soon (7d)"
-            value={d.pmDueSoon}
-            href="/maintenance/plans?view=due"
-            tone={d.pmDueSoon > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="Approvals pending"
-            value={d.pendingApprovals}
-            href={d.availability.approvals ? "/approvals" : undefined}
-            unavailable={d.availability.approvals ? undefined : "Not Available"}
-            tone={
-              d.pendingApprovals != null && d.pendingApprovals > 0 ? "warn" : "default"
-            }
-          />
-          <KpiCard
-            label="Low stock"
-            value={d.lowStock}
-            href={d.availability.inventory ? "/inventory" : undefined}
-            unavailable={d.availability.inventory ? undefined : "Not Available"}
-            tone={d.lowStock != null && d.lowStock > 0 ? "warn" : "default"}
-          />
-          <KpiCard
-            label="MTTR"
-            value={null}
-            unavailable={d.notAvailable?.mttr ?? "Not Configured"}
-          />
-          <KpiCard
-            label="MTBF"
-            value={null}
-            unavailable={d.notAvailable?.mtbf ?? "Not Configured"}
-          />
-          <KpiCard
-            label="ERP exceptions"
-            value={null}
-            unavailable={d.notAvailable?.erpExceptions ?? "Not Available"}
-          />
-          <KpiCard
-            label="Gate / availability blocks"
-            value={null}
-            unavailable={d.notAvailable?.gateBlocks ?? "Not Available"}
-          />
-        </div>
-      </Section>
-
-      <p className="text-xs text-slate-500">
-        For role-aware daily priorities, use{" "}
-        <Link href={"/action-center" as any} className="underline">
-          Action Center
-        </Link>
-        .
-      </p>
+      {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
+      {!technicianView && dashboardQuery.data ? (
+        <ManagerDashboard data={dashboardQuery.data} role={user.role} />
+      ) : null}
     </div>
+  );
+}
+
+function TechnicianDashboard({ counts }: { counts: MyJobCounts }) {
+  return (
+    <Section title="My work" description="Assigned jobs only. Manager queues stay on the manager dashboard.">
+      <div className="summary-strip">
+        {TECHNICIAN_ACTION_CARDS.map((card) => {
+          const value = counts[card.countKey] ?? 0;
+          return <ActionCard key={card.id} label={card.label} value={value} href={card.href} tone={actionCardTone(value)} />;
+        })}
+      </div>
+    </Section>
+  );
+}
+
+function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: string | null }) {
+  const counts: Record<string, number> = {
+    overdueJobs: data.overdueJobs,
+    unassignedJobs: data.unassignedJobs,
+    verificationRequired: data.verificationRequired,
+    waitingParts: data.waitingParts,
+    openJobs: data.openJobs,
+    inProgressJobs: data.inProgressJobs,
+    onHoldJobs: data.onHoldJobs
+  };
+  const priority = data.priorityWorkList ?? [];
+  const diagnostics = [
+    ["MTTR", data.notAvailable?.mttr ?? "Not Configured"],
+    ["MTBF", data.notAvailable?.mtbf ?? "Not Configured"],
+    ["ERP exceptions", data.notAvailable?.erpExceptions ?? "Not Available"],
+    ["Gate / availability blocks", data.notAvailable?.gateBlocks ?? "Not Available"]
+  ];
+
+  return (
+    <>
+      <Section title="Needs attention" description="The four queues to clear first.">
+        <div className="summary-strip">
+          {dashboardCardsForRole(role, MANAGER_ACTION_CARDS).map((card) => {
+            const value = counts[card.countKey] ?? 0;
+            const tone = card.id === "overdue" && value > 0 ? "critical" : actionCardTone(value);
+            return <ActionCard key={card.id} label={card.label} value={value} href={card.href} tone={tone} />;
+          })}
+        </div>
+      </Section>
+
+      <Section
+        title="Priority work orders"
+        description="The five most urgent open jobs."
+        action={
+          <Link
+            href={"/work-orders?filter=open" as never}
+            className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            View all
+          </Link>
+        }
+      >
+        {priority.length === 0 ? (
+          <EmptyState title="Nothing urgent" description="No overdue or high-priority work orders right now." />
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Work order</th>
+                  <th className="px-3 py-2 font-medium">Asset</th>
+                  <th className="px-3 py-2 font-medium">Priority</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Due</th>
+                  <th className="px-3 py-2 font-medium">Assignee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priority.map((wo) => (
+                  <tr key={wo.id} className="border-b last:border-0">
+                    <td className="px-3 py-3">
+                      <Link
+                        href={`/maintenance/jobs?wo=${wo.id}` as never}
+                        className="font-medium text-brand-700 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                      >
+                        {wo.woNumber}
+                      </Link>
+                      <div className="text-slate-700">{wo.title}</div>
+                    </td>
+                    <td className="px-3 py-3">{wo.assetName || jobDomainLabel(wo.jobDomain)}</td>
+                    <td className="px-3 py-3">{wo.priority}</td>
+                    <td className="px-3 py-3">{humanWorkOrderStatusLabel(wo.status)}</td>
+                    <td className="px-3 py-3">{formatDue(wo.dueDate)}</td>
+                    <td className="px-3 py-3">{wo.assigneeName || "Unassigned"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      <Section title="Workload" description="Open load by stage. Each chip opens that stage.">
+        <div className="flex flex-wrap gap-2">
+          {dashboardCardsForRole(role, WORKLOAD_CARDS).map((card) => {
+            const value = counts[card.countKey] ?? 0;
+            return (
+              <Link
+                key={card.id}
+                href={card.href as never}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                aria-label={`${card.label}: ${value}`}
+              >
+                <span>{card.label}</span>
+                <span className="font-semibold tabular-nums">{value}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section title="Domain breakdown" description="Open jobs by domain.">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {[
+            ["Machinery", data.machineryJobs, "/maintenance/jobs/machinery?queue=open-load"],
+            ["Vehicle", data.vehicleJobs, "/maintenance/jobs/vehicle?queue=open-load"],
+            ["Service", data.serviceJobs, "/maintenance/jobs/service?queue=open-load"]
+          ].map(([label, value, href]) => (
+            <Link
+              key={label}
+              href={href as never}
+              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              aria-label={`${label}: ${value} open jobs`}
+            >
+              <span className="font-medium text-slate-800">{label}</span>
+              <span className="text-lg font-semibold tabular-nums text-slate-900">{value}</span>
+            </Link>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Pipeline" description="Requests, preventive work, and approvals that can unblock jobs.">
+        <div className="summary-strip">
+          <ActionCard label="Requests awaiting action" value={data.requestsOpen} href="/requests?stage=open" tone={actionCardTone(data.requestsOpen)} />
+          <ActionCard label="PM due soon" value={data.pmDueSoon} href={PM_DUE_SOON_HREF} tone={actionCardTone(data.pmDueSoon)} />
+          {data.availability.approvals && data.pendingApprovals != null ? (
+            <ActionCard
+              label="Approvals pending"
+              value={data.pendingApprovals}
+              href="/approvals"
+              tone={actionCardTone(data.pendingApprovals)}
+            />
+          ) : null}
+        </div>
+      </Section>
+
+      <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <summary className="cursor-pointer font-medium text-slate-900">Setup and diagnostics</summary>
+        <ul className="mt-3 space-y-1">
+          {diagnostics.map(([label, value]) => (
+            <li key={label}>
+              {label}: {value}
+            </li>
+          ))}
+          <li>
+            Low stock is not shown here. Bileeta owns stock; the local spare-part quantity is not the operational
+            balance.
+          </li>
+        </ul>
+      </details>
+    </>
   );
 }

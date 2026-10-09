@@ -23,9 +23,22 @@ export class TrafficFinesController {
     @Query("vehicleId") vehicleId?: string,
     @Query("driverId") driverId?: string,
     @Query("paymentStatus") paymentStatus?: FinePaymentStatus,
-    @Query("responsibility") responsibility?: FineResponsibility
+    @Query("responsibility") responsibility?: FineResponsibility,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string
   ) {
-    const data = await this.service.list(req.user, { vehicleId, driverId, paymentStatus, responsibility });
+    const paged = pageRaw != null && pageRaw !== "";
+    const data = await this.service.list(req.user, {
+      vehicleId,
+      driverId,
+      paymentStatus,
+      responsibility,
+      page: paged ? Number(pageRaw) : undefined,
+      pageSize: pageSizeRaw ? Number(pageSizeRaw) : undefined
+    });
+    if (paged && data && typeof data === "object" && "items" in data) {
+      return { data: data.items, meta: data.meta, message: "Traffic fines fetched" };
+    }
     return { data, message: "Traffic fines fetched" };
   }
 

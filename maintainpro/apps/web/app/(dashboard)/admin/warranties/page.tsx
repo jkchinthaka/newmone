@@ -133,7 +133,7 @@ export default function AdminWarrantiesPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Warranties & Recovery</h1>
+        <h1 className="page-title">Warranties & Recovery</h1>
         <p className="mt-1 text-sm text-slate-600">
           Track coverage on assets, vehicles, and parts. Work orders flag UNDER WARRANTY when an
           active policy applies. Claims follow ELIGIBLE → … → RECOVERED / CLOSED.

@@ -37,3 +37,19 @@ test("an explicit queue wins over a status guess", () => {
 test("unassigned dashboard link opens the unassigned queue", () => {
   assert.equal(queueFiltersFromSearch({ queue: "unassigned" }).queue, "unassigned");
 });
+
+test("maintenance dashboard filter query selects the matching queue", () => {
+  assert.equal(queueFiltersFromSearch({ filter: "overdue" }).queue, "overdue");
+  assert.equal(queueFiltersFromSearch({ filter: "unassigned" }).queue, "unassigned");
+  assert.equal(queueFiltersFromSearch({ filter: "verification-required" }).queue, "technician-completed");
+  assert.equal(queueFiltersFromSearch({ filter: "waiting-parts" }).queue, "waiting-parts");
+  assert.equal(queueFiltersFromSearch({ filter: "open" }).queue, "open-load");
+  assert.deepEqual(queueFiltersFromSearch({ filter: "in-progress" }), {
+    queue: "in-progress",
+    status: "IN_PROGRESS"
+  });
+  assert.deepEqual(queueFiltersFromSearch({ filter: "on-hold" }), {
+    queue: "in-progress",
+    status: "ON_HOLD"
+  });
+});

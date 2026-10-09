@@ -139,7 +139,7 @@ export function AdminPeoplePage() {
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">People</h2>
+          <h2 className="page-title">People</h2>
           <p className="mt-1 text-sm text-slate-500">
             Employee records, technician profiles, login access, and invitations in one onboarding flow.
           </p>

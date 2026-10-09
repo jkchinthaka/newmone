@@ -196,7 +196,7 @@ export default function JobCodesPage() {
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Job Codes</h1>
+            <h1 className="page-title">Job Codes</h1>
             <p className="mt-1 text-sm text-slate-500">Main jobs and cascading sub-jobs used across maintenance and work orders.</p>
           </div>
           <BulkImportButton entity="job-code" entityLabel="Job Codes" onImported={() => refreshMain(searchMain.trim() || undefined)} />

@@ -80,7 +80,7 @@ export default function VendorPortalJobsPage() {
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <PageBreadcrumbs items={[{ label: "Vendor portal" }, { label: "Assigned jobs" }]} />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Assigned jobs</h1>
+        <h1 className="page-title">Assigned jobs</h1>
         <p className="mt-1 text-sm text-slate-600">
           Only jobs explicitly assigned to your vendor account are visible. Internal costs and notes are
           hidden.

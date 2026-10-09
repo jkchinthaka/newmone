@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
@@ -36,7 +37,11 @@ export function AdminInvitationsPage() {
   const canCreate = isAdmin && adminInvitationsAllowCreate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
+  const params = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  useEffect(() => {
+    if (params.get("create") === "1" && canCreate) setCreateOpen(true);
+  }, [params, canCreate]);
   const [createdInvitation, setCreatedInvitation] = useState<AdminInvitationCreateResponse | null>(null);
   const queryClient = useQueryClient();
 
@@ -118,7 +123,7 @@ export function AdminInvitationsPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">Invitations &amp; Onboarding</h2>
+          <h2 className="mt-2 page-title">Invitations &amp; Onboarding</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Review tenant onboarding records and create controlled invitations from the admin workspace. Resend,
             revoke, accept, and email dispatch remain deferred.

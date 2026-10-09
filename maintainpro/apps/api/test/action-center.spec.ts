@@ -58,14 +58,15 @@ describe("action center role helpers", () => {
   });
 
   it("scopes admin-only sections correctly", () => {
-    expect(actionCenterShowsSystemHealth("admin")).toBe(true);
-    expect(actionCenterShowsSystemHealth("management")).toBe(false);
+    expect(actionCenterShowsSystemHealth("SUPER_ADMIN")).toBe(true);
+    expect(actionCenterShowsSystemHealth("ADMIN")).toBe(false);
+    expect(actionCenterShowsSystemHealth("MANAGER")).toBe(false);
     expect(actionCenterShowsInvitations("ADMIN")).toBe(true);
     expect(actionCenterShowsInvitations("MANAGER")).toBe(false);
   });
 
   it("scopes work order and inventory sections by variant", () => {
-    expect(actionCenterShowsWorkOrders("technician")).toBe(true);
+    expect(actionCenterShowsWorkOrders("technician")).toBe(false);
     expect(actionCenterShowsWorkOrders("driver")).toBe(false);
     expect(actionCenterShowsInventory("inventory", "INVENTORY_KEEPER", ["inventory.manage"])).toBe(true);
     expect(actionCenterShowsInventory("technician")).toBe(false);
@@ -84,8 +85,9 @@ describe("action center section builders", () => {
     const ids = sections.map((section) => section.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["system-health", "admin-security", "work-orders", "inventory", "invitations", "reports"])
+      expect.arrayContaining(["admin-security", "work-orders", "inventory", "invitations", "reports"])
     );
+    expect(ids).not.toContain("system-health");
   });
 
   it("shows not-connected empty states when connections fail", () => {
@@ -137,25 +139,31 @@ describe("action center section builders", () => {
     expect(clear?.href).toBe("/facilities/reports");
   });
 
-  it("builds technician assigned work section metrics", () => {
+  it("does not build a technician work-order section; those jobs live on My Work", () => {
     const sections = buildActionCenterSections(
       baseSnapshot({
         variant: "technician",
         roleName: "TECHNICIAN",
+        connections: {
+          workOrders: false,
+          inventory: false,
+          systemHealth: false,
+          invitations: false,
+          facilityIssues: false
+        },
+        errors: { workOrders: "server" },
         workOrders: {
           open: 1,
           inProgress: 1,
           overdue: 0,
-          highPriority: 1,
-          assigned: 2
+          highPriority: 1
         },
         systemHealth: undefined,
         invitations: undefined
       })
     );
 
-    const workOrders = sections.find((section) => section.id === "work-orders");
-    expect(workOrders?.items.some((item) => item.id === "assigned-work")).toBe(true);
+    expect(sections.some((section) => section.id === "work-orders")).toBe(false);
   });
 
   it("does not invent fake metrics in morning briefing", () => {

@@ -221,7 +221,7 @@ export default function ProcurementWorkflowPage() {
       <PageBreadcrumbs />
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Procurement Workflow</h1>
+          <h1 className="page-title">Procurement Workflow</h1>
           <p className="mt-1 text-sm text-slate-600">
             Approve, reject, and sync purchase orders to the ERP. Finance approval is required for orders meeting the configured threshold.
           </p>

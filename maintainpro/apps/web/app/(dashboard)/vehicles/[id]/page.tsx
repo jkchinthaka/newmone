@@ -614,36 +614,33 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             : undefined
         }
       />
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-5 py-5 text-white shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <a href="/vehicles" className="inline-flex items-center gap-1 text-sm text-slate-200 hover:text-white">
-              <ArrowLeft size={14} /> Back to Vehicles
-            </a>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">Vehicle Details</p>
-            <h1 className="mt-1 text-2xl font-semibold">
-              {vehicle.make} {vehicle.vehicleModel}
-            </h1>
-            <p className="mt-1 text-sm text-slate-200">Registration: {vehicle.registrationNo}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusMeta.badgeClass}`}
-            >
-              <StatusIcon size={12} /> {statusMeta.label}
-            </span>
-            {canDelete && (
-              <button
-                type="button"
-                onClick={() => void handleDeleteVehicle()}
-                className="inline-flex items-center gap-1 rounded-md border border-rose-300/80 bg-rose-500/20 px-3 py-1.5 text-sm text-rose-50 hover:bg-rose-500/30"
-              >
-                <Trash2 size={14} /> Delete Vehicle
-              </button>
-            )}
-          </div>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <a href="/vehicles" className="inline-flex items-center gap-1 text-sm text-brand-800 hover:text-brand-600">
+            <ArrowLeft size={14} /> Back to Vehicles
+          </a>
+          <h1 className="page-title">
+            {vehicle.make} {vehicle.vehicleModel}
+          </h1>
+          <p className="text-sm text-brand-800">Registration: {vehicle.registrationNo}</p>
         </div>
-      </section>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border border-brand-200 bg-white px-2.5 py-1 text-sm font-semibold text-ink`}
+          >
+            <StatusIcon size={12} /> {statusMeta.label}
+          </span>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => void handleDeleteVehicle()}
+              className="inline-flex h-10 items-center gap-1 rounded-md border border-rose-300 bg-white px-3 text-sm text-rose-700 hover:bg-rose-50"
+            >
+              <Trash2 size={14} /> Delete Vehicle
+            </button>
+          )}
+        </div>
+      </header>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <div className="grid gap-2 md:grid-cols-4">

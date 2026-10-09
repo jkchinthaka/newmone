@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Building2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { updateStoredUserTenant } from "@/lib/auth-storage";
@@ -15,7 +14,6 @@ type TenantSwitcherProps = {
 };
 
 export function TenantSwitcher({ id = "tenant-switcher", className = "" }: TenantSwitcherProps) {
-  const router = useRouter();
   const { memberships, tenantId, selectTenant } = useTenantSession();
   const [pending, setPending] = useState(false);
   const selectedTenantId = tenantId ?? "";
@@ -40,7 +38,6 @@ export function TenantSwitcher({ id = "tenant-switcher", className = "" }: Tenan
             .then(() => {
               updateStoredUserTenant(nextTenantId);
               toast.success("Tenant switched successfully");
-              router.refresh();
             })
             .catch((error: unknown) => {
               toast.error(getApiErrorMessage(error, "Failed to switch tenant"));

@@ -120,11 +120,11 @@ export default function MaintenanceInspectionsPage() {
   }, [view, queryText, result, page, params]);
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Inspections</h1>
+          <h1 className="page-title">Inspections</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-600">
             Plan, perform and track inspections for assets, vehicles and facilities.
           </p>

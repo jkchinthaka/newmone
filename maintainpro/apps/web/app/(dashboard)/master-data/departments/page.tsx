@@ -162,7 +162,7 @@ export default function DepartmentsPage() {
         >
           <ArrowLeft size={12} aria-hidden /> Master Data
         </Link>
-        <h1 className="text-2xl font-semibold text-slate-900">Departments</h1>
+        <h1 className="page-title">Departments</h1>
         <p className="mt-1 text-sm text-slate-500">
           Manage organisational units used across vehicles, assets, drivers and users.
         </p>

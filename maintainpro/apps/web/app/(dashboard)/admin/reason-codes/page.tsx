@@ -107,7 +107,7 @@ export default function AdminReasonCodesPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Hold & Delay Reason Codes</h1>
+        <h1 className="page-title">Hold & Delay Reason Codes</h1>
         <p className="mt-1 text-sm text-slate-600">
           Structured reasons for pausing work. Codes marked as requiring notes enforce a comment on
           hold transitions.

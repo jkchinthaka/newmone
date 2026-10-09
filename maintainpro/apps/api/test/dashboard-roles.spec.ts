@@ -38,13 +38,14 @@ describe("dashboard role grouping", () => {
 
   it("shows admin and system sections only for admin variant", () => {
     expect(dashboardShowsAdminSections("admin")).toBe(true);
-    expect(dashboardShowsSystemHealthSummary("admin")).toBe(true);
+    expect(dashboardShowsSystemHealthSummary("SUPER_ADMIN")).toBe(true);
+    expect(dashboardShowsSystemHealthSummary("ADMIN")).toBe(false);
     expect(dashboardShowsDriverIntelligence("admin")).toBe(true);
 
     expect(dashboardShowsAdminSections("management")).toBe(false);
-    expect(dashboardShowsSystemHealthSummary("management")).toBe(false);
+    expect(dashboardShowsSystemHealthSummary("MANAGER")).toBe(false);
     expect(dashboardShowsDriverIntelligence("management")).toBe(false);
-    expect(dashboardShowsSystemHealthSummary("technician")).toBe(false);
+    expect(dashboardShowsSystemHealthSummary("TECHNICIAN")).toBe(false);
   });
 
   it("shows work order summaries for admin, management, and technician roles", () => {

@@ -55,6 +55,7 @@ export class PlanningController {
       search: query?.search,
       trigger: query?.trigger,
       dueWindow: query?.dueWindow,
+      autoWo: query?.autoWo,
       page: query?.page ? Number(query.page) : undefined,
       pageSize: query?.pageSize ? Number(query.pageSize) : undefined
     });

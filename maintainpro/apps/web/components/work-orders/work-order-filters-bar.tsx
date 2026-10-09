@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Filter, Layers3, List, LayoutGrid, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Filter, Search } from "lucide-react";
 
 import { toTitleCase } from "./helpers";
 import {
@@ -38,16 +38,9 @@ export function WorkOrderFiltersBar({
   filters,
   technicians,
   view,
-  selectionCount,
-  bulkLoading,
-  canCreate = false,
   showHeading = true,
   onChange,
-  onReset,
-  onCreate,
-  onViewChange,
-  onBulkStatusChange,
-  onBulkDelete
+  onReset
 }: WorkOrderFiltersBarProps) {
   const hasActiveAdvancedFilters =
     Boolean(filters.dueDateFrom) ||
@@ -57,71 +50,14 @@ export function WorkOrderFiltersBar({
   const [showMoreFilters, setShowMoreFilters] = useState(hasActiveAdvancedFilters);
 
   return (
-    <section className="card space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {showHeading ? (
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Work Orders</h2>
-            <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
-          </div>
-        ) : (
-          <div />
-        )}
-
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            <button
-              type="button"
-              onClick={() => onViewChange("queues")}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition ${
-                view === "queues" ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <LayoutGrid size={14} /> Queues
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewChange("kanban")}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition ${
-                view === "kanban" ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <Layers3 size={14} /> Kanban
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewChange("list")}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition ${
-                view === "list" ? "bg-brand-100 text-brand-700" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <List size={14} /> List
-            </button>
-          </div>
-
-          {canCreate ? (
-            <button
-              type="button"
-              onClick={onCreate}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-            >
-              <Plus size={16} /> Create Work Order
-            </button>
-          ) : null}
+    <section className="space-y-3">
+      {showHeading ? (
+        <div>
+          <h2 className="page-title">Work Orders</h2>
+          <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
         </div>
-      </div>
-
-      {view === "queues" ? (
-        // The Queues view (WorkOrderQueuePanel) has its own self-contained search,
-        // priority, and smart-view filters wired to its own request. These fields here
-        // update `filters`, which only "list"/"kanban" read — on Queues they visibly
-        // change the stat cards above but silently do nothing to the queue list below,
-        // which looks like a broken filter. Hide them here rather than show controls
-        // that don't affect the data on screen.
-        <p className="text-sm text-slate-500">
-          Search and filter the active queue below — it has its own search, priority, and view shortcuts.
-        </p>
-      ) : (
+      ) : null}
+      {view === "queues" ? null : (
         <>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
             <label className="relative">
@@ -266,39 +202,6 @@ export function WorkOrderFiltersBar({
           <span />
         )}
 
-        {selectionCount > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="font-medium text-slate-700">{selectionCount} selected</span>
-            <select
-              disabled={bulkLoading}
-              defaultValue=""
-              onChange={(event) => {
-                const status = event.target.value as WorkOrderStatus;
-                if (!status) {
-                  return;
-                }
-                onBulkStatusChange(status);
-                event.currentTarget.value = "";
-              }}
-              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
-            >
-              <option value="">Bulk Status</option>
-              {WORK_ORDER_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
-                <option key={status} value={status}>
-                  {toTitleCase(status)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={onBulkDelete}
-              disabled={bulkLoading}
-              className="inline-flex items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60"
-            >
-              <Trash2 size={12} /> Cancel Selected
-            </button>
-          </div>
-        ) : null}
       </div>
     </section>
   );

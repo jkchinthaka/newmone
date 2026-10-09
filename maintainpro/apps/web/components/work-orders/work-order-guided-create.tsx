@@ -54,6 +54,8 @@ type Props = {
   submitting: boolean;
   /** Known when opened from /maintenance/jobs/{machinery|service|vehicle}. */
   jobDomain?: JobDomain;
+  initialAssetId?: string | null;
+  initialAssetLabel?: string | null;
   onSubmit: (values: GuidedCreateValues) => void;
   onCancel?: () => void;
 };
@@ -62,10 +64,10 @@ type Props = {
  * Single-screen Direct Create with progressive disclosure.
  * Category values come from MaintenanceJobCategory master data — not triage suggestion UI.
  */
-export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onSubmit, onCancel }: Props) {
+export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, initialAssetId, initialAssetLabel, onSubmit, onCancel }: Props) {
   const formId = useId();
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
-  const [pickedDomain, setPickedDomain] = useState<JobDomain | null>(lockedDomain ?? null);
+  const [pickedDomain, setPickedDomain] = useState<JobDomain | null>(lockedDomain ?? (initialAssetId ? "MACHINERY" : null));
   const domain = lockedDomain ?? pickedDomain;
 
   const [description, setDescription] = useState("");
@@ -74,10 +76,10 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
   const [type, setType] = useState<WorkOrderType>("CORRECTIVE");
   const [dueDate, setDueDate] = useState("");
   const [expectedCompletionDate, setExpectedCompletionDate] = useState("");
-  const [assetId, setAssetId] = useState("");
+  const [assetId, setAssetId] = useState(initialAssetId ?? "");
   const [vehicleId, setVehicleId] = useState("");
   const [functionalLocationId, setFunctionalLocationId] = useState("");
-  const [assetLabel, setAssetLabel] = useState("");
+  const [assetLabel, setAssetLabel] = useState(initialAssetLabel ?? "");
   const [vehicleLabel, setVehicleLabel] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
   const [jobCategoryId, setJobCategoryId] = useState("");
@@ -93,15 +95,15 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, onS
 
   useEffect(() => {
     if (!domain) return;
-    setAssetId("");
+    setAssetId(domain === "MACHINERY" ? initialAssetId ?? "" : "");
     setVehicleId("");
     setFunctionalLocationId("");
-    setAssetLabel("");
+    setAssetLabel(domain === "MACHINERY" ? initialAssetLabel ?? "" : "");
     setVehicleLabel("");
     setLocationLabel("");
     setJobCategoryId("");
     setFieldErrors({});
-  }, [domain]);
+  }, [domain, initialAssetId, initialAssetLabel]);
 
   const categoriesQuery = useQuery({
     queryKey: withTenantScope(["work-orders", "job-categories", domain ?? "none"]),

@@ -64,7 +64,7 @@ export function ReportHeader({
             Reports Dashboard
           </Link>
         ) : null}
-        <h1 className="mt-1 text-2xl font-semibold text-slate-950">{title}</h1>
+        <h1 className="mt-1 page-title">{title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">{description}</p>
       </div>
       {generatedAt ? (
@@ -275,6 +275,8 @@ export function ReportTableView({ table, filters, onChange }: { table: ReportTab
     onChange({ ...filters, sortBy: columnKey, sortDirection: nextDirection, page: 1 });
   }
 
+  const visibleColumns = table.columns.filter((column) => column.exportable !== false);
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm print:shadow-none">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
@@ -294,7 +296,7 @@ export function ReportTableView({ table, filters, onChange }: { table: ReportTab
         <table className="min-w-[980px] w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              {table.columns.map((column) => {
+              {visibleColumns.map((column) => {
                 const active = filters.sortBy === column.key;
                 return (
                   <th key={column.key} className="px-4 py-3">
@@ -310,14 +312,14 @@ export function ReportTableView({ table, filters, onChange }: { table: ReportTab
           <tbody>
             {table.rows.length === 0 ? (
               <tr>
-                <td colSpan={table.columns.length} className="px-6 py-10 text-center text-sm text-slate-500">
+                <td colSpan={visibleColumns.length} className="px-6 py-10 text-center text-sm text-slate-500">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
               table.rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="border-t border-slate-100 hover:bg-slate-50">
-                  {table.columns.map((column) => (
+                  {visibleColumns.map((column) => (
                     <td key={column.key} className="max-w-[260px] truncate px-4 py-3 text-slate-700" title={formatReportValue(row[column.key], column.type)}>
                       {formatReportValue(row[column.key], column.type)}
                     </td>

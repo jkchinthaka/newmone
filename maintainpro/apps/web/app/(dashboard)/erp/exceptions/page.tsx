@@ -66,7 +66,7 @@ export default function ErpExceptionsPage() {
     <div className="space-y-6 p-4 md:p-6">
       <PageBreadcrumbs items={[{ label: "ERP", href: "/erp" }, { label: "Exceptions" }]} />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">ERP sync exception center</h1>
+        <h1 className="page-title">ERP sync exception center</h1>
         <p className="mt-1 text-sm text-slate-600">
           Failed integrations, import failures, and open reconciliation mismatches. Secrets are never shown.
         </p>

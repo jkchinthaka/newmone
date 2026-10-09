@@ -282,7 +282,7 @@ export function ReliabilityWorkbench() {
         }
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Reliability</h1>
+        <h1 className="page-title">Reliability</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
           Manage repeat-failure rules, asset criticality, RCA/CAPA, and safety gates for high-risk maintenance.
         </p>
@@ -298,7 +298,7 @@ export function ReliabilityWorkbench() {
         ).map(([label, count, next]) => (
           <button key={label} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => changeTab(next)}>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{count ?? "—"}</p>
+            <p className="mt-1 page-title">{count ?? "—"}</p>
           </button>
         ))}
       </section>

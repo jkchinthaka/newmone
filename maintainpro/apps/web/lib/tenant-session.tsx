@@ -171,7 +171,6 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
 
   const selectTenant = useCallback(async (nextTenantId: string) => {
     setError(null);
-    setState("RECOVERING");
     try {
       await apiClient.post(`/tenants/${nextTenantId}/switch`);
       setActiveTenantId(nextTenantId);

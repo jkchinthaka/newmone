@@ -25,62 +25,36 @@ export function MaintenanceJobShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="space-y-5 pb-24">
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-[#0f2b46] via-[#115ea8] to-[#b8860b] text-white shadow-[0_24px_60px_rgba(15,43,70,0.28)]">
-        <div className="grid gap-5 p-5 lg:grid-cols-[1.45fr_0.95fr] lg:p-7">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Legacy FMS Workspace</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Archived Maintenance Job Module</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/82">
-              Read-only archived workspace for legacy pending requests and job demos. Current
-              operations live in MaintainPro dashboards, work orders, inventory, and procurement.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
-                href="/dashboard"
+      <section className="rounded-card border border-brand-100 bg-white p-3 text-ink shadow-card">
+        <p className="text-sm font-semibold uppercase tracking-wide text-brand-800">Legacy FMS workspace</p>
+        <h1 className="page-title">Archived Maintenance Job Module</h1>
+        <p className="max-w-2xl text-sm text-brand-800">
+          Read-only archived workspace for legacy pending requests and job demos. Current
+          operations live in MaintainPro dashboards, work orders, inventory, and procurement.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="btn-primary" href="/dashboard">
+            <LayoutDashboard size={14} />
+            MaintainPro Dashboard
+          </Link>
+          <span className="btn-quiet">Role: {role.replaceAll("_", " ")}</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {quickNav.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href;
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => window.location.assign(item.href)}
+                className={active ? "btn-primary" : "btn-quiet"}
               >
-                <LayoutDashboard size={14} />
-                MaintainPro Dashboard
-              </Link>
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Role: {role.replaceAll("_", " ")}</span>
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Responsive web workflow</span>
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85">Overdue-first queueing</span>
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-white/12 bg-slate-950/25 p-4 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Quick tools</p>
-              <div className="flex items-center gap-2 text-white/80">
-                <span className="rounded-full border border-white/15 bg-white/10 p-2"><UserCircle2 size={16} /></span>
-                <span className="rounded-full border border-white/15 bg-white/10 p-2"><Activity size={16} /></span>
-                <span className="rounded-full border border-white/15 bg-white/10 p-2"><List size={16} /></span>
-                <span className="rounded-full border border-white/15 bg-white/10 p-2"><BarChart3 size={16} /></span>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              {quickNav.map((item) => {
-                const Icon = item.icon;
-                const active = pathname === item.href;
-                return (
-                  <button
-                    key={item.href}
-                    type="button"
-                    onClick={() => window.location.assign(item.href)}
-                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition ${
-                      active ? "border-white/30 bg-white/18 text-white" : "border-white/10 bg-white/6 text-white/85 hover:bg-white/10"
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Icon size={15} />
-                      {item.label}
-                    </span>
-                    <ShieldCheck size={15} className="text-white/65" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                <Icon size={15} />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </section>
 

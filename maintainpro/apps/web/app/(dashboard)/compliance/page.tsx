@@ -57,7 +57,7 @@ export default function CompliancePage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Vehicle Compliance</h1>
+          <h1 className="page-title">Vehicle Compliance</h1>
           <p className="text-sm text-slate-600">
             Fleet-wide compliance status and upcoming document expirations.
           </p>
@@ -192,7 +192,7 @@ function SummaryCard({
           {icon}
         </span>
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 page-title">{value}</p>
     </div>
   );
 }

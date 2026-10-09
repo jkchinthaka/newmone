@@ -89,7 +89,7 @@ export default function TrafficFinesPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Traffic Fines</h1>
+          <h1 className="page-title">Traffic Fines</h1>
           <p className="text-sm text-slate-600">
             Record traffic violations and classify responsibility based on vehicle document validity.
           </p>

@@ -17,21 +17,16 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
   const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Work Orders");
   const sub =
     description ??
-    (jobDomain
-      ? `Unified work orders filtered to the ${JOB_DOMAIN_LABELS[jobDomain]} domain.`
-      : "All executable maintenance jobs across machinery, service, and vehicle domains.");
+    (jobDomain === "MACHINERY"
+      ? "Machinery jobs. Scan the machine, status, and next action."
+      : jobDomain === "SERVICE"
+        ? "Service jobs by location and service type."
+        : jobDomain === "VEHICLE"
+          ? "Vehicle jobs with registration and odometer."
+          : "All executable maintenance jobs across machinery, service, and vehicle domains.");
 
   return (
-    <div className="min-w-0 space-y-2 overflow-x-hidden">
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Maintenance
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">{heading}</h1>
-        <p className="mt-1 text-sm text-slate-600">{sub}</p>
-      </div>
-      <WorkOrdersPage jobDomain={jobDomain} hideHeading />
-    </div>
+    <WorkOrdersPage jobDomain={jobDomain} heading={heading} description={sub} />
   );
 }
 

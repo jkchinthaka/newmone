@@ -99,7 +99,7 @@ export default function AdminWorkPermitsPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Permit-to-Work</h1>
+        <h1 className="page-title">Permit-to-Work</h1>
         <p className="mt-1 text-sm text-slate-600">
           Issue and approve permits. Critical-asset work orders cannot start without a valid permit when
           policy requires it.

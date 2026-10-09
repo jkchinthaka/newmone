@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 
+import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
+import { JobsPagination } from "@/components/operational/jobs-pagination";
+import { OperationalEmptyState, TableLoadingRows } from "@/components/operational/operational-list-states";
+import { QueueTabBar } from "@/components/operational/queue-tab-bar";
+import { withLockedJobDomain } from "@/lib/domain-jobs-columns";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
+import { JOB_DOMAINS, JOB_DOMAIN_LABELS } from "@/lib/job-domain";
+import {
+  activeQueueFilterChips,
+  queueFiltersAfterChipRemove,
+  splitQueueTabs,
+  writeQueueFiltersToSearch
+} from "@/lib/work-order-queue-nav";
 import { withTenantScope } from "@/lib/tenant-query";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -18,6 +31,7 @@ import {
   fetchWorkOrderQueue,
   fetchWorkOrderQueueSummary,
   queueFiltersFromSearch,
+  workOrderQueueRequestKey,
   type WorkOrderQueueFilters,
   type WorkOrderQueueItem,
   type WorkOrderQueueKey,
@@ -26,7 +40,8 @@ import {
 
 import { WorkOrderCompactTable } from "./work-order-compact-table";
 import { WorkOrderMobileCardList } from "./work-order-mobile-card-list";
-import type { WorkOrder } from "./types";
+import { humanWorkOrderStatusLabel } from "./helpers";
+import { WORK_ORDER_STATUSES, type TechnicianOption, type WorkOrder } from "./types";
 
 type Props = {
   onOpenWorkOrder: (workOrder: WorkOrder) => void;
@@ -34,6 +49,7 @@ type Props = {
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
   jobDomain?: string;
+  technicians?: TechnicianOption[];
 };
 
 function shouldRetryQueueRequest(failureCount: number, error: unknown) {
@@ -47,33 +63,27 @@ function shouldRetryQueueRequest(failureCount: number, error: unknown) {
   return failureCount < 1;
 }
 
-function riskBadgeClass(severity?: string) {
-  switch (severity) {
-    case "CRITICAL":
-      return "bg-red-100 text-red-900 border-red-200";
-    case "HIGH":
-      return "bg-orange-100 text-orange-900 border-orange-200";
-    case "MEDIUM":
-      return "bg-amber-100 text-amber-900 border-amber-200";
-    default:
-      return "bg-slate-100 text-slate-700 border-slate-200";
-  }
-}
+const fieldClass =
+  "h-10 min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
 
 export function WorkOrderQueuePanel({
   onOpenWorkOrder,
   onRefreshLegacy,
   selectedIds = [],
   onSelectedIdsChange,
-  jobDomain
+  jobDomain,
+  technicians = []
 }: Props) {
   const currentUser = useCurrentUser();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlQueue = searchParams.get("queue");
   const urlSmartView = searchParams.get("smartView");
   const urlStatus = searchParams.get("status");
   const urlPriority = searchParams.get("priority");
   const urlUnassigned = searchParams.get("unassigned");
+  const urlFilter = searchParams.get("filter");
   const urlQuery = searchParams.get("q") ?? searchParams.get("search");
   const linkedFilters = useMemo(
     () =>
@@ -82,28 +92,45 @@ export function WorkOrderQueuePanel({
         smartView: urlSmartView,
         status: urlStatus,
         priority: urlPriority,
-        unassigned: urlUnassigned
+        unassigned: urlUnassigned,
+        filter: urlFilter,
+        q: urlQuery,
+        overdueOnly: searchParams.get("overdueOnly"),
+        highRiskOnly: searchParams.get("highRiskOnly"),
+        triageOnly: searchParams.get("triageOnly"),
+        dateFrom: searchParams.get("dateFrom"),
+        dateTo: searchParams.get("dateTo"),
+        categoryId: searchParams.get("categoryId"),
+        technicianId: searchParams.get("technicianId"),
+        evidenceStatus: searchParams.get("evidenceStatus"),
+        partsStatus: searchParams.get("partsStatus"),
+        jobDomain: searchParams.get("jobDomain"),
+        page: searchParams.get("page"),
+        pageSize: searchParams.get("pageSize")
       }),
-    [urlQueue, urlSmartView, urlStatus, urlPriority, urlUnassigned]
+    [urlQueue, urlSmartView, urlStatus, urlPriority, urlUnassigned, urlFilter, urlQuery, searchParams]
   );
   const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
   const [searchInput, setSearchInput] = useState(urlQuery ?? "");
   const [initialized, setInitialized] = useState(false);
+  const [moreQueuesOpen, setMoreQueuesOpen] = useState(false);
 
   const canBulkSelect = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR"].includes(
     currentUser?.role ?? ""
   );
 
+  const appliedSearch = useRef(searchInput);
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setFilters((current) => ({
-        ...current,
-        query: searchInput,
-        page: current.query === searchInput ? current.page : 1
-      }));
+      if (appliedSearch.current === searchInput) return;
+      appliedSearch.current = searchInput;
+      onSelectedIdsChange?.([]);
+      setFilters((current) =>
+        current.query === searchInput ? current : { ...current, query: searchInput, page: 1 }
+      );
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, onSelectedIdsChange]);
 
   const smartViewsQuery = useQuery({
     queryKey: withTenantScope(["work-orders", "smart-views"]),
@@ -145,23 +172,69 @@ export function WorkOrderQueuePanel({
     if (!initialized || !linkedFilters.queue) {
       return;
     }
+    setSearchInput(linkedFilters.query ?? "");
     setFilters((current) => {
-      const unchanged =
-        current.queue === (linkedFilters.queue ?? current.queue) &&
-        current.status === (linkedFilters.status ?? current.status) &&
-        current.priority === (linkedFilters.priority ?? current.priority) &&
-        current.smartView === (linkedFilters.smartView ?? current.smartView) &&
-        Boolean(current.unassigned) === Boolean(linkedFilters.unassigned);
-      return unchanged ? current : { ...current, ...linkedFilters, page: 1 };
+      const next = {
+        ...current,
+        ...linkedFilters,
+        queue: linkedFilters.queue ?? current.queue,
+        status: linkedFilters.status ?? "ALL",
+        priority: linkedFilters.priority ?? "ALL",
+        unassigned: Boolean(linkedFilters.unassigned),
+        query: linkedFilters.query ?? "",
+        overdueOnly: Boolean(linkedFilters.overdueOnly),
+        highRiskOnly: Boolean(linkedFilters.highRiskOnly),
+        triageOnly: Boolean(linkedFilters.triageOnly),
+        dateFrom: linkedFilters.dateFrom ?? "",
+        dateTo: linkedFilters.dateTo ?? "",
+        categoryId: linkedFilters.categoryId ?? "",
+        technicianId: linkedFilters.technicianId ?? "",
+        evidenceStatus: linkedFilters.evidenceStatus ?? "",
+        partsStatus: linkedFilters.partsStatus ?? "",
+        smartView: linkedFilters.smartView,
+        jobDomain: jobDomain || linkedFilters.jobDomain || undefined,
+        page: linkedFilters.page ?? 1,
+        pageSize: linkedFilters.pageSize ?? current.pageSize
+      };
+      const same =
+        current.queue === next.queue &&
+        current.status === next.status &&
+        current.priority === next.priority &&
+        current.query === next.query &&
+        current.page === next.page &&
+        current.pageSize === next.pageSize &&
+        current.smartView === next.smartView &&
+        Boolean(current.unassigned) === Boolean(next.unassigned) &&
+        current.overdueOnly === next.overdueOnly &&
+        current.highRiskOnly === next.highRiskOnly &&
+        current.triageOnly === next.triageOnly &&
+        current.dateFrom === next.dateFrom &&
+        current.dateTo === next.dateTo &&
+        current.categoryId === next.categoryId &&
+        (current.technicianId ?? "") === (next.technicianId ?? "") &&
+        (current.evidenceStatus ?? "") === (next.evidenceStatus ?? "") &&
+        (current.partsStatus ?? "") === (next.partsStatus ?? "") &&
+        (current.jobDomain ?? "") === (next.jobDomain ?? "");
+      return same ? current : next;
     });
-  }, [initialized, linkedFilters]);
+  }, [initialized, linkedFilters, jobDomain]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    const params = new URLSearchParams(searchParams.toString());
+    writeQueueFiltersToSearch(params, { ...filters, jobDomain: jobDomain || filters.jobDomain });
+    const next = params.toString();
+    if (next !== searchParams.toString()) {
+      router.replace((next ? `${pathname}?${next}` : pathname) as Route, { scroll: false });
+    }
+  }, [filters, initialized, jobDomain, pathname, router, searchParams]);
 
   const roleName = extractRoleName(currentUser);
   const isTechnician = roleName === "TECHNICIAN" || roleName === "MECHANIC";
   const listFilters = isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters;
 
   const queueQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue", listFilters]),
+    queryKey: withTenantScope(["work-orders", "queue", workOrderQueueRequestKey(listFilters)]),
     queryFn: () => fetchWorkOrderQueue(listFilters),
     enabled: initialized,
     retry: shouldRetryQueueRequest,
@@ -192,20 +265,21 @@ export function WorkOrderQueuePanel({
     const tabKeys = new Set(visibleQueues.map((queue) => queue.key as string));
     return (smartViewsQuery.data?.views ?? []).filter((view) => !tabKeys.has(view.key));
   }, [smartViewsQuery.data?.views, visibleQueues]);
-  const PINNED_SMART_VIEW_COUNT = 3;
-  const pinnedSmartViews = distinctSmartViews.slice(0, PINNED_SMART_VIEW_COUNT);
-  const moreSmartViews = distinctSmartViews.slice(PINNED_SMART_VIEW_COUNT);
+  const queueTabs = useMemo(() => splitQueueTabs(visibleQueues), [visibleQueues]);
 
   const rows = queueQuery.data?.data ?? [];
 
   const actionRequiredCount =
-    summaryData.queues.find((queue) => queue.key === "action-required")?.count ?? 0;
+    summaryData.queues?.find((queue) => queue.key === "action-required")?.count ?? 0;
 
   const totalPages = Math.max(1, Math.ceil((queueQuery.data?.total ?? 0) / filters.pageSize));
 
   const updateFilters = (patch: Partial<WorkOrderQueueFilters>) => {
     if (patch.query !== undefined) {
       setSearchInput(patch.query);
+    }
+    if (Object.keys(patch).some((key) => key !== "page")) {
+      onSelectedIdsChange?.([]);
     }
     setFilters((current) => ({
       ...current,
@@ -224,6 +298,38 @@ export function WorkOrderQueuePanel({
     onSelectedIdsChange(checked ? rows.map((row) => row.id) : []);
   };
 
+  const clearFilters = () => {
+    updateFilters(
+      withLockedJobDomain(
+        {
+          query: "",
+          status: "ALL",
+          priority: "ALL",
+          overdueOnly: false,
+          highRiskOnly: false,
+          triageOnly: false,
+          dateFrom: "",
+          dateTo: "",
+          categoryId: "",
+          technicianId: "",
+          evidenceStatus: "",
+          partsStatus: "",
+          smartView: undefined,
+          unassigned: false,
+          page: 1
+        },
+        jobDomain
+      )
+    );
+  };
+
+  const chips = activeQueueFilterChips(filters).filter((chip) => !(jobDomain && chip.key === "jobDomain"));
+  const summaryBits = [
+    summaryData.summary?.supervisorVerification ? "Verification" : "",
+    summaryData.summary?.waitingEvidence ? "Evidence" : "",
+    summaryData.summary?.waitingParts ? "Parts" : "",
+    summaryData.summary?.highRisk ? "Risk" : ""
+  ].filter(Boolean);
   if (summaryQuery.isLoading && !summaryQuery.data && !summaryUnavailable) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
@@ -240,206 +346,211 @@ export function WorkOrderQueuePanel({
         </div>
       ) : null}
       {actionRequiredCount > 0 ? (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={18} className="mt-0.5 text-amber-700" />
-              <div>
-                <p className="font-semibold text-amber-950">{actionRequiredCount} work order(s) need action</p>
-                <p className="text-sm text-amber-900">Approval, verification, evidence, parts, or risk items waiting.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => updateFilters({ queue: "action-required", page: 1 })}
-              className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+        <button
+          type="button"
+          onClick={() => updateFilters({ queue: "action-required", smartView: undefined, page: 1 })}
+          className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-left text-sm text-amber-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          aria-label={`${actionRequiredCount} work orders need action. View the action required queue.`}
+        >
+          <AlertTriangle size={16} className="shrink-0 text-amber-700" aria-hidden />
+          <span className="font-semibold">{actionRequiredCount} need action</span>
+          {summaryBits.length ? <span className="text-amber-900">{summaryBits.join(" · ")}</span> : null}
+          <span className="ml-auto font-medium text-amber-900">View</span>
+        </button>
+      ) : null}
+
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-white">
+        <QueueTabBar
+          label="Work order queues"
+          primary={queueTabs.primary}
+          more={queueTabs.more}
+          selectedKey={filters.queue}
+          moreOpen={moreQueuesOpen}
+          onMoreOpenChange={setMoreQueuesOpen}
+          onSelect={(key) => updateFilters({ queue: key as WorkOrderQueueKey, smartView: undefined, page: 1 })}
+        />
+
+        <div className="flex flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:items-center">
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">Search work orders</span>
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search work orders..."
+              className={`${fieldClass} w-full`}
+            />
+          </label>
+          <label className="min-w-[9rem]">
+            <span className="sr-only">Status</span>
+            <select
+              value={filters.status}
+              onChange={(event) => updateFilters({ status: event.target.value as WorkOrderQueueFilters["status"], page: 1 })}
+              className={`${fieldClass} w-full`}
             >
-              View Action Required
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          No work orders need your action right now.
-        </div>
-      )}
-
-      <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto border-b border-slate-200">
-        <div className="flex min-w-max gap-1 px-2 py-2">
-          {visibleQueues.map((queue) => {
-            const selected = filters.queue === queue.key;
-            return (
-              <button
-                key={queue.key}
-                type="button"
-                onClick={() => updateFilters({ queue: queue.key as WorkOrderQueueKey, page: 1 })}
-                className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  selected ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {queue.label}
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${selected ? "bg-white/20" : "bg-slate-200"}`}>
-                  {queue.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        </div>
-
-        <div className="grid gap-3 border-b border-slate-200 px-4 py-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-          <input
-            value={searchInput}
-            onChange={(event) => updateFilters({ query: event.target.value, page: 1 })}
-            placeholder="Search WO, title, asset... (min 2 chars)"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
-          />
-          <select
-            value={filters.priority}
-            onChange={(event) => updateFilters({ priority: event.target.value as WorkOrderQueueFilters["priority"], page: 1 })}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="ALL">All priorities</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
-          <select
-            value={filters.pageSize}
-            onChange={(event) => updateFilters({ pageSize: Number(event.target.value), page: 1 })}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value={25}>25 / page</option>
-            <option value={50}>50 / page</option>
-            <option value={100}>100 / page</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={filters.overdueOnly}
-              onChange={(event) => updateFilters({ overdueOnly: event.target.checked, page: 1 })}
-            />
-            Overdue only
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={filters.highRiskOnly}
-              onChange={(event) => updateFilters({ highRiskOnly: event.target.checked, page: 1 })}
-            />
-            High risk only
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={filters.triageOnly}
-              onChange={(event) => updateFilters({ triageOnly: event.target.checked, page: 1 })}
-            />
-            Triage only
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              void summaryQuery.refetch();
-              void queueQuery.refetch();
-              onRefreshLegacy?.();
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
-          >
-            <RefreshCw size={14} /> Refresh
-          </button>
-        </div>
-
-        {distinctSmartViews.length ? (
-          <div className="border-b border-slate-200 px-4 py-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Smart views</p>
-            <div className="flex flex-wrap items-center gap-2">
-              {pinnedSmartViews.map((view) => (
-                <button
-                  key={view.key}
-                  type="button"
-                  onClick={() =>
-                    updateFilters({
-                      smartView: view.key,
-                      queue: view.queueKey,
-                      page: 1
-                    })
-                  }
-                  className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                    filters.smartView === view.key
-                      ? "border-brand-500 bg-brand-50 text-brand-800"
-                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {view.label}
-                </button>
+              <option value="ALL">All statuses</option>
+              {WORK_ORDER_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {humanWorkOrderStatusLabel(status)}
+                </option>
               ))}
-              {moreSmartViews.length ? (
-                <details className="relative inline-block">
-                  <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                    More views
-                    {moreSmartViews.some((view) => filters.smartView === view.key) ? (
-                      <span className="ml-1 rounded-full bg-brand-100 px-1.5 text-brand-800">•</span>
-                    ) : null}
-                    <ChevronDown size={12} />
-                  </summary>
-                  <div className="absolute left-0 top-full z-10 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                    {moreSmartViews.map((view) => (
-                      <button
-                        key={view.key}
-                        type="button"
-                        onClick={(event) => {
-                          updateFilters({ smartView: view.key, queue: view.queueKey, page: 1 });
-                          event.currentTarget.closest("details")?.removeAttribute("open");
-                        }}
-                        className={`block w-full rounded-md px-3 py-1.5 text-left text-xs font-medium ${
-                          filters.smartView === view.key
-                            ? "bg-brand-50 text-brand-800"
-                            : "text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        {view.label}
-                      </button>
+            </select>
+          </label>
+          <label className="min-w-[8rem]">
+            <span className="sr-only">Priority</span>
+            <select
+              value={filters.priority}
+              onChange={(event) => updateFilters({ priority: event.target.value as WorkOrderQueueFilters["priority"], page: 1 })}
+              className={`${fieldClass} w-full`}
+            >
+              <option value="ALL">All priorities</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+          </label>
+          <label className="min-w-[9rem]">
+            <span className="sr-only">Assignee</span>
+            <select
+              value={filters.technicianId || ""}
+              onChange={(event) => updateFilters({ technicianId: event.target.value, page: 1 })}
+              className={`${fieldClass} w-full`}
+            >
+              <option value="">All assignees</option>
+              {technicians.map((technician) => (
+                <option key={technician.id} value={technician.id}>
+                  {technician.fullName}
+                </option>
+              ))}
+            </select>
+          </label>
+          {jobDomain ? null : (
+            <label className="min-w-[8rem]">
+              <span className="sr-only">Domain</span>
+              <select
+                value={filters.jobDomain || ""}
+                onChange={(event) => updateFilters({ jobDomain: event.target.value || undefined, page: 1 })}
+                className={`${fieldClass} w-full`}
+              >
+                <option value="">All domains</option>
+                {JOB_DOMAINS.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {JOB_DOMAIN_LABELS[domain]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {distinctSmartViews.length ? (
+            <label className="min-w-[10rem]">
+              <span className="sr-only">Saved views</span>
+              <select
+                value={filters.smartView || ""}
+                onChange={(event) => {
+                  const view = distinctSmartViews.find((item) => item.key === event.target.value);
+                  updateFilters({
+                    smartView: view?.key,
+                    queue: view?.queueKey ?? filters.queue,
+                    page: 1
+                  });
+                }}
+                className={`${fieldClass} w-full`}
+              >
+                <option value="">Saved views</option>
+                {distinctSmartViews.map((view) => (
+                  <option key={view.key} value={view.key}>
+                    {view.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <details className="relative">
+            <summary className={`${fieldClass} flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden`}>
+              More filters
+              <ChevronDown size={14} aria-hidden />
+            </summary>
+            <div className="mt-2 w-full space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0 lg:grid-cols-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={filters.overdueOnly} onChange={(event) => updateFilters({ overdueOnly: event.target.checked, page: 1 })} />
+                Overdue only
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={filters.highRiskOnly} onChange={(event) => updateFilters({ highRiskOnly: event.target.checked, page: 1 })} />
+                High risk only
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={filters.triageOnly} onChange={(event) => updateFilters({ triageOnly: event.target.checked, page: 1 })} />
+                Triage only
+              </label>
+              <label className="block text-sm">
+                Evidence
+                <select
+                  value={filters.evidenceStatus || ""}
+                  onChange={(event) => updateFilters({ evidenceStatus: event.target.value, page: 1 })}
+                  className={`${fieldClass} mt-1 w-full`}
+                >
+                  <option value="">Any evidence</option>
+                  <option value="Missing">Missing</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Complete">Complete</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Parts
+                <select
+                  value={filters.partsStatus || ""}
+                  onChange={(event) => updateFilters({ partsStatus: event.target.value, page: 1 })}
+                  className={`${fieldClass} mt-1 w-full`}
+                >
+                  <option value="">Any parts</option>
+                  <option value="Waiting issue">Waiting issue</option>
+                  <option value="Approval pending">Approval pending</option>
+                  <option value="Pending return">Pending return</option>
+                  <option value="Issued">Issued</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Created from
+                <input type="date" value={filters.dateFrom} onChange={(event) => updateFilters({ dateFrom: event.target.value, page: 1 })} className={`${fieldClass} mt-1 w-full`} />
+              </label>
+              <label className="block text-sm">
+                Created to
+                <input type="date" value={filters.dateTo} onChange={(event) => updateFilters({ dateTo: event.target.value, page: 1 })} className={`${fieldClass} mt-1 w-full`} />
+              </label>
+              {queueQuery.data?.categorySummary?.length ? (
+                <label className="block text-sm">
+                  Category
+                  <select
+                    value={filters.categoryId}
+                    onChange={(event) => updateFilters({ categoryId: event.target.value, page: 1 })}
+                    className={`${fieldClass} mt-1 w-full`}
+                  >
+                    <option value="">All categories</option>
+                    {queueQuery.data.categorySummary.slice(0, 12).map((row) => (
+                      <option key={row.categoryId ?? row.categoryName} value={row.categoryId ?? ""}>
+                        {row.categoryName} ({row.total})
+                      </option>
                     ))}
-                  </div>
-                </details>
+                  </select>
+                </label>
               ) : null}
             </div>
-          </div>
-        ) : null}
-
-        {queueQuery.data?.categorySummary?.length ? (
-          <div className="border-b border-slate-200 px-4 py-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Category summary</p>
-            <div className="flex flex-wrap gap-2">
-              {queueQuery.data.categorySummary.slice(0, 8).map((row) => (
-                <button
-                  key={row.categoryId ?? row.categoryName}
-                  type="button"
-                  onClick={() =>
-                    updateFilters({
-                      categoryId: row.categoryId ?? "",
-                      page: 1
-                    })
-                  }
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs hover:bg-slate-100"
-                >
-                  <div className="font-semibold text-slate-900">{row.categoryName}</div>
-                  <div className="text-slate-600">
-                    {row.total} total · {row.open} open · {row.overdue} overdue
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+          </details>
+          {chips.length ? (
+            <button type="button" onClick={clearFilters} className="h-10 px-2 text-sm font-medium text-slate-700 hover:text-slate-900">
+              Clear
+            </button>
+          ) : null}
+        </div>
+        <ActiveFilterChips
+          chips={chips}
+          onRemove={(key) => updateFilters(withLockedJobDomain(queueFiltersAfterChipRemove(key), jobDomain))}
+          onClearAll={clearFilters}
+        />
 
         {queueQuery.isLoading ? (
-          <div className="flex items-center gap-2 p-6 text-sm text-slate-600">
-            <Loader2 size={16} className="animate-spin" /> Loading queue...
-          </div>
+          <TableLoadingRows />
         ) : queueQuery.isError ? (
           <div className="p-6">
             <ErrorState
@@ -449,13 +560,34 @@ export function WorkOrderQueuePanel({
             />
           </div>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-600">
-            {filters.queue === "action-required"
-              ? "No actions required right now."
-              : filters.query.trim().length >= 2
-                ? "No work orders match your filters."
-                : "No work orders found for this queue."}
-          </div>
+          <OperationalEmptyState
+            onClear={clearFilters}
+            onViewAll={
+              visibleQueues.some((queue) => queue.key === "all") || summaryData.defaultQueue
+                ? () =>
+              updateFilters({
+                queue:
+                  (visibleQueues.some((queue) => queue.key === "all") ? "all" : summaryData.defaultQueue) as WorkOrderQueueKey,
+                query: "",
+                status: "ALL",
+                priority: "ALL",
+                overdueOnly: false,
+                highRiskOnly: false,
+                triageOnly: false,
+                dateFrom: "",
+                dateTo: "",
+                categoryId: "",
+                technicianId: "",
+                evidenceStatus: "",
+                partsStatus: "",
+                smartView: undefined,
+                unassigned: false,
+                jobDomain: jobDomain || undefined,
+                page: 1
+              })
+                : undefined
+            }
+          />
         ) : (
           <>
             <WorkOrderCompactTable
@@ -465,34 +597,20 @@ export function WorkOrderQueuePanel({
               onToggleSelectAll={toggleSelectAll}
               onOpen={(row) => onOpenWorkOrder(row)}
               canBulkSelect={canBulkSelect}
+              jobDomain={jobDomain}
             />
-            <WorkOrderMobileCardList rows={rows} onOpen={(row) => onOpenWorkOrder(row)} />
+            <WorkOrderMobileCardList rows={rows} onOpen={(row) => onOpenWorkOrder(row)} jobDomain={jobDomain} />
           </>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
-          <p className="text-sm text-slate-600">
-            Showing page {filters.page} of {totalPages} · {queueQuery.data?.total ?? 0} total
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={filters.page <= 1}
-              onClick={() => updateFilters({ page: filters.page - 1 })}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
-            >
-              <ChevronLeft size={14} /> Previous
-            </button>
-            <button
-              type="button"
-              disabled={filters.page >= totalPages}
-              onClick={() => updateFilters({ page: filters.page + 1 })}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
-            >
-              Next <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
+        <JobsPagination
+          page={filters.page}
+          totalPages={totalPages}
+          total={queueQuery.data?.total ?? 0}
+          pageSize={filters.pageSize}
+          onPageChange={(page) => updateFilters({ page })}
+          onPageSizeChange={(pageSize) => updateFilters({ pageSize, page: 1 })}
+        />
       </div>
     </div>
   );

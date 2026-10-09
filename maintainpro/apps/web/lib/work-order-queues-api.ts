@@ -146,6 +146,10 @@ export type WorkOrderQueueFilters = {
   jobDomain?: string;
   /** OPEN or PLANNED jobs with no technician. */
   unassigned?: boolean;
+  /** User id. Sent as technicianId so the queue query matches that assignee. */
+  technicianId?: string;
+  evidenceStatus?: string;
+  partsStatus?: string;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -211,14 +215,44 @@ export function isWorkOrderQueueKey(value: string): value is WorkOrderQueueKey {
  * Turns a maintenance-dashboard work-order link into queue filters.
  * `smartView` and `status` are accepted because those are the links the dashboard already emits.
  */
+/**
+ * Dashboard `filter` values. Each one selects the queue whose definition matches
+ * the maintenance dashboard count for that card.
+ */
+const DASHBOARD_FILTERS: Record<string, { queue: WorkOrderQueueKey; status?: string }> = {
+  overdue: { queue: "overdue" },
+  unassigned: { queue: "unassigned" },
+  "verification-required": { queue: "technician-completed" },
+  "waiting-parts": { queue: "waiting-parts" },
+  open: { queue: "open-load" },
+  "in-progress": { queue: "in-progress", status: "IN_PROGRESS" },
+  "on-hold": { queue: "in-progress", status: "ON_HOLD" }
+};
+
 export function queueFiltersFromSearch(params: {
   queue?: string | null;
   smartView?: string | null;
   status?: string | null;
   priority?: string | null;
   unassigned?: string | null;
+  filter?: string | null;
+  q?: string | null;
+  overdueOnly?: string | null;
+  highRiskOnly?: string | null;
+  triageOnly?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  categoryId?: string | null;
+  technicianId?: string | null;
+  evidenceStatus?: string | null;
+  partsStatus?: string | null;
+  jobDomain?: string | null;
+  page?: string | null;
+  pageSize?: string | null;
 }): Partial<WorkOrderQueueFilters> {
-  const status = params.status && QUEUE_LINK_STATUSES.has(params.status) ? params.status : undefined;
+  const dashboardFilter = params.filter ? DASHBOARD_FILTERS[params.filter.trim()] : undefined;
+  const statusFromQuery = params.status && QUEUE_LINK_STATUSES.has(params.status) ? params.status : undefined;
+  const status = statusFromQuery ?? dashboardFilter?.status;
   const priority =
     params.priority && QUEUE_LINK_PRIORITIES.has(params.priority) ? params.priority : undefined;
   const unassigned = params.unassigned === "true";
@@ -226,7 +260,7 @@ export function queueFiltersFromSearch(params: {
   const smartQueue =
     params.smartView && isWorkOrderQueueKey(params.smartView) ? params.smartView : undefined;
 
-  let queue = explicitQueue ?? smartQueue;
+  let queue = explicitQueue ?? dashboardFilter?.queue ?? smartQueue;
   if (!queue && unassigned) queue = "open-requests";
   if (!queue && status === "OPEN") queue = "open-requests";
   if (!queue && (status === "IN_PROGRESS" || status === "ON_HOLD")) queue = "in-progress";
@@ -240,22 +274,27 @@ export function queueFiltersFromSearch(params: {
   if (priority) patch.priority = priority as WorkOrderQueueFilters["priority"];
   if (params.smartView) patch.smartView = params.smartView;
   if (unassigned) patch.unassigned = true;
+  const queryText = params.q?.trim();
+  if (queryText) patch.query = queryText;
+  if (params.overdueOnly === "true") patch.overdueOnly = true;
+  if (params.highRiskOnly === "true") patch.highRiskOnly = true;
+  if (params.triageOnly === "true") patch.triageOnly = true;
+  if (params.dateFrom) patch.dateFrom = params.dateFrom;
+  if (params.dateTo) patch.dateTo = params.dateTo;
+  if (params.categoryId) patch.categoryId = params.categoryId;
+  if (params.technicianId) patch.technicianId = params.technicianId;
+  if (params.evidenceStatus) patch.evidenceStatus = params.evidenceStatus;
+  if (params.partsStatus) patch.partsStatus = params.partsStatus;
+  if (params.jobDomain) patch.jobDomain = params.jobDomain;
+  const page = Number(params.page);
+  if (Number.isFinite(page) && page > 0) patch.page = page;
+  const pageSize = Number(params.pageSize);
+  if (pageSize === 25 || pageSize === 50 || pageSize === 100) patch.pageSize = pageSize;
   return patch;
 }
 
-export async function fetchWorkOrderQueueSummary(jobDomain?: string): Promise<WorkOrderQueueSummary> {
-  const params = new URLSearchParams();
-  if (jobDomain) params.set("jobDomain", jobDomain);
-  const query = params.toString();
-  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>(
-    query ? `/work-orders/queues?${query}` : "/work-orders/queues"
-  );
-  return unwrap(response.data);
-}
-
-export async function fetchWorkOrderQueue(
-  filters: WorkOrderQueueFilters
-): Promise<WorkOrderQueueListResponse> {
+/** Query string for GET /work-orders/queues/:queue. Keeps list requests server-paged. */
+export function buildQueueListSearchParams(filters: WorkOrderQueueFilters): URLSearchParams {
   const params = new URLSearchParams();
   params.set("queue", filters.queue);
   params.set("page", String(filters.page));
@@ -277,7 +316,31 @@ export async function fetchWorkOrderQueue(
   if (filters.triageOnly) params.set("triageOnly", "true");
   if (filters.query.trim().length >= 2) params.set("search", filters.query.trim());
   if (filters.smartView) params.set("smartView", filters.smartView);
+  if (filters.technicianId) params.set("technicianId", filters.technicianId);
+  if (filters.evidenceStatus) params.set("evidenceStatus", filters.evidenceStatus);
+  if (filters.partsStatus) params.set("partsStatus", filters.partsStatus);
+  return params;
+}
 
+/** Stable request identity. A new page, queue, or filter is a different server request. */
+export function workOrderQueueRequestKey(filters: WorkOrderQueueFilters): string {
+  return buildQueueListSearchParams(filters).toString();
+}
+
+export async function fetchWorkOrderQueueSummary(jobDomain?: string): Promise<WorkOrderQueueSummary> {
+  const params = new URLSearchParams();
+  if (jobDomain) params.set("jobDomain", jobDomain);
+  const query = params.toString();
+  const response = await apiClient.get<ApiEnvelope<WorkOrderQueueSummary>>(
+    query ? `/work-orders/queues?${query}` : "/work-orders/queues"
+  );
+  return unwrap(response.data);
+}
+
+export async function fetchWorkOrderQueue(
+  filters: WorkOrderQueueFilters
+): Promise<WorkOrderQueueListResponse> {
+  const params = buildQueueListSearchParams(filters);
   const response = await apiClient.get<ApiEnvelope<WorkOrderQueueListResponse>>(
     `/work-orders/queues/${filters.queue}?${params.toString()}`
   );

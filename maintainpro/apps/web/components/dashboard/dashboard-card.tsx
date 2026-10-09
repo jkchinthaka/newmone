@@ -25,10 +25,10 @@ export function DashboardCard({
 }: DashboardCardProps) {
   return (
     <div
-      className={`rounded-xl border p-4 shadow-sm ${toneClasses[tone] ?? toneClasses.neutral} ${className}`.trim()}
+      className={`rounded-card border px-3 py-2 shadow-card ${toneClasses[tone] ?? toneClasses.neutral} ${className}`.trim()}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+      <p className="text-sm font-medium">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
       {subLabel ? <p className="mt-1 text-xs opacity-80">{subLabel}</p> : null}
     </div>
   );

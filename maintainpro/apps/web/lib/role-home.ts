@@ -1,3 +1,5 @@
+import { myJobFilterHref } from "./my-job-filters";
+
 /**
  * Phase 13 — Client-side Role Home resolution
  *
@@ -45,11 +47,10 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "TECHNICIAN",
     title: "My Work",
     cards: [
-      { id: "my-jobs", title: "My Jobs", href: "/work-orders/my", description: "Work orders assigned to you" },
-      { id: "due-today", title: "Due Today", href: "/work-orders?due=today", description: "Jobs due today" },
-      { id: "overdue", title: "Overdue", href: "/work-orders", description: "Past-due open jobs" },
-      { id: "waiting-parts", title: "Waiting Parts", href: "/work-orders?status=ON_HOLD", description: "Blocked on parts" },
-      { id: "evidence", title: "Evidence Needed", href: "/work-orders", description: "Jobs needing photos" }
+      { id: "my-jobs", title: "My Jobs", href: myJobFilterHref("active"), description: "Work orders assigned to you" },
+      { id: "due-today", title: "Due Today", href: myJobFilterHref("due-today"), description: "Your jobs due today" },
+      { id: "overdue", title: "Overdue", href: myJobFilterHref("overdue"), description: "Your past-due jobs" },
+      { id: "waiting-parts", title: "Waiting Parts", href: myJobFilterHref("waiting-parts"), description: "Your jobs blocked on parts" }
     ]
   },
   {

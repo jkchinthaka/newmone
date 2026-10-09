@@ -2,10 +2,13 @@ import { Priority, WorkOrderStatus } from "@prisma/client";
 
 import {
   buildAttentionQueues,
+  compareDashboardPriorityWork,
+  dashboardOverdueWhere,
   isCriticalOpen,
   isDashboardOverdue,
   toneForCount
 } from "../src/common/utils/maintenance-dashboard.util";
+import { TERMINAL_STATUSES } from "../src/common/utils/work-order-queues";
 import { MaintenanceConfigService } from "../src/modules/maintenance-config/maintenance-config.service";
 
 describe("D6 maintenance dashboard util", () => {
@@ -20,6 +23,23 @@ describe("D6 maintenance dashboard util", () => {
       false
     );
     expect(isDashboardOverdue(WorkOrderStatus.CLOSED, "2026-09-01T00:00:00.000Z", now)).toBe(false);
+    expect(isDashboardOverdue(WorkOrderStatus.VERIFIED, "2026-09-01T00:00:00.000Z", now)).toBe(true);
+  });
+
+  it("uses the same terminal statuses as the overdue queue", () => {
+    const where = dashboardOverdueWhere(now);
+    const pastDue = where.OR[1] as { status: { notIn: string[] } };
+    expect(pastDue.status.notIn).toEqual(TERMINAL_STATUSES);
+  });
+
+  it("sorts priority work overdue first, then critical or high, then earliest due date", () => {
+    const rows = [
+      { status: WorkOrderStatus.OPEN, priority: "LOW", dueDate: "2026-10-02T00:00:00.000Z", woNumber: "WO-3" },
+      { status: WorkOrderStatus.OPEN, priority: "CRITICAL", dueDate: "2026-09-30T00:00:00.000Z", woNumber: "WO-2" },
+      { status: WorkOrderStatus.IN_PROGRESS, priority: "MEDIUM", dueDate: "2026-09-20T00:00:00.000Z", woNumber: "WO-1" }
+    ];
+    const sorted = [...rows].sort((left, right) => compareDashboardPriorityWork(left, right, now));
+    expect(sorted.map((row) => row.woNumber)).toEqual(["WO-1", "WO-2", "WO-3"]);
   });
 
   it("detects critical open only for open statuses", () => {
@@ -40,7 +60,9 @@ describe("D6 maintenance dashboard util", () => {
       critical: 1,
       requestsOpen: 5
     });
-    expect(queues.find((q) => q.key === "overdue")?.href).toContain("smartView=overdue");
+    expect(queues.find((q) => q.key === "overdue")?.href).toBe("/work-orders?filter=overdue");
+    expect(queues.find((q) => q.key === "unassigned")?.href).toBe("/work-orders?filter=unassigned");
+    expect(queues.find((q) => q.key === "verification")?.href).toBe("/work-orders?filter=verification-required");
     expect(queues.find((q) => q.key === "verification")?.count).toBe(4);
     expect(toneForCount(0)).toBe("default");
     expect(toneForCount(2, 1)).toBe("critical");
@@ -122,10 +144,24 @@ describe("D6 maintenance dashboard opsOverview", () => {
       role: "ADMIN"
     });
 
-    expect(findMany).toHaveBeenCalledWith(
+    expect(findMany).toHaveBeenCalledTimes(2);
+    expect(findMany).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         where: expect.objectContaining({ tenantId: "tenant-a" }),
-        take: 8
+        orderBy: [{ dueDate: "asc" }, { woNumber: "asc" }],
+        take: 40
+      })
+    );
+    expect(findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-a",
+          priority: { in: [Priority.CRITICAL, Priority.HIGH] }
+        }),
+        orderBy: [{ priority: "asc" }, { dueDate: "asc" }, { woNumber: "asc" }],
+        take: 40
       })
     );
     expect(data.priorityWorkList).toEqual([
@@ -136,7 +172,9 @@ describe("D6 maintenance dashboard opsOverview", () => {
         jobDomain: "MACHINERY",
         status: "OVERDUE",
         priority: "CRITICAL",
-        dueDate: dueDate.toISOString()
+        dueDate: dueDate.toISOString(),
+        assetName: null,
+        assigneeName: null
       }
     ]);
   });

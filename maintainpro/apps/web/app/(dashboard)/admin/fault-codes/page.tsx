@@ -98,7 +98,7 @@ export default function AdminFaultCodesPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Fault, Cause & Remedy Codes</h1>
+        <h1 className="page-title">Fault, Cause & Remedy Codes</h1>
         <p className="mt-1 text-sm text-slate-600">
           Admin-managed failure library used on work order diagnosis. Changes are versioned in
           configuration history.

@@ -108,9 +108,9 @@ export default function MaintenanceCostsPage() {
   }, [refresh]);
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Maintenance Costs</h1>
+        <h1 className="page-title">Maintenance Costs</h1>
         <p className="mt-1 text-sm text-slate-600">Track maintenance spending and compare job estimates with recorded costs.</p>
         <p className="mt-1 text-xs text-slate-500">Operational costs; ERP remains the accounting source of truth.</p>
       </header>

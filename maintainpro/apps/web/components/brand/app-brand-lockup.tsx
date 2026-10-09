@@ -1,5 +1,7 @@
 import { NelnaLogo } from "@/components/brand/nelna-logo";
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/branding";
+import { PRODUCT_NAME } from "@/lib/branding";
+
+export const BRAND_PRODUCT_LINE = "Maintenance Management System";
 
 type AppBrandLockupProps = {
   showTagline?: boolean;
@@ -11,14 +13,12 @@ type AppBrandLockupProps = {
 };
 
 const titleSizes = {
-  sm: "text-base",
-  md: "text-lg",
-  lg: "text-xl"
+  sm: "text-sm",
+  md: "text-base",
+  lg: "text-lg"
 } as const;
 
-/**
- * Company logo (Nelna Farm) with MaintainPro product label — for sidebar, auth, and header brand areas.
- */
+/** Nelna Group mark with the MaintainPro product name. */
 export function AppBrandLockup({
   showTagline = false,
   logoSize = "md",
@@ -30,37 +30,17 @@ export function AppBrandLockup({
   const isOnDark = variant === "onDark";
   const titleClass = titleSizes[logoSize === "lg" ? "lg" : logoSize === "sm" ? "sm" : "md"];
 
-  if (compact) {
-    return (
-      <div className={`flex min-w-0 items-center gap-2 ${className}`.trim()}>
-        <NelnaLogo size="sm" className="max-h-8 max-w-[72px]" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight text-slate-900">{PRODUCT_NAME}</p>
-          <p className="truncate text-xs text-slate-500">Nelna Farm</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
-      className={`flex flex-col gap-2.5 ${centered ? "items-center text-center" : "items-start"} ${className}`.trim()}
+      className={`flex min-w-0 flex-col gap-1.5 ${centered ? "items-center text-center" : "items-start"} ${className}`.trim()}
     >
-      <NelnaLogo priority={logoSize === "lg"} size={logoSize} />
-      <div className={centered ? "min-w-0" : "min-w-0 w-full"}>
-        <p
-          className={`font-semibold tracking-tight ${titleClass} ${
-            isOnDark ? "text-white" : "text-slate-900"
-          }`}
-        >
+      <NelnaLogo decorative={compact} priority={logoSize === "lg"} size={compact ? "compact" : logoSize} />
+      <div className="min-w-0">
+        <p className={`font-semibold tracking-tight ${titleClass} ${isOnDark ? "text-white" : "text-ink"}`}>
           {PRODUCT_NAME}
         </p>
         {showTagline ? (
-          <p
-            className={`mt-1 text-sm leading-5 ${isOnDark ? "text-white/78" : "text-slate-500"}`}
-          >
-            {PRODUCT_TAGLINE}
-          </p>
+          <p className={`text-xs leading-4 ${isOnDark ? "text-white/80" : "text-slate-500"}`}>{BRAND_PRODUCT_LINE}</p>
         ) : null}
       </div>
     </div>

@@ -95,7 +95,7 @@ export function AdminBulkImportsPage() {
           <History size={20} aria-hidden />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Bulk Import History</h1>
+          <h1 className="page-title">Bulk Import History</h1>
           <p className="mt-1 text-sm text-slate-500">
             Every master-data bulk import run for your tenant — file, actor, counts, status, and error downloads.
           </p>

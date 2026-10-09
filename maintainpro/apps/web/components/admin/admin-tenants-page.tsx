@@ -69,7 +69,7 @@ export function AdminTenantsPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">Tenants</h2>
+          <h2 className="mt-2 page-title">Tenants</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Review tenant context and tenant readiness in a read-only workspace. Tenant create, edit, delete,
             invitation, switching, and billing controls remain deferred.

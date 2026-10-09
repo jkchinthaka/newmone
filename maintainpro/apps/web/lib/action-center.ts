@@ -32,10 +32,8 @@ export type ActionCenterWorkOrderStats = {
   open: number;
   inProgress: number;
   overdue: number;
-  /** HIGH/CRITICAL priority, non-terminal, tenant-wide. Left 0 for technicians (see note in action-center-api.ts). */
+  /** Tenant-wide HIGH/CRITICAL jobs that are not closed or cancelled. */
   highPriority: number;
-  /** Open jobs assigned to the current actor (technician variant only). */
-  assigned?: number;
   /** Vendor repair invoices submitted/under review — finance variant only. */
   financeVendorPending?: number;
 };
@@ -111,8 +109,8 @@ export function resolveActionCenterVariant(roleName: string | null | undefined):
   return resolveDashboardVariant(roleName);
 }
 
-export function actionCenterShowsSystemHealth(variant: ActionCenterVariant): boolean {
-  return variant === "admin";
+export function actionCenterShowsSystemHealth(roleName: string | null | undefined): boolean {
+  return extractRoleName(roleName) === "SUPER_ADMIN";
 }
 
 export function actionCenterShowsInvitations(roleName: string | null | undefined): boolean {
@@ -120,7 +118,8 @@ export function actionCenterShowsInvitations(roleName: string | null | undefined
 }
 
 export function actionCenterShowsWorkOrders(variant: ActionCenterVariant): boolean {
-  return variant === "admin" || variant === "management" || variant === "technician" || variant === "viewer";
+  // Technicians use the My Work cards, which already open their assigned jobs.
+  return variant === "admin" || variant === "management" || variant === "viewer";
 }
 
 const INVENTORY_STOCK_ROLES = new Set([
@@ -278,7 +277,7 @@ export function getActionCenterDescription(variant: ActionCenterVariant): string
     case "management":
       return "Overdue work, operational risks, and report shortcuts based on your current modules.";
     case "technician":
-      return "Assigned and priority work orders with quick links to your maintenance queue.";
+      return "Your assigned jobs, with due, overdue, and waiting-parts shortcuts.";
     case "inventory":
       return "Low-stock alerts and procurement attention from live inventory records.";
     case "cleaner":
@@ -311,8 +310,10 @@ function toneFromCount(count: number, warningAt = 1, dangerAt = 5): ActionCenter
 export function buildActionCenterSections(snapshot: ActionCenterSnapshot): ActionCenterSection[] {
   const sections: ActionCenterSection[] = [];
 
-  if (actionCenterShowsSystemHealth(snapshot.variant)) {
-    sections.push(buildSystemHealthSection(snapshot));
+  if (snapshot.variant === "admin") {
+    if (actionCenterShowsSystemHealth(snapshot.roleName)) {
+      sections.push(buildSystemHealthSection(snapshot));
+    }
     sections.push(buildAdminSecuritySection(snapshot));
   }
 
@@ -502,7 +503,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
     );
     return {
       id: "work-orders",
-      title: snapshot.variant === "technician" ? "My work orders" : "Work order risks",
+      title: "Work order risks",
       description: "Live maintenance queue signals.",
       items: [],
       emptyTitle: state.title,
@@ -512,42 +513,6 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
   const stats = snapshot.workOrders;
   const items: ActionCenterItem[] = [];
-
-  if (snapshot.variant === "technician" && stats.assigned != null) {
-    items.push({
-      id: "assigned-work",
-      title: "Assigned work orders",
-      description: "Open jobs assigned to you.",
-      href: "/work-orders?queue=my-tasks",
-      tone: stats.assigned > 0 ? "info" : "success",
-      metricLabel: "Assigned",
-      metricValue: String(stats.assigned)
-    });
-  }
-
-  if (snapshot.variant === "technician") {
-    items.push({
-      id: "waiting-evidence",
-      title: "Evidence needed",
-      description: "Jobs waiting for technician evidence uploads.",
-      href: "/work-orders?queue=waiting-evidence",
-      tone: "warning"
-    });
-    items.push({
-      id: "waiting-parts",
-      title: "Waiting parts",
-      description: "Jobs blocked until parts are issued.",
-      href: "/work-orders?queue=waiting-parts",
-      tone: "warning"
-    });
-    items.push({
-      id: "rework-required",
-      title: "Rework required",
-      description: "Jobs sent back for correction.",
-      href: "/work-orders?queue=rework-required",
-      tone: "danger"
-    });
-  }
 
   if (snapshot.variant === "management" || snapshot.roleName === "SUPERVISOR" || snapshot.roleName === "MAINTENANCE_SUPERVISOR") {
     items.push({
@@ -612,7 +577,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
   return {
     id: "work-orders",
-    title: snapshot.variant === "technician" ? "My work orders" : "Work order risks",
+    title: "Work order risks",
     description: "Live maintenance queue signals.",
     items
   };
@@ -1015,7 +980,7 @@ export function buildMorningBriefingLines(snapshot: ActionCenterSnapshot): Morni
     });
   }
 
-  if (snapshot.systemHealth) {
+  if (snapshot.roleName === "SUPER_ADMIN" && snapshot.systemHealth) {
     lines.push({
       id: "sys-health",
       label: "System health",

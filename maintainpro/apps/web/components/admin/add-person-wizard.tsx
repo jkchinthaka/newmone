@@ -141,7 +141,7 @@ export function AddPersonWizard() {
           <ArrowLeft className="h-4 w-4" />
           Back to People
         </Link>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-900">Add Person</h2>
+        <h2 className="mt-2 page-title">Add Person</h2>
         <p className="mt-1 text-sm text-slate-500">Step {step} of 5</p>
       </header>
 

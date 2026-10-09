@@ -1,6 +1,18 @@
+import { EvidenceVerificationStatus, WorkOrderType } from "@prisma/client";
+
+import { evaluateEvidenceRequirements, type EvidenceLineSnapshot } from "../../common/utils/work-order-evidence-governance";
 import { REPORTING_TIMEZONE } from "../reports/report-currency.util";
 
-export const MY_JOB_VIEWS = ["active", "overdue", "due-today", "in-progress", "completed"] as const;
+export const MY_JOB_VIEWS = [
+  "active",
+  "overdue",
+  "due-today",
+  "waiting-parts",
+  "evidence-needed",
+  "rework-required",
+  "in-progress",
+  "completed"
+] as const;
 export type MyJobView = (typeof MY_JOB_VIEWS)[number];
 
 export const MY_JOB_TERMINAL_STATUSES = ["CLOSED", "CANCELLED", "COMPLETED"] as const;
@@ -12,6 +24,13 @@ const PRIORITY_RANK: Record<string, number> = {
   LOW: 3
 };
 
+export type MyJobPartLine = {
+  lineStatus?: string | null;
+  pendingReturnQuantity?: number | null;
+  issuedQuantity?: number | null;
+  requestedQuantity?: number | null;
+};
+
 export type MyJobMatchInput = {
   status: string;
   priority?: string | null;
@@ -20,6 +39,10 @@ export type MyJobMatchInput = {
   title?: string;
   assetName?: string | null;
   assetTag?: string | null;
+  type?: string | null;
+  parts?: MyJobPartLine[];
+  hasPartIssue?: boolean;
+  evidenceAttachments?: EvidenceLineSnapshot[];
 };
 
 export function isMyJobView(value: string | undefined): value is MyJobView {
@@ -47,11 +70,34 @@ export function isMyJobOverdue(job: MyJobMatchInput, now = new Date()) {
   return new Date(job.dueDate).getTime() < businessDayWindow(now).start.getTime();
 }
 
+export function isMyJobWaitingParts(job: MyJobMatchInput) {
+  if (isTerminalMyJobStatus(job.status)) return false;
+  if (job.hasPartIssue) return true;
+  return (job.parts ?? []).some(
+    (line) =>
+      line.lineStatus === "REQUESTED" ||
+      (line.pendingReturnQuantity ?? 0) > 0 ||
+      (line.lineStatus === "APPROVED" && (line.issuedQuantity ?? 0) === 0 && (line.requestedQuantity ?? 0) > 0)
+  );
+}
+
+export function isMyJobEvidenceNeeded(job: MyJobMatchInput) {
+  if (isTerminalMyJobStatus(job.status)) return false;
+  const attachments = job.evidenceAttachments ?? [];
+  if (attachments.some((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED)) return true;
+  if (!job.type) return false;
+  const checklist = evaluateEvidenceRequirements(job.type as WorkOrderType, attachments);
+  return checklist.required && !checklist.complete;
+}
+
 export function matchesMyJobView(job: MyJobMatchInput, view: MyJobView, now = new Date()) {
   if (view === "active") return !isTerminalMyJobStatus(job.status);
   if (view === "completed") return job.status === "COMPLETED" || job.status === "CLOSED";
   if (view === "in-progress") return job.status === "IN_PROGRESS";
   if (view === "overdue") return isMyJobOverdue(job, now);
+  if (view === "waiting-parts") return isMyJobWaitingParts(job);
+  if (view === "evidence-needed") return isMyJobEvidenceNeeded(job);
+  if (view === "rework-required") return job.status === "REWORK_REQUIRED";
   const due = job.dueDate ? new Date(job.dueDate).getTime() : null;
   if (due == null || Number.isNaN(due)) return false;
   const window = businessDayWindow(now);

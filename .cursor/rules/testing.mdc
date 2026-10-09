@@ -42,4 +42,4 @@ Evidence:
 Git:
 
 - Do not commit generated test-results, HTML reports, traces, screenshots, or temporary QA logs unless explicitly required.
-- Commit, push, and merge behavior follows the **Git policy** section of `AGENTS.md` (the single source of truth). Do not restate or override it here. In short: verified work may be committed on non-`main` branches; never push any branch without explicit user approval; never push directly to `main`; never merge into `main` without explicit user approval.
+- Commit, push, and merge behavior follows the **Git policy** section of `AGENTS.md` (the single source of truth). Do not restate or override it here. In short: after `qa-reviewer` PASS, commit and push the feature branch, open a non-draft PR, and enable auto-merge only under existing branch protection. Never push directly to `main`.

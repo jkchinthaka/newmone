@@ -81,7 +81,7 @@ export default function DataQualityPage() {
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Data Quality</h2>
+          <h2 className="page-title">Data Quality</h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Platform-wide data quality findings grouped by severity. Issues are read-only — correct the underlying
             records in their respective modules.

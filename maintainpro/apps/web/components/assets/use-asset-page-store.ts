@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type AssetStatusFilter = "" | "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "RETIRED" | "DISPOSED";
 export type AssetCategoryFilter = "" | "MACHINE" | "EQUIPMENT" | "VEHICLE" | "INFRASTRUCTURE" | "OTHER";
-export type AssetSortField = "assetTag" | "name" | "category" | "status" | "createdAt" | "location";
+export type AssetSortField = "assetTag" | "name" | "category" | "status" | "createdAt" | "location" | "lastServiceDate";
 
 export type AssetColumnKey =
   | "assetTag"
@@ -21,6 +21,7 @@ export interface AssetQueryFilters {
   category: AssetCategoryFilter;
   location: string;
   departmentId: string;
+  condition: string;
   sortBy: AssetSortField;
   sortOrder: "asc" | "desc";
   page: number;
@@ -33,6 +34,7 @@ const DEFAULT_FILTERS: AssetQueryFilters = {
   category: "",
   location: "",
   departmentId: "",
+  condition: "",
   sortBy: "createdAt",
   sortOrder: "desc",
   page: 1,
@@ -141,6 +143,7 @@ export function hasActiveFilters(filters: AssetQueryFilters) {
       filters.category ||
       filters.location ||
       filters.departmentId ||
+      filters.condition ||
       filters.sortBy !== DEFAULT_FILTERS.sortBy ||
       filters.sortOrder !== DEFAULT_FILTERS.sortOrder
   );

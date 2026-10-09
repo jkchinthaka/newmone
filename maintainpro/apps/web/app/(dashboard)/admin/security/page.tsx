@@ -9,7 +9,7 @@ export default function AdminSecurityPage() {
     <div className="space-y-6">
       <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Security Settings" }]} />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Security Settings</h1>
+        <h1 className="page-title">Security Settings</h1>
         <p className="mt-1 text-sm text-slate-600">
           Session, access, and audit controls. Browser JWTs stay compact — permissions are
           loaded from the database on each API request.

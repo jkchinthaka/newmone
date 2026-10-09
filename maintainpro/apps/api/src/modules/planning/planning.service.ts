@@ -29,6 +29,7 @@ import { MaintenanceRequestsService } from "../maintenance-requests/maintenance-
 import { ReliabilityService } from "../reliability/reliability.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import { evaluateComplianceStatus } from "./compliance-status";
+import { buildPmPlanListQuery } from "./pm-plan-query";
 import { validateAssetMeterReading } from "./meter-validation";
 import {
   buildPmGenerationKey,
@@ -109,38 +110,17 @@ export class PlanningService {
       search?: string;
       trigger?: string;
       dueWindow?: string;
+      autoWo?: string;
       page?: number;
       pageSize?: number;
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    const page = Math.max(filters?.page ?? 1, 1);
-    const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
-    const search = filters?.search?.trim();
+    const listQuery = buildPmPlanListQuery(tenantId, filters, new Date());
+    const canCount = typeof this.prisma.pmPlan.count === "function";
     const rows = await this.prisma.pmPlan.findMany({
-      where: {
-        tenantId,
-        status: filters?.status,
-        siteId: filters?.siteId,
-        assetId: filters?.assetId,
-        vehicleId: filters?.vehicleId,
-        ...(filters?.trigger
-          ? { triggers: { some: { kind: filters.trigger as never, isActive: true } } }
-          : {}),
-        ...(search
-          ? {
-              OR: [
-                { code: { contains: search } },
-                { name: { contains: search } },
-                { description: { contains: search } },
-                { asset: { name: { contains: search } } },
-                { asset: { assetTag: { contains: search } } },
-                { vehicle: { registrationNo: { contains: search } } },
-                { vehicle: { make: { contains: search } } }
-              ]
-            }
-          : {})
-      },
+      where: listQuery.where,
+      ...(canCount ? { skip: listQuery.skip, take: listQuery.take } : {}),
       include: {
         triggers: true,
         asset: { select: { id: true, name: true, assetTag: true, status: true } },
@@ -172,26 +152,38 @@ export class PlanningService {
       return { ...plan, dueState, remainingDays: days };
     });
 
-    const summary = {
-      active: decorated.filter((plan) => plan.status === "ACTIVE").length,
-      dueIn7: decorated.filter((plan) => plan.dueState === "DUE_SOON").length,
-      overdue: decorated.filter((plan) => plan.dueState === "OVERDUE").length,
-      needsAttention: decorated.filter((plan) => plan.dueState === "NEEDS_ATTENTION").length
-    };
-
-    const windowed = decorated.filter((plan) => {
-      if (filters?.dueWindow === "overdue") return plan.dueState === "OVERDUE";
-      if (filters?.dueWindow === "7") return plan.dueState === "DUE_SOON";
-      if (filters?.dueWindow === "attention") return plan.dueState === "NEEDS_ATTENTION";
-      return true;
-    });
-
-    const total = windowed.length;
-    const items = windowed.slice((page - 1) * pageSize, page * pageSize);
+    const windowed = canCount
+      ? decorated
+      : decorated.filter((plan) => {
+          if (filters?.dueWindow === "overdue") return plan.dueState === "OVERDUE";
+          if (filters?.dueWindow === "7" || filters?.dueWindow === "soon") return plan.dueState === "DUE_SOON";
+          if (filters?.dueWindow === "attention") return plan.dueState === "NEEDS_ATTENTION";
+          return true;
+        });
+    const summary = canCount
+      ? {
+          active: await this.prisma.pmPlan.count({ where: listQuery.counts.active }),
+          dueIn7: await this.prisma.pmPlan.count({ where: listQuery.counts.dueSoon }),
+          overdue: await this.prisma.pmPlan.count({ where: listQuery.counts.overdue }),
+          needsAttention: await this.prisma.pmPlan.count({ where: listQuery.counts.attention })
+        }
+      : {
+          active: decorated.filter((plan) => plan.status === "ACTIVE").length,
+          dueIn7: decorated.filter((plan) => plan.dueState === "DUE_SOON").length,
+          overdue: decorated.filter((plan) => plan.dueState === "OVERDUE").length,
+          needsAttention: decorated.filter((plan) => plan.dueState === "NEEDS_ATTENTION").length
+        };
+    const total = canCount ? await this.prisma.pmPlan.count({ where: listQuery.where }) : windowed.length;
+    const items = canCount ? windowed : windowed.slice(listQuery.skip, listQuery.skip + listQuery.take);
     return {
       items,
       summary,
-      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+      meta: {
+        page: listQuery.page,
+        pageSize: listQuery.pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / listQuery.pageSize))
+      }
     };
   }
 
@@ -344,6 +336,18 @@ export class PlanningService {
     if (!existing) {
       throw new NotFoundException("PM plan not found");
     }
+    const requestedStatus = typeof patch.status === "string" ? patch.status : undefined;
+    if (requestedStatus) {
+      assertPmPlanStatusTransition(existing.status, requestedStatus);
+    }
+    const resultingStatus = requestedStatus ?? existing.status;
+    if (resultingStatus === PmPlanStatus.ACTIVE) {
+      const assetId = patch.assetId === undefined ? existing.assetId : patch.assetId;
+      const vehicleId = patch.vehicleId === undefined ? existing.vehicleId : patch.vehicleId;
+      if (!String(assetId ?? "").trim() && !String(vehicleId ?? "").trim()) {
+        throw new BadRequestException("Active PM plans require an asset or vehicle assignment");
+      }
+    }
     const nextRevision = existing.currentRevision + 1;
     const now = new Date();
     await this.prisma.pmPlanRevision.updateMany({
@@ -360,11 +364,6 @@ export class PlanningService {
       updatedAt: _updatedAt,
       ...safePatch
     } = patch;
-
-    const nextStatus = typeof safePatch.status === "string" ? safePatch.status : undefined;
-    if (nextStatus) {
-      assertPmPlanStatusTransition(existing.status, nextStatus);
-    }
 
     const updated = await this.prisma.pmPlan.update({
       where: { id: planId },
@@ -491,6 +490,9 @@ export class PlanningService {
     }
     if (!plan.autoCreateWorkOrder) {
       return { created: false, reason: "AUTO_WO_DISABLED" };
+    }
+    if (!plan.assetId && !plan.vehicleId) {
+      return { created: false, reason: "PLAN_INVALID_NO_ASSET_ASSIGNED" };
     }
 
     const evaluation = this.evaluatePlanDue(

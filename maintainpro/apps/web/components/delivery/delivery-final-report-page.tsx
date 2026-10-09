@@ -37,7 +37,7 @@ export function DeliveryFinalReportPage() {
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Final Handover Report</h2>
+          <h2 className="page-title">Final Handover Report</h2>
           <p className="mt-1 text-sm text-slate-500">Delivery readiness summary for client handover.</p>
         </div>
         <div className="flex gap-2">

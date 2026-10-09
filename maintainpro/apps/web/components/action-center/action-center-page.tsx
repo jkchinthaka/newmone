@@ -163,7 +163,7 @@ export function ActionCenterPage() {
   const variant = resolveActionCenterVariant(roleName);
   const readOnly = actionCenterIsReadOnly(variant);
   const showKpis = actionCenterShowsKpis(roleName, user.permissions);
-  const showSystemHealth = actionCenterShowsSystemHealth(variant);
+  const showSystemHealth = actionCenterShowsSystemHealth(roleName);
   const [query, setQuery] = useState("");
 
   const query_ = useQuery({
@@ -248,7 +248,7 @@ export function ActionCenterPage() {
 
       <header className="space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{getActionCenterTitle(variant)}</h1>
+          <h1 className="page-title">{getActionCenterTitle(variant)}</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             {getActionCenterDescription(variant)}
             {readOnly ? " This view is read-only." : ""}

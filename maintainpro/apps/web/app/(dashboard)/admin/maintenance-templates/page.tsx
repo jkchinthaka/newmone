@@ -116,7 +116,7 @@ export default function AdminMaintenanceTemplatesPage() {
       />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Maintenance Templates</h1>
+          <h1 className="page-title">Maintenance Templates</h1>
           <p className="mt-1 text-sm text-slate-600">
             Versioned job templates for Machinery, Service, and Vehicle. Applying a template to a
             work order freezes a snapshot so later revisions do not rewrite history.

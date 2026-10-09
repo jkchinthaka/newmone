@@ -440,7 +440,7 @@ export function FacilitiesPage() {
         <div>
           <div className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-brand-700" aria-hidden="true" />
-            <h1 className="text-2xl font-semibold text-slate-900">Facilities</h1>
+            <h1 className="page-title">Facilities</h1>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Manage the property → building → floor → room hierarchy for your tenant. Select a row to drill down.

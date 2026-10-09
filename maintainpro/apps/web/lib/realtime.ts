@@ -8,24 +8,21 @@
  * polling. That failure must stay quiet — one dev-only line per channel — instead of a
  * warning per reconnection attempt.
  */
-const MAX_RECONNECTION_ATTEMPTS = 3;
+export function isRealtimeDisabled(value: string | undefined): boolean {
+  return ["false", "0", "off"].includes((value ?? "").trim().toLowerCase());
+}
 
-export const REALTIME_DISABLED = ["false", "0", "off"].includes(
-  (process.env.NEXT_PUBLIC_REALTIME_NOTIFICATIONS ?? "").trim().toLowerCase()
-);
+export const REALTIME_DISABLED = isRealtimeDisabled(process.env.NEXT_PUBLIC_REALTIME_NOTIFICATIONS);
 
 export function realtimeSocketOptions() {
   return {
-    // Prefer a raw websocket, but let engine.io fall through to long-polling where
-    // websocket upgrades are blocked rather than giving up on realtime completely.
+    // One handshake. A refused socket must not keep opening new websocket attempts;
+    // the notification bell already polls through the BFF.
     transports: ["websocket", "polling"] as string[],
     tryAllTransports: true,
     withCredentials: true,
-    reconnection: true,
-    reconnectionAttempts: MAX_RECONNECTION_ATTEMPTS,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    timeout: 10000
+    reconnection: false,
+    timeout: 8000
   };
 }
 

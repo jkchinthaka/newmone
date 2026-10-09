@@ -66,21 +66,21 @@ export function EnterpriseKpiBoard() {
         <ErrorState title="Could not load operations KPIs" description={getApiErrorMessage(query.error, "Unable to load KPIs.")} />
       ) : null}
       {query.data ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="summary-strip">
           {KPI_ITEMS.map((item) => {
             const kpi = query.data[item.key];
             if (!kpi) return null;
             const href = (kpi.href ?? "/dashboard") as Route;
+            const display = formatValue(item.key, kpi.value, kpi.coverage);
             return (
               <Link
                 key={item.key}
                 href={href}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 hover:border-brand-300 hover:bg-white"
+                className="inline-flex min-h-10 items-center gap-2 rounded-md px-1 text-sm text-ink hover:text-brand-800"
+                aria-label={`${item.label}: ${display}`}
               >
-                <p className="text-xs font-medium text-slate-500">{item.label}</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">
-                  {formatValue(item.key, kpi.value, kpi.coverage)}
-                </p>
+                <span className="font-semibold tabular-nums">{display}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}

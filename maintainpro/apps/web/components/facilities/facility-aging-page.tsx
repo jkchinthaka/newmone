@@ -110,7 +110,7 @@ export function FacilityAgingPage() {
         <div>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-brand-700" aria-hidden="true" />
-            <h1 className="text-2xl font-semibold text-slate-900">SLA / Aging Report</h1>
+            <h1 className="page-title">SLA / Aging Report</h1>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Tenant-scoped aging buckets for active facility issues and linked work orders with due dates.

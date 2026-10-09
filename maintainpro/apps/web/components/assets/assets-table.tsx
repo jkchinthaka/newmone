@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { Ellipsis, QrCode } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Ellipsis } from "lucide-react";
+
+import { assetHistoryHref, assetNextAction, ASSET_EMPTY } from "@/lib/asset-list";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/page-state";
@@ -31,6 +35,8 @@ export type AssetTableRow = {
   location?: string | null;
   condition: AssetTableCondition;
   lastServiceDate?: string | null;
+  nextServiceDate?: string | null;
+  department?: string | null;
   openWorkOrderCount?: number;
 };
 
@@ -153,8 +159,14 @@ function AssetRowActions<T extends AssetTableRow>({
             onClick={() => onOpenDetails(asset.id)}
             className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
           >
-            View details
+            Open
           </button>
+          <Link
+            href={assetHistoryHref(asset.assetTag) as Route}
+            className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            Maintenance history
+          </Link>
 
           {canEditFields ? (
             <button
@@ -334,23 +346,17 @@ export function AssetsTable<T extends AssetTableRow>({
   const columns = useMemo(() => {
     const next: DataTableColumn<T>[] = [];
 
-    if (visibleColumns.assetTag) {
-      next.push({
-        id: "assetTag",
-        header: "Asset Tag",
-        mobileLabel: "Asset Tag",
-        cell: (asset) => <span className="font-medium text-slate-900">{asset.assetTag}</span>
-      });
-    }
-
-    if (visibleColumns.name) {
-      next.push({
-        id: "name",
-        header: "Name",
-        mobileLabel: "Name",
-        cell: (asset) => asset.name
-      });
-    }
+    next.push({
+      id: "asset",
+      header: "Asset",
+      mobileLabel: "Asset",
+      cell: (asset) => (
+        <span className="block min-w-0">
+          <span className="block text-sm font-medium text-slate-900">{asset.name}</span>
+          <span className="block text-xs text-slate-500">{asset.assetTag}</span>
+        </span>
+      )
+    });
 
     if (visibleColumns.category) {
       next.push({
@@ -377,9 +383,14 @@ export function AssetsTable<T extends AssetTableRow>({
     if (visibleColumns.location) {
       next.push({
         id: "location",
-        header: "Location",
+        header: "Location / Department",
         mobileLabel: "Location",
-        cell: (asset) => asset.location || "-"
+        cell: (asset) => (
+          <span className="block">
+            <span className="block">{asset.location || "—"}</span>
+            {asset.department ? <span className="block text-xs text-slate-500">{asset.department}</span> : null}
+          </span>
+        )
       });
     }
 
@@ -388,8 +399,11 @@ export function AssetsTable<T extends AssetTableRow>({
         id: "condition",
         header: "Condition",
         mobileLabel: "Condition",
+        hideOnMobile: true,
+        headerClassName: "hidden lg:table-cell",
+        className: "hidden lg:table-cell",
         cell: (asset) => (
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${CONDITION_STYLES[asset.condition]}`}>
+          <span className={asset.condition === "CRITICAL" || asset.condition === "POOR" ? "font-medium text-rose-700" : "text-slate-700"}>
             {formatEnumLabel(asset.condition)}
           </span>
         )
@@ -402,33 +416,25 @@ export function AssetsTable<T extends AssetTableRow>({
         header: "Last Service",
         mobileLabel: "Last Service",
         hideOnMobile: true,
+        headerClassName: "hidden lg:table-cell",
+        className: "hidden lg:table-cell",
         cell: (asset) => formatDate(asset.lastServiceDate)
       });
     }
 
-    if (visibleColumns.qr) {
-      next.push({
-        id: "qr",
-        header: "QR",
-        mobileLabel: "QR",
-        cell: (asset) => (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onViewQr(asset);
-            }}
-            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-            aria-label={`View QR code for ${asset.assetTag}`}
-          >
-            <QrCode aria-hidden size={14} /> View
-          </button>
-        )
-      });
-    }
+    next.push({
+      id: "nextAction",
+      header: "Next action",
+      mobileLabel: "Next action",
+      cell: (asset) => {
+        const label = assetNextAction(asset);
+        const loud = label === "Under maintenance" || label === "Service overdue" || label === "Needs attention";
+        return <span className={loud ? "font-medium text-amber-800" : "text-slate-600"}>{label}</span>;
+      }
+    });
 
     return next;
-  }, [onViewQr, visibleColumns]);
+  }, [visibleColumns]);
 
   return (
     <DataTable
@@ -436,7 +442,7 @@ export function AssetsTable<T extends AssetTableRow>({
       className="border-0 shadow-none rounded-none"
       columns={columns}
       emptyDescription={emptyDescription}
-      emptyTitle="No assets matched the current filters"
+      emptyTitle={ASSET_EMPTY}
       emptyActionLabel="Clear filters"
       onEmptyAction={onClearFilters}
       emptyState={
@@ -444,7 +450,7 @@ export function AssetsTable<T extends AssetTableRow>({
           actionLabel="Clear filters"
           description={emptyDescription}
           onAction={onClearFilters}
-          title="No assets matched the current filters"
+          title={ASSET_EMPTY}
         />
       }
       getRowId={(row) => row.id}
@@ -457,7 +463,7 @@ export function AssetsTable<T extends AssetTableRow>({
           onChange={(event) => onTogglePageSelection(pageIds, event.target.checked)}
         />
       }
-      minWidth="960px"
+      minWidth="720px"
       onRowClick={(asset) => onOpenDetails(asset.id)}
       renderLeadingCell={(asset) => (
         <input

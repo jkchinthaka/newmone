@@ -4,6 +4,7 @@ import {
 } from "../../web/lib/legacy-fms-access";
 import {
   canAccessNavigationPath,
+  EXISTING_NAV_ROUTES,
   getDefaultFavoriteNavIds,
   getMobileBottomNavItems,
   getNavigationGroups,
@@ -12,6 +13,7 @@ import {
   isNavItemActive,
   NAVIGATION_ITEMS
 } from "../../web/lib/navigation";
+import { MAINTENANCE_FORECAST_EMPTY_MESSAGE } from "../../web/lib/maintenance-forecast-copy";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
 describe("navigation config (Phase 1 CMMS scope)", () => {
@@ -26,7 +28,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(hrefs).toContain("/inventory");
     expect(hrefs).toContain("/reports");
     expect(hrefs).toContain("/admin");
-    expect(hrefs).toContain("/system-health");
+    expect(hrefs).not.toContain("/system-health");
     expect(hrefs).not.toContain("/workspace");
     expect(hrefs).not.toContain("/dashboard");
     expect(hrefs).not.toContain("/farm");
@@ -157,6 +159,76 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(isNavItemActive(workOrders!.href, workOrders!)).toBe(true);
   });
 
+  it("keeps maintenance forecast out of the primary maintenance menu", () => {
+    const groups = getNavigationGroups("MANAGER");
+    const maintenance = groups.find((group) => group.category === "operations");
+    const planning = groups.find((group) => group.category === "advanced");
+
+    expect(maintenance?.items.some((item) => item.id === "planning")).toBe(false);
+    expect(planning?.label).toBe("Advanced Maintenance");
+    expect(planning?.items.map((item) => item.href)).toContain("/maintenance/planning");
+    expect(canAccessNavigationPath("/maintenance/forecast", "MANAGER", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance/planning", "MANAGER", [])).toBe(true);
+    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("meter");
+    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("usage");
+    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("preventive maintenance history");
+  });
+
+  it("keeps inspections out of the primary maintenance menu", () => {
+    const groups = getNavigationGroups("MANAGER");
+    const maintenance = groups.find((group) => group.category === "operations");
+    const planning = groups.find((group) => group.category === "advanced");
+    const inspections = NAVIGATION_ITEMS.find((item) => item.id === "inspections");
+
+    expect(maintenance?.items.some((item) => item.id === "inspections")).toBe(false);
+    expect(planning?.label).toBe("Advanced Maintenance");
+    expect(planning?.items.map((item) => item.href)).toContain("/maintenance/inspections");
+    expect(inspections?.allowedRoles).toEqual(
+      NAVIGATION_ITEMS.find((item) => item.id === "all-jobs")?.allowedRoles
+    );
+    expect(canAccessNavigationPath("/maintenance/inspections", "MANAGER", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance/inspections/insp-1", "TECHNICIAN", [])).toBe(true);
+    expect(EXISTING_NAV_ROUTES.has("/maintenance/inspections")).toBe(true);
+  });
+
+  it("keeps reliability out of the primary maintenance menu", () => {
+    const groups = getNavigationGroups("MANAGER");
+    const maintenance = groups.find((group) => group.category === "operations");
+    const advanced = groups.find((group) => group.category === "advanced");
+    const categoryOf = (id: string) => NAVIGATION_ITEMS.find((item) => item.id === id)?.category;
+
+    expect(maintenance?.items.some((item) => item.id === "reliability")).toBe(false);
+    expect(groups.some((group) => group.category === "safety")).toBe(false);
+    expect(categoryOf("all-jobs")).toBe("operations");
+    expect(categoryOf("requests")).toBe("operations");
+    expect(categoryOf("preventive-maintenance")).toBe("operations");
+    expect(categoryOf("my-jobs")).toBe("operations");
+    expect(advanced?.label).toBe("Advanced Maintenance");
+    expect(advanced?.items.map((item) => item.href)).toContain("/maintenance/reliability");
+    expect(getVisibleNavigationItems("MANAGER").some((item) => item.id === "reliability")).toBe(true);
+    expect(getVisibleNavigationItems("TECHNICIAN").some((item) => item.id === "reliability")).toBe(false);
+    expect(canAccessNavigationPath("/maintenance/reliability", "MANAGER", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance/reliability/rca/rca-1", "MAINTENANCE_SUPERVISOR", [])).toBe(true);
+    expect(EXISTING_NAV_ROUTES.has("/maintenance/reliability")).toBe(true);
+  });
+
+  it("keeps pending approvals out of the primary maintenance menu", () => {
+    const groups = getNavigationGroups("MANAGER", { permissions: ["approvals.view"] });
+    const maintenance = groups.find((group) => group.category === "operations");
+    const planning = groups.find((group) => group.category === "advanced");
+    const approvals = NAVIGATION_ITEMS.find((item) => item.id === "approvals");
+
+    expect(maintenance?.items.some((item) => item.id === "approvals")).toBe(false);
+    expect(planning?.items.map((item) => item.href)).toContain("/approvals");
+    expect(approvals?.requiredPermissions).toEqual(["approvals.view"]);
+    expect(approvals?.href).toBe("/approvals");
+    expect(getVisibleNavigationItems("MANAGER", { permissions: ["approvals.view"] }).some((item) => item.id === "approvals")).toBe(true);
+    expect(getVisibleNavigationItems("TECHNICIAN", { permissions: ["approvals.view"] }).some((item) => item.id === "approvals")).toBe(false);
+    expect(canAccessNavigationPath("/approvals", "MANAGER", ["approvals.view"])).toBe(true);
+    expect(canAccessNavigationPath("/approvals/req-1", "SUPERVISOR", ["approvals.view"])).toBe(true);
+    expect(EXISTING_NAV_ROUTES.has("/approvals")).toBe(true);
+  });
+
   it("groups visible navigation by primary/secondary without empty groups", () => {
     const groups = getNavigationGroups("MANAGER");
 
@@ -218,8 +290,15 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
       expect.arrayContaining(["home", "spare-parts"])
     );
     expect(getDefaultFavoriteNavIds("ADMIN")).toEqual(
+      expect.arrayContaining(["home", "admin"])
+    );
+    expect(getDefaultFavoriteNavIds("ADMIN")).not.toContain("system-health");
+    expect(getDefaultFavoriteNavIds("SUPER_ADMIN")).toEqual(
       expect.arrayContaining(["home", "admin", "system-health"])
     );
+    expect(getVisibleNavigationItems("SUPER_ADMIN").map((item) => item.href)).toContain("/system-health");
+    expect(canAccessNavigationPath("/system-health", "ADMIN", [])).toBe(false);
+    expect(canAccessNavigationPath("/system-health", "SUPER_ADMIN", [])).toBe(true);
   });
 
   it("builds mobile bottom navigation items", () => {
@@ -232,5 +311,21 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   it("does not invent FG records in mobile nav without FG access", () => {
     const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER", { permissions: [] });
     expect(inventoryMobile.some((item) => item.href === "/fg")).toBe(false);
+  });
+
+  it("keeps ERP sync and maintenance supply out of the inventory menu", () => {
+    const groups = getNavigationGroups("ADMIN");
+    const inventory = groups.find((group) => group.category === "reports");
+    const admin = groups.find((group) => group.category === "admin");
+
+    expect(inventory?.items.some((item) => item.id === "spare-parts")).toBe(true);
+    expect(inventory?.items.some((item) => item.id === "erp-integration" || item.id === "maintenance-supply")).toBe(false);
+    expect(admin?.items.map((item) => item.id)).toEqual(expect.arrayContaining(["erp-integration", "maintenance-supply"]));
+    expect(canAccessNavigationPath("/erp", "ADMIN", [])).toBe(true);
+    expect(canAccessNavigationPath("/maintenance-supply", "ADMIN", [])).toBe(true);
+    expect(canAccessNavigationPath("/erp", "INVENTORY_KEEPER", [])).toBe(false);
+    expect(canAccessNavigationPath("/maintenance-supply", "INVENTORY_KEEPER", [])).toBe(true);
+    expect(EXISTING_NAV_ROUTES.has("/erp")).toBe(true);
+    expect(EXISTING_NAV_ROUTES.has("/maintenance-supply")).toBe(true);
   });
 });

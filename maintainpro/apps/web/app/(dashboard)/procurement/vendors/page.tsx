@@ -130,10 +130,10 @@ export default function VendorEligibilityPage() {
   const configured = (counts?.all ?? total) === 0 && !filtersActive && !loading && !error;
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Vendor Eligibility</h1>
+          <h1 className="page-title">Vendor Eligibility</h1>
           <p className="mt-1 text-sm text-slate-600">Review vendor availability and required documents before assigning work.</p>
         </div>
         <div className="flex flex-wrap gap-2">

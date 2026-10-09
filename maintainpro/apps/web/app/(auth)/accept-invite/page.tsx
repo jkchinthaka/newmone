@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { acceptInvite, verifyInviteToken } from "@/lib/people-api";
 
@@ -67,6 +68,7 @@ function AcceptInviteContent() {
   if (!token.trim()) {
     return (
       <div className="mx-auto max-w-md space-y-3 p-6 text-center">
+        <AppBrandLockup centered className="mb-2 items-center" logoSize="sm" showTagline />
         <h1 className="text-xl font-semibold">Invalid invitation link</h1>
         <p className="text-sm text-slate-600">This link is missing its invitation token.</p>
         <Link href={"/login" as Route} className="inline-flex min-h-11 items-center text-sm underline">
@@ -78,7 +80,8 @@ function AcceptInviteContent() {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Set your password</h1>
+      <AppBrandLockup className="mb-4" logoSize="sm" showTagline />
+      <h1 className="page-title">Set your password</h1>
       {verifyState === "loading" ? <p className="mt-2 text-sm text-slate-500">Verifying invitation…</p> : null}
       {verifyState === "error" ? (
         <p className="mt-2 text-sm text-rose-700" role="alert">

@@ -22,7 +22,7 @@ const highlights = [
 
 export function AuthMarketingPanel() {
   return (
-    <section className="hidden flex-col justify-center rounded-3xl bg-slate-900 p-10 text-white lg:flex lg:min-h-[calc(100dvh-3rem)]">
+    <section className="hidden flex-col justify-center rounded-3xl bg-brand-900 p-8 text-white lg:flex lg:min-h-[calc(100dvh-3rem)]">
       <div>
         <AppBrandLockup logoSize="lg" showTagline variant="onDark" />
         <p className="mt-5 max-w-md text-sm leading-6 text-slate-300">

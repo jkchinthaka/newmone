@@ -110,7 +110,7 @@ export default function AdminJobCategoriesPage() {
       />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Job Categories</h1>
+          <h1 className="page-title">Job Categories</h1>
           <p className="mt-1 text-sm text-slate-600">
             Master data for Service Category and Problem Category on Machinery / Service / Vehicle
             work orders. Deactivate instead of deleting referenced categories.

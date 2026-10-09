@@ -112,8 +112,8 @@ export function Topbar({
   const userLabel = formatUserLabel(currentUser.email, currentUser.role);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex h-[60px] items-center justify-between gap-3 px-4 sm:px-5">
+    <header className="sticky top-0 z-20 border-b border-brand-100 bg-white">
+      <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -127,10 +127,8 @@ export function Topbar({
             <Menu aria-hidden size={20} />
           </button>
           <div className="flex min-w-0 items-center gap-2 xl:hidden">
-            <NelnaLogo size="sm" />
-            <span className="truncate text-sm font-semibold tracking-tight text-slate-900">
-              {PRODUCT_NAME}
-            </span>
+            <NelnaLogo decorative priority size="compact" />
+            <span className="truncate text-sm font-semibold tracking-tight text-slate-900">{PRODUCT_NAME}</span>
           </div>
           <button
             type="button"
@@ -145,7 +143,7 @@ export function Topbar({
             type="button"
             aria-label="Search modules or records"
             aria-keyshortcuts="Control+K Meta+K"
-            className="hidden min-h-11 w-full max-w-[16rem] items-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:inline-flex lg:max-w-xs"
+            className="hidden h-10 w-full max-w-sm items-center gap-2 overflow-hidden rounded-md border border-brand-200 bg-brand-50 px-3 text-sm text-ink hover:bg-white sm:inline-flex"
             onClick={onOpenCommandPalette}
           >
             <Search aria-hidden size={16} />

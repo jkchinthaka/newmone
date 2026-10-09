@@ -18,6 +18,17 @@ const adminUser = {
 };
 
 async function mockAuthenticatedShell(page: Page, user: typeof superAdminUser) {
+  await page.route("**/api/backend/**", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Not mocked" }
+      })
+    });
+  });
+
   await page.context().addCookies([
     { name: "maintainpro_access", value: "e2e-access-token", url: "http://127.0.0.1:3001", httpOnly: true, sameSite: "Lax" },
     { name: "maintainpro_refresh", value: "e2e-refresh-token", url: "http://127.0.0.1:3001", httpOnly: true, sameSite: "Lax" },
@@ -137,10 +148,11 @@ test.describe("Bulk Import — authorization and wizard", () => {
     await page.goto("/master-data/departments");
     await page.getByRole("button", { name: "Bulk Upload" }).click();
 
-    await expect(page.getByRole("dialog")).toBeVisible();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
 
     const fileChooserPromise = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Choose file" }).click();
+    await dialog.getByRole("button", { name: "Choose file", exact: true }).click();
     const fileChooser = await fileChooserPromise;
     await fileChooser.setFiles({
       name: "departments.csv",
@@ -148,7 +160,7 @@ test.describe("Bulk Import — authorization and wizard", () => {
       buffer: Buffer.from("Code,Name\nOPS,Operations\n", "utf-8")
     });
 
-    await expect(page.getByText("Will create")).toBeVisible();
+    await expect(page.getByText("Will create").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Confirm & Import/ })).toBeEnabled();
 
     await page.getByRole("button", { name: /Confirm & Import/ }).click();

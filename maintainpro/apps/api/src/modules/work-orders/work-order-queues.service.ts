@@ -59,6 +59,13 @@ import {
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
 import { WorkOrderCategoryReportsService } from "../reports/work-order-category-reports.service";
 import type { JwtPayload } from "../auth/auth.types";
+import {
+  buildMaintenanceHistoryWhere,
+  historyStatuses,
+  maintenanceHistorySelect,
+  parseMaintenanceHistoryQuery,
+  toMaintenanceHistoryItem
+} from "./maintenance-history.query";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -80,6 +87,8 @@ export type WorkOrderQueueQuery = {
   assetId?: string;
   vehicleId?: string;
   employeeId?: string;
+  /** User id of the assignee. Matches technicianId or an assignee linked to that user. */
+  technicianId?: string;
   requesterId?: string;
   type?: string;
   categoryId?: string;
@@ -108,6 +117,9 @@ export type WorkOrderQueueQuery = {
 const listInclude = {
   asset: { include: { departmentRef: { select: { id: true, name: true } } } },
   vehicle: true,
+  functionalLocation: { select: { name: true, code: true } },
+  site: { select: { name: true } },
+  vendorSupplier: { select: { name: true } },
   technician: { include: { role: true } },
   createdBy: { include: { role: true } },
   parts: { include: { part: true } },
@@ -638,6 +650,7 @@ export class WorkOrderQueuesService {
     actor: Actor,
     query: {
       view?: string;
+      filter?: string;
       search?: string;
       status?: string;
       priority?: string;
@@ -647,7 +660,8 @@ export class WorkOrderQueuesService {
     } = {}
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    const view: MyJobView = isMyJobView(query.view) ? query.view : "active";
+    const requestedView = isMyJobView(query.filter) ? query.filter : query.view;
+    const view: MyJobView = isMyJobView(requestedView) ? requestedView : "active";
     const page = Math.max(1, Number(query.page ?? 1) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(query.pageSize ?? 25) || 25));
     const now = new Date();
@@ -667,17 +681,44 @@ export class WorkOrderQueuesService {
         priority: true,
         dueDate: true,
         approvalStatus: true,
+        type: true,
         asset: { select: { name: true, assetTag: true } },
         functionalLocation: { select: { name: true, code: true } },
-        site: { select: { name: true } }
+        site: { select: { name: true } },
+        parts: {
+          select: {
+            lineStatus: true,
+            pendingReturnQuantity: true,
+            issuedQuantity: true,
+            requestedQuantity: true
+          }
+        },
+        partIssues: { select: { id: true }, take: 1 },
+        evidenceAttachments: {
+          where: { deletedAt: null, status: { not: "DELETED" } },
+          select: { evidenceType: true, status: true, verificationStatus: true }
+        }
       },
       take: 500
     });
-    const assigned = rows;
+    const assigned = rows.map((row) => ({
+      ...row,
+      hasPartIssue: row.partIssues.length > 0,
+      parts: row.parts.map((line) => ({
+        lineStatus: line.lineStatus,
+        pendingReturnQuantity: Number(line.pendingReturnQuantity ?? 0),
+        issuedQuantity: Number(line.issuedQuantity ?? 0),
+        requestedQuantity: Number(line.requestedQuantity ?? 0)
+      })),
+      evidenceAttachments: row.evidenceAttachments
+    }));
     const counts = {
       active: assigned.filter((row) => matchesMyJobView(row, "active", now)).length,
       overdue: assigned.filter((row) => matchesMyJobView(row, "overdue", now)).length,
       dueToday: assigned.filter((row) => matchesMyJobView(row, "due-today", now)).length,
+      waitingParts: assigned.filter((row) => matchesMyJobView(row, "waiting-parts", now)).length,
+      evidenceNeeded: assigned.filter((row) => matchesMyJobView(row, "evidence-needed", now)).length,
+      reworkRequired: assigned.filter((row) => matchesMyJobView(row, "rework-required", now)).length,
       inProgress: assigned.filter((row) => matchesMyJobView(row, "in-progress", now)).length,
       completed: assigned.filter((row) => matchesMyJobView(row, "completed", now)).length
     };
@@ -690,7 +731,11 @@ export class WorkOrderQueuesService {
           woNumber: row.woNumber,
           title: row.title,
           assetName: row.asset?.name,
-          assetTag: row.asset?.assetTag
+          assetTag: row.asset?.assetTag,
+          type: row.type,
+          parts: row.parts,
+          hasPartIssue: row.hasPartIssue,
+          evidenceAttachments: row.evidenceAttachments
         },
         filters,
         now
@@ -774,6 +819,38 @@ export class WorkOrderQueuesService {
       throw new ForbiddenException("Technicians cannot access all company work orders.");
     }
     return this.listQueue(actor, queue, query);
+  }
+
+  async listMaintenanceHistory(actor: Actor, raw: Record<string, string | undefined>) {
+    const query = parseMaintenanceHistoryQuery(raw);
+    const statuses = historyStatuses(query.status);
+    const where = buildMaintenanceHistoryWhere({
+      tenantId: requireTenantId(actor.tenantId),
+      role: actor.role,
+      userId: actor.sub,
+      query,
+      statuses
+    });
+    const [total, rows] = await Promise.all([
+      this.prisma.workOrder.count({ where }),
+      this.prisma.workOrder.findMany({
+        where,
+        select: maintenanceHistorySelect,
+        orderBy: [{ completedDate: "desc" }, { closedAt: "desc" }, { updatedAt: "desc" }],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize
+      })
+    ]);
+    return {
+      items: rows.map((row) => toMaintenanceHistoryItem(row)),
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: total === 0 ? 0 : Math.ceil(total / query.pageSize)
+      },
+      summary: { includesCancelled: statuses.includes("CANCELLED") }
+    };
   }
 
   async listWorkOrders(actor: Actor, query: WorkOrderQueueQuery = {}) {
@@ -1294,6 +1371,19 @@ export class WorkOrderQueuesService {
     }
     if (query.employeeId) {
       where.assignees = { some: { employeeId: query.employeeId, assignmentStatus: { not: "REMOVED" } } };
+    }
+    if (query.technicianId) {
+      const assigneeScope: Prisma.WorkOrderWhereInput = {
+        OR: [
+          { technicianId: query.technicianId },
+          {
+            assignees: {
+              some: { employee: { linkedUserId: query.technicianId }, assignmentStatus: { not: "REMOVED" } }
+            }
+          }
+        ]
+      };
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), assigneeScope];
     }
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {

@@ -136,7 +136,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     setAssigneesError(null);
     try {
       const assigneeRes = await apiClient.get<{ data: AssigneeRow[] }>(`/work-orders/${workOrderId}/assignees`);
-      setAssignees(assigneeRes.data.data ?? []);
+      const rows = assigneeRes.data.data;
+      setAssignees(Array.isArray(rows) ? rows : []);
     } catch (err) {
       const message = getApiErrorMessageForRoute(err, "work-order-assignees", "Failed to load assignees.");
       setAssigneesError(message);
@@ -159,7 +160,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       const employeeRes = await apiClient.get<{ data: WorkforceEmployee[] }>("/workforce/employees", {
         params: designationFilter.trim() ? { designation: designationFilter.trim() } : undefined
       });
-      setEmployees(employeeRes.data.data ?? []);
+      const rows = employeeRes.data.data;
+      setEmployees(Array.isArray(rows) ? rows : []);
     } catch (err) {
       const message = getApiErrorMessageForRoute(err, "workforce", "Failed to load employees.");
       setEmployeesError(message);
@@ -221,8 +223,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     };
   }, [employeeId, parsedEstimatedHours, plannedEndAt, plannedStartAt]);
 
-  async function handleAdd(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleAdd() {
     if (!canSubmit) {
       return;
     }
@@ -390,7 +391,16 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       )}
 
       {canSeeAssignees ? (
-      <form onSubmit={(event) => void handleAdd(event)} className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div
+        className="mt-4 grid gap-3 sm:grid-cols-2"
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.target instanceof HTMLTextAreaElement) {
+            return;
+          }
+          event.preventDefault();
+          void handleAdd();
+        }}
+      >
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
           <span className="font-medium">Filter by designation</span>
           <select
@@ -570,7 +580,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
 
         <div className="sm:col-span-2">
           <button
-            type="submit"
+            type="button"
+            onClick={() => void handleAdd()}
             disabled={busy || !canSubmit}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
@@ -578,7 +589,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             Add assignee
           </button>
         </div>
-      </form>
+      </div>
       ) : null}
     </section>
   );

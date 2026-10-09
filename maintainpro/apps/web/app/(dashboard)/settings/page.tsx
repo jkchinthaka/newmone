@@ -1,81 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, FileClock, Settings2, Shield, Sparkles, UserRoundCog, Users } from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
 
+import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { apiClient } from "@/lib/api-client";
-import { getStoredPermissions, getStoredRole } from "@/lib/user-role";
+import {
+  MUTED_NOTIFICATION_TYPES,
+  passwordChangeError,
+  settingsAdminShortcuts,
+  visibleNotificationChannels
+} from "@/lib/notification-inbox";
+import { extractRoleName } from "@/lib/role-redirect";
+import { useCurrentUser } from "@/lib/use-current-user";
 
-type ApiEnvelope<T> = {
-  data: T;
-  meta?: {
-    page?: number;
-    totalPages?: number;
-    total?: number;
-  };
-};
-
-type SettingsTab =
-  | "profile"
-  | "organization"
-  | "users"
-  | "roles"
-  | "system"
-  | "notifications"
-  | "audit";
-
-type ProfileData = {
-  id: string;
+type Profile = {
   firstName: string;
   lastName: string;
   email: string;
   phone: string | null;
   role: string;
-  isActive: boolean;
-  lastLogin: string | null;
 };
 
-type OrganizationData = {
-  tenantId: string;
-  companyName: string;
-  slug: string;
-  timezone: string;
-  currency: string;
-  logoUrl: string;
-};
-
-type UserRow = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string | null;
-  isActive: boolean;
-  role: {
-    id: string;
-    name: string;
-  };
-};
-
-type RoleRow = {
-  id: string;
-  name: string;
-  permissions: Array<PermissionRow>;
-};
-
-type PermissionRow = {
-  id: string;
-  key: string;
-  description: string | null;
-};
-
-type NotificationPreferences = {
+type Preferences = {
   inApp: boolean;
   email: boolean;
   sms: boolean;
@@ -83,1303 +34,371 @@ type NotificationPreferences = {
   push: boolean;
 };
 
-type NotificationRules = {
+type Rules = {
   mutedTypes: string[];
   onlyCritical: boolean;
   emailOnlyOverdue: boolean;
 };
 
-type AuditRow = {
-  id: string;
-  entity: string;
-  module: string | null;
-  reason: string | null;
-  ipAddress: string | null;
-  action: string;
-  createdAt: string;
-  actor: {
-    firstName: string;
-    lastName: string;
-    email: string;
-  } | null;
+type Envelope<T> = { data: T };
+
+const TABS = ["profile", "notifications", "security"] as const;
+type SettingsTab = (typeof TABS)[number];
+
+const CHANNEL_LABELS: Record<keyof Preferences, string> = {
+  inApp: "In-app",
+  email: "Email",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  push: "Push"
 };
 
-const ROLE_OPTIONS = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "OPERATIONS_MANAGER",
-  "FLEET_MANAGER",
-  "COMPLIANCE_MANAGER",
-  "MANAGER",
-  "TECHNICIAN",
-  "DRIVER",
-  "VIEWER"
-];
-const NOTIFICATION_TYPES = [
-  "MAINTENANCE_DUE",
-  "WORK_ORDER_ASSIGNED",
-  "WORK_ORDER_UPDATED",
-  "LOW_STOCK",
-  "VEHICLE_SERVICE_DUE",
-  "LICENSE_EXPIRY",
-  "INSURANCE_EXPIRY",
-  "UTILITY_BILL_DUE",
-  "SLA_BREACH_WARNING",
-  "SYSTEM_ALERT",
-  "CLEANING_VISIT_SUBMITTED",
-  "CLEANING_SIGN_OFF",
-  "CLEANING_REJECTED",
-  "FACILITY_ISSUE_REPORTED",
-  "CLEANING_MISSED",
-  "CLEANING_LATE_VISIT",
-  "CLEANING_HIGH_ISSUE",
-  "CLEANING_SLA_BREACH"
-] as const;
-
-const profileSchema = z
-  .object({
-    firstName: z.string().trim().min(1, "First name is required"),
-    lastName: z.string().trim().min(1, "Last name is required"),
-    email: z.string().email("Invalid email address"),
-    phone: z.string().optional(),
-    currentPassword: z.string().optional(),
-    newPassword: z.string().optional()
-  })
-  .refine(
-    (value) => {
-      if (value.newPassword && value.newPassword.length > 0) {
-        return Boolean(value.currentPassword && value.currentPassword.length > 0);
-      }
-
-      return true;
-    },
-    {
-      message: "Current password is required when changing password",
-      path: ["currentPassword"]
-    }
-  )
-  .refine(
-    (value) => {
-      if (value.newPassword && value.newPassword.length > 0) {
-        return value.newPassword.length >= 8;
-      }
-
-      return true;
-    },
-    {
-      message: "New password must be at least 8 characters",
-      path: ["newPassword"]
-    }
-  );
-
-const organizationSchema = z.object({
-  companyName: z.string().trim().min(1, "Company name is required"),
-  slug: z.string().trim().min(2, "Slug is required"),
-  timezone: z.string().trim().min(1, "Timezone is required"),
-  currency: z.string().trim().min(1, "Currency is required"),
-  logoUrl: z.string().trim().optional()
-});
-
-const inviteSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  lastName: z.string().trim().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
-  roleId: z.string().trim().min(1, "Role is required"),
-  phone: z.string().optional()
-});
-
-const roleCreateSchema = z.object({
-  name: z.string().trim().min(1, "Role name is required")
-});
-
-const permissionCreateSchema = z.object({
-  key: z.string().trim().min(2, "Permission key is required"),
-  description: z.string().optional()
-});
-
 function humanize(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/(^|\s)\w/g, (char) => char.toUpperCase());
+  return value.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\w/g, (char) => char.toUpperCase());
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object") {
-    const candidate = error as {
-      response?: {
-        data?: {
-          message?: string | string[];
-        };
-      };
-      message?: string;
-    };
-
-    const message = candidate.response?.data?.message;
-    if (Array.isArray(message) && message.length > 0) {
-      return String(message[0]);
-    }
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-    if (typeof candidate.message === "string" && candidate.message.trim()) {
-      return candidate.message;
-    }
-  }
-
-  return fallback;
-}
-
-export default function SettingsPage() {
+function SettingsWorkspace() {
+  const user = useCurrentUser();
+  const role = extractRoleName(user);
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditEntityFilter, setAuditEntityFilter] = useState("");
-  const [auditModuleFilter, setAuditModuleFilter] = useState("");
-  const [auditFromDate, setAuditFromDate] = useState("");
-  const [auditToDate, setAuditToDate] = useState("");
-
-  const [systemDraft, setSystemDraft] = useState("{}");
-  const [integrationsDraft, setIntegrationsDraft] = useState("{}");
-  const [automationDraft, setAutomationDraft] = useState("[]");
-  const [digestDraft, setDigestDraft] = useState("[]");
-
-  const role = useMemo(() => getStoredRole(), []);
-  const permissions = useMemo(() => getStoredPermissions(), []);
-  const permissionSet = useMemo(() => new Set(permissions), [permissions]);
-  const isAdminRole = role === "SUPER_ADMIN" || role === "ADMIN";
-  const hasPermission = (permission: string) => permissionSet.has(permission);
-
-  const canViewSettings = hasPermission("settings.view") || isAdminRole;
-  const canManageOrganization = hasPermission("settings.organization.manage") || isAdminRole;
-  const canManageSystem = hasPermission("settings.system.manage") || isAdminRole;
-  const canViewUsers = hasPermission("users.view") || isAdminRole;
-  const canCreateUsers = hasPermission("users.create") || isAdminRole;
-  const canManageUserStatus = hasPermission("users.status.manage") || isAdminRole;
-  const canDeleteUsers = hasPermission("users.delete") || isAdminRole;
-  const canViewRoles = hasPermission("roles.view") || isAdminRole;
-  const canManageRoles = hasPermission("roles.manage") || isAdminRole;
-  const canViewPermissions = hasPermission("permissions.view") || isAdminRole;
-  const canCreatePermissions = hasPermission("permissions.create") || isAdminRole;
-  const canViewAudit = hasPermission("audit.view") || isAdminRole;
-
-  const profileForm = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      currentPassword: "",
-      newPassword: ""
-    }
-  });
-
-  const organizationForm = useForm<z.infer<typeof organizationSchema>>({
-    resolver: zodResolver(organizationSchema),
-    defaultValues: {
-      companyName: "",
-      slug: "",
-      timezone: "UTC",
-      currency: "USD",
-      logoUrl: ""
-    }
-  });
-
-  const inviteForm = useForm<z.infer<typeof inviteSchema>>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      roleId: "",
-      phone: ""
-    }
-  });
-
-  const roleCreateForm = useForm<z.infer<typeof roleCreateSchema>>({
-    resolver: zodResolver(roleCreateSchema),
-    defaultValues: {
-      name: "MANAGER"
-    }
-  });
-
-  const permissionCreateForm = useForm<z.infer<typeof permissionCreateSchema>>({
-    resolver: zodResolver(permissionCreateSchema),
-    defaultValues: {
-      key: "",
-      description: ""
-    }
-  });
+  const requested = params.get("tab");
+  const tab: SettingsTab = TABS.includes(requested as SettingsTab) ? (requested as SettingsTab) : "profile";
 
   const profileQuery = useQuery({
     queryKey: ["settings", "profile"],
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<ProfileData>>("/settings/profile");
-      return response.data.data;
-    }
+    queryFn: async () => (await apiClient.get<Envelope<Profile>>("/settings/profile")).data.data
   });
 
-  const organizationQuery = useQuery({
-    queryKey: ["settings", "organization"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<OrganizationData>>("/settings/organization");
-      return response.data.data;
-    }
-  });
-
-  const systemQuery = useQuery({
-    queryKey: ["settings", "system"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>("/settings/system");
-      return response.data.data;
-    }
-  });
-
-  const integrationsQuery = useQuery({
-    queryKey: ["settings", "integrations"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>("/settings/integrations");
-      return response.data.data;
-    }
-  });
-
-  const featureToggleQuery = useQuery({
-    queryKey: ["settings", "feature-toggles"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Record<string, boolean>>>(
-        "/settings/feature-toggles"
-      );
-      return response.data.data;
-    }
-  });
-
-  const automationQuery = useQuery({
-    queryKey: ["settings", "automation-rules"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Array<Record<string, unknown>>>>(
-        "/settings/automation-rules"
-      );
-      return response.data.data;
-    }
-  });
-
-  const digestQuery = useQuery({
-    queryKey: ["settings", "digest-schedules"],
-    enabled: canViewSettings,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Array<Record<string, unknown>>>>(
-        "/settings/digest-schedules"
-      );
-      return response.data.data;
-    }
-  });
-
-  const usersQuery = useQuery({
-    queryKey: ["settings", "users"],
-    enabled: canViewUsers,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<UserRow[]>>("/users");
-      return response.data.data;
-    }
-  });
-
-  const rolesQuery = useQuery({
-    queryKey: ["settings", "roles"],
-    enabled: canViewRoles || canCreateUsers || canManageRoles,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<RoleRow[]>>("/roles");
-      return response.data.data;
-    }
-  });
-
-  const permissionsQuery = useQuery({
-    queryKey: ["settings", "permissions"],
-    enabled: canViewPermissions || canManageRoles,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<PermissionRow[]>>("/roles/permissions");
-      return response.data.data;
-    }
-  });
-
-  const notificationPreferencesQuery = useQuery({
-    queryKey: ["settings", "notification-preferences"],
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<NotificationPreferences>>(
-        "/notifications/preferences"
-      );
-      return response.data.data;
-    }
-  });
-
-  const notificationRulesQuery = useQuery({
-    queryKey: ["settings", "notification-rules"],
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<NotificationRules>>("/notifications/rules");
-      return response.data.data;
-    }
-  });
-
-  const auditQuery = useQuery({
-    queryKey: ["settings", "audit", auditPage, auditEntityFilter, auditModuleFilter, auditFromDate, auditToDate],
-    enabled: canViewAudit,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<AuditRow[]>>("/settings/audit-logs", {
-        params: {
-          page: auditPage,
-          pageSize: 15,
-          ...(auditEntityFilter ? { entity: auditEntityFilter } : {}),
-          ...(auditModuleFilter ? { module: auditModuleFilter } : {}),
-          ...(auditFromDate ? { from: new Date(`${auditFromDate}T00:00:00.000Z`).toISOString() } : {}),
-          ...(auditToDate ? { to: new Date(`${auditToDate}T23:59:59.999Z`).toISOString() } : {})
-        }
-      });
-
-      return {
-        items: response.data.data,
-        meta: {
-          page: Number(response.data.meta?.page ?? 1),
-          totalPages: Number(response.data.meta?.totalPages ?? 1),
-          total: Number(response.data.meta?.total ?? 0)
-        }
-      };
-    }
-  });
-
-  const updateProfileMutation = useMutation({
-    mutationFn: async (payload: z.infer<typeof profileSchema>) => {
-      await apiClient.patch("/settings/profile", payload);
-    },
-    onSuccess: () => {
-      toast.success("Profile updated.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
-      profileForm.reset({
-        ...profileForm.getValues(),
-        currentPassword: "",
-        newPassword: ""
-      });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update profile."));
-    }
-  });
-
-  const updateOrganizationMutation = useMutation({
-    mutationFn: async (payload: z.infer<typeof organizationSchema>) => {
-      await apiClient.patch("/settings/organization", payload);
-    },
-    onSuccess: () => {
-      toast.success("Organization settings updated.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "organization"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update organization settings."));
-    }
-  });
-
-  const inviteUserMutation = useMutation({
-    mutationFn: async (payload: z.infer<typeof inviteSchema>) => {
-      await apiClient.post("/users/invite", payload);
-    },
-    onSuccess: () => {
-      toast.success("User invited.");
-      inviteForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["settings", "users"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to invite user."));
-    }
-  });
-
-  const updateUserStatusMutation = useMutation({
-    mutationFn: async (payload: { id: string; isActive: boolean }) => {
-      await apiClient.patch(`/users/${payload.id}/status`, { isActive: payload.isActive });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings", "users"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update user status."));
-    }
-  });
-
-  const deleteUserMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(`/users/${id}`);
-    },
-    onSuccess: () => {
-      toast.success("User deleted.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "users"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete user."));
-    }
-  });
-
-  const createRoleMutation = useMutation({
-    mutationFn: async (payload: z.infer<typeof roleCreateSchema>) => {
-      await apiClient.post("/roles", payload);
-    },
-    onSuccess: () => {
-      toast.success("Role created.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "roles"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to create role."));
-    }
-  });
-
-  const deleteRoleMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(`/roles/${id}`);
-    },
-    onSuccess: () => {
-      toast.success("Role deleted.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "roles"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete role."));
-    }
-  });
-
-  const createPermissionMutation = useMutation({
-    mutationFn: async (payload: z.infer<typeof permissionCreateSchema>) => {
-      await apiClient.post("/roles/permissions", payload);
-    },
-    onSuccess: () => {
-      toast.success("Permission created.");
-      permissionCreateForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["settings", "permissions"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to create permission."));
-    }
-  });
-
-  const updateRolePermissionsMutation = useMutation({
-    mutationFn: async (payload: { roleId: string; permissionIds: string[] }) => {
-      await apiClient.patch(`/roles/${payload.roleId}`, {
-        permissionIds: payload.permissionIds
-      });
-    },
-    onSuccess: () => {
-      toast.success("Role permissions updated.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "roles"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update role permissions."));
-    }
-  });
-
-  const saveSystemMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      await apiClient.patch("/settings/system", payload);
-    },
-    onSuccess: () => {
-      toast.success("System configuration saved.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "system"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to save system configuration."));
-    }
-  });
-
-  const saveIntegrationsMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      await apiClient.patch("/settings/integrations", payload);
-    },
-    onSuccess: () => {
-      toast.success("Integration settings saved.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "integrations"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to save integration settings."));
-    }
-  });
-
-  const updateFeatureToggleMutation = useMutation({
-    mutationFn: async (payload: Record<string, boolean>) => {
-      await apiClient.patch("/settings/feature-toggles", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings", "feature-toggles"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update feature toggles."));
-    }
-  });
-
-  const saveAutomationMutation = useMutation({
-    mutationFn: async (payload: Array<Record<string, unknown>>) => {
-      await apiClient.patch("/settings/automation-rules", { rules: payload });
-    },
-    onSuccess: () => {
-      toast.success("Automation rules saved.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "automation-rules"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to save automation rules."));
-    }
-  });
-
-  const saveDigestMutation = useMutation({
-    mutationFn: async (payload: Array<Record<string, unknown>>) => {
-      await apiClient.patch("/settings/digest-schedules", { schedules: payload });
-    },
-    onSuccess: () => {
-      toast.success("Digest schedules saved.");
-      queryClient.invalidateQueries({ queryKey: ["settings", "digest-schedules"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to save digest schedules."));
-    }
-  });
-
-  const updateNotificationPreferencesMutation = useMutation({
-    mutationFn: async (payload: Partial<NotificationPreferences>) => {
-      await apiClient.patch("/notifications/preferences", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings", "notification-preferences"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update notification preferences."));
-    }
-  });
-
-  const updateNotificationRulesMutation = useMutation({
-    mutationFn: async (payload: Partial<NotificationRules>) => {
-      await apiClient.patch("/notifications/rules", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings", "notification-rules"] });
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to update notification rules."));
-    }
-  });
+  const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [password, setPassword] = useState({ current: "", next: "", confirm: "" });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [channels, setChannels] = useState<Preferences | null>(null);
+  const [rules, setRules] = useState<Rules | null>(null);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const [muteQuery, setMuteQuery] = useState("");
 
   useEffect(() => {
-    if (!profileQuery.data) {
-      return;
-    }
-
-    profileForm.reset({
+    if (!profileQuery.data) return;
+    setProfile({
       firstName: profileQuery.data.firstName,
       lastName: profileQuery.data.lastName,
       email: profileQuery.data.email,
-      phone: profileQuery.data.phone ?? "",
-      currentPassword: "",
-      newPassword: ""
+      phone: profileQuery.data.phone ?? ""
     });
-  }, [profileQuery.data, profileForm]);
+  }, [profileQuery.data]);
+
+  const channelsQuery = useQuery({
+    queryKey: ["notifications", "channels"],
+    enabled: tab === "notifications",
+    queryFn: async () => (await apiClient.get<Envelope<Record<keyof Preferences, boolean>>>("/notifications/channels")).data.data
+  });
+  const preferencesQuery = useQuery({
+    queryKey: ["notifications", "preferences"],
+    enabled: tab === "notifications",
+    queryFn: async () => (await apiClient.get<Envelope<Preferences>>("/notifications/preferences")).data.data
+  });
+  const rulesQuery = useQuery({
+    queryKey: ["notifications", "rules"],
+    enabled: tab === "notifications",
+    queryFn: async () => (await apiClient.get<Envelope<Rules>>("/notifications/rules")).data.data
+  });
 
   useEffect(() => {
-    if (!organizationQuery.data) {
-      return;
-    }
-
-    organizationForm.reset({
-      companyName: organizationQuery.data.companyName,
-      slug: organizationQuery.data.slug,
-      timezone: organizationQuery.data.timezone,
-      currency: organizationQuery.data.currency,
-      logoUrl: organizationQuery.data.logoUrl
-    });
-  }, [organizationQuery.data, organizationForm]);
-
+    if (preferencesQuery.data) setChannels(preferencesQuery.data);
+  }, [preferencesQuery.data]);
   useEffect(() => {
-    if (systemQuery.data) {
-      setSystemDraft(JSON.stringify(systemQuery.data, null, 2));
-    }
-  }, [systemQuery.data]);
+    if (rulesQuery.data) setRules(rulesQuery.data);
+  }, [rulesQuery.data]);
 
-  useEffect(() => {
-    if (integrationsQuery.data) {
-      setIntegrationsDraft(JSON.stringify(integrationsQuery.data, null, 2));
-    }
-  }, [integrationsQuery.data]);
+  const channelsDirty = useMemo(() => {
+    if (!channels || !preferencesQuery.data) return false;
+    return JSON.stringify(channels) !== JSON.stringify(preferencesQuery.data);
+  }, [channels, preferencesQuery.data]);
 
-  useEffect(() => {
-    if (automationQuery.data) {
-      setAutomationDraft(JSON.stringify(automationQuery.data, null, 2));
-    }
-  }, [automationQuery.data]);
+  const profileDirty = useMemo(() => {
+    const current = profileQuery.data;
+    if (!current) return false;
+    return (
+      profile.firstName !== current.firstName ||
+      profile.lastName !== current.lastName ||
+      profile.email !== current.email ||
+      profile.phone !== (current.phone ?? "")
+    );
+  }, [profile, profileQuery.data]);
 
-  useEffect(() => {
-    if (digestQuery.data) {
-      setDigestDraft(JSON.stringify(digestQuery.data, null, 2));
-    }
-  }, [digestQuery.data]);
+  const saveProfile = useMutation({
+    mutationFn: async () => {
+      await apiClient.patch("/settings/profile", profile);
+    },
+    onSuccess: () => {
+      toast.success("Profile saved.");
+      void queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
+    },
+    onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not save your profile."))
+  });
 
-  useEffect(() => {
-    setAuditPage(1);
-  }, [auditEntityFilter, auditModuleFilter, auditFromDate, auditToDate]);
+  const savePassword = useMutation({
+    mutationFn: async () => {
+      await apiClient.patch("/settings/profile", {
+        currentPassword: password.current,
+        newPassword: password.next
+      });
+    },
+    onSuccess: () => {
+      setPassword({ current: "", next: "", confirm: "" });
+      setPasswordError(null);
+      toast.success("Password updated.");
+    },
+    onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not change your password."))
+  });
 
-  const tabs: Array<{ key: SettingsTab; label: string; icon: JSX.Element; visible: boolean }> = [
-    { key: "profile", label: "Profile", icon: <UserRoundCog size={16} />, visible: true },
-    { key: "notifications", label: "Preferences", icon: <Sparkles size={16} />, visible: true }
-  ];
+  const saveChannels = useMutation({
+    mutationFn: async (next: Preferences) => {
+      await apiClient.patch("/notifications/preferences", next);
+    },
+    onSuccess: () => {
+      toast.success("Notification channels saved.");
+      void queryClient.invalidateQueries({ queryKey: ["notifications", "preferences"] });
+    },
+    onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not save notification channels."))
+  });
 
-  useEffect(() => {
-    const visibleTabs = tabs.filter((tab) => tab.visible).map((tab) => tab.key);
-    if (!visibleTabs.includes(activeTab)) {
-      setActiveTab("profile");
-    }
-  }, [activeTab, tabs]);
+  const saveRules = useMutation({
+    mutationFn: async (next: Rules) => {
+      await apiClient.patch("/notifications/rules", next);
+    },
+    onSuccess: () => {
+      toast.success("Notification rules saved.");
+      void queryClient.invalidateQueries({ queryKey: ["notifications", "rules"] });
+    },
+    onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not save notification rules."))
+  });
+
+  const available = visibleNotificationChannels({
+    inApp: channelsQuery.data?.inApp ?? true,
+    email: channelsQuery.data?.email ?? false,
+    sms: channelsQuery.data?.sms ?? false,
+    whatsapp: channelsQuery.data?.whatsapp ?? false,
+    push: channelsQuery.data?.push ?? false
+  });
+  const shortcuts = settingsAdminShortcuts(role);
+  const mutedMatches = MUTED_NOTIFICATION_TYPES.filter((type) => humanize(type).toLowerCase().includes(muteQuery.trim().toLowerCase()));
+
+  const submitPassword = (event: FormEvent) => {
+    event.preventDefault();
+    const error = passwordChangeError(password);
+    setPasswordError(error);
+    if (error || savePassword.isPending) return;
+    savePassword.mutate();
+  };
 
   return (
-    <div className="space-y-5">
-      <section className="card bg-gradient-to-r from-slate-800 via-slate-900 to-cyan-900 text-white">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-slate-200">
-          Manage your personal account details and notification preferences. Business and technical administration live under Administration.
-        </p>
-      </section>
-
-      {isAdminRole ? (
-        <section className="card border border-sky-200 bg-sky-50 text-sm text-slate-800">
-          <p className="font-medium text-sky-950">Looking for organization, users, roles, or system configuration?</p>
-          <p className="mt-1 text-sky-900/80">Those controls moved to Administration so personal settings stay simple.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/admin" className="rounded-lg bg-sky-700 px-3 py-1.5 text-white hover:bg-sky-800">
-              Open Administration
-            </Link>
-            <Link href="/admin/users" className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-sky-900 hover:bg-sky-100">
-              Users & access
-            </Link>
-            <Link href="/system-health" className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-sky-900 hover:bg-sky-100">
-              Technical Administration
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="card overflow-x-auto">
-        <div className="flex min-w-max items-center gap-2">
-          {tabs
-            .filter((tab) => tab.visible)
-            .map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  activeTab === tab.key
-                    ? "bg-slate-900 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-        </div>
-      </section>
-
-      {activeTab === "profile" ? (
-        <section className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900">User Profile</h3>
-            <span className="text-xs text-slate-500">Role: {profileQuery.data?.role ?? role}</span>
-          </div>
-          <form
-            onSubmit={profileForm.handleSubmit((values) => updateProfileMutation.mutate(values))}
-            method="post"
-            className="grid gap-3 md:grid-cols-2"
+    <div className="mx-auto max-w-3xl ops-page">
+      <PageBreadcrumbs />
+      <header>
+        <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
+        <p className="mt-1 text-sm text-slate-600">Your account, notification delivery, and sign-in security.</p>
+      </header>
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Settings sections">
+        {TABS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={`rounded-md px-3 py-1.5 text-sm ${tab === key ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700"}`}
+            onClick={() => router.replace(`${pathname}?tab=${key}` as never)}
           >
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">First Name</span>
-              <input {...profileForm.register("firstName")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.firstName?.message}</p>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Last Name</span>
-              <input {...profileForm.register("lastName")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.lastName?.message}</p>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Email</span>
-              <input {...profileForm.register("email")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.email?.message}</p>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Phone</span>
-              <input {...profileForm.register("phone")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.phone?.message}</p>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Current Password</span>
-              <input type="password" {...profileForm.register("currentPassword")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.currentPassword?.message}</p>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">New Password</span>
-              <input type="password" {...profileForm.register("newPassword")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-              <p className="text-xs text-rose-600">{profileForm.formState.errors.newPassword?.message}</p>
-            </label>
-            <div className="md:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={updateProfileMutation.isPending}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save Profile
-              </button>
-            </div>
-          </form>
-        </section>
+            {key === "profile" ? "Profile" : key === "notifications" ? "Notifications" : "Security"}
+          </button>
+        ))}
+      </div>
+
+      {profileQuery.isLoading ? <LoadingState title="Loading settings" description="Fetching your profile." /> : null}
+      {profileQuery.error ? (
+        <ErrorState title="Could not load settings" description={toSafeApiErrorMessage(profileQuery.error, "Unable to load settings.")} onRetry={() => void profileQuery.refetch()} error={profileQuery.error} />
       ) : null}
 
-      {activeTab === "organization" && canViewSettings ? (
-        <section className="card space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900">Organization Settings</h3>
-          <form
-            onSubmit={organizationForm.handleSubmit((values) => updateOrganizationMutation.mutate(values))}
-            className="grid gap-3 md:grid-cols-2"
+      {tab === "profile" && profileQuery.data ? (
+        <form
+          className="space-y-3 rounded-md border border-slate-200 bg-white p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!profileDirty || saveProfile.isPending) return;
+            saveProfile.mutate();
+          }}
+        >
+          <label className="block text-sm text-slate-700">
+            First name
+            <input value={profile.firstName} onChange={(event) => setProfile({ ...profile, firstName: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <label className="block text-sm text-slate-700">
+            Last name
+            <input value={profile.lastName} onChange={(event) => setProfile({ ...profile, lastName: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <label className="block text-sm text-slate-700">
+            Email
+            <input type="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <label className="block text-sm text-slate-700">
+            Phone
+            <input value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <p className="text-sm text-slate-600">Role: {profileQuery.data.role}</p>
+          <button type="submit" disabled={!profileDirty || saveProfile.isPending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+            Save changes
+          </button>
+        </form>
+      ) : null}
+
+      {tab === "notifications" ? (
+        <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Channels</h2>
+          {channels && available.length > 0 ? (
+            <ul className="space-y-2">
+              {available.map((key) => (
+                <li key={key}>
+                  <label className="flex items-center gap-2 text-sm text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(channels[key])}
+                      onChange={() => setChannels({ ...channels, [key]: !channels[key] })}
+                    />
+                    {CHANNEL_LABELS[key]}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-600">In-app notifications are available.</p>
+          )}
+          <button
+            type="button"
+            disabled={!channels || !channelsDirty || saveChannels.isPending}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            onClick={() => channels && saveChannels.mutate(channels)}
           >
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Company Name</span>
-              <input {...organizationForm.register("companyName")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Slug</span>
-              <input {...organizationForm.register("slug")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Timezone</span>
-              <input {...organizationForm.register("timezone")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-slate-600">Currency</span>
-              <input {...organizationForm.register("currency")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <label className="space-y-1 text-sm md:col-span-2">
-              <span className="text-slate-600">Logo URL</span>
-              <input {...organizationForm.register("logoUrl")} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <div className="md:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={updateOrganizationMutation.isPending || !canManageOrganization}
-                title={!canManageOrganization ? "You do not have permission to update organization settings" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save Organization
-              </button>
-            </div>
-          </form>
-        </section>
-      ) : null}
-
-      {activeTab === "users" && canViewUsers ? (
-        <section className="space-y-4">
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Invite User</h3>
-            {canCreateUsers ? (
-              <form
-                onSubmit={inviteForm.handleSubmit((values) => inviteUserMutation.mutate(values))}
-                className="grid gap-3 md:grid-cols-2"
-              >
-                <input placeholder="First name" {...inviteForm.register("firstName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-                <input placeholder="Last name" {...inviteForm.register("lastName")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-                <input placeholder="Email" {...inviteForm.register("email")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-                <select {...inviteForm.register("roleId")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                  <option value="">Select role</option>
-                  {(rolesQuery.data ?? []).map((roleItem) => (
-                    <option key={roleItem.id} value={roleItem.id}>
-                      {roleItem.name}
-                    </option>
-                  ))}
-                </select>
-                <input placeholder="Phone (optional)" {...inviteForm.register("phone")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2" />
-                <div className="md:col-span-2 flex justify-end">
-                  <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
-                    Send Invite
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                You do not have permission to invite users.
-              </p>
-            )}
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Users</h3>
-            {isAdminRole ? (
-              <p className="text-xs text-slate-500">
-                For confirmed deactivate/reactivate with admin safeguards, use{" "}
-                <Link href="/admin/users" className="font-semibold text-brand-700 hover:text-brand-800">
-                  Admin Console → Users &amp; Access
-                </Link>
-                . Status changes here use the same backend protections.
-              </p>
+            Save channels
+          </button>
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium text-slate-800">Advanced preferences</summary>
+            {rules ? (
+              <div className="mt-2 space-y-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={rules.onlyCritical} onChange={() => setRules({ ...rules, onlyCritical: !rules.onlyCritical })} />
+                  Only critical alerts
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={rules.emailOnlyOverdue} onChange={() => setRules({ ...rules, emailOnlyOverdue: !rules.emailOnlyOverdue })} />
+                  Email only overdue alerts
+                </label>
+                <button type="button" className="rounded-md border border-slate-300 px-3 py-1.5" onClick={() => setMuteOpen(true)}>
+                  Manage muted notifications
+                </button>
+                <button type="button" className="ml-2 rounded-md bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50" disabled={saveRules.isPending} onClick={() => saveRules.mutate(rules)}>
+                  Save rules
+                </button>
+              </div>
             ) : null}
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">User</th>
-                    <th className="px-2 py-2">Role</th>
-                    <th className="px-2 py-2">Status</th>
-                    <th className="px-2 py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(usersQuery.data ?? []).map((user) => (
-                    <tr key={user.id} className="border-t border-slate-200">
-                      <td className="px-2 py-2">
-                        <p className="font-medium text-slate-900">{user.firstName} {user.lastName}</p>
-                        <p className="text-xs text-slate-500">{user.email}</p>
-                      </td>
-                      <td className="px-2 py-2">{humanize(user.role.name)}</td>
-                      <td className="px-2 py-2">
-                        <span className={`rounded-full px-2 py-1 text-xs ${user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
-                          {user.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() =>
-                              updateUserStatusMutation.mutate({
-                                id: user.id,
-                                isActive: !user.isActive
-                              })
-                            }
-                            disabled={!canManageUserStatus}
-                            title={!canManageUserStatus ? "You do not have permission to update user status" : undefined}
-                            className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                          >
-                            {user.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                          {canDeleteUsers ? (
-                            <button
-                              onClick={() => deleteUserMutation.mutate(user.id)}
-                              className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                            >
-                              Delete
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
+          </details>
         </section>
       ) : null}
 
-      {activeTab === "roles" && (canViewRoles || canViewPermissions) ? (
-        <section className="space-y-4">
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Role Management</h3>
-            <form onSubmit={roleCreateForm.handleSubmit((values) => createRoleMutation.mutate(values))} className="flex flex-wrap items-end gap-3">
-              <label className="space-y-1 text-sm">
-                <span className="text-slate-600">Create Role</span>
-                <select {...roleCreateForm.register("name")} className="rounded-lg border border-slate-300 px-3 py-2">
-                  {ROLE_OPTIONS.map((roleName) => (
-                    <option key={roleName} value={roleName}>
-                      {humanize(roleName)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                disabled={!canManageRoles}
-                title={!canManageRoles ? "You do not have permission to create roles" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Create Role
-              </button>
-            </form>
+      {tab === "security" ? (
+        <form className="space-y-3 rounded-md border border-slate-200 bg-white p-4" onSubmit={submitPassword}>
+          <h2 className="text-sm font-semibold text-slate-900">Change password</h2>
+          <label className="block text-sm text-slate-700">
+            Current password
+            <input type="password" autoComplete="current-password" value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <label className="block text-sm text-slate-700">
+            New password
+            <input type="password" autoComplete="new-password" value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          <label className="block text-sm text-slate-700">
+            Confirm new password
+            <input type="password" autoComplete="new-password" value={password.confirm} onChange={(event) => setPassword({ ...password, confirm: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+          </label>
+          {passwordError ? <p role="alert" className="text-sm text-rose-700">{passwordError}</p> : null}
+          <button type="submit" disabled={savePassword.isPending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+            Update password
+          </button>
+        </form>
+      ) : null}
 
-            <form
-              onSubmit={permissionCreateForm.handleSubmit((values) => createPermissionMutation.mutate(values))}
-              className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
-            >
-              <input placeholder="Permission key (e.g. assets.manage)" {...permissionCreateForm.register("key")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <input placeholder="Description" {...permissionCreateForm.register("description")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              <button
-                type="submit"
-                disabled={!canCreatePermissions}
-                title={!canCreatePermissions ? "You do not have permission to add permissions" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Add Permission
-              </button>
-            </form>
-          </article>
+      {shortcuts.length > 0 ? (
+        <section className="border-t border-slate-200 pt-4">
+          <h2 className="text-sm font-medium text-slate-700">Admin shortcuts</h2>
+          <ul className="mt-2 flex flex-wrap gap-3 text-sm">
+            {shortcuts.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href as never} className="text-sky-800 underline">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-          <article className="card space-y-3">
-            <h4 className="text-sm font-semibold text-slate-800">Existing Roles</h4>
-            <div className="space-y-3">
-              {(rolesQuery.data ?? []).map((roleItem) => {
-                const selectedPermissionIds = new Set(roleItem.permissions.map((item) => item.id));
-
+      {muteOpen && rules ? (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="mute-title">
+          <div className="w-full max-w-lg rounded-md bg-white p-4 shadow-lg">
+            <h2 id="mute-title" className="text-sm font-semibold text-slate-900">Muted notifications</h2>
+            <label className="mt-3 block text-sm text-slate-700">
+              Search types
+              <input autoFocus value={muteQuery} onChange={(event) => setMuteQuery(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+            </label>
+            <ul className="mt-3 max-h-64 space-y-1 overflow-auto">
+              {mutedMatches.map((type) => {
+                const muted = rules.mutedTypes.includes(type);
                 return (
-                  <div key={roleItem.id} className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{humanize(roleItem.name)}</p>
-                      {canManageRoles ? (
-                        <button
-                          onClick={() => deleteRoleMutation.mutate(roleItem.id)}
-                          className="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                        >
-                          Delete
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
-                      {(permissionsQuery.data ?? []).map((permission) => {
-                        const checked = selectedPermissionIds.has(permission.id);
-
-                        return (
-                          <label key={permission.id} className="flex items-center justify-between rounded border border-slate-200 px-2 py-1 text-xs text-slate-700">
-                            <span>{permission.key}</span>
-                            <input
-                              type="checkbox"
-                              defaultChecked={checked}
-                              disabled={!canManageRoles}
-                              onChange={(event) => {
-                                const next = new Set(selectedPermissionIds);
-
-                                if (event.target.checked) {
-                                  next.add(permission.id);
-                                } else {
-                                  next.delete(permission.id);
-                                }
-
-                                updateRolePermissionsMutation.mutate({
-                                  roleId: roleItem.id,
-                                  permissionIds: [...next]
-                                });
-                              }}
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </article>
-        </section>
-      ) : null}
-
-      {activeTab === "system" && canViewSettings ? (
-        <section className="space-y-4">
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">System Configuration JSON</h3>
-            <textarea
-              value={systemDraft}
-              onChange={(event) => setSystemDraft(event.target.value)}
-              rows={10}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  if (!canManageSystem) {
-                    return;
-                  }
-                  try {
-                    const parsed = JSON.parse(systemDraft) as Record<string, unknown>;
-                    saveSystemMutation.mutate(parsed);
-                  } catch {
-                    toast.error("System configuration must be valid JSON.");
-                  }
-                }}
-                disabled={!canManageSystem}
-                title={!canManageSystem ? "You do not have permission to update system settings" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save System JSON
-              </button>
-            </div>
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Integrations JSON</h3>
-            <textarea
-              value={integrationsDraft}
-              onChange={(event) => setIntegrationsDraft(event.target.value)}
-              rows={10}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  if (!canManageSystem) {
-                    return;
-                  }
-                  try {
-                    const parsed = JSON.parse(integrationsDraft) as Record<string, unknown>;
-                    saveIntegrationsMutation.mutate(parsed);
-                  } catch {
-                    toast.error("Integrations payload must be valid JSON.");
-                  }
-                }}
-                disabled={!canManageSystem}
-                title={!canManageSystem ? "You do not have permission to update integration settings" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save Integrations JSON
-              </button>
-            </div>
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Feature Toggles</h3>
-            <div className="grid gap-2 md:grid-cols-2">
-              {Object.entries(featureToggleQuery.data ?? {}).map(([key, value]) => (
-                <label key={key} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                  <span>{humanize(key)}</span>
-                  <input
-                    type="checkbox"
-                    checked={value}
-                    disabled={!canManageSystem}
-                    onChange={() =>
-                      updateFeatureToggleMutation.mutate({
-                        [key]: !value
-                      })
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Automation Rules JSON</h3>
-            <textarea
-              value={automationDraft}
-              onChange={(event) => setAutomationDraft(event.target.value)}
-              rows={10}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  if (!canManageSystem) {
-                    return;
-                  }
-                  try {
-                    const parsed = JSON.parse(automationDraft) as Array<Record<string, unknown>>;
-                    saveAutomationMutation.mutate(parsed);
-                  } catch {
-                    toast.error("Automation rules must be a valid JSON array.");
-                  }
-                }}
-                disabled={!canManageSystem}
-                title={!canManageSystem ? "You do not have permission to update automation rules" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save Automation Rules
-              </button>
-            </div>
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Digest Schedules JSON</h3>
-            <textarea
-              value={digestDraft}
-              onChange={(event) => setDigestDraft(event.target.value)}
-              rows={10}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-            />
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  if (!canManageSystem) {
-                    return;
-                  }
-                  try {
-                    const parsed = JSON.parse(digestDraft) as Array<Record<string, unknown>>;
-                    saveDigestMutation.mutate(parsed);
-                  } catch {
-                    toast.error("Digest schedules must be a valid JSON array.");
-                  }
-                }}
-                disabled={!canManageSystem}
-                title={!canManageSystem ? "You do not have permission to update digest schedules" : undefined}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save Digest Schedules
-              </button>
-            </div>
-          </article>
-        </section>
-      ) : null}
-
-      {activeTab === "notifications" ? (
-        <section className="space-y-4">
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Notification Channel Preferences</h3>
-            <div className="grid gap-2 md:grid-cols-2">
-              {Object.entries(notificationPreferencesQuery.data ?? {}).map(([key, value]) => (
-                <label key={key} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                  <span>{humanize(key)}</span>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(value)}
-                    onChange={() =>
-                      updateNotificationPreferencesMutation.mutate({
-                        [key]: !value
-                      } as Partial<NotificationPreferences>)
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-          </article>
-
-          <article className="card space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">Notification Automation Rules</h3>
-            <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <span>Only critical alerts</span>
-              <input
-                type="checkbox"
-                checked={Boolean(notificationRulesQuery.data?.onlyCritical)}
-                onChange={() =>
-                  updateNotificationRulesMutation.mutate({
-                    onlyCritical: !notificationRulesQuery.data?.onlyCritical
-                  })
-                }
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <span>Email only overdue alerts</span>
-              <input
-                type="checkbox"
-                checked={Boolean(notificationRulesQuery.data?.emailOnlyOverdue)}
-                onChange={() =>
-                  updateNotificationRulesMutation.mutate({
-                    emailOnlyOverdue: !notificationRulesQuery.data?.emailOnlyOverdue
-                  })
-                }
-              />
-            </label>
-            <div className="rounded-lg border border-slate-200 p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Muted Notification Types</p>
-              <div className="mt-2 max-h-60 space-y-1 overflow-auto pr-1">
-                {NOTIFICATION_TYPES.map((entry) => {
-                  const muted = notificationRulesQuery.data?.mutedTypes?.includes(entry) ?? false;
-
-                  return (
-                    <label key={entry} className="flex items-center justify-between rounded border border-slate-100 px-2 py-1 text-xs text-slate-700">
-                      <span>{humanize(entry)}</span>
+                  <li key={type}>
+                    <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={muted}
-                        onChange={() => {
-                          const current = notificationRulesQuery.data?.mutedTypes ?? [];
-                          const next = muted
-                            ? current.filter((item) => item !== entry)
-                            : [...current, entry];
-
-                          updateNotificationRulesMutation.mutate({ mutedTypes: next });
-                        }}
+                        onChange={() =>
+                          setRules({
+                            ...rules,
+                            mutedTypes: muted ? rules.mutedTypes.filter((item) => item !== type) : [...rules.mutedTypes, type]
+                          })
+                        }
                       />
+                      {humanize(type)}
                     </label>
-                  );
-                })}
-              </div>
-            </div>
-          </article>
-        </section>
-      ) : null}
-
-      {activeTab === "audit" && canViewAudit ? (
-        <section className="card space-y-3">
-          <h3 className="text-lg font-semibold text-slate-900">Settings Audit Logs</h3>
-          <div className="grid gap-2 md:grid-cols-4">
-            <input
-              value={auditEntityFilter}
-              onChange={(event) => setAuditEntityFilter(event.target.value)}
-              placeholder="Filter by entity"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              value={auditModuleFilter}
-              onChange={(event) => setAuditModuleFilter(event.target.value)}
-              placeholder="Filter by module"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="date"
-              value={auditFromDate}
-              onChange={(event) => setAuditFromDate(event.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="date"
-              value={auditToDate}
-              onChange={(event) => setAuditToDate(event.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-2 py-2">Time</th>
-                  <th className="px-2 py-2">Module</th>
-                  <th className="px-2 py-2">Entity</th>
-                  <th className="px-2 py-2">Action</th>
-                  <th className="px-2 py-2">Reason</th>
-                  <th className="px-2 py-2">Actor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(auditQuery.data?.items ?? []).map((log) => (
-                  <tr key={log.id} className="border-t border-slate-200">
-                    <td className="px-2 py-2 text-xs text-slate-600">{new Date(log.createdAt).toLocaleString()}</td>
-                    <td className="px-2 py-2 text-xs text-slate-600">{log.module ?? "-"}</td>
-                    <td className="px-2 py-2 text-sm font-medium text-slate-800">{humanize(log.entity)}</td>
-                    <td className="px-2 py-2 text-sm text-slate-700">{humanize(log.action)}</td>
-                    <td className="px-2 py-2 text-xs text-slate-600">{log.reason ?? "-"}</td>
-                    <td className="px-2 py-2 text-xs text-slate-600" title={log.ipAddress ?? undefined}>
-                      {log.actor ? `${log.actor.firstName} ${log.actor.lastName} (${log.actor.email})` : "System"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between text-sm text-slate-600">
-            <span>
-              Page {auditQuery.data?.meta.page ?? 1} of {auditQuery.data?.meta.totalPages ?? 1} ({auditQuery.data?.meta.total ?? 0} logs)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setAuditPage((page) => Math.max(1, page - 1))}
-                disabled={(auditQuery.data?.meta.page ?? 1) <= 1}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Prev
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" className="rounded-md border px-3 py-1.5 text-sm" onClick={() => setMuteOpen(false)}>
+                Close
               </button>
               <button
-                onClick={() => setAuditPage((page) => Math.min(auditQuery.data?.meta.totalPages ?? page + 1, page + 1))}
-                disabled={(auditQuery.data?.meta.page ?? 1) >= (auditQuery.data?.meta.totalPages ?? 1)}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white"
+                onClick={() => {
+                  saveRules.mutate(rules, { onSuccess: () => setMuteOpen(false) });
+                }}
               >
-                Next
+                Save muted types
               </button>
             </div>
           </div>
-        </section>
+        </div>
       ) : null}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-slate-600">Loading settings.</p>}>
+      <SettingsWorkspace />
+    </Suspense>
   );
 }

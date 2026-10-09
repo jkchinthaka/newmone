@@ -107,7 +107,7 @@ export default function AdminConditionMonitoringPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Condition-based monitoring</h1>
+        <h1 className="page-title">Condition-based monitoring</h1>
         <p className="mt-1 text-sm text-slate-600">
           Threshold rules evaluated on meter readings. Open events are deduplicated until resolved.
         </p>

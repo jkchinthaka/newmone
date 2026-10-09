@@ -67,7 +67,7 @@ export function RegisterFormCard() {
       <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <MaintainProLogo showTagline size="md" />
         <header className="mt-6">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="page-title">
             {invitationToken ? "Join your workspace" : "Registration is by invitation"}
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">{PRODUCT_TAGLINE}</p>

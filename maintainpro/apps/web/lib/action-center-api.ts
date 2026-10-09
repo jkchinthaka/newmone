@@ -138,17 +138,12 @@ export async function fetchActionCenterSnapshot(
       (loadWorkOrderSummary ?? fetchWorkOrderQueueSummary)()
         .then((queueSummary) => {
           const summary = queueSummary.summary;
-          const isTechnician = variant === "technician";
 
           snapshot.workOrders = {
             open: queueCount(queueSummary.queues, "open-requests"),
             inProgress: queueCount(queueSummary.queues, "in-progress"),
             overdue: summary?.overdue ?? queueCount(queueSummary.queues, "overdue"),
-            // Tenant-wide, not actor-scoped (the backend aggregate has no per-technician
-            // priority breakdown). Left at 0 for technicians rather than showing a
-            // tenant-wide number under a card labelled as if it were personal.
-            highPriority: isTechnician ? 0 : summary?.highPriorityOpen ?? 0,
-            assigned: isTechnician ? summary?.myTasks ?? queueCount(queueSummary.queues, "my-tasks") : undefined,
+            highPriority: summary?.highPriorityOpen ?? 0,
             financeVendorPending: queueCount(queueSummary.queues, "finance-vendor-pending")
           };
           snapshot.connections.workOrders = true;
@@ -213,7 +208,7 @@ export async function fetchActionCenterSnapshot(
     );
   }
 
-  if (options.includeSystemHealth !== false && actionCenterShowsSystemHealth(variant)) {
+  if (options.includeSystemHealth !== false && actionCenterShowsSystemHealth(roleName)) {
     tasks.push(
       fetchActionCenterSystemHealth()
         .then((health) => {

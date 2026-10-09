@@ -24,6 +24,7 @@ import {
 
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
+import { fleetExpiringDocsWhere, fleetServiceListWhere, openAccidentRepairWhere } from "./fleet-list-filters";
 import type { JwtPayload } from "../auth/auth.types";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { VehiclesService } from "../vehicles/vehicles.service";
@@ -686,30 +687,17 @@ export class FleetLifecycleService {
       batteriesWarrantyExpiring
     ] = await Promise.all([
       this.prisma.vehicle.count({
-        where: {
-          tenantId,
-          nextServiceDate: { gte: now, lte: in30Days }
-        }
+        where: { tenantId, ...fleetServiceListWhere("due-soon", now) }
       }),
       this.prisma.vehicle.count({
-        where: { tenantId, nextServiceDate: { lt: now } }
+        where: { tenantId, ...fleetServiceListWhere("overdue", now) }
       }),
       this.prisma.vehicle.count({
-        where: {
-          tenantId,
-          OR: [
-            { insuranceExpiry: { gte: now, lte: in30Days } },
-            { roadTaxExpiry: { gte: now, lte: in30Days } }
-          ]
-        }
+        where: { tenantId, ...fleetExpiringDocsWhere(now) }
       }),
       this.vehicles?.countCannotGateOut(tenantId) ?? this.prisma.vehicle.count({ where: { tenantId, gateBlocked: true } }),
-      this.prisma.workOrder.count({
-        where: {
-          tenantId,
-          type: WorkOrderType.ACCIDENT_REPAIR,
-          status: { notIn: ["CLOSED", "CANCELLED"] as any }
-        }
+      this.prisma.accidentReport.count({
+        where: { tenantId, ...openAccidentRepairWhere() }
       }),
       this.prisma.vehicle.count({ where: { tenantId, status: "OUT_OF_SERVICE" as any } }),
       this.prisma.vehicleTyre.count({

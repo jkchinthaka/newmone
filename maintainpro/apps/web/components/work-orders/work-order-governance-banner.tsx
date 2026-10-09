@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import {
   getApprovalStatusLabel,
@@ -47,47 +47,39 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
   }
 
   return (
-    <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-      <div className="flex items-start gap-2">
-        <ShieldAlert className="mt-0.5 h-4 w-4 text-brand-700" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold text-slate-900">Governance & lifecycle</h4>
-          <dl className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-            <div>
-              <dt className="font-medium text-slate-700">Lifecycle stage</dt>
-              <dd>{getLifecycleStageLabel(workOrder.status)}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-slate-700">Approval</dt>
-              <dd>{getApprovalStatusLabel(workOrder.approvalStatus)}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-slate-700">Verification</dt>
-              <dd>{getVerificationStatusLabel(verificationStatus)}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-slate-700">Operational risk score</dt>
-              <dd>
-                {riskScore ? (
-                  <span
-                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityClass(riskScore.severity as "LOW")}`}
-                  >
-                    {riskScore.score} · {riskScore.severity}
-                  </span>
-                ) : (
-                  "Not available"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-slate-700">Evidence</dt>
-              <dd>
-                Upload before/after photos on the Evidence tab when storage is enabled. Tagged before/after phases
-                are on the roadmap.
-              </dd>
-            </div>
-          </dl>
-        </div>
+    <section className="space-y-2 rounded-xl border border-brand-100 bg-brand-50 p-3">
+      <div>
+        <h4 className="text-sm font-semibold text-ink">Governance and lifecycle</h4>
+        <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm text-ink sm:grid-cols-2">
+          <div>
+            <dt className="font-medium text-brand-800">Lifecycle stage</dt>
+            <dd>{getLifecycleStageLabel(workOrder.status)}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-brand-800">Approval</dt>
+            <dd>{getApprovalStatusLabel(workOrder.approvalStatus)}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-brand-800">Verification</dt>
+            <dd>{getVerificationStatusLabel(verificationStatus)}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-brand-800">Operational risk score</dt>
+            <dd>
+              {riskScore ? (
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${severityClass(riskScore.severity as "LOW")}`}>
+                  {riskScore.score} · {riskScore.severity}
+                </span>
+              ) : (
+                "Not available"
+              )}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="font-medium text-brand-800">Evidence requirement</dt>
+            <dd>Upload before/after photos on the Evidence tab when storage is enabled.</dd>
+          </div>
+        </dl>
       </div>
 
       {warnings.length > 0 ? (

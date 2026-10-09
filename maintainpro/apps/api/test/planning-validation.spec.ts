@@ -32,6 +32,46 @@ describe("PlanningService createPmPlan validation", () => {
     expect(prisma.pmPlan.create).not.toHaveBeenCalled();
   });
 
+  it("rejects activating a draft that has no asset or vehicle", async () => {
+    const prisma = buildPrisma();
+    prisma.pmPlan.findFirst = jest.fn().mockResolvedValue({
+      id: "plan-1",
+      status: "DRAFT",
+      assetId: null,
+      vehicleId: null,
+      currentRevision: 1,
+      triggers: []
+    });
+    prisma.pmPlan.update = jest.fn();
+    const service = new PlanningService(prisma as never, { create: jest.fn() } as never);
+
+    await expect(service.revisePmPlan(actor, "plan-1", { status: "ACTIVE" }, "Activated")).rejects.toThrow(
+      new BadRequestException("Active PM plans require an asset or vehicle assignment")
+    );
+    expect(prisma.pmPlan.update).not.toHaveBeenCalled();
+  });
+
+  it("does not generate a work order when an active plan has no asset", async () => {
+    const prisma = buildPrisma();
+    prisma.pmPlan.findFirst = jest.fn().mockResolvedValue({
+      id: "plan-1",
+      status: "ACTIVE",
+      assetId: null,
+      vehicleId: null,
+      autoCreateWorkOrder: true,
+      triggers: []
+    });
+    prisma.workOrder = { findFirst: jest.fn(), create: jest.fn() };
+    const service = new PlanningService(prisma as never, { create: jest.fn() } as never);
+
+    await expect(service.autoCreateWorkOrderIfDue(actor, "plan-1")).resolves.toEqual({
+      created: false,
+      reason: "PLAN_INVALID_NO_ASSET_ASSIGNED"
+    });
+    expect(prisma.workOrder.findFirst).not.toHaveBeenCalled();
+    expect(prisma.workOrder.create).not.toHaveBeenCalled();
+  });
+
   it("allows DRAFT plans without asset or vehicle", async () => {
     const prisma = buildPrisma();
     const service = new PlanningService(prisma as never, { create: jest.fn() } as never);

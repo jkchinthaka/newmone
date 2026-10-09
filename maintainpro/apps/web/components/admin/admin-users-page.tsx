@@ -147,7 +147,7 @@ export function AdminUsersPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">Users & Access</h2>
+          <h2 className="mt-2 page-title">Users & Access</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             {isSuperAdmin
               ? "Add, edit, and manage every user's role, tenant, department, status, and password."

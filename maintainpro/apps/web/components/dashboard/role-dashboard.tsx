@@ -36,14 +36,14 @@ export function RoleDashboard() {
   return (
     <div className="space-y-5">
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
+        <h1 className="page-title">{title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>
       </header>
 
       <MorningBriefing />
       <EnterpriseKpiBoard />
 
-      {dashboardShowsSystemHealthSummary(variant) ? <SystemHealthSummary /> : null}
+      {dashboardShowsSystemHealthSummary(roleName) ? <SystemHealthSummary /> : null}
 
       {dashboardShowsWorkOrdersSummary(variant) ? (
         <WorkOrdersSummary

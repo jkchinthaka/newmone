@@ -442,11 +442,11 @@ export default function RequestsPage() {
     : [];
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="ops-page">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Maintenance Requests</h1>
+          <h1 className="page-title">Maintenance Requests</h1>
           <p className="mt-1 text-sm text-slate-600">
             Report issues, then triage and accept them before a work order is created.
           </p>
@@ -466,7 +466,7 @@ export default function RequestsPage() {
           {summary.scope === "mine" ? "Overview of your requests" : "Overview of all requests"}
           <span className="font-normal normal-case tracking-normal"> · select a card to list those requests</span>
         </h2>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="summary-strip">
           {requestStageCards(summary).map((card) => {
             const active = stage === card.stage && view !== "triage";
             return (
@@ -481,12 +481,12 @@ export default function RequestsPage() {
                     view: view === "triage" ? null : view === "all" ? null : view
                   })
                 }
-                className={`rounded-xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-                  active ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"
+                className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
+                  active ? "border-brand-600 bg-brand-50" : "border-transparent bg-transparent hover:bg-brand-50"
                 }`}
               >
-                <span className="block text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</span>
-                <span className="mt-1 block text-2xl font-semibold text-slate-900">{loading && !capabilities ? "–" : card.value}</span>
+                <span className="font-semibold tabular-nums">{loading && !capabilities ? "–" : card.value}</span>
+                <span>{card.label}</span>
               </button>
             );
           })}

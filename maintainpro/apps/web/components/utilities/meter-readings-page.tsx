@@ -144,7 +144,7 @@ export default function MeterReadingsPage() {
           >
             <ArrowLeft size={13} /> Back to Utilities
           </a>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-900">{meter.meterNumber}</h2>
+          <h2 className="mt-2 page-title">{meter.meterNumber}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {meter.location} · {meter.unit}
           </p>

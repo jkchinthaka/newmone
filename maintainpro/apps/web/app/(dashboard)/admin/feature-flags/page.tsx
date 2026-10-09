@@ -72,7 +72,7 @@ export default function AdminFeatureFlagsPage() {
         ]}
       />
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Tenant Feature Flags</h1>
+        <h1 className="page-title">Tenant Feature Flags</h1>
         <p className="mt-1 text-sm text-slate-600">
           Enable or disable modules per tenant. Navigation hides disabled modules; backend still
           enforces permissions and may reject disabled feature usage.

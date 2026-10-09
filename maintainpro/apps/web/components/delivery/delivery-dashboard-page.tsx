@@ -22,7 +22,7 @@ export function DeliveryDashboardPage() {
     <div className="space-y-5">
       <PageBreadcrumbs />
       <header>
-        <h2 className="text-2xl font-semibold text-slate-900">Delivery Readiness</h2>
+        <h2 className="page-title">Delivery Readiness</h2>
         <p className="mt-1 text-sm text-slate-500">
           Client handover checklist — requirements, QA, security, deployment, backup, and sign-off.
         </p>
@@ -68,7 +68,7 @@ export function DeliveryDashboardPage() {
                   <card.icon className="h-4 w-4" />
                   <span className="text-xs font-medium uppercase tracking-wide">{card.label}</span>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{String(card.value ?? 0)}</p>
+                <p className="mt-2 page-title">{String(card.value ?? 0)}</p>
               </div>
             ))}
           </div>

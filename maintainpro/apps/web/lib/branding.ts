@@ -7,8 +7,8 @@ export const PRODUCT_DESCRIPTION =
   "Enterprise maintenance, facility, fleet, and operations management platform.";
 
 /**
- * Shell greens follow the existing Nelna Farm logo artwork.
- * They are not a published style-guide specification.
+ * Company identity is the supplied Nelna Group logo.
+ * Shell colors stay on the existing MaintainPro palette.
  */
 export const BRAND_COLOR_NOTE =
-  "Approximate shell greens sampled from public/brand/nelna-logo.png. Not an official Nelna brand specification.";
+  "Nelna Group logo is used as supplied. Favicon remains the existing square mark until a dedicated square source is approved.";

@@ -18,8 +18,23 @@ export class InsuranceClaimsController {
 
   @Get()
   @Permissions("insurance_claims.view")
-  async list(@Req() req: AuthedRequest, @Query("vehicleId") vehicleId?: string, @Query("status") status?: InsuranceClaimStatus) {
-    const data = await this.service.list(req.user, { vehicleId, status });
+  async list(
+    @Req() req: AuthedRequest,
+    @Query("vehicleId") vehicleId?: string,
+    @Query("status") status?: InsuranceClaimStatus,
+    @Query("page") pageRaw?: string,
+    @Query("pageSize") pageSizeRaw?: string
+  ) {
+    const paged = pageRaw != null && pageRaw !== "";
+    const data = await this.service.list(req.user, {
+      vehicleId,
+      status,
+      page: paged ? Number(pageRaw) : undefined,
+      pageSize: pageSizeRaw ? Number(pageSizeRaw) : undefined
+    });
+    if (paged && data && typeof data === "object" && "items" in data) {
+      return { data: data.items, meta: data.meta, message: "Insurance claims fetched" };
+    }
     return { data, message: "Insurance claims fetched" };
   }
 

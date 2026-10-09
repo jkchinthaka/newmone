@@ -203,7 +203,7 @@ export function ErpExcelImportPage() {
       <PageBreadcrumbs />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">ERP Stock Import</h1>
+          <h1 className="page-title">ERP Stock Import</h1>
           <p className="mt-1 text-sm text-slate-600">
             Upload the Bileeta Excel stock snapshot, match ERP item codes, preview the previous mirror against the incoming quantity, then confirm. This is the way the ERP snapshot quantity is updated. The live Bileeta API is not connected.
           </p>

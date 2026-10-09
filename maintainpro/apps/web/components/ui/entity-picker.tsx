@@ -190,7 +190,7 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
             setQuery(event.target.value);
             // If the user starts typing again, treat it as clearing the saved label
             // until they pick a new option or hit clear.
-            if (selectedLabel) {
+            if (value || selectedLabel) {
               setSelectedLabel("");
               onChange(null, null);
             }

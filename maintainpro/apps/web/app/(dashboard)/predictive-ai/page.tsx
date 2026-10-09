@@ -816,7 +816,7 @@ export default function PredictiveAiPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-600">
               MaintainPro AI Copilot
             </p>
-            <h1 className="text-2xl font-semibold text-slate-900">Production Operations Command</h1>
+            <h1 className="page-title">Production Operations Command</h1>
             <p className="max-w-3xl text-sm text-slate-600">
               Context-aware Copilot with multi-mode analysis, conversation memory, and direct
               action execution for maintenance, fleet, utilities, cleaning, and inventory.
